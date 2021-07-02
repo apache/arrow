@@ -167,6 +167,8 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::COMPLEX_FLOAT:
+    case Type::COMPLEX_DOUBLE:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::BINARY:
@@ -1168,6 +1170,7 @@ struct ObjectWriterVisitor {
 
   template <typename Type>
   enable_if_t<is_floating_type<Type>::value ||
+              is_complex_type<Type>::value ||
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||

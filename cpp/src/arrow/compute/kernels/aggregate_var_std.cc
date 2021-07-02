@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <complex>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
@@ -32,16 +33,50 @@ namespace {
 using arrow::internal::int128_t;
 using arrow::internal::VisitSetBitRunsVoid;
 
+template <typename ArrowType> struct VarStdTraits {
+  using MeanType = double;
+  using VarType = double;
+  using StdType = double;
+
+  static inline VarType mean_squared(MeanType mean) {
+    return mean*mean;
+  }
+};
+
+template <> struct VarStdTraits<ComplexFloatType> {
+  using MeanType = std::complex<double>;
+  using VarType = double;
+  using StdType = double;
+
+  static inline VarType mean_squared(MeanType mean) {
+    return mean.real()*mean.real() + mean.imag() + mean.imag();
+  }
+};
+
+template <> struct VarStdTraits<ComplexDoubleType> {
+  using MeanType = std::complex<double>;
+  using VarType = double;
+  using StdType = double;
+
+  static inline VarType mean_squared(MeanType mean) {
+    return mean.real()*mean.real() + mean.imag() + mean.imag();
+  }
+};
+
+
 template <typename ArrowType>
 struct VarStdState {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using CType = typename ArrowType::c_type;
   using ThisType = VarStdState<ArrowType>;
+  using Traits = VarStdTraits<ArrowType>;
+  using MeanType = typename Traits::MeanType;
 
   // float/double/int64: calculate `m2` (sum((X-mean)^2)) with `two pass algorithm`
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   template <typename T = ArrowType>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
+  enable_if_t<is_floating_type<T>::value ||
+              (is_integer_type<T>::value && sizeof(CType) > 4)> Consume(
       const ArrayType& array) {
     int64_t count = array.length() - array.null_count();
     if (count == 0) {
@@ -52,7 +87,7 @@ struct VarStdState {
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
     SumType sum = arrow::compute::detail::SumArray<CType, SumType>(*array.data());
 
-    const double mean = static_cast<double>(sum) / count;
+    const MeanType mean = static_cast<double>(sum) / count;
     const double m2 = arrow::compute::detail::SumArray<CType, double>(
         *array.data(), [mean](CType value) {
           const double v = static_cast<double>(value);
@@ -63,6 +98,30 @@ struct VarStdState {
     this->mean = mean;
     this->m2 = m2;
   }
+
+  // complex numbers
+  template <typename T = ArrowType>
+  enable_if_t<is_complex_type<T>::value> Consume(
+      const ArrayType& array) {
+    int64_t count = array.length() - array.null_count();
+    if (count == 0) {
+      return;
+    }
+
+    MeanType sum = arrow::compute::detail::SumArray<CType, MeanType>(*array.data());
+
+    const MeanType mean = static_cast<MeanType>(sum) / double(count);
+    const double m2 = arrow::compute::detail::SumArray<CType, double>(
+        *array.data(), [mean](CType value) {
+          const MeanType v = static_cast<MeanType>(value);
+          return Traits::mean_squared(v - mean);
+        });
+
+    this->count = count;
+    this->mean = mean;
+    this->m2 = m2;
+  }
+
 
   // int32/16/8: textbook one pass algorithm with integer arithmetic
   template <typename T = ArrowType>
@@ -127,16 +186,19 @@ struct VarStdState {
       this->m2 = state.m2;
       return;
     }
-    double mean = (this->mean * this->count + state.mean * state.count) /
-                  (this->count + state.count);
-    this->m2 += state.m2 + this->count * (this->mean - mean) * (this->mean - mean) +
-                state.count * (state.mean - mean) * (state.mean - mean);
+    double this_count = double(this->count);
+    double state_count = double(state.count);
+
+    MeanType mean = (this->mean * this_count + state.mean * state_count) /
+                  (this_count + state_count);
+    this->m2 += state.m2 + this_count * Traits::mean_squared(this->mean - mean) +
+                state_count * Traits::mean_squared(state.mean - mean);
     this->count += state.count;
     this->mean = mean;
   }
 
   int64_t count = 0;
-  double mean = 0;
+  MeanType mean = 0;
   double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
 };
 

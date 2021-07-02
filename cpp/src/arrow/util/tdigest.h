@@ -23,6 +23,7 @@
 #pragma once
 
 #include <cmath>
+#include <complex>
 #include <memory>
 #include <vector>
 
@@ -67,6 +68,16 @@ class ARROW_EXPORT TDigest {
   template <typename T>
   typename std::enable_if<std::is_floating_point<T>::value>::type NanAdd(T value) {
     if (!std::isnan(value)) Add(value);
+  }
+
+  template <typename T>
+  void NanAdd(const std::complex<T> & value) {
+      // NOTE(sjperkins)
+      // Adding magnitude of complex number to digest may be dubious
+      // double check this.
+      if (!std::isnan(value.real()) && !std::isnan(value.imag())) {
+        Add(std::abs(value));
+      }
   }
 
   template <typename T>

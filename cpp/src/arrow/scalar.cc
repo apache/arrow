@@ -60,6 +60,10 @@ struct ScalarHashImpl {
 
   Status Visit(const BaseBinaryScalar& s) { return BufferHash(*s.value); }
 
+  Status Visit(const ComplexFloatScalar& s) {
+    return StdHash(s.value.real()) & StdHash(s.value.imag());
+  }
+
   template <typename T>
   Status Visit(const TemporalScalar<T>& s) {
     return ValueHash(s);
@@ -103,6 +107,15 @@ struct ScalarHashImpl {
   Status StdHash(const T& t) {
     static std::hash<T> hash;
     hash_ ^= hash(t);
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status StdHash(const std::complex<T>& t)
+  {
+    static std::hash<T> hash;
+    hash_ ^= hash(t.real());
+    hash_ ^= hash(t.imag());
     return Status::OK();
   }
 
@@ -412,11 +425,31 @@ std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& 
   });
 }
 
+// complex numeric to real numeric
+// template <typename From, typename To>
+// enable_if_t<is_complex_type<From>::value && !is_complex_type<To>::value, Status>
+// CastImpl(const NumericScalar<From>& from, NumericScalar<To>* to) {
+//   return Status::NotImplemented("casting complex ", *from.type, " to real ", *to->type);
+// }
+
 // error fallback
 Status CastImpl(const Scalar& from, Scalar* to) {
   return Status::NotImplemented("casting scalars of type ", *from.type, " to type ",
                                 *to->type);
 }
+
+template <typename To>
+Status CastImpl(const NumericScalar<ComplexFloatType>& from, NumericScalar<To>* to) {
+  return Status::NotImplemented("casting complex type ", *from.type, " to real type ",
+                                *to->type);
+}
+
+template <typename To>
+Status CastImpl(const NumericScalar<ComplexDoubleType>& from, NumericScalar<To>* to) {
+  return Status::NotImplemented("casting complex type ", *from.type, " to real type ",
+                                *to->type);
+}
+
 
 // numeric to numeric
 template <typename From, typename To>
@@ -424,6 +457,7 @@ Status CastImpl(const NumericScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
   return Status::OK();
 }
+
 
 // numeric to boolean
 template <typename T>
@@ -443,7 +477,8 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 // numeric to temporal
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value,
+                            !std::is_same<DayTimeIntervalType, To>::value &&
+                            !is_complex_type<From>::value,
                         Status>::type
 CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -453,7 +488,8 @@ CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
 // temporal to numeric
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value,
+                            !std::is_same<DayTimeIntervalType, From>::value &&
+                            !is_complex_type<From>::value,
                         Status>::type
 CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);

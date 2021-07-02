@@ -410,9 +410,21 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
+template <typename T>
+enable_if_complex<T, Status> Visit(const T&) {
+  impl_ = [](const Array& array, int64_t index, std::ostream* os) {
+    const auto& numeric = checked_cast<const NumericArray<T>&>(array);
+    *os << numeric.Value(index);
+  };
+  return Status::OK();
+}
+
+
   // format Numerics with std::ostream defaults
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  enable_if_t<is_number_type<T>::value &&
+              !is_complex_type<T>::value, Status>
+  Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {

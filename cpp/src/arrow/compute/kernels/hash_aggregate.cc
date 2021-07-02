@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <complex>
 #include <functional>
 #include <memory>
 #include <string>
@@ -935,6 +936,30 @@ struct Extrema<double> {
   static constexpr double max() { return std::numeric_limits<double>::infinity(); }
 };
 
+template <>
+struct Extrema<std::complex<float>> {
+  static constexpr std::complex<float> min() {
+    return std::complex<float>(-std::numeric_limits<float>::infinity(),
+                               -std::numeric_limits<float>::infinity());
+  }
+  static constexpr std::complex<float> max() {
+    return std::complex<float>(std::numeric_limits<float>::infinity(),
+                               std::numeric_limits<float>::infinity());
+  }
+};
+
+template <>
+struct Extrema<std::complex<double>> {
+  static constexpr std::complex<double> min() {
+    return std::complex<double>(-std::numeric_limits<double>::infinity(),
+                                -std::numeric_limits<double>::infinity());
+  }
+  static constexpr std::complex<double> max() {
+    return std::complex<double>(std::numeric_limits<double>::infinity(),
+                                std::numeric_limits<double>::infinity());
+  }
+};
+
 struct GroupedMinMaxImpl : public GroupedAggregator {
   using ConsumeImpl =
       std::function<void(const std::shared_ptr<ArrayData>&, const uint32_t*, void*, void*,
@@ -955,7 +980,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
   struct GetImpl {
     template <typename T, typename CType = typename TypeTraits<T>::CType>
-    enable_if_number<T, Status> Visit(const T&) {
+    enable_if_t<is_number_type<T>::value && ! is_complex_type<T>::value, Status>
+    Visit(const T&) {
       consume_impl = [](const std::shared_ptr<ArrayData>& input, const uint32_t* group,
                         void* mins, void* maxes, uint8_t* has_values,
                         uint8_t* has_nulls) {
@@ -976,6 +1002,32 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
       resize_max_impl = MakeResizeImpl(Extrema<CType>::min());
       return Status::OK();
     }
+
+    template <typename T, typename CType = typename TypeTraits<T>::CType>
+    enable_if_t<is_number_type<T>::value && is_complex_type<T>::value, Status>
+    Visit(const T&) {
+      consume_impl = [](const std::shared_ptr<ArrayData>& input, const uint32_t* group,
+                        void* mins, void* maxes, uint8_t* has_values,
+                        uint8_t* has_nulls) {
+        auto raw_mins = reinterpret_cast<CType*>(mins);
+        auto raw_maxes = reinterpret_cast<CType*>(maxes);
+
+        VisitArrayDataInline<T>(
+            *input,
+            [&](const CType & val) {
+              raw_maxes[*group] = CType(std::max(raw_maxes[*group].real(), val.real()),
+                                        std::max(raw_maxes[*group].imag(), val.imag()));
+              raw_maxes[*group] = CType(std::min(raw_mins[*group].real(), val.real()),
+                                        std::min(raw_mins[*group].imag(), val.imag()));
+            },
+            [&] { BitUtil::SetBit(has_nulls, *group++); });
+      };
+
+      resize_min_impl = MakeResizeImpl(Extrema<CType>::max());
+      resize_max_impl = MakeResizeImpl(Extrema<CType>::min());
+      return Status::OK();
+    }
+
 
     Status Visit(const BooleanType& type) {
       return Status::NotImplemented("Grouped MinMax data of type ", type);

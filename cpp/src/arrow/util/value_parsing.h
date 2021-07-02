@@ -708,6 +708,31 @@ struct StringConverter<DurationType>
   using StringToSignedIntConverterMixin<DurationType>::StringToSignedIntConverterMixin;
 };
 
+template <typename COMPLEX_TYPE>
+struct StringConverter<COMPLEX_TYPE, enable_if_complex<COMPLEX_TYPE>> {
+  using value_type = typename COMPLEX_TYPE::c_type;
+
+  static bool Convert(const COMPLEX_TYPE& type, const char* s, size_t length,
+                      value_type* out) {
+    //0+0j
+    if(length < 4) {
+      return false;
+    }
+
+    if(s[length - 1] != 'j') {
+      return false;
+    }
+
+    std::size_t i = 0;
+
+    while(i < length) {
+    }
+
+    return true;
+
+  }
+};
+
 template <typename DATE_TYPE>
 struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
   using value_type = typename DATE_TYPE::c_type;

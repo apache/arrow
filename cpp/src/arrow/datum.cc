@@ -68,8 +68,8 @@ Datum::Datum(int64_t value) : value(std::make_shared<Int64Scalar>(value)) {}
 Datum::Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
 Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
-Datum::Datum(std::complex<float>) : value(std::make_shared<ComplexFloatScalar>(value)) {}
-Datum::Datum(std::complex<double>) : value(std::make_shared<ComplexDoubleScalar>(value)) {}
+Datum::Datum(std::complex<float> value) : value(std::make_shared<ComplexFloatScalar>(std::move(value))) {}
+Datum::Datum(std::complex<double> value) : value(std::make_shared<ComplexDoubleScalar>(std::move(value))) {}
 Datum::Datum(std::string value)
     : value(std::make_shared<StringScalar>(std::move(value))) {}
 Datum::Datum(const char* value) : value(std::make_shared<StringScalar>(value)) {}

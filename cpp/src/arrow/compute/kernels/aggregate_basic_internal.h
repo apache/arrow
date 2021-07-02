@@ -105,6 +105,35 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   ScalarAggregateOptions options;
 };
 
+
+template <SimdLevel::type SimdLevel>
+struct MeanImpl<ComplexFloatType, SimdLevel> : public SumImpl<ComplexFloatType, SimdLevel> {
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
+      out->value = std::make_shared<ComplexDoubleScalar>();
+    } else {
+      const std::complex<double> mean = this->sum / double(this->count);
+      out->value = std::make_shared<ComplexDoubleScalar>(mean);
+    }
+    return Status::OK();
+  }
+  ScalarAggregateOptions options;
+};
+
+template <SimdLevel::type SimdLevel>
+struct MeanImpl<ComplexDoubleType, SimdLevel> : public SumImpl<ComplexDoubleType, SimdLevel> {
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
+      out->value = std::make_shared<ComplexDoubleScalar>();
+    } else {
+      const std::complex<double> mean = this->sum / double(this->count);
+      out->value = std::make_shared<ComplexDoubleScalar>(mean);
+    }
+    return Status::OK();
+  }
+  ScalarAggregateOptions options;
+};
+
 template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
@@ -216,6 +245,39 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
   bool has_nulls = false;
   bool has_values = false;
 };
+
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel, enable_if_complex<ArrowType>> {
+  using ThisType = MinMaxState<ArrowType, SimdLevel>;
+  using T = typename ArrowType::c_type;
+  using R = typename T::value_type;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->has_values |= rhs.has_values;
+    this->min = T(std::fmin(this->min.real(), rhs.min.real()),
+                  std::fmin(this->min.imag(), rhs.min.imag()));
+    this->max = T(std::fmax(this->max.real(), rhs.max.real()),
+                  std::fmax(this->max.imag(), rhs.max.imag()));
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    this->min = T(std::fmin(this->min.real(), value.real()),
+                  std::fmin(this->min.imag(), value.imag()));
+    this->max = T(std::fmax(this->max.real(), value.real()),
+                  std::fmax(this->max.imag(), value.imag()));
+  }
+
+  T min = T(std::numeric_limits<R>::infinity(),
+            std::numeric_limits<R>::infinity());
+  T max = T(-std::numeric_limits<R>::infinity(),
+            -std::numeric_limits<R>::infinity());
+
+  bool has_nulls = false;
+  bool has_values = false;
+};
+
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxImpl : public ScalarAggregator {

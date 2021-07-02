@@ -164,7 +164,14 @@ struct InitStateVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+  enable_if_complex<Type, Status> Visit(const Type &) {
+    return Init<Type>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value &&
+              !is_boolean_type<Type>::value &&
+              !is_complex_type<Type>::value, Status> Visit(
       const Type&) {
     return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
@@ -262,7 +269,14 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+  enable_if_complex<Type, Status> Visit(const Type&) {
+    return ProcessIndexIn<Type>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value &&
+              !is_boolean_type<Type>::value &&
+              !is_complex_type<Type>::value, Status> Visit(
       const Type&) {
     return ProcessIndexIn<
         typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
@@ -352,7 +366,14 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
+  enable_if_complex<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<Type>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value &&
+             !is_boolean_type<Type>::value &&
+             !is_complex_type<Type>::value, Status> Visit(
       const Type&) {
     return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }

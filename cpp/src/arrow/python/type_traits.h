@@ -127,6 +127,43 @@ struct npy_traits<NPY_FLOAT64> {
 };
 
 template <>
+struct npy_traits<NPY_COMPLEX64> {
+  typedef std::complex<float> value_type;
+  using TypeClass = ComplexFloatType;
+  using BuilderClass = ComplexFloatBuilder;
+
+  // We need to use quiet_NaN here instead of the NAN macro as on Windows
+  // the NAN macro leads to "division-by-zero" compile-time error with clang.
+  static constexpr std::complex<float> na_sentinel = {
+    std::numeric_limits<float>::quiet_NaN(),
+    std::numeric_limits<float>::quiet_NaN()
+  };
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(const std::complex<float> & v) { return v != v; }
+};
+
+template <>
+struct npy_traits<NPY_COMPLEX128> {
+  typedef std::complex<double> value_type;
+  using TypeClass = ComplexDoubleType;
+  using BuilderClass = ComplexDoubleBuilder;
+
+  // We need to use quiet_NaN here instead of the NAN macro as on Windows
+  // the NAN macro leads to "division-by-zero" compile-time error with clang.
+  static constexpr std::complex<double> na_sentinel = {
+    std::numeric_limits<double>::quiet_NaN(),
+    std::numeric_limits<double>::quiet_NaN()
+  };
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(const std::complex<double> & v) { return v != v; }
+};
+
+
+template <>
 struct npy_traits<NPY_DATETIME> {
   typedef int64_t value_type;
   using TypeClass = TimestampType;

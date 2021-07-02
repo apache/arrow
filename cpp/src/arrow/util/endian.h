@@ -52,6 +52,8 @@
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
+#include <complex>
+
 #include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
 
@@ -88,6 +90,15 @@ static inline float ByteSwap(float value) {
   const uint32_t swapped = ARROW_BYTE_SWAP32(util::SafeCopy<uint32_t>(value));
   return util::SafeCopy<float>(swapped);
 }
+
+static inline std::complex<float> ByteSwap(std::complex<float> value) {
+  return value;
+}
+
+static inline std::complex<double> ByteSwap(std::complex<double> value) {
+  return value;
+}
+
 
 // Write the swapped bytes into dst. Src and dst cannot overlap.
 static inline void ByteSwap(void* dst, const void* src, int len) {

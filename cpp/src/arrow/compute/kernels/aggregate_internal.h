@@ -49,6 +49,12 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
+template <typename I>
+struct FindAccumulatorType<I, enable_if_complex<I>> {
+  using Type = ComplexDoubleType;
+};
+
+
 struct ScalarAggregator : public KernelState {
   virtual Status Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
   virtual Status MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
@@ -66,7 +72,8 @@ using arrow::internal::VisitSetBitRunsVoid;
 // non-recursive pairwise summation for floating points
 // https://en.wikipedia.org/wiki/Pairwise_summation
 template <typename ValueType, typename SumType, typename ValueFunc>
-enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
+enable_if_t<std::is_floating_point<SumType>::value ||
+            is_complex_type<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
   const int64_t data_size = data.length - data.GetNullCount();
   if (data_size == 0) {

@@ -161,6 +161,8 @@ PRIMITIVE_TYPE_TRAITS_DEF(uint64_t, UInt64, uint64)
 PRIMITIVE_TYPE_TRAITS_DEF(int64_t, Int64, int64)
 PRIMITIVE_TYPE_TRAITS_DEF(float, Float, float32)
 PRIMITIVE_TYPE_TRAITS_DEF(double, Double, float64)
+PRIMITIVE_TYPE_TRAITS_DEF(std::complex<float>, ComplexFloat, complex64)
+PRIMITIVE_TYPE_TRAITS_DEF(std::complex<double>, ComplexDouble, complex128)
 
 #undef PRIMITIVE_TYPE_TRAITS_DEF
 #undef PRIMITIVE_TYPE_TRAITS_DEF_
@@ -284,36 +286,6 @@ struct TypeTraits<HalfFloatType> {
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
 };
-
-
-template <>
-struct TypeTraits<ComplexFloatType> {
-  using ArrayType = ComplexFloatArray;
-  using BuilderType = ComplexFloatBuilder;
-  using ScalarType = ComplexFloatScalar;
-  using TensorType = ComplexFloatTensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * static_cast<int64_t>(sizeof(std::complex<float>));
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return complex64(); }
-};
-
-template <>
-struct TypeTraits<ComplexDoubleType> {
-  using ArrayType = ComplexDoubleArray;
-  using BuilderType = ComplexDoubleBuilder;
-  using ScalarType = ComplexDoubleScalar;
-  using TensorType = ComplexDoubleTensor;
-
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * static_cast<int64_t>(sizeof(std::complex<double>));
-  }
-  constexpr static bool is_parameter_free = true;
-  static inline std::shared_ptr<DataType> type_singleton() { return complex128(); }
-};
-
 
 template <>
 struct TypeTraits<Decimal128Type> {
@@ -561,6 +533,12 @@ using is_half_float_type = std::is_same<HalfFloatType, T>;
 
 template <typename T, typename R = void>
 using enable_if_half_float = enable_if_t<is_half_float_type<T>::value, R>;
+
+template <typename T>
+using is_complex_type = std::is_base_of<ComplexType, T>;
+
+template <typename T, typename R = void>
+using enable_if_complex = enable_if_t<is_complex_type<T>::value, R>;
 
 // Binary Types
 

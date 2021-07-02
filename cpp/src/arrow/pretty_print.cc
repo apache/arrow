@@ -162,6 +162,15 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
+  enable_if_complex<typename T::TypeClass, Status> WriteDataValues(
+      const T& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });
+    return Status::OK();
+  }
+
+
+  template <typename T>
   enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
     using unit = typename std::conditional<std::is_same<T, Date32Array>::value,

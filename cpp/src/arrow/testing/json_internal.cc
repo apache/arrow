@@ -520,6 +520,20 @@ class ArrayWriter {
     }
   }
 
+  template <typename ArrayType>
+  enable_if_complex<typename ArrayType::TypeClass> WriteDataValues(
+    const ArrayType& arr) {
+    static const std::string null_string = "0";
+    const auto data = arr.raw_values();
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsValid(i)) {
+        writer_->Double(data[i].real());
+      } else {
+        WriteRawNumber(null_string);
+      }
+    }
+  }
+
   // Binary, encode to hexadecimal.
   template <typename ArrayType>
   enable_if_binary_like<typename ArrayType::TypeClass> WriteDataValues(
@@ -1195,6 +1209,12 @@ enable_if_physical_floating_point<T, typename T::c_type> UnboxValue(
     const rj::Value& val) {
   DCHECK(val.IsFloat());
   return static_cast<typename T::c_type>(val.GetDouble());
+}
+
+template <typename T>
+enable_if_complex<T, typename T::c_type> UnboxValue(
+  const rj::Value& val) {
+    return typename T::c_type();
 }
 
 class ArrayReader {

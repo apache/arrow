@@ -153,12 +153,29 @@ Status FloatFromFlatbuffer(const flatbuf::FloatingPoint* float_data,
   return Status::OK();
 }
 
+Status ComplexFromFlatbuffer(const flatbuf::Complex* complex_data,
+                             std::shared_ptr<DataType>* out) {
+  if(complex_data->precision() == flatbuf::Precision::SINGLE) {
+    *out = complex64();
+  } else if(complex_data->precision() == flatbuf::Precision::DOUBLE) {
+    *out = complex128();
+  } else {
+    return Status::NotImplemented("Invalid Complex Data precision");
+  }
+
+  return Status::OK();
+}
+
 Offset IntToFlatbuffer(FBB& fbb, int bitWidth, bool is_signed) {
   return flatbuf::CreateInt(fbb, bitWidth, is_signed).Union();
 }
 
 Offset FloatToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
   return flatbuf::CreateFloatingPoint(fbb, precision).Union();
+}
+
+Offset ComplexToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
+  return flatbuf::CreateComplex(fbb, precision).Union(); 
 }
 
 // ----------------------------------------------------------------------
@@ -250,6 +267,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::FloatingPoint:
       return FloatFromFlatbuffer(static_cast<const flatbuf::FloatingPoint*>(type_data),
                                  out);
+    case flatbuf::Type::Complex:
+      return ComplexFromFlatbuffer(static_cast<const flatbuf::Complex*>(type_data),
+                                   out);
     case flatbuf::Type::Binary:
       *out = binary();
       return Status::OK();
@@ -417,6 +437,14 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
       *out_type = flatbuf::Type::FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision::DOUBLE);
       break;
+    case Type::COMPLEX_FLOAT:
+      *out_type = flatbuf::Type::Complex;
+      *offset = ComplexToFlatbuffer(fbb, flatbuf::Precision::SINGLE);
+      break;
+    case Type::COMPLEX_DOUBLE:
+      *out_type = flatbuf::Type::Complex;
+      *offset = ComplexToFlatbuffer(fbb, flatbuf::Precision::DOUBLE);
+      break;
     default:
       *out_type = flatbuf::Type::NONE;  // Make clang-tidy happy
       return Status::NotImplemented("Unable to convert type: ", type.ToString());
@@ -500,6 +528,18 @@ class FieldToFlatbufferVisitor {
   Status Visit(const DoubleType& type) {
     fb_type_ = flatbuf::Type::FloatingPoint;
     type_offset_ = FloatToFlatbuffer(fbb_, flatbuf::Precision::DOUBLE);
+    return Status::OK();
+  }
+
+  Status Visit(const ComplexFloatType& type) {
+    fb_type_ = flatbuf::Type::Complex;
+    type_offset_ = ComplexToFlatbuffer(fbb_, flatbuf::Precision::SINGLE);
+    return Status::OK();
+  }
+
+  Status Visit(const ComplexDoubleType& type) {
+    fb_type_ = flatbuf::Type::Complex;
+    type_offset_ = ComplexToFlatbuffer(fbb_, flatbuf::Precision::DOUBLE);
     return Status::OK();
   }
 

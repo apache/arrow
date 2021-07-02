@@ -213,6 +213,9 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
 class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
+
+  static constexpr bool is_utf8 = false;
+
 };
 
 /// \brief Base class for all integral data types
