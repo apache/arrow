@@ -44,12 +44,42 @@ extern "C" {
 #endif
 
 #include <arrow/array.h>
+#include <arrow/util/bitmap_reader.h>
 
 namespace arrow {
 namespace r {
 
+template <typename T>
+T na_sentinel();
+
+template <>
+inline double na_sentinel<double>() {
+  return NA_REAL;
+}
+
+template <>
+inline int na_sentinel<int>() {
+  return NA_INTEGER;
+}
+
+template <typename T>
+void UseSentinel(const std::shared_ptr<Array>& array) {
+  auto n = array->length();
+  auto null_count = array->null_count();
+  internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(), n);
+
+  auto* data = array->data()->GetMutableValues<T>(1);
+
+  for (R_xlen_t i = 0, k = 0; k < null_count; i++, bitmap_reader.Next()) {
+    if (bitmap_reader.IsNotSet()) {
+      k++;
+      data[i] = na_sentinel<T>();
+    }
+  }
+}
+
 template <int sexp_type>
-struct ArrayNoNull {
+  struct AltrepVector {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
@@ -63,6 +93,13 @@ struct ArrayNoNull {
     // that retain the array
     Pointer xp(new std::shared_ptr<Array>(array));
 
+    // TODO: perhaps this can be done aside in parallel
+    //       if Make is given an RTasks
+    auto null_count = array->null_count();
+    if (null_count > 0) {
+      UseSentinel<data_type>(array);
+    }
+
     SEXP res = R_new_altrep(class_t, xp, R_NilValue);
     MARK_NOT_MUTABLE(res);
 
@@ -72,8 +109,8 @@ struct ArrayNoNull {
   static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get(x);
-    Rprintf("arrow::Array<%s, NONULL> len=%d, Array=<%p>\n",
-            array->type()->ToString().c_str(), array->length(), array.get());
+    Rprintf("arrow::Array<%s, nulls=%d> len=%d, Array=<%p>\n",
+            array->type()->ToString().c_str(), array->null_count(), array->length(), array.get());
     inspect_subtree(R_altrep_data1(x), pre, deep + 1, pvec);
     return TRUE;
   }
@@ -104,63 +141,64 @@ struct ArrayNoNull {
     return const_cast<void*>(Dataptr_or_null(vec));
   }
 
-  // by definition, there are no NA
-  static int No_NA(SEXP vec) { return 1; }
+  static int No_NA(SEXP vec) {
+    return Get(vec)->null_count() == 0;
+  }
 
   static void Init(R_altrep_class_t class_t, DllInfo* dll) {
     // altrep
-    R_set_altrep_Length_method(class_t, ArrayNoNull::Length);
-    R_set_altrep_Inspect_method(class_t, ArrayNoNull::Inspect);
-    R_set_altrep_Duplicate_method(class_t, ArrayNoNull::Duplicate);
+    R_set_altrep_Length_method(class_t, AltrepVector::Length);
+    R_set_altrep_Inspect_method(class_t, AltrepVector::Inspect);
+    R_set_altrep_Duplicate_method(class_t, AltrepVector::Duplicate);
 
     // altvec
-    R_set_altvec_Dataptr_method(class_t, ArrayNoNull::Dataptr);
-    R_set_altvec_Dataptr_or_null_method(class_t, ArrayNoNull::Dataptr_or_null);
+    R_set_altvec_Dataptr_method(class_t, AltrepVector::Dataptr);
+    R_set_altvec_Dataptr_or_null_method(class_t, AltrepVector::Dataptr_or_null);
   }
 };
 
-struct DoubleArrayNoNull {
+struct AltrepVectorDouble {
   static R_altrep_class_t class_t;
 
   static void Init(DllInfo* dll) {
-    class_t = R_make_altreal_class("array_nonull_dbl_vector", "arrow", dll);
-    ArrayNoNull<REALSXP>::Init(class_t, dll);
-    R_set_altreal_No_NA_method(class_t, ArrayNoNull<REALSXP>::No_NA);
+    class_t = R_make_altreal_class("array_dbl_vector", "arrow", dll);
+    AltrepVector<REALSXP>::Init(class_t, dll);
+    R_set_altreal_No_NA_method(class_t, AltrepVector<REALSXP>::No_NA);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    return ArrayNoNull<REALSXP>::Make(class_t, array);
+    return AltrepVector<REALSXP>::Make(class_t, array);
   }
 };
 
-struct Int32ArrayNoNull {
+struct AltrepVectorInt32 {
   static R_altrep_class_t class_t;
 
   static void Init(DllInfo* dll) {
-    class_t = R_make_altinteger_class("array_nonull_int_vector", "arrow", dll);
-    ArrayNoNull<INTSXP>::Init(class_t, dll);
-    R_set_altinteger_No_NA_method(class_t, ArrayNoNull<INTSXP>::No_NA);
+    class_t = R_make_altinteger_class("array_int_vector", "arrow", dll);
+    AltrepVector<INTSXP>::Init(class_t, dll);
+    R_set_altinteger_No_NA_method(class_t, AltrepVector<INTSXP>::No_NA);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    return ArrayNoNull<INTSXP>::Make(class_t, array);
+    return AltrepVector<INTSXP>::Make(class_t, array);
   }
 };
 
-R_altrep_class_t Int32ArrayNoNull::class_t;
-R_altrep_class_t DoubleArrayNoNull::class_t;
+R_altrep_class_t AltrepVectorInt32::class_t;
+R_altrep_class_t AltrepVectorDouble::class_t;
 
 void Init_Altrep_classes(DllInfo* dll) {
-  DoubleArrayNoNull::Init(dll);
-  Int32ArrayNoNull::Init(dll);
+  AltrepVectorDouble::Init(dll);
+  AltrepVectorInt32::Init(dll);
 }
 
-SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array) {
-  return DoubleArrayNoNull::Make(array);
+SEXP MakeAltrepVectorDouble(const std::shared_ptr<Array>& array) {
+  return AltrepVectorDouble::Make(array);
 }
 
-SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array) {
-  return Int32ArrayNoNull::Make(array);
+SEXP MakeAltrepVectorInt32(const std::shared_ptr<Array>& array) {
+  return AltrepVectorInt32::Make(array);
 }
 
 }  // namespace r
@@ -169,18 +207,9 @@ SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array) {
 #endif
 
 // [[arrow::export]]
-bool is_altrep_int_nonull(SEXP x) {
+bool is_altrep(SEXP x) {
 #if defined(HAS_ALTREP)
-  return R_altrep_inherits(x, arrow::r::Int32ArrayNoNull::class_t);
-#else
-  return false;
-#endif
-}
-
-// [[arrow::export]]
-bool is_altrep_dbl_nonull(SEXP x) {
-#if defined(HAS_ALTREP)
-  return R_altrep_inherits(x, arrow::r::DoubleArrayNoNull::class_t);
+  return ALTREP(x);
 #else
   return false;
 #endif

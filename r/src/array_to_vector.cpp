@@ -38,34 +38,6 @@ using internal::IntegersCanFit;
 
 namespace r {
 
-template <typename T>
-T na_sentinel();
-
-template <>
-inline double na_sentinel<double>() {
-  return NA_REAL;
-}
-
-template <>
-inline int na_sentinel<int>() {
-  return NA_INTEGER;
-}
-
-template <typename T>
-void UseSentinel(const std::shared_ptr<Array>& array) {
-  auto n = array->length();
-  auto null_count = array->null_count();
-  internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(), n);
-
-  auto* data = array->data()->GetMutableValues<T>(1);
-
-  for (R_xlen_t i = 0; i < null_count; i++, bitmap_reader.Next()) {
-    if (bitmap_reader.IsNotSet()) {
-      data[i] = na_sentinel<T>();
-    }
-  }
-}
-
 class Converter {
  public:
   explicit Converter(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -97,15 +69,27 @@ class Converter {
     // special case when there is only one array
     if (chunked_array_->num_chunks() == 1) {
       const auto& array = chunked_array_->chunk(0);
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
-          array->null_count() == 0) {
+      // using altrep if
+      // - the arrow.use_altrep is set to TRUE or unset
+      // - the array has at least one element
+      // - either it has no nulls or the data is mutable
+      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0){
         switch (array->type()->id()) {
-          case arrow::Type::DOUBLE:
-            return arrow::r::MakeDoubleArrayNoNull(array);
-          case arrow::Type::INT32:
-            return arrow::r::MakeInt32ArrayNoNull(array);
-          default:
+        case arrow::Type::DOUBLE:
+          if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
+            return arrow::r::MakeAltrepVectorDouble(array);
+          } else {
             break;
+          }
+
+        case arrow::Type::INT32:
+          if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
+            return arrow::r::MakeAltrepVectorInt32(array);
+          } else {
+            break;
+          }
+        default:
+          break;
         }
       }
     }

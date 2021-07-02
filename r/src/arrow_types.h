@@ -175,8 +175,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 
 #if defined(HAS_ALTREP)
 void Init_Altrep_classes(DllInfo* dll);
-SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
-SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
+SEXP MakeAltrepVectorInt32(const std::shared_ptr<Array>& array);
+SEXP MakeAltrepVectorDouble(const std::shared_ptr<Array>& array);
 #endif
 
 }  // namespace r
