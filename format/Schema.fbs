@@ -229,7 +229,10 @@ table Time {
 ///
 /// A "ZonedDateTime" represents a single moment in time that has a meaningful
 /// reference time zone.  To encode a ZonedDateTime as a Timestamp set the timezone
-/// string to the name of the timezone.
+/// string to the name of the timezone.  There is some ambiguity between an Instant
+/// and a ZonedDateTime with the UTC time zone.  Both of which are stored the same.
+/// Typically, this distinction does not matter.  If it does, then an application should
+/// use custom metadata or an extension type to distinguish between the two cases.
 ///
 /// An "OffsetDateTime" represents a single moment in time combined with a meaningful
 /// offset from UTC.  To encode an OffsetDateTime as a Timestamp set the timezone string
@@ -241,11 +244,7 @@ table Time {
 /// LocalDateTime is often stored as a struct or a Date32/Time64 pair.  However, it can
 /// also be encoded into a Timestamp column.  To do so the value should be the the time
 /// elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
-/// Futhermore, the timezone string should be set to null.
-///
-/// In ALL cases the values of the Timestamp column should be an offset from the
-/// Unix epoch.  Libraries that manipulate timestamp data can often treat these values as
-/// UTC regardless of the actual temporal type.
+/// The timezone string should be set to null or the empty string.
 table Timestamp {
   unit: TimeUnit;
 
@@ -258,7 +257,7 @@ table Timestamp {
   /// Whether a timezone string is present indicates different semantics about
   /// the data:
   ///
-  /// * If the time zone is null or equal to an empty string, the data is a LocalDateTime
+  /// * If the time zone is null or an empty string, the data is a LocalDateTime
   ///   and does not represent a single moment in time.  Instead it represents a wall clock
   ///   time and care should be taken to avoid interpreting it semantically as an Instant.
   ///
