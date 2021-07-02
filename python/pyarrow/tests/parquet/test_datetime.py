@@ -298,10 +298,8 @@ def test_coerce_int96_timestamp_unit(unit):
 @pytest.mark.parametrize('pq_reader_method', ['ParquetFile', 'read_table'])
 def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
 
-    if sys.platform in ["win32", "cygwin"]:
-        dt_str_fmt = "%Y-%m-%s %H:%M:%S"
-    else:
-        dt_str_fmt = "%Y-%m-%s %H:%M:%S.%f"
+    if sys.platform in ("win32", "cygwin"):
+        pytest.skip("Getting datetime.strftime() error on Windows")
 
     def get_table(pq_reader_method, filename, **kwargs):
         if pq_reader_method == "ParquetFile":
@@ -316,7 +314,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         datetime.datetime(3000, 1, 1)
     ]
     oob_dts_str = [
-        x.strftime(dt_str_fmt)
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
         for x in oob_dts
     ]
     df = pd.DataFrame({"a": oob_dts})
@@ -329,7 +327,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     tab_error = get_table(pq_reader_method, filename)
     df_error = tab_error.to_pandas(timestamp_as_object=True)
     out_error = [
-        x.strftime(dt_str_fmt)
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
         for x in df_error["a"].tolist()
     ]
 
@@ -342,7 +340,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     )
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
     out_correct = [
-        x.strftime(dt_str_fmt)
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
         for x in df_correct.a.tolist()
     ]
     assert out_correct == oob_dts_str
