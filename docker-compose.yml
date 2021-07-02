@@ -110,6 +110,7 @@ x-hierarchy:
       - ubuntu-docs
     - ubuntu-python-sdist-test
     - ubuntu-r
+    - ubuntu-r-only-r
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -1020,6 +1021,12 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_test.sh /arrow"
+
+  ubuntu-r-only-r:
+    extends: ubuntu-r
+    command: >
+      /bin/bash -c "
         /arrow/ci/scripts/r_test.sh /arrow"
 
   r:

@@ -950,9 +950,7 @@ tasks:
         GCC_VERSION: 11
       # S3 support is not buildable with gcc11 right now
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
-      image: ubuntu-r
-      command: '/bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"'
-
+      image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
     ci: azure
