@@ -784,6 +784,41 @@ TEST_F(TestProjector, TestDivideZero) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestXor) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_xor = field("xor", int32());
+
+  // Build expression
+  auto mod_expr = TreeExprBuilder::MakeExpression("xor", {field0, field1}, field_xor);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {mod_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({2, 3, 1, 20}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({4, 1, 3, 0}, {true, true, true, true});
+  // expected output
+  auto exp_mod = MakeArrowArrayInt32({6, 2, 2, 20}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mod, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestSoundex) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
