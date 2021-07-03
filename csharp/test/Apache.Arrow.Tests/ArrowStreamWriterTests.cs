@@ -32,7 +32,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenDefault_StreamClosedOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema).Dispose();
             Assert.Throws<ObjectDisposedException>(() => stream.Position);
@@ -41,7 +41,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenFalse_StreamClosedOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: false).Dispose();
             Assert.Throws<ObjectDisposedException>(() => stream.Position);
@@ -50,18 +50,19 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenTrue_StreamValidOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
         }
 
-        [Fact]
-        public void CanWriteToNetworkStream()
+        [Theory]
+        [InlineData(true, 32153)]
+        [InlineData(false, 32154)]
+        public void CanWriteToNetworkStream(bool createDictionaryArray, int port)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            const int port = 32153;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
 
@@ -90,12 +91,13 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public async Task CanWriteToNetworkStreamAsync()
+        [Theory]
+        [InlineData(true, 32155)]
+        [InlineData(false, 32156)]
+        public async Task CanWriteToNetworkStreamAsync(bool createDictionaryArray, int port)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
-            const int port = 32154;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
 
@@ -124,18 +126,22 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public void WriteEmptyBatch()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void WriteEmptyBatch(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0, createDictionaryArray: createDictionaryArray);
 
             TestRoundTripRecordBatch(originalBatch);
         }
 
-        [Fact]
-        public async Task WriteEmptyBatchAsync()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task WriteEmptyBatchAsync(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 0, createDictionaryArray: createDictionaryArray);
 
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
@@ -392,27 +398,33 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public void LegacyIpcFormatRoundTrips()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void LegacyIpcFormatRoundTrips(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             TestRoundTripRecordBatch(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
 
 
-        [Fact]
-        public async Task LegacyIpcFormatRoundTripsAsync()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task LegacyIpcFormatRoundTripsAsync(bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             await TestRoundTripRecordBatchAsync(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void WriteLegacyIpcFormat(bool writeLegacyIpcFormat)
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public void WriteLegacyIpcFormat(bool writeLegacyIpcFormat, bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())
@@ -448,11 +460,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task WriteLegacyIpcFormatAsync(bool writeLegacyIpcFormat)
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public async Task WriteLegacyIpcFormatAsync(bool writeLegacyIpcFormat, bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())

@@ -27,10 +27,9 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
-        private protected bool HasReadInitialDictionary { get; set; }
+        private bool HasReadInitialDictionary { get; set; }
 
-
-        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen) : base()
+        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
             BaseStream = stream;
             _allocator = allocator ?? MemoryAllocator.Default.Value;
@@ -45,15 +44,16 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected void ReadInitialDictionaries()
+        private void ReadInitialDictionaries()
         {
             if (HasReadInitialDictionary)
             {
                 return;
             }
 
-            if (_lazyDictionaryMemo.IsCreated) {
-                int fieldCount = _lazyDictionaryMemo.Instance.GetFieldCount();
+            if (HasCreatedDictionaryMemo)
+            {
+                int fieldCount = DictionaryMemo.GetFieldCount();
                 for (int i = 0; i < fieldCount; ++i)
                 {
                     ReadArrowObject();
@@ -62,19 +62,21 @@ namespace Apache.Arrow.Ipc
             HasReadInitialDictionary = true;
         }
 
-        protected async ValueTask ReadInitialDictionariesAsync(CancellationToken cancellationToken = default)
+        private async ValueTask ReadInitialDictionariesAsync(CancellationToken cancellationToken)
         {
             if (HasReadInitialDictionary)
             {
                 return;
             }
 
-            int fieldCount = _lazyDictionaryMemo.Instance.GetFieldCount();
-            for (int i = 0; i < fieldCount; ++i)
+            if (HasCreatedDictionaryMemo)
             {
-                await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
+                int fieldCount = DictionaryMemo.GetFieldCount();
+                for (int i = 0; i < fieldCount; ++i)
+                {
+                    await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
-
             HasReadInitialDictionary = true;
         }
 
@@ -85,8 +87,6 @@ namespace Apache.Arrow.Ipc
             return await ReadRecordBatchAsync(cancellationToken).ConfigureAwait(false);
         }
 
-
-
         public override RecordBatch ReadNextRecordBatch()
         {
             return ReadRecordBatch();
@@ -96,9 +96,9 @@ namespace Apache.Arrow.Ipc
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
-            await ReadInitialDictionariesAsync().ConfigureAwait(false);
+            await ReadInitialDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
-            return await ReadArrowObjectAsync().ConfigureAwait(false);
+            return await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
         }
 
 
@@ -129,7 +129,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _lazyDictionaryMemo);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }).ConfigureAwait(false);
         }
 
@@ -149,12 +149,21 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _lazyDictionaryMemo);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             });
         }
 
-        // Note: When the message type is DictionaryBatch, this function adds data to _dictionaryMemo and returns null.
-        private async ValueTask<RecordBatch> ReadArrowObjectAsync(CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Read a record batch or dictionary batch from Flatbuf.Message.
+        /// </summary>
+        /// <remarks>
+        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
+        /// </remarks>>
+        /// <returns>
+        /// The record batch when the message type is RecordBatch.
+        /// Null when the message type is DictionaryBatch.
+        /// </returns>
+        private async ValueTask<RecordBatch> ReadArrowObjectAsync(CancellationToken cancellationToken)
         {
             int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
                 .ConfigureAwait(false);
@@ -189,7 +198,16 @@ namespace Apache.Arrow.Ipc
             return result;
         }
 
-        // Note: When the message type is DictionaryBatch, this function adds data to _dictionaryMemo and returns null.
+        /// <summary>
+        /// Read a record batch or dictionary batch from Flatbuf.Message.
+        /// </summary>
+        /// <remarks>
+        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
+        /// </remarks>>
+        /// <returns>
+        /// The record batch when the message type is RecordBatch.
+        /// Null when the message type is DictionaryBatch.
+        /// </returns>
         private RecordBatch ReadArrowObject()
         {
             int messageLength = ReadMessageLength(throwOnFullRead: false);

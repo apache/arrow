@@ -100,11 +100,6 @@ namespace Apache.Arrow.Ipc
             _idToDictionary[id] = dictionary;
         }
 
-        public void AddDictionaryDelta(long id, IArrowArray dictionary)
-        {
-            throw new NotImplementedException("Dictionary delta is not supported yet.");
-        }
-
         public int GetFieldCount()
         {
             return _fieldToId.Count;

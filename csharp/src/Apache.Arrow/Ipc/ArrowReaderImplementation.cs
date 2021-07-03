@@ -30,11 +30,12 @@ namespace Apache.Arrow.Ipc
         public Schema Schema { get; protected set; }
         protected bool HasReadSchema => Schema != null;
 
-        private protected readonly LazyCreator<DictionaryMemo> _lazyDictionaryMemo;
+        private protected DictionaryMemo _dictionaryMemo;
+        private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
+        private protected bool HasCreatedDictionaryMemo => _dictionaryMemo != null;
 
         public ArrowReaderImplementation()
         {
-            _lazyDictionaryMemo = new LazyCreator<DictionaryMemo>();
         }
 
         public void Dispose()
@@ -119,7 +120,7 @@ namespace Apache.Arrow.Ipc
         private void ReadDictionaryBatch(Flatbuf.DictionaryBatch dictionaryBatch, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
         {
             long id = dictionaryBatch.Id;
-            IArrowType valueType = _lazyDictionaryMemo.Instance.GetDictionaryType(id);
+            IArrowType valueType = DictionaryMemo.GetDictionaryType(id);
             Flatbuf.RecordBatch? recordBatch = dictionaryBatch.Data;
 
             if (!recordBatch.HasValue)
@@ -142,7 +143,7 @@ namespace Apache.Arrow.Ipc
             }
             else
             {
-                _lazyDictionaryMemo.Instance.AddOrReplaceDictionary(id, arrays[0]);
+                DictionaryMemo.AddOrReplaceDictionary(id, arrays[0]);
             }
         }
 
@@ -219,8 +220,8 @@ namespace Apache.Arrow.Ipc
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
             {
-                long id = _lazyDictionaryMemo.Instance.GetId(field);
-                dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
+                long id = DictionaryMemo.GetId(field);
+                dictionary = DictionaryMemo.GetDictionary(id);
             }
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
@@ -265,8 +266,8 @@ namespace Apache.Arrow.Ipc
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
             {
-                long id = _lazyDictionaryMemo.Instance.GetId(field);
-                dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
+                long id = DictionaryMemo.GetId(field);
+                dictionary = DictionaryMemo.GetDictionary(id);
             }
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);

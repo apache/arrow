@@ -45,14 +45,16 @@ namespace Apache.Arrow.Flight
 
             ByteBuffer schemaBuffer = ArrowReaderImplementation.CreateByteBuffer(buffer.Slice(bufferPosition));
             //DictionaryBatch not supported for now
-            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer), default);
+            DictionaryMemo dictionaryMemo = null;
+            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer), ref dictionaryMemo);
             return schema;
         }
 
         internal static Schema DecodeSchema(ByteBuffer schemaBuffer)
         {
             //DictionaryBatch not supported for now
-            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer), default);
+            DictionaryMemo dictionaryMemo = null;
+            var schema = MessageSerializer.GetSchema(ArrowReaderImplementation.ReadMessage<Flatbuf.Schema>(schemaBuffer), ref dictionaryMemo);
             return schema;
         }
     }

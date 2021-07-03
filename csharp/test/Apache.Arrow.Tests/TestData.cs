@@ -21,7 +21,6 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        //TODO: Remove the createDictionaryArray argument after all writer/reader supports DictionaryType serialization
         public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false)
         {
             return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
@@ -254,7 +253,7 @@ namespace Apache.Arrow.Tests
                 {
                     nullBitmap.Append(true);
                 }
-                
+
                 Array = new StructArray(type, Length, childArrays, nullBitmap.Build());
             }
 
