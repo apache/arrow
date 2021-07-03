@@ -21,7 +21,8 @@ import operator
 import functools
 from io import StringIO
 import textwrap
-
+from datetime import datetime
+import json
 
 # TODO(kszucs): use archery.report.JinjaReport instead
 class Report:
@@ -31,7 +32,6 @@ class Report:
 
     def show(self):
         raise NotImplementedError()
-
 
 class ConsoleReport(Report):
     """Report the status of a Job to the console using click"""
@@ -160,6 +160,29 @@ class EmailReport(Report):
         repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
 
+    def todayStr(self):
+        date = datetime.now()
+        return "{}-{}-{}".format(date.year, date.month, date.day)
+
+    def tasksToDict(self, date, tasks):
+        jsonTasks = []
+        for task_name, task in tasks.items():
+            jsonTasks.append({
+                "build" : task_name,
+                "link" : self.url(task.branch),
+                "status" : task.status().combined_state.upper(),
+                "timestamp" : date})
+
+        return jsonTasks
+
+    def getJsonTasks(self):
+        tasks = self.tasksToDict(self, self.todayStr(), self.job.tasks.items())
+        jsonStr = json.dump(tasks)
+        #TODO remove the print
+        print(jsonStr)
+        return jsonStr
+
+
     def listing(self, tasks):
         return '\n'.join(
             sorted(
@@ -213,6 +236,8 @@ class EmailReport(Report):
         import smtplib
 
         email = self.email()
+        #TODO: this just prints to the console for now
+        self.getJsonTasks()
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.ehlo()
