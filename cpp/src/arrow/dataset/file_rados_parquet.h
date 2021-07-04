@@ -48,9 +48,17 @@
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
-
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
+
+#define SCAN_ERR_CODE 25
+#define SCAN_ERR_MSG "failed to scan file fragment"
+
+#define SCAN_REQ_DESER_ERR_CODE 26
+#define SCAN_REQ_DESER_ERR_MSG "failed to deserialize scan request"
+
+#define SCAN_RES_SER_ERR_CODE 27
+#define SCAN_RES_SER_ERR_MSG "failed to serialize result table"
 
 namespace arrow {
 namespace dataset {
@@ -108,8 +116,7 @@ class ARROW_DS_EXPORT RadosConnection : public Connection {
 
     // Locks the mutex. Only one thread can pass here at a time.
     // Another thread handled the connection already.
-    std::unique_lock<std::mutex> lock(
-        connection_mutex);
+    std::unique_lock<std::mutex> lock(connection_mutex);
     if (connected) {
       return Status::OK();
     }
@@ -162,7 +169,7 @@ class ARROW_DS_EXPORT DirectObjectAccess {
   Status Stat(const std::string& path, struct stat& st) {
     struct stat file_st;
     if (stat(path.c_str(), &file_st) < 0)
-      return Status::ExecutionError("stat returned non-zero exit code.");
+      return Status::Invalid("stat returned non-zero exit code.");
     st = file_st;
     return Status::OK();
   }
@@ -186,10 +193,11 @@ class ARROW_DS_EXPORT DirectObjectAccess {
   Status Exec(uint64_t inode, const std::string& fn, ceph::bufferlist& in,
               ceph::bufferlist& out) {
     std::string oid = ConvertFileInodeToObjectID(inode);
-    if (connection_->ioCtx->exec(oid.c_str(), connection_->ctx.cls_name.c_str(),
-                                 fn.c_str(), in, out)) {
-      return Status::ExecutionError("librados::exec returned non-zero exit code.");
-    }
+    int e = connection_->ioCtx->exec(oid.c_str(), connection_->ctx.cls_name.c_str(),
+                                     fn.c_str(), in, out);
+    if (e == SCAN_ERR_CODE) return Status::Invalid(SCAN_ERR_MSG);
+    if (e == SCAN_REQ_DESER_ERR_CODE) return Status::Invalid(SCAN_REQ_DESER_ERR_MSG);
+    if (e == SCAN_RES_SER_ERR_CODE) return Status::Invalid(SCAN_RES_SER_ERR_MSG);
     return Status::OK();
   }
 
@@ -261,13 +269,15 @@ ARROW_DS_EXPORT Status SerializeScanRequest(std::shared_ptr<ScanOptions>& option
 /// \param[out] projected_schema The schema to project the filtered record batches.
 /// \param[out] dataset_schema The dataset schema to use.
 /// \param[out] file_size The size of the file.
+/// \param[out] file_format The file format to use.
 /// \param[in] bl Input Ceph bufferlist.
 /// \return Status.
 ARROW_DS_EXPORT Status DeserializeScanRequest(compute::Expression* filter,
                                               compute::Expression* partition,
                                               std::shared_ptr<Schema>* projected_schema,
                                               std::shared_ptr<Schema>* dataset_schema,
-                                              int64_t& file_size, ceph::bufferlist& bl);
+                                              int64_t& file_size, int64_t& file_format,
+                                              ceph::bufferlist& bl);
 
 /// \brief Serialize the result Table to a bufferlist.
 /// \param[in] table The table to serialize.

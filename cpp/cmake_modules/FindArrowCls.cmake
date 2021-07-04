@@ -60,13 +60,10 @@ mark_as_advanced(ARROW_CLS_IMPORT_LIB
                  ARROW_CLS_VERSION
                  ARROW_CLS_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowCls
-                                  REQUIRED_VARS
-                                  ARROW_CLS_INCLUDE_DIR
-                                  ARROW_CLS_LIB_DIR
-                                  ARROW_CLS_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_CLS_VERSION)
+find_package_handle_standard_args(
+  ArrowCls
+  REQUIRED_VARS ARROW_CLS_INCLUDE_DIR ARROW_CLS_LIB_DIR ARROW_CLS_VERSION_MATCH
+  VERSION_VAR ARROW_CLS_VERSION)
 set(ARROW_RADOS_CLS_FOUND ${ArrowCls_FOUND})
 
 if(ArrowCls_FOUND AND NOT ArrowCls_FIND_QUIETLY)

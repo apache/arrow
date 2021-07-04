@@ -23,8 +23,8 @@ project(arrow_dataset_jni)
 
 cmake_minimum_required(VERSION 3.11)
 
-set(JAVA_AWT_INCLUDE_PATH
-    NotNeeded) # We don't care about Java AWT, only about JNI functionality.
+set(JAVA_AWT_INCLUDE_PATH NotNeeded
+)# We don't care about Java AWT, only about JNI functionality.
 find_package(JNI REQUIRED)
 
 add_custom_target(arrow_dataset_jni)

@@ -64,7 +64,7 @@ EOF
     OSD_ID=$(ceph osd create)
     ceph osd crush add osd.${OSD_ID} 1 root=default host=localhost
     ceph-osd --id ${OSD_ID} --mkjournal --mkfs
-    ceph-osd --id ${OSD_ID}
+    ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID}
 
     # start a MDS daemon
     MDS_DATA=${TEST_DIR}/mds
@@ -104,7 +104,7 @@ EOF
     ceph -s
     sleep 2
 
-    run the end-to-end C++ tests
+    # run the end-to-end C++ tests
     TESTS=release/arrow-cls-cls-arrow-test
     if [ -f "$TESTS" ]; then
        release/arrow-cls-cls-arrow-test

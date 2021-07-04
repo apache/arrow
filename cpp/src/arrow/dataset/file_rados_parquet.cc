@@ -24,6 +24,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "parquet/arrow/reader.h"
@@ -31,7 +32,6 @@
 
 #include <flatbuffers/flatbuffers.h>
 
-#include "arrow/util/compression.h"
 #include "generated/ScanRequest_generated.h"
 
 namespace arrow {
@@ -124,8 +124,9 @@ Status SerializeScanRequest(std::shared_ptr<ScanOptions>& options, int64_t& file
   auto dataset_schema_vec =
       builder.CreateVector(dataset_schema->data(), dataset_schema->size());
 
-  auto request = flatbuf::CreateScanRequest(builder, file_size, filter_vec, partition_vec,
-                                            dataset_schema_vec, projected_schema_vec);
+  auto request =
+      flatbuf::CreateScanRequest(builder, file_size, options->file_format, filter_vec,
+                                 partition_vec, dataset_schema_vec, projected_schema_vec);
   builder.Finish(request);
   uint8_t* buf = builder.GetBufferPointer();
   int size = builder.GetSize();
@@ -137,7 +138,7 @@ Status SerializeScanRequest(std::shared_ptr<ScanOptions>& options, int64_t& file
 Status DeserializeScanRequest(compute::Expression* filter, compute::Expression* partition,
                               std::shared_ptr<Schema>* projected_schema,
                               std::shared_ptr<Schema>* dataset_schema, int64_t& file_size,
-                              ceph::bufferlist& bl) {
+                              int64_t& file_format, ceph::bufferlist& bl) {
   auto request = flatbuf::GetScanRequest((uint8_t*)bl.c_str());
 
   ARROW_ASSIGN_OR_RAISE(auto filter_,
@@ -165,6 +166,7 @@ Status DeserializeScanRequest(compute::Expression* filter, compute::Expression* 
   *dataset_schema = dataset_schema_;
 
   file_size = request->file_size();
+  file_format = request->file_format();
   return Status::OK();
 }
 
@@ -194,8 +196,7 @@ Status SerializeTable(std::shared_ptr<Table>& table, ceph::bufferlist& bl,
   return Status::OK();
 }
 
-Status DeserializeTable(RecordBatchVector& batches,
-                        ceph::bufferlist& bl,
+Status DeserializeTable(RecordBatchVector& batches, ceph::bufferlist& bl,
                         bool use_threads) {
   auto buffer = std::make_shared<Buffer>((uint8_t*)bl.c_str(), bl.length());
   auto buffer_reader = std::make_shared<io::BufferReader>(buffer);

@@ -23,11 +23,11 @@ namespace org.apache.arrow.flatbuf;
 
 table ScanRequest {
   file_size: long;
+  file_format: long;
   filter: [ubyte];
   partition: [ubyte];
   dataset_schema: [ubyte];
   projection_schema: [ubyte];
-
 }
 
 root_type ScanRequest;

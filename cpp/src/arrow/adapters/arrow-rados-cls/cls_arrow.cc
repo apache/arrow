@@ -21,13 +21,19 @@
 #include "arrow/api.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/file_rados_parquet.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
+#include "arrow/util/compression.h"
 #include "parquet/api/reader.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/file_reader.h"
+
+#define SCAN_ERR_CODE 25
+#define SCAN_REQ_DESER_ERR_CODE 26
+#define SCAN_RES_SER_ERR_CODE 27
 
 CLS_VER(1, 0)
 CLS_NAME(arrow)
@@ -139,13 +145,53 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
   std::vector<ceph::bufferlist*> chunks_;
 };
 
+/// \brief Scan RADOS objects containing Arrow IPC data.
+/// \param[in] hctx RADOS object context.
+/// \param[in] filter The filter expression to apply.
+/// \param[in] partition_expression The partition expression to use.
+/// \param[in] projection_schema The projection schema.
+/// \param[in] dataset_schema The dataset schema.
+/// \param[out] result_table Table to store the resultant data.
+/// \param[in] object_size The size of the object.
+/// \return Status.
+static arrow::Status ScanIpcObject(cls_method_context_t hctx,
+                                   arrow::compute::Expression filter,
+                                   arrow::compute::Expression partition_expression,
+                                   std::shared_ptr<arrow::Schema> projection_schema,
+                                   std::shared_ptr<arrow::Schema> dataset_schema,
+                                   std::shared_ptr<arrow::Table>& result_table,
+                                   int64_t object_size) {
+  auto file = std::make_shared<RandomAccessObject>(hctx, object_size);
+  arrow::dataset::FileSource source(file, arrow::Compression::LZ4_FRAME);
+
+  auto format = std::make_shared<arrow::dataset::IpcFileFormat>();
+  ARROW_ASSIGN_OR_RAISE(auto fragment,
+                        format->MakeFragment(source, partition_expression));
+
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  auto builder =
+      std::make_shared<arrow::dataset::ScannerBuilder>(dataset_schema, fragment, options);
+
+  ARROW_RETURN_NOT_OK(builder->Filter(filter));
+  ARROW_RETURN_NOT_OK(builder->Project(projection_schema->field_names()));
+  ARROW_RETURN_NOT_OK(builder->UseThreads(false));
+
+  ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
+  ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
+
+  result_table = table;
+
+  ARROW_RETURN_NOT_OK(file->Close());
+  return arrow::Status::OK();
+}
+
 /// \brief Scan RADOS objects containing Parquet binary data.
 /// \param[in] hctx RADOS object context.
 /// \param[in] filter The filter expression to apply.
 /// \param[in] partition_expression The partition expression to use.
 /// \param[in] projection_schema The projection schema.
 /// \param[in] dataset_schema The dataset schema.
-/// \param[out] table Table to store the resultant data.
+/// \param[out] result_table Table to store the resultant data.
 /// \param[in] object_size The size of the object.
 /// \return Status.
 static arrow::Status ScanParquetObject(cls_method_context_t hctx,
@@ -156,7 +202,6 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
                                        std::shared_ptr<arrow::Table>& result_table,
                                        int64_t object_size) {
   auto file = std::make_shared<RandomAccessObject>(hctx, object_size);
-
   arrow::dataset::FileSource source(file);
 
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
@@ -193,40 +238,53 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
 /// \return Status code.
 static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
                    ceph::bufferlist* out) {
-  // the components required to construct a ParquetFragment.
+  // Components required to construct a File fragment.
+  arrow::Status s;
   arrow::compute::Expression filter;
   arrow::compute::Expression partition_expression;
   std::shared_ptr<arrow::Schema> projection_schema;
   std::shared_ptr<arrow::Schema> dataset_schema;
   int64_t file_size;
+  int64_t file_format = 0;  // 0 = Parquet, 1 = Ipc
 
-  // deserialize the scan request
-  if (!arrow::dataset::DeserializeScanRequest(&filter, &partition_expression,
-                                              &projection_schema, &dataset_schema,
-                                              file_size, *in)
-           .ok())
-    return -1;
-
-  // scan the parquet object
-  std::shared_ptr<arrow::Table> table;
-  arrow::Status s =
-      ScanParquetObject(hctx, filter, partition_expression, projection_schema,
-                        dataset_schema, table, file_size);
-  if (!s.ok()) {
+  // Deserialize the scan request
+  if (!(s = arrow::dataset::DeserializeScanRequest(&filter, &partition_expression,
+                                                   &projection_schema, &dataset_schema,
+                                                   file_size, file_format, *in))
+           .ok()) {
     CLS_LOG(0, "error: %s", s.message().c_str());
-    return -1;
+    return SCAN_REQ_DESER_ERR_CODE;
   }
 
-  // serialize the resultant table to send back to the client
+  // Scan the object
+  std::shared_ptr<arrow::Table> table;
+  if (file_format == 0) {
+    s = ScanParquetObject(hctx, filter, partition_expression, projection_schema,
+                          dataset_schema, table, file_size);
+  } else if (file_format == 1) {
+    s = ScanIpcObject(hctx, filter, partition_expression, projection_schema,
+                      dataset_schema, table, file_size);
+  } else {
+    s = arrow::Status::Invalid("Invalid file format");
+  }
+  if (!s.ok()) {
+    CLS_LOG(0, "error: %s", s.message().c_str());
+    return SCAN_ERR_CODE;
+  }
+
+  // Serialize the resultant table to send back to the client
   ceph::bufferlist bl;
-  if (!arrow::dataset::SerializeTable(table, bl).ok()) return -1;
+  if (!(s = arrow::dataset::SerializeTable(table, bl)).ok()) {
+    CLS_LOG(0, "error: %s", s.message().c_str());
+    return SCAN_RES_SER_ERR_CODE;
+  }
 
   *out = bl;
   return 0;
 }
 
 void __cls_init() {
-  CLS_LOG(0, "loading cls_arrow");
+  CLS_LOG(0, "info: loading cls_arrow");
 
   cls_register("arrow", &h_class);
 
