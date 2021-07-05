@@ -17,7 +17,7 @@
 
 package org.apache.arrow.flight.sql;
 
-import static org.apache.arrow.flight.sql.FlightSQLUtils.getArrowTypeFromJDBCType;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.getArrowTypeFromJDBCType;
 
 import java.io.File;
 import java.io.IOException;
@@ -259,7 +259,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
 
         final int precision = columns.getInt("DECIMAL_DIGITS");
         final int scale = columns.getInt("COLUMN_SIZE");
-        final ArrowType arrowType = FlightSQLUtils.getArrowTypeFromJDBCType(jdbcDataType, precision, scale);
+        final ArrowType arrowType = FlightSqlUtils.getArrowTypeFromJDBCType(jdbcDataType, precision, scale);
 
         final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
         fields.add(new Field(columnName, fieldType, null));
