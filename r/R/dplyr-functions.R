@@ -60,19 +60,19 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 nse_funcs$is <- function(object, class2) {
   if (is.string(class2)) {
     switch(class2,
-      # for R data types, pass off to is.*() functions
-      character = nse_funcs$is.character(object),
-      numeric = nse_funcs$is.numeric(object),
-      integer = nse_funcs$is.integer(object),
-      integer64 = nse_funcs$is.integer64(object),
-      logical = nse_funcs$is.logical(object),
-      factor = nse_funcs$is.factor(object),
-      list = nse_funcs$is.list(object),
-      # for Arrow data types, compare class2 with object$type()$ToString(),
-      # but first strip off any parameters to only compare the top-level data
-      # type,  and canonicalize class2
-      sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
-        canonical_type_str(class2)
+           # for R data types, pass off to is.*() functions
+           character = nse_funcs$is.character(object),
+           numeric = nse_funcs$is.numeric(object),
+           integer = nse_funcs$is.integer(object),
+           integer64 = nse_funcs$is.integer64(object),
+           logical = nse_funcs$is.logical(object),
+           factor = nse_funcs$is.factor(object),
+           list = nse_funcs$is.list(object),
+           # for Arrow data types, compare class2 with object$type()$ToString(),
+           # but first strip off any parameters to only compare the top-level data
+           # type,  and canonicalize class2
+           sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+             canonical_type_str(class2)
     )
   } else if (inherits(class2, "DataType")) {
     object$type() == as_type(class2)
@@ -273,9 +273,9 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
-    left = "utf8_ltrim_whitespace",
-    right = "utf8_rtrim_whitespace",
-    both = "utf8_trim_whitespace"
+                     left = "utf8_ltrim_whitespace",
+                     right = "utf8_rtrim_whitespace",
+                     both = "utf8_trim_whitespace"
   )
   Expression$create(trim_fun, string)
 }
@@ -286,8 +286,8 @@ nse_funcs$substr <- function(string, start, stop) {
     msg = "Start of length != 1 not supported in Arrow"
   )
   assert_that(
-    length(end) == 1,
-    msg = "End of length != 1 not supported in Arrow"
+    length(stop) == 1,
+    msg = "Stop of length != 1 not supported in Arrow"
   )
 
   if (start > stop) {
@@ -313,10 +313,33 @@ nse_funcs$substring <- function(text, first, last = 1000000L) {
 }
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
-  if (start < 0 || end < 0) {
-    warning("Negative counts not yet implemented for strings")
+  if(end <= -1) end <- .Machine$integer.max
+
+  assert_that(
+    length(start) == 1,
+    msg = "Start of length != 1 not supported in Arrow"
+  )
+  assert_that(
+    length(end) == 1,
+    msg = "end of length != 1 not supported in Arrow"
+  )
+
+  if (start > end) {
+    start <- 0
+    end <- 0
+  } else {
+    start <- max(0, start - 1)
+    end <- max(0, end)
+    start_end <- c(min(start, end), max(start, end))
+    start <- start_end[1]
+    end <- start_end[2]
   }
-  nse_funcs$substr(string, start = start, stop = end)
+
+  Expression$create(
+    "utf8_slice_codeunits",
+    string,
+    options = list(start = start, stop = end)
+  )
 }
 
 nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
@@ -430,7 +453,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     string,
     options = list(
       pattern =
-      opts$pattern,
+        opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )

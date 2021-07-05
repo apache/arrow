@@ -589,7 +589,7 @@ test_that("backreferences (substitutions) in string replacement", {
         "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
         "path `\\2` on server `\\1`",
         url
-        )
+      )
       ) %>%
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")
@@ -911,8 +911,8 @@ test_that("substrings", {
         bar1 = str_sub(foo, 1, 6), # Apache
         bar2 = str_sub(foo, 0, 6), # Apache
         bar3 = str_sub(foo, -1, 6), # Apache
-        bar4 = str_sub(foo, 6, 1), # ""
-        bar5 = str_sub(foo, -1, -2), # ""
+        bar4 = str_sub(foo, 6, 1), # "" NEEDS FIX
+        bar5 = str_sub(foo, -1, -2), # "" NEEDS FIX
         bar6 = str_sub(foo, 8, 12) # Arrow
       ) %>%
       select(bar1:bar6) %>%
