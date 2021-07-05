@@ -934,6 +934,28 @@ tasks:
       r_tag: {{ r_tag }}
 {% endfor %}
 
+  test-r-ubuntu-21.04:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
+      image: ubuntu-r
+
+  test-r-gcc-11:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
+        GCC_VERSION: 11
+      # S3 support is not buildable with gcc11 right now
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
+      image: ubuntu-r-only-r
+
   test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml

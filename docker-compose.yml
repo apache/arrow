@@ -110,6 +110,7 @@ x-hierarchy:
       - ubuntu-docs
     - ubuntu-python-sdist-test
     - ubuntu-r
+    - ubuntu-r-only-r
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -300,6 +301,7 @@ services:
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
+        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -1008,17 +1010,25 @@ services:
         arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     environment:
       <<: *ccache
       ARROW_R_CXXFLAGS: '-Werror'
       LIBARROW_BUILD: 'false'
       NOT_CRAN: 'true'
+      ARROW_R_DEV: ${ARROW_R_DEV}
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/r_test.sh /arrow"
+
+  ubuntu-r-only-r:
+    extends: ubuntu-r
+    command: >
+      /bin/bash -c "
         /arrow/ci/scripts/r_test.sh /arrow"
 
   r:
