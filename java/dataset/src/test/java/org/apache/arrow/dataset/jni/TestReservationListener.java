@@ -46,7 +46,7 @@ public class TestReservationListener extends TestDataset {
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
         pool, FileFormat.PARQUET,
         writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     long initReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     long reservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
@@ -75,7 +75,7 @@ public class TestReservationListener extends TestDataset {
     NativeMemoryPool pool = NativeMemoryPool.createListenable(listener);
     FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
         pool, FileFormat.PARQUET, writeSupport.getOutputURI());
-    ScanOptions options = new ScanOptions(new String[0], 100);
+    ScanOptions options = new ScanOptions(100);
     long initReservation = reserved.get();
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
     long reservation = reserved.get();

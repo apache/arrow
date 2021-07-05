@@ -26,12 +26,16 @@ public class ScanOptions {
 
   /**
    * Constructor.
-   * @param columns Projected columns. Empty for scanning all columns.
    * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+   * @param columns Projected columns. Null for scanning all columns.
    */
-  public ScanOptions(String[] columns, long batchSize) {
-    this.columns = columns;
+  public ScanOptions(long batchSize, String[] columns) {
     this.batchSize = batchSize;
+    this.columns = columns;
+  }
+
+  public ScanOptions(long batchSize) {
+    this(batchSize, null);
   }
 
   public String[] getColumns() {
