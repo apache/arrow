@@ -998,7 +998,7 @@ def write_csv(data, output_file, write_options=None,
     ----------
     data: pyarrow.RecordBatch or pyarrow.Table
         The data to write.
-    output_file: string, path, pyarrow.OutputStream or file-like object
+    output_file: string, path, pyarrow.NativeFile, or file-like object
         The location where to write the CSV data.
     write_options: pyarrow.csv.WriteOptions
         Options to configure writing the CSV data.
