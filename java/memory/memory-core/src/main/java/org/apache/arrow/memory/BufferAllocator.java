@@ -19,6 +19,9 @@ package org.apache.arrow.memory;
 
 import java.util.Collection;
 
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
+
 /**
  * Wrapper class to deal with byte buffer allocation. Ensures users only use designated methods.
  */
@@ -225,4 +228,11 @@ public interface BufferAllocator extends AutoCloseable {
    * a no-op.
    */
   void assertOpen();
+
+  /**
+   * Gets the rounding policy of the allocator.
+   */
+  default RoundingPolicy getRoundingPolicy() {
+    return DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY;
+  }
 }
