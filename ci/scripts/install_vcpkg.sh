@@ -19,13 +19,21 @@
 
 set -e
 
-# check that optional pyarrow modules are available
-# because pytest would just skip the pyarrow tests
-python -c "import pyarrow.parquet"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <vcpkg version> <target directory>"
+  exit 1
+fi
 
-# check that kartothek is correctly installed
-python -c "import kartothek"
+vcpkg_version=$1
+vcpkg_destination=$2
+vcpkg_patch=$(realpath $(dirname "${0}")/../vcpkg/ports.patch)
 
-pushd /kartothek
-# See ARROW-12314, test_load_dataframes_columns_raises_missing skipped because of changed error message
-pytest -n0 --ignore tests/cli/test_query.py -k "not test_load_dataframes_columns_raises_missing"
+git clone --depth 1 --branch ${vcpkg_version} https://github.com/microsoft/vcpkg ${vcpkg_destination}
+
+pushd ${vcpkg_destination}
+
+./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
+git apply --ignore-whitespace ${vcpkg_patch}
+echo "Patch successfully applied!"
+
+popd

@@ -30,73 +30,12 @@
 #include <signal.h>  // Needed for struct sigaction
 #endif
 
-#include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
-
-class Buffer;
-
-namespace io {
-
-// Output stream that just writes to stdout.
-class ARROW_EXPORT StdoutStream : public OutputStream {
- public:
-  StdoutStream();
-  ~StdoutStream() override {}
-
-  Status Close() override;
-  bool closed() const override;
-
-  Result<int64_t> Tell() const override;
-
-  Status Write(const void* data, int64_t nbytes) override;
-
- private:
-  int64_t pos_;
-};
-
-// Output stream that just writes to stderr.
-class ARROW_EXPORT StderrStream : public OutputStream {
- public:
-  StderrStream();
-  ~StderrStream() override {}
-
-  Status Close() override;
-  bool closed() const override;
-
-  Result<int64_t> Tell() const override;
-
-  Status Write(const void* data, int64_t nbytes) override;
-
- private:
-  int64_t pos_;
-};
-
-// Input stream that just reads from stdin.
-class ARROW_EXPORT StdinStream : public InputStream {
- public:
-  StdinStream();
-  ~StdinStream() override {}
-
-  Status Close() override;
-  bool closed() const override;
-
-  Result<int64_t> Tell() const override;
-
-  Result<int64_t> Read(int64_t nbytes, void* out) override;
-
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
-
- private:
-  int64_t pos_;
-};
-
-}  // namespace io
-
 namespace internal {
 
 // NOTE: 8-bit path strings on Windows are encoded using UTF-8.
@@ -398,6 +337,13 @@ Status SendSignalToThread(int signum, uint64_t thread_id);
 /// absolutely necessary (e.g. to generate a cryptographic secret).
 ARROW_EXPORT
 int64_t GetRandomSeed();
+
+/// \brief Get the current thread id
+///
+/// In addition to having the same properties as std::thread, the returned value
+/// is a regular integer value, which is more convenient than an opaque type.
+ARROW_EXPORT
+uint64_t GetThreadId();
 
 }  // namespace internal
 }  // namespace arrow

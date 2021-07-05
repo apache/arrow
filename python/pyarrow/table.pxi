@@ -664,7 +664,7 @@ cdef class RecordBatch(_PandasConvertible):
 
     def replace_schema_metadata(self, metadata=None):
         """
-        EXPERIMENTAL: Create shallow copy of record batch by replacing schema
+        Create shallow copy of record batch by replacing schema
         key-value metadata with the indicated new metadata (which may be None,
         which deletes any existing metadata
 
@@ -1331,7 +1331,7 @@ cdef class Table(_PandasConvertible):
 
     def replace_schema_metadata(self, metadata=None):
         """
-        EXPERIMENTAL: Create shallow copy of table by replacing schema
+        Create shallow copy of table by replacing schema
         key-value metadata with the indicated new metadata (which may be None),
         which deletes any existing metadata.
 

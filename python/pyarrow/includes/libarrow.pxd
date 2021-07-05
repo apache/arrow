@@ -1637,6 +1637,10 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+        CIOContext io_context
+
+        CCSVWriteOptions()
+        CCSVWriteOptions(CCSVWriteOptions&&)
 
         @staticmethod
         CCSVWriteOptions Defaults()
@@ -1658,10 +1662,12 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
             CIOContext, shared_ptr[CInputStream],
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
+    cdef CStatus WriteCSV(CTable&, CCSVWriteOptions& options, COutputStream*)
     cdef CStatus WriteCSV(
-        CTable&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
-    cdef CStatus WriteCSV(
-        CRecordBatch&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
+        CRecordBatch&, CCSVWriteOptions& options, COutputStream*)
+    cdef CResult[shared_ptr[CRecordBatchWriter]] MakeCSVWriter(
+        shared_ptr[COutputStream], shared_ptr[CSchema],
+        CCSVWriteOptions& options)
 
 
 cdef extern from "arrow/json/options.h" nogil:
@@ -1756,6 +1762,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         const CFunctionOptionsType* options_type() const
+        const char* type_name() const
         c_bool Equals(const CFunctionOptions& other)
         c_string ToString()
         CResult[shared_ptr[CBuffer]] Serialize() const

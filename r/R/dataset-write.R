@@ -57,7 +57,7 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = c("parquet", "feather", "arrow", "ipc"),
+                          format = c("parquet", "feather", "arrow", "ipc", "csv"),
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
