@@ -32,7 +32,6 @@ namespace Apache.Arrow.Ipc
 
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
-        private protected bool HasCreatedDictionaryMemo => _dictionaryMemo != null;
 
         public ArrowReaderImplementation()
         {

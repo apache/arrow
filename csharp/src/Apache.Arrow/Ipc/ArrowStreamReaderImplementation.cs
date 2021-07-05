@@ -28,6 +28,7 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
         private bool HasReadInitialDictionary { get; set; }
+        private bool HasCreatedDictionaryMemo => _dictionaryMemo != null;
 
         public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
