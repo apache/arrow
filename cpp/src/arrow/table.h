@@ -151,7 +151,7 @@ class ARROW_EXPORT Table {
   /// \brief Return new table with specified columns
   Result<std::shared_ptr<Table>> SelectColumns(const std::vector<int>& indices) const;
 
-  /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
+  /// \brief Replace schema key-value metadata with new metadata
   /// \since 0.5.0
   ///
   /// \param[in] metadata new KeyValueMetadata
