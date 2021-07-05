@@ -1476,7 +1476,13 @@ pre_buffer : bool, default True
             DeprecationWarning, stacklevel=2)
         return self._metadata.buffer_size
 
-    fs = property(operator.attrgetter('_metadata.fs'))
+    @property
+    def fs(self):
+        warnings.warn(
+            "ParquetDataset.fs attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.fs
+
     common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
@@ -1697,8 +1703,23 @@ class _ParquetDatasetV2:
 
     @property
     def pieces(self):
-        # TODO raise deprecation warning
+        warnings.warn(
+            "ParquetDataset.pieces attribute is deprecated, use the .fragments"
+            " attribute instead",
+            DeprecationWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
+
+    @property
+    def fragments(self):
+        return list(self._dataset.get_fragments())
+
+    @property
+    def files(self):
+        return self._dataset.files
+
+    @property
+    def filesystem(self):
+        return self._dataset.filesystem
 
 
 _read_table_docstring = """

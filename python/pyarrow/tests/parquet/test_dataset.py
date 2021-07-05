@@ -1634,3 +1634,11 @@ def test_parquet_dataset_deprecated_properties(tempdir):
 
     with pytest.warns(DeprecationWarning, match="ParquetDataset.buffer_size"):
         dataset.buffer_size
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.fs"):
+        dataset.fs
+
+    dataset2 = pq.ParquetDataset(path, use_legacy_dataset=False)
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.pieces"):
+        dataset2.pieces
