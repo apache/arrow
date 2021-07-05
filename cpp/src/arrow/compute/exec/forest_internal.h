@@ -30,7 +30,7 @@ namespace compute {
 /// A Forest is a view of a sorted range which carries an ancestry relation in addition
 /// to an ordering relation: each element's descendants appear directly after it.
 /// This can be used to efficiently skip subtrees when iterating through the range.
-class ARROW_EXPORT Forest {
+class Forest {
  public:
   Forest() = default;
 
