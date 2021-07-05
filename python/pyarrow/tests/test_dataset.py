@@ -27,6 +27,7 @@ import pytest
 
 import pyarrow as pa
 import pyarrow.csv
+import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import change_cwd, _filesystem_uri, FSProtocolClass
 
@@ -1363,6 +1364,39 @@ def test_fragments_parquet_subset_invalid(tempdir):
 
     with pytest.raises(ValueError):
         fragment.subset()
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_repr(tempdir, dataset):
+    # partitioned parquet dataset
+    fragment = list(dataset.get_fragments())[0]
+    assert (
+        repr(fragment) ==
+        "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
+        "partition=[key=xxx, group=1]>"
+    )
+
+    # single-file parquet dataset (no partition information in repr)
+    table, path = _create_single_file(tempdir)
+    dataset = ds.dataset(path, format="parquet")
+    fragment = list(dataset.get_fragments())[0]
+    assert (
+        repr(fragment) ==
+        "<pyarrow.dataset.ParquetFileFragment path={}>".format(
+            dataset.filesystem.normalize_path(str(path)))
+    )
+
+    # non-parquet format
+    path = tempdir / "data.feather"
+    pa.feather.write_feather(table, path)
+    dataset = ds.dataset(path, format="feather")
+    fragment = list(dataset.get_fragments())[0]
+    assert (
+        repr(fragment) ==
+        "<pyarrow.dataset.FileFragment type=ipc path={}>".format(
+            dataset.filesystem.normalize_path(str(path)))
+    )
 
 
 def test_partitioning_factory(mockfs):
