@@ -60,7 +60,7 @@ Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
 
 /// \brief Create a new CSV writer.
 ///
-/// \param[in] sink output stream to write to
+/// \param[in] sink output stream to write to (does not take ownership)
 /// \param[in] schema the schema of the record batches to be written
 /// \param[in] options options for serialization
 /// \return Result<std::shared_ptr<RecordBatchWriter>>

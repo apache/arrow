@@ -295,8 +295,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       ASSIGN_OR_RAISE(populators[col], MakePopulator(*schema->field(col), end_char,
                                                      options.io_context.pool()));
     }
-    auto writer = std::shared_ptr<CSVWriterImpl>(new CSVWriterImpl(
-        sink, std::move(owned_sink), std::move(schema), std::move(populators), options));
+    auto writer = std::make_shared<CSVWriterImpl>(
+        sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
     RETURN_NOT_OK(writer->PrepareForContentsWrite());
     if (options.include_header) {
       RETURN_NOT_OK(writer->WriteHeader());
@@ -334,7 +334,6 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
   ipc::WriteStats stats() const override { return stats_; }
 
- private:
   CSVWriterImpl(io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
                 std::shared_ptr<Schema> schema,
                 std::vector<std::unique_ptr<ColumnPopulator>> populators,
@@ -346,6 +345,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
         schema_(std::move(schema)),
         options_(options) {}
 
+ private:
   Status PrepareForContentsWrite() {
     // Only called once, as part of initialization
     if (data_buffer_ == nullptr) {
