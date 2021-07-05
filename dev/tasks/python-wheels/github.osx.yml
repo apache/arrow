@@ -91,6 +91,7 @@ jobs:
       - name: Build Wheel
         env:
           CONFIG_PATH: /dev/null
+          BUILD_PREFIX: ......
         run: |
           # configure environment and install python
           source multibuild/common_utils.sh

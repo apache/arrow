@@ -50,6 +50,7 @@ if(${CMAKE_VERSION} VERSION_LESS "3.18.0" OR ARROW_BUILD_TESTS)
     find_package(Python3 COMPONENTS Interpreter Development NumPy)
   endif()
 else()
+  message(STATUS "=================================")
   if(Python3Alt_FIND_REQUIRED)
     find_package(Python3
                  COMPONENTS Interpreter Development.Module NumPy
