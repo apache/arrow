@@ -89,7 +89,7 @@ struct DayOfWeekExec {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    DayOfWeekOptions options = DayOfWeekState::Get(ctx);
+    const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
     if (options.week_start < 1 || 7 < options.week_start) {
       return Status::Invalid(
           "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
@@ -148,7 +148,7 @@ struct Day {
 
 template <typename Duration>
 struct DayOfWeek {
-  explicit DayOfWeek(DayOfWeekOptions options) : options(options) {
+  explicit DayOfWeek(const DayOfWeekOptions& options) {
     for (int i = 0; i < 7; i++) {
       lookup_table[i] = i + 8 - options.week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
@@ -165,7 +165,6 @@ struct DayOfWeek {
     return lookup_table[wd - 1];
   }
   std::array<int64_t, 7> lookup_table;
-  DayOfWeekOptions options;
 };
 
 // ----------------------------------------------------------------------
