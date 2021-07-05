@@ -22,7 +22,17 @@ option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
 
 /*
- * Wrapper for the result of a "GetSQLInfo" action.
+ * Represents a metadata request. Used in the command member of FlightDescriptor
+ * for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  info_name: utf8,
+ *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+ * >
+ * where there is one row per requested piece of metadata information.
  */
 message ActionGetSQLInfoResult {
   /*
@@ -84,7 +94,16 @@ message ActionGetSQLInfoResult {
 }
 
 /*
- * Wrapper for values returned in ActionGetSQLInfoResult.
+ Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8
+ * >
+ * The returned data should be ordered by catalog_name.
  */
 message GetSQLInfoValue {
   oneof value {
@@ -98,9 +117,17 @@ message GetSQLInfoValue {
 }
 
 /*
- * Request message for the "GetCatalogs" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of catalogs available in the server.
+ * Represents a request to retrieve the list of schemas on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8,
+ *  schema_name: utf8
+ * >
+ * The returned data should be ordered by catalog_name, then schema_name.
  */
 message ActionGetCatalogsRequest {
   /*
@@ -117,9 +144,20 @@ message ActionGetCatalogsResult {
 }
 
 /*
- * Request message for the "GetSchemas" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of schemas available in the server.
+ * Represents a request to retrieve the list of tables, and optionally their schemas, on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8,
+ *  schema_name: utf8,
+ *  table_name: utf8,
+ *  table_type: utf8,
+ *  table_schema: bytes
+ * >
+ * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
  */
 message ActionGetSchemasRequest {
   /*
@@ -182,7 +220,16 @@ message ActionGetTablesRequest {
 }
 
 /*
- * Wrap the result of a "GetTables" action.
+ * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  table_type: utf8
+ * >
+ * The returned data should be ordered by table_type.
  */
 message ActionGetTablesResult {
   string catalog = 1;

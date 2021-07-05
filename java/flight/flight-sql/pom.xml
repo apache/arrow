@@ -10,13 +10,13 @@
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
   <parent>
     <artifactId>arrow-java-root</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>4.0.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
-  <modelVersion>4.0.0</modelVersion>
 
   <artifactId>flight-sql</artifactId>
   <name>Arrow Flight SQL</name>
@@ -83,13 +83,6 @@
       <groupId>io.grpc</groupId>
       <artifactId>grpc-api</artifactId>
       <version>${dep.grpc.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>flight-core</artifactId>
-      <version>${project.version}</version>
-      <classifier>tests</classifier>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -163,7 +156,7 @@
             <id>test</id>
             <configuration>
               <protoSourceRoot>${basedir}/src/test/protobuf</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-test-sources//protobuf</outputDirectory>
+              <outputDirectory>${project.build.directory}/generated-test-sources/protobuf</outputDirectory>
             </configuration>
             <goals>
               <goal>compile</goal>

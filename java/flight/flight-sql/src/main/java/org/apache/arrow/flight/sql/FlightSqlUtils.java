@@ -34,7 +34,7 @@ import com.google.protobuf.Message;
 /**
  * Utilities to work with Flight SQL semantics.
  */
-public final class FlightSQLUtils {
+public final class FlightSqlUtils {
 
   private static final int BIT_WIDTH8 = 8;
   private static final int BIT_WIDTH_16 = 16;
@@ -43,35 +43,10 @@ public final class FlightSQLUtils {
   private static final boolean IS_SIGNED_FALSE = false;
   private static final boolean IS_SIGNED_TRUE = true;
 
-  public static final ActionType FLIGHT_SQL_GETSQLINFO = new ActionType("GetSQLINFO",
-          "Retrieves details of SQL capabilities of the Flight server. \n" +
-                  "Request Message: N/A\n" +
-                  "Response Message: ActionGetSQLInfoResult");
-
-  public static final ActionType FLIGHT_SQL_GETCATALOGS = new ActionType("GetCatalogs",
-          "Retrieves a list of all catalogs available on the server. \n" +
-                  "Request Message: ActionGetCatalogsRequest\n" +
-                  "Response Message: ActionGetCatalogsResult");
-
-  public static final ActionType FLIGHT_SQL_GETSCHEMAS = new ActionType("GetSchemas",
-          "Retrieves a list of schemas available on the server. \n" +
-                  "Request Message: ActionGetSchemasRequest\n" +
-                  "Response Message: ActionGetSchemasResult");
-
-  public static final ActionType FLIGHT_SQL_GETTABLES = new ActionType("GetTables",
-          "Retrieves a list of tables available on the server. \n" +
-                  "Request Message: ActionGetTablesRequest\n" +
-                  "Response Message: ActionGetTablesResult");
-
-  public static final ActionType FLIGHT_SQL_GETTABLETYPES = new ActionType("GetTableTypes",
-          "Retrieves a list of table types available on the server. \n" +
-                  "Request Message: N/A\n" +
-                  "Response Message: ActionGetTableTypesResult");
-
-  public static final ActionType FLIGHT_SQL_GETPREPAREDSTATEMENT = new ActionType("GetPreparedStatement",
+  public static final ActionType FLIGHT_SQL_CREATEPREPAREDSTATEMENT = new ActionType("CreatePreparedStatement",
           "Creates a reusable prepared statement resource on the server. \n" +
-                  "Request Message: ActionGetPreparedStatementRequest\n" +
-                  "Response Message: ActionGetPreparedStatementResult");
+                  "Request Message: ActionCreatePreparedStatementRequest\n" +
+                  "Response Message: ActionCreatePreparedStatementResult");
 
   public static final ActionType FLIGHT_SQL_CLOSEPREPAREDSTATEMENT = new ActionType("ClosePreparedStatement",
           "Closes a reusable prepared statement resource on the server. \n" +
@@ -79,12 +54,7 @@ public final class FlightSQLUtils {
                   "Response Message: N/A");
 
   public static final List<ActionType> FLIGHT_SQL_ACTIONS = ImmutableList.of(
-          FLIGHT_SQL_GETSQLINFO,
-          FLIGHT_SQL_GETCATALOGS,
-          FLIGHT_SQL_GETSCHEMAS,
-          FLIGHT_SQL_GETTABLES,
-          FLIGHT_SQL_GETTABLETYPES,
-          FLIGHT_SQL_GETPREPAREDSTATEMENT,
+          FLIGHT_SQL_CREATEPREPAREDSTATEMENT,
           FLIGHT_SQL_CLOSEPREPAREDSTATEMENT
   );
 
@@ -155,7 +125,6 @@ public final class FlightSQLUtils {
       case Types.TIMESTAMP_WITH_TIMEZONE:
       default:
         return ArrowType.Utf8.INSTANCE;
-      //        throw new UnsupportedOperationException();
     }
   }
 
