@@ -102,6 +102,8 @@ jobs:
                                 check_dir = 'check',
                                 timeout = 3600
             )
+        - name: Setup tmate session
+          uses: mxschmitt/action-tmate@v3
         - name: Dump install logs
           shell: cmd
           run: cat check/arrow.Rcheck/00install.out
