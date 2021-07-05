@@ -25,7 +25,7 @@ package arrow.flight.protocol.sql;
  * Represents a metadata request. Used in the command member of FlightDescriptor
  * for the following RPC calls:
  *  - GetSchema: return the schema of the query.
- *  - GetFlightInfo: execute the query.
+ *  - GetFlightInfo: execute the metadata request.
  *
  * The returned schema will be:
  * <
@@ -97,7 +97,7 @@ message CommandGetSqlInfo {
  Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
- *  - GetFlightInfo: execute the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
  *
  * The returned schema will be:
  * <
@@ -112,7 +112,7 @@ message CommandGetCatalogs {
  * Represents a request to retrieve the list of schemas on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
- *  - GetFlightInfo: execute the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
  *
  * The returned schema will be:
  * <
@@ -142,7 +142,7 @@ message CommandGetSchemas {
  * Represents a request to retrieve the list of tables, and optionally their schemas, on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
- *  - GetFlightInfo: execute the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
  *
  * The returned schema will be:
  * <
@@ -188,7 +188,7 @@ message CommandGetTables {
  * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
- *  - GetFlightInfo: execute the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
  *
  * The returned schema will be:
  * <
