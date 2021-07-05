@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/function_registry_arithmetic.h"
+
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -158,6 +159,22 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // bround functions
       NativeFunction("bround", {}, DataTypeVector{float64()}, float64(),
                      kResultNullIfNull, "bround_float64"),
+
+      // positive and negative functions
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, float64, float64),
+      UNARY_SAFE_NULL_IF_NULL(negative, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(negative, {}, float64, float64),
+
+      NativeFunction("negative", {}, DataTypeVector{int32()}, int32(), kResultNullIfNull,
+                     "negative_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{int64()}, int64(), kResultNullIfNull,
+                     "negative_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),

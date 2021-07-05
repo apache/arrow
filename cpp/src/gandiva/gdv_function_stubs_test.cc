@@ -20,8 +20,8 @@
 #include <gandiva/precompiled/testing.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "arrow/util/logging.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
 
 namespace gandiva {
