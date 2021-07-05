@@ -241,8 +241,11 @@ struct DecimalGenerator {
   std::shared_ptr<DataType> type_;
   RandomArrayGenerator* rng_;
 
-  static int64_t MaxDecimalInteger(int32_t digits) {
-    return static_cast<int64_t>(std::llround(std::pow(10.0, digits)) - 1);
+  static uint64_t MaxDecimalInteger(int32_t digits) {
+    // Need to decrement *after* the cast to uint64_t because, while
+    // 10**x is exactly representable in a double for x <= 19,
+    // 10**x - 1 is not.
+    return static_cast<uint64_t>(std::ceil(std::pow(10.0, digits))) - 1;
   }
 
   std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability) {
@@ -268,6 +271,7 @@ struct DecimalGenerator {
       const auto digits = std::min(kMaxDigitsInInteger, remaining_digits);
       digit_arrays[i] = checked_pointer_cast<UInt64Array>(
           rng_->UInt64(size, 0, MaxDecimalInteger(digits)));
+      DCHECK_EQ(digit_arrays[i]->null_count(), 0);
       remaining_digits -= digits;
     }
 
@@ -284,7 +288,7 @@ struct DecimalGenerator {
         DecimalValue dec_value{0};
         for (int j = 0; j < kNumIntegers; ++j) {
           dec_value =
-              dec_value * kDigitsMultiplier + Decimal128(digit_arrays[j]->Value(i));
+              dec_value * kDigitsMultiplier + DecimalValue(digit_arrays[j]->Value(i));
         }
         if (sign_array->Value(i)) {
           builder.UnsafeAppend(dec_value.Negate());
