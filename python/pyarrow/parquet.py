@@ -1171,6 +1171,12 @@ def _open_dataset_file(dataset, path, meta=None):
     )
 
 
+_DEPR_MSG = (
+    "'{}' attribute is deprecated as of pyarrow 5.0.0 and will be removed "
+    "in a future version.{}"
+)
+
+
 _read_docstring_common = """\
 read_dictionary : list, default None
     List of names or column paths (for nested types) to read directly
@@ -1461,35 +1467,39 @@ pre_buffer : bool, default True
     @property
     def pieces(self):
         warnings.warn(
-            "ParquetDataset.pieces attribute is deprecated",
+            _DEPR_MSG.format(
+                "ParquetDataset.pieces",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.fragments' attribute "
+                "instead."),
             DeprecationWarning, stacklevel=2)
         return self._pieces
 
     @property
     def partitions(self):
         warnings.warn(
-            "ParquetDataset.partitions attribute is deprecated",
+            _DEPR_MSG.format("ParquetDataset.partitions", ""),
             DeprecationWarning, stacklevel=2)
         return self._partitions
 
     @property
     def memory_map(self):
         warnings.warn(
-            "ParquetDataset.memory_map attribute is deprecated",
+            _DEPR_MSG.format("ParquetDataset.memory_map", ""),
             DeprecationWarning, stacklevel=2)
         return self._metadata.memory_map
 
     @property
     def read_dictionary(self):
         warnings.warn(
-            "ParquetDataset.read_dictionary attribute is deprecated",
+            _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
             DeprecationWarning, stacklevel=2)
         return self._metadata.read_dictionary
 
     @property
     def buffer_size(self):
         warnings.warn(
-            "ParquetDataset.buffer_size attribute is deprecated",
+            _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
             DeprecationWarning, stacklevel=2)
         return self._metadata.buffer_size
 
@@ -1500,7 +1510,11 @@ pre_buffer : bool, default True
     @property
     def fs(self):
         warnings.warn(
-            "ParquetDataset.fs attribute is deprecated",
+            _DEPR_MSG.format(
+                "ParquetDataset.fs",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.filesystem' attribute "
+                "instead."),
             DeprecationWarning, stacklevel=2)
         return self._metadata.fs
 
@@ -1726,8 +1740,8 @@ class _ParquetDatasetV2:
     @property
     def pieces(self):
         warnings.warn(
-            "ParquetDataset.pieces attribute is deprecated, use the .fragments"
-            " attribute instead",
+            _DEPR_MSG.format("ParquetDataset.pieces",
+                             " Use the '.fragments' attribute instead"),
             DeprecationWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
 

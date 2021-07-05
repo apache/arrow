@@ -142,7 +142,7 @@ def test_read_partitioned_directory(tempdir, use_legacy_dataset):
     _partition_test_for_filesystem(fs, tempdir, use_legacy_dataset)
 
 
-@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 def test_create_parquet_dataset_multi_threaded(tempdir):
     fs = LocalFileSystem._get_instance()
@@ -983,7 +983,7 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
-@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_dataset_memory_map(tempdir, use_legacy_dataset):
@@ -1373,7 +1373,7 @@ def test_write_to_dataset_no_partitions_s3fs(
         path, use_legacy_dataset, filesystem=fs)
 
 
-@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 @parametrize_legacy_dataset_not_supported
 def test_write_to_dataset_with_partitions_and_custom_filenames(
@@ -1600,7 +1600,7 @@ def test_parquet_dataset_new_filesystem(tempdir):
     assert result.equals(table)
 
 
-@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:'ParquetDataset:DeprecationWarning")
 def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec
@@ -1623,25 +1623,25 @@ def test_parquet_dataset_deprecated_properties(tempdir):
     pq.write_table(table, path)
     dataset = pq.ParquetDataset(path)
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.pieces"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.pieces"):
         dataset.pieces
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.partitions"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.partitions"):
         dataset.partitions
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.memory_map"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.memory_map"):
         dataset.memory_map
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.read_diction"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.read_dictio"):
         dataset.read_dictionary
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.buffer_size"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.buffer_size"):
         dataset.buffer_size
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.fs"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.fs"):
         dataset.fs
 
     dataset2 = pq.ParquetDataset(path, use_legacy_dataset=False)
 
-    with pytest.warns(DeprecationWarning, match="ParquetDataset.pieces"):
+    with pytest.warns(DeprecationWarning, match="'ParquetDataset.pieces"):
         dataset2.pieces
