@@ -725,6 +725,23 @@ class ParquetDatasetPiece:
 
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
+        warnings.warn(
+            "ParquetDatasetPiece is deprecated as of pyarrow 5.0.0 and will "
+            "be removed in a future version.",
+            DeprecationWarning, stacklevel=2)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+
+    @staticmethod
+    def _create(path, open_file_func=partial(open, mode='rb'),
+                file_options=None, row_group=None, partition_keys=None):
+        self = ParquetDatasetPiece.__new__(ParquetDatasetPiece)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+        return self
+
+    def _init(self, path, open_file_func, file_options, row_group,
+              partition_keys):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
         self.row_group = row_group
@@ -1107,8 +1124,8 @@ class ParquetManifest:
 
     def _push_pieces(self, files, part_keys):
         self.pieces.extend([
-            ParquetDatasetPiece(path, partition_keys=part_keys,
-                                open_file_func=self.open_file_func)
+            ParquetDatasetPiece._create(path, partition_keys=part_keys,
+                                        open_file_func=self.open_file_func)
             for path in files
         ])
 
@@ -1284,12 +1301,12 @@ pre_buffer : bool, default True
          self._partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
-             path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
+             path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
              open_file_func=partial(_open_dataset_file, self._metadata)
         )
 
         if self.common_metadata_path is not None:
-            with self.fs.open(self.common_metadata_path) as f:
+            with self._fs.open(self.common_metadata_path) as f:
                 self._metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
@@ -1298,7 +1315,7 @@ pre_buffer : bool, default True
             self._metadata.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
-            with self.fs.open(self.metadata_path) as f:
+            with self._fs.open(self.metadata_path) as f:
                 self.metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.metadata = metadata
@@ -1321,7 +1338,7 @@ pre_buffer : bool, default True
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
 
-        if self.fs.__class__ != other.fs.__class__:
+        if self._fs.__class__ != other._fs.__class__:
             return False
         for prop in ('paths', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
@@ -1476,6 +1493,10 @@ pre_buffer : bool, default True
             DeprecationWarning, stacklevel=2)
         return self._metadata.buffer_size
 
+    _fs = property(
+            operator.attrgetter('_metadata.fs')
+        )
+
     @property
     def fs(self):
         warnings.warn(
@@ -1520,7 +1541,8 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
             if not fs.isfile(path):
                 raise OSError('Passed non-file path: {}'
                               .format(path))
-            piece = ParquetDatasetPiece(path, open_file_func=open_file_func)
+            piece = ParquetDatasetPiece._create(
+                path, open_file_func=open_file_func)
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path

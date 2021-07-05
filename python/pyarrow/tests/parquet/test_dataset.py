@@ -57,7 +57,8 @@ def test_parquet_piece_read(tempdir):
     path = tempdir / 'parquet_piece_read.parquet'
     _write_table(table, path, version='2.0')
 
-    piece1 = pq.ParquetDatasetPiece(path)
+    with pytest.warns(DeprecationWarning):
+        piece1 = pq.ParquetDatasetPiece(path)
 
     result = piece1.read()
     assert result.equals(table)
@@ -71,7 +72,8 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     path = tempdir / 'parquet_piece_read.parquet'
     _write_table(table, path, version='2.0')
 
-    piece = pq.ParquetDatasetPiece(path)
+    with pytest.warns(DeprecationWarning):
+        piece = pq.ParquetDatasetPiece(path)
     table1 = piece.read()
     assert isinstance(table1, pa.Table)
     meta1 = piece.get_metadata()
@@ -80,6 +82,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
     assert table.equals(table1)
 
 
+@pytest.mark.filterwarnings("ignore:ParquetDatasetPiece:DeprecationWarning")
 def test_parquet_piece_basics():
     path = '/baz.parq'
 
