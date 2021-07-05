@@ -810,7 +810,7 @@ test_that("type checks with is_*()", {
 
 test_that("type checks on expressions", {
   skip_if(
-    getRversion() <= "3.5.0",
+    getRversion() < "4.0.0",
     "Message"
   )
   expect_dplyr_equal(
