@@ -809,6 +809,10 @@ test_that("type checks with is_*()", {
 })
 
 test_that("type checks on expressions", {
+  skip_if(
+    getRversion() <= "3.5.0",
+    "Message"
+  )
   expect_dplyr_equal(
     input %>%
       transmute(
