@@ -265,7 +265,9 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
   // with Write / WriteNull calls
   void WriteNull() { *values++ = T{}; }
 
-  void WriteAllNull(int64_t length) { std::memset(values, 0, sizeof(T) * length); }
+  void WriteAllNull(int64_t length) {
+    std::memset(static_cast<void*>(values), 0, sizeof(T) * length);
+  }
 };
 
 // (Un)box Scalar to / from C++ value
