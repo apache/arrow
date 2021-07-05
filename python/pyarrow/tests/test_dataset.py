@@ -1383,7 +1383,8 @@ def test_fragments_repr(tempdir, dataset):
     fragment = list(dataset.get_fragments())[0]
     assert (
         repr(fragment) ==
-        "<pyarrow.dataset.ParquetFileFragment path={}>".format(path)
+        "<pyarrow.dataset.ParquetFileFragment path={}>".format(
+            dataset.filesystem.normalize_path(str(path)))
     )
 
     # non-parquet format
@@ -1393,7 +1394,8 @@ def test_fragments_repr(tempdir, dataset):
     fragment = list(dataset.get_fragments())[0]
     assert (
         repr(fragment) ==
-        "<pyarrow.dataset.FileFragment type=ipc path={}>".format(path)
+        "<pyarrow.dataset.FileFragment type=ipc path={}>".format(
+            dataset.filesystem.normalize_path(str(path)))
     )
 
 

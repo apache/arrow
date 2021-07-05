@@ -1060,16 +1060,16 @@ cdef class FileFragment(Fragment):
     def __repr__(self):
         type_name = frombytes(self.fragment.type_name())
         if type_name != "parquet":
-            typ = " type={0}".format(type_name)
+            typ = f" type={type_name}"
         else:
             # parquet has a subclass -> type embedded in class name
             typ = ""
         partition_dict = _get_partition_keys(self.partition_expression)
         partition = ", ".join(
-            ["{0}={1}".format(key, val) for key, val in partition_dict.items()]
+            [f"{key}={val}" for key, val in partition_dict.items()]
         )
         if partition:
-            partition = " partition=[{0}]".format(partition)
+            partition = f" partition=[{partition}]"
         return "<pyarrow.dataset.{0}{1} path={2}{3}>".format(
             self.__class__.__name__, typ, self.path, partition
         )
