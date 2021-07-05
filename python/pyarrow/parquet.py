@@ -706,10 +706,16 @@ def _get_pandas_index_columns(keyvalues):
 
 class ParquetDatasetPiece:
     """
-    A single chunk of a potentially larger Parquet dataset to read.
+    DEPRECATED: A single chunk of a potentially larger Parquet dataset to read.
 
     The arguments will indicate to read either a single row group or all row
     groups, and whether to add partition keys to the resulting pyarrow.Table.
+
+    .. deprecated:: 5.0
+        Directly constructing a ``ParquetDatasetPiece`` is deprecated, as well
+        as accessing the pieces of a ``ParquetDataset`` object. Specify
+        ``use_legacy_dataset=False`` when constructing the ``ParquetDataset``
+        and use the ``ParquetDataset.fragments`` attribute instead.
 
     Parameters
     ----------
