@@ -1510,8 +1510,8 @@ pre_buffer : bool, default True
         return self._metadata.buffer_size
 
     _fs = property(
-            operator.attrgetter('_metadata.fs')
-        )
+        operator.attrgetter('_metadata.fs')
+    )
 
     @property
     def fs(self):
