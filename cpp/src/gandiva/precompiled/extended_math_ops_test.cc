@@ -288,7 +288,7 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
 
   out_str = bin_int32(ctx_ptr, -28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
-            "1111111111111111111111111111111111111111111111111001000001111010");
+            "11111111111111111001000001111010");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = bin_int32(ctx_ptr, 58117, &out_len);
@@ -297,7 +297,7 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
 
   out_str = bin_int32(ctx_ptr, -58117, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
-            "1111111111111111111111111111111111111111111111110001110011111011");
+            "11111111111111110001110011111011");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = bin_int32(ctx_ptr, INT32_MAX, &out_len);
@@ -306,7 +306,7 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
 
   out_str = bin_int32(ctx_ptr, INT32_MIN, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
-            "1111111111111111111111111111111110000000000000000000000000000000");
+            "10000000000000000000000000000000");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = bin_int64(ctx_ptr, 7, &out_len);

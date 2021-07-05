@@ -367,27 +367,31 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
   return power_float64_float64(10.0, scale);
 }
 
-// convert input unsigned long to its binary representation
-void bin(uint64_t n, char* ret, int32_t* position) {
-  if (n > 1) {
-    bin(n / 2, ret, position);
-  }
-  ret[*position] = (n % 2) == 0 ? '0' : '1';
-  *position += 1;
-}
-
 // returns the binary representation of a given integer (e.g. 928 -> 1110100000)
 #define BIN_INTEGER(IN_TYPE)                                                          \
   FORCE_INLINE                                                                        \
   const char* bin_##IN_TYPE(int64_t context, gdv_##IN_TYPE value, int32_t* out_len) { \
     *out_len = 0;                                                                     \
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 64));    \
+    int32_t len = 8 * sizeof(value);                                                  \
+    char* ret =                                                                       \
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));             \
     if (ret == nullptr) {                                                             \
       gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
       return "";                                                                      \
     }                                                                                 \
-    /* generate binary representation recursively */                                  \
-    bin(value, ret, out_len);                                                         \
+    /* generate binary representation iteratively */                                  \
+    gdv_u##IN_TYPE i;                                                                 \
+    bool first = false; /* flag for not printing left zeros in positive numbers */    \
+    for (i = 1L << (len - 1); i > 0; i = i / 2) {                                     \
+      if ((value & i) != 0) {                                                         \
+        ret[*out_len] = '1';                                                          \
+        if (!first) first = true;                                                     \
+      } else {                                                                        \
+        if (!first) continue;                                                         \
+        ret[*out_len] = '0';                                                          \
+      }                                                                               \
+      *out_len += 1;                                                                  \
+    }                                                                                 \
     return ret;                                                                       \
   }
 
