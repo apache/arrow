@@ -31,7 +31,8 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
-from pyarrow._csv cimport ConvertOptions, ParseOptions, ReadOptions
+from pyarrow._csv cimport (
+    ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
@@ -761,20 +762,21 @@ cdef class FileWriteOptions(_Weakrefable):
 
     cdef:
         shared_ptr[CFileWriteOptions] wrapped
-        CFileWriteOptions* options
+        CFileWriteOptions* c_options
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         self.wrapped = sp
-        self.options = sp.get()
+        self.c_options = sp.get()
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileWriteOptions]& sp):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
+            'csv': CsvFileWriteOptions,
             'ipc': IpcFileWriteOptions,
             'parquet': ParquetFileWriteOptions,
         }
@@ -789,7 +791,7 @@ cdef class FileWriteOptions(_Weakrefable):
 
     @property
     def format(self):
-        return FileFormat.wrap(self.options.format())
+        return FileFormat.wrap(self.c_options.format())
 
     cdef inline shared_ptr[CFileWriteOptions] unwrap(self):
         return self.wrapped
@@ -1752,8 +1754,11 @@ cdef class CsvFileFormat(FileFormat):
         FileFormat.init(self, sp)
         self.csv_format = <CCsvFileFormat*> sp.get()
 
-    def make_write_options(self):
-        raise NotImplemented("writing CSV datasets")
+    def make_write_options(self, **kwargs):
+        cdef CsvFileWriteOptions opts = \
+            <CsvFileWriteOptions> FileFormat.make_write_options(self)
+        opts.write_options = WriteOptions(**kwargs)
+        return opts
 
     @property
     def parse_options(self):
@@ -1830,6 +1835,28 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     def __reduce__(self):
         return CsvFragmentScanOptions, (self.convert_options,
                                         self.read_options)
+
+
+cdef class CsvFileWriteOptions(FileWriteOptions):
+    cdef:
+        CCsvFileWriteOptions* csv_options
+        object _properties
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    @property
+    def write_options(self):
+        return WriteOptions.wrap(deref(self.csv_options.write_options))
+
+    @write_options.setter
+    def write_options(self, WriteOptions write_options not None):
+        self.csv_options.write_options.reset(
+            new CCSVWriteOptions(deref(write_options.options)))
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        FileWriteOptions.init(self, sp)
+        self.csv_options = <CCsvFileWriteOptions*> sp.get()
 
 
 cdef class Partitioning(_Weakrefable):
@@ -2018,8 +2045,8 @@ cdef class DirectoryPartitioning(Partitioning):
         if max_partition_dictionary_size in {-1, None}:
             infer_dictionary = True
         elif max_partition_dictionary_size != 0:
-            raise NotImplemented("max_partition_dictionary_size must be "
-                                 "0, -1, or None")
+            raise NotImplementedError("max_partition_dictionary_size must be "
+                                      "0, -1, or None")
 
         if infer_dictionary:
             c_options.infer_dictionary = True
@@ -2154,8 +2181,8 @@ cdef class HivePartitioning(Partitioning):
         if max_partition_dictionary_size in {-1, None}:
             infer_dictionary = True
         elif max_partition_dictionary_size != 0:
-            raise NotImplemented("max_partition_dictionary_size must be "
-                                 "0, -1, or None")
+            raise NotImplementedError("max_partition_dictionary_size must be "
+                                      "0, -1, or None")
 
         if infer_dictionary:
             c_options.infer_dictionary = True

@@ -311,6 +311,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         pass
 
+    cdef cppclass CCsvFileWriteOptions \
+            "arrow::dataset::CsvFileWriteOptions"(CFileWriteOptions):
+        shared_ptr[CCSVWriteOptions] write_options
+        CMemoryPool* pool
+
     cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
             CFileFormat):
         CCSVParseOptions parse_options

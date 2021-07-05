@@ -460,6 +460,10 @@ dataset___IpcFileWriteOptions__update1 <- function(ipc_options, use_legacy_forma
     invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update1`, ipc_options, use_legacy_format, metadata_version))
 }
 
+dataset___CsvFileWriteOptions__update <- function(csv_options, write_options){
+    invisible(.Call(`_arrow_dataset___CsvFileWriteOptions__update`, csv_options, write_options))
+}
+
 dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }

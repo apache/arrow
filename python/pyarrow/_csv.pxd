@@ -44,3 +44,11 @@ cdef class ReadOptions(_Weakrefable):
 
     @staticmethod
     cdef ReadOptions wrap(CCSVReadOptions options)
+
+
+cdef class WriteOptions(_Weakrefable):
+    cdef:
+        unique_ptr[CCSVWriteOptions] options
+
+    @staticmethod
+    cdef WriteOptions wrap(CCSVWriteOptions options)
