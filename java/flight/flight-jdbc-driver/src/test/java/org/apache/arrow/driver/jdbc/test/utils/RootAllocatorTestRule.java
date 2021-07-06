@@ -17,50 +17,21 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
-import java.math.BigDecimal;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.Decimal256Vector;
-import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TimeMicroVector;
-import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.TimeNanoVector;
-import org.apache.arrow.vector.TimeSecVector;
-import org.apache.arrow.vector.TimeStampMicroTZVector;
-import org.apache.arrow.vector.TimeStampMicroVector;
-import org.apache.arrow.vector.TimeStampMilliTZVector;
-import org.apache.arrow.vector.TimeStampMilliVector;
-import org.apache.arrow.vector.TimeStampNanoTZVector;
-import org.apache.arrow.vector.TimeStampNanoVector;
-import org.apache.arrow.vector.TimeStampSecTZVector;
-import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
-import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.LargeListVector;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
-import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -139,15 +110,6 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     }
 
     return result;
-  }
-
-  public Float8Vector createFloat8VectorForNullTests() {
-    final Float8Vector float8Vector = new Float8Vector("ID", this.getRootAllocator());
-    float8Vector.allocateNew(1);
-    float8Vector.setNull(0);
-    float8Vector.setValueCount(1);
-
-    return float8Vector;
   }
 
   /**
@@ -335,7 +297,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt1VectorValues.length) {
         result.setSafe(i, uInt1VectorValues[i]);
       } else {
-        result.setSafe(i, random.nextInt(0x100));
+        result.setSafe(i, 2 * random.nextInt(Byte.MAX_VALUE));
       }
     }
 
@@ -347,7 +309,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    *
    * @return UInt2Vector
    */
-  public UInt2Vector createUInt2Vector() {
+  public UInt2Vector createUInt2VectorVector() {
 
     int[] uInt2VectorValues = new int[] {
         0,
@@ -365,7 +327,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt2VectorValues.length) {
         result.setSafe(i, uInt2VectorValues[i]);
       } else {
-        result.setSafe(i, random.nextInt(0x10000));
+        result.setSafe(i, 2 * random.nextInt(Short.MAX_VALUE));
       }
     }
 
@@ -398,7 +360,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt4VectorValues.length) {
         result.setSafe(i, uInt4VectorValues[i]);
       } else {
-        result.setSafe(i, random.nextInt(Integer.MAX_VALUE));
+        result.setSafe(i, 2 * random.nextInt(Integer.MAX_VALUE));
       }
     }
 
@@ -432,370 +394,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt8VectorValues.length) {
         result.setSafe(i, uInt8VectorValues[i]);
       } else {
-        result.setSafe(i, random.nextLong());
+        result.setSafe(i, 2 * random.nextLong());
       }
     }
 
     return result;
-  }
-
-  /**
-   * Create a VarBinaryVector to be used in the accessor tests.
-   *
-   * @return VarBinaryVector
-   */
-  public VarBinaryVector createVarBinaryVector() {
-    VarBinaryVector valueVector = new VarBinaryVector("", this.getRootAllocator());
-    valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
-    valueVector.setValueCount(3);
-
-    return valueVector;
-  }
-
-  /**
-   * Create a LargeVarBinaryVector to be used in the accessor tests.
-   *
-   * @return LargeVarBinaryVector
-   */
-  public LargeVarBinaryVector createLargeVarBinaryVector() {
-    LargeVarBinaryVector valueVector = new LargeVarBinaryVector("", this.getRootAllocator());
-    valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
-    valueVector.setValueCount(3);
-
-    return valueVector;
-  }
-
-  /**
-   * Create a FixedSizeBinaryVector to be used in the accessor tests.
-   *
-   * @return FixedSizeBinaryVector
-   */
-  public FixedSizeBinaryVector createFixedSizeBinaryVector() {
-    FixedSizeBinaryVector valueVector = new FixedSizeBinaryVector("", this.getRootAllocator(), 16);
-    valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
-    valueVector.setValueCount(3);
-
-    return valueVector;
-  }
-
-  /**
-   * Create a UInt8Vector to be used in the accessor tests.
-   *
-   * @return UInt8Vector
-   */
-  public DecimalVector createDecimalVector() {
-
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727")
-    };
-
-    DecimalVector result = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
-    result.setValueCount(MAX_VALUE);
-    for (int i = 0; i < MAX_VALUE; i++) {
-      if (i < bigDecimalValues.length) {
-        result.setSafe(i, bigDecimalValues[i]);
-      } else {
-        result.setSafe(i, random.nextLong());
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Create a UInt8Vector to be used in the accessor tests.
-   *
-   * @return UInt8Vector
-   */
-  public Decimal256Vector createDecimal256Vector() {
-
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727"),
-        new BigDecimal("17014118346046923173168234157303715884105727"),
-        new BigDecimal("1701411834604692317316823415265417303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
-        new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
-        new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
-        new BigDecimal("57896044618658097711785492504343953926634992332820282019728792003956564819967"),
-        new BigDecimal("-56896044618658097711785492504343953926634992332820282019728792003956564819967")
-    };
-
-    Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
-    result.setValueCount(MAX_VALUE);
-    for (int i = 0; i < MAX_VALUE; i++) {
-      if (i < bigDecimalValues.length) {
-        result.setSafe(i, bigDecimalValues[i]);
-      } else {
-        result.setSafe(i, random.nextLong());
-      }
-    }
-
-    return result;
-  }
-
-  public TimeStampNanoVector createTimeStampNanoVector() {
-    TimeStampNanoVector valueVector = new TimeStampNanoVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampNanoTZVector createTimeStampNanoTZVector(String timeZone) {
-    TimeStampNanoTZVector valueVector = new TimeStampNanoTZVector("", this.getRootAllocator(), timeZone);
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampMicroVector createTimeStampMicroVector() {
-    TimeStampMicroVector valueVector = new TimeStampMicroVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toMicros(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toMicros(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampMicroTZVector createTimeStampMicroTZVector(String timeZone) {
-    TimeStampMicroTZVector valueVector = new TimeStampMicroTZVector("", this.getRootAllocator(), timeZone);
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toMicros(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toMicros(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampMilliVector createTimeStampMilliVector() {
-    TimeStampMilliVector valueVector = new TimeStampMilliVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 1625702400000L);
-    valueVector.setSafe(1, 1625788800000L);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampMilliTZVector createTimeStampMilliTZVector(String timeZone) {
-    TimeStampMilliTZVector valueVector = new TimeStampMilliTZVector("", this.getRootAllocator(), timeZone);
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 1625702400000L);
-    valueVector.setSafe(1, 1625788800000L);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampSecVector createTimeStampSecVector() {
-    TimeStampSecVector valueVector = new TimeStampSecVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toSeconds(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toSeconds(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public TimeStampSecTZVector createTimeStampSecTZVector(String timeZone) {
-    TimeStampSecTZVector valueVector = new TimeStampSecTZVector("", this.getRootAllocator(), timeZone);
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toSeconds(1625702400000L));
-    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toSeconds(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public BitVector createBitVector() {
-    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public BitVector createBitVectorForNullTests() {
-    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
-    bitVector.allocateNew(2);
-    bitVector.setNull(0);
-    bitVector.setValueCount(1);
-
-    return bitVector;
-  }
-
-  public TimeNanoVector createTimeNanoVector() {
-    TimeNanoVector valueVector = new TimeNanoVector("", this.getRootAllocator());
-    valueVector.allocateNew(5);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1_000_000_000L); // 1 second
-    valueVector.setSafe(2, 60 * 1_000_000_000L); // 1 minute
-    valueVector.setSafe(3, 60 * 60 * 1_000_000_000L); // 1 hour
-    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000_000_000L); // 23:59:59
-    valueVector.setValueCount(5);
-
-    return valueVector;
-  }
-
-  public TimeMicroVector createTimeMicroVector() {
-    TimeMicroVector valueVector = new TimeMicroVector("", this.getRootAllocator());
-    valueVector.allocateNew(5);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1_000_000L); // 1 second
-    valueVector.setSafe(2, 60 * 1_000_000L); // 1 minute
-    valueVector.setSafe(3, 60 * 60 * 1_000_000L); // 1 hour
-    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000_000L); // 23:59:59
-    valueVector.setValueCount(5);
-
-    return valueVector;
-  }
-
-  public TimeMilliVector createTimeMilliVector() {
-    TimeMilliVector valueVector = new TimeMilliVector("", this.getRootAllocator());
-    valueVector.allocateNew(5);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1_000); // 1 second
-    valueVector.setSafe(2, 60 * 1_000); // 1 minute
-    valueVector.setSafe(3, 60 * 60 * 1_000); // 1 hour
-    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000); // 23:59:59
-    valueVector.setValueCount(5);
-
-    return valueVector;
-  }
-
-  public TimeSecVector createTimeSecVector() {
-    TimeSecVector valueVector = new TimeSecVector("", this.getRootAllocator());
-    valueVector.allocateNew(5);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1); // 1 second
-    valueVector.setSafe(2, 60); // 1 minute
-    valueVector.setSafe(3, 60 * 60); // 1 hour
-    valueVector.setSafe(4, (24 * 60 * 60 - 1)); // 23:59:59
-    valueVector.setValueCount(5);
-
-    return valueVector;
-  }
-
-  public DateDayVector createDateDayVector() {
-    DateDayVector valueVector = new DateDayVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, (int) TimeUnit.MILLISECONDS.toDays(1625702400000L));
-    valueVector.setSafe(1, (int) TimeUnit.MILLISECONDS.toDays(1625788800000L));
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public DateMilliVector createDateMilliVector() {
-    DateMilliVector valueVector = new DateMilliVector("", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 1625702400000L);
-    valueVector.setSafe(1, 1625788800000L);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public ListVector createListVector() {
-    ListVector valueVector = ListVector.empty("", this.getRootAllocator());
-    valueVector.setInitialCapacity(MAX_VALUE);
-
-    UnionListWriter writer = valueVector.getWriter();
-
-    IntStream range = IntStream.range(0, MAX_VALUE);
-
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
-
-    valueVector.setValueCount(MAX_VALUE);
-
-    return valueVector;
-  }
-
-  public LargeListVector createLargeListVector() {
-    LargeListVector valueVector = LargeListVector.empty("", this.getRootAllocator());
-    valueVector.setInitialCapacity(MAX_VALUE);
-
-    UnionLargeListWriter writer = valueVector.getWriter();
-
-    IntStream range = IntStream.range(0, MAX_VALUE);
-
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
-
-    valueVector.setValueCount(MAX_VALUE);
-
-    return valueVector;
-  }
-
-  public FixedSizeListVector createFixedSizeListVector() {
-    FixedSizeListVector valueVector = FixedSizeListVector.empty("", 5, this.getRootAllocator());
-    valueVector.setInitialCapacity(MAX_VALUE);
-
-    UnionFixedSizeListWriter writer = valueVector.getWriter();
-
-    IntStream range = IntStream.range(0, MAX_VALUE);
-
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
-
-    valueVector.setValueCount(MAX_VALUE);
-
-    return valueVector;
   }
 }
