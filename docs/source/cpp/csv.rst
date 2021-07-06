@@ -107,6 +107,8 @@ A CSV file is written to a :class:`~arrow::io::OutputStream`.
        }
    }
 
+.. note:: The writer does not yet support all Arrow types.
+
 Column names
 ============
 

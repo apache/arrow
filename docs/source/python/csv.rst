@@ -75,6 +75,8 @@ file-like object::
   >>> with pa.CompressedOutputStream("tips.csv.gz", "gzip") as out:
   ...     csv.write_csv(table, out)
 
+.. note:: The writer does not yet support all Arrow types.
+
 Customized parsing
 ------------------
 
