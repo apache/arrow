@@ -19,13 +19,99 @@
 package encoding
 
 import (
+	"bytes"
+	"encoding/binary"
 	"math"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/endian"
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
+
+var (
+	writeInt32LE      func(*encoder, []int32)
+	copyFromInt32LE   func(dst []int32, src []byte)
+	writeInt64LE      func(*encoder, []int64)
+	copyFromInt64LE   func(dst []int64, src []byte)
+	writeInt96LE      func(*encoder, []parquet.Int96)
+	copyFromInt96LE   func(dst []parquet.Int96, src []byte)
+	writeFloat32LE    func(*encoder, []float32)
+	copyFromFloat32LE func(dst []float32, src []byte)
+	writeFloat64LE    func(*encoder, []float64)
+	copyFromFloat64LE func(dst []float64, src []byte)
+)
+
+func init() {
+	// int96 is already internally represented as little endian data
+	// no need to have special behavior on big endian architectures
+	// for read/write, consumers will need to be aware of the fact
+	// that it is internally 12 bytes little endian when attempting
+	// to utilize it.
+	writeInt96LE = func(e *encoder, in []parquet.Int96) {
+		e.append(parquet.Int96Traits.CastToBytes(in))
+	}
+	copyFromInt96LE = func(dst []parquet.Int96, src []byte) {
+		copy(parquet.Int96Traits.CastToBytes(dst), src)
+	}
+
+	if endian.IsBigEndian {
+		writeInt32LE = func(e *encoder, in []int32) {
+			binary.Write(e.sink, binary.LittleEndian, in)
+		}
+		copyFromInt32LE = func(dst []int32, src []byte) {
+			r := bytes.NewReader(src)
+			binary.Read(r, binary.LittleEndian, &dst)
+		}
+		writeInt64LE = func(e *encoder, in []int64) {
+			binary.Write(e.sink, binary.LittleEndian, in)
+		}
+		copyFromInt64LE = func(dst []int64, src []byte) {
+			r := bytes.NewReader(src)
+			binary.Read(r, binary.LittleEndian, &dst)
+		}
+		writeFloat32LE = func(e *encoder, in []float32) {
+			binary.Write(e.sink, binary.LittleEndian, in)
+		}
+		copyFromFloat32LE = func(dst []float32, src []byte) {
+			r := bytes.NewReader(src)
+			binary.Read(r, binary.LittleEndian, &dst)
+		}
+		writeFloat64LE = func(e *encoder, in []float64) {
+			binary.Write(e.sink, binary.LittleEndian, in)
+		}
+		copyFromFloat64LE = func(dst []float64, src []byte) {
+			r := bytes.NewReader(src)
+			binary.Read(r, binary.LittleEndian, &dst)
+		}
+	} else {
+		writeInt32LE = func(e *encoder, in []int32) {
+			e.append(arrow.Int32Traits.CastToBytes(in))
+		}
+		copyFromInt32LE = func(dst []int32, src []byte) {
+			copy(arrow.Int32Traits.CastToBytes(dst), src)
+		}
+		writeInt64LE = func(e *encoder, in []int64) {
+			e.append(arrow.Int64Traits.CastToBytes(in))
+		}
+		copyFromInt64LE = func(dst []int64, src []byte) {
+			copy(arrow.Int64Traits.CastToBytes(dst), src)
+		}
+		writeFloat32LE = func(e *encoder, in []float32) {
+			e.append(arrow.Float32Traits.CastToBytes(in))
+		}
+		copyFromFloat32LE = func(dst []float32, src []byte) {
+			copy(arrow.Float32Traits.CastToBytes(dst), src)
+		}
+		writeFloat64LE = func(e *encoder, in []float64) {
+			e.append(arrow.Float64Traits.CastToBytes(in))
+		}
+		copyFromFloat64LE = func(dst []float64, src []byte) {
+			copy(arrow.Float64Traits.CastToBytes(dst), src)
+		}
+	}
+}
 
 // PlainInt32Encoder is an encoder for int32 values using Plain Encoding
 // which in general is just storing the values as raw bytes of the appropriate size
@@ -37,7 +123,7 @@ type PlainInt32Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *PlainInt32Encoder) Put(in []int32) {
-	enc.append(arrow.Int32Traits.CastToBytes(in))
+	writeInt32LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -90,7 +176,7 @@ func (dec *PlainInt32Decoder) Decode(out []int32) (int, error) {
 		return 0, xerrors.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
-	copy(arrow.Int32Traits.CastToBytes(out), dec.data[:nbytes])
+	copyFromInt32LE(out, dec.data[:nbytes])
 	dec.data = dec.data[nbytes:]
 	dec.nvals -= max
 	return max, nil
@@ -142,7 +228,7 @@ type PlainInt64Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *PlainInt64Encoder) Put(in []int64) {
-	enc.append(arrow.Int64Traits.CastToBytes(in))
+	writeInt64LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -195,7 +281,7 @@ func (dec *PlainInt64Decoder) Decode(out []int64) (int, error) {
 		return 0, xerrors.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
-	copy(arrow.Int64Traits.CastToBytes(out), dec.data[:nbytes])
+	copyFromInt64LE(out, dec.data[:nbytes])
 	dec.data = dec.data[nbytes:]
 	dec.nvals -= max
 	return max, nil
@@ -247,7 +333,7 @@ type PlainInt96Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *PlainInt96Encoder) Put(in []parquet.Int96) {
-	enc.append(parquet.Int96Traits.CastToBytes(in))
+	writeInt96LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -300,7 +386,7 @@ func (dec *PlainInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 		return 0, xerrors.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
-	copy(parquet.Int96Traits.CastToBytes(out), dec.data[:nbytes])
+	copyFromInt96LE(out, dec.data[:nbytes])
 	dec.data = dec.data[nbytes:]
 	dec.nvals -= max
 	return max, nil
@@ -352,7 +438,7 @@ type PlainFloat32Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *PlainFloat32Encoder) Put(in []float32) {
-	enc.append(arrow.Float32Traits.CastToBytes(in))
+	writeFloat32LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -405,7 +491,7 @@ func (dec *PlainFloat32Decoder) Decode(out []float32) (int, error) {
 		return 0, xerrors.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
-	copy(arrow.Float32Traits.CastToBytes(out), dec.data[:nbytes])
+	copyFromFloat32LE(out, dec.data[:nbytes])
 	dec.data = dec.data[nbytes:]
 	dec.nvals -= max
 	return max, nil
@@ -457,7 +543,7 @@ type PlainFloat64Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *PlainFloat64Encoder) Put(in []float64) {
-	enc.append(arrow.Float64Traits.CastToBytes(in))
+	writeFloat64LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -510,7 +596,7 @@ func (dec *PlainFloat64Decoder) Decode(out []float64) (int, error) {
 		return 0, xerrors.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
 	}
 
-	copy(arrow.Float64Traits.CastToBytes(out), dec.data[:nbytes])
+	copyFromFloat64LE(out, dec.data[:nbytes])
 	dec.data = dec.data[nbytes:]
 	dec.nvals -= max
 	return max, nil

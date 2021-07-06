@@ -17,10 +17,60 @@
 package encoding
 
 import (
+  "encoding/binary"
+
   "github.com/apache/arrow/go/arrow"
   "github.com/apache/arrow/go/parquet"
   "github.com/apache/arrow/go/parquet/internal/utils"
 )
+
+var (
+{{range .In}}
+{{if and (ne .Name "Boolean") (ne .Name "ByteArray") (ne .Name "FixedLenByteArray") -}}
+	write{{.Name}}LE   func(*encoder, []{{.name}})
+  copyFrom{{.Name}}LE  func(dst []{{.name}}, src []byte)
+{{- end}}
+{{- end}}
+)
+
+func init() {
+  // int96 is already internally represented as little endian data
+  // no need to have special behavior on big endian architectures
+  // for read/write, consumers will need to be aware of the fact
+  // that it is internally 12 bytes little endian when attempting
+  // to utilize it.
+  writeInt96LE = func(e *encoder, in []parquet.Int96) {
+    e.append(parquet.Int96Traits.CastToBytes(in))
+  }
+  copyFromInt96LE = func(dst []parquet.Int96, src []byte) {
+    copy(parquet.Int96Traits.CastToBytes(dst), src)
+  }
+
+	if endian.IsBigEndian {
+{{- range .In}}
+{{- if and (ne .Name "Boolean") (ne .Name "ByteArray") (ne .Name "FixedLenByteArray") (ne .Name "Int96")}}
+    write{{.Name}}LE = func(e *encoder, in []{{.name}}) {
+      binary.Write(e.sink, binary.LittleEndian, in)
+    }
+    copyFrom{{.Name}}LE = func(dst []{{.name}}, src []byte) {
+      r := bytes.NewReader(src)
+      binary.Read(r, binary.LittleEndian, &dst)
+    }
+{{- end -}}
+{{- end}}
+	} else {
+{{- range .In}}
+{{- if and (ne .Name "Boolean") (ne .Name "ByteArray") (ne .Name "FixedLenByteArray") (ne .Name "Int96")}}
+    write{{.Name}}LE = func(e *encoder, in []{{.name}}) {
+      e.append({{.prefix}}.{{.Name}}Traits.CastToBytes(in))
+    }
+    copyFrom{{.Name}}LE = func(dst []{{.name}}, src []byte) {
+      copy({{.prefix}}.{{.Name}}Traits.CastToBytes(dst), src)
+    }
+{{- end -}}
+{{- end}}
+	}
+}
 
 {{range .In}}
 {{if and (ne .Name "Boolean") (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}
@@ -34,7 +84,7 @@ type Plain{{.Name}}Encoder struct {
 
 // Put encodes a slice of values into the underlying buffer
 func (enc *Plain{{.Name}}Encoder) Put(in []{{.name}}) {
-  enc.append({{.prefix}}.{{.Name}}Traits.CastToBytes(in))
+  write{{.Name}}LE(&enc.encoder, in)
 }
 
 // PutSpaced encodes a slice of values into the underlying buffer which are spaced out
@@ -87,7 +137,7 @@ func (dec *Plain{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
     return 0, xerrors.Errorf("parquet: eof exception decode plain {{.Name}}, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
   }
 
-  copy({{.prefix}}.{{.Name}}Traits.CastToBytes(out), dec.data[:nbytes])
+  copyFrom{{.Name}}LE(out, dec.data[:nbytes])
   dec.data = dec.data[nbytes:]
   dec.nvals -= max
   return max, nil
