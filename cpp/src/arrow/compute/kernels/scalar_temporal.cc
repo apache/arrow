@@ -524,8 +524,7 @@ const FunctionDoc day_doc{
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
     ("By default, the week starts on Monday represented by 0 and ends on Sunday "
-     "represented "
-     "by 6.\n"
+     "represented by 6.\n"
      "DayOfWeekOptions.week_start can be used to set another starting day using ISO "
      "convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1 using "
      "DayOfWeekOptions.one_based_numbering parameter.\n"
