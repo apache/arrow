@@ -523,10 +523,10 @@ class ArrayCountSorter<BooleanType> {
 
     CounterType ones = static_cast<CounterType>(values.true_count()),
                 nulls = static_cast<CounterType>(values.null_count());
-    
+
     if (options.order == SortOrder::Ascending) {
-      counts[1] = values.length() - ones - nulls;  // 0's
-      counts[2] = values.length() - nulls;         // 0's + 1's
+      counts[1] = static_cast<CounterType>(values.length()) - ones - nulls;  // 0's
+      counts[2] = static_cast<CounterType>(values.length()) - nulls;         // 0's + 1's
       auto null_position = counts[2];
       auto nulls_begin = indices_begin + null_position;
       int64_t index = offset;
@@ -535,8 +535,8 @@ class ArrayCountSorter<BooleanType> {
           [&]() { indices_begin[null_position++] = index++; });
       return nulls_begin;
     } else {
-      counts[0] = values.length() - nulls;  // 0's + 1's
-      counts[1] = ones;                     // 1's
+      counts[0] = static_cast<CounterType>(values.length()) - nulls;  // 0's + 1's
+      counts[1] = ones;                                               // 1's
       auto null_position = counts[0];
       auto nulls_begin = indices_begin + null_position;
       int64_t index = offset;
