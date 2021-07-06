@@ -815,7 +815,8 @@ test_that("type checks on expressions", {
         a = is.character(as.character(int)),
         b = is.integer(as.character(int)),
         c = is.integer(int + int),
-        d = is.double(int + dbl)
+        d = is.double(int + dbl),
+        e = is.logical(dbl > pi)
       ) %>%
       collect(),
     tbl
@@ -827,7 +828,7 @@ test_that("type checks on expressions", {
   expect_dplyr_equal(
     input %>%
       transmute(
-        e = is.logical(grepl("[def]", chr))
+        a = is.logical(grepl("[def]", chr))
       ) %>%
       collect(),
     tbl
