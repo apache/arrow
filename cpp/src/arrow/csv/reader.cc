@@ -231,14 +231,16 @@ class SerialBlockReader : public BlockReader {
       RETURN_NOT_OK(
           chunker_->ProcessSkip(partial_, buffer_, is_final, &skip_rows_, &buffer_));
       bytes_skipped += orig_size - buffer_->size();
-      partial_ = SliceBuffer(buffer_, 0, 0);
+      auto empty = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
         // Still have rows beyond this buffer to skip return empty block
+        partial_ = std::move(buffer_);
         buffer_ = next_buffer;
-        return TransformYield<CSVBlock>(CSVBlock{partial_, partial_, partial_,
-                                                 block_index_++, is_final, bytes_skipped,
+        return TransformYield<CSVBlock>(CSVBlock{empty, empty, empty, block_index_++,
+                                                 is_final, bytes_skipped,
                                                  [](int64_t) { return Status::OK(); }});
       }
+      partial_ = std::move(empty);
     }
 
     std::shared_ptr<Buffer> completion;
@@ -307,7 +309,7 @@ class ThreadedBlockReader : public BlockReader {
       RETURN_NOT_OK(chunker_->ProcessSkip(current_partial, current_buffer, is_final,
                                           &skip_rows_, &current_buffer));
       bytes_skipped += orig_size - current_buffer->size();
-      current_partial = SliceBuffer(current_buffer, 0, 0);
+      current_partial = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
         partial_ = std::move(current_buffer);
         buffer_ = std::move(next_buffer);
