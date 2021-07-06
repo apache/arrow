@@ -17,8 +17,6 @@
 
 package org.apache.arrow.flight.sql;
 
-import static org.apache.arrow.flight.sql.FlightSqlUtils.getArrowTypeFromJDBCType;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,6 +30,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -66,6 +65,9 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -100,6 +102,12 @@ import io.grpc.Status;
  */
 public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightSqlExample.class);
+
+  private static final int BIT_WIDTH_8 = 8;
+  private static final int BIT_WIDTH_16 = 16;
+  private static final int BIT_WIDTH_32 = 32;
+  private static final int BIT_WIDTH_64 = 64;
+  private static final boolean IS_SIGNED_TRUE = true;
 
   private static final int BATCH_ROW_SIZE = 1000;
 
@@ -214,7 +222,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                       .build())
                       .toByteArray()));
 
-    } catch (ExecutionException | SQLException e) {
+    } catch (Throwable e) {
       listener.onError(e);
     } finally {
       listener.onCompleted();
@@ -232,7 +240,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
               .of(new FlightEndpoint(new Ticket(Any.pack(command).toByteArray()), location));
 
       return new FlightInfo(schema, descriptor, endpoints, -1, -1);
-    } catch (ExecutionException | SQLException e) {
+    } catch (Throwable e) {
       logger.error("There was a problem executing the prepared statement", e);
       throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
     }
@@ -294,7 +302,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
           listener.putNext();
         }
       }
-    } catch (ExecutionException | SQLException e) {
+    } catch (Throwable e) {
       listener.error(e);
     } finally {
       listener.completed();
@@ -596,4 +604,73 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
+
+  /**
+   * Converts {@link java.sql.Types} values returned from JDBC Apis to Arrow types.
+   *
+   * @param jdbcDataType {@link java.sql.Types} value.
+   * @param precision    Precision of the type.
+   * @param scale        Scale of the type.
+   * @return The Arrow equivalent type.
+   */
+  static ArrowType getArrowTypeFromJDBCType(int jdbcDataType, int precision, int scale) {
+    switch (jdbcDataType) {
+      case Types.BIT:
+      case Types.BOOLEAN:
+        return ArrowType.Bool.INSTANCE;
+      case Types.TINYINT:
+        return new ArrowType.Int(BIT_WIDTH_8, IS_SIGNED_TRUE);
+      case Types.SMALLINT:
+        return new ArrowType.Int(BIT_WIDTH_16, IS_SIGNED_TRUE);
+      case Types.INTEGER:
+        return new ArrowType.Int(BIT_WIDTH_32, IS_SIGNED_TRUE);
+      case Types.BIGINT:
+        return new ArrowType.Int(BIT_WIDTH_64, IS_SIGNED_TRUE);
+      case Types.FLOAT:
+      case Types.REAL:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
+      case Types.DOUBLE:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+      case Types.NUMERIC:
+      case Types.DECIMAL:
+        return new ArrowType.Decimal(precision, scale);
+      case Types.DATE:
+        return new ArrowType.Date(DateUnit.DAY);
+      case Types.TIME:
+        return new ArrowType.Time(TimeUnit.MILLISECOND, BIT_WIDTH_32);
+      case Types.TIMESTAMP:
+        return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
+      case Types.BINARY:
+      case Types.VARBINARY:
+      case Types.LONGVARBINARY:
+        return ArrowType.Binary.INSTANCE;
+      case Types.NULL:
+        return ArrowType.Null.INSTANCE;
+
+      case Types.CHAR:
+      case Types.VARCHAR:
+      case Types.LONGVARCHAR:
+      case Types.CLOB:
+      case Types.NCHAR:
+      case Types.NVARCHAR:
+      case Types.LONGNVARCHAR:
+      case Types.NCLOB:
+
+      case Types.OTHER:
+      case Types.JAVA_OBJECT:
+      case Types.DISTINCT:
+      case Types.STRUCT:
+      case Types.ARRAY:
+      case Types.BLOB:
+      case Types.REF:
+      case Types.DATALINK:
+      case Types.ROWID:
+      case Types.SQLXML:
+      case Types.REF_CURSOR:
+      case Types.TIME_WITH_TIMEZONE:
+      case Types.TIMESTAMP_WITH_TIMEZONE:
+      default:
+        return ArrowType.Utf8.INSTANCE;
+    }
+  }
 }

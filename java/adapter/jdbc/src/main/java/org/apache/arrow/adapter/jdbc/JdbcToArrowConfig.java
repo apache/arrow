@@ -127,6 +127,8 @@ public final class JdbcToArrowConfig {
    *    <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
    *    <li>CLOB --> ArrowType.Utf8</li>
    *    <li>BLOB --> ArrowType.Binary</li>
+   *    <li>ARRAY --> ArrowType.List</li>
+   *    <li>STRUCT --> ArrowType.Struct</li>
    *    <li>NULL --> ArrowType.Null</li>
    *  </ul>
    */
@@ -149,13 +151,6 @@ public final class JdbcToArrowConfig {
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
         fieldInfo -> {
-          final String timezone;
-          if (calendar != null) {
-            timezone = calendar.getTimeZone().getID();
-          } else {
-            timezone = null;
-          }
-
           switch (fieldInfo.getJdbcType()) {
             case Types.BOOLEAN:
             case Types.BIT:
@@ -191,6 +186,12 @@ public final class JdbcToArrowConfig {
             case Types.TIME:
               return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
             case Types.TIMESTAMP:
+              final String timezone;
+              if (calendar != null) {
+                timezone = calendar.getTimeZone().getID();
+              } else {
+                timezone = null;
+              }
               return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
             case Types.BINARY:
             case Types.VARBINARY:
@@ -201,6 +202,8 @@ public final class JdbcToArrowConfig {
               return new ArrowType.List();
             case Types.NULL:
               return new ArrowType.Null();
+            case Types.STRUCT:
+              return new ArrowType.Struct();
             default:
               // no-op, shouldn't get here
               return null;
