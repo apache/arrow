@@ -1029,6 +1029,37 @@ TEST_F(TestProjector, TestCastFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(3));
 }
 
+TEST_F(TestProjector, TestCastBitFunction) {
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res_bit = field("res_bit", arrow::boolean());
+
+  // Build expression
+  auto cast_bit = TreeExprBuilder::MakeExpression("castBIT", {field0}, res_bit);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {cast_bit}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto arr = MakeArrowArrayUtf8({"1", "true", "false", "0"}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {arr});
+
+  auto out = MakeArrowArrayBool({true, true, false, false}, {true, true, true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestToDate) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

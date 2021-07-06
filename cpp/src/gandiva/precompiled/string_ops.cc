@@ -481,6 +481,66 @@ const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
 }
 
 FORCE_INLINE
+gdv_boolean compare_lower_strings(const char* base_str, gdv_int32 base_str_len,
+                                  const char* str, gdv_int32 str_len) {
+  if (base_str_len != str_len) {
+    return false;
+  }
+  for (int i = 0; i < str_len; i++) {
+    // convert char to lower
+    char cur = str[i];
+    // 'A' - 'Z' : 0x41 - 0x5a
+    // 'a' - 'z' : 0x61 - 0x7a
+    if (cur >= 0x41 && cur <= 0x5a) {
+      cur = static_cast<char>(cur + 0x20);
+    }
+    // if the character does not match, break the flow
+    if (cur != base_str[i]) break;
+    // if the character matches and it is the last iteration, return true
+    if (i == str_len - 1) return true;
+  }
+  return false;
+}
+
+// Try to cast the received string ('0', '1', 'true', 'false'), ignoring leading
+// and trailing spaces, also ignoring lower and upper case.
+FORCE_INLINE
+gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len) {
+  if (data_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+    return false;
+  }
+
+  // trim leading and trailing spaces
+  int32_t trimmed_len;
+  int32_t start = 0, end = data_len - 1;
+  while (start <= end && data[start] == ' ') {
+    ++start;
+  }
+  while (end >= start && data[end] == ' ') {
+    --end;
+  }
+  trimmed_len = end - start + 1;
+  const char* trimmed_data = data + start;
+
+  // compare received string with the valid bool string values '1', '0', 'true', 'false'
+  if (trimmed_len == 1) {
+    // case for '0' and '1' value
+    if (trimmed_data[0] == '1') return true;
+    if (trimmed_data[0] == '0') return false;
+  } else if (trimmed_len == 4) {
+    // case for matching 'true'
+    if (compare_lower_strings("true", 4, trimmed_data, trimmed_len)) return true;
+  } else if (trimmed_len == 5) {
+    // case for matching 'false'
+    if (compare_lower_strings("false", 5, trimmed_data, trimmed_len)) return false;
+  }
+  // if no 'true', 'false', '0' or '1' value is found, set an error
+  gdv_fn_context_set_error_msg(context, "Invalid value for boolean.");
+  return false;
+}
+
+FORCE_INLINE
 const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                    gdv_int64 out_len, gdv_int32* out_length) {
   gdv_int32 len = static_cast<gdv_int32>(out_len);

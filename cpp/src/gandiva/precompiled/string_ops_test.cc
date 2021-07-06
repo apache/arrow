@@ -221,6 +221,61 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestCastVarcharToBool) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true     ", 14), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true     ", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TRUE", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TrUe", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "1", 1), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "  1", 3), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false     ", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     false", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0", 1), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0   ", 4), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FALSE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FaLsE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
