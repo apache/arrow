@@ -20,7 +20,6 @@ package org.apache.arrow.flight.sql;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -42,6 +41,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -367,15 +367,19 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaSqlInfo() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field(
-        "info_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
+    fields.add(new Field("info_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+
+    // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+    final List<Field> children = new ArrayList<>();
+    children.add(new Field("string_value", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    children.add(new Field("int_value", FieldType.nullable(Types.MinorType.INT.getType()), null));
+    children.add(new Field("bigint_value", FieldType.nullable(Types.MinorType.BIGINT.getType()), null));
+    children.add(new Field("int32_bitmask", FieldType.nullable(Types.MinorType.INT.getType()), null));
+
     fields.add(new Field(
         "value",
-        new FieldType(false,
-            new ArrowType.Union(UnionMode.Dense, new int[] {Type.Utf8, Type.Int}), /*dictionary=*/null),
-        null));
+        new FieldType(false, new ArrowType.Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
+        children));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -411,10 +415,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaCatalogs() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field(
-        "catalog_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
+    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -449,14 +450,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaSchemas() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field(
-        "catalog_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
-    fields.add(new Field(
-        "schema_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
+    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -492,26 +487,11 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaTables() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field(
-        "catalog_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
-    fields.add(new Field(
-        "schema_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
-    fields.add(new Field(
-        "table_name",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
-    fields.add(new Field(
-        "table_type",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
-    fields.add(new Field(
-        "table_schema",
-        new FieldType(false, ArrowType.Binary.INSTANCE, /*dictionary=*/null),
-        null));
+    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("table_type", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("table_schema", FieldType.nullable(Types.MinorType.VARBINARY.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -545,10 +525,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaTableTypes() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field(
-        "table_type",
-        new FieldType(false, ArrowType.Utf8.INSTANCE, /*dictionary=*/null),
-        null));
+    fields.add(new Field("table_type", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
