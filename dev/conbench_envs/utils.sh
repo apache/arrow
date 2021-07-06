@@ -31,6 +31,7 @@ create_conda_env_for_benchmark_build() {
 }
 
 activate_conda_env_for_benchmark_build() {
+  conda init bash
   conda activate "${BENCHMARKABLE_TYPE}"
 }
 
