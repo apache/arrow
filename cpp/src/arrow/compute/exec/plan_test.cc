@@ -357,14 +357,16 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
                                                            random_data, parallel, slow));
 
       auto sink_gen = MakeSinkNode(source, "sink");
-      auto first_batch_fut = sink_gen();
 
       ASSERT_OK(plan->Validate());
       ASSERT_OK(plan->StartProducing());
+
+      auto maybe_first_batch = sink_gen().result();
+
       plan->StopProducing();
       plan->finished().Wait();
 
-      EXPECT_THAT(first_batch_fut, ResultWith(random_data.batches[0]));
+      EXPECT_THAT(maybe_first_batch, ResultWith(random_data.batches[0]));
     }
   }
 }
