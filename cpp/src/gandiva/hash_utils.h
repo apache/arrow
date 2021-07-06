@@ -25,12 +25,12 @@
 
 namespace gandiva {
 GANDIVA_EXPORT
-const char* gdv_hash_using_sha256(int64_t context, const void* message,
-                                  size_t message_length, int32_t* out_length);
+const char* gdv_sha256_hash(int64_t context, const void* message,
+                            size_t message_length, int32_t* out_length);
 
 GANDIVA_EXPORT
-const char* gdv_hash_using_sha1(int64_t context, const void* message,
-                                size_t message_length, int32_t* out_length);
+const char* gdv_sha1_hash(int64_t context, const void* message,
+                          size_t message_length, int32_t* out_length);
 
 GANDIVA_EXPORT
 const char* gdv_hash_using_openssl(int64_t context, const void* message,
@@ -38,8 +38,8 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
                                    uint32_t result_buf_size, int32_t* out_length);
 
 GANDIVA_EXPORT
-const char* gdv_hash_using_md5(int64_t context, const void* message,
-                               size_t message_length, int32_t* out_length);
+const char* gdv_md5_hash(int64_t context, const void* message,
+                         size_t message_length, int32_t* out_length);
 
 GANDIVA_EXPORT
 uint64_t gdv_double_to_long(double value);
