@@ -521,8 +521,9 @@ class ArrayCountSorter<BooleanType> {
     // first slot reserved for prefix sum
     std::array<CounterType, 3> counts{0, 0, 0};
 
-    CounterType ones = values.true_count(), nulls = values.null_count();
-
+    CounterType ones = static_cast<CounterType>(values.true_count()),
+                nulls = static_cast<CounterType>(values.null_count());
+    
     if (options.order == SortOrder::Ascending) {
       counts[1] = values.length() - ones - nulls;  // 0's
       counts[2] = values.length() - nulls;         // 0's + 1's
