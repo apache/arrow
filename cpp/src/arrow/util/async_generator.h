@@ -77,16 +77,15 @@ Future<T> AsyncGeneratorEnd() {
 }
 
 /// returning a future that completes when all have been visited
-template <typename T>
-Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
-                             std::function<Status(T)> visitor) {
+template <typename T, typename Visitor>
+Future<> VisitAsyncGenerator(AsyncGenerator<T> generator, Visitor visitor) {
   struct LoopBody {
     struct Callback {
-      Result<ControlFlow<>> operator()(const T& result) {
-        if (IsIterationEnd(result)) {
+      Result<ControlFlow<>> operator()(const T& next) {
+        if (IsIterationEnd(next)) {
           return Break();
         } else {
-          auto visited = visitor(result);
+          auto visited = visitor(next);
           if (visited.ok()) {
             return Continue();
           } else {
@@ -95,7 +94,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
         }
       }
 
-      std::function<Status(T)> visitor;
+      Visitor visitor;
     };
 
     Future<ControlFlow<>> operator()() {
@@ -105,7 +104,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
     }
 
     AsyncGenerator<T> generator;
-    std::function<Status(T)> visitor;
+    Visitor visitor;
   };
 
   return Loop(LoopBody{std::move(generator), std::move(visitor)});
