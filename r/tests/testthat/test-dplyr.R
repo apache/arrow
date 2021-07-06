@@ -809,17 +809,24 @@ test_that("type checks with is_*()", {
 })
 
 test_that("type checks on expressions", {
-  skip_if(
-    getRversion() < "4.0.0",
-    "Message"
-  )
   expect_dplyr_equal(
     input %>%
       transmute(
         a = is.character(as.character(int)),
         b = is.integer(as.character(int)),
         c = is.integer(int + int),
-        d = is.double(int + dbl),
+        d = is.double(int + dbl)
+      ) %>%
+      collect(),
+    tbl
+  )
+  skip_if(
+    getRversion() < "4.0.0",
+    "ARROW-12558: Rtools 3.5 cannot link to RE2"
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
         e = is.logical(grepl("[def]", chr))
       ) %>%
       collect(),
