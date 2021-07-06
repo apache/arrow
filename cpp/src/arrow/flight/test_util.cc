@@ -172,6 +172,22 @@ Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader
   }
 }
 
+class MetadataTaggingStream : public RecordBatchStream {
+ public:
+  MetadataTaggingStream(std::shared_ptr<RecordBatchReader> reader,
+                        std::shared_ptr<Buffer> metadata)
+      : RecordBatchStream(reader), metadata_(std::move(metadata)) {}
+
+  Status Next(FlightPayload* payload) override {
+    RETURN_NOT_OK(RecordBatchStream::Next(payload));
+    payload->app_metadata = metadata_;
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Buffer> metadata_;
+};
+
 class FlightTestServer : public FlightServerBase {
   Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                      std::unique_ptr<FlightListing>* listings) override {
@@ -212,12 +228,38 @@ class FlightTestServer : public FlightServerBase {
     if (request.ticket == "ARROW-5095-success") {
       return Status::OK();
     }
+    if (request.ticket == "ARROW-13253-DoGet-Batch") {
+      // Make batch > 2GiB in size
+      ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
+      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
+      *data_stream =
+          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      return Status::OK();
+    }
+    if (request.ticket == "ARROW-13253-DoGet-Metadata") {
+      // Make metadata > 2GiB in size
+      constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+      ARROW_ASSIGN_OR_RAISE(auto metadata, AllocateBuffer(nbytes_overflow));
+      std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
+      BatchVector batches;
+      RETURN_NOT_OK(ExampleIntBatches(&batches));
+      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches));
+      *data_stream = std::unique_ptr<FlightDataStream>(
+          new MetadataTaggingStream(std::move(reader), std::move(metadata)));
+      return Status::OK();
+    }
 
     std::shared_ptr<RecordBatchReader> batch_reader;
     RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
 
     *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
     return Status::OK();
+  }
+
+  Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    BatchVector batches;
+    return reader->ReadAll(&batches);
   }
 
   Status DoExchange(const ServerCallContext& context,
@@ -242,6 +284,10 @@ class FlightTestServer : public FlightServerBase {
       return RunExchangeTotal(std::move(reader), std::move(writer));
     } else if (cmd == "echo") {
       return RunExchangeEcho(std::move(reader), std::move(writer));
+    } else if (cmd == "large_batch") {
+      return RunExchangeLargeBatch(std::move(reader), std::move(writer));
+    } else if (cmd == "large_metadata") {
+      return RunExchangeLargeMetadata(std::move(reader), std::move(writer));
     } else {
       return Status::NotImplemented("Scenario not implemented: ", cmd);
     }
@@ -399,6 +445,24 @@ class FlightTestServer : public FlightServerBase {
       }
     }
     return Status::OK();
+  }
+
+  // Regression test for ARROW-13253
+  Status RunExchangeLargeBatch(std::unique_ptr<FlightMessageReader>,
+                               std::unique_ptr<FlightMessageWriter> writer) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
+    RETURN_NOT_OK(writer->Begin(batch->schema()));
+    return writer->WriteRecordBatch(*batch);
+  }
+
+  // Regression test for ARROW-13253
+  Status RunExchangeLargeMetadata(std::unique_ptr<FlightMessageReader>,
+                                  std::unique_ptr<FlightMessageWriter> writer) {
+    constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
+                          AllocateBuffer(nbytes_overflow));
+    std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
+    return writer->WriteMetadata(std::move(metadata));
   }
 
   Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
@@ -614,6 +678,17 @@ Status ExampleLargeBatches(BatchVector* out) {
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   return Status::OK();
+}
+
+arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
+  constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+  ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes_overflow));
+  std::memset(values->mutable_data(), 0x00, values->capacity());
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, std::move(values)};
+  auto array = std::make_shared<ArrayData>(int64(), nbytes_overflow / 8, buffers,
+                                           /*null_count=*/0);
+  return RecordBatch::Make(schema({field("a", int64())}), nbytes_overflow / 8,
+                           {std::move(array)});
 }
 
 std::vector<ActionType> ExampleActionTypes() {
