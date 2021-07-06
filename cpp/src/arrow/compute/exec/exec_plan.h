@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
@@ -268,6 +269,14 @@ Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression 
 ARROW_EXPORT
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
                                   std::vector<Expression> exprs);
+
+/// \brief Make a node which groups input rows based on key fields and computes
+/// aggregates for each group
+Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
+                                  std::vector<std::string> keys,
+                                  std::vector<std::string> agg_srcs,
+                                  std::vector<internal::Aggregate> aggs,
+                                  ExecContext* ctx);
 
 }  // namespace compute
 }  // namespace arrow

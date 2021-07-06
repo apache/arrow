@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock-matchers.h>
+
 #include <functional>
 #include <memory>
-
-#include <gmock/gmock-matchers.h>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -206,7 +206,7 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
                                      bool slow) {
   DCHECK_GT(batches_with_schema.batches.size(), 0);
 
-  auto opt_batches = internal::MapVector(
+  auto opt_batches = arrow::internal::MapVector(
       [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
       std::move(batches_with_schema.batches));
 
@@ -216,10 +216,10 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
     // emulate batches completing initial decode-after-scan on a cpu thread
     ARROW_ASSIGN_OR_RAISE(
         gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
-                                     internal::GetCpuThreadPool()));
+                                     arrow::internal::GetCpuThreadPool()));
 
     // ensure that callbacks are not executed immediately on a background thread
-    gen = MakeTransferredGenerator(std::move(gen), internal::GetCpuThreadPool());
+    gen = MakeTransferredGenerator(std::move(gen), arrow::internal::GetCpuThreadPool());
   } else {
     gen = MakeVectorGenerator(std::move(opt_batches));
   }

@@ -601,5 +601,253 @@ AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
   return out;
 }
 
+struct GroupByNode : ExecNode {
+  GroupByNode(ExecNode* input, std::string label, std::shared_ptr<Schema> output_schema,
+              ExecContext* ctx, const std::vector<int>&& key_field_ids,
+              std::unique_ptr<internal::Grouper>&& grouper,
+              const std::vector<int>&& agg_src_field_ids,
+              const std::vector<const HashAggregateKernel*>&& agg_kernels,
+              std::vector<std::unique_ptr<KernelState>>&& agg_states)
+      : ExecNode(input->plan(), std::move(label), {input}, {"groupby"},
+                 std::move(output_schema), /*num_outputs=*/1),
+        ctx_(ctx),
+        key_field_ids_(std::move(key_field_ids)),
+        grouper_(std::move(grouper)),
+        agg_src_field_ids_(std::move(agg_src_field_ids)),
+        agg_kernels_(std::move(agg_kernels)),
+        agg_states_(std::move(agg_states)) {}
+
+  const char* kind_name() override { return "GroupByNode"; }
+
+  Status ProcessInputBatch(const ExecBatch& batch) {
+    // Create a batch with key columns
+    std::vector<Datum> keys(key_field_ids_.size());
+    for (size_t i = 0; i < key_field_ids_.size(); ++i) {
+      keys[i] = batch.values[key_field_ids_[i]];
+    }
+    ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
+
+    // Create a batch with group ids
+    ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper_->Consume(key_batch));
+
+    // Execute aggregate kernels
+    auto num_groups = grouper_->num_groups();
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      KernelContext kernel_ctx{ctx_};
+      kernel_ctx.SetState(agg_states_[i].get());
+      ARROW_ASSIGN_OR_RAISE(
+          auto agg_batch, ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch,
+                                           Datum(num_groups)}));
+      RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
+    }
+
+    return Status::OK();
+  }
+
+  Status OutputResult() {
+    // Finalize output
+    ArrayDataVector out_data(agg_kernels_.size() + key_field_ids_.size());
+    auto it = out_data.begin();
+
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      KernelContext batch_ctx{ctx_};
+      batch_ctx.SetState(agg_states_[i].get());
+      Datum out;
+      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out));
+      *it++ = out.array();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, grouper_->GetUniques());
+    for (const auto& key : out_keys.values) {
+      *it++ = key.array();
+    }
+
+    uint32_t num_groups = grouper_->num_groups();
+    int num_result_batches = (num_groups + output_batch_size_ - 1) / output_batch_size_;
+    outputs_[0]->InputFinished(this, num_result_batches);
+
+    for (int i = 0; i < num_result_batches; ++i) {
+      // Check finished flag
+      if (finished_) {
+        break;
+      }
+
+      // Slice arrays
+      int64_t batch_start = i * output_batch_size_;
+      int64_t batch_length =
+          std::min(output_batch_size_, static_cast<int>(num_groups - batch_start));
+      std::vector<Datum> output_slices(out_data.size());
+      for (size_t out_field_id = 0; out_field_id < out_data.size(); ++out_field_id) {
+        output_slices[out_field_id] =
+            out_data[out_field_id]->Slice(batch_start, batch_length);
+      }
+
+      ARROW_ASSIGN_OR_RAISE(ExecBatch output_batch, ExecBatch::Make(output_slices));
+      outputs_[0]->InputReceived(this, i, output_batch);
+    }
+
+    return Status::OK();
+  }
+
+  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    Status status = ProcessInputBatch(batch);
+    if (!status.ok()) {
+      ErrorReceived(input, status);
+      return;
+    }
+
+    ++num_input_batches_processed_;
+    if (num_input_batches_processed_ == num_input_batches_total_) {
+      status = OutputResult();
+      if (!status.ok()) {
+        ErrorReceived(input, status);
+        return;
+      }
+    }
+  }
+
+  void ErrorReceived(ExecNode* input, Status error) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    outputs_[0]->ErrorReceived(this, std::move(error));
+    StopProducing();
+  }
+
+  void InputFinished(ExecNode* input, int seq) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    num_input_batches_total_ = seq;
+  }
+
+  Status StartProducing() override { return Status::OK(); }
+
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    DCHECK_EQ(output, outputs_[0]);
+    inputs_[0]->StopProducing(this);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    finished_ = true;
+  }
+
+  void StopProducing() override { StopProducing(outputs_[0]); }
+
+ private:
+  ExecContext* ctx_;
+  std::mutex mutex_;
+  bool finished_{false};
+  int num_input_batches_processed_{0};
+  int num_input_batches_total_{-1};
+  int output_batch_size_{32 * 1024};
+
+  const std::vector<int> key_field_ids_;
+  std::unique_ptr<internal::Grouper> grouper_;
+  const std::vector<int> agg_src_field_ids_;
+  const std::vector<const HashAggregateKernel*> agg_kernels_;
+  std::vector<std::unique_ptr<KernelState>> agg_states_;
+};
+
+namespace internal {
+Result<std::vector<const HashAggregateKernel*>> GetKernels(
+    ExecContext* ctx, const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
+    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
+    const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+Result<FieldVector> ResolveKernels(
+    const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<const HashAggregateKernel*>& kernels,
+    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
+    const std::vector<ValueDescr>& descrs);
+}  // namespace internal
+
+Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
+                                  std::vector<std::string> keys,
+                                  std::vector<std::string> agg_srcs,
+                                  std::vector<internal::Aggregate> aggs,
+                                  ExecContext* ctx) {
+  // Get input schema
+  auto input_schema = input->output_schema();
+
+  // Find input field indices for key fields
+  std::vector<int> key_field_ids(keys.size());
+  for (size_t i = 0; i < keys.size(); ++i) {
+    int key_field_id = input_schema->GetFieldIndex(keys[i]);
+    if (key_field_id < 0) {
+      return Status::Invalid("Key field named '", keys[i],
+                             "' not found or not unique in the input schema.");
+    }
+    key_field_ids[i] = key_field_id;
+  }
+
+  // Build vector of key field data types
+  std::vector<ValueDescr> key_descrs(keys.size());
+  for (size_t i = 0; i < keys.size(); ++i) {
+    auto key_field_id = key_field_ids[i];
+    key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
+  }
+
+  // Construct grouper
+  ARROW_ASSIGN_OR_RAISE(auto grouper, internal::Grouper::Make(key_descrs, ctx));
+
+  // Find input field indices for aggregates
+  std::vector<int> agg_src_field_ids;
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    int agg_src_field_id = input_schema->GetFieldIndex(agg_srcs[i]);
+    if (agg_src_field_id < 0) {
+      return Status::Invalid("Aggregate source field named '", agg_srcs[i],
+                             "' not found or not unique in the input schema.");
+    }
+  }
+
+  // Build vector of aggregate source field data types
+  DCHECK_EQ(agg_srcs.size(), aggs.size());
+  std::vector<ValueDescr> agg_src_descrs(aggs.size());
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    auto agg_src_field_id = agg_src_field_ids[i];
+    agg_src_descrs[i] = ValueDescr(input_schema->field(agg_src_field_id)->type());
+  }
+
+  // Construct aggregates
+  ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
+                        internal::GetKernels(ctx, aggs, agg_src_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(auto agg_states,
+                        internal::InitKernels(agg_kernels, ctx, aggs, agg_src_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(
+      FieldVector agg_result_fields,
+      internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_descrs));
+
+  // Build field vector for output schema
+  FieldVector output_fields{keys.size() + aggs.size()};
+
+  // Aggregate fields come before key fields to match the behavior of GroupBy function
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    output_fields[i] = agg_result_fields[i];
+  }
+  size_t base = aggs.size();
+  for (size_t i = 0; i < keys.size(); ++i) {
+    int key_field_id = key_field_ids[i];
+    output_fields[base + i] = input_schema->field(key_field_id);
+  }
+
+  return input->plan()->EmplaceNode<GroupByNode>(
+      input, std::move(label), schema(std::move(output_fields)), ctx,
+      std::move(key_field_ids), std::move(grouper), std::move(agg_src_field_ids),
+      std::move(agg_kernels), std::move(agg_states));
+}
+
 }  // namespace compute
 }  // namespace arrow
