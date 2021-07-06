@@ -886,26 +886,6 @@ TEST_F(TestRecordBatchSortIndices, Boolean) {
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
 
   auto batch = RecordBatchFromJSON(schema,
-                                   R"([{"a": true,    "b": false},
-                                       {"a": false,   "b": true},
-                                       {"a": true,    "b": false},
-                                       {"a": false,   "b": true},
-                                       {"a": true,    "b": false},
-                                       {"a": false,   "b": false},
-                                       {"a": false,   "b": true}
-                                       ])");
-  AssertSortIndices(batch, options, "[1, 3, 6, 5, 0, 2, 4]");
-}
-
-TEST_F(TestRecordBatchSortIndices, BooleanNull) {
-  auto schema = ::arrow::schema({
-      {field("a", boolean())},
-      {field("b", boolean())},
-  });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-
-  auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": true,    "b": null},
                                        {"a": false,   "b": null},
                                        {"a": true,    "b": true},
@@ -1057,36 +1037,6 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
 }
 
 TEST_F(TestTableSortIndices, Boolean) {
-  auto schema = ::arrow::schema({
-      {field("a", boolean())},
-      {field("b", boolean())},
-  });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  std::shared_ptr<Table> table;
-
-  table = TableFromJSON(schema, {R"([{"a": true,    "b": false},
-                                       {"a": false,   "b": true},
-                                       {"a": true,    "b": false},
-                                       {"a": false,   "b": true},
-                                       {"a": true,    "b": false},
-                                       {"a": false,   "b": false},
-                                       {"a": false,   "b": true}
-                                       ])"});
-  AssertSortIndices(table, options, "[1, 3, 6, 5, 0, 2, 4]");
-
-  table = TableFromJSON(schema, {
-                                    R"([{"a": true,    "b": false},
-                                         {"a": false,   "b": true},
-                                         {"a": true,    "b": false},
-                                         {"a": false,   "b": true}])",
-                                    R"([{"a": true,    "b": false},
-                                      {"a": false,   "b": false},
-                                      {"a": false,   "b": true}])"});
-  AssertSortIndices(table, options, "[1, 3, 6, 5, 0, 2, 4]");
-}
-
-TEST_F(TestTableSortIndices, BooleanNull) {
   auto schema = ::arrow::schema({
       {field("a", boolean())},
       {field("b", boolean())},

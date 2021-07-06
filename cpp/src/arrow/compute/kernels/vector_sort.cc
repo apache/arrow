@@ -511,30 +511,6 @@ class ArrayCountSorter<BooleanType> {
   }
 
  private:
-  template <typename CounterType>
-  void CountBits(const BooleanArray& values, int64_t offset, CounterType* set_count,
-                 CounterType* null_count) {
-    if (values.data()->buffers[0]) {  // if validity buffer present
-      Bitmap bitmaps[2]{
-          {values.data()->buffers[0], offset, values.length()},
-          {values.data()->buffers[1], offset, values.length()},
-      };
-      *set_count = 0;
-      *null_count = 0;
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> words) {
-        // count valid count for the moment
-        *null_count += BitUtil::PopCount(words[0]);
-        *set_count += BitUtil::PopCount(words[0] & words[1]);
-      });
-
-      *null_count = values.length() - *null_count;  // convert valid count to null count
-    } else {                                        // all are valid
-      *null_count = 0;
-      *set_count = ::arrow::internal::CountSetBits(values.data()->buffers[1]->data(),
-                                                   offset, values.length());
-    }
-  }
-
   // Returns where null starts.
   //
   // `offset` is used when this is called on a chunk of a chunked array
@@ -545,8 +521,7 @@ class ArrayCountSorter<BooleanType> {
     // first slot reserved for prefix sum
     std::array<CounterType, 3> counts{0, 0, 0};
 
-    CounterType ones, nulls;
-    CountBits(values, offset, &ones, &nulls);
+    CounterType ones = values.true_count(), nulls = values.null_count();
 
     if (options.order == SortOrder::Ascending) {
       counts[1] = values.length() - ones - nulls;  // 0's
