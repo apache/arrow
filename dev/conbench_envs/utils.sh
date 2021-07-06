@@ -40,7 +40,7 @@ install_arrow_python_dependencies() {
 
 set_arrow_build_and_run_env_vars() {
   set -a
-  source benchmarks.env
+  source dev/conbench_envs/benchmarks.env
   set +a
 }
 
