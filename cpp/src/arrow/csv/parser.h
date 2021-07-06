@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/csv/options.h"
+#include "arrow/csv/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -61,27 +62,28 @@ class ARROW_EXPORT DataBatch {
   int32_t num_cols() const { return num_cols_; }
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_size_; }
+  /// \brief Return the total number of rows skipped
+  int32_t num_skipped_rows() const {
+    return num_skipped_rows_;
+  }
 
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, int64_t first_row, Visitor&& visit) const {
     using detail::ParsedValueDesc;
 
-    int64_t row = first_row;
+    int32_t batch_row = 0;
     for (size_t buf_index = 0; buf_index < values_buffers_.size(); ++buf_index) {
       const auto& values_buffer = values_buffers_[buf_index];
       const auto values = reinterpret_cast<const ParsedValueDesc*>(values_buffer->data());
       const auto max_pos =
           static_cast<int32_t>(values_buffer->size() / sizeof(ParsedValueDesc)) - 1;
-      for (int32_t pos = col_index; pos < max_pos; pos += num_cols_, ++row) {
+      for (int32_t pos = col_index; pos < max_pos; pos += num_cols_, ++batch_row) {
         auto start = values[pos].offset;
         auto stop = values[pos + 1].offset;
         auto quoted = values[pos + 1].quoted;
         Status status = visit(parsed_ + start, stop - start, quoted);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
-          if (first_row >= 0) {
-            status = status.WithMessage("Row #", row, ": ", status.message());
-          }
-          ARROW_RETURN_NOT_OK(status);
+          return DecorateWithRowNumber(status, first_row, batch_row);
         }
       }
     }
@@ -107,6 +109,19 @@ class ARROW_EXPORT DataBatch {
   }
 
  protected:
+  Status DecorateWithRowNumber(Status& status, int64_t first_row,
+                               int32_t batch_row) const {
+    if (first_row >= 0) {
+      for (auto iter = skipped_rows_.begin();
+           iter != skipped_rows_.end() && batch_row >= iter->first; ++iter) {
+        batch_row += iter->second - iter->first + 1;
+      }
+      status = status.WithMessage("Row #", batch_row + first_row, ": ", status.message());
+    }
+    // Use return_if so that when extra context is enabled it will be added
+    ARROW_RETURN_IF_(true, status, ARROW_STRINGIFY(status));
+  }
+
   // The number of rows in this batch
   int32_t num_rows_ = 0;
   // The number of columns
@@ -116,6 +131,8 @@ class ARROW_EXPORT DataBatch {
   // It may help with null parsing...
   std::vector<std::shared_ptr<Buffer>> values_buffers_;
   std::shared_ptr<Buffer> parsed_buffer_;
+  std::vector<std::pair<int32_t, int32_t>> skipped_rows_;
+  int32_t num_skipped_rows_ = 0;
   const uint8_t* parsed_ = NULLPTR;
   int32_t parsed_size_ = 0;
 
@@ -176,7 +193,6 @@ class ARROW_EXPORT BlockParser {
   uint32_t num_bytes() const { return parsed_batch().num_bytes(); }
   /// \brief Return the row number of the first row in the block or -1 if unsupported
   int64_t first_row_num() const;
-
   /// \brief Visit parsed values in a column
   ///
   /// The signature of the visitor is
@@ -185,6 +201,11 @@ class ARROW_EXPORT BlockParser {
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
     return parsed_batch().VisitColumn(col_index, first_row_num(),
                                       std::forward<Visitor>(visit));
+  }
+
+  /// \brief Return the total number of rows including rows which were skipped
+  int32_t total_num_rows() const {
+    return parsed_batch().num_rows() + parsed_batch().num_skipped_rows();
   }
 
   template <typename Visitor>
