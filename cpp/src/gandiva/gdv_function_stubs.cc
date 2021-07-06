@@ -295,7 +295,7 @@ SHA_VAR_LEN_PARAMS(SHA1_HASH_FUNCTION_BUF)
 
 // Add functions for decimal128
 GANDIVA_EXPORT
-const char* gdv_fn_MD5_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+const char* gdv_fn_md5_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                   int32_t /*x_precision*/, int32_t /*x_scale*/,
                                   gdv_boolean x_isvalid, int32_t* out_length) {
   if (!x_isvalid) {
@@ -1803,9 +1803,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_MD5_decimal128",
+  engine->AddGlobalMappingForFunc("gdv_fn_md5_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_MD5_decimal128));
+                                  reinterpret_cast<void*>(gdv_fn_md5_decimal128));
 
   // gdv_fn_upper_utf8
   args = {

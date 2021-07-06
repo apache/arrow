@@ -108,7 +108,7 @@ const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x
                                      gdv_boolean x_isvalid, int32_t* out_length);
 
 GANDIVA_EXPORT
-const char* gdv_fn_MD5_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+const char* gdv_fn_md5_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                   int32_t x_precision, int32_t x_scale,
                                   gdv_boolean x_isvalid, int32_t* out_length);
 
