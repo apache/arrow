@@ -373,8 +373,7 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
   const char* bin_##IN_TYPE(int64_t context, gdv_##IN_TYPE value, int32_t* out_len) { \
     *out_len = 0;                                                                     \
     int32_t len = 8 * sizeof(value);                                                  \
-    char* ret =                                                                       \
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));             \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));   \
     if (ret == nullptr) {                                                             \
       gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
       return "";                                                                      \
