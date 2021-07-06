@@ -281,6 +281,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else {
       throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid action provided.").toRuntimeException();
     }
+
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
