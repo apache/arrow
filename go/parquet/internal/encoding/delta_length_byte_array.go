@@ -124,7 +124,7 @@ func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 func (d *DeltaLengthByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 	max := utils.MinInt(len(out), d.nvals)
 	for i := 0; i < max; i++ {
-		out[i] = d.data[:d.lengths[i]]
+		out[i] = d.data[:d.lengths[i]:d.lengths[i]]
 		d.data = d.data[d.lengths[i]:]
 	}
 	d.nvals -= max
