@@ -62,7 +62,7 @@ func (enc *DeltaByteArrayEncoder) Put(in []parquet.ByteArray) {
 		enc.initEncoders()
 		enc.prefixEncoder.Put([]int32{0})
 		suf = in[0]
-		enc.lastVal = append([]byte(nil), in[0]...)
+		enc.lastVal = in[0]
 		enc.suffixEncoder.Put([]parquet.ByteArray{suf})
 		in = in[1:]
 	}
@@ -82,8 +82,14 @@ func (enc *DeltaByteArrayEncoder) Put(in []parquet.ByteArray) {
 		enc.prefixEncoder.Put([]int32{int32(j)})
 		suf = val[j:]
 		enc.suffixEncoder.Put([]parquet.ByteArray{suf})
-		enc.lastVal = append([]byte(nil), val...)
+		enc.lastVal = val
 	}
+
+	// do the memcpy after the loops to keep a copy of the lastVal
+	// we do a copy here so that we only copy and keep a reference
+	// to the suffix, and aren't forcing the *entire* value to stay
+	// in memory while we have this reference to just the suffix.
+	enc.lastVal = append([]byte{}, enc.lastVal...)
 }
 
 // PutSpaced is like Put, but assumes the data is already spaced for nulls and uses the bitmap provided and offset
@@ -177,15 +183,19 @@ func (d *DeltaByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 	for len(out) > 0 {
 		prefixLen, d.prefixLengths = d.prefixLengths[0], d.prefixLengths[1:]
 
-		prefix := d.lastVal[:prefixLen]
+		prefix := d.lastVal[:prefixLen:prefixLen]
 		_, err = d.DeltaLengthByteArrayDecoder.Decode(suffixHolder)
 		if err != nil {
 			return 0, err
 		}
 
-		d.lastVal = make([]byte, 0, int(prefixLen)+len(suffixHolder[0]))
-		d.lastVal = append([]byte{}, prefix...)
-		d.lastVal = append(d.lastVal, suffixHolder[0]...)
+		if len(suffixHolder[0]) == 0 {
+			d.lastVal = prefix
+		} else {
+			d.lastVal = make([]byte, int(prefixLen)+len(suffixHolder[0]))
+			copy(d.lastVal, prefix)
+			copy(d.lastVal[prefixLen:], suffixHolder[0])
+		}
 		out[0], out = d.lastVal, out[1:]
 	}
 	return max, nil
