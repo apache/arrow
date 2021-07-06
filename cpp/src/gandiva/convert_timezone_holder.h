@@ -111,12 +111,12 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
     try {
       if (srcTz_abbrv_offset != abbrv_tz.end()) {
         auto secs = convert_offset_to_seconds(srcTz_abbrv_offset->second);
-        src_offset_tz = new OffsetZone(secs);
+        src_offset_tz = std::make_shared<OffsetZone>(secs);
       } else {
         if (is_timezone_shift(srcTz) ||
             is_timezone_offset(const_cast<std::string&>(srcTz))) {
           auto secs = convert_offset_to_seconds(srcTz);
-          src_offset_tz = new OffsetZone(secs);
+          src_offset_tz = std::make_shared<OffsetZone>(secs);
         } else {
           src_timezone = locate_zone(srcTz);
         }
@@ -124,12 +124,12 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
 
       if (destTz_abbrv_offset != abbrv_tz.end()) {
         auto secs = convert_offset_to_seconds(destTz_abbrv_offset->second);
-        dest_offset_tz = new OffsetZone(secs);
+        dest_offset_tz = std::make_shared<OffsetZone>(secs);
       } else {
         if (is_timezone_shift(destTz) ||
             is_timezone_offset(const_cast<std::string&>(destTz))) {
           auto secs = convert_offset_to_seconds(destTz);
-          dest_offset_tz = new OffsetZone(secs);
+          dest_offset_tz = std::make_shared<OffsetZone>(secs);
         } else {
           dest_timezone = locate_zone(destTz);
         }
@@ -270,8 +270,8 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
     return 0;
   }
 
-  const OffsetZone* src_offset_tz = NULLPTR;
-  const OffsetZone* dest_offset_tz = NULLPTR;
+  std::shared_ptr<OffsetZone> src_offset_tz = NULLPTR;
+  std::shared_ptr<OffsetZone> dest_offset_tz = NULLPTR;
 
   const time_zone* src_timezone = NULLPTR;
   const time_zone* dest_timezone = NULLPTR;
