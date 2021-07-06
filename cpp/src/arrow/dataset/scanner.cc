@@ -482,13 +482,14 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         ARROW_ASSIGN_OR_RAISE(
             util::optional<compute::ExecBatch> batch,
             compute::MakeExecBatch(*options->dataset_schema, partial.record_batch.value));
-        // TODO if a fragment failed to perform projection pushdown, there may be
-        // unnecessarily materialized columns in batch. We can drop them now instead of
+        // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
+        // than this, for example parquet's row group stats. Failing to do this leaves
+        // perf on the table because row group stats could be used to skip kernel execs in
+        // FilterNode.
+        //
+        // Additionally, if a fragment failed to perform projection pushdown there may be
+        // unnecessarily materialized columns in batch. We could drop them now instead of
         // letting them coast through the rest of the plan.
-
-        // TODO fragments may be able to attach more guarantees to batches than this,
-        // for example parquet's row group stats. Failing to do this leaves perf on the
-        // table because row group stats could be used to skip kernel execs in FilterNode
         batch->guarantee = partial.fragment.value->partition_expression();
 
         // tag rows with fragment- and batch-of-origin

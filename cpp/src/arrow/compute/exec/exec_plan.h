@@ -234,10 +234,10 @@ class ARROW_EXPORT ExecNode {
 
 /// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
 ///
-/// TODO this should accept an Executor and explicitly handle batches
-/// as they are generated on each of the Executor's threads.
+/// plan->exec_context()->executor() is used to parallelize pushing to
+/// outputs, if provided.
 ARROW_EXPORT
-ExecNode* MakeSourceNode(ExecPlan*, std::string label,
+ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          std::shared_ptr<Schema> output_schema,
                          std::function<Future<util::optional<ExecBatch>>()>);
 

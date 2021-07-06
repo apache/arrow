@@ -1262,6 +1262,7 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
 }
 
 TEST(ScanNode, DISABLED_ProjectionPushdown) {
+  // ARROW-13263
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
   auto basic = MakeBasicDataset();

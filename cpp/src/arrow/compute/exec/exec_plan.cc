@@ -41,8 +41,6 @@ namespace {
 struct ExecPlanImpl : public ExecPlan {
   using ExecPlan::ExecPlan;
 
-  // FIXME decouple finishing a plan/node from calling StopProducing.
-  // Then we can call that and wait on `finished` here (which we *do* expect to happen).
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
       ARROW_LOG(WARNING) << "Plan was destroyed before finishing";
