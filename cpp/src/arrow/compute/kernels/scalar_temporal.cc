@@ -36,7 +36,6 @@ using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
 using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
