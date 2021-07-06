@@ -537,6 +537,10 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "Testing ᾌtitleᾄcase");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "ʳTesting mʳodified", 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ʳTesting MʳOdified");
+  EXPECT_FALSE(ctx.has_error());
+
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
