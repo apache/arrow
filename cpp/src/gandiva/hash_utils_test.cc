@@ -46,7 +46,7 @@ TEST(TestShaHashUtils, TestSha1Numeric) {
   for (auto value : values_to_be_hashed) {
     int out_length;
     const char* sha_1 =
-      gandiva::gdv_sha1_hash(ctx_ptr, &value, sizeof(value), &out_length);
+        gandiva::gdv_sha1_hash(ctx_ptr, &value, sizeof(value), &out_length);
     std::string sha1_as_str(sha_1, out_length);
     EXPECT_EQ(sha1_as_str.size(), sha1_size);
 
@@ -81,7 +81,7 @@ TEST(TestShaHashUtils, TestSha256Numeric) {
   for (auto value : values_to_be_hashed) {
     int out_length;
     const char* sha_256 =
-      gandiva::gdv_sha256_hash(ctx_ptr, &value, sizeof(value), &out_length);
+        gandiva::gdv_sha256_hash(ctx_ptr, &value, sizeof(value), &out_length);
     std::string sha256_as_str(sha_256, out_length);
     EXPECT_EQ(sha256_as_str.size(), sha256_size);
 
@@ -115,8 +115,7 @@ TEST(TestShaHashUtils, TestMD5Numeric) {
 
   for (auto value : values_to_be_hashed) {
     int out_length;
-    const char* md5 =
-      gandiva::gdv_md5_hash(ctx_ptr, &value, sizeof(value), &out_length);
+    const char* md5 = gandiva::gdv_md5_hash(ctx_ptr, &value, sizeof(value), &out_length);
     std::string md5_as_str(md5, out_length);
     EXPECT_EQ(md5_as_str.size(), md5_size);
 

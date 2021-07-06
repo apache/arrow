@@ -184,18 +184,18 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   return 0;
 }
 
-#define MD5_HASH_FUNCTION(TYPE)                                                          \
-  GANDIVA_EXPORT                                                                         \
-  const char* gdv_fn_md5_##TYPE(int64_t context, gdv_##TYPE value, bool validity,        \
-                                int32_t* out_length) {                                   \
-    if (!validity) {                                                                     \
+#define MD5_HASH_FUNCTION(TYPE)                                                    \
+  GANDIVA_EXPORT                                                                   \
+  const char* gdv_fn_md5_##TYPE(int64_t context, gdv_##TYPE value, bool validity,  \
+                                int32_t* out_length) {                             \
+    if (!validity) {                                                               \
       return gandiva::gdv_md5_hash(context, NULLPTR, 0, out_length);               \
-    }                                                                                    \
-    auto value_as_long = gandiva::gdv_double_to_long((double)value);                     \
+    }                                                                              \
+    auto value_as_long = gandiva::gdv_double_to_long((double)value);               \
     const char* result = gandiva::gdv_md5_hash(context, &value_as_long,            \
-                                                     sizeof(value_as_long), out_length); \
-                                                                                         \
-    return result;                                                                       \
+                                               sizeof(value_as_long), out_length); \
+                                                                                   \
+    return result;                                                                 \
   }
 
 #define MD5_HASH_FUNCTION_BUF(TYPE)                                                      \
@@ -203,58 +203,58 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   const char* gdv_fn_md5_##TYPE(int64_t context, gdv_##TYPE value, int32_t value_length, \
                                 bool value_validity, int32_t* out_length) {              \
     if (!value_validity) {                                                               \
-      return gandiva::gdv_md5_hash(context, NULLPTR, 0, out_length);               \
+      return gandiva::gdv_md5_hash(context, NULLPTR, 0, out_length);                     \
     }                                                                                    \
-    return gandiva::gdv_md5_hash(context, value, value_length, out_length);        \
+    return gandiva::gdv_md5_hash(context, value, value_length, out_length);              \
   }
 
-#define SHA1_HASH_FUNCTION(TYPE)                                                   \
-  GANDIVA_EXPORT                                                                   \
-  const char* gdv_fn_sha1_##TYPE(int64_t context, gdv_##TYPE value, bool validity, \
-                                 int32_t* out_length) {                            \
-    if (!validity) {                                                               \
-      return gandiva::gdv_sha1_hash(context, NULLPTR, 0, out_length);        \
-    }                                                                              \
-    auto value_as_long = gandiva::gdv_double_to_long((double)value);               \
-    const char* result = gandiva::gdv_sha1_hash(                             \
-        context, &value_as_long, sizeof(value_as_long), out_length);               \
-                                                                                   \
-    return result;                                                                 \
+#define SHA1_HASH_FUNCTION(TYPE)                                                    \
+  GANDIVA_EXPORT                                                                    \
+  const char* gdv_fn_sha1_##TYPE(int64_t context, gdv_##TYPE value, bool validity,  \
+                                 int32_t* out_length) {                             \
+    if (!validity) {                                                                \
+      return gandiva::gdv_sha1_hash(context, NULLPTR, 0, out_length);               \
+    }                                                                               \
+    auto value_as_long = gandiva::gdv_double_to_long((double)value);                \
+    const char* result = gandiva::gdv_sha1_hash(context, &value_as_long,            \
+                                                sizeof(value_as_long), out_length); \
+                                                                                    \
+    return result;                                                                  \
   }
 
-#define SHA1_HASH_FUNCTION_BUF(TYPE)                                               \
-  GANDIVA_EXPORT                                                                   \
-  const char* gdv_fn_sha1_##TYPE(int64_t context, gdv_##TYPE value,                \
-                                 int32_t value_length, bool value_validity,        \
-                                 int32_t* out_length) {                            \
-    if (!value_validity) {                                                         \
+#define SHA1_HASH_FUNCTION_BUF(TYPE)                                         \
+  GANDIVA_EXPORT                                                             \
+  const char* gdv_fn_sha1_##TYPE(int64_t context, gdv_##TYPE value,          \
+                                 int32_t value_length, bool value_validity,  \
+                                 int32_t* out_length) {                      \
+    if (!value_validity) {                                                   \
       return gandiva::gdv_sha1_hash(context, NULLPTR, 0, out_length);        \
-    }                                                                              \
+    }                                                                        \
     return gandiva::gdv_sha1_hash(context, value, value_length, out_length); \
   }
 
-#define SHA256_HASH_FUNCTION(TYPE)                                                   \
-  GANDIVA_EXPORT                                                                     \
-  const char* gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value, bool validity, \
-                                   int32_t* out_length) {                            \
-    if (!validity) {                                                                 \
-      return gandiva::gdv_sha256_hash(context, NULLPTR, 0, out_length);        \
-    }                                                                                \
-    auto value_as_long = gandiva::gdv_double_to_long((double)value);                 \
-    const char* result = gandiva::gdv_sha256_hash(                             \
-        context, &value_as_long, sizeof(value_as_long), out_length);                 \
-    return result;                                                                   \
+#define SHA256_HASH_FUNCTION(TYPE)                                                    \
+  GANDIVA_EXPORT                                                                      \
+  const char* gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value, bool validity,  \
+                                   int32_t* out_length) {                             \
+    if (!validity) {                                                                  \
+      return gandiva::gdv_sha256_hash(context, NULLPTR, 0, out_length);               \
+    }                                                                                 \
+    auto value_as_long = gandiva::gdv_double_to_long((double)value);                  \
+    const char* result = gandiva::gdv_sha256_hash(context, &value_as_long,            \
+                                                  sizeof(value_as_long), out_length); \
+    return result;                                                                    \
   }
 
-#define SHA256_HASH_FUNCTION_BUF(TYPE)                                               \
-  GANDIVA_EXPORT                                                                     \
-  const char* gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value,                \
-                                   int32_t value_length, bool value_validity,        \
-                                   int32_t* out_length) {                            \
-    if (!value_validity) {                                                           \
+#define SHA256_HASH_FUNCTION_BUF(TYPE)                                         \
+  GANDIVA_EXPORT                                                               \
+  const char* gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value,          \
+                                   int32_t value_length, bool value_validity,  \
+                                   int32_t* out_length) {                      \
+    if (!value_validity) {                                                     \
       return gandiva::gdv_sha256_hash(context, NULLPTR, 0, out_length);        \
-    }                                                                                \
-                                                                                     \
+    }                                                                          \
+                                                                               \
     return gandiva::gdv_sha256_hash(context, value, value_length, out_length); \
   }
 
@@ -303,8 +303,7 @@ const char* gdv_fn_md5_decimal128(int64_t context, int64_t x_high, uint64_t x_lo
   }
 
   const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
-  return gandiva::gdv_md5_hash(context, decimal_128.ToBytes().data(), 16,
-                               out_length);
+  return gandiva::gdv_md5_hash(context, decimal_128.ToBytes().data(), 16, out_length);
 }
 
 GANDIVA_EXPORT
@@ -316,8 +315,7 @@ const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x
   }
 
   const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
-  return gandiva::gdv_sha256_hash(context, decimal_128.ToBytes().data(), 16,
-                                  out_length);
+  return gandiva::gdv_sha256_hash(context, decimal_128.ToBytes().data(), 16, out_length);
 }
 
 GANDIVA_EXPORT
@@ -329,8 +327,7 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
   }
 
   const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
-  return gandiva::gdv_sha1_hash(context, decimal_128.ToBytes().data(), 16,
-                                out_length);
+  return gandiva::gdv_sha1_hash(context, decimal_128.ToBytes().data(), 16, out_length);
 }
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
