@@ -517,6 +517,26 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "{Õhp,Pqśv}Ń+");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 19, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Sɦasasdsɦsd\"Sdsdɦ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "mysuperscipt@number²isfine", 27, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Mysuperscipt@Number²Isfine");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "Ő<tŵas̓老ƕɱ¢vIYwށ", 25, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Ő<Tŵas̓老Ƕɱ¢Viywށ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "ↆcheckↆnumberisspace", 24, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ↆcheckↆnumberisspace");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "testing ᾌTitleᾌcase", 23, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Testing ᾌtitleᾄcase");
+  EXPECT_FALSE(ctx.has_error());
+
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());

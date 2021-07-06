@@ -595,12 +595,12 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
-// Any codepoint, except the ones for lowercase letters category,
-// uppercase letters category and decimal digits category will be
+// Any codepoint, except the ones for lowercase letters, uppercase letters,
+// titlecase letters, decimal digits and letter numbers categories will be
 // considered as word separators.
 //
 // The Unicode characters also are divided between categories. This link
-// https://en.wikipedia.org/wiki/Unicode_character_property#General_Category shows
+// https://www.compart.com/en/unicode/category shows
 // more information about characters categories.
 GANDIVA_EXPORT
 bool gdv_fn_is_codepoint_for_space(uint32_t val) {
@@ -608,10 +608,12 @@ bool gdv_fn_is_codepoint_for_space(uint32_t val) {
 
   return category != utf8proc_category_t::UTF8PROC_CATEGORY_LU &&
          category != utf8proc_category_t::UTF8PROC_CATEGORY_LL &&
+         category != utf8proc_category_t::UTF8PROC_CATEGORY_LT &&
+         category != utf8proc_category_t::UTF8PROC_CATEGORY_NL &&
          category != utf8proc_category_t ::UTF8PROC_CATEGORY_ND;
 }
 
-// For a given text, initialize the first letter of each word and lowercase
+// For a given text, initialize the first letter after a word-separator and lowercase
 // the others e.g:
 //     - "IT is a tEXt str" -> "It Is A Text Str"
 GANDIVA_EXPORT
