@@ -33,9 +33,9 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
 # Arrow is 64-bit-only at the moment
-export CFLAGS="-fPIC -arch arm64 ${CFLAGS//-arch i386/}"
-export CXXFLAGS="-fPIC -arch arm64 ${CXXFLAGS//-arch i386/} -std=c++11"
-export SDKROOT="$(xcrun --show-sdk-path)"
+# export CFLAGS="-fPIC -arch arm64 ${CFLAGS//-arch i386/}"
+# export CXXFLAGS="-fPIC -arch arm64 ${CXXFLAGS//-arch i386/} -std=c++11"
+# export SDKROOT="$(xcrun --show-sdk-path)"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -57,6 +57,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
+: ${CMAKE_UNITY_BUILD:=ON} 
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
@@ -96,7 +97,7 @@ cmake \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
-    -DCMAKE_UNITY_BUILD=OFF \
+    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
