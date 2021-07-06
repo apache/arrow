@@ -183,18 +183,16 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
     if (command.is(CommandStatementUpdate.class)) {
       return acceptPutStatement(
-              FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
-              context, flightStream, ackStream);
-
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
+          context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementUpdate.class)) {
       return acceptPutPreparedStatementUpdate(
-              FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementUpdate.class),
-              context, flightStream, ackStream);
-
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementUpdate.class),
+          context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return acceptPutPreparedStatementQuery(
-              FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
-              context, flightStream, ackStream);
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
+          context, flightStream, ackStream);
     }
 
     throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -223,13 +221,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
       final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
-              ActionCreatePreparedStatementRequest.class);
+          ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
     } else if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
       final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
-              ActionClosePreparedStatementRequest.class);
+          ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);
     }
+
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
