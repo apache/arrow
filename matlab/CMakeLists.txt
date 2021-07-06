@@ -17,21 +17,75 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# This function uses the ThirdpartyToolchain CMake module
-# in cpp/cmake_modules to automatically download and build GoogleTest.
-function(download_and_build_google_test)
-  # The ExternalProject module is required for downloading and building external dependencies.
-  include(ExternalProject)
-  # The ThirdpartyToolchain module automatically builds xsimd by default,
-  # so we explicitly disable building of xsimd here.
-  set(ARROW_SIMD_LEVEL "NONE")
-  set(ARROW_RUNTIME_SIMD_LEVEL "NONE")
-  # The ThirdpartyToolchain module must know the location of the Arrow C++ libraries source code.
-  set(arrow_SOURCE_DIR ${CMAKE_SOURCE_DIR}/../cpp)
-  # The ThirdpartyToolchain module uses ExternalProject to download GoogleTest.
-  include(ThirdpartyToolchain)
-  # Download and build GoogleTest.
-  build_dependency(GTest)
+# Build the Arrow C++ libraries WITHOUT bundled GoogleTest binaries.
+function(BUILD_ARROW)
+    include(ExternalProject)
+
+    set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
+    set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
+    set(ARROW_LIBRARY_DIR "${ARROW_PREFIX}/lib")
+    set(ARROW_SHARED_LIB "${ARROW_LIBRARY_DIR}/libarrow.so")
+    set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep_build")
+
+    ExternalProject_Add(arrow_ep SOURCE_DIR "${CMAKE_SOURCE_DIR}/../cpp"
+                                 BINARY_DIR "${ARROW_BINARY_DIR}"
+                                 CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}
+                                            BUILD_BYPRODUCTS ${ARROW_SHARED_LIB})
+
+    file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
+
+    add_library(arrow_shared SHARED IMPORTED)
+    set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB} 
+                                       INTERFACE_INCLUDE_DIRECTORIES ${ARROW_INCLUDE_DIR})
+
+    add_dependencies(arrow_shared arrow_ep)
+endfunction()
+
+# Build the Arrow C++ libraries WITH bundled GoogleTest binaries.
+function(BUILD_ARROW_AND_GTEST)
+    include(ExternalProject)
+
+    set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
+    set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
+    set(ARROW_LIBRARY_DIR "${ARROW_PREFIX}/lib")
+    set(ARROW_SHARED_LIB "${ARROW_LIBRARY_DIR}/libarrow.so")
+    set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep_build")
+
+    set(ARROW_GTEST_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
+    set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_PREFIX}/include")
+    set(ARROW_GTEST_LIBRARY_DIR "${ARROW_GTEST_PREFIX}/lib")
+    set(ARROW_GTEST_SHARED_LIB "${ARROW_GTEST_LIBRARY_DIR}/libgtest.so")
+
+    set(ARROW_GTEST_MAIN_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
+    set(ARROW_GTEST_MAIN_INCLUDE_DIR "${ARROW_GTEST_MAIN_PREFIX}/include")
+    set(ARROW_GTEST_MAIN_LIBRARY_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
+    set(ARROW_GTEST_MAIN_SHARED_LIB "${ARROW_GTEST_MAIN_LIBRARY_DIR}/libgtest_main.so")
+
+    ExternalProject_Add(arrow_ep SOURCE_DIR "${CMAKE_SOURCE_DIR}/../cpp"
+                                 BINARY_DIR "${ARROW_BINARY_DIR}"
+                                 CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}
+                                            -DARROW_BUILD_TESTS=ON
+                                            BUILD_BYPRODUCTS ${ARROW_SHARED_LIB}
+                                                             ${ARROW_GTEST_SHARED_LIB}
+                                                             ${ARROW_GTEST_MAIN_SHARED_LIB})
+
+    file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
+    file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
+
+    add_library(arrow_shared SHARED IMPORTED)
+    set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB} 
+                                       INTERFACE_INCLUDE_DIRECTORIES ${ARROW_INCLUDE_DIR})
+
+    add_library(GTest::gtest SHARED IMPORTED)
+    set_target_properties(GTest::gtest PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
+                                       INTERFACE_INCLUDE_DIRECTORIES ${ARROW_GTEST_INCLUDE_DIR})
+
+    add_library(GTest::gtest_main SHARED IMPORTED)
+    set_target_properties(GTest::gtest_main PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB}
+                                            INTERFACE_INCLUDE_DIRECTORIES ${ARROW_GTEST_MAIN_INCLUDE_DIR})
+    add_dependencies(arrow_shared arrow_ep)
+    add_dependencies(GTest::gtest arrow_ep)
+    add_dependencies(GTest::gtest_main arrow_ep)
 endfunction()
 
 set(CMAKE_CXX_STANDARD 11)
@@ -49,8 +103,29 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_modules)
 
-# Arrow is Required
-find_package(Arrow REQUIRED)
+# Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
+if(MATLAB_BUILD_TESTS)
+    # Should support custom GTEST_ROOT as well as package managers.
+    find_package(GTest)
+    if (NOT GTest_FOUND)
+        # Trigger an automatic build of the Arrow C++ libraries and bundled GoogleTest binaries.
+        build_arrow_and_gtest()
+    else()
+        # Should support custom ARROW_HOME as well as package managers.
+        find_package(Arrow)
+        if (NOT Arrow_FOUND)
+            # Trigger an automatic build of the Arrow C++ libraries.
+            build_arrow()
+        endif()
+    endif()
+else()
+    # Should support custom ARROW_HOME as well as package managers.
+    find_package(Arrow)
+    if (NOT Arrow_FOUND)
+        # Trigger an automatic build of the Arrow C++ libraries.
+        build_arrow()
+    endif()
+endif()
 
 # MATLAB is Required
 find_package(Matlab REQUIRED)
@@ -90,27 +165,19 @@ else()
                                                    $<1:${CMAKE_SOURCE_DIR}/src>)
 endif()
 
-# ######################
-# GoogleTest Integration
-# ######################
-# If the user has specified a GTEST_ROOT value, use their pre-built GoogleTest binaries.
-# Otherwise, download and build GoogleTest automatically.
-if(GTEST_ROOT)
-  find_package(GTest REQUIRED)
-else()
-  download_and_build_google_test()
-endif()
-
 # #########
 # C++ Tests
 # #########
-enable_testing()
+# Only build the C++ tests if MATLAB_BUILD_TESTS=ON.
+if (MATLAB_BUILD_TESTS)
+    enable_testing()
 
-# Define a test executable target.
-# TODO: Remove the placeholder test. This is just for testing GoogleTest integration.
-add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
-# Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED targets.
-target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
+    # Define a test executable target.
+    # TODO: Remove the placeholder test. This is just for testing GoogleTest integration.
+    add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
+    # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED targets.
+    target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
 
-# Add a test target.
-add_test(PlaceholderTestTarget placeholder_test)
+    # Add a test target.
+    add_test(PlaceholderTestTarget placeholder_test)
+endif()
