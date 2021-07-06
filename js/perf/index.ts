@@ -124,7 +124,7 @@ for (const { name, df, countBys, counts } of config) {
         `DataFrame Count By "${name}"`,
 
         ...countBys.map((column: string) => b.add(
-            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}`,
+            `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}`,
             () => df.countBy(column)
         )),
 
@@ -135,7 +135,7 @@ for (const { name, df, countBys, counts } of config) {
         `DataFrame Filter-Scan Count "${name}"`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
-            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
+            `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
             () => {
                 let filteredDf: Arrow.FilteredDataFrame;
                 if (test == 'gt') {
@@ -157,7 +157,7 @@ for (const { name, df, countBys, counts } of config) {
         `DataFrame Filter-Iterate "${name}"`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
-            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
+            `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
             () => {
                 let filteredDf: Arrow.FilteredDataFrame;
                 if (test == 'gt') {
@@ -181,7 +181,7 @@ for (const { name, df, countBys, counts } of config) {
         `DataFrame Direct Count "${name}"`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
-            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
+            `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
             () => {
                 const colidx = df.schema.fields.findIndex((c)=> c.name === column);
 
