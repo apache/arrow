@@ -17,6 +17,9 @@
 
 #include "arrow/compute/exec/test_util.h"
 
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -25,9 +28,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <gmock/gmock-matchers.h>
-#include <gtest/gtest.h>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -131,7 +131,7 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
 
 ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
                             util::string_view json) {
-  auto fields = internal::MapVector(
+  auto fields = arrow::internal::MapVector(
       [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
 
   ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};

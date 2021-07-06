@@ -1109,6 +1109,8 @@ HashAggregateKernel MakeKernel(InputType argument_type) {
   return kernel;
 }
 
+}  // namespace
+
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
     const std::vector<ValueDescr>& in_descrs) {
@@ -1182,8 +1184,6 @@ Result<FieldVector> ResolveKernels(
   }
   return fields;
 }
-
-}  // namespace
 
 Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
                                                ExecContext* ctx) {
