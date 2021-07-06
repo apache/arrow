@@ -39,7 +39,7 @@ public final class ExceptionTemplateThrower {
    */
   public static UnsupportedOperationException getOperationNotSupported(Class<?> type) {
     return new UnsupportedOperationException(
-            format("Operation not supported for type: %s.", type.getName()));
+        format("Operation not supported for type: %s.", type.getName()));
   }
 
   /**
@@ -53,8 +53,8 @@ public final class ExceptionTemplateThrower {
   public static IllegalArgumentException getCannotPerformDataConversion(
       Class<?> actual, Class<?> expected, Object object) {
     return new IllegalArgumentException(
-            format("Provided class (%s) is invalid: not a subtype of %s," +
-                            " which \"%s\" belongs to.",
-                    actual.getName(), expected.getName(), object));
+        format("Provided class (%s) is invalid: not a subtype of %s," +
+                " which \"%s\" belongs to.",
+            actual.getName(), expected.getName(), object));
   }
 }
