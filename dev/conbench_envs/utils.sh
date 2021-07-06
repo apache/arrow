@@ -18,7 +18,7 @@
 # under the License.
 
 create_conda_env_for_benchmark_build() {
-  conda create -y -n "${BENCHMARK_BUILD_CONDA_ENV_NAME}" -c conda-forge \
+  conda create -y -n "${BENCHMARKABLE_TYPE}" -c conda-forge \
   --file ci/conda_env_unix.txt \
   --file ci/conda_env_cpp.txt \
   --file ci/conda_env_python.txt \
@@ -31,7 +31,7 @@ create_conda_env_for_benchmark_build() {
 }
 
 activate_conda_env_for_benchmark_build() {
-  conda activate "${BENCHMARK_BUILD_CONDA_ENV_NAME}"
+  conda activate "${BENCHMARKABLE_TYPE}"
 }
 
 install_arrow_python_dependencies() {
