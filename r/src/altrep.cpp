@@ -163,12 +163,54 @@ struct AltrepVector {
 };
 
 struct AltrepVectorDouble {
+  using Base = AltrepVector<REALSXP>;
   static R_altrep_class_t class_t;
+
+  static SEXP Sum(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarReal(NA_REAL);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the sum of `array`
+    return NULL;
+  }
+
+  static SEXP Min(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarReal(NA_REAL);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the min of `array`
+    return NULL;
+  }
+
+  static SEXP Max(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarReal(NA_REAL);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the max of `array`
+    return NULL;
+  }
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altreal_class("array_dbl_vector", "arrow", dll);
     AltrepVector<REALSXP>::Init(class_t, dll);
+
     R_set_altreal_No_NA_method(class_t, AltrepVector<REALSXP>::No_NA);
+
+    R_set_altreal_Sum_method(class_t, Sum);
+    R_set_altreal_Min_method(class_t, Min);
+    R_set_altreal_Max_method(class_t, Max);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
@@ -177,12 +219,52 @@ struct AltrepVectorDouble {
 };
 
 struct AltrepVectorInt32 {
+  using Base = AltrepVector<INTSXP>;
   static R_altrep_class_t class_t;
 
+  static SEXP Sum(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarInteger(NA_INTEGER);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the sum of `array`
+    return NULL;
+  }
+
+  static SEXP Min(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarInteger(NA_INTEGER);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the min of `array`
+    return NULL;
+  }
+
+  static SEXP Max(SEXP x, Rboolean narm) {
+    const auto& array = Base::Get(x);
+
+    if (narm == FALSE && array->null_count()) {
+      return Rf_ScalarInteger(NA_INTEGER);
+    }
+
+    // TODO: instead of returning NULL, use arrow::compute() something
+    //      to calculate the max of `array`
+    return NULL;
+  }
   static void Init(DllInfo* dll) {
     class_t = R_make_altinteger_class("array_int_vector", "arrow", dll);
     AltrepVector<INTSXP>::Init(class_t, dll);
     R_set_altinteger_No_NA_method(class_t, AltrepVector<INTSXP>::No_NA);
+
+    R_set_altinteger_Sum_method(class_t, Sum);
+    R_set_altinteger_Min_method(class_t, Min);
+    R_set_altinteger_Max_method(class_t, Max);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
