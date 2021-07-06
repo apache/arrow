@@ -297,7 +297,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt1VectorValues.length) {
         result.setSafe(i, uInt1VectorValues[i]);
       } else {
-        result.setSafe(i, 2 * random.nextInt(Byte.MAX_VALUE));
+        result.setSafe(i, random.nextInt(0x100));
       }
     }
 
@@ -327,7 +327,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt2VectorValues.length) {
         result.setSafe(i, uInt2VectorValues[i]);
       } else {
-        result.setSafe(i, 2 * random.nextInt(Short.MAX_VALUE));
+        result.setSafe(i, random.nextInt(0x10000));
       }
     }
 
@@ -360,7 +360,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt4VectorValues.length) {
         result.setSafe(i, uInt4VectorValues[i]);
       } else {
-        result.setSafe(i, 2 * random.nextInt(Integer.MAX_VALUE));
+        result.setSafe(i, random.nextInt(Integer.MAX_VALUE));
       }
     }
 
@@ -394,7 +394,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
       if (i < uInt8VectorValues.length) {
         result.setSafe(i, uInt8VectorValues[i]);
       } else {
-        result.setSafe(i, 2 * random.nextLong());
+        result.setSafe(i, random.nextLong());
       }
     }
 
