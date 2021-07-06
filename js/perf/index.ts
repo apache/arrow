@@ -55,7 +55,7 @@ function cycle(result: CaseResult, _summary: Summary) {
 
 for (const { name, ipc, df } of config) {
     b.suite(
-        `Parse "${name}"`,
+        `Parse '${name}'`,
 
         b.add(`Table.from`, () => {
             Table.from(ipc);
@@ -75,20 +75,20 @@ for (const { name, ipc, df } of config) {
     const schema = df.schema;
 
     const suites = [{
-            name: `Get "${name}" values by index`,
+            name: `Get '${name}' values by index`,
             fn(vector: Arrow.Column<any>) {
                 for (let i = -1, n = vector.length; ++i < n;) {
                     vector.get(i);
                 }
             }
         }, {
-            name: `Iterate "${name}" vectors`,
+            name: `Iterate '${name}' vectors`,
             fn(vector: Arrow.Column<any>) { for (const _value of vector) {} }
         }, {
-            name: `Slice toArray "${name}" vectors`,
+            name: `Slice toArray '${name}' vectors`,
             fn(vector: Arrow.Column<any>) { vector.slice().toArray(); }
         }, {
-            name: `Slice "${name}" vectors`,
+            name: `Slice '${name}' vectors`,
             fn(vector: Arrow.Column<any>) { vector.slice(); }
         }];
 
@@ -98,7 +98,7 @@ for (const { name, ipc, df } of config) {
 
             ...schema.fields.map((f, i) => {
                 const vector = df.getColumnAt(i)!;
-                return b.add(`name: '${f.name}', length: ${formatNumber(vector.length)}, type: ${vector.type}`, () => {
+                return b.add(`column: '${f.name}', length: ${formatNumber(vector.length)}, type: ${vector.type}`, () => {
                     fn(vector);
                 });
             }),
@@ -111,7 +111,7 @@ for (const { name, ipc, df } of config) {
 
 for (const { name, df, countBys, counts } of config) {
     b.suite(
-        `DataFrame Iterate "${name}"`,
+        `DataFrame Iterate '${name}'`,
 
         b.add(`length: ${formatNumber(df.length)}`, () => {
             for (const _value of df) {}
@@ -121,7 +121,7 @@ for (const { name, df, countBys, counts } of config) {
     );
 
     b.suite(
-        `DataFrame Count By "${name}"`,
+        `DataFrame Count By '${name}'`,
 
         ...countBys.map((column: string) => b.add(
             `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}`,
@@ -132,7 +132,7 @@ for (const { name, df, countBys, counts } of config) {
     );
 
     b.suite(
-        `DataFrame Filter-Scan Count "${name}"`,
+        `DataFrame Filter-Scan Count '${name}'`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
             `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
@@ -154,7 +154,7 @@ for (const { name, df, countBys, counts } of config) {
     );
 
     b.suite(
-        `DataFrame Filter-Iterate "${name}"`,
+        `DataFrame Filter-Iterate '${name}'`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
             `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
@@ -178,7 +178,7 @@ for (const { name, df, countBys, counts } of config) {
     );
 
     b.suite(
-        `DataFrame Direct Count "${name}"`,
+        `DataFrame Direct Count '${name}'`,
 
         ...counts.map(({ column, test, value }: {column: string; test: 'gt' | 'eq'; value: number | string}) => b.add(
             `column: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column)!.type}, test: ${test}, value: ${value}`,
