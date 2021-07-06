@@ -429,11 +429,6 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
   Result<FragmentGenerator> GetFragments() const;
 
   std::shared_ptr<Dataset> dataset_;
-
-  // XXX if Scanner were truly single-use this would be a 1:1 relationship
-  std::unordered_map<std::shared_ptr<compute::ExecPlan>,
-                     std::shared_ptr<compute::ExecContext>>
-      plans_;
 };
 
 namespace {
@@ -634,9 +629,6 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
 
-  // Ensure plan, exec_context outlive usage of the returned generator
-  plans_.emplace(plan, std::move(exec_context));
-
   ARROW_ASSIGN_OR_RAISE(auto scan, MakeScanNode(plan.get(), dataset_, scan_options_));
 
   ARROW_ASSIGN_OR_RAISE(auto filter,
@@ -660,17 +652,17 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto shared_fragments = std::make_shared<FragmentVector>(std::move(fragments));
 
   // If the generator is destroyed before being completely drained, inform plan
-  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-                                         bool not_finished_yet =
-                                             plan->finished().TryAddCallback([&] {
-                                               // keep plan alive until it finishes
-                                               return [plan](const Status&) {};
-                                             });
+  std::shared_ptr<void> stop_producing{
+      nullptr, [plan, exec_context](...) {
+        bool not_finished_yet = plan->finished().TryAddCallback([&] {
+          // keep plan alive until it finishes
+          return [plan, exec_context](const Status&) {};
+        });
 
-                                         if (not_finished_yet) {
-                                           plan->StopProducing();
-                                         }
-                                       }};
+        if (not_finished_yet) {
+          plan->StopProducing();
+        }
+      }};
 
   return MakeMappedGenerator(
       std::move(sink_gen),
