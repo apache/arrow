@@ -66,10 +66,9 @@ using first_arg_is_status =
     std::is_same<typename std::decay<internal::call_traits::argument_type<0, Fn>>::type,
                  Status>;
 
-template <typename Fn, typename Then, typename Else>
-using if_has_no_args =
-    typename std::conditional<internal::call_traits::argument_count<Fn>::value == 0, Then,
-                              Else>::type;
+template <typename Fn, typename Then, typename Else,
+          typename Count = internal::call_traits::argument_count<Fn>>
+using if_has_no_args = typename std::conditional<Count::value == 0, Then, Else>::type;
 
 /// Creates a callback that can be added to a future to mark a `dest` future finished
 template <typename Source, typename Dest, bool SourceEmpty = Source::is_empty,
@@ -480,27 +479,33 @@ class ARROW_MUST_USE_TYPE Future {
     return MakeFinished(E::ToResult(std::move(s)));
   }
 
-  template <typename OnComplete, bool = detail::first_arg_is_status<OnComplete>::value>
-  struct MaybeStatusyOnComplete;
+  struct WrapResultyOnComplete {
+    template <typename OnComplete>
+    struct Callback {
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(*impl.CastResult<ValueType>());
+      }
+      OnComplete on_complete;
+    };
+  };
 
-  template <typename OnComplete>
-  struct MaybeStatusyOnComplete<OnComplete, false> {
-    void operator()(const FutureImpl& impl) && {
-      std::move(on_complete)(*impl.CastResult<ValueType>());
-    }
-    OnComplete on_complete;
+  struct WrapStatusyOnComplete {
+    template <typename OnComplete>
+    struct Callback {
+      static_assert(std::is_same<internal::Empty, ValueType>::value,
+                    "Only callbacks for Future<> should accept Status and not Result");
+
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(impl.CastResult<ValueType>()->status());
+      }
+      OnComplete on_complete;
+    };
   };
 
   template <typename OnComplete>
-  struct MaybeStatusyOnComplete<OnComplete, true> {
-    static_assert(std::is_same<internal::Empty, ValueType>::value,
-                  "Callbacks for Future<> should accept Status and not Result");
-
-    void operator()(const FutureImpl& impl) && {
-      std::move(on_complete)(impl.CastResult<ValueType>()->status());
-    }
-    OnComplete on_complete;
-  };
+  using WrapOnComplete = typename std::conditional<
+      detail::first_arg_is_status<OnComplete>::value, WrapStatusyOnComplete,
+      WrapResultyOnComplete>::type::template Callback<OnComplete>;
 
   /// \brief Consumer API: Register a callback to run when this future completes
   ///
@@ -523,13 +528,13 @@ class ARROW_MUST_USE_TYPE Future {
   ///
   /// In this example `fut` falls out of scope but is not destroyed because it holds a
   /// cyclic reference to itself through the callback.
-  template <typename OnComplete>
+  template <typename OnComplete, typename Callback = WrapOnComplete<OnComplete>>
   void AddCallback(OnComplete on_complete,
                    CallbackOptions opts = CallbackOptions::Defaults()) const {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
-    impl_->AddCallback(MaybeStatusyOnComplete<OnComplete>{std::move(on_complete)}, opts);
+    impl_->AddCallback(Callback{std::move(on_complete)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
@@ -547,15 +552,14 @@ class ARROW_MUST_USE_TYPE Future {
   /// to add because the future was marked complete.
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>,
-            typename Callback = MaybeStatusyOnComplete<OnComplete>>
+            typename Callback = WrapOnComplete<OnComplete>>
   bool TryAddCallback(const CallbackFactory& callback_factory,
                       CallbackOptions opts = CallbackOptions::Defaults()) const {
-    return impl_->TryAddCallback(
-        [&callback_factory]() { return Callback{callback_factory()}; }, opts);
+    return impl_->TryAddCallback([&]() { return Callback{callback_factory()}; }, opts);
   }
 
   template <typename OnSuccess, typename OnFailure>
-  struct ThenCallback {
+  struct ThenOnComplete {
     static constexpr bool has_no_args =
         internal::call_traits::argument_count<OnSuccess>::value == 0;
 
@@ -567,11 +571,11 @@ class ARROW_MUST_USE_TYPE Future {
                      ContinuedFuture>::value,
         "OnSuccess and OnFailure must continue with the same future type");
 
-    struct OnSuccessDummy {
+    struct DummyOnSuccess {
       void operator()(const T&);
     };
     using OnSuccessArg = typename std::decay<internal::call_traits::argument_type<
-        0, detail::if_has_no_args<OnSuccess, OnSuccessDummy, OnSuccess>>>::type;
+        0, detail::if_has_no_args<OnSuccess, DummyOnSuccess, OnSuccess>>>::type;
 
     static_assert(
         !std::is_same<OnSuccessArg, typename EnsureResult<OnSuccessArg>::type>::value,
@@ -597,7 +601,7 @@ class ARROW_MUST_USE_TYPE Future {
   };
 
   template <typename OnSuccess>
-  struct PassthruFailure {
+  struct PassthruOnFailure {
     using ContinuedFuture = detail::ContinueFuture::ForSignature<
         detail::if_has_no_args<OnSuccess, OnSuccess && (), OnSuccess && (const T&)>>;
 
@@ -638,14 +642,14 @@ class ARROW_MUST_USE_TYPE Future {
   /// and the returned future may already be marked complete.
   ///
   /// See AddCallback for general considerations when writing callbacks.
-  template <typename OnSuccess, typename OnFailure = PassthruFailure<OnSuccess>,
-            typename Callback = ThenCallback<OnSuccess, OnFailure>,
-            typename ContinuedFuture = typename Callback::ContinuedFuture>
+  template <typename OnSuccess, typename OnFailure = PassthruOnFailure<OnSuccess>,
+            typename OnComplete = ThenOnComplete<OnSuccess, OnFailure>,
+            typename ContinuedFuture = typename OnComplete::ContinuedFuture>
   ContinuedFuture Then(OnSuccess on_success, OnFailure on_failure = {},
                        CallbackOptions options = CallbackOptions::Defaults()) const {
     auto next = ContinuedFuture::Make();
-    AddCallback(Callback{std::forward<OnSuccess>(on_success),
-                         std::forward<OnFailure>(on_failure), next},
+    AddCallback(OnComplete{std::forward<OnSuccess>(on_success),
+                           std::forward<OnFailure>(on_failure), next},
                 options);
     return next;
   }
