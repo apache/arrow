@@ -872,6 +872,8 @@ test_that("substrings", {
     x = "Apache Arrow"
   )
 
+  # substr
+
   expect_dplyr_equal(
     input %>%
       mutate(
@@ -888,6 +890,8 @@ test_that("substrings", {
     df
   )
 
+  # substring
+
   expect_dplyr_equal(
     input %>%
       mutate(
@@ -903,6 +907,8 @@ test_that("substrings", {
       collect(),
     df
   )
+
+  # str_sub
 
   expect_dplyr_equal(
     input %>%
