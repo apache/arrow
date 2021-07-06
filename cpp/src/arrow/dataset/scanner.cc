@@ -466,11 +466,8 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(std::move(fragment_gen), options));
 
-  auto batch_gen_gen_readahead =
-      MakeSerialReadaheadGenerator(std::move(batch_gen_gen), options->fragment_readahead);
-
-  auto merged_batch_gen = MakeMergedGenerator(std::move(batch_gen_gen_readahead),
-                                              options->fragment_readahead);
+  auto merged_batch_gen =
+      MakeMergedGenerator(std::move(batch_gen_gen), options->fragment_readahead);
 
   auto batch_gen =
       MakeReadaheadGenerator(std::move(merged_batch_gen), options->fragment_readahead);
