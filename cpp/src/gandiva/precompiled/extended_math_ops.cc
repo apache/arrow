@@ -381,7 +381,7 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
     /* generate binary representation iteratively */                                  \
     gdv_u##IN_TYPE i;                                                                 \
     bool first = false; /* flag for not printing left zeros in positive numbers */    \
-    for (i = 1L << (len - 1); i > 0; i = i / 2) {                                     \
+    for (i = static_cast<gdv_u##IN_TYPE>(1) << (len - 1); i > 0; i = i / 2) {         \
       if ((value & i) != 0) {                                                         \
         ret[*out_len] = '1';                                                          \
         if (!first) first = true;                                                     \
