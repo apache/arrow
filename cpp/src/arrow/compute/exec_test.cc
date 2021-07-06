@@ -69,7 +69,7 @@ TEST(ExecContext, BasicWorkings) {
   // Now, let's customize all the things
   LoggingMemoryPool my_pool(default_memory_pool());
   std::unique_ptr<FunctionRegistry> custom_reg = FunctionRegistry::Make();
-  ExecContext ctx(&my_pool, custom_reg.get());
+  ExecContext ctx(&my_pool, /*executor=*/nullptr, custom_reg.get());
 
   ASSERT_EQ(custom_reg.get(), ctx.func_registry());
   ASSERT_EQ(&my_pool, ctx.memory_pool());

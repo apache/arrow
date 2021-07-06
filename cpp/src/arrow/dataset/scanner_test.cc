@@ -1102,7 +1102,7 @@ static Result<std::vector<compute::ExecBatch>> StartAndCollect(
   auto maybe_collected = CollectAsyncGenerator(gen).result();
   ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
 
-  plan->StopProducing();
+  plan->finished().Wait();
 
   return internal::MapVector(
       [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
@@ -1183,6 +1183,7 @@ TEST(ScanNode, Schema) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
+  options->dataset_schema = basic.dataset->schema();
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1200,6 +1201,7 @@ TEST(ScanNode, Trivial) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
+  options->dataset_schema = basic.dataset->schema();
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
   auto sink_gen = MakeSinkNode(scan, "sink");
@@ -1217,7 +1219,9 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->filter = less(field_ref("c"), literal(30));
+  options->dataset_schema = basic.dataset->schema();
+  ASSERT_OK_AND_ASSIGN(options->filter,
+                       less(field_ref("c"), literal(30)).Bind(*basic.dataset->schema()));
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1240,7 +1244,10 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->filter = greater(field_ref("a"), literal(4));
+  options->dataset_schema = basic.dataset->schema();
+  ASSERT_OK_AND_ASSIGN(
+      options->filter,
+      greater(field_ref("a"), literal(4)).Bind(*basic.dataset->schema()));
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1254,8 +1261,32 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
               ResultWith(UnorderedElementsAreArray(expected)));
 }
 
-TEST(ScanNode, ProjectionPushdown) {
-  // ensure non-projected columns are dropped
+TEST(ScanNode, DISABLED_ProjectionPushdown) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->dataset_schema = basic.dataset->schema();
+  ASSERT_OK(SetProjection(options.get(), {field_ref("b")}, {"b"}));
+
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
+
+  auto sink_gen = MakeSinkNode(scan, "sink");
+
+  auto expected = basic.batches;
+
+  int a_index = basic.dataset->schema()->GetFieldIndex("a");
+  int c_index = basic.dataset->schema()->GetFieldIndex("c");
+  for (auto& batch : expected) {
+    // "a", "c" were not projected or filtered so they are dropped eagerly
+    batch.values[a_index] = MakeNullScalar(batch.values[a_index].type());
+    batch.values[c_index] = MakeNullScalar(batch.values[c_index].type());
+  }
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
 }
 
 TEST(ScanNode, MaterializationOfVirtualColumn) {
@@ -1265,6 +1296,7 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
+  options->dataset_schema = basic.dataset->schema();
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1287,105 +1319,6 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               ResultWith(UnorderedElementsAreArray(expected)));
-}
-
-TEST(ScanNode, CompareToScanner) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-
-  auto basic = MakeBasicDataset();
-
-  ScannerBuilder builder(basic.dataset);
-  ASSERT_OK(builder.UseAsync(true));
-  ASSERT_OK(builder.UseThreads(true));
-  ASSERT_OK(builder.Filter(greater(field_ref("c"), literal(30))));
-  ASSERT_OK(builder.Project(
-      {field_ref("c"), call("multiply", {field_ref("a"), literal(2)})}, {"c", "a * 2"}));
-  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-
-  ASSERT_OK_AND_ASSIGN(auto fragments_it,
-                       basic.dataset->GetFragments(scanner->options()->filter));
-  ASSERT_OK_AND_ASSIGN(auto fragments, fragments_it.ToVector());
-
-  auto options = scanner->options();
-
-  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
-
-  ASSERT_OK_AND_ASSIGN(auto filter,
-                       compute::MakeFilterNode(scan, "filter", options->filter));
-
-  auto exprs = options->projection.call()->arguments;
-  exprs.push_back(compute::field_ref("__fragment_index"));
-  exprs.push_back(compute::field_ref("__batch_index"));
-  exprs.push_back(compute::field_ref("__last_in_fragment"));
-  ASSERT_OK_AND_ASSIGN(auto project, compute::MakeProjectNode(filter, "project", exprs));
-
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(project, "sink");
-
-  ASSERT_OK(plan->StartProducing());
-
-  auto from_plan =
-      CollectAsyncGenerator(
-          MakeMappedGenerator(
-              sink_gen,
-              [&](const util::optional<compute::ExecBatch>& batch)
-                  -> Result<EnumeratedRecordBatch> {
-                int num_fields = options->projected_schema->num_fields();
-
-                ArrayVector columns(num_fields);
-                for (size_t i = 0; i < columns.size(); ++i) {
-                  const Datum& value = batch->values[i];
-                  if (value.is_array()) {
-                    columns[i] = value.make_array();
-                    continue;
-                  }
-                  ARROW_ASSIGN_OR_RAISE(
-                      columns[i],
-                      MakeArrayFromScalar(*value.scalar(), batch->length, options->pool));
-                }
-
-                EnumeratedRecordBatch out;
-                out.fragment.index =
-                    batch->values[num_fields].scalar_as<Int32Scalar>().value;
-                out.fragment.value = fragments[out.fragment.index];
-                out.fragment.last = false;  // ignored during reordering
-
-                out.record_batch.index =
-                    batch->values[num_fields + 1].scalar_as<Int32Scalar>().value;
-                out.record_batch.value = RecordBatch::Make(
-                    options->projected_schema, batch->length, std::move(columns));
-                out.record_batch.last =
-                    batch->values[num_fields + 2].scalar_as<BooleanScalar>().value;
-
-                return out;
-              }))
-          .result();
-
-  ASSERT_OK_AND_ASSIGN(auto from_scanner_gen, scanner->ScanBatchesUnorderedAsync());
-  auto from_scanner = CollectAsyncGenerator(from_scanner_gen).result();
-
-  auto less = [](const EnumeratedRecordBatch& l, const EnumeratedRecordBatch& r) {
-    if (l.fragment.index < r.fragment.index) return true;
-    return l.record_batch.index < r.record_batch.index;
-  };
-
-  ASSERT_OK(from_plan);
-  std::sort(from_plan->begin(), from_plan->end(), less);
-
-  ASSERT_OK(from_scanner);
-  std::sort(from_scanner->begin(), from_scanner->end(), less);
-
-  ASSERT_EQ(from_plan->size(), from_scanner->size());
-  for (size_t i = 0; i < from_plan->size(); ++i) {
-    const auto& p = from_plan->at(i);
-    const auto& s = from_scanner->at(i);
-    SCOPED_TRACE(i);
-    ASSERT_EQ(p.fragment.index, s.fragment.index);
-    ASSERT_EQ(p.fragment.value, s.fragment.value);
-    ASSERT_EQ(p.record_batch.last, s.record_batch.last);
-    ASSERT_EQ(p.record_batch.index, s.record_batch.index);
-    AssertBatchesEqual(*p.record_batch.value, *s.record_batch.value);
-  }
 }
 
 }  // namespace dataset

@@ -775,7 +775,7 @@ class PushGenerator {
   /// Producer API for PushGenerator
   class Producer {
    public:
-    explicit Producer(const std::shared_ptr<State> state) : weak_state_(state) {}
+    explicit Producer(const std::shared_ptr<State>& state) : weak_state_(state) {}
 
     /// \brief Push a value on the queue
     ///

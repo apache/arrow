@@ -34,6 +34,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -60,6 +61,7 @@ class ARROW_EXPORT ExecContext {
  public:
   // If no function registry passed, the default is used.
   explicit ExecContext(MemoryPool* pool = default_memory_pool(),
+                       ::arrow::internal::Executor* executor = NULLPTR,
                        FunctionRegistry* func_registry = NULLPTR);
 
   /// \brief The MemoryPool used for allocations, default is
@@ -67,6 +69,9 @@ class ARROW_EXPORT ExecContext {
   MemoryPool* memory_pool() const { return pool_; }
 
   ::arrow::internal::CpuInfo* cpu_info() const;
+
+  /// \brief An Executor which may be used to parallelize execution.
+  ::arrow::internal::Executor* executor() const { return executor_; }
 
   /// \brief The FunctionRegistry for looking up functions by name and
   /// selecting kernels for execution. Defaults to the library-global function
@@ -114,6 +119,7 @@ class ARROW_EXPORT ExecContext {
 
  private:
   MemoryPool* pool_;
+  ::arrow::internal::Executor* executor_;
   FunctionRegistry* func_registry_;
   int64_t exec_chunksize_ = std::numeric_limits<int64_t>::max();
   bool preallocate_contiguous_ = true;

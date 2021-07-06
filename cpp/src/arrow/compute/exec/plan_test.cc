@@ -45,7 +45,7 @@ namespace compute {
 TEST(ExecPlanConstruction, Empty) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  ASSERT_RAISES(Invalid, plan->Validate());
+  ASSERT_THAT(plan->Validate(), Raises(StatusCode::Invalid));
 }
 
 TEST(ExecPlanConstruction, SingleNode) {
@@ -58,7 +58,7 @@ TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
   node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/1);
   // Output not bound
-  ASSERT_RAISES(Invalid, plan->Validate());
+  ASSERT_THAT(plan->Validate(), Raises(StatusCode::Invalid));
 }
 
 TEST(ExecPlanConstruction, SourceSink) {
@@ -144,7 +144,14 @@ TEST(ExecPlan, DummyStartProducing) {
   // Note that any correct reverse topological order may do
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1",
                                      "source2", "source1"));
-  ASSERT_EQ(t.stopped.size(), 0);
+
+  plan->StopProducing();
+  plan->finished().Wait();
+  ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
+                                     "process3", "sink"));
+
+  ASSERT_THAT(plan->StartProducing(),
+              Raises(StatusCode::Invalid, HasSubstr("restarted")));
 }
 
 TEST(ExecPlan, DummyStartProducingError) {
@@ -179,7 +186,7 @@ TEST(ExecPlan, DummyStartProducingError) {
   ASSERT_EQ(t.stopped.size(), 0);
 
   // `process1` raises IOError
-  ASSERT_RAISES(IOError, plan->StartProducing());
+  ASSERT_THAT(plan->StartProducing(), Raises(StatusCode::IOError));
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1"));
   // Nodes that started successfully were stopped in reverse order
   ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
@@ -234,7 +241,7 @@ Result<std::vector<ExecBatch>> StartAndCollect(
   auto maybe_collected = CollectAsyncGenerator(gen).result();
   ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
 
-  plan->StopProducing();
+  plan->finished().Wait();
 
   return internal::MapVector(
       [](util::optional<ExecBatch> batch) { return std::move(*batch); }, collected);
@@ -328,6 +335,36 @@ TEST(ExecPlanExecution, StressSourceSink) {
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   ResultWith(UnorderedElementsAreArray(random_data.batches)));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, StressSourceSinkStopped) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = slow && !parallel ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      auto random_data = MakeRandomBatches(
+          schema({field("a", int32()), field("b", boolean())}), num_batches);
+
+      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
+                                                           random_data, parallel, slow));
+
+      auto sink_gen = MakeSinkNode(source, "sink");
+      auto first_batch_fut = sink_gen();
+
+      ASSERT_OK(plan->Validate());
+      ASSERT_OK(plan->StartProducing());
+      plan->StopProducing();
+      plan->finished().Wait();
+
+      EXPECT_THAT(first_batch_fut, ResultWith(random_data.batches[0]));
     }
   }
 }
