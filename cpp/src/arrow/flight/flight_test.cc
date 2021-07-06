@@ -1518,7 +1518,7 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
     EXPECT_THAT(st.message(),
                 ::testing::HasSubstr("Failed to serialize Flight descriptor"));
   }
-  constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+  constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
   ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> metadata, AllocateBuffer(nbytes_overflow));
   std::memset(metadata->mutable_data(), 0x00, metadata->capacity());

@@ -238,7 +238,7 @@ class FlightTestServer : public FlightServerBase {
     }
     if (request.ticket == "ARROW-13253-DoGet-Metadata") {
       // Make metadata > 2GiB in size
-      constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+      constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
       ARROW_ASSIGN_OR_RAISE(auto metadata, AllocateBuffer(nbytes_overflow));
       std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
       BatchVector batches;
@@ -458,7 +458,7 @@ class FlightTestServer : public FlightServerBase {
   // Regression test for ARROW-13253
   Status RunExchangeLargeMetadata(std::unique_ptr<FlightMessageReader>,
                                   std::unique_ptr<FlightMessageWriter> writer) {
-    constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+    constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
                           AllocateBuffer(nbytes_overflow));
     std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
@@ -681,7 +681,7 @@ Status ExampleLargeBatches(BatchVector* out) {
 }
 
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
-  constexpr int64_t nbytes_overflow = (1L << 31) + 8;
+  constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
   ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes_overflow));
   std::memset(values->mutable_data(), 0x00, values->capacity());
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, std::move(values)};
