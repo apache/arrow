@@ -27,6 +27,7 @@ namespace gandiva {
 
 class TestLikeHolder : public ::testing::Test {
  public:
+  RE2::Options regex_op;
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
@@ -48,7 +49,7 @@ class TestLikeHolder : public ::testing::Test {
 TEST_F(TestLikeHolder, TestMatchAny) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab%", &like_holder);
+  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -63,7 +64,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
 TEST_F(TestLikeHolder, TestMatchOne) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab_", &like_holder);
+  auto status = LikeHolder::Make("ab_", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -78,7 +79,7 @@ TEST_F(TestLikeHolder, TestMatchOne) {
 TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make(".*ab_", &like_holder);
+  auto status = LikeHolder::Make(".*ab_", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -97,7 +98,7 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
 TEST_F(TestLikeHolder, TestDot) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("abc.", &like_holder);
+  auto status = LikeHolder::Make("abc.", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -211,4 +212,70 @@ TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
   auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
   EXPECT_EQ(status.ok(), false) << status.message();
 }
+class TestILikeHolder : public ::testing::Test {
+ public:
+  RE2::Options regex_op;
+  FunctionNode BuildILike(std::string pattern) {
+    auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+    auto pattern_node =
+        std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
+    return FunctionNode("ilike", {field, pattern_node}, arrow::boolean());
+  }
+};
+
+TEST_F(TestILikeHolder, TestMatchAny) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("ab"));
+  EXPECT_TRUE(like("aBc"));
+  EXPECT_TRUE(like("ABCD"));
+
+  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(like("cab"));
+}
+
+TEST_F(TestILikeHolder, TestMatchOne) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("Ab_", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc"));
+  EXPECT_TRUE(like("aBd"));
+
+  EXPECT_FALSE(like("A"));
+  EXPECT_FALSE(like("Abcd"));
+  EXPECT_FALSE(like("DaBc"));
+}
+
+TEST_F(TestILikeHolder, TestPcreSpecial) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make(".*aB_", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like(".*Abc"));  // . and * aren't special in sql regex
+  EXPECT_FALSE(like("xxAbc"));
+}
+
+TEST_F(TestILikeHolder, TestDot) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("aBc.", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_FALSE(like("abcd"));
+}
+
 }  // namespace gandiva
