@@ -52,13 +52,11 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.sql.impl.FlightSQL;
-import org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetPreparedStatementResult;
-import org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetTablesResult;
-import org.apache.arrow.flight.sql.impl.FlightSQL.CommandPreparedStatementQuery;
-import org.apache.arrow.flight.sql.impl.FlightSQL.CommandPreparedStatementUpdate;
-import org.apache.arrow.flight.sql.impl.FlightSQL.CommandStatementQuery;
-import org.apache.arrow.flight.sql.impl.FlightSQL.CommandStatementUpdate;
+import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -93,15 +91,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.grpc.Status;
 
 /**
- * Proof of concept {@link FlightSQLProducer} implementation showing an Apache Derby backed Flight SQL server capable
+ * Proof of concept {@link FlightSqlProducer} implementation showing an Apache Derby backed Flight SQL server capable
  * of the following workflows:
  * - returning a list of tables from the action "GetTables".
  * - creation of a prepared statement from the action "GetPreparedStatement".
  * - execution of a prepared statement by using a {@link CommandPreparedStatementQuery} with getFlightInfo and
  * getStream.
  */
-public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightSQLExample.class);
+public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightSqlExample.class);
 
   private static final int BATCH_ROW_SIZE = 1000;
 
@@ -111,7 +109,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
   private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
 
-  public FlightSQLExample(Location location) {
+  public FlightSqlExample(Location location) {
     removeDerbyDatabaseIfExists();
     populateDerbyDatabase();
 
@@ -142,7 +140,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
   }
 
   @Override
-  public void getTables(FlightSQL.ActionGetTablesRequest request, CallContext context,
+  public void getTables(FlightSql.ActionGetTablesRequest request, CallContext context,
           StreamListener<Result> listener) {
     try {
       final String catalog = (request.getCatalog().isEmpty() ? null : request.getCatalog());
@@ -195,7 +193,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
   }
 
   @Override
-  public void getPreparedStatement(FlightSQL.ActionGetPreparedStatementRequest request, CallContext context,
+  public void getPreparedStatement(FlightSql.ActionGetPreparedStatementRequest request, CallContext context,
           StreamListener<Result> listener) {
     final PreparedStatementCacheKey handle = new PreparedStatementCacheKey(
             UUID.randomUUID().toString(), request.getQuery());
@@ -341,7 +339,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
 
 
   @Override
-  public void closePreparedStatement(FlightSQL.ActionClosePreparedStatementRequest request, CallContext context,
+  public void closePreparedStatement(FlightSql.ActionClosePreparedStatementRequest request, CallContext context,
           StreamListener<Result> listener) {
     try {
       preparedStatementLoadingCache.invalidate(
@@ -545,14 +543,14 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
   }
 
   @Override
-  public void getCatalogs(FlightSQL.ActionGetCatalogsRequest request, CallContext context,
+  public void getCatalogs(FlightSql.ActionGetCatalogsRequest request, CallContext context,
           StreamListener<Result> listener) {
     // TODO - build example implementation
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
-  public void getSchemas(FlightSQL.ActionGetSchemasRequest request, CallContext context,
+  public void getSchemas(FlightSql.ActionGetSchemasRequest request, CallContext context,
           StreamListener<Result> listener) {
     // TODO - build example implementation
     throw Status.UNIMPLEMENTED.asRuntimeException();

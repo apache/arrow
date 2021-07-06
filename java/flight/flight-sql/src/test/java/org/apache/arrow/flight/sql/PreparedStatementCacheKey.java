@@ -19,7 +19,7 @@ package org.apache.arrow.flight.sql;
 
 import java.util.Objects;
 
-import org.apache.arrow.flight.sql.impl.FlightSQLExample.PreparedStatementHandle;
+import org.apache.arrow.flight.sql.impl.FlightSqlExample.PreparedStatementHandle;
 import org.apache.arrow.util.Preconditions;
 
 import com.google.protobuf.Any;
@@ -45,7 +45,7 @@ class PreparedStatementCacheKey {
   }
 
   ByteString toProtocol() {
-    return Any.pack(org.apache.arrow.flight.sql.impl.FlightSQLExample.PreparedStatementHandle
+    return Any.pack(org.apache.arrow.flight.sql.impl.FlightSqlExample.PreparedStatementHandle
             .newBuilder()
             .setSql(getSql())
             .setUuid(getUuid())
