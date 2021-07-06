@@ -27,4 +27,5 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    vector
    vector_schema_root
    ipc
+   algorithm
    Reference (javadoc) <https://arrow.apache.org/docs/java/reference/>

@@ -21,11 +21,12 @@
 #include <cassert>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <queue>
-#include <thread>
 
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
@@ -1247,6 +1248,8 @@ class BackgroundGenerator {
   }
 
  protected:
+  static constexpr uint64_t kUnlikelyThreadId{std::numeric_limits<uint64_t>::max()};
+
   struct State {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
@@ -1255,9 +1258,7 @@ class BackgroundGenerator {
           it(std::move(it)),
           reading(false),
           finished(false),
-          should_shutdown(false) {
-      SetWorkerThreadId({});  // default-initialized thread id
-    }
+          should_shutdown(false) {}
 
     void ClearQueue() {
       while (!queue.empty()) {
@@ -1316,28 +1317,11 @@ class BackgroundGenerator {
       return next;
     }
 
-    void SetWorkerThreadId(const std::thread::id tid) {
-      uint64_t equiv{0};
-      // std::thread::id is trivially copyable as per C++ spec,
-      // so type punning as a uint64_t should work
-      static_assert(sizeof(std::thread::id) <= sizeof(uint64_t),
-                    "std::thread::id can't fit into uint64_t");
-      memcpy(&equiv, reinterpret_cast<const void*>(&tid), sizeof(tid));
-      worker_thread_id.store(equiv);
-    }
-
-    std::thread::id GetWorkerThreadId() {
-      const auto equiv = worker_thread_id.load();
-      std::thread::id tid;
-      memcpy(reinterpret_cast<void*>(&tid), &equiv, sizeof(tid));
-      return tid;
-    }
-
     internal::Executor* io_executor;
     const int max_q;
     const int q_restart;
     Iterator<T> it;
-    std::atomic<uint64_t> worker_thread_id;
+    std::atomic<uint64_t> worker_thread_id{kUnlikelyThreadId};
 
     // If true, the task is actively pumping items from the queue and does not need a
     // restart
@@ -1346,8 +1330,7 @@ class BackgroundGenerator {
     bool finished;
     // Signal to the background task to end early because consumers have given up on it
     bool should_shutdown;
-    // If the queue is empty then the consumer will create a waiting future and wait for
-    // it
+    // If the queue is empty, the consumer will create a waiting future and wait for it
     std::queue<Result<T>> queue;
     util::optional<Future<T>> waiting_future;
     // Every background task is given a future to complete when it is entirely finished
@@ -1365,7 +1348,7 @@ class BackgroundGenerator {
       ///
       /// It's a deadlock if we enter cleanup from
       /// the worker thread but it can happen if the consumer doesn't transfer away
-      assert(state->GetWorkerThreadId() != std::this_thread::get_id());
+      assert(state->worker_thread_id.load() != ::arrow::internal::GetThreadId());
       Future<> finish_fut;
       {
         auto lock = state->mutex.Lock();
@@ -1384,9 +1367,9 @@ class BackgroundGenerator {
   };
 
   static void WorkerTask(std::shared_ptr<State> state) {
+    state->worker_thread_id.store(::arrow::internal::GetThreadId());
     // We need to capture the state to read while outside the mutex
     bool reading = true;
-    state->SetWorkerThreadId(std::this_thread::get_id());
     while (reading) {
       auto next = state->it.Next();
       // Need to capture state->waiting_future inside the mutex to mark finished outside
@@ -1438,7 +1421,7 @@ class BackgroundGenerator {
       // reference it.  We can safely transition to idle now.
       task_finished = state->task_finished;
       state->task_finished = Future<>();
-      state->SetWorkerThreadId({});  // default-initialized thread id
+      state->worker_thread_id.store(kUnlikelyThreadId);
     }
     task_finished.MarkFinished();
   }

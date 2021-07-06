@@ -140,12 +140,6 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Show available RAM size
-        shell: bash
-        run: |
-          hwmemsize=$(sysctl -n hw.memsize)
-          ramsize=$(expr $hwmemsize / $((1024**3)))
-          echo "System Memory: ${ramsize} GB"
       - name: Install Dependencies
         shell: bash
         run: |

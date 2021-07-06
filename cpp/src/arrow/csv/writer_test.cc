@@ -23,6 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/csv/writer.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -87,7 +88,27 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
     std::shared_ptr<io::BufferOutputStream> out;
     ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
 
-    RETURN_NOT_OK(WriteCSV(data, options, default_memory_pool(), out.get()));
+    RETURN_NOT_OK(WriteCSV(data, options, out.get()));
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
+    return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+  }
+
+  Result<std::string> ToCsvStringUsingWriter(const Table& data,
+                                             const WriteOptions& options) {
+    std::shared_ptr<io::BufferOutputStream> out;
+    ASSIGN_OR_RAISE(out, io::BufferOutputStream::Create());
+    // Write row-by-row
+    ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(out, data.schema(), options));
+    TableBatchReader reader(data);
+    reader.set_chunksize(1);
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(reader.ReadNext(&batch));
+    while (batch != nullptr) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+      RETURN_NOT_OK(reader.ReadNext(&batch));
+    }
+    RETURN_NOT_OK(writer->Close());
+    EXPECT_EQ(data.num_rows(), writer->stats().num_record_batches);
     ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
     return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
   }
@@ -111,6 +132,10 @@ TEST_P(TestWriteCSV, TestWrite) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
                        Table::FromRecordBatches({record_batch}));
   ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
+  EXPECT_EQ(csv, GetParam().expected_output);
+
+  // The writer should work identically.
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvStringUsingWriter(*table, options));
   EXPECT_EQ(csv, GetParam().expected_output);
 }
 
