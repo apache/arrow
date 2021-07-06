@@ -1966,4 +1966,50 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   *out_len = j;
   return ret;
 }
+
+// Produces the binary representation of a string y characters long derived by starting
+// at offset 'x' and considering the defined length 'y'. Notice that the offset index
+// may be a negative number (starting from the end of the string), or a positive number
+// starting on index 1. Cases:
+//     BYTE_SUBSTR("TestString", 1, 10) => "TestString"
+//     BYTE_SUBSTR("TestString", 5, 10) => "String"
+//     BYTE_SUBSTR("TestString", -6, 10) => "String"
+//     BYTE_SUBSTR("TestString", -600, 10) => "TestString"
+FORCE_INLINE
+const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
+                                           gdv_int32 text_len, gdv_int32 offset,
+                                           gdv_int32 length, gdv_int32* out_len) {
+  // the first offset position for a string is 1, so not consider offset == 0
+  // also, the length should be always a positive number
+  if (text_len == 0 || offset == 0 || length <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t startPos = 0;
+  if (offset >= 0) {
+    startPos = offset - 1;
+  } else if (text_len + offset >= 0) {
+    startPos = text_len + offset;
+  }
+
+  // calculate end position from length and truncate to upper value bounds
+  if (startPos + length > text_len) {
+    *out_len = text_len - startPos;
+  } else {
+    *out_len = length;
+  }
+
+  memcpy(ret, text + startPos, *out_len);
+  return ret;
+}
 }  // extern "C"

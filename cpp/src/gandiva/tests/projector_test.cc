@@ -933,6 +933,49 @@ TEST_F(TestProjector, TestOffset) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestByteSubString) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::binary());
+  auto field1 = field("f1", arrow::int32());
+  auto field2 = field("f2", arrow::int32());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto field_byte_substr = field("bytesubstring", arrow::binary());
+
+  // Build expression
+  auto byte_substr_expr = TreeExprBuilder::MakeExpression(
+      "bytesubstring", {field0, field1, field2}, field_byte_substr);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {byte_substr_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 6;
+  auto array0 = MakeArrowArrayBinary({"ab", "", "ab", "invalid", "valid", "invalid"},
+                                     {true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayInt32({0, 1, 1, 1, 3, 3}, {true, true, true, true, true, true});
+  auto array2 =
+      MakeArrowArrayInt32({0, 1, 1, 2, 3, 3}, {true, true, true, true, true, true});
+  // expected output
+  auto exp_byte_substr = MakeArrowArrayBinary({"", "", "a", "in", "lid", "val"},
+                                              {true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_byte_substr, outputs.at(0));
+}
+
 // Test to ensure behaviour of cast functions when the validity is false for an input. The
 // function should not run for that input.
 TEST_F(TestProjector, TestCastFunction) {
