@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.runners.Parameterized.*;
 
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -28,6 +29,14 @@ import java.util.function.Supplier;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BaseIntVector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
@@ -52,9 +61,28 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
   private final Supplier<BaseIntVector> vectorSupplier;
 
   private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(((BaseIntVector) vector), getCurrentRow);
+      (vector, getCurrentRow) -> {
+        if (vector instanceof UInt1Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt2Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt4Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow);
+        } else if (vector instanceof UInt8Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow);
+        } else if (vector instanceof TinyIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow);
+        } else if (vector instanceof SmallIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow);
+        } else if (vector instanceof IntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow);
+        } else if (vector instanceof BigIntVector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow);
+        }
+        throw new UnsupportedOperationException();
+      };
 
-  @Parameterized.Parameters(name = "{1}")
+  @Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createIntVector(), "IntVector"},
