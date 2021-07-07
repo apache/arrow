@@ -54,10 +54,11 @@ function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
       tsProject.src(), sourcemaps.init(),
       tsProject(ts.reporter.defaultReporter())
     );
-    const writeDTypes = observableFromStreams(dts, gulp.dest(out));
+    const writeSources = observableFromStreams(tsProject.src(), gulp.dest(out));
+    const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false }), gulp.dest(out));
     const mapFile = tsProject.options.module === 5 ? esmMapFile : cjsMapFile;
-    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile }), gulp.dest(out));
-    return Observable.forkJoin(writeDTypes, writeJS);
+    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false }), gulp.dest(out));
+    return Observable.forkJoin(writeSources, writeDTypes, writeJS);
 }
 
 function cjsMapFile(mapFilePath) { return mapFilePath; }
