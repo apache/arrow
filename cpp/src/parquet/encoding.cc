@@ -2061,7 +2061,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
                                MemoryPool* pool = ::arrow::default_memory_pool())
-      : DecoderImpl(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {}
+      : DecoderImpl(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {
+    if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
+      throw ParquetException("Delta bit pack encoding should only be for integer data.");
+    }
+  }
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     this->num_values_ = num_values;

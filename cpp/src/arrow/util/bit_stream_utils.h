@@ -451,18 +451,15 @@ inline bool BitReader::GetVlqInt(uint32_t* v) {
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
   uint32_t u_v = ::arrow::util::SafeCopy<uint32_t>(v);
-  v = (u_v << 1) ^ (v >> 31);
-  u_v = ::arrow::util::SafeCopy<uint32_t>(v);
+  u_v = (u_v << 1) ^ static_cast<uint32_t>(v >> 31);
   return PutVlqInt(u_v);
 }
 
 inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   uint32_t u;
   if (!GetVlqInt(&u)) return false;
+  u = (u >> 1) ^ (~(u & 1) + 1);
   *v = ::arrow::util::SafeCopy<int32_t>(u);
-  int32_t temp = ::arrow::util::SafeCopy<int32_t>(u << 31);
-  temp = ((temp >> 31) ^ *v) >> 1;
-  *v = temp ^ (*v & (1 << 31));
   return true;
 }
 
@@ -497,18 +494,15 @@ inline bool BitReader::GetVlqInt(uint64_t* v) {
 
 inline bool BitWriter::PutZigZagVlqInt(int64_t v) {
   uint64_t u_v = ::arrow::util::SafeCopy<uint64_t>(v);
-  v = (u_v << 1) ^ (v >> 63);
-  u_v = ::arrow::util::SafeCopy<uint64_t>(v);
+  u_v = (u_v << 1) ^ static_cast<uint64_t>(v >> 63);
   return PutVlqInt(u_v);
 }
 
 inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
   uint64_t u;
   if (!GetVlqInt(&u)) return false;
+  u = (u >> 1) ^ (~(u & 1) + 1);
   *v = ::arrow::util::SafeCopy<int64_t>(u);
-  int64_t temp = ::arrow::util::SafeCopy<int64_t>(u << 63);
-  temp = ((temp >> 63) ^ *v) >> 1;
-  *v = temp ^ (*v & (1LL << 63));
   return true;
 }
 
