@@ -102,7 +102,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   public String getString() {
     final long number = getLong();
 
-    return isUnassigned ? Long.toUnsignedString(number) : Long.toString(number);
+      return isUnassigned ? Long.toUnsignedString(number) : Long.toString(number);
+    }
   }
 
   @Override
@@ -150,5 +151,12 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public BigDecimal getBigDecimal() {
     return BigDecimal.valueOf(getLong());
+  }
+
+  @Override
+  public Object getObject() {
+    final boolean isNull = vector.isNull(currentRowSupplier.getAsInt());
+
+    return isNull ? null : getLong();
   }
 }
