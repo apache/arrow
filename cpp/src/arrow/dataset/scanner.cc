@@ -807,6 +807,9 @@ Result<int64_t> GetSelectionSize(const Datum& selection, int64_t length) {
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+  // Drop projection since we only need to count rows
+  auto options = std::make_shared<ScanOptions>(*scan_options_);
+  RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
 
   std::atomic<int64_t> total{0};
 
@@ -819,7 +822,7 @@ Result<int64_t> AsyncScanner::CountRows() {
                 // fast path: got row count directly; skip scanning this fragment
                 total += *fast_count;
                 return std::make_shared<OneShotFragment>(
-                    scan_options_->dataset_schema,
+                    options->dataset_schema,
                     MakeEmptyIterator<std::shared_ptr<RecordBatch>>());
               }
 
@@ -829,11 +832,11 @@ Result<int64_t> AsyncScanner::CountRows() {
       });
 
   ARROW_ASSIGN_OR_RAISE(auto scan,
-                        MakeScanNode(plan.get(), std::move(fragment_gen), scan_options_));
+                        MakeScanNode(plan.get(), std::move(fragment_gen), options));
 
   ARROW_ASSIGN_OR_RAISE(
       auto get_selection,
-      compute::MakeProjectNode(scan, "get_selection", {scan_options_->filter}));
+      compute::MakeProjectNode(scan, "get_selection", {options->filter}));
 
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
       compute::MakeSinkNode(get_selection, "sink");
