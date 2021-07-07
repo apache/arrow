@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.*;
+import static org.junit.runners.Parameterized.*;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -27,6 +28,8 @@ import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.FloatingPointVector;
 import org.junit.After;
 import org.junit.Before;
@@ -50,10 +53,16 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
   private final Supplier<FloatingPointVector> vectorSupplier;
 
   private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcFloatingPointVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcFloatingPointVectorAccessor((FloatingPointVector) vector,
-          getCurrentRow);
+      (vector, getCurrentRow) -> {
+        if (vector instanceof Float4Vector) {
+          return new ArrowFlightJdbcFloatingPointVectorAccessor((Float4Vector) vector, getCurrentRow);
+        } else if (vector instanceof Float8Vector) {
+          return new ArrowFlightJdbcFloatingPointVectorAccessor((Float8Vector) vector, getCurrentRow);
+        }
+        throw new UnsupportedOperationException();
+      };
 
-  @Parameterized.Parameters(name = "{1}")
+  @Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat8Vector(), "Float8Vector"},
