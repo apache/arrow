@@ -18,7 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor;
 
 import static org.apache.arrow.driver.jdbc.utils.ExceptionTemplateThrower.getOperationNotSupported;
-import static org.apache.calcite.avatica.util.Cursor.*;
+import static org.apache.calcite.avatica.util.Cursor.Accessor;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -30,7 +30,6 @@ import java.sql.Clob;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.Ref;
-import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Struct;
 import java.sql.Time;
@@ -43,162 +42,180 @@ import java.util.Map;
  */
 public abstract class ArrowFlightJdbcAccessor implements Accessor {
   @Override
-  public boolean wasNull() throws SQLException {
+  public boolean wasNull() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public String getString() throws SQLException {
+  public String getString() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public boolean getBoolean() throws SQLException {
+  public boolean getBoolean() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public byte getByte() throws SQLException {
+  public byte getByte() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public short getShort() throws SQLException {
+  public short getShort() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public int getInt() throws SQLException {
+  public int getInt() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public long getLong() throws SQLException {
+  public long getLong() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public float getFloat() throws SQLException {
+  public float getFloat() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public double getDouble() throws SQLException {
+  public double getDouble() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal() throws SQLException {
+  public BigDecimal getBigDecimal() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) throws SQLException {
+  public BigDecimal getBigDecimal(int i) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public byte[] getBytes() throws SQLException {
+  public byte[] getBytes() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getAsciiStream() throws SQLException {
+  public InputStream getAsciiStream() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getUnicodeStream() throws SQLException {
+  public InputStream getUnicodeStream() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getBinaryStream() throws SQLException {
+  public InputStream getBinaryStream() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Object getObject() throws SQLException {
+  public Object getObject() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getCharacterStream() throws SQLException {
+  public Reader getCharacterStream() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Object getObject(Map<String, Class<?>> map) throws SQLException {
+  public Object getObject(Map<String, Class<?>> map) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Ref getRef() throws SQLException {
+  public Ref getRef() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Blob getBlob() throws SQLException {
+  public Blob getBlob() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Clob getClob() throws SQLException {
+  public Clob getClob() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Array getArray() throws SQLException {
+  public Array getArray() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Struct getStruct() throws SQLException {
+  public Struct getStruct() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Date getDate(Calendar calendar) throws SQLException {
+  public Date getDate(Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Time getTime(Calendar calendar) throws SQLException {
+  public Time getTime(Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Timestamp getTimestamp(Calendar calendar) throws SQLException {
+  public Timestamp getTimestamp(Calendar calendar) {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public URL getURL() throws SQLException {
+  public URL getURL() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public NClob getNClob() throws SQLException {
+  public NClob getNClob() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public SQLXML getSQLXML() throws SQLException {
+  public SQLXML getSQLXML() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public String getNString() throws SQLException {
+  public String getNString() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getNCharacterStream() throws SQLException {
+  public Reader getNCharacterStream() {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public <T> T getObject(Class<T> aClass) throws SQLException {
-    throw getOperationNotSupported(this.getClass());
+  public <T> T getObject(Class<T> aClass) {
+    if (aClass.isAssignableFrom(long.class)) {
+      return aClass.cast(getLong());
+    } else if (aClass == int.class) {
+      return aClass.cast(getInt());
+    } else if (aClass == short.class) {
+      return aClass.cast(getShort());
+    } else if (aClass == byte.class) {
+      return aClass.cast(getByte());
+    } else if (aClass == String.class) {
+      return aClass.cast(getString());
+    } else if (aClass == float.class) {
+      return aClass.cast(getFloat());
+    } else if (aClass == double.class) {
+      return aClass.cast(getDouble());
+    } else if (aClass == byte[].class) {
+      return aClass.cast(getBytes());
+    }
+
+    throw new UnsupportedOperationException();
   }
 }
