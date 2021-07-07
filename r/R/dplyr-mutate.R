@@ -113,5 +113,23 @@ mutate.arrow_dplyr_query <- function(.data,
 }
 mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
 
-transmute.arrow_dplyr_query <- function(.data, ...) dplyr::mutate(.data, ..., .keep = "none")
+transmute.arrow_dplyr_query <- function(.data, ...) {
+  dots <- check_transmute_args(...)
+  dplyr::mutate(.data, !!!dots, .keep = "none")
+}
 transmute.Dataset <- transmute.ArrowTabular <- transmute.arrow_dplyr_query
+
+# This function is a copy of dplyr:::check_transmute_args at
+# https://github.com/tidyverse/dplyr/blob/master/R/mutate.R
+check_transmute_args <- function(..., .keep, .before, .after) {
+  if (!missing(.keep)) {
+    abort("`transmute()` does not support the `.keep` argument")
+  }
+  if (!missing(.before)) {
+    abort("`transmute()` does not support the `.before` argument")
+  }
+  if (!missing(.after)) {
+    abort("`transmute()` does not support the `.after` argument")
+  }
+  enquos(...)
+}
