@@ -27,6 +27,7 @@ import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -59,10 +60,14 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+@RunWith(Parameterized.class)
 public class ProjectorTest extends BaseEvaluatorTest {
 
   private Charset utf8Charset = Charset.forName("UTF-8");
@@ -71,9 +76,30 @@ public class ProjectorTest extends BaseEvaluatorTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
+  private final ConfigurationBuilder.ConfigOptions configOptions;
+
+  public ProjectorTest(ConfigurationBuilder.ConfigOptions configOptions) {
+    this.configOptions = configOptions;
+  }
+
+  @Parameters
+  public static Collection<Object[]> data() {
+    final ConfigurationBuilder.ConfigOptions jitOptions =
+        ConfigurationBuilder.ConfigOptions.getDefault();
+
+    final ConfigurationBuilder.ConfigOptions interpretedOptions =
+        ConfigurationBuilder.ConfigOptions.getDefault()
+          .withCompile(false)
+          .withOptimize(false);
+
+    return Arrays.asList(new Object[][]{
+        {jitOptions}, {interpretedOptions}
+    });
+  }
+
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
-    
+
     long dataBufferSize = 0L;
     for (String string : strings) {
       dataBufferSize += string.getBytes(charset).length;
@@ -154,6 +180,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     testMakeProjectorParallel(null);
     testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false));
     testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false).withOptimize(false));
+    testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false)
+        .withOptimize(false).withCompile(false));
   }
 
   // Will be fixed by https://issues.apache.org/jira/browse/ARROW-4371
@@ -176,15 +204,15 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(expr);
 
     long startTime = System.currentTimeMillis();
-    Projector evaluator1 = Projector.make(schema, exprs);
+    Projector evaluator1 = Projector.make(schema, exprs, this.configOptions);
     System.out.println(
         "Projector build: iteration 1 took " + (System.currentTimeMillis() - startTime) + " ms");
     startTime = System.currentTimeMillis();
-    Projector evaluator2 = Projector.make(schema, exprs);
+    Projector evaluator2 = Projector.make(schema, exprs, this.configOptions);
     System.out.println(
         "Projector build: iteration 2 took " + (System.currentTimeMillis() - startTime) + " ms");
     startTime = System.currentTimeMillis();
-    Projector evaluator3 = Projector.make(schema, exprs);
+    Projector evaluator3 = Projector.make(schema, exprs, this.configOptions);
     long timeToMakeProjector = (System.currentTimeMillis() - startTime);
     // should be getting the projector from the cache;
     // giving 5ms for varying system load.
@@ -212,7 +240,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     boolean exceptionThrown = false;
     try {
-      Projector evaluator1 = Projector.make(schema, exprs);
+      Projector evaluator1 = Projector.make(schema, exprs, this.configOptions);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -225,7 +253,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // try again to ensure no temporary resources.
     exceptionThrown = false;
     try {
-      Projector evaluator1 = Projector.make(schema, exprs);
+      Projector evaluator1 = Projector.make(schema, exprs, this.configOptions);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -245,7 +273,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(root);
 
     Schema schema = new Schema(args);
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -296,7 +324,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(root);
 
     Schema schema = new Schema(args);
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
@@ -351,12 +379,12 @@ public class ProjectorTest extends BaseEvaluatorTest {
     AtomicInteger errorCount = new AtomicInteger(0);
     AtomicInteger errorCountExp = new AtomicInteger(0);
     // pre-build the projector so that same projector is used for all executions.
-    Projector test = Projector.make(s, exprs);
+    Projector test = Projector.make(s, exprs, this.configOptions);
 
     IntStream.range(0, 1000).forEach(i -> {
       executors.submit(() -> {
         try {
-          Projector evaluator = Projector.make(s, exprs);
+          Projector evaluator = Projector.make(s, exprs, this.configOptions);
           int numRows = 2;
           byte[] validity = new byte[]{(byte) 255};
           int[] aValues = new int[]{2, 2};
@@ -422,7 +450,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<Field> cols = Lists.newArrayList(x, n2x, n3x);
     Schema schema = new Schema(cols);
 
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -499,7 +527,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifHello, Field.nullable("res", retType));
     Schema schema = new Schema(Lists.newArrayList(a, x, b));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -564,7 +592,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifHiBye, Field.nullable("res", retType));
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     // fill up input record batch
     int numRows = 4;
@@ -621,7 +649,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(cond, Field.nullable("res", boolType));
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -671,8 +699,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression(rand, Field.nullable("res2", float64));
     Field x = Field.nullable("x", new ArrowType.Utf8());
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector evalWithSeed = Projector.make(schema, Lists.newArrayList(exprWithSeed));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector evalWithSeed = Projector.make(schema, Lists.newArrayList(exprWithSeed), this.configOptions);
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255, 0};
@@ -720,7 +748,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression("equal", args, Field.nullable("res", retType));
 
     Schema schema = new Schema(Lists.newArrayList(args));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -819,7 +847,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, (byte) 255};
@@ -868,7 +896,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(and, res);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
@@ -917,7 +945,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(or, res);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
@@ -965,7 +993,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifLess10, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
@@ -1009,7 +1037,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(xNode, x);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 255};
@@ -1060,7 +1088,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(ifCoalesce, x);
     Schema schema = new Schema(Lists.newArrayList(x, y));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 2;
     byte[] validity = new byte[]{(byte) 1};
@@ -1106,7 +1134,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     TreeNode isNull = TreeBuilder.makeFunction("isnull", Lists.newArrayList(xNode), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(isNull, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1153,7 +1181,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         TreeBuilder.makeFunction("equal", Lists.newArrayList(c1Node, c2Node), boolType);
     ExpressionTree expr = TreeBuilder.makeExpression(equals, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1202,7 +1230,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1256,7 +1284,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr,
         Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1304,7 +1332,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
                 Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     // Create a row-batch with some sample data to look for
     int numRows = 16;
@@ -1356,7 +1384,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         TreeBuilder.makeInExpressionString(substr, Sets.newHashSet("one", "two", "thr", "fou"));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1406,7 +1434,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<ExpressionTree> exprs = Lists.newArrayList(root);
 
     Schema schema = new Schema(args);
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -1491,7 +1519,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(tsToMin, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(dateField, tsField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 8;
     byte[] validity = new byte[]{(byte) 255};
@@ -1570,7 +1598,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(dateToMonth, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(dateField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 4;
     byte[] validity = new byte[]{(byte) 255};
@@ -1642,7 +1670,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
     boolean caughtException = false;
     try {
-      Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+      Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
     } catch (GandivaException ge) {
       caughtException = true;
     }
@@ -1669,7 +1697,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(tsToString, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(tsField, lenField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
@@ -1746,7 +1774,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(intervalToBigint, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(dayIntervalField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 255};
@@ -1813,7 +1841,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ExpressionTree expr = TreeBuilder.makeExpression(extractday, Field.nullable("result", int64));
     Schema schema = new Schema(Lists.newArrayList(tsField));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
@@ -1874,7 +1902,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         Lists.newArrayList(
             TreeBuilder.makeExpression(castINTFn, resultField));
     Schema schema = new Schema(Lists.newArrayList(inField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
     String[] values =
@@ -1923,7 +1951,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         Lists.newArrayList(
             TreeBuilder.makeExpression(castINTFn, resultField));
     Schema schema = new Schema(Lists.newArrayList(inField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
     int numRows = 1;
     byte[] validity = new byte[] {(byte) 255};
     String[] values =
@@ -1964,7 +1992,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         Lists.newArrayList(
             TreeBuilder.makeExpression(castFLOAT8Fn, resultField));
     Schema schema = new Schema(Lists.newArrayList(inField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
     String[] values =
@@ -2017,7 +2045,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
         Lists.newArrayList(
             TreeBuilder.makeExpression(castFLOAT8Fn, resultField));
     Schema schema = new Schema(Lists.newArrayList(inField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
     String[] values =
@@ -2100,7 +2128,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
     eval.close();
-  }  
+  }
 
   @Test
   public void testCastVarcharFromInteger() throws Exception {
@@ -2119,7 +2147,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(tsToString, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(inField, lenField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
@@ -2197,7 +2225,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             TreeBuilder.makeExpression(tsToString, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(inField, lenField));
-    Projector eval = Projector.make(schema, exprs);
+    Projector eval = Projector.make(schema, exprs, this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[] {(byte) 255};
@@ -2304,7 +2332,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
                     new ArrowType.Utf8());
     ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
     Schema schema = new Schema(Lists.newArrayList(x));
-    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr), this.configOptions);
 
     int numRows = 5;
     byte[] validity = new byte[]{(byte) 15, 0};

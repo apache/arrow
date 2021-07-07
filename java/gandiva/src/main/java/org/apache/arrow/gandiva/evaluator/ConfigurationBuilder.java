@@ -25,10 +25,11 @@ import java.util.Objects;
 public class ConfigurationBuilder {
 
   public long buildConfigInstance(ConfigOptions configOptions) {
-    return buildConfigInstance(configOptions.optimize, configOptions.targetCPU);
+    return buildConfigInstance(configOptions.compile, configOptions.optimize,
+                               configOptions.targetCPU);
   }
 
-  private native long buildConfigInstance(boolean optimize, boolean detectHostCPU);
+  private native long buildConfigInstance(boolean compile, boolean optimize, boolean detectHostCPU);
 
   public native void releaseConfigInstance(long configId);
 
@@ -36,6 +37,7 @@ public class ConfigurationBuilder {
    * ConfigOptions contains the configuration parameters to provide to gandiva.
    */
   public static class ConfigOptions {
+    private boolean compile = true;
     private boolean optimize = true;
     private boolean targetCPU = true;
 
@@ -44,6 +46,11 @@ public class ConfigurationBuilder {
     }
 
     public ConfigOptions() {}
+
+    public ConfigOptions withCompile(boolean compile) {
+      this.compile = compile;
+      return this;
+    }
 
     public ConfigOptions withOptimize(boolean optimize) {
       this.optimize = optimize;
@@ -57,7 +64,7 @@ public class ConfigurationBuilder {
 
     @Override
     public int hashCode() {
-      return Objects.hash(optimize, targetCPU);
+      return Objects.hash(compile, optimize, targetCPU);
     }
 
     @Override
@@ -65,7 +72,8 @@ public class ConfigurationBuilder {
       if (!(obj instanceof ConfigOptions)) {
         return false;
       }
-      return this.optimize == ((ConfigOptions) obj).optimize &&
+      return this.compile == ((ConfigOptions) obj).compile &&
+              this.optimize == ((ConfigOptions) obj).optimize &&
               this.targetCPU == ((ConfigOptions) obj).targetCPU;
     }
   }
