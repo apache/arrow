@@ -75,13 +75,23 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
   const uint8_t* mask_bitmap = mask.MayHaveNulls() ? mask.buffers[0]->data() : nullptr;
   const uint8_t* mask_values = mask.buffers[1]->data();
   bool replacements_bitmap;
-  int64_t replacements_length;
   if (replacements.is_array()) {
     replacements_bitmap = replacements.array()->MayHaveNulls();
-    replacements_length = replacements.array()->length;
+    const int64_t replacements_length = replacements.array()->length;
+
+    arrow::internal::OptionalBinaryBitBlockCounter counter(
+        mask_values, mask.offset, mask_bitmap, mask.offset, mask.length);
+    int64_t count = 0;
+    for (int64_t offset = 0; offset < mask.length;) {
+      BitBlockCount block = counter.NextAndBlock();
+      count += block.popcount;
+      offset += block.length;
+    }
+    if (count > replacements_length) {
+      return ReplacementArrayTooShort(count, replacements_length);
+    }
   } else {
     replacements_bitmap = !replacements.scalar()->is_valid;
-    replacements_length = std::numeric_limits<int64_t>::max();
   }
   if (array.MayHaveNulls() || mask.MayHaveNulls() || replacements_bitmap) {
     ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(array.length));
@@ -120,10 +130,6 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
     BitBlockCount block = counter.NextAndBlock();
     if (block.AllSet()) {
       // Copy from replacement array
-      if (replacements_offset + block.length > replacements_length) {
-        return ReplacementArrayTooShort(replacements_offset + block.length,
-                                        replacements_length);
-      }
       Functor::CopyData(*array.type, out_values, out_offset, replacements,
                         replacements_offset, block.length);
       if (replacements_bitmap) {
@@ -137,9 +143,6 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
         if (BitUtil::GetBit(mask_values, out_offset + mask.offset + i) &&
             (!mask_bitmap ||
              BitUtil::GetBit(mask_bitmap, out_offset + mask.offset + i))) {
-          if (replacements_offset >= replacements_length) {
-            return ReplacementArrayTooShort(replacements_offset + 1, replacements_length);
-          }
           Functor::CopyData(*array.type, out_values, out_offset + i, replacements,
                             replacements_offset,
                             /*length=*/1);
