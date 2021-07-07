@@ -17,7 +17,9 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -39,6 +41,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -751,18 +755,30 @@ struct GroupedAggregator : KernelState {
   virtual Status Init(ExecContext*, const FunctionOptions*,
                       const std::shared_ptr<DataType>&) = 0;
 
+  virtual Status Reserve(int64_t added_groups) = 0;
+
   virtual Status Consume(const ExecBatch& batch) = 0;
+
+  virtual Status Merge(GroupedAggregator&& other, const ExecBatch& group_id_mapping) {
+    // TODO(ARROW-11840) merge two hash tables
+    return Status::NotImplemented("Merge hashed aggregations");
+  }
 
   virtual Result<Datum> Finalize() = 0;
 
-  template <typename Reserve>
-  Status MaybeReserve(int64_t old_num_groups, const ExecBatch& batch,
-                      const Reserve& reserve) {
-    int64_t new_num_groups = batch[2].scalar_as<UInt32Scalar>().value;
+  static const uint32_t* GroupIds(const ExecBatch& batch) {
+    return batch[1].array()->GetValues<uint32_t>(1);
+  }
+
+  static uint32_t NumGroups(const ExecBatch& batch) {
+    return batch[2].scalar_as<UInt32Scalar>().value;
+  }
+
+  Status MaybeReserve(int64_t old_num_groups, int64_t new_num_groups) {
     if (new_num_groups <= old_num_groups) {
       return Status::OK();
     }
-    return reserve(new_num_groups - old_num_groups);
+    return Reserve(new_num_groups - old_num_groups);
   }
 
   virtual std::shared_ptr<DataType> out_type() const = 0;
@@ -779,11 +795,29 @@ struct GroupedCountImpl : public GroupedAggregator {
     return Status::OK();
   }
 
+  Status Reserve(int64_t added_groups) override {
+    num_groups_ += added_groups;
+    return counts_.Append(added_groups * sizeof(int64_t), 0);
+  }
+
+  Status Merge(GroupedAggregator&& other, const ExecBatch& group_id_mapping) override {
+    RETURN_NOT_OK(MaybeReserve(
+        num_groups_, group_id_mapping.values[1].scalar_as<UInt32Scalar>().value));
+
+    auto raw_mapping = group_id_mapping.values[0].array()->GetValues<uint32_t>(1);
+
+    auto raw_counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto other_raw_counts = reinterpret_cast<const int64_t*>(
+        checked_cast<GroupedCountImpl&&>(other).counts_.mutable_data());
+
+    for (int64_t i = 0; i < group_id_mapping.length; ++i) {
+      raw_counts[raw_mapping[i]] += other_raw_counts[i];
+    }
+    return Status::OK();
+  }
+
   Status Consume(const ExecBatch& batch) override {
-    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
-      num_groups_ += added_groups;
-      return counts_.Append(added_groups * sizeof(int64_t), 0);
-    }));
+    RETURN_NOT_OK(MaybeReserve(num_groups_, NumGroups(batch)));
 
     auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
     auto raw_counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
@@ -834,6 +868,8 @@ struct GroupedSumImpl : public GroupedAggregator {
 
   using ConsumeImpl = std::function<void(const std::shared_ptr<ArrayData>&,
                                          const uint32_t*, void*, int64_t*)>;
+  using MergeImpl =
+      std::function<void(GroupedSumImpl&&, const uint32_t*, GroupedSumImpl*)>;
 
   struct GetConsumeImpl {
     template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
@@ -864,6 +900,7 @@ struct GroupedSumImpl : public GroupedAggregator {
     }
 
     ConsumeImpl consume_impl;
+    MergeImpl merge_impl;
     std::shared_ptr<DataType> out_type;
   };
 
@@ -882,13 +919,15 @@ struct GroupedSumImpl : public GroupedAggregator {
     return Status::OK();
   }
 
+  Status Reserve(int64_t added_groups) override {
+    num_groups_ += added_groups;
+    RETURN_NOT_OK(sums_.Append(added_groups * kSumSize, 0));
+    RETURN_NOT_OK(counts_.Append(added_groups * sizeof(int64_t), 0));
+    return Status::OK();
+  }
+
   Status Consume(const ExecBatch& batch) override {
-    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
-      num_groups_ += added_groups;
-      RETURN_NOT_OK(sums_.Append(added_groups * kSumSize, 0));
-      RETURN_NOT_OK(counts_.Append(added_groups * sizeof(int64_t), 0));
-      return Status::OK();
-    }));
+    RETURN_NOT_OK(MaybeReserve(num_groups_, NumGroups(batch)));
 
     auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
     consume_impl_(batch[0].array(), group_ids, sums_.mutable_data(),
@@ -926,6 +965,7 @@ struct GroupedSumImpl : public GroupedAggregator {
   BufferBuilder sums_, counts_;
   std::shared_ptr<DataType> out_type_;
   ConsumeImpl consume_impl_;
+  MergeImpl merge_impl_;
   MemoryPool* pool_;
 };
 
@@ -1025,15 +1065,17 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     return Status::OK();
   }
 
+  Status Reserve(int64_t added_groups) override {
+    num_groups_ += added_groups;
+    RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
+    RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
+    RETURN_NOT_OK(has_values_.Append(added_groups, false));
+    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
+    return Status::OK();
+  }
+
   Status Consume(const ExecBatch& batch) override {
-    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
-      num_groups_ += added_groups;
-      RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
-      RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
-      RETURN_NOT_OK(has_values_.Append(added_groups, false));
-      RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
-      return Status::OK();
-    }));
+    RETURN_NOT_OK(MaybeReserve(num_groups_, NumGroups(batch)));
 
     auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
     consume_impl_(batch[0].array(), group_ids, mins_.mutable_data(),
@@ -1100,9 +1142,10 @@ HashAggregateKernel MakeKernel(InputType argument_type) {
     return checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch);
   };
 
-  kernel.merge = [](KernelContext* ctx, KernelState&&, KernelState*) {
-    // TODO(ARROW-11840) merge two hash tables
-    return Status::NotImplemented("Merge hashed aggregations");
+  kernel.merge = [](KernelContext* ctx, KernelState&& other,
+                    const ExecBatch& group_id_mapping) {
+    return checked_cast<GroupedAggregator*>(ctx->state())
+        ->Merge(checked_cast<GroupedAggregator&&>(other), group_id_mapping);
   };
 
   kernel.finalize = [](KernelContext* ctx, Datum* out) {
@@ -1199,7 +1242,13 @@ Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& de
 }
 
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates, ExecContext* ctx) {
+                      const std::vector<Aggregate>& aggregates, bool use_threads,
+                      ExecContext* ctx) {
+  auto task_group =
+      use_threads
+          ? arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool())
+          : arrow::internal::TaskGroup::MakeSerial();
+
   // Construct and initialize HashAggregateKernels
   ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
                         ExecBatch::Make(arguments).Map(
@@ -1207,24 +1256,33 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   ARROW_ASSIGN_OR_RAISE(auto kernels, GetKernels(ctx, aggregates, argument_descrs));
 
-  ARROW_ASSIGN_OR_RAISE(auto states,
-                        InitKernels(kernels, ctx, aggregates, argument_descrs));
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states(
+      task_group->parallelism());
+  for (auto& state : states) {
+    ARROW_ASSIGN_OR_RAISE(state, InitKernels(kernels, ctx, aggregates, argument_descrs));
+  }
 
   ARROW_ASSIGN_OR_RAISE(
       FieldVector out_fields,
-      ResolveKernels(aggregates, kernels, states, ctx, argument_descrs));
+      ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
 
   using arrow::compute::detail::ExecBatchIterator;
 
   ARROW_ASSIGN_OR_RAISE(auto argument_batch_iterator,
                         ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
 
-  // Construct Grouper
+  // Construct Groupers
   ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
     return batch.GetDescriptors();
   }));
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_descrs, ctx));
+  std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
+  for (auto& grouper : groupers) {
+    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_descrs, ctx));
+  }
+
+  std::mutex mutex;
+  std::unordered_map<std::thread::id, size_t> thread_ids;
 
   int i = 0;
   for (ValueDescr& key_descr : key_descrs) {
@@ -1240,16 +1298,49 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
          key_batch_iterator->Next(&key_batch)) {
     if (key_batch.length == 0) continue;
 
-    // compute a batch of group ids
-    ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
+    task_group->Append([&, key_batch, argument_batch] {
+      size_t thread_index;
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        auto it = thread_ids.emplace(std::this_thread::get_id(), thread_ids.size()).first;
+        thread_index = it->second;
+        DCHECK_LT(static_cast<int>(thread_index), task_group->parallelism());
+      }
 
-    // consume group ids with HashAggregateKernels
-    for (size_t i = 0; i < kernels.size(); ++i) {
-      KernelContext batch_ctx{ctx};
-      batch_ctx.SetState(states[i].get());
-      ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch,
-                                                         Datum(grouper->num_groups())}));
-      RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
+      auto grouper = groupers[thread_index].get();
+
+      // compute a batch of group ids
+      ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
+
+      // consume group ids with HashAggregateKernels
+      for (size_t i = 0; i < kernels.size(); ++i) {
+        KernelContext batch_ctx{ctx};
+        batch_ctx.SetState(states[thread_index][i].get());
+        ARROW_ASSIGN_OR_RAISE(
+            auto batch,
+            ExecBatch::Make({argument_batch[i], id_batch, Datum(grouper->num_groups())}));
+        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
+      }
+
+      return Status::OK();
+    });
+  }
+
+  RETURN_NOT_OK(task_group->Finish());
+
+  // Merge if necessary
+  for (size_t i = 0; i < kernels.size(); ++i) {
+    KernelContext batch_ctx{ctx};
+    batch_ctx.SetState(states[0][i].get());
+
+    for (size_t thread_index = 1; thread_index < thread_ids.size(); ++thread_index) {
+      ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
+      ARROW_ASSIGN_OR_RAISE(Datum transposition, groupers[0]->Consume(other_keys));
+      ARROW_ASSIGN_OR_RAISE(
+          auto group_id_mapping,
+          ExecBatch::Make({std::move(transposition), Datum(groupers[0]->num_groups())}));
+      RETURN_NOT_OK(kernels[i]->merge(&batch_ctx, std::move(*states[thread_index][i]),
+                                      group_id_mapping));
     }
   }
 
@@ -1259,13 +1350,13 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext batch_ctx{ctx};
-    batch_ctx.SetState(states[i].get());
+    batch_ctx.SetState(states[0][i].get());
     Datum out;
     RETURN_NOT_OK(kernels[i]->finalize(&batch_ctx, &out));
     *it++ = out.array();
   }
 
-  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, grouper->GetUniques());
+  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, groupers[0]->GetUniques());
   for (const auto& key : out_keys.values) {
     *it++ = key.array();
   }

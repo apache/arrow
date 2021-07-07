@@ -230,6 +230,8 @@ struct ARROW_EXPORT ExecBatch {
     return result;
   }
 
+  std::string ToString() const;
+
   ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
 

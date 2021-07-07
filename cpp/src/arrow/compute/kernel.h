@@ -52,7 +52,7 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx), state_() {}
+  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
@@ -80,7 +80,7 @@ class ARROW_EXPORT KernelContext {
 
  private:
   ExecContext* exec_ctx_;
-  KernelState* state_;
+  KernelState* state_ = NULLPTR;
 };
 
 /// \brief The standard kernel execution API that must be implemented for
@@ -683,8 +683,10 @@ struct ScalarAggregateKernel : public Kernel {
 
 using HashAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
 
+// XXX should resize be a method here?
+
 using HashAggregateMerge =
-    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
+    std::function<Status(KernelContext*, KernelState&&, const ExecBatch&)>;
 
 // Finalize returns Datum to permit multiple return values
 using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;

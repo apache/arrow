@@ -30,6 +30,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -175,12 +176,19 @@ struct TestGrouper {
   }
 
   void ExpectConsume(const std::string& key_json, const std::string& expected) {
-    ExpectConsume(ExecBatch(*RecordBatchFromJSON(key_schema_, key_json)),
+    ExpectConsume(ExecBatchFromJSON(descrs_, key_json),
                   ArrayFromJSON(uint32(), expected));
   }
 
-  void ExpectConsume(const std::vector<Datum>& key_batch, Datum expected) {
-    ExpectConsume(*ExecBatch::Make(key_batch), expected);
+  void ExpectConsume(const std::vector<Datum>& key_values, Datum expected) {
+    ASSERT_OK_AND_ASSIGN(auto key_batch, ExecBatch::Make(key_values));
+    ExpectConsume(key_batch, expected);
+  }
+
+  void ExpectConsume(const ExecBatch& key_batch, Datum expected) {
+    Datum ids;
+    ConsumeAndValidate(key_batch, &ids);
+    AssertEquivalentIds(expected, ids);
   }
 
   void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
@@ -190,10 +198,8 @@ struct TestGrouper {
     int64_t num_ids = left->length();
     auto left_data = left->data();
     auto right_data = right->data();
-    const uint32_t* left_ids =
-        reinterpret_cast<const uint32_t*>(left_data->buffers[1]->data());
-    const uint32_t* right_ids =
-        reinterpret_cast<const uint32_t*>(right_data->buffers[1]->data());
+    auto left_ids = reinterpret_cast<const uint32_t*>(left_data->buffers[1]->data());
+    auto right_ids = reinterpret_cast<const uint32_t*>(right_data->buffers[1]->data());
     uint32_t max_left_id = 0;
     uint32_t max_right_id = 0;
     for (int64_t i = 0; i < num_ids; ++i) {
@@ -222,13 +228,6 @@ struct TestGrouper {
       ASSERT_EQ(left_id, right_to_left[right_id]);
       ASSERT_EQ(right_id, left_to_right[left_id]);
     }
-  }
-
-  void ExpectConsume(const ExecBatch& key_batch, Datum expected) {
-    Datum ids;
-    ConsumeAndValidate(key_batch, &ids);
-    AssertEquivalentIds(expected, ids);
-    // AssertDatumsEqual(expected, ids, /*verbose=*/true);
   }
 
   void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
@@ -518,6 +517,51 @@ TEST(GroupBy, Errors) {
       NotImplemented, HasSubstr("Direct execution of HASH_AGGREGATE functions"),
       CallFunction("hash_sum", {batch->GetColumnByName("argument"),
                                 batch->GetColumnByName("group_id"), Datum(uint32_t(4))}));
+}
+
+TEST(GroupBy, CountOnly) {
+  for (bool use_threads : {true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1.0,   1],
+    [null,  1]
+                        ])",
+                                                                                      R"([
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2]
+                        ])",
+                                                                                      R"([
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+                        ])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy({table->GetColumnByName("argument")},
+                                           {table->GetColumnByName("key")},
+                                           {
+                                               {"hash_count", nullptr},
+                                           },
+                                           use_threads));
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [2,   1],
+    [3,   2],
+    [0,   3],
+    [2,   null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
 }
 
 TEST(GroupBy, SumOnly) {
