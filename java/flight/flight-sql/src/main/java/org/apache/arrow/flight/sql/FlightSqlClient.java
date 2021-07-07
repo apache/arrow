@@ -159,7 +159,6 @@ public class FlightSqlClient {
    */
   public FlightInfo getTables(String catalog, String schemaFilterPattern,
           String tableFilterPattern, List<String> tableTypes, boolean includeSchema) {
-
     final FlightSql.CommandGetTables.Builder builder = FlightSql.CommandGetTables.newBuilder();
 
     if (catalog != null) {
@@ -178,6 +177,79 @@ public class FlightSqlClient {
       builder.addAllTableTypes(tableTypes);
     }
     builder.setIncludeSchema(includeSchema);
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor);
+  }
+
+  /**
+   * Request the primary keys for a table.
+   *
+   * @param catalog             The catalog.
+   * @param schema              The schema.
+   * @param table               The table.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getPrimaryKeys(String catalog, String schema, String table) {
+    final FlightSql.CommandGetPrimaryKeys.Builder builder = FlightSql.CommandGetPrimaryKeys.newBuilder();
+
+    if (catalog != null) {
+      builder.setCatalog(catalog);
+    }
+
+    if (schema != null) {
+      builder.setSchema(schema);
+    }
+
+    builder.setTable(table);
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor);
+  }
+
+  /**
+   * Request the foreign keys for a table.
+   *
+   * One of pkTable or fkTable must be specified, both cannot be null.
+   *
+   * @param pkCatalog             The primary key table catalog.
+   * @param pkSchema              The primary key table schema.
+   * @param pkTable               The primary key table.
+   * @param fkCatalog             The foreign key table catalog.
+   * @param fkSchema              The foreign key table schema.
+   * @param fkTable               The foreign key table.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getForeignKeys(String pkCatalog, String pkSchema, String pkTable,
+                                   String fkCatalog, String fkSchema, String fkTable) {
+    if (null == pkTable && null == fkTable) {
+      throw Status.INVALID_ARGUMENT.asRuntimeException();
+    }
+
+    final FlightSql.CommandGetForeignKeys.Builder builder = FlightSql.CommandGetForeignKeys.newBuilder();
+
+    if (pkCatalog != null) {
+      builder.setPkCatalog(pkCatalog);
+    }
+
+    if (pkSchema != null) {
+      builder.setPkSchema(pkSchema);
+    }
+
+    if (pkTable != null) {
+      builder.setPkTable(pkTable);
+    }
+
+    if (fkCatalog != null) {
+      builder.setFkCatalog(fkCatalog);
+    }
+
+    if (fkSchema != null) {
+      builder.setFkSchema(fkSchema);
+    }
+
+    if (fkTable != null) {
+      builder.setFkTable(fkTable);
+    }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);

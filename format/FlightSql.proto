@@ -94,7 +94,7 @@ message CommandGetSqlInfo {
 }
 
 /*
- Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
+ * Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
@@ -156,12 +156,13 @@ message CommandGetSchemas {
  */
 message CommandGetTables {
   /*
-   * Specifies the Catalog to search for schemas.
+   * Specifies the Catalog to search for the tables.
    * If omitted, then all catalogs are searched.
    */
   string catalog = 1;
 
-  /* Specifies a filter pattern for schemas to search for.
+  /*
+   * Specifies a filter pattern for schemas to search for.
    * When no schema_filter_pattern is provided, all schemas matching other filters are searched.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
@@ -169,7 +170,8 @@ message CommandGetTables {
    */
   string schema_filter_pattern = 2;
 
-  /* Specifies a filter pattern for tables to search for.
+  /*
+   * Specifies a filter pattern for tables to search for.
    * When no table_name_filter_pattern is provided, all tables matching other filters are searched.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
@@ -197,6 +199,78 @@ message CommandGetTables {
  * The returned data should be ordered by table_type.
  */
 message CommandGetTableTypes {
+}
+
+/*
+ * Represents a request to retrieve the primary keys of a table on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8,
+ *  schema_name: utf8,
+ *  table_name: utf8,
+ *  column_name: utf8,
+ *  key_sequence: int,
+ *  key_name: utf8
+ * >
+ * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ */
+message CommandGetPrimaryKeys {
+  // Specifies the catalog to search for the table.
+  string catalog = 1;
+
+  // Specifies the schema to search for the table.
+  string schema = 2;
+
+  // Specifies the table to get the primary keys for.
+  string table = 3;
+}
+
+/*
+ * Represents a request to retrieve the foreign keys of a table on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  pk_catalog_name: utf8,
+ *  pk_schema_name: utf8,
+ *  pk_table_name: utf8,
+ *  pk_column_name: utf8,
+ *  fk_catalog_name: utf8,
+ *  fk_schema_name: utf8,
+ *  fk_table_name: utf8,
+ *  fk_column_name: utf8,
+ *  key_sequence: int,
+ *  fk_key_name: utf8,
+ *  pk_key_name: utf8,
+ *  update_rule: int,
+ *  delete_rule: int
+ * >
+ * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ */
+message CommandGetForeignKeys {
+  // Specifies the catalog to search for the primary key table.
+  string pk_catalog = 1;
+
+  // Specifies the schema to search for the primary key table.
+  string pk_schema = 2;
+
+  // Specifies the primary key table to get the foreign keys for.
+  string pk_table = 3;
+
+  // Specifies the catalog to search for the foreign key table.
+  string fk_catalog = 4;
+
+  // Specifies the schema to search for the foreign key table.
+  string fk_schema = 5;
+
+  // Specifies the foreign key table to get the foreign keys for.
+  string fk_table = 6;
 }
 
 // SQL Execution Action Messages
