@@ -45,7 +45,8 @@ module.exports = {
       "^.+\\.tsx?$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!web-stream-tools).+\\.js$"
+      "/node_modules/(?!web-stream-tools).+\\.js$",
+      ".*/cjs/.*\\.js$"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
     "preset": "ts-jest",
