@@ -112,33 +112,28 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
 
   Functor::CopyData(*array.type, out_values, /*out_offset=*/0, array, /*in_offset=*/0,
                     array.length);
-  arrow::internal::BitBlockCounter value_counter(mask_values, mask.offset, mask.length);
-  arrow::internal::OptionalBitBlockCounter valid_counter(mask_bitmap, mask.offset,
-                                                         mask.length);
+  arrow::internal::OptionalBinaryBitBlockCounter counter(
+      mask_values, mask.offset, mask_bitmap, mask.offset, mask.length);
   int64_t out_offset = 0;
   int64_t replacements_offset = 0;
   while (out_offset < array.length) {
-    BitBlockCount value_block = value_counter.NextWord();
-    BitBlockCount valid_block = valid_counter.NextWord();
-    DCHECK_EQ(value_block.length, valid_block.length);
-    if (value_block.AllSet() && valid_block.AllSet()) {
+    BitBlockCount block = counter.NextAndBlock();
+    if (block.AllSet()) {
       // Copy from replacement array
-      if (replacements_offset + valid_block.length > replacements_length) {
-        return ReplacementArrayTooShort(replacements_offset + valid_block.length,
+      if (replacements_offset + block.length > replacements_length) {
+        return ReplacementArrayTooShort(replacements_offset + block.length,
                                         replacements_length);
       }
       Functor::CopyData(*array.type, out_values, out_offset, replacements,
-                        replacements_offset, valid_block.length);
+                        replacements_offset, block.length);
       if (replacements_bitmap) {
-        copy_bitmap(out_offset, replacements_offset, valid_block.length);
+        copy_bitmap(out_offset, replacements_offset, block.length);
       } else if (!replacements_bitmap && out_bitmap) {
-        BitUtil::SetBitsTo(out_bitmap, out_offset, valid_block.length, true);
+        BitUtil::SetBitsTo(out_bitmap, out_offset, block.length, true);
       }
-      replacements_offset += valid_block.length;
-    } else if ((value_block.NoneSet() && valid_block.AllSet()) || valid_block.NoneSet()) {
-      // Do nothing
-    } else {
-      for (int64_t i = 0; i < valid_block.length; ++i) {
+      replacements_offset += block.length;
+    } else if (block.popcount) {
+      for (int64_t i = 0; i < block.length; ++i) {
         if (BitUtil::GetBit(mask_values, out_offset + mask.offset + i) &&
             (!mask_bitmap ||
              BitUtil::GetBit(mask_bitmap, out_offset + mask.offset + i))) {
@@ -155,7 +150,7 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
         }
       }
     }
-    out_offset += valid_block.length;
+    out_offset += block.length;
   }
 
   if (mask.MayHaveNulls()) {
