@@ -90,8 +90,8 @@ function gulpConcurrent(tasks) {
 
 function getTasks(name) {
     const tasks = [];
-    if (targets.indexOf(`ts`) !== -1) tasks.push(`${name}:ts`);
-    if (targets.indexOf(npmPkgName) !== -1) tasks.push(`${name}:${npmPkgName}`);
+    if (targets.includes(`ts`)) tasks.push(`${name}:ts`);
+    if (targets.includes(npmPkgName)) tasks.push(`${name}:${npmPkgName}`);
     for (const [target, format] of combinations(targets, modules)) {
         if (tasksToSkipPerTargetOrFormat[target] && tasksToSkipPerTargetOrFormat[target][name]) continue;
         if (tasksToSkipPerTargetOrFormat[format] && tasksToSkipPerTargetOrFormat[format][name]) continue;

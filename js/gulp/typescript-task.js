@@ -31,7 +31,6 @@ const { memoizeTask } = require('./memoize-task');
 const { Observable, ReplaySubject } = require('rxjs');
 
 const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target, format) {
-
     if (shouldRunInChildProcess(target, format)) {
         return spawnGulpCommandInChildProcess('compile', target, format);
     }

@@ -121,12 +121,12 @@ function* combinations(_targets, _modules) {
     const targets = known(knownTargets, _targets || [`all`]);
     const modules = known(knownModules, _modules || [`all`]);
 
-    if (_targets.indexOf(`src`) > -1) {
+    if (_targets.includes(`src`)) {
         yield [`src`, ``];
         return;
     }
 
-    if (_targets.indexOf(`all`) > -1 && _modules.indexOf(`all`) > -1) {
+    if (_targets.includes(`all`) && _modules.includes(`all`)) {
         yield [`ts`, ``];
         yield [`src`, ``];
         yield [npmPkgName, ``];
@@ -139,11 +139,11 @@ function* combinations(_targets, _modules) {
     }
 
     function known(known, values) {
-        return ~values.indexOf(`all`) ? known
-            :  ~values.indexOf(`src`) ? [`src`]
+        return values.includes(`all`) ? known
+            :  values.includes(`src`) ? [`src`]
             : Object.keys(
                 values.reduce((map, arg) => ((
-                    (known.indexOf(arg) !== -1) &&
+                    (known.includes(arg)) &&
                     (map[arg.toLowerCase()] = true)
                     || true) && map
                 ), {})
