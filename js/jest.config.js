@@ -24,6 +24,7 @@ module.exports = {
         "tsconfig": "test/tsconfig.json"
       }
     },
+    "rootDir": "../",
     "roots": [
       "<rootDir>/test/"
     ],
