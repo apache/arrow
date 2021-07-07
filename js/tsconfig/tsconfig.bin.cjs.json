@@ -6,6 +6,7 @@
     "compilerOptions": {
       "target": "esnext",
       "module": "commonjs",
-      "declaration": false
+      "declaration": false,
+      "declarationMap": false
     }
   }

@@ -10,6 +10,7 @@
 
     /* Control what is emitted */
     "declaration": true,
+    "declarationMap": true,
     "noEmitOnError": true,
     "removeComments": false,
     "noErrorTruncation": true,
