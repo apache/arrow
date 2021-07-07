@@ -681,14 +681,19 @@ Status ExampleLargeBatches(BatchVector* out) {
 }
 
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
-  constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
-  ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes_overflow));
+  // In CI, some platforms don't let us allocate one very large
+  // buffer, so allocate a smaller buffer and repeat it a few times
+  constexpr int64_t nbytes = (1ul << 28ul) + 8ul;
+  constexpr int64_t nrows = nbytes / 8;
+  constexpr int64_t ncols = 8;
+  ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes));
   std::memset(values->mutable_data(), 0x00, values->capacity());
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, std::move(values)};
-  auto array = std::make_shared<ArrayData>(int64(), nbytes_overflow / 8, buffers,
+  auto array = std::make_shared<ArrayData>(int64(), nrows, buffers,
                                            /*null_count=*/0);
-  return RecordBatch::Make(schema({field("a", int64())}), nbytes_overflow / 8,
-                           {std::move(array)});
+  std::vector<std::shared_ptr<ArrayData>> arrays(ncols, array);
+  std::vector<std::shared_ptr<Field>> fields(ncols, field("a", int64()));
+  return RecordBatch::Make(schema(std::move(fields)), nrows, std::move(arrays));
 }
 
 std::vector<ActionType> ExampleActionTypes() {
