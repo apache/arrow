@@ -16,8 +16,10 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include <math.h>
-#include <time.h>
+
+#include <cmath>
+#include <ctime>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/precompiled/time_constants.h"
 #include "gandiva/projector.h"
@@ -34,13 +36,17 @@ using arrow::int32;
 using arrow::int64;
 using arrow::timestamp;
 
-class TestProjector : public ::testing::Test {
+class TestDatetimeParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
   arrow::MemoryPool* pool_;
 };
+
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestDatetime, TestDatetimeParametrizedFixture,
+                        ::testing::Values(false, true));
 
 time_t Epoch() {
   // HACK: MSVC mktime() fails on UTC times before 1970-01-01 00:00:00.
@@ -109,7 +115,7 @@ int32_t DaysSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t 
   return static_cast<int32_t>(((ts - base_line) * 1000 + millis) / MILLIS_IN_DAY);
 }
 
-TEST_F(TestProjector, TestIsNull) {
+TEST_P(TestDatetimeParametrizedFixture, TestIsNull) {
   auto d0 = field("d0", date64());
   auto t0 = field("t0", time32(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({d0, t0});
@@ -122,8 +128,9 @@ TEST_F(TestProjector, TestIsNull) {
   auto isnotnull_expr = TreeExprBuilder::MakeExpression("isnotnull", {t0}, b0);
 
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema, {isnull_expr, isnotnull_expr},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_TRUE(status.ok());
 
   int num_records = 4;
@@ -153,7 +160,7 @@ TEST_F(TestProjector, TestIsNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnotnull, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestDate32IsNull) {
+TEST_P(TestDatetimeParametrizedFixture, TestDate32IsNull) {
   auto d0 = field("d0", date32());
   auto schema = arrow::schema({d0});
 
@@ -164,7 +171,9 @@ TEST_F(TestProjector, TestDate32IsNull) {
   auto isnull_expr = TreeExprBuilder::MakeExpression("isnull", {d0}, b0);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {isnull_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {isnull_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   ASSERT_TRUE(status.ok());
 
   int num_records = 4;
@@ -189,7 +198,7 @@ TEST_F(TestProjector, TestDate32IsNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnull, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestDateTime) {
+TEST_P(TestDatetimeParametrizedFixture, TestDateTime) {
   auto field0 = field("f0", date64());
   auto field1 = field("f1", date32());
   auto field2 = field("f2", timestamp(arrow::TimeUnit::MILLI));
@@ -228,10 +237,11 @@ TEST_F(TestProjector, TestDateTime) {
   auto ts2day_expr = TreeExprBuilder::MakeExpression("extractDay", {field2}, field_day);
 
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema,
                                 {date2year_expr, date2month_expr, date64_2year_expr,
                                  date64_2month_expr, ts2month_expr, ts2day_expr},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -290,7 +300,7 @@ TEST_F(TestProjector, TestDateTime) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_dd_from_ts, outputs.at(5));
 }
 
-TEST_F(TestProjector, TestTime) {
+TEST_P(TestDatetimeParametrizedFixture, TestTime) {
   auto field0 = field("f0", time32(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({field0});
 
@@ -304,8 +314,9 @@ TEST_F(TestProjector, TestTime) {
       TreeExprBuilder::MakeExpression("extractHour", {field0}, field_hour);
 
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema, {time2min_expr, time2hour_expr},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_TRUE(status.ok());
 
   // create input data
@@ -337,7 +348,7 @@ TEST_F(TestProjector, TestTime) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_hour, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestTimestampDiff) {
+TEST_P(TestDatetimeParametrizedFixture, TestTimestampDiff) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({f0, f1});
@@ -371,9 +382,11 @@ TEST_F(TestProjector, TestTimestampDiff) {
       TreeExprBuilder::MakeExpression("timestampdiffYear", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
                 diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -426,7 +439,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   }
 }
 
-TEST_F(TestProjector, TestTimestampDiffMonth) {
+TEST_P(TestDatetimeParametrizedFixture, TestTimestampDiffMonth) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({f0, f1});
@@ -438,8 +451,9 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
       TreeExprBuilder::MakeExpression("timestampdiffMonth", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {diff_months_expr},
+                                TestConfiguration(use_interpreted), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
@@ -484,7 +498,7 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
   }
 }
 
-TEST_F(TestProjector, TestMonthsBetween) {
+TEST_P(TestDatetimeParametrizedFixture, TestMonthsBetween) {
   auto f0 = field("f0", arrow::date64());
   auto f1 = field("f1", arrow::date64());
   auto schema = arrow::schema({f0, f1});
@@ -496,8 +510,9 @@ TEST_F(TestProjector, TestMonthsBetween) {
       TreeExprBuilder::MakeExpression("months_between", {f0, f1}, output);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {months_between_expr},
+                                TestConfiguration(use_interpreted), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
@@ -537,7 +552,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestLastDay) {
+TEST_P(TestDatetimeParametrizedFixture, TestLastDay) {
   auto f0 = field("f0", arrow::date64());
   auto schema = arrow::schema({f0});
 
@@ -547,7 +562,9 @@ TEST_F(TestProjector, TestLastDay) {
   auto last_day_expr = TreeExprBuilder::MakeExpression("last_day", {f0}, output);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {last_day_expr},
+                                TestConfiguration(use_interpreted), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 

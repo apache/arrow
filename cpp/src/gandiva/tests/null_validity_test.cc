@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
@@ -28,13 +29,17 @@ using arrow::boolean;
 using arrow::int32;
 using arrow::utf8;
 
-class TestNullValidity : public ::testing::Test {
+class TestNullValidityParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
   arrow::MemoryPool* pool_;
 };
+
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestNullValidity, TestNullValidityParametrizedFixture,
+                        ::testing::Values(false, true));
 
 // Create an array without a validity buffer.
 ArrayPtr MakeArrowArrayInt32WithNullValidity(std::vector<int32_t> in_data) {
@@ -43,7 +48,7 @@ ArrayPtr MakeArrowArrayInt32WithNullValidity(std::vector<int32_t> in_data) {
                                              nullptr, 0);
 }
 
-TEST_F(TestNullValidity, TestFunc) {
+TEST_P(TestNullValidityParametrizedFixture, TestFunc) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -60,7 +65,9 @@ TEST_F(TestNullValidity, TestFunc) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -87,7 +94,7 @@ TEST_F(TestNullValidity, TestFunc) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestNullValidity, TestIfElse) {
+TEST_P(TestNullValidityParametrizedFixture, TestIfElse) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -111,7 +118,9 @@ TEST_F(TestNullValidity, TestIfElse) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -134,7 +143,7 @@ TEST_F(TestNullValidity, TestIfElse) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestNullValidity, TestUtf8) {
+TEST_P(TestNullValidityParametrizedFixture, TestUtf8) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -148,7 +157,9 @@ TEST_F(TestNullValidity, TestUtf8) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

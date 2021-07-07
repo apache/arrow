@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
@@ -29,7 +30,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestFilterProject : public ::testing::Test {
+class TestFilterProjectParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -37,7 +38,11 @@ class TestFilterProject : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestFilterProject, TestSimple16) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestFilterProject, TestFilterProjectParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestFilterProjectParametrizedFixture, TestSimple16) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -54,7 +59,8 @@ TEST_F(TestFilterProject, TestSimple16) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_function);
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field1, field2}, resultField);
 
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Filter> filter;
   std::shared_ptr<Projector> projector;
@@ -93,7 +99,7 @@ TEST_F(TestFilterProject, TestSimple16) {
   EXPECT_ARROW_ARRAY_EQUALS(result, outputs.at(0));
 }
 
-TEST_F(TestFilterProject, TestSimple32) {
+TEST_P(TestFilterProjectParametrizedFixture, TestSimple32) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -110,7 +116,8 @@ TEST_F(TestFilterProject, TestSimple32) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_function);
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field1, field2}, resultField);
 
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Filter> filter;
   std::shared_ptr<Projector> projector;
@@ -149,7 +156,7 @@ TEST_F(TestFilterProject, TestSimple32) {
   EXPECT_ARROW_ARRAY_EQUALS(result, outputs.at(0));
 }
 
-TEST_F(TestFilterProject, TestSimple64) {
+TEST_P(TestFilterProjectParametrizedFixture, TestSimple64) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -166,7 +173,8 @@ TEST_F(TestFilterProject, TestSimple64) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_function);
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field1, field2}, resultField);
 
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Filter> filter;
   std::shared_ptr<Projector> projector;
@@ -205,7 +213,7 @@ TEST_F(TestFilterProject, TestSimple64) {
   EXPECT_ARROW_ARRAY_EQUALS(result, outputs.at(0));
 }
 
-TEST_F(TestFilterProject, TestSimpleIf) {
+TEST_P(TestFilterProjectParametrizedFixture, TestSimpleIf) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -228,7 +236,8 @@ TEST_F(TestFilterProject, TestSimpleIf) {
   auto if_node = TreeExprBuilder::MakeIf(project_condition, node_b, node_c, int32());
 
   auto expr = TreeExprBuilder::MakeExpression(if_node, field_result);
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   // Build a filter for the expressions.
   std::shared_ptr<Filter> filter;

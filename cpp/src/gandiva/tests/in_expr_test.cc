@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include <cmath>
 
 #include "arrow/memory_pool.h"
@@ -30,13 +31,18 @@ using arrow::float32;
 using arrow::float64;
 using arrow::int32;
 
-class TestIn : public ::testing::Test {
+class TestInParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
   arrow::MemoryPool* pool_;
 };
+
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestIn, TestInParametrizedFixture,
+                        ::testing::Values(false, true));
+
 std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
   std::vector<arrow::Decimal128> ret;
   for (auto str : values) {
@@ -52,7 +58,7 @@ std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
   return ret;
 }
 
-TEST_F(TestIn, TestInSimple) {
+TEST_P(TestInParametrizedFixture, TestInSimple) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -68,7 +74,9 @@ TEST_F(TestIn, TestInSimple) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -93,7 +101,7 @@ TEST_F(TestIn, TestInSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInFloat) {
+TEST_P(TestInParametrizedFixture, TestInFloat) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto schema = arrow::schema({field0});
@@ -106,7 +114,9 @@ TEST_F(TestIn, TestInFloat) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -131,7 +141,7 @@ TEST_F(TestIn, TestInFloat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInDouble) {
+TEST_P(TestInParametrizedFixture, TestInDouble) {
   // schema for input fields
   auto field0 = field("double0", float64());
   auto field1 = field("double1", float64());
@@ -146,7 +156,9 @@ TEST_F(TestIn, TestInDouble) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -173,7 +185,7 @@ TEST_F(TestIn, TestInDouble) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInDecimal) {
+TEST_P(TestInParametrizedFixture, TestInDecimal) {
   int32_t precision = 38;
   int32_t scale = 5;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
@@ -193,7 +205,9 @@ TEST_F(TestIn, TestInDecimal) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -219,7 +233,7 @@ TEST_F(TestIn, TestInDecimal) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInString) {
+TEST_P(TestInParametrizedFixture, TestInString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
@@ -232,7 +246,9 @@ TEST_F(TestIn, TestInString) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -257,7 +273,7 @@ TEST_F(TestIn, TestInString) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInStringValidationError) {
+TEST_P(TestInParametrizedFixture, TestInStringValidationError) {
   // schema for input fields
   auto field0 = field("f0", arrow::int32());
   auto schema = arrow::schema({field0});
@@ -269,7 +285,9 @@ TEST_F(TestIn, TestInStringValidationError) {
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
 
   EXPECT_TRUE(status.IsExpressionValidationError());
   std::string expected_error = "Evaluation expression for IN clause returns ";

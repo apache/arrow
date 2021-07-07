@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -31,7 +31,7 @@ using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
 
-class TestUtf8 : public ::testing::Test {
+class TestUtf8ParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -39,7 +39,11 @@ class TestUtf8 : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestUtf8, TestSimple) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestUtf8, TestUtf8ParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestUtf8ParametrizedFixture, TestSimple) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -67,8 +71,9 @@ TEST_F(TestUtf8, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {expr_a, expr_b, expr_c}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr_a, expr_b, expr_c},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -96,7 +101,7 @@ TEST_F(TestUtf8, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_3, outputs.at(2));
 }
 
-TEST_F(TestUtf8, TestLiteral) {
+TEST_P(TestUtf8ParametrizedFixture, TestLiteral) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -114,7 +119,9 @@ TEST_F(TestUtf8, TestLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -137,7 +144,7 @@ TEST_F(TestUtf8, TestLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestNullLiteral) {
+TEST_P(TestUtf8ParametrizedFixture, TestNullLiteral) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -156,7 +163,9 @@ TEST_F(TestUtf8, TestNullLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -180,7 +189,7 @@ TEST_F(TestUtf8, TestNullLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestLike) {
+TEST_P(TestUtf8ParametrizedFixture, TestLike) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -198,7 +207,9 @@ TEST_F(TestUtf8, TestLike) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -221,7 +232,7 @@ TEST_F(TestUtf8, TestLike) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestLikeWithEscape) {
+TEST_P(TestUtf8ParametrizedFixture, TestLikeWithEscape) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -241,7 +252,9 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -264,7 +277,7 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestBeginsEnds) {
+TEST_P(TestUtf8ParametrizedFixture, TestBeginsEnds) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -289,7 +302,9 @@ TEST_F(TestUtf8, TestBeginsEnds) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr1, expr2}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr1, expr2},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -315,7 +330,7 @@ TEST_F(TestUtf8, TestBeginsEnds) {
   EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
 }
 
-TEST_F(TestUtf8, TestInternalAllocs) {
+TEST_P(TestUtf8ParametrizedFixture, TestInternalAllocs) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -335,7 +350,9 @@ TEST_F(TestUtf8, TestInternalAllocs) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -360,7 +377,7 @@ TEST_F(TestUtf8, TestInternalAllocs) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestCastDate) {
+TEST_P(TestUtf8ParametrizedFixture, TestCastDate) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -378,7 +395,9 @@ TEST_F(TestUtf8, TestCastDate) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -411,7 +430,7 @@ TEST_F(TestUtf8, TestCastDate) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_2, outputs2.at(0));
 }
 
-TEST_F(TestUtf8, TestToDateNoError) {
+TEST_P(TestUtf8ParametrizedFixture, TestToDateNoError) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -433,7 +452,9 @@ TEST_F(TestUtf8, TestToDateNoError) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -466,7 +487,7 @@ TEST_F(TestUtf8, TestToDateNoError) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_2, outputs2.at(0));
 }
 
-TEST_F(TestUtf8, TestToDateError) {
+TEST_P(TestUtf8ParametrizedFixture, TestToDateError) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -488,7 +509,9 @@ TEST_F(TestUtf8, TestToDateError) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -511,7 +534,7 @@ TEST_F(TestUtf8, TestToDateError) {
       << status.message();
 }
 
-TEST_F(TestUtf8, TestIsNull) {
+TEST_P(TestUtf8ParametrizedFixture, TestIsNull) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -525,7 +548,9 @@ TEST_F(TestUtf8, TestIsNull) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -547,7 +572,7 @@ TEST_F(TestUtf8, TestIsNull) {
                             outputs[1]);  // isnotnull
 }
 
-TEST_F(TestUtf8, TestVarlenOutput) {
+TEST_P(TestUtf8ParametrizedFixture, TestVarlenOutput) {
   // schema for input fields
   auto field_a = field("a", boolean());
   auto schema = arrow::schema({field_a});
@@ -561,9 +586,10 @@ TEST_F(TestUtf8, TestVarlenOutput) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-
+  bool use_interpreted = GetParam();
   // assert that it fails gracefully.
-  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+  ASSERT_OK(
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector));
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -582,7 +608,7 @@ TEST_F(TestUtf8, TestVarlenOutput) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestUtf8, TestConvertUtf8) {
+TEST_P(TestUtf8ParametrizedFixture, TestConvertUtf8) {
   // schema for input fields
   auto field_a = field("a", arrow::binary());
   auto field_c = field("c", utf8());
@@ -606,7 +632,9 @@ TEST_F(TestUtf8, TestConvertUtf8) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -632,7 +660,7 @@ TEST_F(TestUtf8, TestConvertUtf8) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
 
-TEST_F(TestUtf8, TestCastVarChar) {
+TEST_P(TestUtf8ParametrizedFixture, TestCastVarChar) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto field_c = field("c", utf8());
@@ -653,7 +681,9 @@ TEST_F(TestUtf8, TestCastVarChar) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -680,7 +710,7 @@ TEST_F(TestUtf8, TestCastVarChar) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
 
-TEST_F(TestUtf8, TestAscii) {
+TEST_P(TestUtf8ParametrizedFixture, TestAscii) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
@@ -692,7 +722,9 @@ TEST_F(TestUtf8, TestAscii) {
   auto asc_expr = TreeExprBuilder::MakeExpression("ascii", {field0}, field_asc);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {asc_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {asc_expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

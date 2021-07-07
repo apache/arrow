@@ -16,7 +16,9 @@
 // under the License.
 
 #include "gandiva/filter.h"
+
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -27,7 +29,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestFilter : public ::testing::Test {
+class TestFilterParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -35,7 +37,11 @@ class TestFilter : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestFilter, TestFilterCache) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestFilter, TestFilterParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestFilterParametrizedFixture, TestFilterCache) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -50,7 +56,8 @@ TEST_F(TestFilter, TestFilterCache) {
   auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
                                                     arrow::boolean());
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, configuration, &filter);
@@ -81,7 +88,7 @@ TEST_F(TestFilter, TestFilterCache) {
   EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get());
 }
 
-TEST_F(TestFilter, TestSimple) {
+TEST_P(TestFilterParametrizedFixture, TestSimple) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -98,7 +105,9 @@ TEST_F(TestFilter, TestSimple) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -123,7 +132,7 @@ TEST_F(TestFilter, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestFilter, TestSimpleCustomConfig) {
+TEST_P(TestFilterParametrizedFixture, TestSimpleCustomConfig) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -136,7 +145,9 @@ TEST_F(TestFilter, TestSimpleCustomConfig) {
   std::shared_ptr<Configuration> config = config_builder.build();
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -161,7 +172,7 @@ TEST_F(TestFilter, TestSimpleCustomConfig) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestFilter, TestZeroCopy) {
+TEST_P(TestFilterParametrizedFixture, TestZeroCopy) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto schema = arrow::schema({field0});
@@ -170,7 +181,9 @@ TEST_F(TestFilter, TestZeroCopy) {
   auto condition = TreeExprBuilder::MakeCondition("isnotnull", {field0});
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -199,7 +212,7 @@ TEST_F(TestFilter, TestZeroCopy) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestFilter, TestZeroCopyNegative) {
+TEST_P(TestFilterParametrizedFixture, TestZeroCopyNegative) {
   ArrayPtr output;
 
   // schema for input fields
@@ -210,7 +223,9 @@ TEST_F(TestFilter, TestZeroCopyNegative) {
   auto condition = TreeExprBuilder::MakeCondition("isnotnull", {field0});
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -250,7 +265,7 @@ TEST_F(TestFilter, TestZeroCopyNegative) {
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
 
-TEST_F(TestFilter, TestSimpleSVInt32) {
+TEST_P(TestFilterParametrizedFixture, TestSimpleSVInt32) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -267,7 +282,9 @@ TEST_F(TestFilter, TestSimpleSVInt32) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -292,7 +309,7 @@ TEST_F(TestFilter, TestSimpleSVInt32) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestFilter, TestOffset) {
+TEST_P(TestFilterParametrizedFixture, TestOffset) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -309,7 +326,9 @@ TEST_F(TestFilter, TestOffset) {
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
 
   std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  bool use_interpreted = GetParam();
+  auto status =
+      Filter::Make(schema, condition, TestConfiguration(use_interpreted), &filter);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data

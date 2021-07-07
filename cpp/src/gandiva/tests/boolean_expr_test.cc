@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -28,7 +28,7 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::int32;
 
-class TestBooleanExpr : public ::testing::Test {
+class TestBooleanExprParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -36,7 +36,11 @@ class TestBooleanExpr : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestBooleanExpr, SimpleAnd) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestBooleanExpr, TestBooleanExprParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestBooleanExprParametrizedFixture, SimpleAnd) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -60,7 +64,9 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // FALSE_VALID && ?  => FALSE_VALID
@@ -109,7 +115,7 @@ TEST_F(TestBooleanExpr, SimpleAnd) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestBooleanExpr, SimpleOr) {
+TEST_P(TestBooleanExprParametrizedFixture, SimpleOr) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -133,7 +139,9 @@ TEST_F(TestBooleanExpr, SimpleOr) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // TRUE_VALID && ?  => TRUE_VALID
@@ -182,7 +190,7 @@ TEST_F(TestBooleanExpr, SimpleOr) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestBooleanExpr, AndThree) {
+TEST_P(TestBooleanExprParametrizedFixture, AndThree) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -210,7 +218,9 @@ TEST_F(TestBooleanExpr, AndThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -229,7 +239,7 @@ TEST_F(TestBooleanExpr, AndThree) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestBooleanExpr, OrThree) {
+TEST_P(TestBooleanExprParametrizedFixture, OrThree) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -257,7 +267,9 @@ TEST_F(TestBooleanExpr, OrThree) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 8;
@@ -276,7 +288,7 @@ TEST_F(TestBooleanExpr, OrThree) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
+TEST_P(TestBooleanExprParametrizedFixture, BooleanAndInsideIf) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -317,7 +329,9 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;
@@ -334,7 +348,7 @@ TEST_F(TestBooleanExpr, BooleanAndInsideIf) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
+TEST_P(TestBooleanExprParametrizedFixture, IfInsideBooleanAnd) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -368,7 +382,9 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   int num_records = 4;

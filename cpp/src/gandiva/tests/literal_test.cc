@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -31,7 +31,7 @@ using arrow::float64;
 using arrow::int32;
 using arrow::int64;
 
-class TestLiteral : public ::testing::Test {
+class TestLiteralParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -39,7 +39,11 @@ class TestLiteral : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestLiteral, TestSimpleArithmetic) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestLiteral, TestLiteralParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestLiteralParametrizedFixture, TestSimpleArithmetic) {
   // schema for input fields
   auto field_a = field("a", boolean());
   auto field_b = field("b", int32());
@@ -88,8 +92,9 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema, {expr_a, expr_b, expr_c, expr_d, expr_e},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -124,7 +129,7 @@ TEST_F(TestLiteral, TestSimpleArithmetic) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_e, outputs.at(4));
 }
 
-TEST_F(TestLiteral, TestLiteralHash) {
+TEST_P(TestLiteralParametrizedFixture, TestLiteralHash) {
   auto schema = arrow::schema({});
   // output fields
   auto res = field("a", int32());
@@ -133,7 +138,9 @@ TEST_F(TestLiteral, TestLiteralHash) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto res1 = field("a", int64());
@@ -142,12 +149,13 @@ TEST_F(TestLiteral, TestLiteralHash) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector1;
-  status = Projector::Make(schema, {expr1}, TestConfiguration(), &projector1);
+  status =
+      Projector::Make(schema, {expr1}, TestConfiguration(use_interpreted), &projector1);
   EXPECT_TRUE(status.ok()) << status.message();
   EXPECT_TRUE(projector.get() != projector1.get());
 }
 
-TEST_F(TestLiteral, TestNullLiteral) {
+TEST_P(TestLiteralParametrizedFixture, TestNullLiteral) {
   // schema for input fields
   auto field_a = field("a", int32());
   auto field_b = field("b", int32());
@@ -165,7 +173,9 @@ TEST_F(TestLiteral, TestNullLiteral) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -188,7 +198,7 @@ TEST_F(TestLiteral, TestNullLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestLiteral, TestNullLiteralInIf) {
+TEST_P(TestLiteralParametrizedFixture, TestNullLiteralInIf) {
   // schema for input fields
   auto field_a = field("a", float64());
   auto schema = arrow::schema({field_a});
@@ -207,7 +217,9 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

@@ -27,7 +27,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestProjector : public ::testing::Test {
+class TestProjectorParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -35,7 +35,11 @@ class TestProjector : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestProjector, TestNonexistentFunction) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestProjector, TestProjectorParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestProjectorParametrizedFixture, TestNonexistentFunction) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -57,7 +61,7 @@ TEST_F(TestProjector, TestNonexistentFunction) {
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
-TEST_F(TestProjector, TestNotMatchingDataType) {
+TEST_P(TestProjectorParametrizedFixture, TestNotMatchingDataType) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto schema = arrow::schema({field0});
@@ -78,7 +82,7 @@ TEST_F(TestProjector, TestNotMatchingDataType) {
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
-TEST_F(TestProjector, TestNotSupportedDataType) {
+TEST_P(TestProjectorParametrizedFixture, TestNotSupportedDataType) {
   // schema for input fields
   auto field0 = field("f0", list(int32()));
   auto schema = arrow::schema({field0});
@@ -98,7 +102,7 @@ TEST_F(TestProjector, TestNotSupportedDataType) {
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
-TEST_F(TestProjector, TestIncorrectSchemaMissingField) {
+TEST_P(TestProjectorParametrizedFixture, TestIncorrectSchemaMissingField) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -119,7 +123,7 @@ TEST_F(TestProjector, TestIncorrectSchemaMissingField) {
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
-TEST_F(TestProjector, TestIncorrectSchemaTypeNotMatching) {
+TEST_P(TestProjectorParametrizedFixture, TestIncorrectSchemaTypeNotMatching) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -142,7 +146,7 @@ TEST_F(TestProjector, TestIncorrectSchemaTypeNotMatching) {
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
 
-TEST_F(TestProjector, TestIfNotSupportedFunction) {
+TEST_P(TestProjectorParametrizedFixture, TestIfNotSupportedFunction) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -170,7 +174,7 @@ TEST_F(TestProjector, TestIfNotSupportedFunction) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
-TEST_F(TestProjector, TestIfNotMatchingReturnType) {
+TEST_P(TestProjectorParametrizedFixture, TestIfNotMatchingReturnType) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -193,7 +197,7 @@ TEST_F(TestProjector, TestIfNotMatchingReturnType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
-TEST_F(TestProjector, TestElseNotMatchingReturnType) {
+TEST_P(TestProjectorParametrizedFixture, TestElseNotMatchingReturnType) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -218,7 +222,7 @@ TEST_F(TestProjector, TestElseNotMatchingReturnType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
-TEST_F(TestProjector, TestElseNotSupportedType) {
+TEST_P(TestProjectorParametrizedFixture, TestElseNotSupportedType) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -244,7 +248,7 @@ TEST_F(TestProjector, TestElseNotSupportedType) {
   EXPECT_EQ(status.code(), StatusCode::ExpressionValidationError);
 }
 
-TEST_F(TestProjector, TestAndMinChildren) {
+TEST_P(TestProjectorParametrizedFixture, TestAndMinChildren) {
   // schema for input fields
   auto fielda = field("a", boolean());
   auto schema = arrow::schema({fielda});
@@ -263,7 +267,7 @@ TEST_F(TestProjector, TestAndMinChildren) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
-TEST_F(TestProjector, TestAndBooleanArgType) {
+TEST_P(TestProjectorParametrizedFixture, TestAndBooleanArgType) {
   // schema for input fields
   auto fielda = field("a", boolean());
   auto fieldb = field("b", int32());

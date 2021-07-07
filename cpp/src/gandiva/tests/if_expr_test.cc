@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -29,7 +29,7 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestIfExpr : public ::testing::Test {
+class TestIfExprParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -37,7 +37,11 @@ class TestIfExpr : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestIfExpr, TestSimple) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestIfExpr, TestIfExprParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestIfExprParametrizedFixture, TestSimple) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -61,7 +65,9 @@ TEST_F(TestIfExpr, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -84,7 +90,7 @@ TEST_F(TestIfExpr, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestSimpleArithmetic) {
+TEST_P(TestIfExprParametrizedFixture, TestSimpleArithmetic) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -110,7 +116,9 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -133,7 +141,7 @@ TEST_F(TestIfExpr, TestSimpleArithmetic) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestNested) {
+TEST_P(TestIfExprParametrizedFixture, TestNested) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -165,7 +173,9 @@ TEST_F(TestIfExpr, TestNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -188,7 +198,7 @@ TEST_F(TestIfExpr, TestNested) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestNestedInIf) {
+TEST_P(TestIfExprParametrizedFixture, TestNestedInIf) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -228,7 +238,9 @@ TEST_F(TestIfExpr, TestNestedInIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -257,7 +269,7 @@ TEST_F(TestIfExpr, TestNestedInIf) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestNestedInCondition) {
+TEST_P(TestIfExprParametrizedFixture, TestNestedInCondition) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto fieldb = field("b", int32());
@@ -296,7 +308,9 @@ TEST_F(TestIfExpr, TestNestedInCondition) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -321,7 +335,7 @@ TEST_F(TestIfExpr, TestNestedInCondition) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestIfExpr, TestBigNested) {
+TEST_P(TestIfExprParametrizedFixture, TestBigNested) {
   // schema for input fields
   auto fielda = field("a", int32());
   auto schema = arrow::schema({fielda});
@@ -353,7 +367,9 @@ TEST_F(TestIfExpr, TestBigNested) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data

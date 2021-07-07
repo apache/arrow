@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sstream>
-
-#include <gtest/gtest.h>
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
 #include "arrow/util/decimal.h"
 
+#include <gtest/gtest.h>
+
+#include <sstream>
+
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
@@ -33,7 +34,7 @@ using arrow::utf8;
 
 namespace gandiva {
 
-class TestDecimal : public ::testing::Test {
+class TestDecimalParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -44,8 +45,12 @@ class TestDecimal : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> values,
-                                                       int32_t scale) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestDecimal, TestDecimalParametrizedFixture,
+                        ::testing::Values(false, true));
+
+std::vector<Decimal128> TestDecimalParametrizedFixture::MakeDecimalVector(
+    std::vector<std::string> values, int32_t scale) {
   std::vector<arrow::Decimal128> ret;
   for (auto str : values) {
     Decimal128 str_value;
@@ -65,7 +70,7 @@ std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> 
   return ret;
 }
 
-TEST_F(TestDecimal, TestSimple) {
+TEST_P(TestDecimalParametrizedFixture, TestSimple) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
@@ -96,7 +101,9 @@ TEST_F(TestDecimal, TestSimple) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -128,7 +135,7 @@ TEST_F(TestDecimal, TestSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
 }
 
-TEST_F(TestDecimal, TestLiteral) {
+TEST_P(TestDecimalParametrizedFixture, TestLiteral) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
@@ -155,7 +162,9 @@ TEST_F(TestDecimal, TestLiteral) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -180,7 +189,7 @@ TEST_F(TestDecimal, TestLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
 }
 
-TEST_F(TestDecimal, TestIfElse) {
+TEST_P(TestDecimalParametrizedFixture, TestIfElse) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
@@ -207,7 +216,9 @@ TEST_F(TestDecimal, TestIfElse) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  Status status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -239,7 +250,7 @@ TEST_F(TestDecimal, TestIfElse) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestDecimal, TestCompare) {
+TEST_P(TestDecimalParametrizedFixture, TestCompare) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
@@ -266,7 +277,9 @@ TEST_F(TestDecimal, TestCompare) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -305,7 +318,7 @@ TEST_F(TestDecimal, TestCompare) {
 // because it hangs.
 #if GANDIVA_LLVM_VERSION != 9
 
-TEST_F(TestDecimal, TestRoundFunctions) {
+TEST_P(TestDecimalParametrizedFixture, TestRoundFunctions) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -342,7 +355,9 @@ TEST_F(TestDecimal, TestRoundFunctions) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -410,7 +425,7 @@ TEST_F(TestDecimal, TestRoundFunctions) {
 
 #endif  // GANDIVA_LLVM_VERSION != 9
 
-TEST_F(TestDecimal, TestCastFunctions) {
+TEST_P(TestDecimalParametrizedFixture, TestCastFunctions) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -444,7 +459,9 @@ TEST_F(TestDecimal, TestCastFunctions) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -500,7 +517,7 @@ TEST_F(TestDecimal, TestCastFunctions) {
 }
 
 // isnull, isnumeric
-TEST_F(TestDecimal, TestIsNullNumericFunctions) {
+TEST_P(TestDecimalParametrizedFixture, TestIsNullNumericFunctions) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -520,7 +537,9 @@ TEST_F(TestDecimal, TestIsNullNumericFunctions) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -555,7 +574,7 @@ TEST_F(TestDecimal, TestIsNullNumericFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool(validity), outputs[2]);
 }
 
-TEST_F(TestDecimal, TestIsDistinct) {
+TEST_P(TestDecimalParametrizedFixture, TestIsDistinct) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale_1 = 2;
@@ -577,7 +596,9 @@ TEST_F(TestDecimal, TestIsDistinct) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -614,7 +635,7 @@ TEST_F(TestDecimal, TestIsDistinct) {
 }
 
 // decimal hashes without seed
-TEST_F(TestDecimal, TestHashFunctions) {
+TEST_P(TestDecimalParametrizedFixture, TestHashFunctions) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -640,7 +661,9 @@ TEST_F(TestDecimal, TestHashFunctions) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -675,7 +698,7 @@ TEST_F(TestDecimal, TestHashFunctions) {
   EXPECT_NE(int64_arr->Value(3), int64_arr->Value(4));
 }
 
-TEST_F(TestDecimal, TestHash32WithSeed) {
+TEST_P(TestDecimalParametrizedFixture, TestHash32WithSeed) {
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
@@ -699,7 +722,9 @@ TEST_F(TestDecimal, TestHash32WithSeed) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -741,7 +766,7 @@ TEST_F(TestDecimal, TestHash32WithSeed) {
   EXPECT_NE(int32_arr_WS->Value(4), int32_arr->Value(4));
 }
 
-TEST_F(TestDecimal, TestHash64WithSeed) {
+TEST_P(TestDecimalParametrizedFixture, TestHash64WithSeed) {
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
@@ -765,7 +790,9 @@ TEST_F(TestDecimal, TestHash64WithSeed) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -807,7 +834,7 @@ TEST_F(TestDecimal, TestHash64WithSeed) {
   EXPECT_NE(int64_arr_WS->Value(4), int64_arr->Value(4));
 }
 
-TEST_F(TestDecimal, TestNullDecimalConstant) {
+TEST_P(TestDecimalParametrizedFixture, TestNullDecimalConstant) {
   // schema for input fields
   constexpr int32_t precision = 36;
   constexpr int32_t scale = 18;
@@ -833,7 +860,9 @@ TEST_F(TestDecimal, TestNullDecimalConstant) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  Status status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  Status status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -862,7 +891,7 @@ TEST_F(TestDecimal, TestNullDecimalConstant) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestDecimal, TestCastVarCharDecimal) {
+TEST_P(TestDecimalParametrizedFixture, TestCastVarCharDecimal) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -897,8 +926,9 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-
-  auto status = Projector::Make(schema, {expr, expr_1}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr, expr_1},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -929,7 +959,7 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[1]);
 }
 
-TEST_F(TestDecimal, TestCastDecimalVarChar) {
+TEST_P(TestDecimalParametrizedFixture, TestCastDecimalVarChar) {
   // schema for input fields
   constexpr int32_t precision = 4;
   constexpr int32_t scale = 2;
@@ -949,8 +979,9 @@ TEST_F(TestDecimal, TestCastDecimalVarChar) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -974,7 +1005,7 @@ TEST_F(TestDecimal, TestCastDecimalVarChar) {
   EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[0]);
 }
 
-TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
+TEST_P(TestDecimalParametrizedFixture, TestCastDecimalVarCharInvalidInput) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 0;
@@ -994,8 +1025,9 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -1015,7 +1047,7 @@ TEST_F(TestDecimal, TestCastDecimalVarCharInvalidInput) {
   EXPECT_TRUE(status.message().find("not a valid decimal number") != std::string::npos);
 }
 
-TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
+TEST_P(TestDecimalParametrizedFixture, TestVarCharDecimalNestedCast) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -1041,8 +1073,9 @@ TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -1068,7 +1101,7 @@ TEST_F(TestDecimal, TestVarCharDecimalNestedCast) {
   EXPECT_ARROW_ARRAY_EQUALS(array_dec_res, outputs[0]);
 }
 
-TEST_F(TestDecimal, TestCastDecimalOverflow) {
+TEST_P(TestDecimalParametrizedFixture, TestCastDecimalOverflow) {
   // schema for input fields
   constexpr int32_t precision_in = 5;
   constexpr int32_t scale_in = 2;
@@ -1090,7 +1123,9 @@ TEST_F(TestDecimal, TestCastDecimalOverflow) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, exprs, TestConfiguration(use_interpreted), &projector);
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
@@ -1125,7 +1160,7 @@ TEST_F(TestDecimal, TestCastDecimalOverflow) {
       outputs[1]);
 }
 
-TEST_F(TestDecimal, TestSha) {
+TEST_P(TestDecimalParametrizedFixture, TestSha) {
   // schema for input fields
   const std::shared_ptr<arrow::DataType>& decimal_5_2 = arrow::decimal128(5, 2);
   auto field_a = field("a", decimal_5_2);
@@ -1146,8 +1181,9 @@ TEST_F(TestDecimal, TestSha) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr_0, expr_1},
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data

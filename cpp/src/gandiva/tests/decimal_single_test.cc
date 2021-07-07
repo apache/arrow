@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
+
 #include <sstream>
 
-#include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/projector.h"
@@ -42,7 +42,7 @@ DecimalScalar128 decimal_literal(const char* value, int precision, int scale) {
   return DecimalScalar128(value_string, precision, scale);
 }
 
-class TestDecimalOps : public ::testing::Test {
+class TestDecimalOpsParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -80,7 +80,12 @@ class TestDecimalOps : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestDecimalOps, TestDecimalOpsParametrizedFixture,
+                        ::testing::Values(false, true));
+
+ArrayPtr TestDecimalOpsParametrizedFixture::MakeDecimalVector(
+    const DecimalScalar128& in) {
   std::vector<arrow::Decimal128> ret;
 
   Decimal128 decimal_value = in.value();
@@ -89,9 +94,11 @@ ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
   return MakeArrowArrayDecimal(decimal_type, {decimal_value}, {true});
 }
 
-void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
-                            const DecimalScalar128& x, const DecimalScalar128& y,
-                            const DecimalScalar128& expected) {
+void TestDecimalOpsParametrizedFixture::Verify(DecimalTypeUtil::Op op,
+                                               const std::string& function,
+                                               const DecimalScalar128& x,
+                                               const DecimalScalar128& y,
+                                               const DecimalScalar128& expected) {
   auto x_type = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto y_type = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   auto field_x = field("x", x_type);
@@ -110,7 +117,9 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   ARROW_EXPECT_OK(status);
 
   // Create a row-batch with some sample data
@@ -136,7 +145,7 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
   EXPECT_DECIMAL_RESULT(function, x, y, expected, actual);
 }
 
-TEST_F(TestDecimalOps, TestAdd) {
+TEST_P(TestDecimalOpsParametrizedFixture, TestAdd) {
   // fast-path
   AddAndVerify(decimal_literal("201", 30, 3),   // x
                decimal_literal("301", 30, 3),   // y
@@ -250,7 +259,7 @@ TEST_F(TestDecimalOps, TestAdd) {
 }
 
 // subtract is a wrapper over add. so, minimal tests are sufficient.
-TEST_F(TestDecimalOps, TestSubtract) {
+TEST_P(TestDecimalOpsParametrizedFixture, TestSubtract) {
   // fast-path
   SubtractAndVerify(decimal_literal("201", 30, 3),    // x
                     decimal_literal("301", 30, 3),    // y
@@ -270,7 +279,7 @@ TEST_F(TestDecimalOps, TestSubtract) {
 
 // Lots of unit tests for multiply/divide/mod in decimal_ops_test.cc. So, keeping these
 // basic.
-TEST_F(TestDecimalOps, TestMultiply) {
+TEST_P(TestDecimalOpsParametrizedFixture, TestMultiply) {
   // fast-path
   MultiplyAndVerify(decimal_literal("201", 10, 3),     // x
                     decimal_literal("301", 10, 2),     // y
@@ -282,7 +291,7 @@ TEST_F(TestDecimalOps, TestMultiply) {
                     DecimalScalar128("9999999999999999999999999999999999890", 38, 6));
 }
 
-TEST_F(TestDecimalOps, TestDivide) {
+TEST_P(TestDecimalOpsParametrizedFixture, TestDivide) {
   DivideAndVerify(decimal_literal("201", 10, 3),              // x
                   decimal_literal("301", 10, 2),              // y
                   decimal_literal("6677740863787", 23, 14));  // expected
@@ -292,7 +301,7 @@ TEST_F(TestDecimalOps, TestDivide) {
                   DecimalScalar128("1000000000", 38, 6));
 }
 
-TEST_F(TestDecimalOps, TestMod) {
+TEST_P(TestDecimalOpsParametrizedFixture, TestMod) {
   ModAndVerify(decimal_literal("201", 20, 2),   // x
                decimal_literal("301", 20, 3),   // y
                decimal_literal("204", 20, 3));  // expected

@@ -34,7 +34,7 @@ using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
 
-class TestHash : public ::testing::Test {
+class TestHashParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -42,7 +42,11 @@ class TestHash : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestHash, TestSimple) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestHash, TestHashParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestHashParametrizedFixture, TestSimple) {
   // schema for input fields
   auto field_a = field("a", int32());
   auto schema = arrow::schema({field_a});
@@ -63,8 +67,9 @@ TEST_F(TestHash, TestSimple) {
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr_0, expr_1},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -95,7 +100,7 @@ TEST_F(TestHash, TestSimple) {
   }
 }
 
-TEST_F(TestHash, TestBuf) {
+TEST_P(TestHashParametrizedFixture, TestBuf) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -116,8 +121,9 @@ TEST_F(TestHash, TestBuf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {expr_0, expr_1},
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
@@ -149,7 +155,7 @@ TEST_F(TestHash, TestBuf) {
   }
 }
 
-TEST_F(TestHash, TestSha256Simple) {
+TEST_P(TestHashParametrizedFixture, TestSha256Simple) {
   // schema for input fields
   auto field_a = field("a", int32());
   auto field_b = field("b", int64());
@@ -183,8 +189,9 @@ TEST_F(TestHash, TestSha256Simple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema, {expr_0, expr_1, expr_2, expr_3},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
@@ -231,7 +238,7 @@ TEST_F(TestHash, TestSha256Simple) {
   }
 }
 
-TEST_F(TestHash, TestSha256Varlen) {
+TEST_P(TestHashParametrizedFixture, TestSha256Varlen) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -247,7 +254,9 @@ TEST_F(TestHash, TestSha256Varlen) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr_0}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -289,7 +298,7 @@ TEST_F(TestHash, TestSha256Varlen) {
   }
 }
 
-TEST_F(TestHash, TestSha1Simple) {
+TEST_P(TestHashParametrizedFixture, TestSha1Simple) {
   // schema for input fields
   auto field_a = field("a", int32());
   auto field_b = field("b", int64());
@@ -323,8 +332,9 @@ TEST_F(TestHash, TestSha1Simple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema, {expr_0, expr_1, expr_2, expr_3},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -371,7 +381,7 @@ TEST_F(TestHash, TestSha1Simple) {
   }
 }
 
-TEST_F(TestHash, TestSha1Varlen) {
+TEST_P(TestHashParametrizedFixture, TestSha1Varlen) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto schema = arrow::schema({field_a});
@@ -387,7 +397,9 @@ TEST_F(TestHash, TestSha1Varlen) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr_0}, TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
@@ -429,7 +441,7 @@ TEST_F(TestHash, TestSha1Varlen) {
   }
 }
 
-TEST_F(TestHash, TestSha1FunctionsAlias) {
+TEST_P(TestHashParametrizedFixture, TestSha1FunctionsAlias) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto field_b = field("c", int64());
@@ -477,10 +489,11 @@ TEST_F(TestHash, TestSha1FunctionsAlias) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(schema,
                                 {expr_0, expr_0_sha, expr_0_sha1, expr_1, expr_1_sha,
                                  expr_1_sha1, expr_2, expr_2_sha, expr_2_sha1},
-                                TestConfiguration(), &projector);
+                                TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
@@ -527,7 +540,7 @@ TEST_F(TestHash, TestSha1FunctionsAlias) {
   EXPECT_ARROW_ARRAY_EQUALS(outputs.at(7), outputs.at(8));  // sha and sha1 responses
 }
 
-TEST_F(TestHash, TestSha256FunctionsAlias) {
+TEST_P(TestHashParametrizedFixture, TestSha256FunctionsAlias) {
   // schema for input fields
   auto field_a = field("a", utf8());
   auto field_b = field("c", int64());
@@ -566,9 +579,10 @@ TEST_F(TestHash, TestSha256FunctionsAlias) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(
       schema, {expr_0, expr_0_sha256, expr_1, expr_1_sha256, expr_2, expr_2_sha256},
-      TestConfiguration(), &projector);
+      TestConfiguration(use_interpreted), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data

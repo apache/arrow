@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -29,7 +29,7 @@ using arrow::binary;
 using arrow::boolean;
 using arrow::int32;
 
-class TestBinary : public ::testing::Test {
+class TestBinaryParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -37,7 +37,11 @@ class TestBinary : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestBinary, TestSimple) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestBinary, TestBinaryParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestBinaryParametrizedFixture, TestSimple) {
   // schema for input fields
   auto field_a = field("a", binary());
   auto field_b = field("b", binary());
@@ -61,7 +65,9 @@ TEST_F(TestBinary, TestSimple) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data

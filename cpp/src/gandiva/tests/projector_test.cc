@@ -37,15 +37,19 @@ using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
 
-class TestProjector : public ::testing::Test {
+class TestProjectorParametrizedFixture : public ::testing::TestWithParam<bool> {
  public:
-  void SetUp() { pool_ = arrow::default_memory_pool(); }
+  void SetUp() override { pool_ = arrow::default_memory_pool(); }
 
  protected:
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestProjector, TestProjectCache) {
+// Instantiate the test cases both for compiled and interpreted mode
+INSTANTIATE_TEST_CASE_P(TestProjector, TestProjectorParametrizedFixture,
+                        ::testing::Values(false, true));
+
+TEST_P(TestProjectorParametrizedFixture, TestProjectCache) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f2", int32());
@@ -60,7 +64,8 @@ TEST_F(TestProjector, TestProjectCache) {
   auto sub_expr =
       TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {sum_expr, sub_expr}, configuration, &projector);
@@ -90,13 +95,13 @@ TEST_F(TestProjector, TestProjectCache) {
   EXPECT_NE(cached_projector, should_be_new_projector1);
 
   // another instance of the same configuration, should return the same projector.
-  status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
-                           &cached_projector);
+  status = Projector::Make(schema, {sum_expr, sub_expr},
+                           TestConfiguration(use_interpreted), &cached_projector);
   ASSERT_OK(status);
   EXPECT_EQ(cached_projector, projector);
 }
 
-TEST_F(TestProjector, TestProjectCacheFieldNames) {
+TEST_P(TestProjectorParametrizedFixture, TestProjectCacheFieldNames) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -109,20 +114,22 @@ TEST_F(TestProjector, TestProjectCacheFieldNames) {
 
   auto sum_expr_01 = TreeExprBuilder::MakeExpression("add", {field0, field1}, sum_01);
   std::shared_ptr<Projector> projector_01;
-  auto status =
-      Projector::Make(schema, {sum_expr_01}, TestConfiguration(), &projector_01);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {sum_expr_01}, TestConfiguration(use_interpreted),
+                                &projector_01);
   EXPECT_TRUE(status.ok());
 
   auto sum_expr_12 = TreeExprBuilder::MakeExpression("add", {field1, field2}, sum_12);
   std::shared_ptr<Projector> projector_12;
-  status = Projector::Make(schema, {sum_expr_12}, TestConfiguration(), &projector_12);
+  status = Projector::Make(schema, {sum_expr_12}, TestConfiguration(use_interpreted),
+                           &projector_12);
   EXPECT_TRUE(status.ok());
 
   // add(f0, f1) != add(f1, f2)
   EXPECT_TRUE(projector_01.get() != projector_12.get());
 }
 
-TEST_F(TestProjector, TestProjectCacheDouble) {
+TEST_P(TestProjectorParametrizedFixture, TestProjectCacheDouble) {
   auto schema = arrow::schema({});
   auto res = field("result", arrow::float64());
 
@@ -131,7 +138,8 @@ TEST_F(TestProjector, TestProjectCacheDouble) {
 
   auto literal0 = TreeExprBuilder::MakeLiteral(d0);
   auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
-  auto configuration = TestConfiguration();
+  bool use_interpreted = GetParam();
+  auto configuration = TestConfiguration(use_interpreted);
 
   std::shared_ptr<Projector> projector0;
   auto status = Projector::Make(schema, {expr0}, configuration, &projector0);
@@ -146,7 +154,7 @@ TEST_F(TestProjector, TestProjectCacheDouble) {
   EXPECT_TRUE(projector0.get() != projector1.get());
 }
 
-TEST_F(TestProjector, TestProjectCacheFloat) {
+TEST_P(TestProjectorParametrizedFixture, TestProjectCacheFloat) {
   auto schema = arrow::schema({});
   auto res = field("result", arrow::float32());
 
@@ -156,19 +164,22 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
   auto literal0 = TreeExprBuilder::MakeLiteral(f0);
   auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
   std::shared_ptr<Projector> projector0;
-  auto status = Projector::Make(schema, {expr0}, TestConfiguration(), &projector0);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr0}, TestConfiguration(use_interpreted), &projector0);
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto literal1 = TreeExprBuilder::MakeLiteral(f1);
   auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
   std::shared_ptr<Projector> projector1;
-  status = Projector::Make(schema, {expr1}, TestConfiguration(), &projector1);
+  status =
+      Projector::Make(schema, {expr1}, TestConfiguration(use_interpreted), &projector1);
   EXPECT_TRUE(status.ok()) << status.message();
 
   EXPECT_TRUE(projector0.get() != projector1.get());
 }
 
-TEST_F(TestProjector, TestProjectCacheLiteral) {
+TEST_P(TestProjectorParametrizedFixture, TestProjectCacheLiteral) {
   auto schema = arrow::schema({});
   auto res = field("result", arrow::decimal(38, 5));
 
@@ -178,30 +189,36 @@ TEST_F(TestProjector, TestProjectCacheLiteral) {
   auto literal0 = TreeExprBuilder::MakeDecimalLiteral(d0);
   auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
   std::shared_ptr<Projector> projector0;
-  ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+  bool use_interpreted = GetParam();
+  ASSERT_OK(
+      Projector::Make(schema, {expr0}, TestConfiguration(use_interpreted), &projector0));
 
   auto literal1 = TreeExprBuilder::MakeDecimalLiteral(d1);
   auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
   std::shared_ptr<Projector> projector1;
-  ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
+  ASSERT_OK(
+      Projector::Make(schema, {expr1}, TestConfiguration(use_interpreted), &projector1));
 
   EXPECT_NE(projector0.get(), projector1.get());
 }
 
-TEST_F(TestProjector, TestProjectCacheDecimalCast) {
+TEST_P(TestProjectorParametrizedFixture, TestProjectCacheDecimalCast) {
   auto field_float64 = field("float64", arrow::float64());
   auto schema = arrow::schema({field_float64});
 
   auto res_31_13 = field("result", arrow::decimal(31, 13));
   auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
   std::shared_ptr<Projector> projector0;
-  ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+  bool use_interpreted = GetParam();
+  ASSERT_OK(
+      Projector::Make(schema, {expr0}, TestConfiguration(use_interpreted), &projector0));
 
   // if the output scale is different, the cache can't be used.
   auto res_31_14 = field("result", arrow::decimal(31, 14));
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
-  ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
+  ASSERT_OK(
+      Projector::Make(schema, {expr1}, TestConfiguration(use_interpreted), &projector1));
   EXPECT_NE(projector0.get(), projector1.get());
 
   // if the output scale/precision are same, should get a cache hit.
@@ -209,11 +226,12 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto expr2 =
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;
-  ASSERT_OK(Projector::Make(schema, {expr2}, TestConfiguration(), &projector2));
+  ASSERT_OK(
+      Projector::Make(schema, {expr2}, TestConfiguration(use_interpreted), &projector2));
   EXPECT_EQ(projector0.get(), projector2.get());
 }
 
-TEST_F(TestProjector, TestIntSumSub) {
+TEST_P(TestProjectorParametrizedFixture, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f2", int32());
@@ -229,8 +247,9 @@ TEST_F(TestProjector, TestIntSumSub) {
       TreeExprBuilder::MakeExpression("subtract", {field0, field1}, field_sub);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {sum_expr, sub_expr},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -255,7 +274,7 @@ TEST_F(TestProjector, TestIntSumSub) {
 }
 
 template <typename TYPE, typename C_TYPE>
-static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
+static void TestArithmeticOpsForType(arrow::MemoryPool* pool, bool use_interpreted) {
   auto atype = arrow::TypeTraits<TYPE>::type_singleton();
 
   // schema for input fields
@@ -284,7 +303,7 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {sum_expr, sub_expr, mul_expr, div_expr, eq_expr, lt_expr},
-                      TestConfiguration(), &projector);
+                      TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -336,18 +355,19 @@ static void TestArithmeticOpsForType(arrow::MemoryPool* pool) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lt, outputs.at(5));
 }
 
-TEST_F(TestProjector, TestAllIntTypes) {
-  TestArithmeticOpsForType<arrow::UInt8Type, uint8_t>(pool_);
-  TestArithmeticOpsForType<arrow::UInt16Type, uint16_t>(pool_);
-  TestArithmeticOpsForType<arrow::UInt32Type, uint32_t>(pool_);
-  TestArithmeticOpsForType<arrow::UInt64Type, uint64_t>(pool_);
-  TestArithmeticOpsForType<arrow::Int8Type, int8_t>(pool_);
-  TestArithmeticOpsForType<arrow::Int16Type, int16_t>(pool_);
-  TestArithmeticOpsForType<arrow::Int32Type, int32_t>(pool_);
-  TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_);
+TEST_P(TestProjectorParametrizedFixture, TestAllIntTypes) {
+  bool use_interpreted = GetParam();
+  TestArithmeticOpsForType<arrow::UInt8Type, uint8_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::UInt16Type, uint16_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::UInt32Type, uint32_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::UInt64Type, uint64_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::Int8Type, int8_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::Int16Type, int16_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::Int32Type, int32_t>(pool_, use_interpreted);
+  TestArithmeticOpsForType<arrow::Int64Type, int64_t>(pool_, use_interpreted);
 }
 
-TEST_F(TestProjector, TestExtendedMath) {
+TEST_P(TestProjectorParametrizedFixture, TestExtendedMath) {
   // schema for input fields
   auto field0 = arrow::field("f0", arrow::float64());
   auto field1 = arrow::field("f1", arrow::float64());
@@ -398,12 +418,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto degrees_expr = TreeExprBuilder::MakeExpression("degrees", {field0}, field_degrees);
 
   std::shared_ptr<Projector> projector;
+  bool use_interpreted = GetParam();
   auto status = Projector::Make(
       schema,
       {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
        cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
        tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
-      TestConfiguration(), &projector);
+      TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -508,7 +529,7 @@ TEST_F(TestProjector, TestExtendedMath) {
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
 }
 
-TEST_F(TestProjector, TestFloatLessThan) {
+TEST_P(TestProjectorParametrizedFixture, TestFloatLessThan) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto field1 = field("f2", float32());
@@ -523,7 +544,9 @@ TEST_F(TestProjector, TestFloatLessThan) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {lt_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {lt_expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -545,7 +568,7 @@ TEST_F(TestProjector, TestFloatLessThan) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestIsNotNull) {
+TEST_P(TestProjectorParametrizedFixture, TestIsNotNull) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto schema = arrow::schema({field0});
@@ -558,7 +581,9 @@ TEST_F(TestProjector, TestIsNotNull) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {myexpr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {myexpr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -579,7 +604,7 @@ TEST_F(TestProjector, TestIsNotNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestZeroCopy) {
+TEST_P(TestProjectorParametrizedFixture, TestZeroCopy) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto schema = arrow::schema({field0});
@@ -591,7 +616,9 @@ TEST_F(TestProjector, TestZeroCopy) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -626,7 +653,7 @@ TEST_F(TestProjector, TestZeroCopy) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, output);
 }
 
-TEST_F(TestProjector, TestZeroCopyNegative) {
+TEST_P(TestProjectorParametrizedFixture, TestZeroCopyNegative) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto schema = arrow::schema({field0});
@@ -638,7 +665,9 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   auto cast_expr = TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {cast_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -695,7 +724,7 @@ TEST_F(TestProjector, TestZeroCopyNegative) {
   EXPECT_EQ(status.code(), StatusCode::Invalid);
 }
 
-TEST_F(TestProjector, TestDivideZero) {
+TEST_P(TestProjectorParametrizedFixture, TestDivideZero) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f2", int32());
@@ -708,7 +737,9 @@ TEST_F(TestProjector, TestDivideZero) {
   auto div_expr = TreeExprBuilder::MakeExpression("divide", {field0, field1}, field_div);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {div_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {div_expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -744,7 +775,7 @@ TEST_F(TestProjector, TestDivideZero) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestModZero) {
+TEST_P(TestProjectorParametrizedFixture, TestModZero) {
   // schema for input fields
   auto field0 = field("f0", arrow::int64());
   auto field1 = field("f2", int32());
@@ -757,7 +788,9 @@ TEST_F(TestProjector, TestModZero) {
   auto mod_expr = TreeExprBuilder::MakeExpression("mod", {field0, field1}, field_div);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {mod_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {mod_expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -779,7 +812,7 @@ TEST_F(TestProjector, TestModZero) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_mod, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestConcat) {
+TEST_P(TestProjectorParametrizedFixture, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::utf8());
@@ -793,7 +826,9 @@ TEST_F(TestProjector, TestConcat) {
       TreeExprBuilder::MakeExpression("concat", {field0, field1}, field_concat);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -818,7 +853,7 @@ TEST_F(TestProjector, TestConcat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestLeftString) {
+TEST_P(TestProjectorParametrizedFixture, TestLeftString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int32());
@@ -832,7 +867,9 @@ TEST_F(TestProjector, TestLeftString) {
       TreeExprBuilder::MakeExpression("left", {field0, field1}, field_concat);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -857,7 +894,7 @@ TEST_F(TestProjector, TestLeftString) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_left, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestRightString) {
+TEST_P(TestProjectorParametrizedFixture, TestRightString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int32());
@@ -871,7 +908,9 @@ TEST_F(TestProjector, TestRightString) {
       TreeExprBuilder::MakeExpression("right", {field0, field1}, field_concat);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {concat_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -896,7 +935,7 @@ TEST_F(TestProjector, TestRightString) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_left, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestOffset) {
+TEST_P(TestProjectorParametrizedFixture, TestOffset) {
   // schema for input fields
   auto field0 = field("f0", arrow::int32());
   auto field1 = field("f1", arrow::int32());
@@ -909,7 +948,9 @@ TEST_F(TestProjector, TestOffset) {
   auto sum_expr = TreeExprBuilder::MakeExpression("add", {field0, field1}, field_sum);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {sum_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {sum_expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -933,7 +974,7 @@ TEST_F(TestProjector, TestOffset) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestByteSubString) {
+TEST_P(TestProjectorParametrizedFixture, TestByteSubString) {
   // schema for input fields
   auto field0 = field("f0", arrow::binary());
   auto field1 = field("f1", arrow::int32());
@@ -948,8 +989,9 @@ TEST_F(TestProjector, TestByteSubString) {
       "bytesubstring", {field0, field1, field2}, field_byte_substr);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {byte_substr_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {byte_substr_expr},
+                                TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -978,7 +1020,7 @@ TEST_F(TestProjector, TestByteSubString) {
 
 // Test to ensure behaviour of cast functions when the validity is false for an input. The
 // function should not run for that input.
-TEST_F(TestProjector, TestCastFunction) {
+TEST_P(TestProjectorParametrizedFixture, TestCastFunction) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
 
@@ -997,11 +1039,11 @@ TEST_F(TestProjector, TestCastFunction) {
   auto cast_expr_int8 = TreeExprBuilder::MakeExpression("castBIGINT", {field0}, res_int8);
 
   std::shared_ptr<Projector> projector;
-
+  bool use_interpreted = GetParam();
   //  {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8}
   auto status = Projector::Make(
       schema, {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8},
-      TestConfiguration(), &projector);
+      TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1029,7 +1071,7 @@ TEST_F(TestProjector, TestCastFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(3));
 }
 
-TEST_F(TestProjector, TestCastBitFunction) {
+TEST_P(TestProjectorParametrizedFixture, TestCastBitFunction) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
 
@@ -1040,8 +1082,9 @@ TEST_F(TestProjector, TestCastBitFunction) {
   auto cast_bit = TreeExprBuilder::MakeExpression("castBIT", {field0}, res_bit);
 
   std::shared_ptr<Projector> projector;
-
-  auto status = Projector::Make(schema, {cast_bit}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {cast_bit}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1060,7 +1103,7 @@ TEST_F(TestProjector, TestCastBitFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestToDate) {
+TEST_P(TestProjectorParametrizedFixture, TestToDate) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field_node = std::make_shared<FieldNode>(field0);
@@ -1079,7 +1122,9 @@ TEST_F(TestProjector, TestToDate) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1102,7 +1147,7 @@ TEST_F(TestProjector, TestToDate) {
 }
 
 // ARROW-11617
-TEST_F(TestProjector, TestIfElseOpt) {
+TEST_P(TestProjectorParametrizedFixture, TestIfElseOpt) {
   // schema for input
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -1139,7 +1184,9 @@ TEST_F(TestProjector, TestIfElseOpt) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status =
+      Projector::Make(schema, {expr}, TestConfiguration(use_interpreted), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1162,7 +1209,7 @@ TEST_F(TestProjector, TestIfElseOpt) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestLpad) {
+TEST_P(TestProjectorParametrizedFixture, TestLpad) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int32());
@@ -1177,7 +1224,9 @@ TEST_F(TestProjector, TestLpad) {
       TreeExprBuilder::MakeExpression("lpad", {field0, field1, field2}, field_lpad);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {lpad_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {lpad_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -1204,7 +1253,7 @@ TEST_F(TestProjector, TestLpad) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lpad, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestRpad) {
+TEST_P(TestProjectorParametrizedFixture, TestRpad) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::int32());
@@ -1219,7 +1268,9 @@ TEST_F(TestProjector, TestRpad) {
       TreeExprBuilder::MakeExpression("rpad", {field0, field1, field2}, field_rpad);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {rpad_expr}, TestConfiguration(), &projector);
+  bool use_interpreted = GetParam();
+  auto status = Projector::Make(schema, {rpad_expr}, TestConfiguration(use_interpreted),
+                                &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
