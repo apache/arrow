@@ -96,8 +96,8 @@ extern "C" {
     if (end_tm.TmMday() < start_tm.TmMday()) {                                        \
       /* case b */                                                                    \
       diff = MONTHS_TO_TIMEUNIT(months_diff - 1, N_MONTHS);                           \
-      return SIGN_ADJUST_DIFF(is_positive, diff) +                                    \
-             (is_last_day_of_month(end_tm) ? 1 : 0);                                  \
+      diff += (is_last_day_of_month(end_tm) ? 1 : 0);                                 \
+      return SIGN_ADJUST_DIFF(is_positive, diff);                                     \
     }                                                                                 \
     gdv_int32 end_day_millis =                                                        \
         static_cast<gdv_int32>(end_tm.TmHour() * MILLIS_IN_HOUR +                     \
