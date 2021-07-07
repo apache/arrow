@@ -38,17 +38,7 @@ module ArrowFlight
     end
 
     def should_unlock_gvl?(info, klass)
-      case klass.name.split("::").last
-      when "Client"
-        case info.name
-        when "new"
-          false
-        else
-          true
-        end
-      else
-        false
-      end
+      true
     end
   end
 end
