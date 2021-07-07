@@ -100,7 +100,12 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public String getString() {
-    final long number = getLong();
+    final boolean isNull = vector.isNull(currentRowSupplier.getAsInt());
+
+    if (isNull) {
+      return null;
+    } else {
+      final long number = getLong();
 
       return isUnassigned ? Long.toUnsignedString(number) : Long.toString(number);
     }
