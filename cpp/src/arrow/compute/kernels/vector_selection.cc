@@ -593,7 +593,6 @@ class PrimitiveFilterImpl {
     }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
     out_offset_ = out_arr->offset;
-    out_length_ = out_arr->length;
     out_position_ = 0;
   }
 
@@ -706,11 +705,11 @@ class PrimitiveFilterImpl {
           } else {  // null_selection == FilterOptions::EMIT_NULL
             // Data values in this block may be null
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
+              bool is_valid =
                   BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              const bool is_selected =
+              bool is_selected =
                   BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
-              const bool is_value_valid =
+              bool is_value_valid =
                   BitUtil::GetBit(values_is_valid_, values_offset_ + in_position);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
                                 is_selected && is_valid && is_value_valid);
@@ -756,7 +755,6 @@ class PrimitiveFilterImpl {
   uint8_t* out_is_valid_;
   T* out_data_;
   int64_t out_offset_;
-  int64_t out_length_;
   int64_t out_position_;
 };
 
@@ -807,8 +805,12 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  RETURN_NOT_OK(
-      PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out_arr));
+  // non-branching selection code is used in the `PrimitiveFilterImpl` (ref: ARROW-13170)
+  // when a validity buffer is allocated in the output. This approach requires
+  // an additional slot. Hence buffer lengths will be incremented by 1 when allocating
+  // space and later this will be sliced to `output_length`.
+  RETURN_NOT_OK(PreallocateData(ctx, output_length + allocate_validity, values.bit_width,
+                                allocate_validity, out_arr));
 
   switch (values.bit_width) {
     case 1:
@@ -829,6 +831,13 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
+  }
+
+  if (allocate_validity) {
+    // when validity buffer is allocated, non-branching selection is used in
+    // `PrimitiveFilterImpl`. This has an additional slot allocated for the output
+    // buffer. This needs to be sliced out to [0, output_length).
+    ARROW_ASSIGN_OR_RAISE(*out, out_arr->SliceSafe(0, output_length));
   }
   return Status::OK();
 }
