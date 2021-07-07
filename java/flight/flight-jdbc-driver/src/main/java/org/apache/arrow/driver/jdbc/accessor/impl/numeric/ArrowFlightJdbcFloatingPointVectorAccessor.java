@@ -18,10 +18,12 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
+import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.FloatingPointVector;
 
 /**
@@ -31,10 +33,20 @@ public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcA
 
   private final FloatingPointVector vector;
   private final IntSupplier currentRowSupplier;
+  private final int bytesToAllocate;
 
-  public ArrowFlightJdbcFloatingPointVectorAccessor(FloatingPointVector vector, IntSupplier currentRowSupplier) {
+  public ArrowFlightJdbcFloatingPointVectorAccessor(Float4Vector vector, IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, Float4Vector.TYPE_WIDTH);
+  }
+
+  public ArrowFlightJdbcFloatingPointVectorAccessor(Float8Vector vector, IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, Float8Vector.TYPE_WIDTH);
+  }
+
+  ArrowFlightJdbcFloatingPointVectorAccessor(FloatingPointVector vector, IntSupplier currentRowSupplier, int bytesToAllocate) {
     this.vector = vector;
     this.currentRowSupplier = currentRowSupplier;
+    this.bytesToAllocate = bytesToAllocate;
   }
 
   @Override
@@ -43,55 +55,68 @@ public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcA
   }
 
   @Override
-  public Object getObject() throws SQLException {
+  public Object getObject() {
     return this.getDouble();
   }
 
   @Override
-  public String getString() throws SQLException {
+  public String getString() {
     return Double.toString(getDouble());
   }
 
   @Override
-  public boolean getBoolean() throws SQLException {
+  public boolean getBoolean() {
     return this.getDouble() != 0.0;
   }
 
   @Override
-  public byte getByte() throws SQLException {
+  public byte getByte() {
     return (byte) this.getDouble();
   }
 
   @Override
-  public short getShort() throws SQLException {
+  public short getShort() {
     return (short) this.getDouble();
   }
 
   @Override
-  public int getInt() throws SQLException {
+  public int getInt() {
     return (int) this.getDouble();
   }
 
   @Override
-  public long getLong() throws SQLException {
+  public long getLong() {
     return (long) this.getDouble();
   }
 
   @Override
-  public float getFloat() throws SQLException {
+  public float getFloat() {
     return (float) this.getDouble();
   }
 
   @Override
-  public BigDecimal getBigDecimal() throws SQLException {
+  public BigDecimal getBigDecimal() {
     return BigDecimal.valueOf(this.getDouble());
   }
 
   @Override
-  public BigDecimal getBigDecimal(int scale) throws SQLException {
+  public BigDecimal getBigDecimal(int scale) {
     if (scale != 0) {
       throw new UnsupportedOperationException("Can not use getBigDecimal(int scale) on a decimal accessor.");
     }
     return BigDecimal.valueOf(this.getDouble());
+  }
+
+  @Override
+  public byte[] getBytes() {
+    final ByteBuffer buffer = ByteBuffer.allocate(bytesToAllocate);
+
+    if (bytesToAllocate == Float.BYTES) {
+      return buffer.putFloat((float) getDouble()).array();
+    } else if (bytesToAllocate == Double.BYTES) {
+      return buffer.putDouble((float) getDouble()).array();
+    }
+
+    throw new UnsupportedOperationException();
   }
 }
