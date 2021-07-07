@@ -24,6 +24,7 @@ module.exports = {
         "tsconfig": "test/tsconfig.json"
       }
     },
+    "rootDir": "../",
     "roots": [
       "<rootDir>/test/"
     ],
@@ -45,10 +46,13 @@ module.exports = {
       "^.+\\.tsx?$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!web-stream-tools).+\\.js$",
-      ".*/cjs/.*\\.js$"
+      "/(es2015|esnext)/umd/",
+      "/node_modules/(?!web-stream-tools).+\\.js$"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
     "preset": "ts-jest",
-    "testMatch": null
+    "testMatch": null,
+    "moduleNameMapper": {
+      "^apache-arrow(.*)": "<rootDir>/src/$1.js"
+  }
 };
