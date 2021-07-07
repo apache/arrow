@@ -1903,3 +1903,21 @@ def test_never_sends_data():
         # up to a certain extent
         table = client.do_get(flight.Ticket(b'yield_data')).read_all()
         assert table.num_rows == 5
+
+
+@pytest.mark.large_memory
+@pytest.mark.slow
+def test_large_descriptor():
+    # Regression test for ARROW-13253
+    large_descriptor = flight.FlightDescriptor.for_command(' ' * (2 ** 31 + 1))
+    with FlightServerBase() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(OSError,
+                           match=".*Failed to serialize Flight descriptor"):
+            # Initial write may not actually write the data; if so force it by
+            # closing the stream
+            writer, _ = client.do_put(large_descriptor, pa.schema([]))
+            writer.close()
+        with pytest.raises(pa.ArrowException,
+                           match=".*Failed to serialize Flight descriptor"):
+            client.do_exchange(large_descriptor)
