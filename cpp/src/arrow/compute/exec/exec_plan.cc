@@ -39,7 +39,7 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  using ExecPlan::ExecPlan;
+  explicit ExecPlanImpl(ExecContext* exec_context) : ExecPlan(exec_context) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
