@@ -19,9 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.junit.runners.Parameterized.*;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -82,7 +80,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
         throw new UnsupportedOperationException();
       };
 
-  @Parameters(name = "{1}")
+  @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createIntVector(), "IntVector"},
@@ -111,7 +109,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetLongMethodFromBaseIntVector() throws SQLException {
+  public void testShouldGetLongMethodFromBaseIntVector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final long result = accessor.getLong();

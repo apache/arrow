@@ -21,7 +21,6 @@ import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateO
 import static org.hamcrest.CoreMatchers.*;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -57,10 +56,8 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
-        {
-            (Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat8Vector(), "Float8Vector"},
-        {
-            (Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat4Vector(), "Float4Vector"},
+        {(Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat8Vector(), "Float8Vector"},
+        {(Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat4Vector(), "Float4Vector"},
     });
   }
 
@@ -80,7 +77,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
   }
 
   @Test
-  public void getDouble() throws SQLException {
+  public void getDouble() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           double doubleValue = accessor.getDouble();
@@ -91,7 +88,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getObject() throws SQLException {
+  public void getObject() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           double doubleValue = accessor.getDouble();
@@ -104,7 +101,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getString() throws SQLException {
+  public void getString() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getString(), is(Double.toString(accessor.getDouble())));
@@ -113,7 +110,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getBoolean() throws SQLException {
+  public void getBoolean() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getBoolean(), is(accessor.getDouble() != 0.0));
@@ -122,7 +119,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getByte() throws SQLException {
+  public void getByte() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getByte(), is((byte) accessor.getDouble()));
@@ -131,7 +128,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getShort() throws SQLException {
+  public void getShort() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getShort(), is((short) accessor.getDouble()));
@@ -140,7 +137,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getInt() throws SQLException {
+  public void getInt() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getInt(), is((int) accessor.getDouble()));
@@ -149,7 +146,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getLong() throws SQLException {
+  public void getLong() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getLong(), is((long) accessor.getDouble()));
@@ -158,7 +155,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getFloat() throws SQLException {
+  public void getFloat() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getFloat(), is((float) accessor.getDouble()));
@@ -167,7 +164,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
 
 
   @Test
-  public void getBigDecimal() throws SQLException {
+  public void getBigDecimal() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           double value = accessor.getDouble();
