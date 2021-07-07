@@ -58,7 +58,7 @@ end
 begin
   class ArrowFlightLoader < GI::Loader
     def should_unlock_gvl?(info, klass)
-      case klass.name.split("::").last
+      case (klass.name || "").split("::").last
       when "Client"
         case info.name
         when "list_flights"
