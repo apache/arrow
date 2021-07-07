@@ -435,8 +435,6 @@ struct TypeTraits<DenseUnionType> {
   using ArrayType = DenseUnionArray;
   using BuilderType = DenseUnionBuilder;
   using ScalarType = DenseUnionScalar;
-  using ValueOffsetBuilderType = Int32Builder;
-  using ChildIdBuilderType = Int8Builder;
   constexpr static bool is_parameter_free = false;
 };
 

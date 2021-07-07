@@ -607,10 +607,10 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 
 class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
 
-TEST_F(TestFilterKernelWithUnion, DISABLED_FilterUnion) {
-  for (auto union_ : UnionTypeFactories()) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
-    auto union_json = R"([
+// TODO: Restore Sparse Union take functionality
+TEST_F(TestFilterKernelWithUnion, FilterUnion) {
+  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
+  auto union_json = R"([
       null,
       [2, 222],
       [5, "hello"],
@@ -618,20 +618,19 @@ TEST_F(TestFilterKernelWithUnion, DISABLED_FilterUnion) {
       null,
       [2, 111]
     ])";
-    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
-    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
+  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
+  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
       [2, 222],
       [5, "hello"],
       null,
       [2, 111]
     ])");
-    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
+  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
       null,
       [5, "hello"],
       null
     ])");
-    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
-  }
+  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
 }
 
 class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
@@ -1279,38 +1278,10 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
       struct_type, R"([{"a": 1}, {"a": 2, "b": "hello"}])", "[0, 1, 0]");
 }
 
-class TestTakeKernelWithDenseUnion : public TestTakeKernelTyped<DenseUnionType> {
- public:
-  void AssertTake(const std::shared_ptr<DataType>& type, const std::string& values,
-                  const std::string& indices, const std::string& type_codes,
-                  const std::string& value_offsets) {
-    auto union_array =
-        std::static_pointer_cast<DenseUnionArray>(ArrayFromJSON(type, values));
-    ArrayVector children;
-    children.reserve(type->num_fields());
-    std::vector<std::string> field_names;
-    field_names.reserve(type->num_fields());
-    for (int i = 0; i < type->num_fields(); i++) {
-      children.push_back(union_array->field(i));
-      field_names.push_back(type->field(i)->name());
-    }
-    ASSIGN_OR_ABORT(
-        std::shared_ptr<Array> expected,
-        DenseUnionArray::Make(*ArrayFromJSON(int8(), type_codes),
-                              *ArrayFromJSON(int32(), value_offsets), children,
-                              field_names, union_array->union_type()->type_codes()));
+class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
-    std::shared_ptr<Array> actual;
-
-    for (auto index_type : {int8(), uint32()}) {
-      ASSERT_OK(TakeJSON(type, values, index_type, indices, &actual));
-      ASSERT_OK(actual->Validate());
-      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-    }
-  }
-};
-
-TEST_F(TestTakeKernelWithDenseUnion, TakeDenseUnion) {
+// TODO: Restore Sparse Union take functionality
+TEST_F(TestTakeKernelWithUnion, TakeUnion) {
   auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
   auto union_json = R"([
       null,
@@ -1321,45 +1292,20 @@ TEST_F(TestTakeKernelWithDenseUnion, TakeDenseUnion) {
       [2, 111]
     ])";
   CheckTake(union_type, union_json, "[]", "[]");
-  AssertTake(union_type, union_json, "[3, 1, 3, 1, 3]", "[5, 2, 5, 2, 5]",
-             "[1, 1, 1, 1, 1]");
-  AssertTake(union_type, union_json, "[4, 2, 1]", "[2, 5, 2]", "[2, 0, 1]");
-  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
-  AssertTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", "[2, 2, 5, 5, 2, 2]",
-             "[0, 1, 0, 1, 2, 3]");
-  AssertTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", "[2, 5, 5, 5, 5, 5, 5]",
-             "[0, 0, 0, 0, 0, 0, 0]");
-}
-
-class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
-
-// TODO: Restore Union take functionality
-TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
-  for (auto union_ : UnionTypeFactories()) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
-    auto union_json = R"([
-      null,
-      [2, 222],
-      [5, "hello"],
-      [5, "eh"],
-      null,
-      [2, 111]
-    ])";
-    CheckTake(union_type, union_json, "[]", "[]");
-    CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+  CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-    CheckTake(union_type, union_json, "[4, 2, 1]", R"([
+  CheckTake(union_type, union_json, "[4, 2, 1]", R"([
       null,
       [5, "hello"],
       [2, 222]
     ])");
-    CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
-    CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
+  CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
       null,
       [5, "hello"],
       [5, "hello"],
@@ -1368,7 +1314,6 @@ TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
-  }
 }
 
 class TestPermutationsWithTake : public TestBase {
