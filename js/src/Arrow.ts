@@ -88,7 +88,7 @@ export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/mess
 export { Message } from './ipc/metadata/message';
 export { RecordBatch } from './recordbatch';
 export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces';
-export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from './compute/dataframe';
+// export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from './compute/dataframe';
 
 import * as util_bn_ from './util/bn';
 import * as util_int_ from './util/int';
@@ -96,10 +96,10 @@ import * as util_bit_ from './util/bit';
 import * as util_math_ from './util/math';
 import * as util_buffer_ from './util/buffer';
 import * as util_vector_ from './util/vector';
-import * as predicate from './compute/predicate';
+// import * as predicate from './compute/predicate';
 import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator';
 
-export { predicate };
+// export { predicate };
 /** @ignore */
 export const util = {
     ...util_bn_,

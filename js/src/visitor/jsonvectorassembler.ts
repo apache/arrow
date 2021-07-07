@@ -17,13 +17,13 @@
 
 import { BN } from '../util/bn';
 import { Data } from '../data';
+import { Field } from '../schema';
 import { Vector } from '../vector';
 import { Visitor } from '../visitor';
 import { BufferType } from '../enum';
 import { RecordBatch } from '../recordbatch';
 import { UnionMode, DateUnit, TimeUnit } from '../enum';
 import { BitIterator, getBit, getBool } from '../util/bit';
-import { selectColumnChildrenArgs } from '../util/args';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
@@ -33,8 +33,8 @@ import {
 /** @ignore */
 export interface JSONVectorAssembler extends Visitor {
 
-    visit     <T extends DataType>(node: Data<T>): Record<string, unknown>;
-    visitMany <T extends DataType>(nodes: readonly Data<T>[]): Record<string, unknown>[];
+    visit     <T extends DataType>(field: Field, node: Data<T>): Record<string, unknown>;
+    visitMany <T extends DataType>(fields: Field[], nodes: readonly Data<T>[]): Record<string, unknown>[];
     getVisitFn<T extends DataType>(node: Vector<T> | Data<T>): (data: Data<T>) => { name: string; count: number; VALIDITY: (0 | 1)[]; DATA?: any[]; OFFSET?: number[]; TYPE?: number[]; children?: any[] };
 
     visitNull                 <T extends Null>            (data: Data<T>): Record<string, never>;
@@ -60,12 +60,14 @@ export interface JSONVectorAssembler extends Visitor {
 export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
-    public static assemble<T extends Column | RecordBatch>(...args: (T | T[])[]) {
-        return new JSONVectorAssembler().visitMany(selectColumnChildrenArgs(RecordBatch, args));
+    public static assemble<T extends RecordBatch>(...batches: T[]) {
+        const nodes = batches.flatMap(({data}) => data.children);
+        const fields = batches.flatMap(({schema}) => schema.fields);
+        return new JSONVectorAssembler().visitMany(fields, nodes);
     }
 
-    public visit<T extends DataType>(data: Data<T>) {
-        const { name, length } = data;
+    public visit<T extends DataType>({ name }: Field, data: Data<T>) {
+        const { length } = data;
         const { offset, nullCount, nullBitmap } = data;
         const type = DataType.isDictionary(data.type) ? data.type.indices : data.type;
         const buffers = Object.assign([], data.buffers, { [BufferType.VALIDITY]: undefined });
@@ -124,19 +126,19 @@ export class JSONVectorAssembler extends Visitor {
     public visitList<T extends List>(data: Data<T>) {
         return {
             'OFFSET': [...data.valueOffsets],
-            'children': this.visitMany(data.children)
+            'children': this.visitMany(data.type.children, data.children)
         };
     }
     public visitStruct<T extends Struct>(data: Data<T>) {
         return {
-            'children': this.visitMany(data.children)
+            'children': this.visitMany(data.type.children, data.children)
         };
     }
     public visitUnion<T extends Union>(data: Data<T>) {
         return {
             'TYPE': [...data.typeIds],
             'OFFSET': data.type.mode === UnionMode.Dense ? [...data.valueOffsets] : undefined,
-            'children': this.visitMany(data.children)
+            'children': this.visitMany(data.type.children, data.children)
         };
     }
     public visitInterval<T extends Interval>(data: Data<T>) {
@@ -144,13 +146,13 @@ export class JSONVectorAssembler extends Visitor {
     }
     public visitFixedSizeList<T extends FixedSizeList>(data: Data<T>) {
         return {
-            'children': this.visitMany(data.children)
+            'children': this.visitMany(data.type.children, data.children)
         };
     }
     public visitMap<T extends Map_>(data: Data<T>) {
         return {
             'OFFSET': [...data.valueOffsets],
-            'children': this.visitMany(data.children)
+            'children': this.visitMany(data.type.children, data.children)
         };
     }
 }

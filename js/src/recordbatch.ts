@@ -108,6 +108,16 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
     }
 
     /**
+     * @summary The number of columns in this RecordBatch.
+     */
+    public get numCols() { return this.schema.fields.length; }
+
+    /**
+     * @summary The number of rows in this RecordBatch.
+     */
+    public get numRows() { return this.data.length; }
+
+    /**
      * @summary The number of null rows in this RecordBatch.
      */
     public get nullCount() {
@@ -199,6 +209,18 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
             );
         }
         return null;
+    }
+
+    public select<K extends keyof T = any>(...columnNames: K[]) {
+        const nameToIndex = this.schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
+        return this.selectAt(...columnNames.map((columnName) => nameToIndex.get(columnName)!).filter((x) => x > -1));
+    }
+
+    public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
+        const schema = this.schema.selectAt(...columnIndices);
+        const children = columnIndices.map((i) => this.data.children[i]).filter(Boolean);
+        const subset = Data.Struct(new Struct(schema.fields), 0, this.numRows, 0, null, children);
+        return new RecordBatch<{ [key: string]: K }>(schema, subset);
     }
 
     // Initialize this static property via an IIFE so bundlers don't tree-shake

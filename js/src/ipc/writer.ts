@@ -18,7 +18,6 @@
 import { Table } from '../table';
 import { MAGIC } from './message';
 import { Vector } from '../vector';
-import { Column } from '../column';
 import { DataType } from '../type';
 import { Schema, Field } from '../schema';
 import { Message } from './metadata/message';
@@ -183,7 +182,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
                 this._writeRecordBatch(payload);
             }
         } else if (payload instanceof Table) {
-            this.writeAll(payload.chunks);
+            this.writeAll(payload);
         } else if (isIterable(payload)) {
             this.writeAll(payload);
         }
@@ -248,7 +247,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
 
     protected _writeRecordBatch(batch: RecordBatch<T>) {
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(batch);
-        const recordBatch = new metadata.RecordBatch(batch.length, nodes, bufferRegions);
+        const recordBatch = new metadata.RecordBatch(batch.numRows, nodes, bufferRegions);
         const message = Message.from(recordBatch, byteLength);
         return this
             ._writeDictionaries(batch)
@@ -437,7 +436,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
 function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
     let chunks = input as Iterable<RecordBatch<T>>;
     if (input instanceof Table) {
-        chunks = input.chunks;
+        chunks = input.data.map((x) => new RecordBatch(input.schema, x));
         writer.reset(undefined, input.schema);
     }
     for (const batch of chunks) {
@@ -472,7 +471,8 @@ function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
 /** @ignore */
 function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) {
     const field = new Field(`${id}`, dictionary.type, dictionary.nullCount > 0);
-    const columns = JSONVectorAssembler.assemble(new Column(field, [dictionary]));
+    const batches = dictionary.data.map((data) => new RecordBatch(new Schema([field]), data));
+    const columns = JSONVectorAssembler.assemble(...batches);
     return JSON.stringify({
         'id': id,
         'isDelta': isDelta,
@@ -486,7 +486,7 @@ function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) 
 /** @ignore */
 function recordBatchToJSON(records: RecordBatch) {
     return JSON.stringify({
-        'count': records.length,
+        'count': records.numRows,
         'columns': JSONVectorAssembler.assemble(records)
     }, null, 2);
 }

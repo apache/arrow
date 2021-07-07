@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from '../data';
 import { Vector } from '../vector';
-import { DataType } from '../type';
+import { DataType, Struct } from '../type';
 import { MessageHeader } from '../enum';
 import { Footer } from './metadata/file';
 import { Schema, Field } from '../schema';
@@ -346,17 +347,20 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
     }
 
     protected _loadRecordBatch(header: metadata.RecordBatch, body: any) {
-        return new RecordBatch<T>(this.schema, header.length, this._loadVectors(header, body, this.schema.fields));
+        const children = this._loadVectors(header, body, this.schema.fields);
+        const data = Data.Struct(new Struct(this.schema.fields), 0, header.length, 0, null, children);
+        return new RecordBatch<T>(this.schema, data);
     }
     protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
-        const { id, isDelta, data } = header;
+        const { id, isDelta } = header;
         const { dictionaries, schema } = this;
         const dictionary = dictionaries.get(id);
         if (isDelta || !dictionary) {
             const type = schema.dictionaries.get(id)!;
+            const data = this._loadVectors(header.data, body, [type])[0];
             return (dictionary && isDelta ? dictionary.concat(
-                Vector.new(this._loadVectors(data, body, [type])[0])) :
-                Vector.new(this._loadVectors(data, body, [type])[0])) as Vector;
+                new Vector(data.type, data)) :
+                new Vector(data.type, data)) as Vector;
         }
         return dictionary;
     }
@@ -522,7 +526,7 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
 class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReaderImpl<T> {
 
     protected _footer?: Footer;
-    protected _handle!: RandomAccessFile;
+    declare protected _handle: RandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }
@@ -592,7 +596,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
     implements AsyncRecordBatchFileReaderImpl<T> {
 
     protected _footer?: Footer;
-    protected _handle!: AsyncRandomAccessFile;
+    declare protected _handle: AsyncRandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }

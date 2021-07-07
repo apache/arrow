@@ -36,6 +36,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
     [Symbol.iterator]() {
         return new MapRowIterator(this[kKeys], this[kVals]);
     }
+    public get size() { return this[kKeys].length; }
     public toArray() { return Object.values(this.toJSON()); }
     public toJSON() {
         const keys = this[kKeys];

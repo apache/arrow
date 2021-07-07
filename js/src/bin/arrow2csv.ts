@@ -87,7 +87,7 @@ function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts
     });
 }
 
-async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream) {
+async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream): AsyncGenerator<RecordBatchReader, void, void> {
 
     const json = new AsyncByteQueue();
     const stream = new AsyncByteQueue();
@@ -161,12 +161,12 @@ function batchesToString(state: ToStringState, schema: Schema) {
                     this.push(`metadata:\n${formatMetadata(batch.schema.metadata)}\n`);
                     hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
                 }
-                if (batch.length <= 0 || batch.numCols <= 0) {
+                if (batch.numRows <= 0 || batch.numCols <= 0) {
                     this.push(`${formatRow(header, maxColWidths = state.maxColWidths, sep)}\n`);
                 }
             }
 
-            if (batch.length > 0 && batch.numCols > 0) {
+            if (batch.numRows > 0 && batch.numCols > 0) {
                 // If any of the column widths changed, print the header again
                 if (rowId % 350 !== 0 && JSON.stringify(state.maxColWidths) !== JSON.stringify(maxColWidths)) {
                     this.push(`${formatRow(header, state.maxColWidths, sep)}\n`);

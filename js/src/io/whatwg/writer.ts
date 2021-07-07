@@ -30,7 +30,7 @@ export function recordBatchWriterThroughDOMStream<T extends { [key: string]: Dat
     const writer = new this<T>(writableStrategy);
     const reader = new AsyncByteStream(writer);
     const readable = new ReadableStream({
-        type: 'bytes',
+        // type: 'bytes',
         async cancel() { await reader.cancel(); },
         async pull(controller) { await next(controller); },
         async start(controller) { await next(controller); },

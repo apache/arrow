@@ -16,7 +16,7 @@
 // under the License.
 
 import { memcpy } from '../util/buffer';
-import { BigIntAvailable, BigInt64Array, BigUint64Array } from '../util/compat';
+// import { BigIntAvailable, BigInt64Array, BigUint64Array } from '../util/compat';
 import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
@@ -155,28 +155,28 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     }
 }
 
-/** @ignore */
-export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
-    public buffer64!: R;
-    protected _ArrayType64!: BigIntArrayConstructor<R>;
-    public get ArrayType64() {
-        return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
-    }
-    public set(index: number, value: DataValue<T>) {
-        this.reserve(index - this.length + 1);
-        switch (typeof value) {
-            case 'bigint': this.buffer64[index] = value; break;
-            case 'number': this.buffer[index * this.stride] = value; break;
-            default: this.buffer.set(value as TypedArray, index * this.stride);
-        }
-        return this;
-    }
-    protected _resize(newLength: number) {
-        const data = super._resize(newLength);
-        const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
-        if (BigIntAvailable) {
-            this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
-        }
-        return data;
-    }
-}
+// /** @ignore */
+// export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
+//     public buffer64!: R;
+//     protected _ArrayType64!: BigIntArrayConstructor<R>;
+//     public get ArrayType64() {
+//         return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
+//     }
+//     public set(index: number, value: DataValue<T>) {
+//         this.reserve(index - this.length + 1);
+//         switch (typeof value) {
+//             case 'bigint': this.buffer64[index] = value; break;
+//             case 'number': this.buffer[index * this.stride] = value; break;
+//             default: this.buffer.set(value as TypedArray, index * this.stride);
+//         }
+//         return this;
+//     }
+//     protected _resize(newLength: number) {
+//         const data = super._resize(newLength);
+//         const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
+//         if (BigIntAvailable) {
+//             this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
+//         }
+//         return data;
+//     }
+// }

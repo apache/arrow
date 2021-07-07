@@ -26,18 +26,18 @@ import { Builder, VariableWidthBuilder } from '../builder';
 /** @ignore */
 export class MapBuilder<K extends DataType = any, V extends DataType = any, TNull = any> extends VariableWidthBuilder<Map_<K, V>, TNull> {
 
-    protected _pending: MapValues<K, V> | undefined;
+    declare protected _pending: MapValues<K, V> | undefined;
     public set(index: number, value: MapValueExt<K, V> | TNull) {
         return super.set(index, value as MapValue<K, V> | TNull);
     }
 
     public setValue(index: number, value: MapValueExt<K, V>) {
-        value = value instanceof Map ? value : new Map(Object.entries(value));
+        const row = (value instanceof Map ? value : new Map(Object.entries(value))) as MapValue<K, V>;
         const pending = this._pending || (this._pending = new Map() as MapValues<K, V>);
-        const current = pending.get(index);
+        const current = pending.get(index) as Map<K, V> | undefined;
         current && (this._pendingLength -= current.size);
-        this._pendingLength += value.size;
-        pending.set(index, value);
+        this._pendingLength += row.size;
+        pending.set(index, row);
     }
 
     public addChild(child: Builder<Struct<{ key: K; value: V }>>, name = `${this.numChildren}`) {

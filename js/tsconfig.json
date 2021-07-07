@@ -8,7 +8,9 @@
     "target": "ESNEXT",
     "module": "commonjs",
     "noEmit": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
+  "include": ["src/**/*.ts"]
+//   "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
 }

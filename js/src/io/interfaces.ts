@@ -75,8 +75,8 @@ export abstract class ReadableInterop<T> {
     public pipe<R extends NodeJS.WritableStream>(writable: R, options?: { end?: boolean }) {
         return this._getNodeStream().pipe(writable, options);
     }
-    public pipeTo(writable: WritableStream<T>, options?: PipeOptions) { return this._getDOMStream().pipeTo(writable, options); }
-    public pipeThrough<R extends ReadableStream<any>>(duplex: { writable: WritableStream<T>; readable: R }, options?: PipeOptions) {
+    public pipeTo(writable: WritableStream<T>, options?: StreamPipeOptions) { return this._getDOMStream().pipeTo(writable, options); }
+    public pipeThrough<R extends ReadableStream<any>>(duplex: { writable: WritableStream<T>; readable: R }, options?: StreamPipeOptions) {
         return this._getDOMStream().pipeThrough(duplex, options);
     }
 
@@ -92,7 +92,7 @@ export abstract class ReadableInterop<T> {
 }
 
 /** @ignore */
-type Resolution<T> = { resolve: (value?: T | PromiseLike<T>) => void; reject: (reason?: any) => void };
+type Resolution<T> = { resolve: (value: T | PromiseLike<T>) => void; reject: (reason?: any) => void };
 
 /** @ignore */
 export class AsyncQueue<TReadable = Uint8Array, TWritable = TReadable> extends ReadableInterop<TReadable>
