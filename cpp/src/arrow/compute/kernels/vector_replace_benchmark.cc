@@ -37,7 +37,7 @@ static std::shared_ptr<Array> MakeReplacements(random::RandomArrayGenerator* gen
   for (int64_t i = 0; i < mask.length(); i++) {
     count += mask.Value(i) && mask.IsValid(i);
   }
-  return generator->Int64(count, /*min=*/-1.0, /*max=*/1.0, /*null_probability=*/0.1);
+  return generator->Int64(count, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1);
 }
 
 static void ReplaceWithMaskLowSelectivityBench(
@@ -46,8 +46,9 @@ static void ReplaceWithMaskLowSelectivityBench(
   const int64_t len = state.range(0);
   const int64_t offset = state.range(1);
 
-  auto values = generator.Int64(len, /*min=*/-1.0, /*max=*/1.0, /*null_probability=*/0.1)
-                    ->Slice(offset);
+  auto values =
+      generator.Int64(len, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1)
+          ->Slice(offset);
   auto mask = checked_pointer_cast<BooleanArray>(
       generator.Boolean(len, /*true_probability=*/0.1, /*null_probability=*/0.1)
           ->Slice(offset));
@@ -65,8 +66,9 @@ static void ReplaceWithMaskHighSelectivityBench(
   const int64_t len = state.range(0);
   const int64_t offset = state.range(1);
 
-  auto values = generator.Int64(len, /*min=*/-1.0, /*max=*/1.0, /*null_probability=*/0.1)
-                    ->Slice(offset);
+  auto values =
+      generator.Int64(len, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1)
+          ->Slice(offset);
   auto mask = checked_pointer_cast<BooleanArray>(
       generator.Boolean(len, /*true_probability=*/0.9, /*null_probability=*/0.1)
           ->Slice(offset));
