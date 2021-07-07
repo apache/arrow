@@ -158,6 +158,9 @@ static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
     DataMember("field_names", &ProjectOptions::field_names),
     DataMember("field_nullability", &ProjectOptions::field_nullability),
     DataMember("field_metadata", &ProjectOptions::field_metadata));
+static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
+    DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
+    DataMember("week_start", &DayOfWeekOptions::week_start));
 }  // namespace
 }  // namespace internal
 
@@ -278,6 +281,12 @@ ProjectOptions::ProjectOptions(std::vector<std::string> n)
 ProjectOptions::ProjectOptions() : ProjectOptions(std::vector<std::string>()) {}
 constexpr char ProjectOptions::kTypeName[];
 
+DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+    : FunctionOptions(internal::kDayOfWeekOptionsType),
+      one_based_numbering(one_based_numbering),
+      week_start(week_start) {}
+constexpr char DayOfWeekOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -296,6 +305,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCompareOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kProjectOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
 }
 }  // namespace internal
 
@@ -462,7 +472,6 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
 SCALAR_EAGER_UNARY(Year, "year")
 SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Day, "day")
-SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
@@ -475,6 +484,10 @@ SCALAR_EAGER_UNARY(Millisecond, "millisecond")
 SCALAR_EAGER_UNARY(Microsecond, "microsecond")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
+
+Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+  return CallFunction("day_of_week", {arg}, &options, ctx);
+}
 
 }  // namespace compute
 }  // namespace arrow

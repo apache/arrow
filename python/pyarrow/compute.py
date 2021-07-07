@@ -52,6 +52,7 @@ from pyarrow._compute import (  # noqa
     SplitOptions,
     SplitPatternOptions,
     StrptimeOptions,
+    DayOfWeekOptions,
     TakeOptions,
     TDigestOptions,
     TrimOptions,

@@ -961,6 +961,18 @@ class StrptimeOptions(_StrptimeOptions):
         self._set_options(format, unit)
 
 
+cdef class _DayOfWeekOptions(FunctionOptions):
+    def _set_options(self, one_based_numbering, week_start):
+        self.wrapped.reset(
+            new CDayOfWeekOptions(one_based_numbering, week_start)
+        )
+
+
+class DayOfWeekOptions(_DayOfWeekOptions):
+    def __init__(self, one_based_numbering=False, week_start=1):
+        self._set_options(one_based_numbering, week_start)
+
+
 cdef class _VarianceOptions(FunctionOptions):
     def _set_options(self, ddof):
         self.wrapped.reset(new CVarianceOptions(ddof))

@@ -1940,6 +1940,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit)
 
+    cdef cppclass CDayOfWeekOptions \
+            "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
+        CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
+        c_bool one_based_numbering
+        uint32_t week_start
+
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
         CVarianceOptions(int ddof)
