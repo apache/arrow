@@ -21,7 +21,7 @@ import {
 } from '../../../data/tables';
 
 import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchJSONWriter } from '../../../Arrow';
+import { Table, RecordBatchJSONWriter } from 'apache-arrow';
 
 const { parse: bignumJSONParse } = require('json-bignum');
 

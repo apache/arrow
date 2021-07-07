@@ -1,0 +1,13 @@
+//Compiler configuaration to build the ES2015 ESModules target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "es2015",
+    "paths": {
+      "apache-arrow/*": [
+        "targets/es2015/esm/*"
+      ]
+    }
+  }
+}

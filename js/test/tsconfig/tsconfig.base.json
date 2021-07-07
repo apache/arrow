@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "allowJs": true,
+    "declaration": false,
+    "importHelpers": false,
+    "noEmitHelpers": false,
+    "noEmitOnError": false,
+    "sourceMap": false,
+    "inlineSources": false,
+    "inlineSourceMap": false,
+    "downlevelIteration": false,
+    "baseUrl": "../../"
+  }
+}

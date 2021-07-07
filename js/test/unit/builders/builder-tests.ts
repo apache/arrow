@@ -19,7 +19,7 @@ import '../../jest-extensions';
 import { AsyncIterable } from 'ix';
 import { validateVector } from './utils';
 import * as generate from '../../generate-test-data';
-import { Type, DataType, Chunked, util, Builder, UnionVector } from '../../Arrow';
+import { Type, DataType, Chunked, util, Builder, UnionVector } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';

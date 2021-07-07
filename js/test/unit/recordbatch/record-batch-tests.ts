@@ -19,7 +19,7 @@ import '../../jest-extensions';
 import {
     Data, RecordBatch,
     Vector, Int32Vector, Float32Vector, Float32, Int32,
-} from '../../Arrow';
+} from 'apache-arrow';
 import { arange } from '../utils';
 
 function numsRecordBatch(i32Len: number, f32Len: number) {

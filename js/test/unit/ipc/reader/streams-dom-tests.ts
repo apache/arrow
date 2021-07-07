@@ -24,7 +24,7 @@ import {
     Table,
     RecordBatchReader,
     RecordBatchStreamWriter
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import { validateRecordBatchAsyncIterator } from '../validate';
 import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers';

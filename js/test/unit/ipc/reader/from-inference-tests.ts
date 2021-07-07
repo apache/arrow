@@ -27,7 +27,7 @@ import {
     RecordBatchStreamReader,
     AsyncRecordBatchFileReader,
     AsyncRecordBatchStreamReader
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 const { parse: bignumJSONParse } = require('json-bignum');
 

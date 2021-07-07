@@ -25,7 +25,7 @@ import {
     FloatVector, Float16Vector, Float32Vector, Float64Vector,
     IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector,
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 const { float64ToUint16, uint16ToFloat64 } = util;
 import { VectorType as V } from '../../../src/interfaces';

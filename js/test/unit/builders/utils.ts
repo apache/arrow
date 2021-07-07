@@ -17,9 +17,9 @@
 
 import '../../jest-extensions';
 import { AsyncIterable } from 'ix';
-import { util } from '../../Arrow';
-import { Builder } from '../../Arrow';
-import { DataType, Vector, Chunked } from '../../Arrow';
+import { util } from 'apache-arrow';
+import { Builder } from 'apache-arrow';
+import { DataType, Vector, Chunked } from 'apache-arrow';
 
 const rand = Math.random.bind(Math);
 const randstr = require('randomatic');

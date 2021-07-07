@@ -1,0 +1,13 @@
+//Compiler configuaration to build the ESNext CommonJS target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNEXT",
+    "module": "commonjs",
+    "paths": {
+      "apache-arrow/*": [
+        "targets/esnext/cjs/*"
+      ]
+    }
+  }
+}

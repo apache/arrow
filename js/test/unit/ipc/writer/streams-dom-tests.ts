@@ -29,7 +29,7 @@ import {
     RecordBatchFileWriter,
     RecordBatchJSONWriter,
     RecordBatchStreamWriter,
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import {
     ArrowIOTestHelper,

@@ -1,6 +1,9 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["./**/*.ts"],
+  "include": [
+    "../src/**/*.ts",
+    "../test/**/*.ts"
+  ],
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",

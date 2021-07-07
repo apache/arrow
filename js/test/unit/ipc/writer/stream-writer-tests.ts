@@ -23,8 +23,8 @@ import {
 import * as generate from '../../../generate-test-data';
 import { validateRecordBatchIterator } from '../validate';
 import { RecordBatchStreamWriterOptions } from '../../../../src/ipc/writer';
-import { DictionaryVector, Dictionary, Uint32, Int32 } from '../../../Arrow';
-import { Table, Schema, Field, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from '../../../Arrow';
+import { DictionaryVector, Dictionary, Uint32, Int32 } from 'apache-arrow';
+import { Table, Schema, Field, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from 'apache-arrow';
 
 describe('RecordBatchStreamWriter', () => {
 

@@ -17,7 +17,8 @@
 
 // Dynamically load an Arrow target build based on command line arguments
 
-import 'web-streams-polyfill/es6';
+import 'web-streams-polyfill';
+// import 'web-streams-polyfill/es6';
 
 // import this before assigning window global since it does a `typeof window` check
 require('web-stream-tools');
@@ -32,6 +33,7 @@ Object.defineProperty(Object, Symbol.hasInstance, {
         return inst?.constructor && inst.constructor.name === 'Object';
     }
 });
+
 Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
     writable: true,
     configurable: true,
@@ -40,23 +42,29 @@ Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
     }
 });
 
-// these are duplicated in the gulpfile :<
-const targets = [`es5`, `es2015`, `esnext`];
-const formats = [`cjs`, `esm`, `cls`, `umd`];
+// // these are duplicated in the gulpfile :<
+// const targets = [`es5`, `es2015`, `esnext`];
+// const formats = [`cjs`, `esm`, `cls`, `umd`];
 
-const path = require('path');
-const target = process.env.TEST_TARGET!;
-const format = process.env.TEST_MODULE!;
-const useSrc = process.env.TEST_TS_SOURCE === `true` || (!~targets.indexOf(target) || !~formats.indexOf(format));
+// const path = require('path');
+// const target = process.env.TEST_TARGET!;
+// const format = process.env.TEST_MODULE!;
+// const useSrc = process.env.TEST_TS_SOURCE === `true` || (!~targets.indexOf(target) || !~formats.indexOf(format));
 
-let modulePath = ``;
+// let modulePath = ``;
 
-if (useSrc) modulePath = '../src';
-else if (target === `ts` || target === `apache-arrow`) modulePath = target;
-else modulePath = path.join(target, format);
+// if (useSrc) modulePath = '../src';
+// else if (target === `ts` || target === `apache-arrow`) modulePath = target;
+// else modulePath = path.join(target, format);
 
-modulePath = path.resolve(`./targets`, modulePath);
-modulePath = path.join(modulePath, `Arrow${format === 'umd' ? '' : '.node'}`);
-const Arrow: typeof import('../src/Arrow') = require(modulePath);
+// modulePath = path.resolve(`./targets`, modulePath);
+// modulePath = path.join(modulePath, `Arrow${format === 'umd' ? '' : '.node'}`);
+// const Arrow: typeof import('../src/Arrow') = require(modulePath);
 
-export = Arrow;
+// export = Arrow;
+
+// Require rxjs first so we pick up its polyfilled Symbol.observable
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('rxjs/internal/symbol/observable');
+
+export * from 'apache-arrow';

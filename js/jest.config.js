@@ -45,10 +45,15 @@ module.exports = {
       "^.+\\.tsx?$": "ts-jest"
     },
     "transformIgnorePatterns": [
+      "/(es5|es2015|esnext)/umd/",
+      "/targets/(es5|es2015|esnext)/",
       "/node_modules/(?!web-stream-tools).+\\.js$",
-      ".*/cjs/.*\\.js$"
+    //   ".*/cjs/.*\\.js$"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
     "preset": "ts-jest",
-    "testMatch": null
+    "testMatch": null,
+    "moduleNameMapper": {
+        "^apache-arrow(.*)": "<rootDir>/src/$1.js"
+    }
 };

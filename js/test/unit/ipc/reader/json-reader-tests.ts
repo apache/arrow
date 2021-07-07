@@ -21,7 +21,7 @@ import {
 } from '../../../data/tables';
 
 import { ArrowIOTestHelper } from '../helpers';
-import { RecordBatchReader } from '../../../Arrow';
+import { RecordBatchReader } from 'apache-arrow';
 import { validateRecordBatchReader } from '../validate';
 
 const { parse: bignumJSONParse } = require('json-bignum');

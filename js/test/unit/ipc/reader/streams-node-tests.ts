@@ -23,7 +23,7 @@ import {
     Table,
     RecordBatchReader,
     RecordBatchStreamWriter
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import { ArrowIOTestHelper } from '../helpers';
 import { validateRecordBatchAsyncIterator } from '../validate';

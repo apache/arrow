@@ -23,7 +23,7 @@ import {
     RecordBatchFileWriter,
     RecordBatchJSONWriter,
     RecordBatchStreamWriter,
-} from '../../Arrow';
+} from 'apache-arrow';
 
 import * as fs from 'fs';
 import { fs as memfs } from 'memfs';

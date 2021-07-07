@@ -18,7 +18,7 @@
 import '../jest-extensions';
 import {
     predicate, DataFrame, RecordBatch
-} from '../Arrow';
+} from 'apache-arrow';
 import { test_data } from './table-tests';
 
 const { col, lit, custom, and, or, And, Or } = predicate;

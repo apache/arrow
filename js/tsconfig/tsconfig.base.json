@@ -3,6 +3,12 @@
   "include": ["../src/**/*.ts"],
   "compileOnSave": false,
   "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "apache-arrow/*": [
+        "src/*"
+      ]
+    },
 
     /* Basic stuff */
     "moduleResolution": "node",
