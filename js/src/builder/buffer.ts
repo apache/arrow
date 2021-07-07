@@ -16,7 +16,6 @@
 // under the License.
 
 import { memcpy } from '../util/buffer';
-// import { BigIntAvailable, BigInt64Array, BigUint64Array } from '../util/compat';
 import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
