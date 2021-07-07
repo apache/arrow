@@ -1267,6 +1267,16 @@ def test_compressed_output_bz2(tmpdir):
         assert got == data
 
 
+def test_output_stream_constructor(tmpdir):
+    if not Codec.is_available("gzip"):
+        pytest.skip("gzip support is not built")
+    with pa.CompressedOutputStream(tmpdir / "ctor.gz", "gzip") as stream:
+        stream.write(b"test")
+    with (tmpdir / "ctor2.gz").open("wb") as f:
+        with pa.CompressedOutputStream(f, "gzip") as stream:
+            stream.write(b"test")
+
+
 @pytest.mark.parametrize(("path", "expected_compression"), [
     ("file.bz2", "bz2"),
     ("file.lz4", "lz4"),

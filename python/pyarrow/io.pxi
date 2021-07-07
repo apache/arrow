@@ -1282,21 +1282,20 @@ cdef class CompressedOutputStream(NativeFile):
 
     Parameters
     ----------
-    stream : pa.NativeFile
+    stream : string, path, pa.NativeFile, or file-like object
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
 
-    def __init__(self, NativeFile stream, str compression not None):
+    def __init__(self, object stream, str compression not None):
         cdef:
             Codec codec = Codec(compression)
+            shared_ptr[COutputStream] c_writer
             shared_ptr[CCompressedOutputStream] compressed_stream
+        get_writer(stream, &c_writer)
         compressed_stream = GetResultValue(
-            CCompressedOutputStream.Make(
-                codec.unwrap(),
-                stream.get_output_stream()
-            )
+            CCompressedOutputStream.Make(codec.unwrap(), c_writer)
         )
         self.set_output_stream(<shared_ptr[COutputStream]> compressed_stream)
         self.is_writable = True
