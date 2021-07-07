@@ -23,6 +23,14 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.BaseIntVector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 
 /**
  * Accessor for the arrow types: TinyIntVector, SmallIntVector, IntVector, BigIntVector,
@@ -32,10 +40,57 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   private final BaseIntVector vector;
   private final IntSupplier currentRowSupplier;
+  private boolean isUnassigned;
+  private int bytesToAllocate;
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector, IntSupplier currentRowSupplier) {
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt1Vector vector,
+                                       IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, 1);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt2Vector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, 2);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt4Vector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, 4);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt8Vector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, 8);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(TinyIntVector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, TinyIntVector.TYPE_WIDTH);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(SmallIntVector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, SmallIntVector.TYPE_WIDTH);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(IntVector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, IntVector.TYPE_WIDTH);
+  }
+
+  public ArrowFlightJdbcBaseIntVectorAccessor(BigIntVector vector,
+                                              IntSupplier currentRowSupplier) {
+    this(vector, currentRowSupplier, true, BigIntVector.TYPE_WIDTH);
+  }
+
+  ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector,
+                                       IntSupplier currentRowSupplier,
+                                       boolean isUnassigned,
+                                       int bytesToAllocate) {
     this.vector = vector;
     this.currentRowSupplier = currentRowSupplier;
+    this.isUnassigned = isUnassigned;
+    this.bytesToAllocate = bytesToAllocate;
   }
 
   @Override
