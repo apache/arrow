@@ -786,88 +786,94 @@ struct CaseWhenFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    // The first function is a struct of booleans, where the number of fields in the
+    // struct is either equal to the number of other arguments or is one less.
     RETURN_NOT_OK(CheckArity(*values));
-    std::vector<ValueDescr> value_types;
-    for (size_t i = 0; i < values->size() - 1; i += 2) {
-      ValueDescr* cond = &(*values)[i];
-      if (cond->type->id() == Type::NA) {
-        cond->type = boolean();
-      }
-      if (cond->type->id() != Type::BOOL) {
-        return Status::TypeError("Condition arguments must be boolean, but argument ", i,
-                                 " was ", cond->type->ToString());
-      }
-      value_types.push_back((*values)[i + 1]);
+    EnsureDictionaryDecoded(values);
+    auto first_type = (*values)[0].type;
+    if (first_type->id() != Type::STRUCT) {
+      return Status::TypeError("case_when: first argument must be STRUCT, not ",
+                               *first_type);
     }
-    if (values->size() % 2 != 0) {
-      // Have an ELSE clause
-      value_types.push_back(values->back());
+    auto num_fields = static_cast<size_t>(first_type->num_fields());
+    if (num_fields < values->size() - 2 || num_fields >= values->size()) {
+      return Status::Invalid(
+          "case_when: number of struct fields must be equal to or one less than count of "
+          "remaining arguments (",
+          values->size() - 1, "), got: ", first_type->num_fields());
     }
-    EnsureDictionaryDecoded(&value_types);
-    if (auto type = CommonNumeric(value_types)) {
-      ReplaceTypes(type, &value_types);
-    }
-
-    const DataType& common_values_type = *value_types.front().type;
-    auto next_type = value_types.cbegin();
-    for (size_t i = 0; i < values->size(); i += 2) {
-      if (!common_values_type.Equals(next_type->type)) {
-        return Status::TypeError("Value arguments must be of same type, but argument ", i,
-                                 " was ", next_type->type->ToString(), " (expected ",
-                                 common_values_type.ToString(), ")");
-      }
-      if (i == values->size() - 1) {
-        // ELSE
-        (*values)[i] = *next_type++;
-      } else {
-        (*values)[i + 1] = *next_type++;
+    for (const auto& field : first_type->fields()) {
+      if (field->type()->id() != Type::BOOL) {
+        return Status::TypeError(
+            "case_when: all fields of first argument must be BOOL, but ", field->name(),
+            " was of type: ", *field->type());
       }
     }
 
-    // We register a unary kernel for each value type and dispatch to it after validation.
-    if (auto kernel = DispatchExactImpl(this, {values->back()})) return kernel;
+    if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
+      for (auto it = values->begin() + 1; it != values->end(); it++) {
+        it->type = type;
+      }
+    }
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
 };
 
-// Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar arguments
+// Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar conditions
 Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  for (size_t i = 0; i < batch.values.size() - 1; i += 2) {
-    const Scalar& cond = *batch[i].scalar();
-    if (cond.is_valid && internal::UnboxScalar<BooleanType>::Unbox(cond)) {
-      *out = batch[i + 1];
-      return Status::OK();
+  const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
+  Datum result;
+  for (size_t i = 0; i < batch.values.size() - 1; i++) {
+    if (i < conds.value.size()) {
+      const Scalar& cond = *conds.value[i];
+      if (cond.is_valid && internal::UnboxScalar<BooleanType>::Unbox(cond)) {
+        result = batch[i + 1];
+        break;
+      }
+    } else {
+      // ELSE clause
+      result = batch[i + 1];
+      break;
     }
   }
-  if (batch.values.size() % 2 == 0) {
-    // No ELSE
-    *out = MakeNullScalar(batch[1].type());
+  if (out->is_scalar()) {
+    *out = result.is_scalar() ? result.scalar() : MakeNullScalar(out->type());
+  } else if (result.is_value()) {
+    if (result.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(auto temp, MakeArrayFromScalar(*result.scalar(), batch.length,
+                                                           ctx->memory_pool()));
+      *out->mutable_array() = *temp->data();
+    } else {
+      *out->mutable_array() = *result.array();
+    }
   } else {
-    *out = batch.values.back();
+    ARROW_ASSIGN_OR_RAISE(auto temp,
+                          MakeArrayOfNull(out->type(), batch.length, ctx->memory_pool()));
+    *out->mutable_array() = *temp->data();
   }
   return Status::OK();
 }
 
 // Implement 'case when' for any mix of scalar/array arguments for any fixed-width type,
-// given helper functions to copy data from a source array to a target array and to
-// allocate a values buffer
+// given helper functions to copy data from a source array to a target array
 template <typename Type>
 Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& conds_array = *batch.values[0].array();
   ArrayData* output = out->mutable_array();
-  const bool have_else_arg = batch.values.size() % 2 != 0;
-  // Check if we may need a validity bitmap
+  const auto num_value_args = batch.values.size() - 1;
+  const bool have_else_arg =
+      static_cast<size_t>(conds_array.type->num_fields()) < num_value_args;
   uint8_t* out_valid = nullptr;
 
+  // Check if we may need a validity bitmap
   bool need_valid_bitmap = false;
   if (!have_else_arg) {
     // If we don't have an else arg -> need a bitmap since we may emit nulls
     need_valid_bitmap = true;
-  } else if (batch.values.back().null_count() > 0) {
-    // If the 'else' array has a null count we need a validity bitmap
-    need_valid_bitmap = true;
   } else {
     // Otherwise if any value array has a null count we need a validity bitmap
-    for (size_t i = 1; i < batch.values.size(); i += 2) {
+    for (size_t i = 1; i < batch.values.size(); i++) {
       if (batch[i].null_count() > 0) {
         need_valid_bitmap = true;
         break;
@@ -880,6 +886,13 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   }
 
   // Initialize values buffer
+  auto bit_width = checked_cast<const FixedWidthType&>(*out->type()).bit_width();
+  if (bit_width == 1) {
+    ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->AllocateBitmap(batch.length));
+  } else {
+    auto byte_width = BitUtil::BytesForBits(bit_width);
+    ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(batch.length * byte_width));
+  }
   uint8_t* out_values = output->buffers[1]->mutable_data();
   if (have_else_arg) {
     // Copy 'else' value into output
@@ -894,41 +907,21 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   ARROW_ASSIGN_OR_RAISE(auto mask_buffer, ctx->AllocateBitmap(batch.length));
   uint8_t* mask = mask_buffer->mutable_data();
   std::memset(mask, 0xFF, mask_buffer->size());
-  // Then iterate through each argument in turn and set elements.
-  for (size_t i = 0; i < batch.values.size() - 1; i += 2) {
-    const Datum& cond_datum = batch[i];
-    const Datum& values_datum = batch[i + 1];
-    if (cond_datum.is_scalar()) {
-      const Scalar& cond_scalar = *cond_datum.scalar();
-      const bool cond =
-          cond_scalar.is_valid && UnboxScalar<BooleanType>::Unbox(cond_scalar);
-      if (!cond) continue;
-      BitBlockCounter counter(mask, /*start_offset=*/0, batch.length);
-      int64_t offset = 0;
-      while (offset < batch.length) {
-        const auto block = counter.NextWord();
-        if (block.AllSet()) {
-          CopyValues<Type>(values_datum, out_valid, out_values, offset, block.length);
-        } else if (block.popcount) {
-          for (int64_t j = 0; j < block.length; ++j) {
-            if (BitUtil::GetBit(mask, offset + j)) {
-              CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
-                               /*length=*/1);
-            }
-          }
-        }
-        offset += block.length;
-      }
-      break;
-    }
 
-    const ArrayData& cond_array = *cond_datum.array();
+  // Then iterate through each argument in turn and set elements.
+  const uint8_t* conds_valid =
+      conds_array.GetNullCount() > 0 ? conds_array.buffers[0]->data() : nullptr;
+  for (size_t i = 0; i < batch.values.size() - (have_else_arg ? 2 : 1); i++) {
+    const ArrayData& cond_array = *conds_array.child_data[i];
+    const int64_t cond_offset = conds_array.offset + cond_array.offset;
     const uint8_t* cond_values = cond_array.buffers[1]->data();
+    const Datum& values_datum = batch[i + 1];
     int64_t offset = 0;
-    // If no valid buffer, visit mask & value bitmap simultaneously
-    if (cond_array.GetNullCount() == 0) {
-      BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values,
-                                    cond_array.offset, batch.length);
+
+    if (!conds_valid && cond_array.GetNullCount() == 0) {
+      // If no valid buffer, visit mask & cond bitmap simultaneously
+      BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values, cond_offset,
+                                    batch.length);
       while (offset < batch.length) {
         const auto block = counter.NextAndWord();
         if (block.AllSet()) {
@@ -937,7 +930,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         } else if (block.popcount) {
           for (int64_t j = 0; j < block.length; ++j) {
             if (BitUtil::GetBit(mask, offset + j) &&
-                BitUtil::GetBit(cond_values, cond_array.offset + offset + j)) {
+                BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
               CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
                                /*length=*/1);
               BitUtil::SetBitTo(mask, offset + j, false);
@@ -947,43 +940,68 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         offset += block.length;
       }
       continue;
-    }
-
-    // Else visit all three bitmaps simultaneously
-    const uint8_t* cond_valid = cond_array.buffers[0]->data();
-    Bitmap bitmaps[3] = {{mask, /*offset=*/0, batch.length},
-                         {cond_values, cond_array.offset, batch.length},
-                         {cond_valid, cond_array.offset, batch.length}};
-    Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-      const uint64_t word = words[0] & words[1] & words[2];
-      const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
-      if (word == std::numeric_limits<uint64_t>::max()) {
-        CopyValues<Type>(values_datum, out_valid, out_values, offset, block_length);
-        BitUtil::SetBitsTo(mask, offset, block_length, false);
-      } else if (word) {
-        for (int64_t j = 0; j < block_length; ++j) {
-          if (BitUtil::GetBit(mask, offset + j) &&
-              BitUtil::GetBit(cond_valid, cond_array.offset + offset + j) &&
-              BitUtil::GetBit(cond_values, cond_array.offset + offset + j)) {
-            CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
-                             /*length=*/1);
-            BitUtil::SetBitTo(mask, offset + j, false);
+    } else if (!conds_valid) {
+      // Visit mask & cond bitmap & cond validity
+      const uint8_t* cond_valid = cond_array.buffers[0]->data();
+      Bitmap bitmaps[3] = {{mask, /*offset=*/0, batch.length},
+                           {cond_values, cond_offset, batch.length},
+                           {cond_valid, cond_offset, batch.length}};
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
+        const uint64_t word = words[0] & words[1] & words[2];
+        const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
+        if (word == std::numeric_limits<uint64_t>::max()) {
+          CopyValues<Type>(values_datum, out_valid, out_values, offset, block_length);
+          BitUtil::SetBitsTo(mask, offset, block_length, false);
+        } else if (word) {
+          for (int64_t j = 0; j < block_length; ++j) {
+            if (BitUtil::GetBit(mask, offset + j) &&
+                BitUtil::GetBit(cond_valid, cond_offset + offset + j) &&
+                BitUtil::GetBit(cond_values, cond_offset + offset + j)) {
+              CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
+                               /*length=*/1);
+              BitUtil::SetBitTo(mask, offset + j, false);
+            }
           }
         }
-      }
-      offset += block_length;
-    });
+      });
+    } else {
+      // Visit mask & cond bitmap & cond validity & struct validity
+      const uint8_t* cond_valid = cond_array.buffers[0]->data();
+      Bitmap bitmaps[4] = {{mask, /*offset=*/0, batch.length},
+                           {cond_values, cond_offset, batch.length},
+                           {cond_valid, cond_offset, batch.length},
+                           {conds_valid, conds_array.offset, batch.length}};
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
+        const uint64_t word = words[0] & words[1] & words[2] & words[3];
+        const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
+        if (word == std::numeric_limits<uint64_t>::max()) {
+          CopyValues<Type>(values_datum, out_valid, out_values, offset, block_length);
+          BitUtil::SetBitsTo(mask, offset, block_length, false);
+        } else if (word) {
+          for (int64_t j = 0; j < block_length; ++j) {
+            if (BitUtil::GetBit(mask, offset + j) &&
+                BitUtil::GetBit(cond_valid, cond_offset + offset + j) &&
+                BitUtil::GetBit(cond_values, cond_offset + offset + j) &&
+                BitUtil::GetBit(conds_valid, conds_array.offset + offset + j)) {
+              CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
+                               /*length=*/1);
+              BitUtil::SetBitTo(mask, offset + j, false);
+            }
+          }
+        }
+        offset += block_length;
+      });
+    }
   }
+  // TODO: need to initialize output values
   return Status::OK();
 }
 
 template <typename Type, typename Enable = void>
 struct CaseWhenFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    for (const auto& datum : batch.values) {
-      if (datum.is_array()) {
-        return ExecArrayCaseWhen<Type>(ctx, batch, out);
-      }
+    if (batch.values[0].is_array()) {
+      return ExecArrayCaseWhen<Type>(ctx, batch, out);
     }
     return ExecScalarCaseWhen(ctx, batch, out);
   }
@@ -1004,11 +1022,14 @@ Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descr
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, OutputType(LastType),
-                                            /*is_varargs=*/true),
-                      exec);
+  ScalarKernel kernel(
+      KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)},
+                            OutputType(LastType),
+                            /*is_varargs=*/true),
+      exec);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  kernel.can_write_into_slices = false;
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
 }
 

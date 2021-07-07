@@ -122,12 +122,15 @@ static void CaseWhenBench(benchmark::State& state) {
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto val4 = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  ASSERT_OK_AND_ASSIGN(
+      auto cond,
+      StructArray::Make({cond1, cond2, cond3}, std::vector<std::string>{"a", "b", "c"},
+                        nullptr, /*null_count=*/0));
 
   for (auto _ : state) {
     ABORT_NOT_OK(
-        CaseWhen({cond1->Slice(offset), val1->Slice(offset), cond2->Slice(offset),
-                  val2->Slice(offset), cond3->Slice(offset), val3->Slice(offset),
-                  val4->Slice(offset)}));
+        CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
+                                       val3->Slice(offset), val4->Slice(offset)}));
   }
 
   state.SetBytesProcessed(state.iterations() *
@@ -160,11 +163,13 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto val3 = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  ASSERT_OK_AND_ASSIGN(
+      auto cond, StructArray::Make({cond1, cond2}, std::vector<std::string>{"a", "b"},
+                                   nullptr, /*null_count=*/0));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(
-        CaseWhen({cond1->Slice(offset), val1->Slice(offset), cond2->Slice(offset),
-                  val2->Slice(offset), val3->Slice(offset)}));
+    ABORT_NOT_OK(CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
+                                                val3->Slice(offset)}));
   }
 
   state.SetBytesProcessed(state.iterations() *

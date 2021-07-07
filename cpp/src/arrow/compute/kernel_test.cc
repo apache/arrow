@@ -468,15 +468,28 @@ TEST(KernelSignature, MatchesInputs) {
 }
 
 TEST(KernelSignature, VarArgsMatchesInputs) {
-  KernelSignature sig({int8()}, utf8(), /*is_varargs=*/true);
+  {
+    KernelSignature sig({int8()}, utf8(), /*is_varargs=*/true);
 
-  std::vector<ValueDescr> args = {int8()};
-  ASSERT_TRUE(sig.MatchesInputs(args));
-  args.push_back(ValueDescr::Scalar(int8()));
-  args.push_back(ValueDescr::Array(int8()));
-  ASSERT_TRUE(sig.MatchesInputs(args));
-  args.push_back(int32());
-  ASSERT_FALSE(sig.MatchesInputs(args));
+    std::vector<ValueDescr> args = {int8()};
+    ASSERT_TRUE(sig.MatchesInputs(args));
+    args.push_back(ValueDescr::Scalar(int8()));
+    args.push_back(ValueDescr::Array(int8()));
+    ASSERT_TRUE(sig.MatchesInputs(args));
+    args.push_back(int32());
+    ASSERT_FALSE(sig.MatchesInputs(args));
+  }
+  {
+    KernelSignature sig({int8(), utf8()}, utf8(), /*is_varargs=*/true);
+
+    std::vector<ValueDescr> args = {int8()};
+    ASSERT_TRUE(sig.MatchesInputs(args));
+    args.push_back(ValueDescr::Scalar(utf8()));
+    args.push_back(ValueDescr::Array(utf8()));
+    ASSERT_TRUE(sig.MatchesInputs(args));
+    args.push_back(int32());
+    ASSERT_FALSE(sig.MatchesInputs(args));
+  }
 }
 
 TEST(KernelSignature, ToString) {

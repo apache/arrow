@@ -323,6 +323,17 @@ class TestCaseWhenNumeric : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCaseWhenNumeric, NumericBasedTypes);
 
+Datum MakeStruct(const std::vector<Datum>& conds) {
+  ProjectOptions options;
+  options.field_names.resize(conds.size());
+  options.field_metadata.resize(conds.size());
+  for (const auto& datum : conds) {
+    options.field_nullability.push_back(datum.null_count() > 0);
+  }
+  EXPECT_OK_AND_ASSIGN(auto result, CallFunction("project", conds, &options));
+  return result;
+}
+
 TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
   auto cond_true = ScalarFromJSON(boolean(), "true");
@@ -337,55 +348,66 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
   auto values1 = ArrayFromJSON(type, "[3, null, 5, 6]");
   auto values2 = ArrayFromJSON(type, "[7, 8, null, 10]");
 
-  CheckScalar("case_when", {values1}, values1);
-  CheckScalar("case_when", {values_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-  CheckScalar("case_when", {cond_true, values1}, values1);
-  CheckScalar("case_when", {cond_false, values1}, values_null);
-  CheckScalar("case_when", {cond_null, values1}, values_null);
-  CheckScalar("case_when", {cond_true, values1, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-  CheckScalar("case_when", {cond_true, values1, cond_true, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2}, values_null);
-  CheckScalar("case_when", {cond_true, values1, cond_false, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+              values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when",
+              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
 
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
               ArrayFromJSON(type, "[1, 1, 2, null]"));
-  CheckScalar("case_when", {cond1, scalar_null}, values_null);
-  CheckScalar("case_when", {cond1, scalar_null, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
               ArrayFromJSON(type, "[null, null, 1, 1]"));
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
               ArrayFromJSON(type, "[1, 1, 2, 1]"));
 
-  CheckScalar("case_when", {cond1, values1, cond2, values2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
               ArrayFromJSON(type, "[3, null, null, null]"));
-  CheckScalar("case_when", {cond1, values1, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
               ArrayFromJSON(type, "[3, null, null, 6]"));
-  CheckScalar("case_when", {cond1, values_null, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, "[null, null, null, 6]"));
 
-  CheckScalar("case_when",
-              {ArrayFromJSON(boolean(),
-                             "[true, true, true, false, false, false, null, null, null]"),
-               ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
-               ArrayFromJSON(boolean(),
-                             "[true, false, null, true, false, null, true, false, null]"),
-               ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]")},
-              ArrayFromJSON(type, "[10, 11, 12, 23, null, null, 26, null, null]"));
-  CheckScalar("case_when",
-              {ArrayFromJSON(boolean(),
-                             "[true, true, true, false, false, false, null, null, null]"),
-               ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
-               ArrayFromJSON(boolean(),
-                             "[true, false, null, true, false, null, true, false, null]"),
-               ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]"),
-               ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
-              ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
+  CheckScalar(
+      "case_when",
+      {MakeStruct(
+           {ArrayFromJSON(boolean(),
+                          "[true, true, true, false, false, false, null, null, null]"),
+            ArrayFromJSON(boolean(),
+                          "[true, false, null, true, false, null, true, false, null]")}),
+       ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
+       ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]")},
+      ArrayFromJSON(type, "[10, 11, 12, 23, null, null, 26, null, null]"));
+  CheckScalar(
+      "case_when",
+      {MakeStruct(
+           {ArrayFromJSON(boolean(),
+                          "[true, true, true, false, false, false, null, null, null]"),
+            ArrayFromJSON(boolean(),
+                          "[true, false, null, true, false, null, true, false, null]")}),
+       ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
+
+       ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]"),
+       ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
+      ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
 }
 
 TEST(TestCaseWhen, Null) {
@@ -394,10 +416,10 @@ TEST(TestCaseWhen, Null) {
   auto cond_arr = ArrayFromJSON(boolean(), "[true, true, false, null]");
   auto scalar = ScalarFromJSON(null(), "null");
   auto array = ArrayFromJSON(null(), "[null, null, null, null]");
-  CheckScalar("case_when", {array}, array);
-  CheckScalar("case_when", {cond_false, array}, array);
-  CheckScalar("case_when", {cond_true, array, array}, array);
-  CheckScalar("case_when", {cond_arr, array, cond_true, array}, array);
+  CheckScalar("case_when", {MakeStruct({}), array}, array);
+  CheckScalar("case_when", {MakeStruct({cond_false}), array}, array);
+  CheckScalar("case_when", {MakeStruct({cond_true}), array, array}, array);
+  CheckScalar("case_when", {MakeStruct({cond_arr, cond_true}), array, array}, array);
 }
 
 TEST(TestCaseWhen, Boolean) {
@@ -414,36 +436,42 @@ TEST(TestCaseWhen, Boolean) {
   auto values1 = ArrayFromJSON(type, "[true, null, true, true]");
   auto values2 = ArrayFromJSON(type, "[false, false, null, false]");
 
-  CheckScalar("case_when", {values1}, values1);
-  CheckScalar("case_when", {values_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-  CheckScalar("case_when", {cond_true, values1}, values1);
-  CheckScalar("case_when", {cond_false, values1}, values_null);
-  CheckScalar("case_when", {cond_null, values1}, values_null);
-  CheckScalar("case_when", {cond_true, values1, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-  CheckScalar("case_when", {cond_true, values1, cond_true, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2}, values_null);
-  CheckScalar("case_when", {cond_true, values1, cond_false, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+              values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when",
+              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
 
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
               ArrayFromJSON(type, "[true, true, false, null]"));
-  CheckScalar("case_when", {cond1, scalar_null}, values_null);
-  CheckScalar("case_when", {cond1, scalar_null, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
               ArrayFromJSON(type, "[null, null, true, true]"));
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
               ArrayFromJSON(type, "[true, true, false, true]"));
 
-  CheckScalar("case_when", {cond1, values1, cond2, values2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
               ArrayFromJSON(type, "[true, null, null, null]"));
-  CheckScalar("case_when", {cond1, values1, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
               ArrayFromJSON(type, "[true, null, null, true]"));
-  CheckScalar("case_when", {cond1, values_null, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, "[null, null, null, true]"));
 }
 
@@ -461,36 +489,42 @@ TEST(TestCaseWhen, DayTimeInterval) {
   auto values1 = ArrayFromJSON(type, "[[3, 3], null, [5, 5], [6, 6]]");
   auto values2 = ArrayFromJSON(type, "[[7, 7], [8, 8], null, [10, 10]]");
 
-  CheckScalar("case_when", {values1}, values1);
-  CheckScalar("case_when", {values_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-  CheckScalar("case_when", {cond_true, values1}, values1);
-  CheckScalar("case_when", {cond_false, values1}, values_null);
-  CheckScalar("case_when", {cond_null, values1}, values_null);
-  CheckScalar("case_when", {cond_true, values1, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-  CheckScalar("case_when", {cond_true, values1, cond_true, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2}, values_null);
-  CheckScalar("case_when", {cond_true, values1, cond_false, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+              values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when",
+              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
 
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
               ArrayFromJSON(type, "[[1, 1], [1, 1], [2, 2], null]"));
-  CheckScalar("case_when", {cond1, scalar_null}, values_null);
-  CheckScalar("case_when", {cond1, scalar_null, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
               ArrayFromJSON(type, "[null, null, [1, 1], [1, 1]]"));
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
               ArrayFromJSON(type, "[[1, 1], [1, 1], [2, 2], [1, 1]]"));
 
-  CheckScalar("case_when", {cond1, values1, cond2, values2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
               ArrayFromJSON(type, "[[3, 3], null, null, null]"));
-  CheckScalar("case_when", {cond1, values1, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
               ArrayFromJSON(type, "[[3, 3], null, null, [6, 6]]"));
-  CheckScalar("case_when", {cond1, values_null, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, "[null, null, null, [6, 6]]"));
 }
 
@@ -509,37 +543,43 @@ TEST(TestCaseWhen, Decimal) {
     auto values1 = ArrayFromJSON(type, R"(["3.45", null, "5.67", "6.78"])");
     auto values2 = ArrayFromJSON(type, R"(["7.89", "8.90", null, "1.01"])");
 
-    CheckScalar("case_when", {values1}, values1);
-    CheckScalar("case_when", {values_null}, values_null);
+    CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-    CheckScalar("case_when", {cond_true, values1}, values1);
-    CheckScalar("case_when", {cond_false, values1}, values_null);
-    CheckScalar("case_when", {cond_null, values1}, values_null);
-    CheckScalar("case_when", {cond_true, values1, values2}, values1);
-    CheckScalar("case_when", {cond_false, values1, values2}, values2);
-    CheckScalar("case_when", {cond_null, values1, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-    CheckScalar("case_when", {cond_true, values1, cond_true, values2}, values1);
-    CheckScalar("case_when", {cond_false, values1, cond_false, values2}, values_null);
-    CheckScalar("case_when", {cond_true, values1, cond_false, values2}, values1);
-    CheckScalar("case_when", {cond_false, values1, cond_true, values2}, values2);
-    CheckScalar("case_when", {cond_null, values1, cond_true, values2}, values2);
-    CheckScalar("case_when", {cond_false, values1, cond_false, values2, values2},
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+                values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when",
+                {MakeStruct({cond_false, cond_false}), values1, values2, values2},
                 values2);
 
-    CheckScalar("case_when", {cond1, scalar1, cond2, scalar2},
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
                 ArrayFromJSON(type, R"(["1.23", "1.23", "2.34", null])"));
-    CheckScalar("case_when", {cond1, scalar_null}, values_null);
-    CheckScalar("case_when", {cond1, scalar_null, scalar1},
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
                 ArrayFromJSON(type, R"([null, null, "1.23", "1.23"])"));
-    CheckScalar("case_when", {cond1, scalar1, cond2, scalar2, scalar1},
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
                 ArrayFromJSON(type, R"(["1.23", "1.23", "2.34", "1.23"])"));
 
-    CheckScalar("case_when", {cond1, values1, cond2, values2},
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
                 ArrayFromJSON(type, R"(["3.45", null, null, null])"));
-    CheckScalar("case_when", {cond1, values1, cond2, values2, values1},
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
                 ArrayFromJSON(type, R"(["3.45", null, null, "6.78"])"));
-    CheckScalar("case_when", {cond1, values_null, cond2, values2, values1},
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
                 ArrayFromJSON(type, R"([null, null, null, "6.78"])"));
   }
 }
@@ -558,64 +598,67 @@ TEST(TestCaseWhen, FixedSizeBinary) {
   auto values1 = ArrayFromJSON(type, R"(["cde", null, "def", "efg"])");
   auto values2 = ArrayFromJSON(type, R"(["fgh", "ghi", null, "hij"])");
 
-  CheckScalar("case_when", {values1}, values1);
-  CheckScalar("case_when", {values_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-  CheckScalar("case_when", {cond_true, values1}, values1);
-  CheckScalar("case_when", {cond_false, values1}, values_null);
-  CheckScalar("case_when", {cond_null, values1}, values_null);
-  CheckScalar("case_when", {cond_true, values1, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-  CheckScalar("case_when", {cond_true, values1, cond_true, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2}, values_null);
-  CheckScalar("case_when", {cond_true, values1, cond_false, values2}, values1);
-  CheckScalar("case_when", {cond_false, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_null, values1, cond_true, values2}, values2);
-  CheckScalar("case_when", {cond_false, values1, cond_false, values2, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+              values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when",
+              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
 
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
               ArrayFromJSON(type, R"(["abc", "abc", "bcd", null])"));
-  CheckScalar("case_when", {cond1, scalar_null}, values_null);
-  CheckScalar("case_when", {cond1, scalar_null, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
               ArrayFromJSON(type, R"([null, null, "abc", "abc"])"));
-  CheckScalar("case_when", {cond1, scalar1, cond2, scalar2, scalar1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
               ArrayFromJSON(type, R"(["abc", "abc", "bcd", "abc"])"));
 
-  CheckScalar("case_when", {cond1, values1, cond2, values2},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
               ArrayFromJSON(type, R"(["cde", null, null, null])"));
-  CheckScalar("case_when", {cond1, values1, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
               ArrayFromJSON(type, R"(["cde", null, null, "efg"])"));
-  CheckScalar("case_when", {cond1, values_null, cond2, values2, values1},
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, "efg"])"));
 }
 
 TEST(TestCaseWhen, DispatchBest) {
-  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("case_when"));
-  auto Check =
-      [&](std::vector<ValueDescr> original_values) -> Result<std::vector<ValueDescr>> {
-    auto values = original_values;
-    RETURN_NOT_OK(function->DispatchBest(&values));
-    return values;
-  };
+  CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},
+                    {struct_({field("", boolean())}), int64(), int64()});
 
-  // Since DispatchBest for this kernel pulls tricks, we can't compare it to DispatchExact
-  // as CheckDispatchBest does
-  EXPECT_EQ((std::vector<ValueDescr>{int32()}), *Check({int32()}));
-  EXPECT_EQ((std::vector<ValueDescr>{boolean(), int64(), int64()}),
-            *Check({boolean(), int32(), int64()}));
-  EXPECT_EQ((std::vector<ValueDescr>{boolean(), int64(), int64()}),
-            *Check({null(), int32(), int64()}));
-  ASSERT_RAISES(TypeError, Check({boolean(), utf8(), int32()}));
-  ASSERT_RAISES(TypeError, Check({int32(), int32(), int32()}));
-  ASSERT_RAISES(Invalid, Check({}));
-}
-
-TEST(TestCaseWhen, Errors) {
-  ASSERT_RAISES(Invalid, CaseWhen({}));
-  ASSERT_RAISES(TypeError, CaseWhen({ArrayFromJSON(utf8(), "[\"\"]"),
-                                     ArrayFromJSON(int32(), "[0]")}));
+  ASSERT_RAISES(Invalid, CallFunction("case_when", {}));
+  // Too many/too few conditions
+  ASSERT_RAISES(
+      Invalid, CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")})}));
+  ASSERT_RAISES(Invalid,
+                CallFunction("case_when", {MakeStruct({}), ArrayFromJSON(int64(), "[]"),
+                                           ArrayFromJSON(int64(), "[]")}));
+  // Conditions must be struct of boolean
+  ASSERT_RAISES(TypeError,
+                CallFunction("case_when", {MakeStruct({ArrayFromJSON(int64(), "[]")}),
+                                           ArrayFromJSON(int64(), "[]")}));
+  ASSERT_RAISES(TypeError, CallFunction("case_when", {ArrayFromJSON(boolean(), "[true]"),
+                                                      ArrayFromJSON(int32(), "[0]")}));
+  // Values must have compatible types
+  ASSERT_RAISES(NotImplemented,
+                CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")}),
+                                           ArrayFromJSON(int64(), "[]"),
+                                           ArrayFromJSON(utf8(), "[]")}));
 }
 }  // namespace compute
 }  // namespace arrow
