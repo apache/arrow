@@ -20,7 +20,7 @@ module.exports = {
     "globals": {
         "ts-jest": {
             "diagnostics": false,
-            "tsConfig": "spec/tsconfig/tsconfig.es2015.cjs.json"
+            "tsConfig": "test/tsconfig/tsconfig.es2015.cjs.json"
         }
     },
     "moduleNameMapper": {

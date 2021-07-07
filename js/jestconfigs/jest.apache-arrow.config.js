@@ -20,7 +20,7 @@ module.exports = {
     "globals": {
         "ts-jest": {
             "diagnostics": false,
-            "tsConfig": "spec/tsconfig/tsconfig.apache-arrow.json"
+            "tsConfig": "test/tsconfig/tsconfig.apache-arrow.json"
         }
     },
     "moduleNameMapper": {

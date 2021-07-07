@@ -20,7 +20,7 @@ module.exports = {
     "globals": {
         "ts-jest": {
             "diagnostics": false,
-            "tsConfig": "spec/tsconfig/tsconfig.es5.umd.json"
+            "tsConfig": "test/tsconfig/tsconfig.es5.umd.json"
         }
     },
     "moduleNameMapper": {
