@@ -1645,3 +1645,14 @@ test_that("Error if no format specified and files are not parquet", {
     )
   )
 })
+
+test_that("Sorted partition keys don't cause issues when rows >= 10,000,000; ARROW-13169", {
+  
+  dir <- make_temp_dir()
+  n_row <- 1e7
+  df <- data.frame(foo = runif(n_row))
+  df$let <- sort(sample(letters, n_row, replace = TRUE))
+  write_dataset(df, dir, partitioning = "let")
+  expect_equal(length(list.files(dir)), 26)
+  
+})
