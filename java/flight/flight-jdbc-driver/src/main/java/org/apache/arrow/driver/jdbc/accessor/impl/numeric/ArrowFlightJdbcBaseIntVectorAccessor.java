@@ -132,7 +132,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public byte[] getBytes() {
-    return ByteBuffer.allocate(Long.BYTES).putLong(getLong()).array();
+    return ByteBuffer.allocate(bytesToAllocate).putLong(getLong()).array();
   }
 
   @Override
