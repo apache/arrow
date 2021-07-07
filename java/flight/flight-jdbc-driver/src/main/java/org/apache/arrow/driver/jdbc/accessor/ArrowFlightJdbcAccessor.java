@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor;
 
+import static java.util.Objects.isNull;
 import static org.apache.arrow.driver.jdbc.utils.ExceptionTemplateThrower.getOperationNotSupported;
 import static org.apache.calcite.avatica.util.Cursor.Accessor;
 
@@ -48,7 +49,11 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
 
   @Override
   public String getString() {
-    throw getOperationNotSupported(this.getClass());
+    final Object object = getObject();
+
+    final boolean isNull = isNull(object);
+
+    return isNull ? null : object.toString();
   }
 
   @Override
