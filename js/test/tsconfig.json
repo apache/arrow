@@ -9,6 +9,7 @@
     "module": "commonjs",
     "allowJs": true,
     "declaration": false,
+    "declarationMap": false,
     "importHelpers": false,
     "noEmitHelpers": false,
     "noEmitOnError": false,

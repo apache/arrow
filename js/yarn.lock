@@ -1236,6 +1236,11 @@
     npmlog "^4.1.2"
     write-file-atomic "^3.0.3"
 
+"@mattiasbuelens/web-streams-adapter@0.1.0-alpha.5":
+  version "0.1.0-alpha.5"
+  resolved "https://registry.yarnpkg.com/@mattiasbuelens/web-streams-adapter/-/web-streams-adapter-0.1.0-alpha.5.tgz#091a6256fdada3d53dc0a70501bcc6f3a46add05"
+  integrity sha512-OIfunNt/fTjIgDtUqXhBYOKtgaxm30ZWkMWegI9iS3xUHy2/A3AXki6/k+z40+BywNMi+spON/jSE0FF9WmUKA==
+
 "@mrmlnc/readdir-enhanced@^2.2.1":
   version "2.2.1"
   resolved "https://registry.yarnpkg.com/@mrmlnc/readdir-enhanced/-/readdir-enhanced-2.2.1.tgz#524af240d1a360527b730475ecfa1344aa540dde"
@@ -1433,6 +1438,14 @@
   integrity sha512-wWPSynU4oLy3i4KGyk+J1BLwRKyoeW2TwRHgwbDz17WtVFzSK2GOErGliruIx8c+MaYtHSYTx36DSmLNoNbtgA==
   dependencies:
     "@octokit/openapi-types" "^7.2.3"
+
+"@openpgp/web-stream-tools@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@openpgp/web-stream-tools/-/web-stream-tools-0.0.5.tgz#f78d73400be010dca940ec09642aaf8c35edf56d"
+  integrity sha512-tdUCdiMi5ogmZlAbR4cQXZDbK34QB8iEnJ434m9bj4P7sxvKg2KKKbEiB4EQb2AWhj/SNKcoNUHhT9WxTqKimQ==
+  dependencies:
+    "@mattiasbuelens/web-streams-adapter" "0.1.0-alpha.5"
+    web-streams-polyfill "~2.1.1"
 
 "@sinonjs/commons@^1.7.0":
   version "1.8.3"
@@ -9249,15 +9262,15 @@ wcwidth@^1.0.0:
   dependencies:
     defaults "^1.0.3"
 
-web-stream-tools@0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/web-stream-tools/-/web-stream-tools-0.0.1.tgz#6d2c06a6f5f46eab5e73d82285bae3c9b5ee71a0"
-  integrity sha512-MZUYhvTAMMy1u07OJL2pyp/tdrIu15fRJlGgnfvCQVXBS4cBNbIV1+6veYfVhTfnq0ZLispgx4nv17QxpuX+6w==
-
 web-streams-polyfill@3.0.3:
   version "3.0.3"
   resolved "https://registry.yarnpkg.com/web-streams-polyfill/-/web-streams-polyfill-3.0.3.tgz#f49e487eedeca47a207c1aee41ee5578f884b42f"
   integrity sha512-d2H/t0eqRNM4w2WvmTdoeIvzAUSpK7JmATB8Nr2lb7nQ9BTIJVjbQ/TRFVEh2gUH1HwclPdoPtfMoFfetXaZnA==
+
+web-streams-polyfill@~2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/web-streams-polyfill/-/web-streams-polyfill-2.1.1.tgz#2c82b6193849ccb9efaa267772c28260ef68d6d2"
+  integrity sha512-dlNpL2aab3g8CKfGz6rl8FNmGaRWLLn2g/DtSc9IjB30mEdE6XxzPfPSig5BwGSzI+oLxHyETrQGKjrVVhbLCg==
 
 webidl-conversions@^5.0.0:
   version "5.0.0"

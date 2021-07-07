@@ -30,27 +30,24 @@ module.exports = {
     ],
     "moduleFileExtensions": [
       "js",
-      "ts",
-      "tsx"
+      "ts"
     ],
     "coverageReporters": [
       "lcov"
     ],
     "coveragePathIgnorePatterns": [
       "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
-      "test\\/.*\\.(ts|tsx|js)$",
+      "test\\/.*\\.(ts|js)$",
       "/node_modules/"
     ],
     "transform": {
-      "^.+\\.jsx?$": "ts-jest",
-      "^.+\\.tsx?$": "ts-jest"
+      "^.+\\.js$": "ts-jest",
+      "^.+\\.ts$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/(es5|es2015|esnext)/umd/",
-      "/targets/(es5|es2015|esnext)/",
-      "/node_modules/(?!web-stream-tools).+\\.js$"
+      "/(es5|es2015|esnext)/umd/"
     ],
-    "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
+    "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
     "preset": "ts-jest",
     "testMatch": null,
     "moduleNameMapper": {
