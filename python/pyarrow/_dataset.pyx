@@ -3063,7 +3063,11 @@ cdef class WrittenFile(_Weakrefable):
 
     """The full path to the created file"""
     cdef public str path
-    """If the file is a parquet file this will contain the parquet metadata"""
+    """
+    If the file is a parquet file this will contain the parquet metadata.
+    This metadata will have the file path attribute set to the path of
+    the written file.
+    """
     cdef public object metadata
 
     def __init__(self, path, metadata):

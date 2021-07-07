@@ -733,7 +733,10 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         Maximum number of partitions any batch may be written into.
     file_visitor : Function
         If set, this function will be called with a WrittenFile instance
-        for each file created during the call.
+        for each file created during the call.  This object will contain
+        the path and (if the dataset is a parquet dataset) the parquet
+        metadata.  This can be used to collect the paths or metadata of
+        all written files.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 

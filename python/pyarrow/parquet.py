@@ -1961,8 +1961,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         file_visitor = None
         if metadata_collector is not None:
             def file_visitor(written_file):
-                if written_file.metadata:
-                    metadata_collector.append(written_file.metadata)
+                metadata_collector.append(written_file.metadata)
         if partition_filename_cb is not None:
             raise ValueError(msg.format("partition_filename_cb"))
 

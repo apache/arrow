@@ -2706,21 +2706,22 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
-def _create_parquet_dataset_simple(root_path, use_legacy_dataset):
+def _create_parquet_dataset_simple(root_path, use_legacy_dataset=True):
     import pyarrow.parquet as pq
 
     metadata_collector = []
 
     f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
+    f2_vals = [item*10 for chunk in range(4) for item in [chunk] * 10]
 
-    table = pa.table({'f1': f1_vals, 'f2': np.random.randn(40)})
+    table = pa.table({'f1': f1_vals, 'f2': f2_vals})
     pq.write_to_dataset(
         table, str(root_path), partition_cols=['f1'],
         use_legacy_dataset=use_legacy_dataset,
         metadata_collector=metadata_collector
     )
 
-    partitionless_schema = pa.schema([pa.field('f2', pa.float64())])
+    partitionless_schema = pa.schema([pa.field('f2', pa.int64())])
 
     metadata_path = str(root_path / '_metadata')
     # write _metadata file
@@ -2838,7 +2839,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     # created with ParquetDatasetFactory from a _metadata file
 
     root_path = tempdir / "test_parquet_dataset_lazy_filtering"
-    metadata_path, _ = _create_parquet_dataset_simple(root_path, True)
+    metadata_path, _ = _create_parquet_dataset_simple(root_path)
 
     # creating the dataset should only open the metadata file
     with assert_opens([metadata_path]):
@@ -3141,7 +3142,6 @@ def test_write_dataset_use_threads(tempdir):
     paths_written = []
 
     def file_visitor(written_file):
-        print(f'Visiting {written_file.path}')
         paths_written.append(written_file.path)
 
     ds.write_dataset(
@@ -3201,7 +3201,6 @@ def test_write_table(tempdir):
     visited_paths = []
 
     def file_visitor(written_file):
-        nonlocal visited_paths
         visited_paths.append(written_file.path)
 
     partitioning = ds.partitioning(
@@ -3342,19 +3341,9 @@ def test_write_dataset_parquet(tempdir):
 
     # using default "parquet" format string
 
-    files_correct_metadata = 0
-
-    def file_visitor(written_file):
-        nonlocal files_correct_metadata
-        if (written_file.metadata is not None and
-                written_file.metadata.num_columns == 3):
-            files_correct_metadata += 1
-
     base_dir = tempdir / 'parquet_dataset'
-    ds.write_dataset(table, base_dir, format="parquet",
-                     file_visitor=file_visitor)
+    ds.write_dataset(table, base_dir, format="parquet")
 
-    assert files_correct_metadata == 1
     # check that all files are present
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
@@ -3397,6 +3386,28 @@ def test_write_dataset_csv(tempdir):
     ds.write_dataset(table, base_dir, format=format, file_options=opts)
     result = ds.dataset(base_dir, format=format).to_table()
     assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_write_dataset_parquet_file_visitor(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    visitor_called = False
+
+    def file_visitor(written_file):
+        nonlocal visitor_called
+        if (written_file.metadata is not None and
+                written_file.metadata.num_columns == 3):
+            visitor_called = True
+
+    base_dir = tempdir / 'parquet_dataset'
+    ds.write_dataset(table, base_dir, format="parquet",
+                     file_visitor=file_visitor)
+
+    assert visitor_called
 
 
 @pytest.mark.parquet
