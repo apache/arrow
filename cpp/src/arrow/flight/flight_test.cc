@@ -1491,9 +1491,10 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         stream->Next(&chunk));
   }
-  std::string large_str(static_cast<size_t>(1) << 29, ' ');
-  auto large_descr =
-      FlightDescriptor::Path({large_str, large_str, large_str, large_str, "pad"});
+  std::string large_str(static_cast<size_t>(1) << 27, ' ');
+  std::vector<std::string> path_parts(16, large_str);
+  path_parts.push_back("pad");
+  auto large_descr = FlightDescriptor::Path(path_parts);
   {
     // DoPut: check for overflow on large descriptor
     std::unique_ptr<FlightStreamWriter> stream;

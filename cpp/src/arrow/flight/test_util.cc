@@ -683,9 +683,9 @@ Status ExampleLargeBatches(BatchVector* out) {
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
   // In CI, some platforms don't let us allocate one very large
   // buffer, so allocate a smaller buffer and repeat it a few times
-  constexpr int64_t nbytes = (1ul << 28ul) + 8ul;
+  constexpr int64_t nbytes = (1ul << 27ul) + 8ul;
   constexpr int64_t nrows = nbytes / 8;
-  constexpr int64_t ncols = 8;
+  constexpr int64_t ncols = 16;
   ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes));
   std::memset(values->mutable_data(), 0x00, values->capacity());
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, std::move(values)};
