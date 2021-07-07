@@ -29,7 +29,8 @@ import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloatin
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.FloatingPointVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
@@ -95,8 +96,10 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
       return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, this::getCurrentRow);
     } else if (vector instanceof BigIntVector) {
       return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, this::getCurrentRow);
-    } else if (vector instanceof FloatingPointVector) {
-      return new ArrowFlightJdbcFloatingPointVectorAccessor((FloatingPointVector) vector, this::getCurrentRow);
+    } else if (vector instanceof Float4Vector) {
+      return new ArrowFlightJdbcFloatingPointVectorAccessor((Float4Vector) vector, this::getCurrentRow);
+    } else if (vector instanceof Float8Vector) {
+      return new ArrowFlightJdbcFloatingPointVectorAccessor((Float8Vector) vector, this::getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
