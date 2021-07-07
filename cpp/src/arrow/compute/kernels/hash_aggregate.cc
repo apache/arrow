@@ -564,6 +564,10 @@ struct GrouperFastImpl : Grouper {
         varlen = batch[icol].array()->buffers[2]->data();
       }
 
+      if (batch[icol].array()->offset > 0) {
+        return Status::NotImplemented("Non-zero offset in array is not supported");
+      }
+
       cols_[icol] = arrow::compute::KeyEncoder::KeyColumnArray(
           col_metadata_[icol], num_rows, non_nulls, fixedlen, varlen);
     }

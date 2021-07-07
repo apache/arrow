@@ -510,9 +510,12 @@ struct SinkNode : ExecNode {
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) return;
 
+    producer_.Push(std::move(batch));
+
+    std::unique_lock<std::mutex> lock(mutex_);
+  
     ++num_received_;
     if (num_received_ == emit_stop_) {
       InputFinishedUnlocked();
@@ -522,8 +525,6 @@ struct SinkNode : ExecNode {
       DCHECK_LE(seq_num, emit_stop_);
     }
     lock.unlock();
-
-    producer_.Push(std::move(batch));
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -685,8 +686,15 @@ struct GroupByNode : ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     std::unique_lock<std::mutex> lock(mutex_);
-
+    
     num_input_batches_total_ = seq;
+    if (num_input_batches_processed_ == num_input_batches_total_) {
+      Status status = OutputResult();
+      if (!status.ok()) {
+        ErrorReceived(input, status);
+        return;
+      }
+    }
   }
 
   Status StartProducing() override { return Status::OK(); }
@@ -698,8 +706,6 @@ struct GroupByNode : ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
     inputs_[0]->StopProducing(this);
-
-    std::unique_lock<std::mutex> lock(mutex_);
 
     finished_ = true;
   }
@@ -766,13 +772,14 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
   ARROW_ASSIGN_OR_RAISE(auto grouper, internal::Grouper::Make(key_descrs, ctx));
 
   // Find input field indices for aggregates
-  std::vector<int> agg_src_field_ids;
+  std::vector<int> agg_src_field_ids(aggs.size());
   for (size_t i = 0; i < aggs.size(); ++i) {
     int agg_src_field_id = input_schema->GetFieldIndex(agg_srcs[i]);
     if (agg_src_field_id < 0) {
       return Status::Invalid("Aggregate source field named '", agg_srcs[i],
                              "' not found or not unique in the input schema.");
     }
+    agg_src_field_ids[i] = agg_src_field_id;
   }
 
   // Build vector of aggregate source field data types
@@ -780,7 +787,8 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
   std::vector<ValueDescr> agg_src_descrs(aggs.size());
   for (size_t i = 0; i < aggs.size(); ++i) {
     auto agg_src_field_id = agg_src_field_ids[i];
-    agg_src_descrs[i] = ValueDescr(input_schema->field(agg_src_field_id)->type());
+    agg_src_descrs[i] = ValueDescr(input_schema->field(agg_src_field_id)->type(),
+                                   ValueDescr::ARRAY);
   }
 
   // Construct aggregates
