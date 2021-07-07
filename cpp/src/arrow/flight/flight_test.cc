@@ -1491,16 +1491,6 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         stream->Next(&chunk));
   }
-  {
-    // DoGet: check for overflow on large metadata
-    Ticket ticket{"ARROW-13253-DoGet-Metadata"};
-    std::unique_ptr<FlightStreamReader> stream;
-    ASSERT_OK(client_->DoGet(ticket, &stream));
-    FlightStreamChunk chunk;
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    stream->Next(&chunk));
-  }
   std::string large_str(static_cast<size_t>(1) << 29, ' ');
   auto large_descr =
       FlightDescriptor::Path({large_str, large_str, large_str, large_str, "pad"});
@@ -1518,10 +1508,8 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
     EXPECT_THAT(st.message(),
                 ::testing::HasSubstr("Failed to serialize Flight descriptor"));
   }
-  constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
+  // constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
   ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> metadata, AllocateBuffer(nbytes_overflow));
-  std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
   {
     // DoPut: check for overflow on large batch
     std::unique_ptr<FlightStreamWriter> stream;
@@ -1531,10 +1519,10 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         stream->WriteRecordBatch(*batch));
-    // DoPut: check for overflow on large metadata
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    stream->WriteMetadata(metadata));
+    // // DoPut: check for overflow on large metadata
+    // EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
+    //                                 ::testing::HasSubstr("app_metadata size overflow"),
+    //                                 stream->WriteMetadata(metadata));
     ASSERT_OK(stream->Close());
   }
   {
@@ -1555,10 +1543,10 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         writer->WriteRecordBatch(*batch));
-    // DoExchange: check for overflow on large metadata from client
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    writer->WriteMetadata(metadata));
+    // // DoExchange: check for overflow on large metadata from client
+    // EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
+    //                                 ::testing::HasSubstr("app_metadata size overflow"),
+    //                                 writer->WriteMetadata(metadata));
     ASSERT_OK(writer->Close());
   }
   {
@@ -1571,17 +1559,6 @@ TEST_F(TestFlightClient, FlightDataOverflow) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         reader->ReadAll(&batches));
-  }
-  {
-    // DoExchange: check for overflow on large metadata from server
-    auto descr = FlightDescriptor::Command("large_metadata");
-    std::unique_ptr<FlightStreamReader> reader;
-    std::unique_ptr<FlightStreamWriter> writer;
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    BatchVector batches;
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    reader->ReadAll(&batches));
   }
 }
 
