@@ -33,6 +33,7 @@ class TestFlightClient < Test::Unit::TestCase
   end
 
   def test_list_flights
+    omit("Unstable on Windows") if Gem.win_platform?
     client = ArrowFlight::Client.new(@location)
     generator = Helper::FlightInfoGenerator.new
     assert_equal([generator.page_view],

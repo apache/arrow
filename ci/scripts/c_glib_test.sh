@@ -28,7 +28,7 @@ export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
 
 pushd ${source_dir}
 
-ruby test/run-test.rb -v
+ruby test/run-test.rb
 
 if [[ "$(uname -s)" == "Linux" ]]; then
     # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi
