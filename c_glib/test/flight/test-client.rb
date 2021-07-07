@@ -19,6 +19,7 @@ class TestFlightClient < Test::Unit::TestCase
   def setup
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
+    omit("Unstable on Windows") if Gem.win_platform?
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")
@@ -27,13 +28,12 @@ class TestFlightClient < Test::Unit::TestCase
     @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
   end
 
-  def shutdown
+  def teardown
     return if @server.nil?
     @server.shutdown
   end
 
   def test_list_flights
-    omit("Unstable on Windows") if Gem.win_platform?
     client = ArrowFlight::Client.new(@location)
     generator = Helper::FlightInfoGenerator.new
     assert_equal([generator.page_view],

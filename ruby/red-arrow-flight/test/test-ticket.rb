@@ -15,24 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestClient < Test::Unit::TestCase
-  def setup
-    @server = nil
-    omit("Unstable on Windows") if Gem.win_platform?
-    @server = Helper::Server.new
-    @server.listen("grpc://127.0.0.1:0")
-    @location = "grpc://127.0.0.1:#{@server.port}"
-  end
-
-  def teardown
-    return if @server.nil?
-    @server.shutdown
-  end
-
-  def test_list_flights
-    client = ArrowFlight::Client.new(@location)
-    generator = Helper::InfoGenerator.new
-    assert_equal([generator.page_view],
-                 client.list_flights)
+class TestTicket < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      ticket = ArrowFlight::Ticket.try_convert("data")
+      assert_equal("data",
+                   ticket.data.to_s)
+    end
   end
 end
