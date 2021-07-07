@@ -1821,5 +1821,65 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                               -M_PI_2, 0, M_PI));
 }
 
+TYPED_TEST(TestUnaryArithmeticFloating, Log) {
+  using CType = typename TestFixture::CType;
+  auto ty = this->type_singleton();
+  this->SetNansEqual(true);
+  auto min_val = std::numeric_limits<CType>::min();
+  auto max_val = std::numeric_limits<CType>::max();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Ln, "[1, 2.718281828459045, null, NaN, Inf]",
+                        "[0, 1, null, NaN, Inf]");
+    // N.B. min() for float types is smallest normal number > 0
+    this->AssertUnaryOp(Ln, min_val, std::log(min_val));
+    this->AssertUnaryOp(Ln, max_val, std::log(max_val));
+    this->AssertUnaryOp(Log10, "[1, 10, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log10, min_val, std::log10(min_val));
+    this->AssertUnaryOp(Log10, max_val, std::log10(max_val));
+    this->AssertUnaryOp(Log2, "[1, 2, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log2, min_val, std::log2(min_val));
+    this->AssertUnaryOp(Log2, max_val, std::log2(max_val));
+    this->AssertUnaryOp(Log1p, "[0, 1.718281828459045, null, NaN, Inf]",
+                        "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log1p, min_val, std::log1p(min_val));
+    this->AssertUnaryOp(Log1p, max_val, std::log1p(max_val));
+  }
+  this->SetOverflowCheck(false);
+  this->AssertUnaryOp(Ln, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log10, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log2, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log1p, "[-Inf, -2, -1, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->SetOverflowCheck(true);
+  this->AssertUnaryOpRaises(Ln, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Ln, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Ln, "[-Inf]", "logarithm of negative number");
+
+  auto lowest_val = MakeScalar(std::numeric_limits<CType>::lowest());
+  // N.B. RapidJSON on some platforms raises "Number too big to be stored in double" so
+  // don't bounce through JSON
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("logarithm of negative number"),
+                                  Ln(lowest_val, this->options_));
+  this->AssertUnaryOpRaises(Log10, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log10, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log10, "[-Inf]", "logarithm of negative number");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("logarithm of negative number"),
+                                  Log10(lowest_val, this->options_));
+  this->AssertUnaryOpRaises(Log2, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log2, "[-Inf]", "logarithm of negative number");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("logarithm of negative number"),
+                                  Log2(lowest_val, this->options_));
+  this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log1p, "[-Inf]", "logarithm of negative number");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("logarithm of negative number"),
+                                  Log1p(lowest_val, this->options_));
+}
+
 }  // namespace compute
 }  // namespace arrow

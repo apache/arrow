@@ -326,6 +326,10 @@ SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
 SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
+SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
+SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
+SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
   Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
