@@ -47,8 +47,7 @@ module.exports = {
     "transformIgnorePatterns": [
       "/(es5|es2015|esnext)/umd/",
       "/targets/(es5|es2015|esnext)/",
-      "/node_modules/(?!web-stream-tools).+\\.js$",
-    //   ".*/cjs/.*\\.js$"
+      "/node_modules/(?!web-stream-tools).+\\.js$"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$",
     "preset": "ts-jest",
