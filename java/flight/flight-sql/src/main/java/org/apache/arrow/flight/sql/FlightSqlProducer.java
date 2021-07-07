@@ -33,6 +33,8 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
@@ -90,6 +92,12 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getFlightInfoSqlInfo(
           FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
+    } else if (command.is(CommandPreparedStatementQuery.class)) {
+      return getFlightInfoPrimaryKeys(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
+    } else if (command.is(CommandGetForeignKeys.class)) {
+      return getFlightInfoForeignKeys(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class), context, descriptor);
     }
 
     throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -119,6 +127,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       return getSchemaTableTypes();
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getSchemaSqlInfo();
+    } else if (command.is(CommandGetPrimaryKeys.class)) {
+      return getSchemaPrimaryKeys();
+    } else if (command.is(CommandGetForeignKeys.class)) {
+      return getSchemaForeignKeys();
     }
 
     throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -160,6 +172,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       getStreamTableTypes(context, ticket, listener);
     } else if (command.is(CommandGetSqlInfo.class)) {
       getStreamSqlInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
+    } else if (command.is(CommandGetPrimaryKeys.class)) {
+      getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
+    } else if (command.is(CommandGetForeignKeys.class)) {
+      getStreamForeignKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
     } else {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
@@ -538,4 +554,93 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param listener An interface for sending data back to the client.
    */
   public abstract void getStreamTableTypes(CallContext context, Ticket ticket, ServerStreamListener listener);
+
+  /**
+   * Returns the available primary keys by returning a stream of
+   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys} objects in {@link Result} objects.
+   *
+   * @param request  request filter parameters.
+   * @param context  Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  public abstract FlightInfo getFlightInfoPrimaryKeys(CommandGetPrimaryKeys request, CallContext context,
+                                                      FlightDescriptor descriptor);
+
+  /**
+   * Gets schema about the get primary keys data stream.
+   *
+   * @return Schema for the stream.
+   */
+  public SchemaResult getSchemaPrimaryKeys() {
+    final List<Field> fields = new ArrayList<>();
+
+    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("key_sequence", FieldType.nullable(Types.MinorType.INT.getType()), null));
+    fields.add(new Field("key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+
+    return new SchemaResult(new Schema(fields));
+  }
+
+  /**
+   * Returns data for primary keys based data stream.
+   *
+   * @param command  The command to generate the data stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
+   */
+  public abstract void getStreamPrimaryKeys(CommandGetPrimaryKeys command, CallContext context, Ticket ticket,
+                                            ServerStreamListener listener);
+
+  /**
+   * Returns the available primary keys by returning a stream of
+   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys} objects in {@link Result} objects.
+   *
+   * @param request  request filter parameters.
+   * @param context  Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  public abstract FlightInfo getFlightInfoForeignKeys(CommandGetForeignKeys request, CallContext context,
+                                                      FlightDescriptor descriptor);
+
+  /**
+   * Gets schema about the get foreign keys data stream.
+   *
+   * @return Schema for the stream.
+   */
+  public SchemaResult getSchemaForeignKeys() {
+    final List<Field> fields = new ArrayList<>();
+
+    fields.add(new Field("pk_catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("pk_schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("pk_table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("pk_column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("fk_catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("fk_schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("fk_table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("fk_column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("key_sequence", FieldType.nullable(Types.MinorType.INT.getType()), null));
+    fields.add(new Field("fk_key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("pk_key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("update_rule", FieldType.nullable(Types.MinorType.INT.getType()), null));
+    fields.add(new Field("delete_rule", FieldType.nullable(Types.MinorType.INT.getType()), null));
+
+    return new SchemaResult(new Schema(fields));
+  }
+
+  /**
+   * Returns data for foreign keys based data stream.
+   *
+   * @param command  The command to generate the data stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
+   */
+  public abstract void getStreamForeignKeys(CommandGetForeignKeys command, CallContext context, Ticket ticket,
+                                            ServerStreamListener listener);
 }
