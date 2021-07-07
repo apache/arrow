@@ -58,8 +58,9 @@ end
 begin
   class ArrowFlightLoader < GI::Loader
     def should_unlock_gvl?(info, klass)
-      case (klass.name || "").split("::").last
-      when "Client"
+      return false unless klass.respond_to?(:gtype)
+      case klass.gtype.name
+      when "GAFlightClient"
         case info.name
         when "list_flights"
           true
