@@ -18,13 +18,29 @@
 package org.apache.arrow.driver.jdbc;
 
 
+
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloatingPointVectorAccessor;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FloatingPointVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.util.AbstractCursor;
+import org.apache.calcite.avatica.util.ArrayImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +50,7 @@ import org.slf4j.LoggerFactory;
 public class ArrowFlightJdbcCursor extends AbstractCursor {
 
   private static final Logger LOGGER;
-  private final List<FieldVector> fieldVectorList;
+  private final VectorSchemaRoot root;
   private final int rowCount;
   private int currentRow = -1;
 
@@ -43,8 +59,47 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
   }
 
   public ArrowFlightJdbcCursor(VectorSchemaRoot root) {
-    fieldVectorList = root.getFieldVectors();
+    this.root = root;
     rowCount = root.getRowCount();
+  }
+
+  @Override
+  public List<Accessor> createAccessors(List<ColumnMetaData> columns,
+                                        Calendar localCalendar,
+                                        ArrayImpl.Factory factory) {
+    final List<FieldVector> fieldVectors = root.getFieldVectors();
+
+    final List<Accessor> accessors = new ArrayList<>();
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      FieldVector vector = root.getVector(i);
+      accessors.add(createAccessor(vector));
+    }
+
+    return accessors;
+  }
+
+  private Accessor createAccessor(FieldVector vector) {
+    if (vector instanceof UInt1Vector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, this::getCurrentRow);
+    } else if (vector instanceof UInt2Vector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, this::getCurrentRow);
+    } else if (vector instanceof UInt4Vector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, this::getCurrentRow);
+    } else if (vector instanceof UInt8Vector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, this::getCurrentRow);
+    } else if (vector instanceof TinyIntVector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, this::getCurrentRow);
+    } else if (vector instanceof SmallIntVector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, this::getCurrentRow);
+    } else if (vector instanceof IntVector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, this::getCurrentRow);
+    } else if (vector instanceof BigIntVector) {
+      return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, this::getCurrentRow);
+    } else if (vector instanceof FloatingPointVector) {
+      return new ArrowFlightJdbcFloatingPointVectorAccessor((FloatingPointVector) vector, this::getCurrentRow);
+    }
+
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -52,7 +107,7 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
     return new AbstractGetter() {
       @Override
       public Object getObject() throws SQLException {
-        return fieldVectorList.get(column).getObject(currentRow);
+        throw new UnsupportedOperationException();
       }
     };
   }
@@ -66,9 +121,13 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
   @Override
   public void close() {
     try {
-      AutoCloseables.close(fieldVectorList);
+      AutoCloseables.close(root);
     } catch (Exception e) {
       LOGGER.error(e.getMessage(), e);
     }
+  }
+
+  public int getCurrentRow() {
+    return currentRow;
   }
 }
