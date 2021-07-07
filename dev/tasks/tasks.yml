@@ -885,7 +885,6 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
-        CLI_NO_THREAD: TRUE
       run: ubuntu-r-valgrind
 
   test-r-linux-rchk:
