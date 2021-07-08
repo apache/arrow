@@ -202,7 +202,6 @@ namespace Apache.Arrow.Tests
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
 
-
         private static void TestRoundTripRecordBatches(List<RecordBatch> originalBatches, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
@@ -259,7 +258,6 @@ namespace Apache.Arrow.Tests
         {
             TestRoundTripRecordBatches(new List<RecordBatch> { originalBatch }, options);
         }
-
 
         private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
         {
@@ -406,7 +404,6 @@ namespace Apache.Arrow.Tests
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
             TestRoundTripRecordBatch(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
-
 
         [Theory]
         [InlineData(true)]
