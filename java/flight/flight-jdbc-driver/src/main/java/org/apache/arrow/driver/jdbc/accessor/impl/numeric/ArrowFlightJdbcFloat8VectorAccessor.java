@@ -51,12 +51,15 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public Object getObject() {
-    return this.getDouble();
+    final double value = this.getDouble();
+
+    return this.wasNull ? null : value;
   }
 
   @Override
   public String getString() {
-    return Double.toString(getDouble());
+    final double result = getDouble();
+    return this.wasNull ? null : Double.toString(result);
   }
 
   @Override
@@ -91,7 +94,8 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal() {
-    return BigDecimal.valueOf(this.getDouble());
+    final BigDecimal value = BigDecimal.valueOf(this.getDouble());
+    return this.wasNull ? null : value;
   }
 
   @Override

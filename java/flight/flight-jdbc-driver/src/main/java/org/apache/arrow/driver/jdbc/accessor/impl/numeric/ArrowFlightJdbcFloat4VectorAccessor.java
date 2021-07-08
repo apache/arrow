@@ -42,7 +42,9 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public String getString() {
-    return Float.toString(this.getFloat());
+    final float value = this.getFloat();
+
+    return this.wasNull ? null : Float.toString(value);
   }
 
   @Override
@@ -85,7 +87,8 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal() {
-    return BigDecimal.valueOf(this.getFloat());
+    final float value = this.getFloat();
+    return this.wasNull ? null : BigDecimal.valueOf(value);
   }
 
   @Override
@@ -95,6 +98,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public Object getObject() {
-    return this.getFloat();
+    final float value = this.getFloat();
+    return this.wasNull ? null : value;
   }
 }

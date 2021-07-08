@@ -160,7 +160,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public BigDecimal getBigDecimal() {
-    return BigDecimal.valueOf(getLong());
+    final BigDecimal value = BigDecimal.valueOf(getLong());
+    return this.wasNull ? null : value;
   }
 
   @Override
