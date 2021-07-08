@@ -17,8 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
+
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
@@ -31,15 +31,9 @@ import org.apache.arrow.vector.holders.NullableFloat8Holder;
  */
 public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private final Float8Vector vector;
-  private final NullableFloat8Holder holder;
+  private Float8Vector vector;
+  private NullableFloat8Holder holder;
 
-  /**
-   * Instantiate a accessor for the {@link Float8Vector}.
-   *
-   * @param vector an instance of a Float8Vector.
-   * @param currentRowSupplier the supplier to track the lines.
-   */
   public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
                                       IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
@@ -48,33 +42,21 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
-  public Class<?> getObjectClass() {
-    return Double.class;
-  }
-
-  @Override
   public double getDouble() {
     vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
-    if (this.wasNull) {
-      return 0;
-    }
-
-    return holder.value;
+    return this.wasNull ? 0 : holder.value;
   }
 
   @Override
   public Object getObject() {
-    final double value = this.getDouble();
-
-    return this.wasNull ? null : value;
+    return this.getDouble();
   }
 
   @Override
   public String getString() {
-    final double value = this.getDouble();
-    return this.wasNull ? null : Double.toString(value);
+    return Double.toString(getDouble());
   }
 
   @Override
@@ -109,20 +91,20 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal() {
-    final BigDecimal value = BigDecimal.valueOf(this.getDouble());
-    return this.wasNull ? null : value;
+    return BigDecimal.valueOf(this.getDouble());
   }
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.HALF_UP);
-    return this.wasNull ? null : value;
+    if (scale != 0) {
+      throw new UnsupportedOperationException("Can not use getBigDecimal(int scale) on a decimal accessor.");
+    }
+    return BigDecimal.valueOf(this.getDouble());
   }
 
   @Override
   public byte[] getBytes() {
-    final double value = this.getDouble();
-    return this.wasNull ? null : ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
-        .putDouble(value).array();
+    return ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
+        .putDouble(getDouble()).array();
   }
 }

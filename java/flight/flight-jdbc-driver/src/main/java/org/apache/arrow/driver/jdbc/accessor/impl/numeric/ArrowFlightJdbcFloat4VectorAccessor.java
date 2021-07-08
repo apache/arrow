@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
@@ -32,14 +31,8 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final Float4Vector vector;
-  private final NullableFloat4Holder holder;
+  private NullableFloat4Holder holder;
 
-  /**
-   * Instantiate a accessor for the {@link Float4Vector}.
-   *
-   * @param vector an instance of a Float4Vector.
-   * @param currentRowSupplier the supplier to track the lines.
-   */
   public ArrowFlightJdbcFloat4VectorAccessor(Float4Vector vector,
                                              IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
@@ -48,15 +41,8 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
-  public Class<?> getObjectClass() {
-    return Float.class;
-  }
-
-  @Override
   public String getString() {
-    final float value = this.getFloat();
-
-    return this.wasNull ? null : Float.toString(value);
+    return Float.toString(this.getFloat());
   }
 
   @Override
@@ -89,11 +75,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
     vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
-    if (this.wasNull) {
-      return 0;
-    }
-
-    return holder.value;
+    return this.wasNull ? 0 : holder.value;
   }
 
   @Override
@@ -103,31 +85,16 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal() {
-    final float value = this.getFloat();
-
-    final boolean infinite = Float.isInfinite(value);
-    if (infinite) {
-      throw new UnsupportedOperationException();
-    }
-
-    return this.wasNull ? null : BigDecimal.valueOf(value);
+    return BigDecimal.valueOf(this.getFloat());
   }
 
   @Override
   public byte[] getBytes() {
-    final float value = this.getFloat();
-    return this.wasNull ? null : ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(value).array();
-  }
-
-  @Override
-  public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getFloat()).setScale(scale, RoundingMode.HALF_UP);
-    return this.wasNull ? null : value;
+    return ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(this.getFloat()).array();
   }
 
   @Override
   public Object getObject() {
-    final float value = this.getFloat();
-    return this.wasNull ? null : value;
+    return this.getFloat();
   }
 }
