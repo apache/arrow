@@ -24,7 +24,7 @@ function(BUILD_ARROW)
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
   set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
   set(ARROW_LIBRARY_DIR "${ARROW_PREFIX}/lib")
-  set(ARROW_SHARED_LIB "${ARROW_LIBRARY_DIR}/libarrow.so")
+  set(ARROW_SHARED_LIB "${ARROW_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
   set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-build")
 
   externalproject_add(arrow_ep
