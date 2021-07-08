@@ -139,8 +139,8 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
 
 template <typename Functor>
 Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
-                             const ArrayData& mask, const Datum& replacements,
-                             ArrayData* output) {
+                            const ArrayData& mask, const Datum& replacements,
+                            ArrayData* output) {
   uint8_t* out_bitmap = nullptr;
   uint8_t* out_values = output->buffers[1]->mutable_data();
   const uint8_t* mask_bitmap = mask.MayHaveNulls() ? mask.buffers[0]->data() : nullptr;
@@ -233,7 +233,7 @@ struct ReplaceWithMask<Type, enable_if_number<Type>> {
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
     return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+                                                       output);
   }
 };
 
@@ -259,7 +259,7 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
     return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+                                                       output);
   }
 };
 
@@ -299,7 +299,7 @@ struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
     return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+                                                       output);
   }
 };
 
@@ -336,7 +336,7 @@ struct ReplaceWithMask<Type, enable_if_decimal<Type>> {
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
     return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+                                                       output);
   }
 };
 
