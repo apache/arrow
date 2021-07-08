@@ -356,6 +356,13 @@ struct ParsedBlock {
   int64_t bytes_parsed_or_skipped;
 };
 
+struct DecodedBlock {
+  std::shared_ptr<RecordBatch> record_batch;
+  // Represents the number of input bytes represented by this batch
+  // This will include bytes skipped when skipping rows after the header
+  int64_t bytes_processed;
+};
+
 }  // namespace
 
 }  // namespace csv
@@ -366,8 +373,13 @@ struct IterationTraits<csv::ParsedBlock> {
   static bool IsEnd(const csv::ParsedBlock& val) { return val.block_index < 0; }
 };
 
-namespace csv {
+template <>
+struct IterationTraits<csv::DecodedBlock> {
+  static csv::DecodedBlock End() { return csv::DecodedBlock{nullptr, -1}; }
+  static bool IsEnd(const csv::DecodedBlock& val) { return val.bytes_processed < 0; }
+};
 
+namespace csv {
 namespace {
 
 // A functor that takes in a buffer of CSV data and returns a parsed batch of CSV data.
@@ -429,7 +441,7 @@ class BlockParsingOperator {
 
 class BlockDecodingOperator {
  public:
-  Future<std::shared_ptr<RecordBatch>> operator()(const ParsedBlock& block) {
+  Future<DecodedBlock> operator()(const ParsedBlock& block) {
     DCHECK(!state_->column_decoders.empty());
     std::vector<Future<std::shared_ptr<Array>>> decoded_array_futs;
     for (auto& decoder : state_->column_decoders) {
@@ -441,38 +453,35 @@ class BlockDecodingOperator {
     return decoded_arrays_fut.Then(
         [state, bytes_parsed_or_skipped](
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
-            -> Result<std::shared_ptr<RecordBatch>> {
-          state->bytes_decoded_->fetch_add(bytes_parsed_or_skipped);
+            -> Result<DecodedBlock> {
           ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
                                 internal::UnwrapOrRaise(maybe_decoded_arrays));
-          return state->DecodedArraysToBatch(decoded_arrays);
+
+          ARROW_ASSIGN_OR_RAISE(auto batch, state->DecodedArraysToBatch(decoded_arrays));
+          return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
   }
 
   static Result<BlockDecodingOperator> Make(io::IOContext io_context,
                                             ConvertOptions convert_options,
-                                            ConversionSchema conversion_schema,
-                                            std::atomic<int64_t>* bytes_decoded) {
+                                            ConversionSchema conversion_schema) {
     BlockDecodingOperator op(std::move(io_context), std::move(convert_options),
-                             std::move(conversion_schema), bytes_decoded);
-    RETURN_NOT_OK(op.state_->MakeColumnDecoders());
+                             std::move(conversion_schema));
+    RETURN_NOT_OK(op.state_->MakeColumnDecoders(io_context));
     return op;
   }
 
  private:
   BlockDecodingOperator(io::IOContext io_context, ConvertOptions convert_options,
-                        ConversionSchema conversion_schema,
-                        std::atomic<int64_t>* bytes_decoded)
+                        ConversionSchema conversion_schema)
       : state_(std::make_shared<State>(std::move(io_context), std::move(convert_options),
-                                       std::move(conversion_schema), bytes_decoded)) {}
+                                       std::move(conversion_schema))) {}
 
   struct State {
     State(io::IOContext io_context, ConvertOptions convert_options,
-          ConversionSchema conversion_schema, std::atomic<int64_t>* bytes_decoded)
-        : io_context(std::move(io_context)),
-          convert_options(std::move(convert_options)),
-          conversion_schema(std::move(conversion_schema)),
-          bytes_decoded_(bytes_decoded) {}
+          ConversionSchema conversion_schema)
+        : convert_options(std::move(convert_options)),
+          conversion_schema(std::move(conversion_schema)) {}
 
     Result<std::shared_ptr<RecordBatch>> DecodedArraysToBatch(
         std::vector<std::shared_ptr<Array>>& arrays) {
@@ -488,7 +497,7 @@ class BlockDecodingOperator {
     }
 
     // Make column decoders from conversion schema
-    Status MakeColumnDecoders() {
+    Status MakeColumnDecoders(io::IOContext io_context) {
       for (const auto& column : conversion_schema.columns) {
         std::shared_ptr<ColumnDecoder> decoder;
         if (column.is_missing) {
@@ -508,12 +517,10 @@ class BlockDecodingOperator {
       return Status::OK();
     }
 
-    io::IOContext io_context;
     ConvertOptions convert_options;
     ConversionSchema conversion_schema;
     std::vector<std::shared_ptr<ColumnDecoder>> column_decoders;
     std::shared_ptr<Schema> schema;
-    std::atomic<int64_t>* bytes_decoded_;
   };
 
   std::shared_ptr<State> state_;
@@ -721,8 +728,6 @@ class ReaderMixin {
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
   }
 
-  friend class HeaderParsingOperator;
-
   io::IOContext io_context_;
   ReadOptions read_options_;
   ParseOptions parse_options_;
@@ -877,52 +882,60 @@ class StreamingReaderImpl : public ReaderMixin,
     bytes_decoded_.fetch_add(header_bytes_consumed);
     auto parser_op =
         BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, count_rows_);
-    ARROW_ASSIGN_OR_RAISE(auto decoder_op, BlockDecodingOperator::Make(
-                                               io_context_, convert_options_,
-                                               conversion_schema_, &bytes_decoded_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto decoder_op,
+        BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
     auto parsed_block_gen =
         MakeMappedGenerator<ParsedBlock>(std::move(block_gen), std::move(parser_op));
-    auto rb_gen = MakeMappedGenerator<std::shared_ptr<RecordBatch>>(
-        std::move(parsed_block_gen), decoder_op);
+    auto rb_gen = MakeMappedGenerator<DecodedBlock>(std::move(parsed_block_gen),
+                                                    std::move(decoder_op));
     auto self = shared_from_this();
-    return rb_gen().Then(
-        [self, rb_gen, max_readahead](const std::shared_ptr<RecordBatch>& first_batch) {
-          return self->InitAfterFirstBatch(first_batch, std::move(rb_gen), max_readahead);
-        });
+    return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
+      return self->InitAfterFirstBatch(first_block, std::move(rb_gen), max_readahead);
+    });
   }
 
-  Status InitAfterFirstBatch(const std::shared_ptr<RecordBatch>& first_batch,
-                             AsyncGenerator<std::shared_ptr<RecordBatch>> batch_gen,
-                             int max_readahead) {
-    schema_ = first_batch->schema();
+  Status InitAfterFirstBatch(const DecodedBlock& first_block,
+                             AsyncGenerator<DecodedBlock> batch_gen, int max_readahead) {
+    schema_ = first_block.record_batch->schema();
 
-    AsyncGenerator<std::shared_ptr<RecordBatch>> readahead_gen;
+    AsyncGenerator<DecodedBlock> readahead_gen;
     if (read_options_.use_threads) {
       readahead_gen = MakeReadaheadGenerator(std::move(batch_gen), max_readahead);
     } else {
       readahead_gen = std::move(batch_gen);
     }
 
-    AsyncGenerator<std::shared_ptr<RecordBatch>> restarted_gen;
+    AsyncGenerator<DecodedBlock> restarted_gen;
     // Streaming reader should not emit empty record batches
-    if (first_batch->num_rows() > 0) {
-      restarted_gen = MakeGeneratorStartsWith({first_batch}, std::move(readahead_gen));
+    if (first_block.record_batch->num_rows() > 0) {
+      restarted_gen = MakeGeneratorStartsWith({first_block}, std::move(readahead_gen));
     } else {
       restarted_gen = std::move(readahead_gen);
     }
-    record_batch_gen_ =
-        MakeCancellable(std::move(restarted_gen), io_context_.stop_token());
+
+    auto self = shared_from_this();
+    auto unwrap_and_record_bytes =
+        [self](const DecodedBlock& block) -> Result<std::shared_ptr<RecordBatch>> {
+      self->bytes_decoded_.fetch_add(block.bytes_processed);
+      return block.record_batch;
+    };
+
+    auto unwrapped = MakeMappedGenerator<std::shared_ptr<RecordBatch>>(
+        std::move(restarted_gen), std::move(unwrap_and_record_bytes));
+
+    record_batch_gen_ = MakeCancellable(std::move(unwrapped), io_context_.stop_token());
     return Status::OK();
   }
 
   std::shared_ptr<Schema> schema_;
   AsyncGenerator<std::shared_ptr<RecordBatch>> record_batch_gen_;
-  // bytes which have been decoded for caller
+  // bytes which have been decoded and asked for by the caller
   std::atomic<int64_t> bytes_decoded_;
-};  // namespace
+};
 
 /////////////////////////////////////////////////////////////////////////
 // Serial TableReader implementation

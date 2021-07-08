@@ -295,15 +295,12 @@ TEST(StreamingReaderTest, BytesRead) {
         StreamingReader::Make(io::default_io_context(), input, read_options,
                               ParseOptions::Defaults(), ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
-    int64_t bytes = 18;  // Size of header and first batch
+    int64_t bytes = 6;  // Size of header (counted during StreamingReader::Make)
     do {
       ASSERT_EQ(bytes, streaming_reader->bytes_read());
       ASSERT_OK(streaming_reader->ReadNext(&batch));
       bytes += 12;  // Add size of each row
     } while (bytes <= 42);
-    ASSERT_EQ(42, streaming_reader->bytes_read());
-    // Should be able to read past the end without bumping bytes_read
-    ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_EQ(42, streaming_reader->bytes_read());
     ASSERT_EQ(batch.get(), nullptr);
   }
@@ -320,12 +317,12 @@ TEST(StreamingReaderTest, BytesRead) {
         StreamingReader::Make(io::default_io_context(), input, read_options,
                               ParseOptions::Defaults(), ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
-    // Skip the actual header (6 bytes) and then treat first row as header (12 bytes)
-    // and then streaming reader reads in first batch (12 bytes)
-    ASSERT_EQ(30, streaming_reader->bytes_read());
+    // The header (6 bytes) and first skipped row (12 bytes) are counted during
+    // StreamingReader::Make
+    ASSERT_EQ(18, streaming_reader->bytes_read());
     ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_NE(batch.get(), nullptr);
-    ASSERT_EQ(42, streaming_reader->bytes_read());
+    ASSERT_EQ(30, streaming_reader->bytes_read());
     ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_NE(batch.get(), nullptr);
     ASSERT_EQ(42, streaming_reader->bytes_read());
@@ -347,12 +344,12 @@ TEST(StreamingReaderTest, BytesRead) {
                               ParseOptions::Defaults(), ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
 
-    // To open the header is read (6 bytes) and the first batch (12 bytes) but to get to
-    // it we have to skip 1 row (12 bytes)
-    ASSERT_EQ(30, streaming_reader->bytes_read());
+    // The header is read as part of StreamingReader::Make
+    ASSERT_EQ(6, streaming_reader->bytes_read());
     ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_NE(batch.get(), nullptr);
-    ASSERT_EQ(42, streaming_reader->bytes_read());
+    // Next the skipped batch (12 bytes) and 1 row (12 bytes)
+    ASSERT_EQ(30, streaming_reader->bytes_read());
     ASSERT_OK(streaming_reader->ReadNext(&batch));
     ASSERT_NE(batch.get(), nullptr);
     ASSERT_EQ(42, streaming_reader->bytes_read());
