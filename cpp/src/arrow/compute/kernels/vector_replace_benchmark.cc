@@ -81,8 +81,8 @@ static void ReplaceWithMaskHighSelectivityBench(
 }
 
 BENCHMARK(ReplaceWithMaskLowSelectivityBench)->Args({kLongLength, 0});
-BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 0});
 BENCHMARK(ReplaceWithMaskLowSelectivityBench)->Args({kLongLength, 99});
+BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 0});
 BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 99});
 
 }  // namespace compute
