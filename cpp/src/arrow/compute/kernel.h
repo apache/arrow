@@ -681,12 +681,12 @@ struct ScalarAggregateKernel : public Kernel {
 // ----------------------------------------------------------------------
 // HashAggregateKernel (for HashAggregateFunction)
 
+using HashAggregateResize = std::function<Status(KernelContext*, int64_t)>;
+
 using HashAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
 
-// XXX should resize be a method here?
-
 using HashAggregateMerge =
-    std::function<Status(KernelContext*, KernelState&&, const ExecBatch&)>;
+    std::function<Status(KernelContext*, KernelState&&, const ArrayData&)>;
 
 // Finalize returns Datum to permit multiple return values
 using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
@@ -696,6 +696,7 @@ using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
 /// kernel are the init, consume, merge, and finalize functions.
 ///
 /// * init: creates a new KernelState for a kernel.
+/// * resize: ensure that the KernelState can accommodate the specified number of groups.
 /// * consume: processes an ExecBatch (which includes the argument as well
 ///   as an array of group identifiers) and updates the KernelState found in the
 ///   KernelContext.
@@ -706,20 +707,24 @@ struct HashAggregateKernel : public Kernel {
   HashAggregateKernel() = default;
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                      HashAggregateConsume consume, HashAggregateMerge merge,
-                      HashAggregateFinalize finalize)
+                      HashAggregateResize resize, HashAggregateConsume consume,
+                      HashAggregateMerge merge, HashAggregateFinalize finalize)
       : Kernel(std::move(sig), std::move(init)),
+        resize(std::move(resize)),
         consume(std::move(consume)),
         merge(std::move(merge)),
         finalize(std::move(finalize)) {}
 
   HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
-                      KernelInit init, HashAggregateMerge merge,
-                      HashAggregateConsume consume, HashAggregateFinalize finalize)
+                      KernelInit init, HashAggregateConsume consume,
+                      HashAggregateResize resize, HashAggregateMerge merge,
+                      HashAggregateFinalize finalize)
       : HashAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+            std::move(init), std::move(resize), std::move(consume), std::move(merge),
+            std::move(finalize)) {}
 
+  HashAggregateResize resize;
   HashAggregateConsume consume;
   HashAggregateMerge merge;
   HashAggregateFinalize finalize;

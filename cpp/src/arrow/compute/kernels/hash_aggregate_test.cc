@@ -39,6 +39,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -513,14 +514,27 @@ TEST(GroupBy, Errors) {
     [null,  3]
   ])");
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("Direct execution of HASH_AGGREGATE functions"),
-      CallFunction("hash_sum", {batch->GetColumnByName("argument"),
-                                batch->GetColumnByName("group_id"), Datum(uint32_t(4))}));
+  EXPECT_THAT(CallFunction("hash_sum", {batch->GetColumnByName("argument"),
+                                        batch->GetColumnByName("group_id")}),
+              Raises(StatusCode::NotImplemented,
+                     HasSubstr("Direct execution of HASH_AGGREGATE functions")));
 }
 
+namespace {
+void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
+  SortOptions options{{SortKey("key_0", SortOrder::Ascending)}};
+
+  ASSERT_OK_AND_ASSIGN(
+      auto batch, RecordBatch::FromStructArray(aggregated_and_grouped->make_array()));
+  ASSERT_OK_AND_ASSIGN(Datum sort_indices, SortIndices(batch, options));
+
+  ASSERT_OK_AND_ASSIGN(*aggregated_and_grouped,
+                       Take(*aggregated_and_grouped, sort_indices));
+}
+}  // namespace
+
 TEST(GroupBy, CountOnly) {
-  for (bool use_threads : {true}) {
+  for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
     auto table =
@@ -548,6 +562,7 @@ TEST(GroupBy, CountOnly) {
                                                {"hash_count", nullptr},
                                            },
                                            use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("hash_count", int64()),
@@ -565,39 +580,50 @@ TEST(GroupBy, CountOnly) {
 }
 
 TEST(GroupBy, SumOnly) {
-  auto batch = RecordBatchFromJSON(
-      schema({field("argument", float64()), field("key", int64())}), R"([
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    if (use_threads) continue;
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
-    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                      R"([
     [0.0,   2],
     [null,  3],
     [4.0,   null],
     [3.25,  1],
-    [0.125, 2],
+    [0.125, 2]
+                        ])",
+                                                                                      R"([
     [-0.25, 2],
     [0.75,  null],
     [null,  3]
-  ])");
+                        ])"});
 
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({batch->GetColumnByName("argument")},
-                                         {batch->GetColumnByName("key")},
-                                         {
-                                             {"hash_sum", nullptr},
-                                         }));
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy({table->GetColumnByName("argument")},
+                                           {table->GetColumnByName("key")},
+                                           {
+                                               {"hash_sum", nullptr},
+                                           },
+                                           use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("hash_sum", float64()),
-                                      field("key_0", int64()),
-                                  }),
-                                  R"([
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_sum", float64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
     [4.25,   1],
     [-0.125, 2],
     [null,   3],
     [4.75,   null]
   ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
 }
 
 TEST(GroupBy, MinMaxOnly) {
