@@ -236,13 +236,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, compute::Expression root_partition,
       std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      std::vector<std::shared_ptr<FileFragment>> fragments);
-
-  static Result<std::shared_ptr<FileSystemDataset>> Make(
-      std::shared_ptr<Schema> schema, compute::Expression root_partition,
-      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
       std::vector<std::shared_ptr<FileFragment>> fragments,
-      std::shared_ptr<Partitioning> partitioning);
+      std::shared_ptr<Partitioning> partitioning = NULLPTR);
 
   /// \brief Write a dataset.
   static Status Write(const FileSystemDatasetWriteOptions& write_options,
