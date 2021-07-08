@@ -1504,31 +1504,6 @@ TEST_F(TestFlightClient, FlightDataOverflowServerBatch) {
   }
 }
 
-TEST_F(TestFlightClient, FlightDataOverflowServerMetadata) {
-  // Test split up to reduce memory pressure
-  {
-    // DoGet: check for overflow on large metadata
-    Ticket ticket{"ARROW-13253-DoGet-Metadata"};
-    std::unique_ptr<FlightStreamReader> stream;
-    ASSERT_OK(client_->DoGet(ticket, &stream));
-    FlightStreamChunk chunk;
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    stream->Next(&chunk));
-  }
-  {
-    // DoExchange: check for overflow on large metadata from server
-    auto descr = FlightDescriptor::Command("large_metadata");
-    std::unique_ptr<FlightStreamReader> reader;
-    std::unique_ptr<FlightStreamWriter> writer;
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    BatchVector batches;
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    reader->ReadAll(&batches));
-  }
-}
-
 TEST_F(TestFlightClient, FlightDataOverflowClientBatch) {
   ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
   {
@@ -1552,36 +1527,6 @@ TEST_F(TestFlightClient, FlightDataOverflowClientBatch) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         writer->WriteRecordBatch(*batch));
-    ASSERT_OK(writer->Close());
-  }
-}
-
-TEST_F(TestFlightClient, FlightDataOverflowClientMetadata) {
-  constexpr int64_t nbytes_overflow = (1ul << 31ul) + 8ul;
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> metadata, AllocateBuffer(nbytes_overflow));
-  std::memset(metadata->mutable_data(), 0x00, metadata->capacity());
-  auto descr = FlightDescriptor::Path({""});
-  {
-    // DoPut: check for overflow on large metadata
-    std::unique_ptr<FlightStreamWriter> stream;
-    std::unique_ptr<FlightMetadataReader> reader;
-    ASSERT_OK(client_->DoPut(descr, schema({}), &stream, &reader));
-    // DoPut: check for overflow on large metadata
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    stream->WriteMetadata(metadata));
-    ASSERT_OK(stream->Close());
-  }
-  {
-    // DoExchange: check for overflow on large metadata from client
-    auto descr = FlightDescriptor::Command("counter");
-    std::unique_ptr<FlightStreamReader> reader;
-    std::unique_ptr<FlightStreamWriter> writer;
-    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    // DoExchange: check for overflow on large metadata from client
-    EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
-                                    ::testing::HasSubstr("app_metadata size overflow"),
-                                    writer->WriteMetadata(metadata));
     ASSERT_OK(writer->Close());
   }
 }
