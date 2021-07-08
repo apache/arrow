@@ -3036,6 +3036,19 @@ def test_dataset_preserved_partitioning(tempdir):
     )
     assert dataset2.partitioning is None
 
+    # through discovery with ParquetDatasetFactory
+    root_path = tempdir / "data-partitioned-metadata"
+    metadata_path, _ = _create_parquet_dataset_partitioned(root_path)
+    dataset = ds.parquet_dataset(metadata_path, partitioning="hive")
+    part = dataset.partitioning
+    assert part is not None
+    assert isinstance(part, ds.HivePartitioning)
+    assert part.schema == pa.schema([("part", pa.string())])
+    assert len(part.dictionaries) == 1
+    # will be fixed by ARROW-13153 (order is not preserved at the moment)
+    # assert part.dictionaries[0] == pa.array(["a", "b"], pa.string())
+    assert set(part.dictionaries[0].to_pylist()) == {"a", "b"}
+
 
 @pytest.mark.parquet
 @pytest.mark.pandas
