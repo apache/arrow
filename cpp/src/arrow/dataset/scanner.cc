@@ -653,8 +653,8 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   std::shared_ptr<void> stop_producing{
       nullptr, [plan, exec_context](...) {
         bool not_finished_yet = plan->finished().TryAddCallback([&] {
-          // keep plan alive until it finishes
-          return [plan, exec_context](const Status&) {};
+          auto keepalive_until_finish = [plan, exec_context](const Status&) {};
+          return keepalive_until_finish;
         });
 
         if (not_finished_yet) {
