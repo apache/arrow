@@ -2108,7 +2108,7 @@ cdef class DirectoryPartitioning(Partitioning):
         The unique values for each partition field, if available.
 
         Those values are only available if the Partitioning object was
-        created through dataset discovery from a Partitioning(Factory), or
+        created through dataset discovery from a PartitioningFactory, or
         if the dictionaries were manually specified in the constructor.
         If not available, this returns None.
         """
@@ -2260,7 +2260,7 @@ cdef class HivePartitioning(Partitioning):
         The unique values for each partition field, if available.
 
         Those values are only available if the Partitioning object was
-        created through dataset discovery from a Partitioning(Factory), or
+        created through dataset discovery from a PartitioningFactory, or
         if the dictionaries were manually specified in the constructor.
         If not available, this returns None.
         """

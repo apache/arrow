@@ -2973,6 +2973,7 @@ def test_dataset_project_columns(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_dataset_preserved_partitioning(tempdir):
+    # ARROW-8655
 
     # through discovery, but without partitioning
     _, path = _create_single_file(tempdir)
