@@ -112,13 +112,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_modules)
 
 # Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
 if(MATLAB_BUILD_TESTS)
-  # Should support custom GTEST_ROOT as well as package managers.
+  # find_package(GTest) supports custom GTEST_ROOT as well as package managers.
   find_package(GTest)
   if(NOT GTest_FOUND)
     # Trigger an automatic build of the Arrow C++ libraries and bundled GoogleTest binaries.
     build_arrow_and_gtest()
   else()
-    # Should support custom ARROW_HOME as well as package managers.
+    # find_package(Arrow) supports custom ARROW_HOME as well as package managers.
     find_package(Arrow)
     if(NOT Arrow_FOUND)
       # Trigger an automatic build of the Arrow C++ libraries.
