@@ -17,47 +17,33 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalGetter.*;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.FloatingPointVector;
+import org.apache.arrow.vector.holders.NullableFloat8Holder;
 
 /**
- * Accessor for the arrow types: Float4Vector and Float8Vector.
+ * Accessor for the Float8Vector.
  */
-public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcAccessor {
+public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private final int bytesToAllocate;
-  private final Getter getter;
-  private DecimalHolder holder;
+  private Float8Vector vector;
+  private NullableFloat8Holder holder;
 
-
-  public ArrowFlightJdbcFloatingPointVectorAccessor(Float4Vector vector, IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, Float4Vector.TYPE_WIDTH);
-  }
-
-  public ArrowFlightJdbcFloatingPointVectorAccessor(Float8Vector vector, IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, Float8Vector.TYPE_WIDTH);
-  }
-
-  ArrowFlightJdbcFloatingPointVectorAccessor(FloatingPointVector vector,
-                                             IntSupplier currentRowSupplier,
-                                             int bytesToAllocate) {
+  public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
+                                      IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
-    this.holder = new DecimalHolder();
-    this.getter = createGetter(vector);
-    this.bytesToAllocate = bytesToAllocate;
+    this.holder = new NullableFloat8Holder();
+    this.vector = vector;
   }
 
   @Override
   public double getDouble() {
-    getter.get(getCurrentRow(), holder);
+    vector.get(getCurrentRow(), holder);
 
     this.wasNull = holder.isSet == 0;
     return this.wasNull ? 0 : holder.value;
@@ -118,14 +104,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcA
 
   @Override
   public byte[] getBytes() {
-    final ByteBuffer buffer = ByteBuffer.allocate(bytesToAllocate);
-
-    if (bytesToAllocate == Float.BYTES) {
-      return buffer.putFloat((float) getDouble()).array();
-    } else if (bytesToAllocate == Double.BYTES) {
-      return buffer.putDouble(getDouble()).array();
-    }
-
-    throw new UnsupportedOperationException();
+    return ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
+        .putDouble(getDouble()).array();
   }
 }
