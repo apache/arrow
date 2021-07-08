@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+import sys
+
 from cython.operator cimport dereference as deref
 
 from collections import namedtuple
@@ -796,7 +798,7 @@ cdef class _SliceOptions(FunctionOptions):
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, stop, step=1):
+    def __init__(self, start, stop=sys.maxsize, step=1):
         self._set_options(start, stop, step)
 
 
