@@ -15,28 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFlightClient < Test::Unit::TestCase
+class TestFlightPathDescriptor < Test::Unit::TestCase
   def setup
-    @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
-    omit("Unstable on Windows") if Gem.win_platform?
-    @server = Helper::FlightServer.new
-    host = "127.0.0.1"
-    location = ArrowFlight::Location.new("grpc://#{host}:0")
-    options = ArrowFlight::ServerOptions.new(location)
-    @server.listen(options)
-    @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
   end
 
-  def teardown
-    return if @server.nil?
-    @server.shutdown
+  def test_to_s
+    descriptor = ArrowFlight::PathDescriptor.new(["a", "b", "c"])
+    assert_equal("FlightDescriptor<path = 'a/b/c'>",
+                 descriptor.to_s)
   end
 
-  def test_list_flights
-    client = ArrowFlight::Client.new(@location)
-    generator = Helper::FlightInfoGenerator.new
-    assert_equal([generator.page_view],
-                 client.list_flights)
+  def test_paths
+    paths = ["a", "b", "c"]
+    descriptor = ArrowFlight::PathDescriptor.new(paths)
+    assert_equal(paths, descriptor.paths)
+  end
+
+  sub_test_case("#==") do
+    def test_true
+      descriptor1 = ArrowFlight::PathDescriptor.new(["a", "b", "c"])
+      descriptor2 = ArrowFlight::PathDescriptor.new(["a", "b", "c"])
+      assert do
+        descriptor1 == descriptor2
+      end
+    end
+
+    def test_false
+      descriptor1 = ArrowFlight::PathDescriptor.new(["a", "b", "c"])
+      descriptor2 = ArrowFlight::PathDescriptor.new(["A", "B", "C"])
+      assert do
+        not (descriptor1 == descriptor2)
+      end
+    end
   end
 end

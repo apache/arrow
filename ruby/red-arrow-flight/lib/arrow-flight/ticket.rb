@@ -15,28 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Helper
-  module Writable
-    def write_table(table, output, type: :file)
-      if output.is_a?(Arrow::Buffer)
-        output_stream = Arrow::BufferOutputStream.new(output)
-      else
-        output_stream = Arrow::FileOutputStream.new(output, false)
-      end
-      begin
-        if type == :file
-          writer_class = Arrow::RecordBatchFileWriter
+module ArrowFlight
+  class Ticket
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when String
+          new(value)
         else
-          writer_class = Arrow::RecordBatchStreamWriter
+          nil
         end
-        writer = writer_class.new(output_stream, table.schema)
-        begin
-          writer.write_table(table)
-        ensure
-          writer.close
-        end
-      ensure
-        output_stream.close
       end
     end
   end

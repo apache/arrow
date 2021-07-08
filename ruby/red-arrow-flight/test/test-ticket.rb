@@ -15,29 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Helper
-  module Writable
-    def write_table(table, output, type: :file)
-      if output.is_a?(Arrow::Buffer)
-        output_stream = Arrow::BufferOutputStream.new(output)
-      else
-        output_stream = Arrow::FileOutputStream.new(output, false)
-      end
-      begin
-        if type == :file
-          writer_class = Arrow::RecordBatchFileWriter
-        else
-          writer_class = Arrow::RecordBatchStreamWriter
-        end
-        writer = writer_class.new(output_stream, table.schema)
-        begin
-          writer.write_table(table)
-        ensure
-          writer.close
-        end
-      ensure
-        output_stream.close
-      end
+class TestTicket < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      ticket = ArrowFlight::Ticket.try_convert("data")
+      assert_equal("data",
+                   ticket.data.to_s)
     end
   end
 end

@@ -15,28 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFlightClient < Test::Unit::TestCase
+class TestFlightCommandDescriptor < Test::Unit::TestCase
   def setup
-    @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
-    omit("Unstable on Windows") if Gem.win_platform?
-    @server = Helper::FlightServer.new
-    host = "127.0.0.1"
-    location = ArrowFlight::Location.new("grpc://#{host}:0")
-    options = ArrowFlight::ServerOptions.new(location)
-    @server.listen(options)
-    @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
   end
 
-  def teardown
-    return if @server.nil?
-    @server.shutdown
+  def test_to_s
+    descriptor = ArrowFlight::CommandDescriptor.new("command")
+    assert_equal("FlightDescriptor<cmd = 'command'>",
+                 descriptor.to_s)
   end
 
-  def test_list_flights
-    client = ArrowFlight::Client.new(@location)
-    generator = Helper::FlightInfoGenerator.new
-    assert_equal([generator.page_view],
-                 client.list_flights)
+  def test_command
+    command = "command"
+    descriptor = ArrowFlight::CommandDescriptor.new(command)
+    assert_equal(command, descriptor.command)
+  end
+
+  sub_test_case("#==") do
+    def test_true
+      descriptor1 = ArrowFlight::CommandDescriptor.new("command")
+      descriptor2 = ArrowFlight::CommandDescriptor.new("command")
+      assert do
+        descriptor1 == descriptor2
+      end
+    end
+
+    def test_false
+      descriptor1 = ArrowFlight::CommandDescriptor.new("command1")
+      descriptor2 = ArrowFlight::CommandDescriptor.new("command2")
+      assert do
+        not (descriptor1 == descriptor2)
+      end
+    end
   end
 end
