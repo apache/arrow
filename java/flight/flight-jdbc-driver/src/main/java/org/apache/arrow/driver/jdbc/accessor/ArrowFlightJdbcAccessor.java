@@ -37,14 +37,26 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
+import java.util.function.IntSupplier;
 
 /**
  * Base Jdbc Accessor.
  */
 public abstract class ArrowFlightJdbcAccessor implements Accessor {
+  private final IntSupplier currentRowSupplier;
+  protected boolean wasNull;
+
+  protected ArrowFlightJdbcAccessor(IntSupplier currentRowSupplier) {
+    this.currentRowSupplier = currentRowSupplier;
+  }
+
+  protected int getCurrentRow() {
+    return currentRowSupplier.getAsInt();
+  }
+
   @Override
   public boolean wasNull() {
-    throw getOperationNotSupported(this.getClass());
+    return wasNull;
   }
 
   @Override
