@@ -105,14 +105,13 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * ArrowFlightJdbcAccessors do not use {@link AbstractCursor.Getter}, as it would box primitive types and cause
+   * performance issues. Each Accessor implementation works directly on Arrow Vectors.
+   */
   @Override
   protected Getter createGetter(int column) {
-    return new AbstractGetter() {
-      @Override
-      public Object getObject() throws SQLException {
-        throw new UnsupportedOperationException();
-      }
-    };
+    return null;
   }
 
   @Override
