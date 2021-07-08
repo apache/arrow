@@ -873,7 +873,7 @@ test_that("str_pad", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(x = str_pad(x, width = 30)) %>%
+      mutate(x = str_pad(x, width = 31)) %>%
       collect(),
     df
   )
@@ -887,7 +887,7 @@ test_that("str_pad", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(x = str_pad(x, width = 30, side = "left", pad = "+")) %>%
+      mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
       collect(),
     df
   )
@@ -901,7 +901,7 @@ test_that("str_pad", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(x = str_pad(x, width = 30, side = "both")) %>%
+      mutate(x = str_pad(x, width = 31, side = "both")) %>%
       collect(),
     df
   )
