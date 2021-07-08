@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
+import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalGetter.*;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
@@ -31,9 +33,10 @@ import org.apache.arrow.vector.FloatingPointVector;
  */
 public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private final FloatingPointVector vector;
-  private final IntSupplier currentRowSupplier;
   private final int bytesToAllocate;
+  private final Getter getter;
+  private DecimalHolder holder;
+
 
   public ArrowFlightJdbcFloatingPointVectorAccessor(Float4Vector vector, IntSupplier currentRowSupplier) {
     this(vector, currentRowSupplier, Float4Vector.TYPE_WIDTH);
@@ -43,15 +46,21 @@ public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcA
     this(vector, currentRowSupplier, Float8Vector.TYPE_WIDTH);
   }
 
-  ArrowFlightJdbcFloatingPointVectorAccessor(FloatingPointVector vector, IntSupplier currentRowSupplier, int bytesToAllocate) {
-    this.vector = vector;
-    this.currentRowSupplier = currentRowSupplier;
+  ArrowFlightJdbcFloatingPointVectorAccessor(FloatingPointVector vector,
+                                             IntSupplier currentRowSupplier,
+                                             int bytesToAllocate) {
+    super(currentRowSupplier);
+    this.holder = new DecimalHolder();
+    this.getter = createGetter(vector);
     this.bytesToAllocate = bytesToAllocate;
   }
 
   @Override
   public double getDouble() {
-    return vector.getValueAsDouble(currentRowSupplier.getAsInt());
+    getter.get(getCurrentRow(), holder);
+
+    this.wasNull = holder.isSet == 0;
+    return this.wasNull ? 0 : holder.value;
   }
 
   @Override
