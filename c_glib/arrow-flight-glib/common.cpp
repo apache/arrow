@@ -397,7 +397,8 @@ gaflight_descriptor_to_string(GAFlightDescriptor *descriptor)
  * @descriptor: A #GAFlightDescriptor.
  * @other_descriptor: A #GAFlightDescriptor to be compared.
  *
- * Returns: %TRUE if both of them represents the same URI, %FALSE otherwise.
+ * Returns: %TRUE if both of them represents the same descriptor,
+ *   %FALSE otherwise.
  *
  * Since: 5.0.0
  */
@@ -971,7 +972,7 @@ gaflight_info_new(GArrowSchema *schema,
  * @info: A #GAFlightInfo.
  * @other_info: A #GAFlightInfo to be compared.
  *
- * Returns: %TRUE if both of them represents the same info,
+ * Returns: %TRUE if both of them represents the same information,
  *   %FALSE otherwise.
  *
  * Since: 5.0.0
@@ -1031,7 +1032,7 @@ gaflight_info_get_schema(GAFlightInfo *info,
  * gaflight_info_get_descriptor:
  * @info: A #GAFlightInfo.
  *
- * Returns: (transfer full): The #GAFlightDescriptor of the info.
+ * Returns: (transfer full): The #GAFlightDescriptor of the information.
  *
  * Since: 5.0.0
  */
@@ -1047,7 +1048,7 @@ gaflight_info_get_descriptor(GAFlightInfo *info)
  * @info: A #GAFlightInfo.
  *
  * Returns: (element-type GAFlightEndpoint) (transfer full):
- *   The list of #GAFlightEndpoint of the info.
+ *   The list of #GAFlightEndpoint of the information.
  *
  * Since: 5.0.0
  */
@@ -1067,7 +1068,7 @@ gaflight_info_get_endpoints(GAFlightInfo *info)
  * gaflight_info_get_total_records:
  * @info: A #GAFlightInfo.
  *
- * Returns: The number of total records of the info.
+ * Returns: The number of total records of the information.
  *
  * Since: 5.0.0
  */
@@ -1082,7 +1083,7 @@ gaflight_info_get_total_records(GAFlightInfo *info)
  * gaflight_info_get_total_bytes:
  * @info: A #GAFlightInfo.
  *
- * Returns: The number of total bytes of the info.
+ * Returns: The number of total bytes of the information.
  *
  * Since: 5.0.0
  */
