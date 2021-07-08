@@ -23,7 +23,8 @@ import java.util.Calendar;
 import java.util.List;
 
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloatingPointVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -95,9 +96,9 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
     } else if (vector instanceof BigIntVector) {
       return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, this::getCurrentRow);
     } else if (vector instanceof Float4Vector) {
-      return new ArrowFlightJdbcFloatingPointVectorAccessor((Float4Vector) vector, this::getCurrentRow);
+      return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, this::getCurrentRow);
     } else if (vector instanceof Float8Vector) {
-      return new ArrowFlightJdbcFloatingPointVectorAccessor((Float8Vector) vector, this::getCurrentRow);
+      return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, this::getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
