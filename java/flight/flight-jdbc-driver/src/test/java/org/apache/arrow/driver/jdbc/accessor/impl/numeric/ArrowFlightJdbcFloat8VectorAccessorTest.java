@@ -19,16 +19,11 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.runners.Parameterized.*;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
-import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.FloatingPointVector;
 import org.junit.After;
@@ -37,11 +32,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
-public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
+public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
@@ -50,34 +42,13 @@ public class ArrowFlightJdbcFloatingPointVectorAccessorTest {
   public final ErrorCollector collector = new ErrorCollector();
 
   private FloatingPointVector vector;
-  private final Supplier<FloatingPointVector> vectorSupplier;
 
-  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcFloatingPointVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> {
-        if (vector instanceof Float4Vector) {
-          return new ArrowFlightJdbcFloatingPointVectorAccessor((Float4Vector) vector, getCurrentRow);
-        } else if (vector instanceof Float8Vector) {
-          return new ArrowFlightJdbcFloatingPointVectorAccessor((Float8Vector) vector, getCurrentRow);
-        }
-        throw new UnsupportedOperationException();
-      };
-
-  @Parameters(name = "{1}")
-  public static Collection<Object[]> data() {
-    return Arrays.asList(new Object[][] {
-        {(Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat8Vector(), "Float8Vector"},
-        {(Supplier<FloatingPointVector>) () -> rootAllocatorTestRule.createFloat4Vector(), "Float4Vector"},
-    });
-  }
-
-  public ArrowFlightJdbcFloatingPointVectorAccessorTest(Supplier<FloatingPointVector> vectorSupplier,
-                                                        String vectorType) {
-    this.vectorSupplier = vectorSupplier;
-  }
+  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcFloat8VectorAccessor> accessorSupplier =
+      (vector, getCurrentRow) -> new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
 
   @Before
   public void setup() {
-    this.vector = vectorSupplier.get();
+    this.vector = rootAllocatorTestRule.createFloat8Vector();
   }
 
   @After
