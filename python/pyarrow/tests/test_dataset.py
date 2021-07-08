@@ -496,6 +496,7 @@ def test_partitioning():
             pa.field('key', pa.float64())
         ])
     )
+    assert partitioning.dictionaries is None
     expr = partitioning.parse('/3/3.14')
     assert isinstance(expr, ds.Expression)
 
@@ -516,6 +517,7 @@ def test_partitioning():
         ]),
         null_fallback='xyz'
     )
+    assert partitioning.dictionaries is None
     expr = partitioning.parse('/alpha=0/beta=3')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
@@ -1650,6 +1652,7 @@ def test_directory_partitioning_dictionary_key(mockfs):
     dataset = ds.dataset(
         "subdir", format="parquet", filesystem=mockfs, partitioning=part
     )
+    assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
     assert table.column('group').type.equals(schema.types[0])
@@ -1669,6 +1672,7 @@ def test_hive_partitioning_dictionary_key(multisourcefs):
     dataset = ds.dataset(
         "hive", format="parquet", filesystem=multisourcefs, partitioning=part
     )
+    assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
     year_dictionary = list(range(2006, 2011))
@@ -1999,39 +2003,46 @@ def test_scan_iterator(use_threads, use_async):
             scanner.to_table()
 
 
-@pytest.mark.parquet
-def test_open_dataset_partitioned_directory(tempdir, dataset_reader):
+def _create_partitioned_dataset(basedir):
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
 
-    path = tempdir / "dataset"
+    path = basedir / "dataset-partitioned"
     path.mkdir()
 
-    for part in range(3):
-        part = path / "part={}".format(part)
+    for i in range(3):
+        part = path / "part={}".format(i)
         part.mkdir()
-        pq.write_table(table, part / "test.parquet")
+        pq.write_table(table.slice(3*i, 3), part / "test.parquet")
+
+    full_table = table.append_column(
+        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int32()))
+
+    return full_table, path
+
+
+@pytest.mark.parquet
+def test_open_dataset_partitioned_directory(tempdir, dataset_reader):
+    full_table, path = _create_partitioned_dataset(tempdir)
 
     # no partitioning specified, just read all individual files
-    full_table = pa.concat_tables([table] * 3)
-    _check_dataset_from_path(path, full_table, dataset_reader)
+    table = full_table.select(['a', 'b'])
+    _check_dataset_from_path(path, table, dataset_reader)
 
     # specify partition scheme with discovery
     dataset = ds.dataset(
         str(path), partitioning=ds.partitioning(flavor="hive"))
-    expected_schema = table.schema.append(pa.field("part", pa.int32()))
-    assert dataset.schema.equals(expected_schema)
+    assert dataset.schema.equals(full_table.schema)
 
     # specify partition scheme with discovery and relative path
     with change_cwd(tempdir):
-        dataset = ds.dataset(
-            "dataset/", partitioning=ds.partitioning(flavor="hive"))
-        expected_schema = table.schema.append(pa.field("part", pa.int32()))
-        assert dataset.schema.equals(expected_schema)
+        dataset = ds.dataset("dataset-partitioned/",
+                             partitioning=ds.partitioning(flavor="hive"))
+        assert dataset.schema.equals(full_table.schema)
 
     # specify partition scheme with string short-cut
     dataset = ds.dataset(str(path), partitioning="hive")
-    assert dataset.schema.equals(expected_schema)
+    assert dataset.schema.equals(full_table.schema)
 
     # specify partition scheme with explicit scheme
     dataset = ds.dataset(
@@ -2042,8 +2053,8 @@ def test_open_dataset_partitioned_directory(tempdir, dataset_reader):
     assert dataset.schema.equals(expected_schema)
 
     result = dataset.to_table()
-    expected = full_table.append_column(
-        "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
+    expected = table.append_column(
+        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int8()))
     assert result.equals(expected)
 
 
@@ -2982,6 +2993,48 @@ def test_write_to_dataset_given_null_just_works(tempdir):
     assert actual_table.column('part').to_pylist(
     ) == table.column('part').to_pylist()
     assert actual_table.column('col').equals(table.column('col'))
+
+
+@pytest.mark.parquet
+def test_dataset_preserved_partitioning(tempdir):
+
+    # through discovery, but without partitioning
+    _, path = _create_single_file(tempdir)
+    dataset = ds.dataset(path)
+    assert dataset.partitioning is None
+
+    # through discovery, with hive partitioning but not specified
+    full_table, path = _create_partitioned_dataset(tempdir)
+    dataset = ds.dataset(path)
+    assert dataset.partitioning is None
+
+    # through discovery, with hive partitioning (from a partitioning factory)
+    dataset = ds.dataset(path, partitioning="hive")
+    part = dataset.partitioning
+    assert part is not None
+    assert isinstance(part, ds.HivePartitioning)
+    assert part.schema == pa.schema([("part", pa.int32())])
+    assert len(part.dictionaries) == 1
+    assert part.dictionaries[0] == pa.array([0, 1, 2], pa.int32())
+
+    # through discovery, with hive partitioning (from a partitioning object)
+    part = ds.partitioning(pa.schema([("part", pa.int32())]), flavor="hive")
+    assert isinstance(part, ds.HivePartitioning)  # not a factory
+    assert part.dictionaries is None
+    dataset = ds.dataset(path, partitioning=part)
+    part = dataset.partitioning
+    assert isinstance(part, ds.HivePartitioning)
+    assert part.schema == pa.schema([("part", pa.int32())])
+    # TODO is this expected?
+    assert part.dictionaries is None
+
+    # through manual creation -> not available
+    dataset = ds.dataset(path, partitioning="hive")
+    dataset2 = ds.FileSystemDataset(
+        list(dataset.get_fragments()), schema=dataset.schema,
+        format=dataset.format, filesystem=dataset.filesystem
+    )
+    assert dataset2.partitioning is None
 
 
 @pytest.mark.parquet
