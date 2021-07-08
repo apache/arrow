@@ -17,11 +17,14 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
+import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.*;
+
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.NumericHolder;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
@@ -38,13 +41,13 @@ import org.apache.arrow.vector.UInt8Vector;
  */
 public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private final BaseIntVector vector;
-  private final IntSupplier currentRowSupplier;
   private boolean isUnassigned;
   private int bytesToAllocate;
+  private final Getter getter;
+  private NumericHolder holder;
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt1Vector vector,
-                                       IntSupplier currentRowSupplier) {
+                                              IntSupplier currentRowSupplier) {
     this(vector, currentRowSupplier, true, 1);
   }
 
@@ -83,30 +86,32 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
     this(vector, currentRowSupplier, true, BigIntVector.TYPE_WIDTH);
   }
 
-  ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector,
-                                       IntSupplier currentRowSupplier,
-                                       boolean isUnassigned,
-                                       int bytesToAllocate) {
-    this.vector = vector;
-    this.currentRowSupplier = currentRowSupplier;
+  private ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector,
+                                               IntSupplier currentRowSupplier,
+                                               boolean isUnassigned,
+                                               int bytesToAllocate) {
+    super(currentRowSupplier);
+    this.holder = new NumericHolder();
+    this.getter = createGetter(vector);
     this.isUnassigned = isUnassigned;
     this.bytesToAllocate = bytesToAllocate;
   }
 
   @Override
   public long getLong() {
-    return vector.getValueAsLong(currentRowSupplier.getAsInt());
+    getter.get(getCurrentRow(), holder);
+    this.wasNull = holder.isSet == 0;
+
+    return this.wasNull ? 0L : holder.value;
   }
 
   @Override
   public String getString() {
-    final boolean isNull = vector.isNull(currentRowSupplier.getAsInt());
+    final long number = getLong();
 
-    if (isNull) {
+    if (this.wasNull) {
       return null;
     } else {
-      final long number = getLong();
-
       return isUnassigned ? Long.toUnsignedString(number) : Long.toString(number);
     }
   }
@@ -160,8 +165,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public Object getObject() {
-    final boolean isNull = vector.isNull(currentRowSupplier.getAsInt());
-
-    return isNull ? null : getLong();
+    long value = getLong();
+    return this.wasNull ? null : value;
   }
 }

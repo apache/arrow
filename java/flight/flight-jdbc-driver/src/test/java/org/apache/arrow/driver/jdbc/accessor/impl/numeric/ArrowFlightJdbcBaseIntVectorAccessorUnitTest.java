@@ -19,8 +19,6 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 
-import java.sql.SQLException;
-
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BigIntVector;
@@ -87,7 +85,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetStringFromUnsignedValue() throws SQLException {
+  public void testShouldGetStringFromUnsignedValue() throws Exception {
     AccessorTestUtils
         .iterateOnAccessor(int8Vector, ((vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(int8Vector,
               getCurrentRow)), ((accessor, currentRow) -> {
@@ -97,7 +95,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromIntVector() throws SQLException {
+  public void testShouldGetBytesFromIntVector() throws Exception {
     byte[] value = new byte[] {(byte) 0xaa, (byte) 0xbb, (byte) 0xcc, (byte) 0xdd};
 
     AccessorTestUtils
@@ -109,8 +107,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromSmallVector() throws SQLException {
-
+  public void testShouldGetBytesFromSmallVector() throws Exception {
     byte[] value = new byte[] {(byte) 0xaa, (byte) 0xbb};
 
     AccessorTestUtils.iterateOnAccessor(smallIntVector, ((vector1, getCurrentRow) ->
@@ -122,7 +119,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromTinyIntVector() throws SQLException {
+  public void testShouldGetBytesFromTinyIntVector() throws Exception {
     byte[] value = new byte[] {(byte) 0xaa};
 
     AccessorTestUtils.iterateOnAccessor(tinyIntVector,
@@ -134,7 +131,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromBigIntVector() throws SQLException {
+  public void testShouldGetBytesFromBigIntVector() throws Exception {
     byte[] value =
         new byte[] {(byte) 0xaa, (byte) 0xbb, (byte) 0xcc, (byte) 0xdd, (byte) 0xee, (byte) 0xff, (byte) 0xaa,
             (byte) 0xbb};
