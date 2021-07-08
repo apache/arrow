@@ -889,9 +889,8 @@ class StreamingReaderImpl : public ReaderMixin,
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
     auto parsed_block_gen =
-        MakeMappedGenerator<ParsedBlock>(std::move(block_gen), std::move(parser_op));
-    auto rb_gen = MakeMappedGenerator<DecodedBlock>(std::move(parsed_block_gen),
-                                                    std::move(decoder_op));
+        MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
+    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
       return self->InitAfterFirstBatch(first_block, std::move(rb_gen), max_readahead);
@@ -924,8 +923,8 @@ class StreamingReaderImpl : public ReaderMixin,
       return block.record_batch;
     };
 
-    auto unwrapped = MakeMappedGenerator<std::shared_ptr<RecordBatch>>(
-        std::move(restarted_gen), std::move(unwrap_and_record_bytes));
+    auto unwrapped =
+        MakeMappedGenerator(std::move(restarted_gen), std::move(unwrap_and_record_bytes));
 
     record_batch_gen_ = MakeCancellable(std::move(unwrapped), io_context_.stop_token());
     return Status::OK();
