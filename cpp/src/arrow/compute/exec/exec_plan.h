@@ -69,7 +69,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// \brief Stop producing on all nodes
   ///
-  /// Nodes are stopped topological order, such that any node
+  /// Nodes are stopped in topological order, such that any node
   /// is stopped before all of its outputs.
   void StopProducing();
 

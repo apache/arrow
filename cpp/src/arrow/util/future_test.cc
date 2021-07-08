@@ -1761,25 +1761,26 @@ TEST(FnOnceTest, MoveOnlyDataType) {
 
 TEST(FutureTest, MatcherExamples) {
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-              Raises(StatusCode::Invalid));
+              Finishes(Raises(StatusCode::Invalid)));
 
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-              Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary")));
+              Finishes(Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary"))));
 
   // message doesn't match, so no match
-  EXPECT_THAT(
-      Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-      testing::Not(Raises(StatusCode::Invalid, testing::HasSubstr("reasonable"))));
+  EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
+              Finishes(testing::Not(
+                  Raises(StatusCode::Invalid, testing::HasSubstr("reasonable")))));
 
   // different error code, so no match
   EXPECT_THAT(Future<int>::MakeFinished(Status::TypeError("arbitrary error")),
-              testing::Not(Raises(StatusCode::Invalid)));
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
 
   // not an error, so no match
-  EXPECT_THAT(Future<int>::MakeFinished(333), testing::Not(Raises(StatusCode::Invalid)));
+  EXPECT_THAT(Future<int>::MakeFinished(333),
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
 
   EXPECT_THAT(Future<std::string>::MakeFinished("hello world"),
-              ResultWith(testing::HasSubstr("hello")));
+              Finishes(ResultWith(testing::HasSubstr("hello"))));
 
   // Matcher waits on Futures
   auto string_fut = Future<std::string>::Make();
@@ -1787,15 +1788,15 @@ TEST(FutureTest, MatcherExamples) {
     SleepABit();
     string_fut.MarkFinished("hello world");
   });
-  EXPECT_THAT(string_fut, ResultWith(testing::HasSubstr("hello")));
+  EXPECT_THAT(string_fut, Finishes(ResultWith(testing::HasSubstr("hello"))));
   finisher.join();
 
   EXPECT_THAT(Future<std::string>::MakeFinished(Status::Invalid("XXX")),
-              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
 
   // holds a value, but that value doesn't match the given pattern
   EXPECT_THAT(Future<std::string>::MakeFinished("foo bar"),
-              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
 }
 
 }  // namespace internal

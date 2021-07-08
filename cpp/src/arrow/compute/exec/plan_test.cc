@@ -36,6 +36,7 @@
 
 using testing::ElementsAre;
 using testing::HasSubstr;
+using testing::Optional;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -146,7 +147,7 @@ TEST(ExecPlan, DummyStartProducing) {
                                      "source2", "source1"));
 
   plan->StopProducing();
-  plan->finished().Wait();
+  ASSERT_THAT(plan->finished(), Finishes(Ok()));
   ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
                                      "process3", "sink"));
 
@@ -233,18 +234,20 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
                         std::move(gen));
 }
 
-Result<std::vector<ExecBatch>> StartAndCollect(
+Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
 
-  auto maybe_collected = CollectAsyncGenerator(gen).result();
-  ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+  auto collected_fut = CollectAsyncGenerator(gen);
 
-  plan->finished().Wait();
-
-  return internal::MapVector(
-      [](util::optional<ExecBatch> batch) { return std::move(*batch); }, collected);
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return internal::MapVector(
+            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
 }
 
 BatchesWithSchema MakeBasicBatches() {
@@ -289,7 +292,7 @@ TEST(ExecPlanExecution, SourceSink) {
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(basic_data.batches)));
+                  Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
     }
   }
 }
@@ -311,7 +314,7 @@ TEST(ExecPlanExecution, SourceSinkError) {
   auto sink_gen = MakeSinkNode(source, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Raises(StatusCode::Invalid, HasSubstr("Artificial")));
+              Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
 }
 
 TEST(ExecPlanExecution, StressSourceSink) {
@@ -334,7 +337,7 @@ TEST(ExecPlanExecution, StressSourceSink) {
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(random_data.batches)));
+                  Finishes(ResultWith(UnorderedElementsAreArray(random_data.batches))));
     }
   }
 }
@@ -361,12 +364,10 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
       ASSERT_OK(plan->Validate());
       ASSERT_OK(plan->StartProducing());
 
-      auto maybe_first_batch = sink_gen().result();
+      EXPECT_THAT(sink_gen(), Finishes(ResultWith(Optional(random_data.batches[0]))));
 
       plan->StopProducing();
-      plan->finished().Wait();
-
-      EXPECT_THAT(maybe_first_batch, ResultWith(random_data.batches[0]));
+      ASSERT_THAT(plan->finished(), Finishes(Ok()));
     }
   }
 }
@@ -388,9 +389,9 @@ TEST(ExecPlanExecution, SourceFilterSink) {
   auto sink_gen = MakeSinkNode(filter, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(
+              Finishes(ResultWith(UnorderedElementsAreArray(
                   {ExecBatchFromJSON({int32(), boolean()}, "[]"),
-                   ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")})));
+                   ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")}))));
 }
 
 TEST(ExecPlanExecution, SourceProjectSink) {
@@ -415,10 +416,10 @@ TEST(ExecPlanExecution, SourceProjectSink) {
   auto sink_gen = MakeSinkNode(projection, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(
+              Finishes(ResultWith(UnorderedElementsAreArray(
                   {ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
                    ExecBatchFromJSON({boolean(), int32()},
-                                     "[[null, 6], [true, 7], [true, 8]]")})));
+                                     "[[null, 6], [true, 7], [true, 8]]")}))));
 }
 
 }  // namespace compute

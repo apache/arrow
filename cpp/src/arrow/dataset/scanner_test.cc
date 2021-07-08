@@ -1094,19 +1094,20 @@ TEST(ScanOptions, TestMaterializedFields) {
 
 namespace {
 
-static Result<std::vector<compute::ExecBatch>> StartAndCollect(
+Future<std::vector<compute::ExecBatch>> StartAndCollect(
     compute::ExecPlan* plan, AsyncGenerator<util::optional<compute::ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
 
-  auto maybe_collected = CollectAsyncGenerator(gen).result();
-  ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+  auto collected_fut = CollectAsyncGenerator(gen);
 
-  plan->finished().Wait();
-
-  return internal::MapVector(
-      [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
-      collected);
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return internal::MapVector(
+            [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
 }
 
 struct DatasetAndBatches {
@@ -1209,7 +1210,7 @@ TEST(ScanNode, Trivial) {
   // trivial scan: the batches are returned unmodified
   auto expected = basic.batches;
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
+              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, FilteredOnVirtualColumn) {
@@ -1234,7 +1235,7 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   expected.pop_back();
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
+              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
@@ -1258,7 +1259,7 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   auto expected = basic.batches;
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
+              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, DISABLED_ProjectionPushdown) {
@@ -1287,7 +1288,7 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
   }
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
+              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MaterializationOfVirtualColumn) {
@@ -1319,7 +1320,7 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
   }
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
+              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 }  // namespace dataset
