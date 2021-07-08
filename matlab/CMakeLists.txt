@@ -132,7 +132,8 @@ if(MATLAB_BUILD_TESTS)
     endif()
   endif()
 else()
-  # Should support custom ARROW_HOME as well as package managers.
+  # find_package(Arrow) supports custom ARROW_HOME as well as package
+  # managers.
   find_package(Arrow)
   if(NOT Arrow_FOUND)
     # Trigger an automatic build of the Arrow C++ libraries.
