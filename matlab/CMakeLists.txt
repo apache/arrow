@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # Build the Arrow C++ libraries WITHOUT bundled GoogleTest binaries.
-function(BUILD_ARROW)
+function(build_arrow)
   include(ExternalProject)
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
