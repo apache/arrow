@@ -123,7 +123,7 @@ public class ArrowFlightJdbcFloatingPointVectorAccessor extends ArrowFlightJdbcA
     if (bytesToAllocate == Float.BYTES) {
       return buffer.putFloat((float) getDouble()).array();
     } else if (bytesToAllocate == Double.BYTES) {
-      return buffer.putDouble((float) getDouble()).array();
+      return buffer.putDouble(getDouble()).array();
     }
 
     throw new UnsupportedOperationException();
