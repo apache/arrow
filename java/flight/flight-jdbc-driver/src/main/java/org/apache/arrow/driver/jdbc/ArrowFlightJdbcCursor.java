@@ -109,7 +109,7 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
    */
   @Override
   protected Getter createGetter(int column) {
-    return null;
+    throw new UnsupportedOperationException();
   }
 
   @Override
