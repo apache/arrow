@@ -4,13 +4,5 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
-    "paths": {
-      "apache-arrow": [
-        "targets/ts/Arrow.node"
-      ],
-      "apache-arrow/*": [
-        "targets/ts/*"
-      ]
-    }
   }
 }

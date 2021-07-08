@@ -45,9 +45,10 @@ module.exports = {
       "^.+\\.ts$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/targets/.*/.*\\.js$",
-      "/(es5|es2015|esnext)/umd/",
-      "/node_modules/(?!@openpgp/web-stream-tools).+\\.js$"
+      "/targets/.*?/cjs/",
+      "/targets/.*?/(!esm)/",
+      "/targets/(es5|es2015|esnext)/umd/",
+      "/node_modules/(?!@openpgp/web-stream-tools)/"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
     "preset": "ts-jest",

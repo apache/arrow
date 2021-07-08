@@ -5,13 +5,5 @@
     "target": "esnext",
     "module": "commonjs",
     "downlevelIteration": true,
-    "paths": {
-      "apache-arrow": [
-        "targets/es5/cjs/Arrow.node"
-      ],
-      "apache-arrow/*": [
-        "targets/es5/cjs/*"
-      ]
-    }
   }
 }

@@ -14,7 +14,16 @@
     "inlineSources": false,
     "inlineSourceMap": false,
     "downlevelIteration": false,
-    "baseUrl": "../../"
+    "esModuleInterop": true,
+    "baseUrl": "../../",
+    "paths": {
+      "apache-arrow": [
+        "src/Arrow.node"
+      ],
+      "apache-arrow/*": [
+        "src/*"
+      ]
+    }
   },
   "exclude": [
     "../../node_modules"

@@ -4,13 +4,5 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "es2015",
-    "paths": {
-      "apache-arrow": [
-        "targets/esnext/esm/Arrow.node"
-      ],
-      "apache-arrow/*": [
-        "targets/esnext/esm/*"
-      ]
-    }
   }
 }

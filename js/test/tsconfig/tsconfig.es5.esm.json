@@ -5,13 +5,5 @@
     "target": "esnext",
     "module": "es2015",
     "downlevelIteration": true,
-    "paths": {
-      "apache-arrow": [
-        "targets/es5/esm/Arrow.node"
-      ],
-      "apache-arrow/*": [
-        "targets/es5/esm/*"
-      ]
-    }
   }
 }

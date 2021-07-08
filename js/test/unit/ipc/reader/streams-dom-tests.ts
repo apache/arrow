@@ -36,7 +36,7 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     }
 
     const { parse: bignumJSONParse } = require('json-bignum');
-    const { concatStream } = require('@openpgp/web-stream-tools').default;
+    const { concatStream } = require('@openpgp/web-stream-tools');
 
     for (const table of generateRandomTables([10, 20, 30])) {
 

@@ -8,6 +8,7 @@
     "target": "ESNEXT",
     "module": "CommonJS",
     "noEmit": true,
+    "esModuleInterop": true,
     "baseUrl": "./",
     "paths": {
       "apache-arrow": [
