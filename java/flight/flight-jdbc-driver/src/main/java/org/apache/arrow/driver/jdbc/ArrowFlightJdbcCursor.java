@@ -18,8 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 
-
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -129,7 +127,7 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
     }
   }
 
-  public int getCurrentRow() {
+  private int getCurrentRow() {
     return currentRow;
   }
 }
