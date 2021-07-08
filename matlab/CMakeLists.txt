@@ -30,7 +30,7 @@ function(BUILD_ARROW)
   externalproject_add(arrow_ep
                       SOURCE_DIR "${CMAKE_SOURCE_DIR}/../cpp"
                       BINARY_DIR "${ARROW_BINARY_DIR}"
-                      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}
+                      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX} -DCMAKE_INSTALL_LIBDIR=lib
                       BUILD_BYPRODUCTS ${ARROW_SHARED_LIB})
 
   file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
