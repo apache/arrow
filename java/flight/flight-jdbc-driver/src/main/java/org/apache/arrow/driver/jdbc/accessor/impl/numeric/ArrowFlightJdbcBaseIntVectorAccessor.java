@@ -41,7 +41,7 @@ import org.apache.arrow.vector.UInt8Vector;
  */
 public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private boolean isUnassigned;
+  private boolean isUnsigned;
   private int bytesToAllocate;
   private final Getter getter;
   private NumericHolder holder;
@@ -88,12 +88,12 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   private ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector,
                                                IntSupplier currentRowSupplier,
-                                               boolean isUnassigned,
+                                               boolean isUnsigned,
                                                int bytesToAllocate) {
     super(currentRowSupplier);
     this.holder = new NumericHolder();
     this.getter = createGetter(vector);
-    this.isUnassigned = isUnassigned;
+    this.isUnsigned = isUnsigned;
     this.bytesToAllocate = bytesToAllocate;
   }
 
@@ -112,7 +112,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
     if (this.wasNull) {
       return null;
     } else {
-      return isUnassigned ? Long.toUnsignedString(number) : Long.toString(number);
+      return isUnsigned ? Long.toUnsignedString(number) : Long.toString(number);
     }
   }
 
