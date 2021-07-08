@@ -2972,30 +2972,6 @@ def test_dataset_project_columns(tempdir, dataset_reader):
 
 
 @pytest.mark.parquet
-@pytest.mark.pandas
-def test_write_to_dataset_given_null_just_works(tempdir):
-    import pyarrow.parquet as pq
-
-    schema = pa.schema([
-        pa.field('col', pa.int64()),
-        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
-    ])
-    table = pa.table({'part': [None, None, 'a', 'a'],
-                      'col': list(range(4))}, schema=schema)
-
-    path = str(tempdir / 'test_dataset')
-    pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=False)
-
-    actual_table = pq.read_table(tempdir / 'test_dataset')
-    # column.equals can handle the difference in chunking but not the fact
-    # that `part` will have different dictionaries for the two chunks
-    assert actual_table.column('part').to_pylist(
-    ) == table.column('part').to_pylist()
-    assert actual_table.column('col').equals(table.column('col'))
-
-
-@pytest.mark.parquet
 def test_dataset_preserved_partitioning(tempdir):
 
     # through discovery, but without partitioning
@@ -3048,6 +3024,30 @@ def test_dataset_preserved_partitioning(tempdir):
     # will be fixed by ARROW-13153 (order is not preserved at the moment)
     # assert part.dictionaries[0] == pa.array(["a", "b"], pa.string())
     assert set(part.dictionaries[0].to_pylist()) == {"a", "b"}
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_to_dataset_given_null_just_works(tempdir):
+    import pyarrow.parquet as pq
+
+    schema = pa.schema([
+        pa.field('col', pa.int64()),
+        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
+    ])
+    table = pa.table({'part': [None, None, 'a', 'a'],
+                      'col': list(range(4))}, schema=schema)
+
+    path = str(tempdir / 'test_dataset')
+    pq.write_to_dataset(table, path, partition_cols=[
+                        'part'], use_legacy_dataset=False)
+
+    actual_table = pq.read_table(tempdir / 'test_dataset')
+    # column.equals can handle the difference in chunking but not the fact
+    # that `part` will have different dictionaries for the two chunks
+    assert actual_table.column('part').to_pylist(
+    ) == table.column('part').to_pylist()
+    assert actual_table.column('col').equals(table.column('col'))
 
 
 @pytest.mark.parquet
