@@ -48,22 +48,22 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt1Vector vector,
                                               IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, true, 1);
+    this(vector, currentRowSupplier, true, UInt1Vector.TYPE_WIDTH);
   }
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt2Vector vector,
                                               IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, true, 2);
+    this(vector, currentRowSupplier, true, UInt2Vector.TYPE_WIDTH);
   }
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt4Vector vector,
                                               IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, true, 4);
+    this(vector, currentRowSupplier, true, UInt4Vector.TYPE_WIDTH);
   }
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt8Vector vector,
                                               IntSupplier currentRowSupplier) {
-    this(vector, currentRowSupplier, true, 8);
+    this(vector, currentRowSupplier, true, UInt8Vector.TYPE_WIDTH);
   }
 
   public ArrowFlightJdbcBaseIntVectorAccessor(TinyIntVector vector,
