@@ -1,17 +1,25 @@
+// Base TypeScript configuration for all targets' tests
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig/tsconfig.base.json",
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
     "allowJs": true,
     "declaration": false,
     "importHelpers": false,
+    "noEmit": false,
     "noEmitHelpers": false,
     "noEmitOnError": false,
-    "sourceMap": false,
+    "sourceMap": true,
     "inlineSources": false,
     "inlineSourceMap": false,
     "downlevelIteration": false,
     "baseUrl": "../../"
-  }
+  },
+  "exclude": [
+    "../../node_modules"
+  ],
+  "include": [
+    "../../src/**/*.ts"
+  ],
 }

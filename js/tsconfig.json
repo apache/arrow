@@ -1,14 +1,13 @@
 {
   "extends": "./tsconfig/tsconfig.base.json",
   "formatCodeOptions": {
-    "tabSize": 4,
-    "indentSize": 4
+    "tabSize": 2,
+    "indentSize": 2
   },
   "compilerOptions": {
     "target": "ESNEXT",
-    "module": "commonjs",
+    "module": "CommonJS",
     "noEmit": true,
-    "esModuleInterop": true,
     "baseUrl": "./",
     "paths": {
       "apache-arrow": [

@@ -1,14 +1,17 @@
-//Compiler configuaration to build the ES5 Closure Compiler target
+// TypeScript configuration for the ES5 Closure Compiler target's tests
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES5",
+    "target": "esnext",
     "module": "es2015",
     "declaration": false,
     "noEmitHelpers": true,
     "importHelpers": true,
     "downlevelIteration": true,
     "paths": {
+      "apache-arrow": [
+        "targets/es5/umd/Arrow"
+      ],
       "apache-arrow/*": [
         "targets/es5/umd/*"
       ]

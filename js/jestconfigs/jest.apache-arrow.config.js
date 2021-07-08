@@ -17,10 +17,11 @@
 
 module.exports = {
     ...require('../jest.config'),
+    "rootDir": "../",
     "globals": {
         "ts-jest": {
             "diagnostics": false,
-            "tsConfig": "test/tsconfig/tsconfig.apache-arrow.json"
+            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.apache-arrow.json"
         }
     },
     "moduleNameMapper": {

@@ -24,7 +24,7 @@ module.exports = {
         "tsconfig": "test/tsconfig.json"
       }
     },
-    "rootDir": "../",
+    "rootDir": ".",
     "roots": [
       "<rootDir>/test/"
     ],
@@ -45,7 +45,9 @@ module.exports = {
       "^.+\\.ts$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/(es5|es2015|esnext)/umd/"
+      "/targets/.*/.*\\.js$",
+      "/(es5|es2015|esnext)/umd/",
+      "/node_modules/(?!@openpgp/web-stream-tools).+\\.js$"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
     "preset": "ts-jest",

@@ -16,7 +16,7 @@
 // under the License.
 
 const randomatic = require('randomatic');
-import { VectorType as V } from '../src/interfaces';
+import { VectorType as V } from 'apache-arrow/interfaces';
 
 import {
     Data, Vector, Visitor, DataType,

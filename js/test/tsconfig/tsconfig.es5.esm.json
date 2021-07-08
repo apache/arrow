@@ -1,11 +1,14 @@
-//Compiler configuaration to build the ES5 ESModules target
+// TypeScript configuration for the ES5 ESModules target's tests
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES5",
+    "target": "esnext",
     "module": "es2015",
     "downlevelIteration": true,
     "paths": {
+      "apache-arrow": [
+        "targets/es5/esm/Arrow.node"
+      ],
       "apache-arrow/*": [
         "targets/es5/esm/*"
       ]

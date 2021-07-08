@@ -34,11 +34,9 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    const { Readable, PassThrough } = require('stream');
+    const { PassThrough } = require('stream');
+    const MultiStream = require('multistream');
     const { parse: bignumJSONParse } = require('json-bignum');
-    const concatStream = ((MultiStream) => (...xs: any[]) =>
-        new Readable().wrap(new MultiStream(...xs))
-    )(require('multistream'));
 
     for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -115,7 +113,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -149,7 +147,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -177,7 +175,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -205,8 +203,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
             }
         }
 
-        // stream.readable should be false here
-        validateStreamState(reader, stream, true);
+        validateStreamState(reader, stream, true, true);
         expect(tableIndex).toBe(tables.length / 2 | 0);
     });
 })();

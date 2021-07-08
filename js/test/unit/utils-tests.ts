@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { isTypedArray } from '../../src/util/args';
+import { isTypedArray } from 'apache-arrow/util/args';
 
 
 describe('isTypedArray', () => {

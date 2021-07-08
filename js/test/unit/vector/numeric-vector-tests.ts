@@ -28,9 +28,9 @@ import {
 } from 'apache-arrow';
 
 const { float64ToUint16, uint16ToFloat64 } = util;
-import { VectorType as V } from '../../../src/interfaces';
-import { TypedArray, TypedArrayConstructor } from '../../../src/interfaces';
-import { BigIntArray, BigIntArrayConstructor } from '../../../src/interfaces';
+import { VectorType as V } from 'apache-arrow/interfaces';
+import { TypedArray, TypedArrayConstructor } from 'apache-arrow/interfaces';
+import { BigIntArray, BigIntArrayConstructor } from 'apache-arrow/interfaces';
 
 const { joinUint8Arrays, BN } = util;
 const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(uint16ToFloat64));

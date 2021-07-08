@@ -39,9 +39,6 @@ const testOptions = {
         ...process.env,
         // hide fs.promises/stream[Symbol.asyncIterator] warnings
         NODE_NO_WARNINGS: `1`,
-        // prevent the user-land `readable-stream` module from
-        // patching node's streams -- they're better now
-        READABLE_STREAM: `disable`
     },
 };
 

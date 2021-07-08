@@ -22,7 +22,7 @@ import {
 
 import * as generate from '../../../generate-test-data';
 import { validateRecordBatchIterator } from '../validate';
-import { RecordBatchStreamWriterOptions } from '../../../../src/ipc/writer';
+import { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
 import { DictionaryVector, Dictionary, Uint32, Int32 } from 'apache-arrow';
 import { Table, Schema, Field, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from 'apache-arrow';
 

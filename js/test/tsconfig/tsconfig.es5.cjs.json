@@ -1,11 +1,14 @@
-//Compiler configuaration to build the ES5 CommonJS target
+// TypeScript configuration for the ES5 CommonJS target's tests
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES5",
+    "target": "esnext",
     "module": "commonjs",
     "downlevelIteration": true,
     "paths": {
+      "apache-arrow": [
+        "targets/es5/cjs/Arrow.node"
+      ],
       "apache-arrow/*": [
         "targets/es5/cjs/*"
       ]

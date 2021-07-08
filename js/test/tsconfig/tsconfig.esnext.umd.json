@@ -1,13 +1,16 @@
-//Compiler configuaration to build the ESNext Closure Compiler target
+// TypeScript configuration for the ESNext Closure Compiler target's tests
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNEXT",
+    "target": "esnext",
     "module": "es2015",
     "declaration": false,
     "noEmitHelpers": true,
     "importHelpers": true,
     "paths": {
+      "apache-arrow": [
+        "targets/esnext/umd/Arrow"
+      ],
       "apache-arrow/*": [
         "targets/esnext/umd/*"
       ]
