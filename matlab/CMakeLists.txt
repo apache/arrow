@@ -102,7 +102,7 @@ string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_V
 
 project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
 
-option(MATLAB_BUILD_TESTS "Enable building of the C++ tests for the MATLAB interface" OFF)
+option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 
 # Grab CMAKE Modules from the CPP interface
 set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
