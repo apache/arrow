@@ -2971,6 +2971,7 @@ def test_dataset_project_columns(tempdir, dataset_reader):
         dataset_reader.to_table(dataset, columns={"A": "A"})
 
 
+@pytest.mark.pandas
 @pytest.mark.parquet
 def test_dataset_preserved_partitioning(tempdir):
     # ARROW-8655
