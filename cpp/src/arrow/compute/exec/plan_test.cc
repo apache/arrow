@@ -148,6 +148,7 @@ TEST(ExecPlan, DummyStartProducing) {
 
   plan->StopProducing();
   ASSERT_THAT(plan->finished(), Finishes(Ok()));
+  // Note that any correct topological order may do
   ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
                                      "process3", "sink"));
 

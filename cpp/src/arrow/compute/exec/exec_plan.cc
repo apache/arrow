@@ -272,7 +272,7 @@ struct SourceNode : ExecNode {
                   return generator_().Then(
                       [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
                         std::unique_lock<std::mutex> lock(mutex_);
-                        if (!batch || stop_requested_) {
+                        if (IsIterationEnd(batch) || stop_requested_) {
                           stop_requested_ = true;
                           return Break(seq);
                         }
