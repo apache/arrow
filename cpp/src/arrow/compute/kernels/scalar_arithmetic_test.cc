@@ -1042,6 +1042,26 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   for (std::string name : {"negate", "negate_checked", "abs", "abs_checked"}) {
     CheckDispatchFails(name, {null()});
   }
+
+  for (std::string name :
+       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {int32()}, {float64()});
+      CheckDispatchBest(name, {uint8()}, {float64()});
+
+      CheckDispatchBest(name, {dictionary(int8(), int64())}, {float64()});
+    }
+  }
+
+  CheckDispatchBest("atan", {int32()}, {float64()});
+  CheckDispatchBest("atan2", {int32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), uint8()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), null()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
+  // Integer always promotes to double
+  CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Negate) {
