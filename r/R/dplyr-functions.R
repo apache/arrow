@@ -414,6 +414,27 @@ nse_funcs$pmax <- function(..., na.rm = FALSE) {
   )
 }
 
+nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
+  
+  assert_that(is_integerish(width))
+  side <- match.arg(side)
+  assert_that(is.string(pad))
+  
+  if (side == "left") {
+    pad_func = "utf8_lpad"
+  } else if (side == "right") {
+    pad_func = "utf8_rpad"
+  } else if (side == "both") {
+    pad_func = "utf8_center"
+  }
+  
+  Expression$create(
+    pad_func,
+    string,
+    options = list(width = width, padding = pad)
+  )
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2

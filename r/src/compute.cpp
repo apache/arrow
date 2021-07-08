@@ -295,6 +295,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_splits, reverse);
   }
 
+  if (func_name == "utf8_lpad" || func_name == "utf8_rpad" ||
+      func_name == "utf8_center" || func_name == "ascii_lpad" ||
+      func_name == "ascii_rpad" || func_name == "ascii_center") {
+    using Options = arrow::compute::PadOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["width"]),
+                                     cpp11::as_cpp<std::string>(options["padding"]));
+  }
+
   if (func_name == "utf8_split_whitespace" || func_name == "ascii_split_whitespace") {
     using Options = arrow::compute::SplitOptions;
     int64_t max_splits = -1;
