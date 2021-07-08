@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 
 import java.util.Arrays;
@@ -115,6 +116,136 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
           final long result = accessor.getLong();
 
           collector.checkThat(result, instanceOf(long.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetIntMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final int result = accessor.getInt();
+
+          collector.checkThat(result, instanceOf(int.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetShortMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final short result = accessor.getShort();
+
+          collector.checkThat(result, instanceOf(short.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetByteMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final byte result = accessor.getByte();
+
+          collector.checkThat(result, instanceOf(byte.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetStringMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final String result = accessor.getString();
+
+          collector.checkThat(result, instanceOf(String.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final Object result = accessor.getObject();
+
+          collector.checkThat(result, instanceOf(Object.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetBytesMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final byte[] result = accessor.getBytes();
+
+          collector.checkThat(result, instanceOf(byte[].class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetFloatMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final float result = accessor.getFloat();
+
+          collector.checkThat(result, instanceOf(float.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetDoubleMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final double result = accessor.getDouble();
+
+          collector.checkThat(result, instanceOf(double.class));
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToByteMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final long result = accessor.getLong();
+          final byte secondResult = accessor.getByte();
+
+          collector.checkThat(result, instanceOf(long.class));
+          collector.checkThat(secondResult, equalTo((byte) result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToShortMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final long result = accessor.getLong();
+          final short secondResult = accessor.getShort();
+
+          collector.checkThat(result, instanceOf(long.class));
+          collector.checkThat(secondResult, equalTo((short) result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToIntegerMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final long result = accessor.getLong();
+          final int secondResult = accessor.getInt();
+
+          collector.checkThat(result, instanceOf(long.class));
+          collector.checkThat(secondResult, equalTo((int) result));
+
           collector.checkThat(result, CoreMatchers.notNullValue());
         });
   }
