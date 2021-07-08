@@ -1672,22 +1672,20 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
   using Base = Selection<DenseUnionImpl, DenseUnionType>;
   LIFT_BASE_MEMBERS();
 
-  Int32Builder value_offset_builder;
-  Int8Builder child_id_builder;
-  std::vector<int8_t> type_codes;
-  std::vector<std::shared_ptr<Int32Builder>> child_indices_builders;
+  TypedBufferBuilder<int32_t> value_offset_buffer_builder_;
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  std::vector<int8_t> type_codes_;
+  std::vector<Int32Builder> child_indices_builders_;
 
   DenseUnionImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
                  Datum* out)
       : Base(ctx, batch, output_length, out),
-        value_offset_builder(ctx->memory_pool()),
-        child_id_builder(ctx->memory_pool()) {
-    DenseUnionArray typed_values(this->values);
-    type_codes = typed_values.union_type()->type_codes();
-    child_indices_builders.reserve(type_codes.size());
-    for (size_t i = 0; i < type_codes.size(); i++) {
-      child_indices_builders.push_back(
-          std::make_shared<Int32Builder>(ctx->memory_pool()));
+        value_offset_buffer_builder_(ctx->memory_pool()),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_codes_(checked_cast<const UnionType&>(*this->values->type).type_codes()),
+        child_indices_builders_(type_codes_.size()) {
+    for (auto& child_indices_builder : child_indices_builders_) {
+      child_indices_builder = Int32Builder(ctx->memory_pool());
     }
   }
 
@@ -1698,44 +1696,44 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
     RETURN_NOT_OK(adapter.Generate(
         [&](int64_t index) {
           int8_t child_id = typed_values.child_id(index);
-          child_id_builder.UnsafeAppend(type_codes[child_id]);
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
           int32_t value_offset = typed_values.value_offset(index);
-          value_offset_builder.UnsafeAppend(child_indices_builders[child_id]->length());
-          RETURN_NOT_OK(child_indices_builders[child_id]->Reserve(1));
-          child_indices_builders[child_id]->UnsafeAppend(value_offset);
+          value_offset_buffer_builder_.UnsafeAppend(
+              child_indices_builders_[child_id].length());
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppend(value_offset);
           return Status::OK();
         },
         [&]() {
           int8_t child_id = 0;
-          child_id_builder.UnsafeAppend(type_codes[child_id]);
-          value_offset_builder.UnsafeAppend(child_indices_builders[child_id]->length());
-          RETURN_NOT_OK(child_indices_builders[child_id]->Reserve(1));
-          child_indices_builders[child_id]->UnsafeAppendNull();
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          value_offset_buffer_builder_.UnsafeAppend(
+              child_indices_builders_[child_id].length());
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppendNull();
           return Status::OK();
         }));
     return Status::OK();
   }
 
   Status Init() override {
-    RETURN_NOT_OK(child_id_builder.Reserve(output_length));
-    RETURN_NOT_OK(value_offset_builder.Reserve(output_length));
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    RETURN_NOT_OK(value_offset_buffer_builder_.Reserve(output_length));
     return Status::OK();
   }
 
   Status Finish() override {
-    std::shared_ptr<Array> child_ids;
-    std::shared_ptr<Array> value_offsets;
-    RETURN_NOT_OK(child_id_builder.Finish(&child_ids));
-    RETURN_NOT_OK(value_offset_builder.Finish(&value_offsets));
-
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto value_offsets_buffer,
+                          value_offset_buffer_builder_.Finish());
     DenseUnionArray typed_values(this->values);
     auto num_fields = typed_values.num_fields();
-    BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(*child_ids).values(),
-                            checked_cast<const Int32Array&>(*value_offsets).values()};
-    *out = ArrayData(typed_values.type(), child_ids->length(), std::move(buffers), 0);
+    BufferVector buffers = {nullptr, child_ids_buffer, value_offsets_buffer};
+    *out =
+        ArrayData(typed_values.type(), child_ids_buffer->size(), std::move(buffers), 0);
     for (auto i = 0; i < num_fields; i++) {
-      std::shared_ptr<Int32Array> child_indices_array;
-      RETURN_NOT_OK(child_indices_builders[i]->Finish(&child_indices_array));
+      ARROW_ASSIGN_OR_RAISE(auto child_indices_array,
+                            child_indices_builders_[i].Finish());
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> child_array,
                             Take(*typed_values.field(i), *child_indices_array));
       out->child_data.push_back(child_array->data());

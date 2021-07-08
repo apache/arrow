@@ -607,15 +607,14 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 
 class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
 
-// TODO: Restore Sparse Union take functionality
 TEST_F(TestFilterKernelWithUnion, FilterUnion) {
   auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
   auto union_json = R"([
-      null,
+      [2, null],
       [2, 222],
       [5, "hello"],
       [5, "eh"],
-      null,
+      [2, null],
       [2, 111]
     ])";
   this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
@@ -1280,15 +1279,14 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 
 class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
-// TODO: Restore Sparse Union take functionality
 TEST_F(TestTakeKernelWithUnion, TakeUnion) {
   auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
   auto union_json = R"([
-      null,
+      [2, null],
       [2, 222],
       [5, "hello"],
       [5, "eh"],
-      null,
+      [2, null],
       [2, 111]
     ])";
   CheckTake(union_type, union_json, "[]", "[]");
