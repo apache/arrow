@@ -582,7 +582,6 @@ TEST(GroupBy, CountOnly) {
 TEST(GroupBy, SumOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    if (use_threads) continue;
 
     auto table =
         TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
@@ -627,42 +626,51 @@ TEST(GroupBy, SumOnly) {
 }
 
 TEST(GroupBy, MinMaxOnly) {
-  auto batch = RecordBatchFromJSON(
-      schema({field("argument", float64()), field("key", int64())}), R"([
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
     [1.0,   1],
-    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                      R"([
     [0.0,   2],
     [null,  3],
     [4.0,   null],
     [3.25,  1],
-    [0.125, 2],
+    [0.125, 2]
+                        ])",
+                                                                                      R"([
     [-0.25, 2],
     [0.75,  null],
     [null,  3]
-  ])");
+                        ])"});
 
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({batch->GetColumnByName("argument")},
-                                         {batch->GetColumnByName("key")},
-                                         {
-                                             {"hash_min_max", nullptr},
-                                         }));
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy({table->GetColumnByName("argument")},
+                                           {table->GetColumnByName("key")},
+                                           {
+                                               {"hash_min_max", nullptr},
+                                           }));
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("hash_min_max", struct_({
-                                                                field("min", float64()),
-                                                                field("max", float64()),
-                                                            })),
-                                      field("key_0", int64()),
-                                  }),
-                                  R"([
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_min_max", struct_({
+                                                                  field("min", float64()),
+                                                                  field("max", float64()),
+                                                              })),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
     [{"min": 1.0,   "max": 3.25},  1],
     [{"min": -0.25, "max": 0.125}, 2],
     [{"min": null,  "max": null},  3],
     [{"min": 0.75,  "max": 4.0},   null]
   ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
 }
 
 TEST(GroupBy, CountAndSum) {

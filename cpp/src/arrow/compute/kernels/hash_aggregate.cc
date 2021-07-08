@@ -758,10 +758,7 @@ struct GroupedAggregator : KernelState {
 
   virtual Status Consume(const ExecBatch& batch) = 0;
 
-  virtual Status Merge(GroupedAggregator&& other, const ArrayData& group_id_mapping) {
-    // TODO(ARROW-11840) merge two hash tables
-    return Status::NotImplemented("Merge hashed aggregations");
-  }
+  virtual Status Merge(GroupedAggregator&& other, const ArrayData& group_id_mapping) = 0;
 
   virtual Result<Datum> Finalize() = 0;
 
@@ -838,44 +835,45 @@ struct GroupedCountImpl : public GroupedAggregator {
     return counts_.Append(added_groups * sizeof(int64_t), 0);
   }
 
-  Status Merge(GroupedAggregator&& other, const ArrayData& group_id_mapping) override {
-    auto raw_mapping = group_id_mapping.GetValues<uint32_t>(1);
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedCountImpl*>(&raw_other);
 
-    auto raw_counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto other_raw_counts = reinterpret_cast<const int64_t*>(
-        checked_cast<GroupedCountImpl&&>(other).counts_.mutable_data());
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.mutable_data());
 
-    for (int64_t i = 0; i < group_id_mapping.length; ++i) {
-      raw_counts[raw_mapping[i]] += other_raw_counts[i];
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      counts[*g] += other_counts[other_g];
     }
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
-    auto raw_counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
 
     const auto& input = batch[0].array();
 
-    if (!options_.skip_nulls) {
-      if (input->GetNullCount() != 0) {
-        for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
-          auto g = group_ids[i];
-          raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
-        }
-      }
-      return Status::OK();
-    }
+    if (options_.skip_nulls) {
+      auto g_begin =
+          reinterpret_cast<const uint32_t*>(batch[1].array()->buffers[1]->data());
 
-    arrow::internal::VisitSetBitRunsVoid(
-        input->buffers[0], input->offset, input->length,
-        [&](int64_t begin, int64_t length) {
-          for (int64_t input_i = begin, i = begin - input->offset;
-               input_i < begin + length; ++input_i, ++i) {
-            auto g = group_ids[i];
-            raw_counts[g] += 1;
-          }
-        });
+      arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
+                                           input->length,
+                                           [&](int64_t offset, int64_t length) {
+                                             auto g = g_begin + offset;
+                                             for (int64_t i = 0; i < length; ++i, ++g) {
+                                               counts[*g] += 1;
+                                             }
+                                           });
+    } else if (input->MayHaveNulls()) {
+      auto g = batch[1].array()->GetValues<uint32_t>(1);
+
+      auto end = input->offset + input->length;
+      for (int64_t i = input->offset; i < end; ++i, ++g) {
+        counts[*g] += !BitUtil::GetBit(input->buffers[0]->data(), i);
+      }
+    }
     return Status::OK();
   }
 
@@ -897,6 +895,7 @@ struct GroupedCountImpl : public GroupedAggregator {
 template <typename Type>
 struct GroupedSumImpl : public GroupedAggregator {
   using AccType = typename FindAccumulatorType<Type>::Type;
+  using SumType = typename TypeTraits<AccType>::CType;
 
   Status Init(ExecContext* ctx, const FunctionOptions*) override {
     pool_ = ctx->memory_pool();
@@ -915,20 +914,36 @@ struct GroupedSumImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto group = batch[1].array()->GetValues<uint32_t>(1);
-
-    auto sums =
-        reinterpret_cast<typename TypeTraits<AccType>::CType*>(sums_.mutable_data());
+    auto sums = reinterpret_cast<SumType*>(sums_.mutable_data());
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
 
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
     VisitArrayDataInline<Type>(
         *batch[0].array(),
         [&](typename TypeTraits<Type>::CType value) {
-          sums[*group] += value;
-          counts[*group] += 1;
-          ++group;
+          sums[*g] += value;
+          counts[*g] += 1;
+          ++g;
         },
-        [&] { ++group; });
+        [&] { ++g; });
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedSumImpl*>(&raw_other);
+
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto sums = reinterpret_cast<SumType*>(sums_.mutable_data());
+
+    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.mutable_data());
+    auto other_sums = reinterpret_cast<const SumType*>(other->sums_.mutable_data());
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      counts[*g] += other_counts[other_g];
+      sums[*g] += other_sums[other_g];
+    }
     return Status::OK();
   }
 
@@ -1036,19 +1051,43 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto group = batch[1].array()->GetValues<uint32_t>(1);
-
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
     auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
     auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
 
     VisitArrayDataInline<Type>(
         *batch[0].array(),
         [&](CType val) {
-          raw_maxes[*group] = std::max(raw_maxes[*group], val);
-          raw_mins[*group] = std::min(raw_mins[*group], val);
-          BitUtil::SetBit(has_values_.mutable_data(), *group++);
+          raw_maxes[*g] = std::max(raw_maxes[*g], val);
+          raw_mins[*g] = std::min(raw_mins[*g], val);
+          BitUtil::SetBit(has_values_.mutable_data(), *g++);
         },
-        [&] { BitUtil::SetBit(has_nulls_.mutable_data(), *group++); });
+        [&] { BitUtil::SetBit(has_nulls_.mutable_data(), *g++); });
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedMinMaxImpl*>(&raw_other);
+
+    auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
+    auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
+
+    auto other_raw_mins = reinterpret_cast<const CType*>(other->mins_.mutable_data());
+    auto other_raw_maxes = reinterpret_cast<const CType*>(other->maxes_.mutable_data());
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      raw_mins[*g] = std::min(raw_mins[*g], other_raw_mins[other_g]);
+      raw_maxes[*g] = std::max(raw_maxes[*g], other_raw_maxes[other_g]);
+
+      if (BitUtil::GetBit(other->has_values_.data(), other_g)) {
+        BitUtil::SetBit(has_values_.mutable_data(), *g);
+      }
+      if (BitUtil::GetBit(other->has_nulls_.data(), other_g)) {
+        BitUtil::SetBit(has_nulls_.mutable_data(), *g);
+      }
+    }
     return Status::OK();
   }
 
@@ -1084,8 +1123,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 };
 
 struct GroupedMinMaxFactory {
-  template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
-  Status Visit(const T&) {
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
     kernel =
         MakeKernel(std::move(argument_type), HashAggregateInit<GroupedMinMaxImpl<T>>);
     return Status::OK();
