@@ -151,7 +151,7 @@ before_install:
 
 install:
   - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
+  - sudo -H pip3 install 'docker-compose>=1.27.0'
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
