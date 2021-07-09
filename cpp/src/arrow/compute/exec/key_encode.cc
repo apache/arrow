@@ -285,51 +285,67 @@ KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
   }
   buffers_[buffer_id_to_replace] = right.buffers_[buffer_id_to_replace];
   mutable_buffers_[buffer_id_to_replace] = right.mutable_buffers_[buffer_id_to_replace];
+  bit_offset_[0] = left.bit_offset_[0];
+  bit_offset_[1] = left.bit_offset_[1];
+  if (buffer_id_to_replace < max_buffers_ - 1) {
+    bit_offset_[buffer_id_to_replace] = right.bit_offset_[buffer_id_to_replace];
+  }
 }
 
 KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
                                            int64_t length, const uint8_t* buffer0,
-                                           const uint8_t* buffer1,
-                                           const uint8_t* buffer2) {
+                                           const uint8_t* buffer1, const uint8_t* buffer2,
+                                           int bit_offset0, int bit_offset1) {
   metadata_ = metadata;
   length_ = length;
   buffers_[0] = buffer0;
   buffers_[1] = buffer1;
   buffers_[2] = buffer2;
   mutable_buffers_[0] = mutable_buffers_[1] = mutable_buffers_[2] = nullptr;
+  bit_offset_[0] = bit_offset0;
+  bit_offset_[1] = bit_offset1;
 }
 
 KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata,
                                            int64_t length, uint8_t* buffer0,
-                                           uint8_t* buffer1, uint8_t* buffer2) {
+                                           uint8_t* buffer1, uint8_t* buffer2,
+                                           int bit_offset0, int bit_offset1) {
   metadata_ = metadata;
   length_ = length;
   buffers_[0] = mutable_buffers_[0] = buffer0;
   buffers_[1] = mutable_buffers_[1] = buffer1;
   buffers_[2] = mutable_buffers_[2] = buffer2;
+  bit_offset_[0] = bit_offset0;
+  bit_offset_[1] = bit_offset1;
 }
 
 KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnArray& from, int64_t start,
                                            int64_t length) {
-  ARROW_DCHECK((start % 8) == 0);
   metadata_ = from.metadata_;
   length_ = length;
   uint32_t fixed_size =
       !metadata_.is_fixed_length ? sizeof(uint32_t) : metadata_.fixed_length;
 
-  buffers_[0] = from.buffers_[0] ? from.buffers_[0] + start / 8 : nullptr;
-  mutable_buffers_[0] =
-      from.mutable_buffers_[0] ? from.mutable_buffers_[0] + start / 8 : nullptr;
+  buffers_[0] =
+      from.buffers_[0] ? from.buffers_[0] + (from.bit_offset_[0] + start) / 8 : nullptr;
+  mutable_buffers_[0] = from.mutable_buffers_[0]
+                            ? from.mutable_buffers_[0] + (from.bit_offset_[0] + start) / 8
+                            : nullptr;
+  bit_offset_[0] = (from.bit_offset_[0] + start) % 8;
 
   if (fixed_size == 0) {
-    buffers_[1] = from.buffers_[1] ? from.buffers_[1] + start / 8 : nullptr;
-    mutable_buffers_[1] =
-        from.mutable_buffers_[1] ? from.mutable_buffers_[1] + start / 8 : nullptr;
+    buffers_[1] =
+        from.buffers_[1] ? from.buffers_[1] + (from.bit_offset_[1] + start) / 8 : nullptr;
+    mutable_buffers_[1] = from.mutable_buffers_[1] ? from.mutable_buffers_[1] +
+                                                         (from.bit_offset_[1] + start) / 8
+                                                   : nullptr;
+    bit_offset_[1] = (from.bit_offset_[1] + start) % 8;
   } else {
     buffers_[1] = from.buffers_[1] ? from.buffers_[1] + start * fixed_size : nullptr;
     mutable_buffers_[1] = from.mutable_buffers_[1]
                               ? from.mutable_buffers_[1] + start * fixed_size
                               : nullptr;
+    bit_offset_[1] = 0;
   }
 
   buffers_[2] = from.buffers_[2];
@@ -360,9 +376,9 @@ void KeyEncoder::TransformBoolean::PreEncode(const KeyColumnArray& input,
   constexpr int buffer_index = 1;
   ARROW_DCHECK(input.data(buffer_index) != nullptr);
   ARROW_DCHECK(output->mutable_data(buffer_index) != nullptr);
-  util::BitUtil::bits_to_bytes(ctx->hardware_flags, static_cast<int>(input.length()),
-                               input.data(buffer_index),
-                               output->mutable_data(buffer_index));
+  util::BitUtil::bits_to_bytes(
+      ctx->hardware_flags, static_cast<int>(input.length()), input.data(buffer_index),
+      output->mutable_data(buffer_index), input.bit_offset(buffer_index));
 }
 
 void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
@@ -377,9 +393,9 @@ void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
   ARROW_DCHECK(input.data(buffer_index) != nullptr);
   ARROW_DCHECK(output->mutable_data(buffer_index) != nullptr);
 
-  util::BitUtil::bytes_to_bits(ctx->hardware_flags, static_cast<int>(input.length()),
-                               input.data(buffer_index),
-                               output->mutable_data(buffer_index));
+  util::BitUtil::bytes_to_bits(
+      ctx->hardware_flags, static_cast<int>(input.length()), input.data(buffer_index),
+      output->mutable_data(buffer_index), output->bit_offset(buffer_index));
 }
 
 bool KeyEncoder::EncoderInteger::IsBoolean(const KeyColumnMetadata& metadata) {
@@ -746,7 +762,8 @@ void KeyEncoder::EncoderBinary::ColumnMemsetNullsImp(
   // Bit vector to index vector of null positions
   int num_selected;
   util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, static_cast<int>(col.length()),
-                                 col.data(0), &num_selected, temp_vector);
+                                 col.data(0), &num_selected, temp_vector,
+                                 col.bit_offset(0));
 
   for (int i = 0; i < num_selected; ++i) {
     uint32_t row_id = temp_vector[i];
@@ -1024,15 +1041,21 @@ void KeyEncoder::EncoderOffsets::Encode(KeyRowArray* rows,
 
   uint32_t num_rows = static_cast<uint32_t>(varbinary_cols[0].length());
 
+  // Whether any of the columns has non-zero starting bit offset for non-nulls bit vector
+  bool has_bit_offset = false;
+
   // The space in columns must be exactly equal to a space for offsets in rows
   ARROW_DCHECK(rows->length() == num_rows);
   for (size_t col = 0; col < varbinary_cols.size(); ++col) {
     ARROW_DCHECK(varbinary_cols[col].length() == num_rows);
+    if (varbinary_cols[col].bit_offset(0) != 0) {
+      has_bit_offset = true;
+    }
   }
 
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_AVX2)
-  if (ctx->has_avx2()) {
+  if (ctx->has_avx2() && !has_bit_offset) {
     // Create a temp vector sized based on the number of columns
     auto temp_buffer_holder = util::TempVectorHolder<uint32_t>(
         ctx->stack, static_cast<uint32_t>(varbinary_cols.size()) * 8);
@@ -1079,8 +1102,10 @@ void KeyEncoder::EncoderOffsets::EncodeImp(
       const uint32_t* col_offsets = varbinary_cols[col].offsets();
       uint32_t col_length = col_offsets[i + 1] - col_offsets[i];
 
+      const int bit_offset = varbinary_cols[col].bit_offset(0);
+
       const uint8_t* non_nulls = varbinary_cols[col].data(0);
-      if (non_nulls && BitUtil::GetBit(non_nulls, i) == 0) {
+      if (non_nulls && BitUtil::GetBit(non_nulls, bit_offset + i) == 0) {
         col_length = 0;
       }
 
@@ -1253,10 +1278,12 @@ void KeyEncoder::EncoderNulls::Encode(KeyRowArray* rows,
     if (!non_nulls) {
       continue;
     }
+    int bit_offset = cols[col].bit_offset(0);
+    ARROW_DCHECK(bit_offset < 8);
     int num_selected;
     util::BitUtil::bits_to_indexes(
         0, ctx->hardware_flags, num_rows, non_nulls, &num_selected,
-        reinterpret_cast<uint16_t*>(temp_vector_16bit->mutable_data(1)));
+        reinterpret_cast<uint16_t*>(temp_vector_16bit->mutable_data(1)), bit_offset);
     for (int i = 0; i < num_selected; ++i) {
       uint16_t row_id = reinterpret_cast<const uint16_t*>(temp_vector_16bit->data(1))[i];
       int64_t null_masks_bit_id = row_id * null_masks_bytes_per_row * 8 + col;
@@ -1280,13 +1307,19 @@ void KeyEncoder::EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows,
   uint32_t null_masks_bytes_per_row = rows.metadata().null_masks_bytes_per_row;
   for (size_t col = 0; col < cols->size(); ++col) {
     uint8_t* non_nulls = (*cols)[col].mutable_data(0);
-    memset(non_nulls, 0xff, BitUtil::BytesForBits(num_rows));
+    const int bit_offset = (*cols)[col].bit_offset(0);
+    ARROW_DCHECK(bit_offset < 8);
+    non_nulls[0] |= 0xff << (bit_offset);
+    if (bit_offset + num_rows > 8) {
+      int bits_in_first_byte = 8 - bit_offset;
+      memset(non_nulls + 1, 0xff, BitUtil::BytesForBits(num_rows - bits_in_first_byte));
+    }
     for (uint32_t row = 0; row < num_rows; ++row) {
       uint32_t null_masks_bit_id =
           (start_row + row) * null_masks_bytes_per_row * 8 + static_cast<uint32_t>(col);
       bool is_set = BitUtil::GetBit(null_masks, null_masks_bit_id);
       if (is_set) {
-        BitUtil::ClearBit(non_nulls, row);
+        BitUtil::ClearBit(non_nulls, bit_offset + row);
       }
     }
   }
