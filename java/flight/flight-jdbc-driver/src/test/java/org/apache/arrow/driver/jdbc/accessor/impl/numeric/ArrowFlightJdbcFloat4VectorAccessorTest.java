@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.Float4Vector;
+import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -199,6 +201,146 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
           final double secondValue = accessor.getDouble();
 
           collector.checkThat(firstValue, is((float) secondValue));
+        });
+  }
+
+  @Test
+  public void testShouldConvertToIntegerViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final int result = accessor.getObject(Integer.class);
+          final int secondResult = accessor.getInt();
+
+          collector.checkThat(result, instanceOf(int.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToShortViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final short result = accessor.getObject(Short.class);
+          final short secondResult = accessor.getShort();
+
+          collector.checkThat(result, instanceOf(short.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToByteViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final byte result = accessor.getObject(Byte.class);
+          final byte secondResult = accessor.getByte();
+
+          collector.checkThat(result, instanceOf(byte.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToLongViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final long result = accessor.getObject(Long.class);
+          final long secondResult = accessor.getLong();
+
+          collector.checkThat(result, instanceOf(long.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToFloatViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final float result = accessor.getObject(Float.class);
+          final float secondResult = accessor.getFloat();
+
+          if (Float.isInfinite(result)) {
+            // BigDecimal does not support Infinities
+            return;
+          }
+
+          collector.checkThat(result, instanceOf(float.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToDoubleViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final double result = accessor.getObject(Double.class);
+          final double secondResult = accessor.getDouble();
+
+          if (Double.isInfinite(result)) {
+            // BigDecimal does not support Infinities
+            return;
+          }
+          collector.checkThat(result, instanceOf(double.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToBigDecimalViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          if (Double.isInfinite(accessor.getFloat())) {
+            // BigDecimal does not support Infinities
+            return;
+          }
+
+          final BigDecimal result = accessor.getObject(BigDecimal.class);
+          final BigDecimal secondResult = accessor.getBigDecimal();
+
+          collector.checkThat(result, instanceOf(BigDecimal.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToBooleanViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final Boolean result = accessor.getObject(Boolean.class);
+          final Boolean secondResult = accessor.getBoolean();
+
+          collector.checkThat(result, instanceOf(Boolean.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldConvertToStringViaGetObjectMethodFromBaseIntVector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          final String result = accessor.getObject(String.class);
+          final String secondResult = accessor.getString();
+
+          collector.checkThat(result, instanceOf(String.class));
+          collector.checkThat(secondResult, equalTo(result));
+
+          collector.checkThat(result, CoreMatchers.notNullValue());
         });
   }
 }
