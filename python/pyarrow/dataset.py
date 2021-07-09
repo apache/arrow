@@ -736,7 +736,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         for each file created during the call.  This object will have both
         a path attribute and a metadata attribute.
 
-        The path attribute will a str containing the absolute path to
+        The path attribute will be a string containing the path to
         the created file.
 
         The metadata attribute will be the parquet metadata of the file.
