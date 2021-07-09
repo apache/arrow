@@ -546,7 +546,6 @@ struct SinkNode : ExecNode {
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    std::unique_lock<std::mutex> lock(mutex_);
     if (finished_.is_finished()) return;
 
     producer_.Push(std::move(batch));
@@ -563,7 +562,6 @@ struct SinkNode : ExecNode {
     if (emit_stop_ != -1) {
       DCHECK_LE(seq_num, emit_stop_);
     }
-    lock.unlock();
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {

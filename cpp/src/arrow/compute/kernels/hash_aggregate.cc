@@ -1151,8 +1151,6 @@ struct GroupedMinMaxFactory {
 
 }  // namespace
 
-}  // namespace
-
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
     const std::vector<ValueDescr>& in_descrs) {

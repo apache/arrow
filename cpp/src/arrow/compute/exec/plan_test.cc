@@ -502,31 +502,5 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
                   ])")}))));
 }
 
-TEST(ExecPlanExecution, GroupByOnly) {
-  BatchesWithSchema input;
-  input.batches = {
-      ExecBatchFromJSON({int32(), int32()}, "[[1, 12], [2, 7], [1, 3]]"),
-      ExecBatchFromJSON({int32(), int32()}, "[[5, 5], [2, 3], [1, 8]]")};
-  input.schema = schema({field("a", int32()), field("b", int32())});
-
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  ASSERT_OK_AND_ASSIGN(auto scan, MakeTestSourceNode(plan.get(), "source", input, /*parallel=*/false, /*slow=*/false));
-  ASSERT_OK_AND_ASSIGN(auto gby, MakeGroupByNode(scan,
-                                                 "gby",
-                                                 {"a"},
-                                                 {"b"},
-                                                 {{"hash_sum", nullptr}}));
-  auto sink_gen = MakeSinkNode(gby, "sink");
-
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(
-                  {ExecBatchFromJSON({int64(), int32()}, "[[23, 1], [10, 2], [5, 5]]")}
-              )));
-}
-
-TEST(ExecPlanExecution, FilterProjectGroupByFilter) {
-  // TODO: implement
-}
-
 }  // namespace compute
 }  // namespace arrow
