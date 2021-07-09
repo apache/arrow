@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
@@ -31,7 +32,7 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final Float4Vector vector;
-  private NullableFloat4Holder holder;
+  private final NullableFloat4Holder holder;
 
   public ArrowFlightJdbcFloat4VectorAccessor(Float4Vector vector,
                                              IntSupplier currentRowSupplier) {
@@ -88,12 +89,24 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   @Override
   public BigDecimal getBigDecimal() {
     final float value = this.getFloat();
+
+    final boolean infinite = Float.isInfinite(value);
+    if (infinite) {
+      throw new UnsupportedOperationException();
+    }
+
     return this.wasNull ? null : BigDecimal.valueOf(value);
   }
 
   @Override
   public byte[] getBytes() {
     return ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(this.getFloat()).array();
+  }
+
+  @Override
+  public BigDecimal getBigDecimal(int scale) {
+    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.UNNECESSARY);
+    return this.wasNull ? null : value;
   }
 
   @Override
