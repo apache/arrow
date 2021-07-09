@@ -38,12 +38,12 @@ if [ "$(uname -m)" = "arm64" ]; then
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
-  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET//./_}-arm64"
+  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
 else
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
   export ARCHFLAGS="-arch x86_64"
-  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET//./_}-x86_64"
+  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-x86_64"
 fi
 
 echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
