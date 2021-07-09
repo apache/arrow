@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.*;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
@@ -41,10 +42,10 @@ import org.apache.arrow.vector.UInt8Vector;
  */
 public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private boolean isUnsigned;
-  private int bytesToAllocate;
+  private final boolean isUnsigned;
+  private final int bytesToAllocate;
   private final Getter getter;
-  private NumericHolder holder;
+  private final NumericHolder holder;
 
   public ArrowFlightJdbcBaseIntVectorAccessor(UInt1Vector vector,
                                               IntSupplier currentRowSupplier) {
@@ -165,8 +166,21 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
+  public BigDecimal getBigDecimal(int scale) {
+    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.UNNECESSARY);
+    return this.wasNull ? null : value;
+  }
+
+  @Override
   public Object getObject() {
     long value = getLong();
     return this.wasNull ? null : value;
+  }
+
+  @Override
+  public boolean getBoolean() {
+    final long value = getLong();
+
+    return value != 0;
   }
 }
