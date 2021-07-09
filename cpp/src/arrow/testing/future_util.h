@@ -105,7 +105,7 @@
 
 namespace arrow {
 
-constexpr double kDefaultAssertFinishesWaitSeconds = 10;
+constexpr double kDefaultAssertFinishesWaitSeconds = 64;
 
 template <typename T>
 void AssertNotFinished(const Future<T>& fut) {
