@@ -215,6 +215,35 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
 
   @Override
   public <T> T getObject(Class<T> aClass) {
-    return aClass.cast(getLong());
+    if (aClass == Byte.class) {
+      final byte value = getByte();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Short.class) {
+      final short value = getShort();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Integer.class) {
+      final int value = getInt();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Long.class) {
+      final long value = getLong();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Float.class) {
+      final float value = getFloat();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Double.class) {
+      final double value = getDouble();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == String.class) {
+      final String value = getString();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == BigDecimal.class) {
+      final BigDecimal value = getBigDecimal();
+      return this.wasNull ? null : aClass.cast(value);
+    } else if (aClass == Boolean.class) {
+      final boolean value = getBoolean();
+      return this.wasNull ? null : aClass.cast(value);
+    }
+
+    throw new UnsupportedOperationException();
   }
 }
