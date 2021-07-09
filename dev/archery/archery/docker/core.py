@@ -105,6 +105,7 @@ class ComposeConfig:
 
         services = config['services'].keys()
         self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
+        self.limits = config.get('x-limits', {})
         self.with_gpus = config.get('x-with-gpus', [])
         nodes = self.hierarchy.keys()
         errors = []
@@ -316,7 +317,8 @@ class DockerCompose(Command):
         _build(service, use_cache=use_cache and use_leaf_cache)
 
     def run(self, service_name, command=None, *, env=None, volumes=None,
-            user=None, using_docker=False):
+            user=None, using_docker=False, limit_cpus=False,
+            limit_memory=False):
         service = self.config.get(service_name)
 
         args = []
@@ -353,6 +355,16 @@ class DockerCompose(Command):
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
                 args.append('-it')
+
+            if limit_cpus:
+                cpuset = self.config.limits.get('cpuset_cpus', [])
+                if cpuset:
+                    args.append(f'--cpuset-cpus={",".join(map(str, cpuset))}')
+            if limit_memory:
+                memory = self.config.limits.get('memory')
+                if memory:
+                    args.append(f'--memory={memory}')
+                    args.append(f'--memory-swap={memory}')
 
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general

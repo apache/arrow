@@ -45,6 +45,8 @@ def test_docker_run_with_custom_command(run, build, pull):
         "ubuntu-cpp",
         command="bash",
         env={},
+        limit_cpus=False,
+        limit_memory=False,
         user=None,
         using_docker=False,
         volumes=(),
@@ -87,8 +89,48 @@ def test_docker_run_options(run, build, pull):
         "ubuntu-cpp",
         command=None,
         env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
+        limit_cpus=False,
+        limit_memory=False,
         user="root",
         using_docker=False,
+        volumes=(
+            "./build:/build",
+            "./ccache:/ccache:delegated",
+        ),
+    )
+
+
+@patch.object(DockerCompose, "run")
+def test_docker_limit_options(run):
+    # environment variables and volumes
+    args = [
+        "docker",
+        "run",
+        "-e",
+        "ARROW_GANDIVA=OFF",
+        "-e",
+        "ARROW_FLIGHT=ON",
+        "--volume",
+        "./build:/build",
+        "-v",
+        "./ccache:/ccache:delegated",
+        "-u",
+        "root",
+        "--limit-cpus",
+        "--no-build",
+        "--no-pull",
+        "ubuntu-cpp",
+    ]
+    result = CliRunner().invoke(archery, args)
+    assert result.exit_code == 0
+    run.assert_called_once_with(
+        "ubuntu-cpp",
+        command=None,
+        env={"ARROW_GANDIVA": "OFF", "ARROW_FLIGHT": "ON"},
+        limit_cpus=True,
+        limit_memory=False,
+        user="root",
+        using_docker=True,
         volumes=(
             "./build:/build",
             "./ccache:/ccache:delegated",
@@ -105,6 +147,8 @@ def test_docker_run_without_pulling_or_building(run):
         "ubuntu-cpp",
         command=None,
         env={},
+        limit_cpus=False,
+        limit_memory=False,
         user=None,
         using_docker=False,
         volumes=(),
@@ -156,6 +200,8 @@ def test_docker_run_without_build_cache(run, build):
         "ubuntu-cpp",
         command=None,
         env={},
+        limit_cpus=False,
+        limit_memory=False,
         user="me",
         using_docker=False,
         volumes=(),

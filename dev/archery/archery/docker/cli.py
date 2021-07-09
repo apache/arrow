@@ -145,12 +145,18 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
               help="Whether to use cache when building only the (leaf) image "
                    "passed as the argument. To disable caching for both the "
                    "image and its ancestors use --no-cache option.")
+@click.option('--limit-cpus/--no-limit-cpus', default=False,
+              help="Whether to limit CPUs to mimic the GitHub Actions "
+                   "environment. Implies --using-docker-cli.")
+@click.option('--limit-memory/--no-limit-memory', default=False,
+              help="Whether to limit memory to mimic the GitHub Actions "
+                   "environment. Implies --using-docker-cli.")
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
 def docker_run(obj, image, command, *, env, user, force_pull, force_build,
                build_only, using_docker_cli, using_docker_buildx, use_cache,
-               use_leaf_cache, volume):
+               use_leaf_cache, limit_cpus, limit_memory, volume):
     """
     Execute docker-compose builds.
 
@@ -202,7 +208,9 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
             command=command,
             env=env,
             user=user,
-            using_docker=using_docker_cli,
+            using_docker=using_docker_cli or limit_memory or limit_cpus,
+            limit_cpus=limit_cpus,
+            limit_memory=limit_memory,
             volumes=volume
         )
     except UndefinedImage as e:
