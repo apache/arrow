@@ -30,6 +30,12 @@ platforms=([windows]=Windows
            [macos]=MacOSX
            [linux]=Linux)
 
+declare -A versions
+versions=([3.6]=3.6.8
+          [3.7]=3.7.9
+          [3.8]=3.8.9
+          [3.9]=3.9.6)
+
 if [ "$#" -ne 3 ]; then
   echo "Usage: $0 <architecture> <platform> <version>"
   exit 1
@@ -44,23 +50,23 @@ fi
 arch=${archs[$1]}
 platform=${platforms[$2]}
 version=$3
-short_version=${version:0:3}
+full_version=${versions[$3]}
 
 if [ $platform == "MacOSX" ]; then
     echo "Downloading Python installer..."
     if [ "$(uname -m)" = "arm64" ]; then
-        fname="python-${version}-macos11.pkg"
+        fname="python-${full_version}-macos11.pkg"
     else
-        fname="python-${version}-macosx10.9.pkg"
+        fname="python-${full_version}-macosx10.9.pkg"
     fi
-    wget "https://www.python.org/ftp/python/${version}/${fname}"
+    wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
     installer -pkg $fname -target /
     rm $fname
 
     echo "Installing Pip..."
-    python="/Library/Frameworks/Python.framework/Versions/${short_version}/bin/python${short_version}"
+    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
     pip="${python} -m pip"
 
     $python -m ensurepip

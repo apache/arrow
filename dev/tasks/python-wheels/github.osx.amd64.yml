@@ -21,12 +21,10 @@
 env:
   ARROW_S3: {{ arrow_s3 }}
   MACOSX_DEPLOYMENT_TARGET: {{ macos_deployment_target }}
-  MB_PYTHON_VERSION: {{ python_version }}
-  PLAT: x86_64
   PYARROW_BUILD_VERBOSE: 1
   PYARROW_VERSION: {{ arrow.no_rc_version }}
   PYTHON_VERSION: {{ python_version }}
-  SETUPTOOLS_SCM_PRETEND_VERSION: {{ arrow.no_rc_version }}
+  PYTHON: /Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
@@ -83,36 +81,28 @@ jobs:
         run: $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
       {% endif %}
 
-      - name: Setup Multibuild
+      - name: Install Python {{ python_version }}
+        shell: bash
+        run: arrow/ci/scripts/install_python.sh amd64 macos {{ python_version }}
+
+      - name: Install Virtualenvs for Building and Testing
+        shell: bash
         run: |
-          git clone https://github.com/matthew-brett/multibuild
-          git -C multibuild checkout 03950c9a7feb09d215f82d6563c4ffd91274a1e1
+          $PYTHON -m virtualenv build-env
+          $PYTHON -m virtualenv test-env
+          build-env/bin/pip install --upgrade pip wheel
+          test-env/bin/pip install --upgrade pip wheel
 
       - name: Build Wheel
-        env:
-          CONFIG_PATH: /dev/null
-          BUILD_PREFIX: ......
+        shell: bash
         run: |
-          # configure environment and install python
-          source multibuild/common_utils.sh
-          source multibuild/travis_osx_steps.sh
-          before_install
-
-          # install python dependencies
-          pip install -r arrow/python/requirements-wheel-build.txt delocate
-
-          # build the wheel
+          source build-env/bin/activate
           arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
-      - name: Setup Python for Testing
-        uses: actions/setup-python@v2
-        with:
-          python-version: "{{ python_version }}"
-
-      - name: Test the Wheel
+      - name: Test Wheel
+        shell: bash
         run: |
-          # TODO(kszucs): temporarily remove homebrew libs
-          unset MACOSX_DEPLOYMENT_TARGET
+          source test-env/bin/activate
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}

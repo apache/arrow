@@ -357,7 +357,7 @@ tasks:
 
   wheel-osx-{{ macos_codename }}-{{ python_tag }}:
     ci: github
-    template: python-wheels/github.osx.yml
+    template: python-wheels/github.osx.amd64.yml
     params:
       vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}

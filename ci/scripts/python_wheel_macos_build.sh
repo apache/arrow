@@ -35,7 +35,22 @@ echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
 # Arrow is 64-bit-only at the moment
 # export CFLAGS="-fPIC -arch arm64 ${CFLAGS//-arch i386/}"
 # export CXXFLAGS="-fPIC -arch arm64 ${CXXFLAGS//-arch i386/} -std=c++11"
-# export SDKROOT="$(xcrun --show-sdk-path)"
+# export CC=clang
+# export CXX=clang++
+
+if [ "$(uname -m)" = "arm64" ]; then
+  export CFLAGS="-arch arm64"
+  export CXXFLAGS="-arch arm64"
+  export ARCHFLAGS="-arch arm64"
+else
+  export CFLAGS="-arch x86_64"
+  export CXXFLAGS="-arch x86_64"
+  export ARCHFLAGS="-arch x86_64"
+fi
+
+export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
+export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -57,7 +72,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
-: ${CMAKE_UNITY_BUILD:=ON} 
+: ${CMAKE_UNITY_BUILD:=ON}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
@@ -65,10 +80,7 @@ mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 
 cmake \
-    -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
     -DARROW_BUILD_SHARED=ON \
-    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
-    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_DATASET=${ARROW_DATASET} \
@@ -85,7 +97,9 @@ cmake \
     -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
     -DARROW_S3=${ARROW_S3} \
+    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
     -DARROW_USE_CCACHE=ON \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
@@ -94,6 +108,7 @@ cmake \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
@@ -105,9 +120,6 @@ cmake \
     ${source_dir}/cpp
 cmake --build . --target install
 popd
-
-# Check that we don't expose any unwanted symbols
-# check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -124,6 +136,11 @@ export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_S3=${ARROW_S3}
 # PyArrow build configuration
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
+# Set PyArrow version explicitly
+export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
+
+# Ensure that the python build dependencies are installed
+pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
 
 pushd ${source_dir}/python
 python setup.py bdist_wheel
