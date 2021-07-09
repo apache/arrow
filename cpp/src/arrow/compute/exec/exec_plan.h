@@ -272,6 +272,7 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
 
 /// \brief Make a node which groups input rows based on key fields and computes
 /// aggregates for each group
+ARROW_EXPORT
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> keys,
                                   std::vector<std::string> agg_srcs,
