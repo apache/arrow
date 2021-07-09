@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -40,6 +41,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
@@ -1006,6 +1008,327 @@ struct GroupedSumFactory {
 };
 
 // ----------------------------------------------------------------------
+// Mean implementation
+
+template <typename Type>
+struct GroupedMeanImpl : public GroupedSumImpl<Type> {
+  Result<Datum> Finalize() override {
+    using SumType = typename GroupedSumImpl<Type>::SumType;
+    std::shared_ptr<Buffer> null_bitmap;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(num_groups_ * sizeof(double), pool_));
+    int64_t null_count = 0;
+
+    const int64_t* counts = reinterpret_cast<const int64_t*>(counts_.data());
+    const auto* sums = reinterpret_cast<const SumType*>(sums_.data());
+    double* means = reinterpret_cast<double*>(values->mutable_data());
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (counts[i] > 0) {
+        means[i] = sums[i] / counts[i];
+        continue;
+      }
+      means[i] = 0;
+
+      if (null_bitmap == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+    }
+
+    return ArrayData::Make(float64(), num_groups_,
+                           {std::move(null_bitmap), std::move(values)}, null_count);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
+
+  using GroupedSumImpl<Type>::num_groups_;
+  using GroupedSumImpl<Type>::pool_;
+  using GroupedSumImpl<Type>::counts_;
+  using GroupedSumImpl<Type>::sums_;
+};
+
+struct GroupedMeanFactory {
+  template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
+  Status Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedMeanImpl<T>>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Computing mean of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Computing mean of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedMeanFactory factory;
+    factory.argument_type = InputType::Array(type);
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
+// Variance/Stdev implementation
+
+enum class VarOrStd : bool { Var, Std };
+
+using arrow::internal::int128_t;
+
+template <typename Type>
+struct GroupedVarStdImpl : public GroupedAggregator {
+  using CType = typename Type::c_type;
+
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const VarianceOptions*>(options);
+    ctx_ = ctx;
+    pool_ = ctx->memory_pool();
+    counts_ = BufferBuilder(pool_);
+    means_ = BufferBuilder(pool_);
+    m2s_ = BufferBuilder(pool_);
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    RETURN_NOT_OK(counts_.Append(added_groups * sizeof(int64_t), 0));
+    RETURN_NOT_OK(means_.Append(added_groups * sizeof(double), 0));
+    RETURN_NOT_OK(m2s_.Append(added_groups * sizeof(double), 0));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override { return ConsumeImpl(batch); }
+
+  // float/double/int64: calculate `m2` (sum((X-mean)^2)) with `two pass algorithm`
+  // (see aggregate_var_std.cc)
+  template <typename T = Type>
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4), Status> ConsumeImpl(
+      const ExecBatch& batch) {
+    using SumType =
+        typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
+
+    int64_t* counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    double* means = reinterpret_cast<double*>(means_.mutable_data());
+    double* m2s = reinterpret_cast<double*>(m2s_.mutable_data());
+
+    // XXX this uses naive summation; we should switch to pairwise summation as was
+    // done for the scalar aggregate kernel in ARROW-11567
+    std::vector<SumType> sums(num_groups_);
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
+    VisitArrayDataInline<Type>(
+        *batch[0].array(),
+        [&](typename TypeTraits<Type>::CType value) {
+          sums[*g] += value;
+          counts[*g] += 1;
+          ++g;
+        },
+        [&] { ++g; });
+
+    for (int64_t i = 0; i < num_groups_; i++) {
+      means[i] = static_cast<double>(sums[i]) / counts[i];
+    }
+
+    g = batch[1].array()->GetValues<uint32_t>(1);
+    VisitArrayDataInline<Type>(
+        *batch[0].array(),
+        [&](typename TypeTraits<Type>::CType value) {
+          const double v = static_cast<double>(value);
+          m2s[*g] += (v - means[*g]) * (v - means[*g]);
+          ++g;
+        },
+        [&] { ++g; });
+
+    return Status::OK();
+  }
+
+  // int32/16/8: textbook one pass algorithm with integer arithmetic (see
+  // aggregate_var_std.cc)
+  template <typename T = Type>
+  enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4), Status> ConsumeImpl(
+      const ExecBatch& batch) {
+    // max number of elements that sum will not overflow int64 (2Gi int32 elements)
+    // for uint32:    0 <= sum < 2^63 (int64 >= 0)
+    // for int32: -2^62 <= sum < 2^62
+    constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
+
+    const auto& array = *batch[0].array();
+    const auto g = batch[1].array()->GetValues<uint32_t>(1);
+
+    std::vector<int64_t> sum(num_groups_);
+    std::vector<int128_t> square_sum(num_groups_);
+
+    ARROW_ASSIGN_OR_RAISE(auto mapping,
+                          AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
+    for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
+      reinterpret_cast<uint32_t*>(mapping->mutable_data())[i] = i;
+    }
+    ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
+                               /*null_count=*/0);
+
+    const CType* values = array.GetValues<CType>(1);
+
+    for (int64_t start_index = 0; start_index < batch.length; start_index += max_length) {
+      // process in chunks that overflow will never happen
+
+      // reset state
+      std::fill(sum.begin(), sum.end(), 0);
+      std::fill(square_sum.begin(), square_sum.end(), 0);
+      GroupedVarStdImpl<Type> state;
+      RETURN_NOT_OK(state.Init(ctx_, &options_));
+      RETURN_NOT_OK(state.Resize(num_groups_));
+      int64_t* other_counts = reinterpret_cast<int64_t*>(state.counts_.mutable_data());
+      double* other_means = reinterpret_cast<double*>(state.means_.mutable_data());
+      double* other_m2s = reinterpret_cast<double*>(state.m2s_.mutable_data());
+
+      arrow::internal::VisitSetBitRunsVoid(
+          array.buffers[0], array.offset + start_index,
+          std::min(max_length, batch.length - start_index),
+          [&](int64_t pos, int64_t len) {
+            for (int64_t i = 0; i < len; ++i) {
+              const int64_t index = start_index + pos + i;
+              const auto value = values[index];
+              sum[g[index]] += value;
+              square_sum[g[index]] += static_cast<uint64_t>(value) * value;
+              other_counts[g[index]]++;
+            }
+          });
+
+      for (int64_t i = 0; i < num_groups_; i++) {
+        if (other_counts[i] == 0) continue;
+
+        const double mean = static_cast<double>(sum[i]) / other_counts[i];
+        // calculate m2 = square_sum - sum * sum / count
+        // decompose `sum * sum / count` into integers and fractions
+        const int128_t sum_square = static_cast<int128_t>(sum[i]) * sum[i];
+        const int128_t integers = sum_square / other_counts[i];
+        const double fractions =
+            static_cast<double>(sum_square % other_counts[i]) / other_counts[i];
+        const double m2 = static_cast<double>(square_sum[i] - integers) - fractions;
+
+        other_means[i] = mean;
+        other_m2s[i] = m2;
+      }
+      RETURN_NOT_OK(this->Merge(std::move(state), group_id_mapping));
+    }
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    // Combine m2 from two chunks (see aggregate_var_std.cc)
+    auto other = checked_cast<GroupedVarStdImpl*>(&raw_other);
+
+    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    auto means = reinterpret_cast<double*>(means_.mutable_data());
+    auto m2s = reinterpret_cast<double*>(m2s_.mutable_data());
+
+    const auto* other_counts = reinterpret_cast<const int64_t*>(other->counts_.data());
+    const auto* other_means = reinterpret_cast<const double*>(other->means_.data());
+    const auto* other_m2s = reinterpret_cast<const double*>(other->m2s_.data());
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      if (other_counts[other_g] == 0) continue;
+      const double mean =
+          (means[*g] * counts[*g] + other_means[other_g] * other_counts[other_g]) /
+          (counts[*g] + other_counts[other_g]);
+      m2s[*g] += other_m2s[other_g] +
+                 counts[*g] * (means[*g] - mean) * (means[*g] - mean) +
+                 other_counts[other_g] * (other_means[other_g] - mean) *
+                     (other_means[other_g] - mean);
+      counts[*g] += other_counts[other_g];
+      means[*g] = mean;
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    std::shared_ptr<Buffer> null_bitmap;
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(num_groups_ * sizeof(double), pool_));
+    int64_t null_count = 0;
+
+    double* results = reinterpret_cast<double*>(values->mutable_data());
+    const int64_t* counts = reinterpret_cast<const int64_t*>(counts_.data());
+    const double* m2s = reinterpret_cast<const double*>(m2s_.data());
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (counts[i] > options_.ddof) {
+        const double variance = m2s[i] / (counts[i] - options_.ddof);
+        results[i] = result_type_ == VarOrStd::Var ? variance : std::sqrt(variance);
+        continue;
+      }
+
+      results[i] = 0;
+      if (null_bitmap == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+    }
+
+    return ArrayData::Make(float64(), num_groups_,
+                           {std::move(null_bitmap), std::move(values)}, null_count);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
+
+  VarOrStd result_type_;
+  VarianceOptions options_;
+  int64_t num_groups_ = 0;
+  // m2 = count * s2 = sum((X-mean)^2)
+  BufferBuilder counts_, means_, m2s_;
+  ExecContext* ctx_;
+  MemoryPool* pool_;
+};
+
+template <typename T, VarOrStd result_type>
+Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
+                                                const KernelInitArgs& args) {
+  auto impl = ::arrow::internal::make_unique<GroupedVarStdImpl<T>>();
+  impl->result_type_ = result_type;
+  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.options));
+  return std::move(impl);
+}
+
+template <VarOrStd result_type>
+struct GroupedVarStdFactory {
+  template <typename T, typename Enable = enable_if_t<is_integer_type<T>::value ||
+                                                      is_floating_type<T>::value>>
+  Status Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), VarStdInit<T, result_type>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Summing data of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Summing data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedVarStdFactory factory;
+    factory.argument_type = InputType::Array(type);
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
+// ----------------------------------------------------------------------
 // MinMax implementation
 
 template <typename CType>
@@ -1537,6 +1860,26 @@ const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
                                ("Null values are ignored."),
                                {"array", "group_id_array"}};
 
+const FunctionDoc hash_mean_doc{"Average values of a numeric array",
+                                ("Null values are ignored."),
+                                {"array", "group_id_array"}};
+
+const FunctionDoc hash_stddev_doc{
+    "Calculate the standard deviation of a numeric array",
+    ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
+     "By default (`ddof` = 0), the population standard deviation is calculated.\n"
+     "Nulls are ignored.  If there are not enough non-null values in the array\n"
+     "to satisfy `ddof`, null is returned."),
+    {"array", "group_id_array"}};
+
+const FunctionDoc hash_variance_doc{
+    "Calculate the variance of a numeric array",
+    ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
+     "By default (`ddof` = 0), the population variance is calculated.\n"
+     "Nulls are ignored.  If there are not enough non-null values in the array\n"
+     "to satisfy `ddof`, null is returned."),
+    {"array", "group_id_array"}};
+
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
     ("Null values are ignored by default.\n"
@@ -1573,6 +1916,43 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(FloatingPointTypes(), GroupedSumFactory::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_mean", Arity::Binary(),
+                                                        &hash_mean_doc);
+    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedMeanFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedMeanFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(UnsignedIntTypes(), GroupedMeanFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(FloatingPointTypes(), GroupedMeanFactory::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  static auto default_variance_options = VarianceOptions::Defaults();
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_stddev", Arity::Binary(), &hash_stddev_doc, &default_variance_options);
+    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
+                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
+                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
+                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_variance", Arity::Binary(), &hash_variance_doc, &default_variance_options);
+    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
+                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
+                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
+                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
