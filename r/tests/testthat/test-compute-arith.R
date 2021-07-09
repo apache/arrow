@@ -115,28 +115,3 @@ test_that("Dates casting", {
   # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
 })
-
-test_that("log", {
-  
-  data <- c(as.numeric(1:10), NA, NA)
-  
-  expect_vector_equal(log(input), data)
-  expect_vector_equal(logb(input), data)
-  expect_vector_equal(log1p(input), data)
-  expect_vector_equal(log2(input), data)
-  expect_vector_equal(log10(input), data)
-  
-})
-
-test_that("trig", {
-  
-  data <- c(as.numeric(1:10), NA, NA)
-  under_1 <- c(seq(from = 0, to = 1, by = 0.1), NA)
-  
-  expect_vector_equal(sin(input), data)
-  expect_vector_equal(cos(input), data)
-  expect_vector_equal(tan(input), data)
-  expect_vector_equal(asin(under_1), data)
-  expect_vector_equal(acos(under_1), data)
-  
-})

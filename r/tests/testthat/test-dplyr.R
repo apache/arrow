@@ -945,3 +945,85 @@ test_that("abs()", {
     df
   )
 })
+
+test_that("log functions", {
+  
+  df <- tibble(x = c(as.numeric(1:10), NA, NA))
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = logb(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log1p(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log2(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log10(x)) %>%
+      collect(),
+    df
+  )
+
+})
+  
+test_that("trig functions", {
+  
+  df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = sin(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = cos(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = tan(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = asin(x)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = acos(x)) %>%
+      collect(),
+    df
+  )
+
+})
