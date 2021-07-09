@@ -63,6 +63,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_PARQUET:=ON}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=ON}
+: ${ARROW_SIMD_LEVEL:="SSE4_2"}
 : ${ARROW_TENSORFLOW:=ON}
 : ${ARROW_WITH_BROTLI:=ON}
 : ${ARROW_WITH_BZ2:=ON}

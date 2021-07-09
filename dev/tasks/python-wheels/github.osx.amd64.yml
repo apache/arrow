@@ -39,7 +39,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
-        run: brew install bison coreutils ninja cmake
+        run: brew install bash bison coreutils ninja cmake
 
       - uses: actions/cache@v2
         id: vcpkg-cache
@@ -84,7 +84,7 @@ jobs:
 
       - name: Install Python {{ python_version }}
         shell: bash
-        run: arrow/ci/scripts/install_python.sh amd64 macos {{ python_version }}
+        run: sudo arrow/ci/scripts/install_python.sh amd64 macos {{ python_version }}
 
       - name: Install Virtualenvs for Building and Testing
         shell: bash
