@@ -987,8 +987,9 @@ std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
 
 }  // namespace detail
 
-ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
-    : pool_(pool) {
+ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
+                         FunctionRegistry* func_registry)
+    : pool_(pool), executor_(executor) {
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 

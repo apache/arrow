@@ -39,11 +39,13 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  ExecPlanImpl() = default;
+  explicit ExecPlanImpl(ExecContext* exec_context) : ExecPlan(exec_context) {}
 
   ~ExecPlanImpl() override {
-    if (started_ && !stopped_) {
+    if (started_ && !finished_.is_finished()) {
+      ARROW_LOG(WARNING) << "Plan was destroyed before finishing";
       StopProducing();
+      finished().Wait();
     }
   }
 
@@ -77,25 +79,40 @@ struct ExecPlanImpl : public ExecPlan {
     // producers precede consumers
     sorted_nodes_ = TopoSort();
 
-    for (size_t i = 0, rev_i = sorted_nodes_.size() - 1; i < sorted_nodes_.size();
-         ++i, --rev_i) {
-      auto st = sorted_nodes_[rev_i]->StartProducing();
-      if (st.ok()) continue;
+    std::vector<Future<>> futures;
 
-      // Stop nodes that successfully started, in reverse order
-      for (; rev_i < sorted_nodes_.size(); ++rev_i) {
-        sorted_nodes_[rev_i]->StopProducing();
+    Status st = Status::OK();
+
+    using rev_it = std::reverse_iterator<NodeVector::iterator>;
+    for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
+      auto node = *it;
+
+      st = node->StartProducing();
+      if (!st.ok()) {
+        // Stop nodes that successfully started, in reverse order
+        stopped_ = true;
+        StopProducingImpl(it.base(), sorted_nodes_.end());
+        break;
       }
-      return st;
+
+      futures.push_back(node->finished());
     }
-    return Status::OK();
+
+    finished_ = AllComplete(std::move(futures));
+    return st;
   }
 
   void StopProducing() {
     DCHECK(started_) << "stopped an ExecPlan which never started";
     stopped_ = true;
 
-    for (const auto& node : sorted_nodes_) {
+    StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end());
+  }
+
+  template <typename It>
+  void StopProducingImpl(It begin, It end) {
+    for (auto it = begin; it != end; ++it) {
+      auto node = *it;
       node->StopProducing();
     }
   }
@@ -133,10 +150,11 @@ struct ExecPlanImpl : public ExecPlan {
     return std::move(Impl{nodes_}.sorted);
   }
 
+  Future<> finished_ = Future<>::MakeFinished();
   bool started_ = false, stopped_ = false;
   std::vector<std::unique_ptr<ExecNode>> nodes_;
-  NodeVector sorted_nodes_;
   NodeVector sources_, sinks_;
+  NodeVector sorted_nodes_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -155,8 +173,8 @@ util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 
 }  // namespace
 
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make() {
-  return std::make_shared<ExecPlanImpl>();
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(ExecContext* ctx) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx});
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -174,6 +192,8 @@ Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 
 void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
+
+Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
 
 ExecNode::ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
                    std::vector<std::string> input_labels,
@@ -220,58 +240,61 @@ struct SourceNode : ExecNode {
 
   const char* kind_name() override { return "SourceNode"; }
 
-  static void NoInputs() { DCHECK(false) << "no inputs; this should never be called"; }
-  void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
-  void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
-  void InputFinished(ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] static void NoInputs() {
+    DCHECK(false) << "no inputs; this should never be called";
+    std::abort();
+  }
+  [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
+  [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
+  [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    if (finished_) {
-      return Status::Invalid("Restarted SourceNode '", label(), "'");
+    DCHECK(!stop_requested_) << "Restarted SourceNode";
+
+    CallbackOptions options;
+    if (auto executor = plan()->exec_context()->executor()) {
+      // These options will transfer execution to the desired Executor if necessary.
+      // This can happen for in-memory scans where batches didn't require
+      // any CPU work to decode. Otherwise, parsing etc should have already
+      // been placed us on the desired Executor and no queues will be pushed to.
+      options.executor = executor;
+      options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
 
-    finished_fut_ =
-        Loop([this] {
-          std::unique_lock<std::mutex> lock(mutex_);
-          int seq = next_batch_index_++;
-          if (finished_) {
-            return Future<ControlFlow<int>>::MakeFinished(Break(seq));
-          }
-          lock.unlock();
-
-          return generator_().Then(
-              [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
-                std::unique_lock<std::mutex> lock(mutex_);
-                if (!batch || finished_) {
-                  finished_ = true;
-                  return Break(seq);
-                }
-                lock.unlock();
-
-                // TODO check if we are on the desired Executor and transfer if not.
-                // This can happen for in-memory scans where batches didn't require
-                // any CPU work to decode. Otherwise, parsing etc should have already
-                // been placed us on the thread pool
-                outputs_[0]->InputReceived(this, seq, *batch);
-                return Continue();
-              },
-              [=](const Status& error) -> ControlFlow<int> {
-                std::unique_lock<std::mutex> lock(mutex_);
-                if (!finished_) {
-                  finished_ = true;
+    finished_ = Loop([this, options] {
+                  std::unique_lock<std::mutex> lock(mutex_);
+                  int seq = batch_count_++;
+                  if (stop_requested_) {
+                    return Future<ControlFlow<int>>::MakeFinished(Break(seq));
+                  }
                   lock.unlock();
-                  // unless we were already finished, push the error to our output
-                  // XXX is this correct? Is it reasonable for a consumer to
-                  // ignore errors from a finished producer?
-                  outputs_[0]->ErrorReceived(this, error);
-                }
-                return Break(seq);
-              });
-        }).Then([&](int seq) {
-          /// XXX this is probably redundant: do we always call InputFinished after
-          /// ErrorReceived or will ErrorRecieved be sufficient?
-          outputs_[0]->InputFinished(this, seq);
-        });
+
+                  return generator_().Then(
+                      [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
+                        std::unique_lock<std::mutex> lock(mutex_);
+                        if (IsIterationEnd(batch) || stop_requested_) {
+                          stop_requested_ = true;
+                          return Break(seq);
+                        }
+                        lock.unlock();
+
+                        outputs_[0]->InputReceived(this, seq, *batch);
+                        return Continue();
+                      },
+                      [=](const Status& error) -> ControlFlow<int> {
+                        // NB: ErrorReceived is independent of InputFinished, but
+                        // ErrorReceived will usually prompt StopProducing which will
+                        // prompt InputFinished. ErrorReceived may still be called from a
+                        // node which was requested to stop (indeed, the request to stop
+                        // may prompt an error).
+                        std::unique_lock<std::mutex> lock(mutex_);
+                        stop_requested_ = true;
+                        lock.unlock();
+                        outputs_[0]->ErrorReceived(this, error);
+                        return Break(seq);
+                      },
+                      options);
+                }).Then([&](int seq) { outputs_[0]->InputFinished(this, seq); });
 
     return Status::OK();
   }
@@ -282,20 +305,21 @@ struct SourceNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      finished_ = true;
-    }
-    finished_fut_.Wait();
+    StopProducing();
   }
 
-  void StopProducing() override { StopProducing(outputs_[0]); }
+  void StopProducing() override {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stop_requested_ = true;
+  }
+
+  Future<> finished() override { return finished_; }
 
  private:
   std::mutex mutex_;
-  bool finished_{false};
-  int next_batch_index_{0};
-  Future<> finished_fut_ = Future<>::MakeFinished();
+  bool stop_requested_{false};
+  int batch_count_{0};
+  Future<> finished_ = Future<>::MakeFinished();
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
@@ -319,8 +343,8 @@ struct FilterNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(filter_, target.guarantee));
 
-    // XXX get a non-default exec context
-    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(simplified_filter, target));
+    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(simplified_filter, target,
+                                                              plan()->exec_context()));
 
     if (mask.is_scalar()) {
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
@@ -330,6 +354,10 @@ struct FilterNode : ExecNode {
 
       return target.Slice(0, 0);
     }
+
+    // if the values are all scalar then the mask must also be
+    DCHECK(!std::all_of(target.values.begin(), target.values.end(),
+                        [](const Datum& value) { return value.is_scalar(); }));
 
     auto values = target.values;
     for (auto& value : values) {
@@ -345,7 +373,6 @@ struct FilterNode : ExecNode {
     auto maybe_filtered = DoFilter(std::move(batch));
     if (!maybe_filtered.ok()) {
       outputs_[0]->ErrorReceived(this, maybe_filtered.status());
-      inputs_[0]->StopProducing(this);
       return;
     }
 
@@ -356,7 +383,6 @@ struct FilterNode : ExecNode {
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
-    inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int seq) override {
@@ -372,10 +398,12 @@ struct FilterNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    inputs_[0]->StopProducing(this);
+    StopProducing();
   }
 
-  void StopProducing() override { StopProducing(outputs_[0]); }
+  void StopProducing() override { inputs_[0]->StopProducing(this); }
+
+  Future<> finished() override { return inputs_[0]->finished(); }
 
  private:
   Expression filter_;
@@ -407,15 +435,15 @@ struct ProjectNode : ExecNode {
   const char* kind_name() override { return "ProjectNode"; }
 
   Result<ExecBatch> DoProject(const ExecBatch& target) {
-    // XXX get a non-default exec context
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
-      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target));
+      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target,
+                                                               plan()->exec_context()));
     }
-    return ExecBatch::Make(std::move(values));
+    return ExecBatch{std::move(values), target.length};
   }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
@@ -424,7 +452,6 @@ struct ProjectNode : ExecNode {
     auto maybe_projected = DoProject(std::move(batch));
     if (!maybe_projected.ok()) {
       outputs_[0]->ErrorReceived(this, maybe_projected.status());
-      inputs_[0]->StopProducing(this);
       return;
     }
 
@@ -435,7 +462,6 @@ struct ProjectNode : ExecNode {
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
-    inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int seq) override {
@@ -451,10 +477,12 @@ struct ProjectNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    inputs_[0]->StopProducing(this);
+    StopProducing();
   }
 
-  void StopProducing() override { StopProducing(outputs_[0]); }
+  void StopProducing() override { inputs_[0]->StopProducing(this); }
+
+  Future<> finished() override { return inputs_[0]->finished(); }
 
  private:
   std::vector<Expression> exprs_;
@@ -494,28 +522,38 @@ struct SinkNode : ExecNode {
 
   const char* kind_name() override { return "SinkNode"; }
 
-  Status StartProducing() override { return Status::OK(); }
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+    return Status::OK();
+  }
 
   // sink nodes have no outputs from which to feel backpressure
-  static void NoOutputs() { DCHECK(false) << "no outputs; this should never be called"; }
-  void ResumeProducing(ExecNode* output) override { NoOutputs(); }
-  void PauseProducing(ExecNode* output) override { NoOutputs(); }
-  void StopProducing(ExecNode* output) override { NoOutputs(); }
+  [[noreturn]] static void NoOutputs() {
+    DCHECK(false) << "no outputs; this should never be called";
+    std::abort();
+  }
+  [[noreturn]] void ResumeProducing(ExecNode* output) override { NoOutputs(); }
+  [[noreturn]] void PauseProducing(ExecNode* output) override { NoOutputs(); }
+  [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    InputFinishedUnlocked();
+    Finish();
+    inputs_[0]->StopProducing(this);
   }
+
+  Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     std::unique_lock<std::mutex> lock(mutex_);
-    if (stopped_) return;
+    if (finished_.is_finished()) return;
 
     ++num_received_;
     if (num_received_ == emit_stop_) {
-      InputFinishedUnlocked();
+      lock.unlock();
+      Finish();
+      lock.lock();
     }
 
     if (emit_stop_ != -1) {
@@ -529,23 +567,21 @@ struct SinkNode : ExecNode {
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
     producer_.Push(std::move(error));
-    std::unique_lock<std::mutex> lock(mutex_);
-    InputFinishedUnlocked();
+    Finish();
+    inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int seq_stop) override {
     std::unique_lock<std::mutex> lock(mutex_);
     emit_stop_ = seq_stop;
-    if (emit_stop_ == num_received_) {
-      InputFinishedUnlocked();
-    }
+    lock.unlock();
+    Finish();
   }
 
  private:
-  void InputFinishedUnlocked() {
-    if (!stopped_) {
-      stopped_ = true;
-      producer_.Close();
+  void Finish() {
+    if (producer_.Close()) {
+      finished_.MarkFinished();
     }
   }
 
@@ -553,7 +589,7 @@ struct SinkNode : ExecNode {
 
   int num_received_ = 0;
   int emit_stop_ = -1;
-  bool stopped_ = false;
+  Future<> finished_ = Future<>::MakeFinished();
 
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
