@@ -17,7 +17,6 @@
 
 # cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
 
 import io
 from textwrap import indent
