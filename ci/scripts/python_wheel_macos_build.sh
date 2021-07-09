@@ -31,26 +31,20 @@ rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 
-echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
-# Arrow is 64-bit-only at the moment
-# export CFLAGS="-fPIC -arch arm64 ${CFLAGS//-arch i386/}"
-# export CXXFLAGS="-fPIC -arch arm64 ${CXXFLAGS//-arch i386/} -std=c++11"
-# export CC=clang
-# export CXX=clang++
-
+echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
+export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 if [ "$(uname -m)" = "arm64" ]; then
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
+  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET//./_}-arm64"
 else
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
   export ARCHFLAGS="-arch x86_64"
+  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET//./_}-x86_64"
 fi
-
-export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
-export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
 
 echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
 pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
