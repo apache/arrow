@@ -58,14 +58,36 @@ func (f *flightPayloadWriter) Close() error { return nil }
 // are written.
 type Writer struct {
 	*ipc.Writer
-	pw *flightPayloadWriter
+	pw   *flightPayloadWriter
+	desc *FlightDescriptor
+}
+
+// SetFlightDescriptor sets the flight descriptor into the next payload that will
+// be written by the flight writer. It will only be put into the very next payload
+// and afterwards the writer will no longer keep it's pointer to the descriptor.
+func (w *Writer) SetFlightDescriptor(descr *FlightDescriptor) {
+	w.desc = descr
+}
+
+// Write writes a recordbatch payload and returns any error, implementing the arrio.Writer interface
+func (w *Writer) Write(rec array.Record) error {
+	if w.desc != nil {
+		w.pw.fd.FlightDescriptor = w.desc
+		defer func() {
+			w.desc = nil
+			w.pw.fd.FlightDescriptor = nil
+		}()
+	}
+	return w.Writer.Write(rec)
 }
 
 // WriteWithAppMetadata will write this record with the supplied application
 // metadata attached in the flightData message.
 func (w *Writer) WriteWithAppMetadata(rec array.Record, appMeta []byte) error {
 	w.pw.fd.AppMetadata = appMeta
-	defer func() { w.pw.fd.AppMetadata = nil }()
+	defer func() {
+		w.pw.fd.AppMetadata = nil
+	}()
 	return w.Write(rec)
 }
 
