@@ -442,7 +442,7 @@ void KeyEncoder::EncoderInteger::Encode(uint32_t offset_within_row, KeyRowArray*
   // When we have a single fixed length column we can just do memcpy
   if (rows->metadata().is_fixed_length &&
       rows->metadata().fixed_length == col.metadata().fixed_length) {
-    DCHECK(offset_within_row == 0);
+    DCHECK_EQ(offset_within_row, 0);
     uint32_t row_size = col.metadata().fixed_length;
     memcpy(rows->mutable_data(1), col.data(1), num_rows * row_size);
   } else if (rows->metadata().is_fixed_length) {
@@ -524,7 +524,7 @@ void KeyEncoder::EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
   // When we have a single fixed length column we can just do memcpy
   if (rows.metadata().is_fixed_length &&
       col_prep.metadata().fixed_length == rows.metadata().fixed_length) {
-    DCHECK(offset_within_row == 0);
+    DCHECK_EQ(offset_within_row, 0);
     uint32_t row_size = rows.metadata().fixed_length;
     memcpy(col_prep.mutable_data(1), rows.data(1) + start_row * row_size,
            num_rows * row_size);
@@ -1070,7 +1070,7 @@ void KeyEncoder::EncoderOffsets::Encode(KeyRowArray* rows,
 void KeyEncoder::EncoderOffsets::EncodeImp(
     uint32_t num_rows_already_processed, KeyRowArray* rows,
     const std::vector<KeyColumnArray>& varbinary_cols) {
-  DCHECK(varbinary_cols.size() > 0);
+  DCHECK_GT(varbinary_cols.size(), 0);
 
   int row_alignment = rows->metadata().row_alignment;
   int string_alignment = rows->metadata().string_alignment;
@@ -1249,7 +1249,7 @@ void KeyEncoder::EncoderNulls::Encode(KeyRowArray* rows,
                                       const std::vector<KeyColumnArray>& cols,
                                       KeyEncoderContext* ctx,
                                       KeyColumnArray* temp_vector_16bit) {
-  DCHECK(cols.size() > 0);
+  DCHECK_GT(cols.size(), 0);
   const auto num_rows = static_cast<uint32_t>(rows->length());
 
   // All input columns should have the same number of rows.
@@ -1272,7 +1272,7 @@ void KeyEncoder::EncoderNulls::Encode(KeyRowArray* rows,
       continue;
     }
     int bit_offset = cols[col].bit_offset(0);
-    DCHECK(bit_offset < 8);
+    DCHECK_LT(bit_offset, 8);
     int num_selected;
     util::BitUtil::bits_to_indexes(
         0, ctx->hardware_flags, num_rows, non_nulls, &num_selected,
@@ -1290,7 +1290,7 @@ void KeyEncoder::EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows,
                                       std::vector<KeyColumnArray>* cols) {
   // Every output column needs to have a space for exactly the required number
   // of rows. It also needs to have non-nulls bit-vector allocated and mutable.
-  DCHECK(cols->size() > 0);
+  DCHECK_GT(cols->size(), 0);
   for (auto& col : *cols) {
     DCHECK(col.length() == num_rows);
     DCHECK(col.mutable_data(0));
@@ -1301,7 +1301,7 @@ void KeyEncoder::EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows,
   for (size_t col = 0; col < cols->size(); ++col) {
     uint8_t* non_nulls = (*cols)[col].mutable_data(0);
     const int bit_offset = (*cols)[col].bit_offset(0);
-    DCHECK(bit_offset < 8);
+    DCHECK_LT(bit_offset, 8);
     non_nulls[0] |= 0xff << (bit_offset);
     if (bit_offset + num_rows > 8) {
       int bits_in_first_byte = 8 - bit_offset;
