@@ -17,6 +17,23 @@
 
 package org.apache.arrow.flight.sql;
 
+import static io.grpc.Status.INVALID_ARGUMENT;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_ACTIONS;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.parseOrThrow;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.unpackAndParseOrThrow;
+import static org.apache.arrow.flight.sql.FlightSqlUtils.unpackOrThrow;
+import static org.apache.arrow.vector.types.Types.MinorType.BIGINT;
+import static org.apache.arrow.vector.types.Types.MinorType.INT;
+import static org.apache.arrow.vector.types.Types.MinorType.VARBINARY;
+import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
+import static org.apache.arrow.vector.types.UnionMode.Dense;
+import static org.apache.arrow.vector.types.pojo.Field.nullable;
+import static org.apache.arrow.vector.types.pojo.FieldType.nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,17 +60,14 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.UnionMode;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
+import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
-
-import io.grpc.Status;
 
 /**
  * API to Implement an Arrow Flight SQL producer.
@@ -64,59 +78,59 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * 1. Return information about a SQL query, or
    * 2. Return information about a prepared statement. In this case, parameters binding is allowed.
    *
-   * @param context Per-call context.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return information about the given SQL query, or the given prepared statement.
    */
   @Override
   public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
-    final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
+    final Any command = parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
       return getFlightInfoStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+          unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getFlightInfoPreparedStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
+          unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return getFlightInfoCatalogs(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetCatalogs.class), context, descriptor);
+          unpackOrThrow(command, CommandGetCatalogs.class), context, descriptor);
     } else if (command.is(CommandGetSchemas.class)) {
       return getFlightInfoSchemas(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, descriptor);
+          unpackOrThrow(command, CommandGetSchemas.class), context, descriptor);
     } else if (command.is(CommandGetTables.class)) {
       return getFlightInfoTables(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, descriptor);
+          unpackOrThrow(command, CommandGetTables.class), context, descriptor);
     } else if (command.is(CommandGetTableTypes.class)) {
       return getFlightInfoTableTypes(context, descriptor);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getFlightInfoSqlInfo(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
+          unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getFlightInfoPrimaryKeys(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
+          unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
     } else if (command.is(CommandGetForeignKeys.class)) {
       return getFlightInfoForeignKeys(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class), context, descriptor);
+          unpackOrThrow(command, CommandGetForeignKeys.class), context, descriptor);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
    * Returns the schema of the result produced by the SQL query.
    *
-   * @param context Per-call context.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return the result set schema.
    */
   @Override
   public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
-    final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
+    final Any command = parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
       return getSchemaStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+          unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return getSchemaCatalogs();
     } else if (command.is(CommandGetSchemas.class)) {
@@ -133,7 +147,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       return getSchemaForeignKeys();
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -141,8 +155,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * 1. Return data for a stream produced by executing the provided SQL query, or
    * 2. Return data for a prepared statement. In this case, parameters binding is allowed.
    *
-   * @param context Per-call context.
-   * @param ticket The application-defined ticket identifying this stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
   @Override
@@ -158,28 +172,28 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
     if (command.is(CommandStatementQuery.class)) {
       getStreamStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, ticket, listener);
+          unpackOrThrow(command, CommandStatementQuery.class), context, ticket, listener);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       getStreamPreparedStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
+          unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
     } else if (command.is(CommandGetCatalogs.class)) {
       getStreamCatalogs(context, ticket, listener);
     } else if (command.is(CommandGetSchemas.class)) {
-      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, ticket, listener);
+      getStreamSchemas(unpackOrThrow(command, CommandGetSchemas.class), context, ticket, listener);
     } else if (command.is(CommandGetTables.class)) {
-      getStreamTables(FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, ticket, listener);
+      getStreamTables(unpackOrThrow(command, CommandGetTables.class), context, ticket, listener);
     } else if (command.is(CommandGetTableTypes.class)) {
       getStreamTableTypes(context, ticket, listener);
     } else if (command.is(CommandGetSqlInfo.class)) {
-      getStreamSqlInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
+      getStreamSqlInfo(unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
-      getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class),
+      getStreamPrimaryKeys(unpackOrThrow(command, CommandGetPrimaryKeys.class),
           context, ticket, listener);
     } else if (command.is(CommandGetForeignKeys.class)) {
-      getStreamForeignKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class),
+      getStreamForeignKeys(unpackOrThrow(command, CommandGetForeignKeys.class),
           context, ticket, listener);
     } else {
-      throw Status.INVALID_ARGUMENT.asRuntimeException();
+      throw INVALID_ARGUMENT.asRuntimeException();
     }
   }
 
@@ -187,67 +201,67 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * Depending on the provided command, method either:
    * 1. Execute provided SQL query as an update statement, or
    * 2. Execute provided update SQL query prepared statement. In this case, parameters binding
-   *    is allowed, or
+   * is allowed, or
    * 3. Binds parameters to the provided prepared statement.
    *
-   * @param context Per-call context.
+   * @param context      Per-call context.
    * @param flightStream The data stream being uploaded.
-   * @param ackStream The data stream listener for update result acknowledgement.
+   * @param ackStream    The data stream listener for update result acknowledgement.
    * @return a Runnable to process the stream.
    */
   @Override
   public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    final Any command = FlightSqlUtils.parseOrThrow(flightStream.getDescriptor().getCommand());
+    final Any command = parseOrThrow(flightStream.getDescriptor().getCommand());
 
     if (command.is(CommandStatementUpdate.class)) {
       return acceptPutStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
+          unpackOrThrow(command, CommandStatementUpdate.class),
           context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementUpdate.class)) {
       return acceptPutPreparedStatementUpdate(
-          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementUpdate.class),
+          unpackOrThrow(command, CommandPreparedStatementUpdate.class),
           context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return acceptPutPreparedStatementQuery(
-          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
+          unpackOrThrow(command, CommandPreparedStatementQuery.class),
           context, flightStream, ackStream);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
    * Lists all available Flight SQL actions.
    *
-   * @param context Per-call context.
+   * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
   @Override
   public void listActions(CallContext context, StreamListener<ActionType> listener) {
-    FlightSqlUtils.FLIGHT_SQL_ACTIONS.forEach(listener::onNext);
+    FLIGHT_SQL_ACTIONS.forEach(listener::onNext);
     listener.onCompleted();
   }
 
   /**
    * Performs the requested Flight SQL action.
    *
-   * @param context Per-call context.
-   * @param action Client-supplied parameters.
+   * @param context  Per-call context.
+   * @param action   Client-supplied parameters.
    * @param listener A stream of responses.
    */
   @Override
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
-    if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
-      final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
+    if (action.getType().equals(FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
+      final ActionCreatePreparedStatementRequest request = unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
-    } else if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
-      final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
+    } else if (action.getType().equals(FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
+      final ActionClosePreparedStatementRequest request = unpackAndParseOrThrow(action.getBody(),
           ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -328,8 +342,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
                                                   Ticket ticket, ServerStreamListener listener);
 
   /**
-   * Accepts uploaded data for a particular SQL query based data stream. PutResults must be in the form of a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult}.
+   * Accepts uploaded data for a particular SQL query based data stream.
+   * <p>`PutResult`s must be in the form of a {@link DoPutUpdateResult}.
    *
    * @param command      The sql command to generate the data stream.
    * @param context      Per-call context.
@@ -338,11 +352,11 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return A runnable to process the stream.
    */
   public abstract Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
-          FlightStream flightStream, StreamListener<PutResult> ackStream);
+                                              FlightStream flightStream, StreamListener<PutResult> ackStream);
 
   /**
-   * Accepts uploaded data for a particular prepared statement data stream. PutResults must be in the form of a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult}.
+   * Accepts uploaded data for a particular prepared statement data stream.
+   * <p>`PutResult`s must be in the form of a {@link DoPutUpdateResult}.
    *
    * @param command      The prepared statement to generate the data stream.
    * @param context      Per-call context.
@@ -351,7 +365,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return A runnable to process the stream.
    */
   public abstract Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command,
-          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
+                                                            CallContext context, FlightStream flightStream,
+                                                            StreamListener<PutResult> ackStream);
 
   /**
    * Accepts uploaded parameter values for a particular prepared statement query.
@@ -363,14 +378,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return A runnable to process the stream.
    */
   public abstract Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command,
-          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream);
+                                                           CallContext context, FlightStream flightStream,
+                                                           StreamListener<PutResult> ackStream);
 
   /**
    * Returns the SQL Info of the server by returning a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo} in a {@link Result}.
+   * {@link CommandGetSqlInfo} in a {@link Result}.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -383,21 +399,19 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaSqlInfo() {
-    final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field("info_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    final List<Field> children = asList(
+        nullable("string_value", VARCHAR.getType()),
+        nullable("int_value", INT.getType()),
+        nullable("bigint_value", BIGINT.getType()),
+        nullable("int32_bitmask", INT.getType()));
 
-    // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-    final List<Field> children = new ArrayList<>();
-    children.add(new Field("string_value", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    children.add(new Field("int_value", FieldType.nullable(Types.MinorType.INT.getType()), null));
-    children.add(new Field("bigint_value", FieldType.nullable(Types.MinorType.BIGINT.getType()), null));
-    children.add(new Field("int32_bitmask", FieldType.nullable(Types.MinorType.INT.getType()), null));
-
-    fields.add(new Field(
-        "value",
-        new FieldType(false, new ArrowType.Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
-        children));
+    List<Field> fields = asList(
+        nullable("info_name", VARCHAR.getType()),
+        new Field("value",
+            // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+            new FieldType(false, new Union(Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
+            children));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -417,8 +431,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * Returns the available catalogs by returning a stream of
    * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs} objects in {@link Result} objects.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -433,7 +447,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaCatalogs() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    fields.add(new Field("catalog_name", nullable(VARCHAR.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -450,10 +464,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
   /**
    * Returns the available schemas by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas} objects in {@link Result} objects.
+   * {@link CommandGetSchemas} objects in {@link Result} objects.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -466,10 +480,9 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaSchemas() {
-    final List<Field> fields = new ArrayList<>();
-
-    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    List<Field> fields = asList(
+        nullable("catalog_name", VARCHAR.getType()),
+        nullable("schema_name", VARCHAR.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -487,10 +500,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
   /**
    * Returns the available tables by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables} objects in {@link Result} objects.
+   * {@link CommandGetTables} objects in {@link Result} objects.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -503,13 +516,12 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTables() {
-    final List<Field> fields = new ArrayList<>();
-
-    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("table_type", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("table_schema", FieldType.nullable(Types.MinorType.VARBINARY.getType()), null));
+    final List<Field> fields = asList(
+        nullable("catalog_name", VARCHAR.getType()),
+        nullable("schema_name", VARCHAR.getType()),
+        nullable("table_name", VARCHAR.getType()),
+        nullable("table_type", VARCHAR.getType()),
+        nullable("table_schema", VARBINARY.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -527,9 +539,9 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
   /**
    * Returns the available table types by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes} objects in {@link Result} objects.
+   * {@link CommandGetTableTypes} objects in {@link Result} objects.
    *
-   * @param context  Per-call context.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -541,11 +553,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTableTypes() {
-    final List<Field> fields = new ArrayList<>();
-
-    fields.add(new Field("table_type", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-
-    return new SchemaResult(new Schema(fields));
+    return new SchemaResult(
+        new Schema(singletonList(nullable("table_type", VARCHAR.getType()))));
   }
 
   /**
@@ -559,10 +568,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
   /**
    * Returns the available primary keys by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys} objects in {@link Result} objects.
+   * {@link CommandGetPrimaryKeys} objects in {@link Result} objects.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -575,14 +584,13 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaPrimaryKeys() {
-    final List<Field> fields = new ArrayList<>();
-
-    fields.add(new Field("catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("key_sequence", FieldType.nullable(Types.MinorType.INT.getType()), null));
-    fields.add(new Field("key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
+    final List<Field> fields = asList(
+        nullable("catalog_name", VARCHAR.getType()),
+        nullable("schema_name", VARCHAR.getType()),
+        nullable("table_name", VARCHAR.getType()),
+        nullable("column_name", VARCHAR.getType()),
+        nullable("key_sequence", INT.getType()),
+        nullable("key_name", VARCHAR.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -600,10 +608,10 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
   /**
    * Returns the available primary keys by returning a stream of
-   * {@link org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys} objects in {@link Result} objects.
+   * {@link CommandGetForeignKeys} objects in {@link Result} objects.
    *
-   * @param request  request filter parameters.
-   * @param context  Per-call context.
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
@@ -616,21 +624,20 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaForeignKeys() {
-    final List<Field> fields = new ArrayList<>();
-
-    fields.add(new Field("pk_catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("pk_schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("pk_table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("pk_column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("fk_catalog_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("fk_schema_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("fk_table_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("fk_column_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("key_sequence", FieldType.nullable(Types.MinorType.INT.getType()), null));
-    fields.add(new Field("fk_key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("pk_key_name", FieldType.nullable(Types.MinorType.VARCHAR.getType()), null));
-    fields.add(new Field("update_rule", FieldType.nullable(Types.MinorType.INT.getType()), null));
-    fields.add(new Field("delete_rule", FieldType.nullable(Types.MinorType.INT.getType()), null));
+    final List<Field> fields = asList(
+        nullable("pk_catalog_name", VARCHAR.getType()),
+        nullable("pk_schema_name", VARCHAR.getType()),
+        nullable("pk_table_name", VARCHAR.getType()),
+        nullable("pk_column_name", VARCHAR.getType()),
+        nullable("fk_catalog_name", VARCHAR.getType()),
+        nullable("fk_schema_name", VARCHAR.getType()),
+        nullable("fk_table_name", VARCHAR.getType()),
+        nullable("fk_column_name", VARCHAR.getType()),
+        nullable("key_sequence", INT.getType()),
+        nullable("fk_key_name", VARCHAR.getType()),
+        nullable("pk_key_name", VARCHAR.getType()),
+        nullable("update_rule", INT.getType()),
+        nullable("delete_rule", INT.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
