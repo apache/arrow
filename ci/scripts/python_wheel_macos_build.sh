@@ -52,6 +52,9 @@ export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
 
+echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
+pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
+
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
@@ -139,9 +142,6 @@ export PYARROW_WITH_S3=${ARROW_S3}
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
 # Set PyArrow version explicitly
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
-
-# Ensure that the python build dependencies are installed
-pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
 
 pushd ${source_dir}/python
 python setup.py bdist_wheel
