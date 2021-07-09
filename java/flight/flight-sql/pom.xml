@@ -91,6 +91,12 @@
       <classifier>${arrow.vector.classifier}</classifier>
     </dependency>
     <dependency>
+      <groupId>me.alexpanov</groupId>
+      <artifactId>free-port-finder</artifactId>
+      <version>1.1.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
@@ -136,16 +142,15 @@
         <version>0.5.0</version>
         <configuration>
           <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
-          <clearOutputDirectory>false</clearOutputDirectory>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
         <executions>
           <execution>
-            <id>src</id>
+            <id>proto-compile</id>
+            <phase>generate-sources</phase>
             <configuration>
               <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
             </configuration>
             <goals>
               <goal>compile</goal>
@@ -153,15 +158,45 @@
             </goals>
           </execution>
           <execution>
-            <id>test</id>
-            <configuration>
-              <protoSourceRoot>${basedir}/src/test/protobuf</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-test-sources/protobuf</outputDirectory>
-            </configuration>
+            <id>proto-test-compile</id>
+            <phase>generate-test-sources</phase>
             <goals>
-              <goal>compile</goal>
-              <goal>compile-custom</goal>
+              <goal>test-compile</goal>
+              <goal>test-compile-custom</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>add-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/protobuf/java</source>
+                <source>${project.build.directory}/generated-sources/protobuf/grpc-java</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-test-sources</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-test-sources/protobuf/java</source>
+                <source>${project.build.directory}/generated-test-sources/protobuf/grpc-java</source>
+              </sources>
+            </configuration>
           </execution>
         </executions>
       </plugin>
