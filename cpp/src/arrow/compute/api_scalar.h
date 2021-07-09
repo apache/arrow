@@ -27,6 +27,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/enum.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -57,18 +58,24 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
 class ARROW_EXPORT JoinOptions : public FunctionOptions {
  public:
   /// How to handle null values. (A null separator always results in a null output.)
-  enum NullHandlingBehavior {
-    /// A null in any input results in a null in the output.
-    EMIT_NULL,
-    /// Nulls in inputs are skipped.
-    SKIP,
-    /// Nulls in inputs are replaced with the replacement string.
-    REPLACE,
-  };
-  explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
-                       std::string null_replacement = "");
+  /// emit_null: A null in any input results in a null in the output.
+  /// skip: Nulls in inputs are skipped.
+  /// replace: Nulls in inputs are replaced with the replacement string.
+  static constexpr const char* kNullHandlingBehaviors = R"(
+    emit_null
+    skip
+    replace
+  )";
+  using NullHandlingBehavior = ::arrow::internal::EnumType<kNullHandlingBehaviors>;
+
+  explicit JoinOptions(
+      NullHandlingBehavior null_handling = NullHandlingBehavior("emit_null"),
+      std::string null_replacement = "");
+
   constexpr static char const kTypeName[] = "JoinOptions";
+
   static JoinOptions Defaults() { return JoinOptions(); }
+
   NullHandlingBehavior null_handling;
   std::string null_replacement;
 };
