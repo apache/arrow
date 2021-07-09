@@ -16,10 +16,13 @@
 # under the License.
 
 class TestFlightClient < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
     omit("Unstable on Windows") if Gem.win_platform?
+    require_gi_bindings(3, 4, 5)
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")
