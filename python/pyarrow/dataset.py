@@ -744,11 +744,12 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         to build a _metadata file.  The metadata attribute will be None if
         the format is not parquet.
 
-        # Example visitor which simple collects the filenames created
-        visited_paths = []
+        Example visitor which simple collects the filenames created::
 
-        def file_visitor(written_file):
-            visited_paths.append(written_file.path)
+            visited_paths = []
+
+            def file_visitor(written_file):
+                visited_paths.append(written_file.path)
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
