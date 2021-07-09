@@ -1726,7 +1726,7 @@ def test_struct_from_list_of_pairs():
         [('a', 6), ('a', 'bar'), ('b', False)],
     ]
     arr = pa.array(data, type=ty)
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         # TODO(kszucs): ARROW-9997
         arr.to_pylist()
 

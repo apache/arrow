@@ -1094,42 +1094,37 @@ TEST(TestAsyncUtil, ReadaheadMove) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
+  auto gating_task = GatingTask::Make();
   // All tasks are a little slow.  The first task fails.
   // The readahead will have spawned 9 more tasks and they
   // should all pass
-  auto source = [thread_pool, &counter]() -> Future<TestInt> {
+  auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
-    return *thread_pool->Submit([count]() -> Result<TestInt> {
+    return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
+      gating_task->Task()();
       if (count == 0) {
         return Status::Invalid("X");
       }
       return TestInt(count);
-    });
+    }));
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
-  ASSERT_FINISHES_AND_RAISES(Invalid, readahead());
-  SleepABit();
+  auto should_be_invalid = readahead();
+  // Polling once should allow 10 additional calls to start
+  ASSERT_OK(gating_task->WaitForRunning(11));
+  ASSERT_OK(gating_task->Unlock());
 
-  for (int i = 0; i < 9; i++) {
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, readahead());
-    ASSERT_EQ(TestInt(i + 1), next_val);
+  // Once unlocked the error task should always be the first.  Some number of successful
+  // tasks may follow until the end.
+  ASSERT_FINISHES_AND_RAISES(Invalid, should_be_invalid);
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto remaining_results, CollectAsyncGenerator(readahead));
+  // Don't need to know the exact number of successful tasks (and it may vary)
+  for (std::size_t i = 0; i < remaining_results.size(); i++) {
+    ASSERT_EQ(TestInt(static_cast<int>(i) + 1), remaining_results[i]);
   }
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, readahead());
-
-  // It's possible that finished was set quickly and there
-  // are only 10 elements
-  if (IsIterationEnd(after)) {
-    return;
-  }
-
-  // It's also possible that finished was too slow and there
-  // ended up being 11 elements
-  ASSERT_EQ(TestInt(10), after);
-  // There can't be 12 elements because SleepABit will prevent it
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
-  ASSERT_TRUE(IsIterationEnd(definitely_last));
 }
 
 class EnumeratorTestFixture : public GeneratorTestFixture {

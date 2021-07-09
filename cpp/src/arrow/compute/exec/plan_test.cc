@@ -36,6 +36,7 @@
 
 using testing::ElementsAre;
 using testing::HasSubstr;
+using testing::Optional;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
@@ -45,7 +46,7 @@ namespace compute {
 TEST(ExecPlanConstruction, Empty) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  ASSERT_RAISES(Invalid, plan->Validate());
+  ASSERT_THAT(plan->Validate(), Raises(StatusCode::Invalid));
 }
 
 TEST(ExecPlanConstruction, SingleNode) {
@@ -58,7 +59,7 @@ TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
   node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/1);
   // Output not bound
-  ASSERT_RAISES(Invalid, plan->Validate());
+  ASSERT_THAT(plan->Validate(), Raises(StatusCode::Invalid));
 }
 
 TEST(ExecPlanConstruction, SourceSink) {
@@ -144,7 +145,15 @@ TEST(ExecPlan, DummyStartProducing) {
   // Note that any correct reverse topological order may do
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1",
                                      "source2", "source1"));
-  ASSERT_EQ(t.stopped.size(), 0);
+
+  plan->StopProducing();
+  ASSERT_THAT(plan->finished(), Finishes(Ok()));
+  // Note that any correct topological order may do
+  ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
+                                     "process3", "sink"));
+
+  ASSERT_THAT(plan->StartProducing(),
+              Raises(StatusCode::Invalid, HasSubstr("restarted")));
 }
 
 TEST(ExecPlan, DummyStartProducingError) {
@@ -179,7 +188,7 @@ TEST(ExecPlan, DummyStartProducingError) {
   ASSERT_EQ(t.stopped.size(), 0);
 
   // `process1` raises IOError
-  ASSERT_RAISES(IOError, plan->StartProducing());
+  ASSERT_THAT(plan->StartProducing(), Raises(StatusCode::IOError));
   ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1"));
   // Nodes that started successfully were stopped in reverse order
   ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
@@ -226,18 +235,20 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
                         std::move(gen));
 }
 
-Result<std::vector<ExecBatch>> StartAndCollect(
+Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
 
-  auto maybe_collected = CollectAsyncGenerator(gen).result();
-  ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+  auto collected_fut = CollectAsyncGenerator(gen);
 
-  plan->StopProducing();
-
-  return arrow::internal::MapVector(
-      [](util::optional<ExecBatch> batch) { return std::move(*batch); }, collected);
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return ::arrow::internal::MapVector(
+            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
 }
 
 BatchesWithSchema MakeBasicBatches() {
@@ -282,7 +293,7 @@ TEST(ExecPlanExecution, SourceSink) {
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(basic_data.batches)));
+                  Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
     }
   }
 }
@@ -304,7 +315,7 @@ TEST(ExecPlanExecution, SourceSinkError) {
   auto sink_gen = MakeSinkNode(source, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Raises(StatusCode::Invalid, HasSubstr("Artificial")));
+              Finishes(Raises(StatusCode::Invalid, HasSubstr("Artificial"))));
 }
 
 TEST(ExecPlanExecution, StressSourceSink) {
@@ -327,7 +338,37 @@ TEST(ExecPlanExecution, StressSourceSink) {
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(random_data.batches)));
+                  Finishes(ResultWith(UnorderedElementsAreArray(random_data.batches))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, StressSourceSinkStopped) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = slow && !parallel ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      auto random_data = MakeRandomBatches(
+          schema({field("a", int32()), field("b", boolean())}), num_batches);
+
+      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
+                                                           random_data, parallel, slow));
+
+      auto sink_gen = MakeSinkNode(source, "sink");
+
+      ASSERT_OK(plan->Validate());
+      ASSERT_OK(plan->StartProducing());
+
+      EXPECT_THAT(sink_gen(), Finishes(ResultWith(Optional(random_data.batches[0]))));
+
+      plan->StopProducing();
+      ASSERT_THAT(plan->finished(), Finishes(Ok()));
     }
   }
 }
@@ -341,17 +382,15 @@ TEST(ExecPlanExecution, SourceFilterSink) {
                        MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  ASSERT_OK_AND_ASSIGN(auto predicate,
-                       equal(field_ref("i32"), literal(6)).Bind(*basic_data.schema));
-
-  ASSERT_OK_AND_ASSIGN(auto filter, MakeFilterNode(source, "filter", predicate));
+  ASSERT_OK_AND_ASSIGN(
+      auto filter, MakeFilterNode(source, "filter", equal(field_ref("i32"), literal(6))));
 
   auto sink_gen = MakeSinkNode(filter, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(
+              Finishes(ResultWith(UnorderedElementsAreArray(
                   {ExecBatchFromJSON({int32(), boolean()}, "[]"),
-                   ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")})));
+                   ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")}))));
 }
 
 TEST(ExecPlanExecution, SourceProjectSink) {
@@ -363,23 +402,104 @@ TEST(ExecPlanExecution, SourceProjectSink) {
                        MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  std::vector<Expression> exprs{
-      not_(field_ref("bool")),
-      call("add", {field_ref("i32"), literal(1)}),
-  };
-  for (auto& expr : exprs) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*basic_data.schema));
-  }
-
-  ASSERT_OK_AND_ASSIGN(auto projection, MakeProjectNode(source, "project", exprs));
+  ASSERT_OK_AND_ASSIGN(auto projection,
+                       MakeProjectNode(source, "project",
+                                       {
+                                           not_(field_ref("bool")),
+                                           call("add", {field_ref("i32"), literal(1)}),
+                                       }));
 
   auto sink_gen = MakeSinkNode(projection, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(
+              Finishes(ResultWith(UnorderedElementsAreArray(
                   {ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
                    ExecBatchFromJSON({boolean(), int32()},
-                                     "[[null, 6], [true, 7], [true, 8]]")})));
+                                     "[[null, 6], [true, 7], [true, 8]]")}))));
+}
+
+namespace {
+
+BatchesWithSchema MakeGroupableBatches() {
+  BatchesWithSchema out;
+
+  out.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
+                   [12, "alfa"],
+                   [7,  "beta"],
+                   [3,  "alfa"]
+                 ])"),
+                 ExecBatchFromJSON({int32(), utf8()}, R"([
+                   [-2, "alfa"],
+                   [-1, "gama"],
+                   [3,  "alfa"]
+                 ])"),
+                 ExecBatchFromJSON({int32(), utf8()}, R"([
+                   [5,  "gama"],
+                   [3,  "beta"],
+                   [-8, "alfa"]
+                 ])")};
+
+  out.schema = schema({field("i32", int32()), field("str", utf8())});
+
+  return out;
+}
+}  // namespace
+
+TEST(ExecPlanExecution, SourceGroupedSum) {
+  auto input = MakeGroupableBatches();
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto source,
+                       MakeTestSourceNode(plan.get(), "source", input,
+                                          /*parallel=*/false, /*slow=*/false));
+  ASSERT_OK_AND_ASSIGN(
+      auto gby, MakeGroupByNode(source, "gby", /*keys=*/{"str"}, /*targets=*/{"i32"},
+                                {{"hash_sum", nullptr}}));
+  auto sink_gen = MakeSinkNode(gby, "sink");
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+                  {int64(), utf8()}, R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
+}
+
+TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
+  auto input = MakeGroupableBatches();
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  ASSERT_OK_AND_ASSIGN(auto source,
+                       MakeTestSourceNode(plan.get(), "source", input,
+
+                                          /*parallel=*/false, /*slow=*/false));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto filter,
+      MakeFilterNode(source, "filter", greater_equal(field_ref("i32"), literal(0))));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto projection,
+      MakeProjectNode(filter, "project",
+                      {
+                          field_ref("str"),
+                          call("multiply", {field_ref("i32"), literal(2)}),
+                      }));
+
+  ASSERT_OK_AND_ASSIGN(auto gby, MakeGroupByNode(projection, "gby", /*keys=*/{"str"},
+                                                 /*targets=*/{"multiply(i32, 2)"},
+                                                 {{"hash_sum", nullptr}}));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto having,
+      MakeFilterNode(gby, "having", greater(field_ref("hash_sum"), literal(10))));
+
+  auto sink_gen = MakeSinkNode(having, "sink");
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(
+                  UnorderedElementsAreArray({ExecBatchFromJSON({int64(), utf8()}, R"([
+                      [36, "alfa"],
+                      [20, "beta"]
+                  ])")}))));
 }
 
 TEST(ExecPlanExecution, GroupByOnly) {

@@ -40,7 +40,7 @@ import numpy as np
 import pyarrow as pa
 from pyarrow.csv import (
     open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601,
-    write_csv, WriteOptions)
+    write_csv, WriteOptions, CSVWriter)
 from pyarrow.tests import util
 
 
@@ -450,6 +450,18 @@ class BaseTestCSVRead:
             "ab": ["mn"],
             "cd": ["op"],
         }
+
+        # Can skip rows when block ends in middle of quoted value
+        opts.skip_rows_after_names = 2
+        opts.block_size = 26
+        table = self.read_bytes(rows, read_options=opts,
+                                parse_options=parse_opts)
+        self.check_names(table, ["ab", "cd"])
+        assert table.to_pydict() == {
+            "ab": ["mn"],
+            "cd": ["op"],
+        }
+        opts = ReadOptions()
 
         # Can skip rows that are beyond the first block without lexer
         rows, expected = make_random_csv(num_cols=5, num_rows=1000)
@@ -1617,6 +1629,25 @@ def test_write_read_round_trip():
         buf.seek(0)
 
         read_options = ReadOptions(column_names=t.column_names)
+        assert t == read_csv(buf, read_options=read_options)
+
+    # Test with writer
+    for read_options, write_options in [
+            (None, WriteOptions(include_header=True)),
+            (ReadOptions(column_names=t.column_names),
+             WriteOptions(include_header=False)),
+    ]:
+        buf = io.BytesIO()
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        buf.seek(0)
+        assert t == read_csv(buf, read_options=read_options)
+
+        buf = io.BytesIO()
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            for batch in t.to_batches(max_chunksize=1):
+                writer.write_batch(batch)
+        buf.seek(0)
         assert t == read_csv(buf, read_options=read_options)
 
 

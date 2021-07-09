@@ -491,9 +491,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   auto all_row_groups = internal::Iota(static_cast<int>(kNumRowGroups));
   CountRowGroupsInFragment(fragment, all_row_groups, literal(true));
 
-  // FIXME this is only meaningful if "not here" is a virtual column
-  // CountRowGroupsInFragment(fragment, all_row_groups, "not here"_ == 0);
-
   for (int i = 0; i < kNumRowGroups; ++i) {
     CountRowGroupsInFragment(fragment, {i}, equal(field_ref("i64"), literal(i + 1)));
   }
@@ -516,9 +513,10 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
       fragment, {1, 3},
       or_(equal(field_ref("i64"), literal(2)), equal(field_ref("i64"), literal(4))));
 
-  // TODO(bkietz): better Assume support for InExpression
-  // auto set = ArrayFromJSON(int64(), "[2, 4]");
-  // CountRowGroupsInFragment(fragment, {1, 3}, field_ref("i64").In(set));
+  auto set = ArrayFromJSON(int64(), "[2, 4]");
+  CountRowGroupsInFragment(
+      fragment, {1, 3},
+      call("is_in", {field_ref("i64")}, compute::SetLookupOptions{set}));
 
   CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, less(field_ref("i64"), literal(6)));
 

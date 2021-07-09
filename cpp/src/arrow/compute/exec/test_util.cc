@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -88,14 +89,12 @@ struct DummyNode : ExecNode {
   }
 
   void StopProducing(ExecNode* output) override {
-    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    EXPECT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
     AssertIsOutput(output);
-    StopProducing();
   }
 
   void StopProducing() override {
     if (started_) {
-      started_ = false;
       for (const auto& input : inputs_) {
         input->StopProducing(this);
       }
@@ -105,9 +104,12 @@ struct DummyNode : ExecNode {
     }
   }
 
+  Future<> finished() override { return Future<>::MakeFinished(); }
+
  private:
   void AssertIsOutput(ExecNode* output) {
-    ASSERT_NE(std::find(outputs_.begin(), outputs_.end(), output), outputs_.end());
+    auto it = std::find(outputs_.begin(), outputs_.end(), output);
+    ASSERT_NE(it, outputs_.end());
   }
 
   std::shared_ptr<Schema> dummy_schema() const {
@@ -116,6 +118,7 @@ struct DummyNode : ExecNode {
 
   StartProducingFunc start_producing_;
   StopProducingFunc stop_producing_;
+  std::unordered_set<ExecNode*> requested_stop_;
   bool started_ = false;
 };
 

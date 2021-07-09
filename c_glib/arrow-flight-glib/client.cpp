@@ -248,9 +248,73 @@ gaflight_client_new(GAFlightLocation *location,
   }
 }
 
+/**
+ * gaflight_client_list_flights:
+ * @client: A #GAFlightClient.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @criteria: (nullable): A #GAFlightCriteria.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (element-type GAFlightInfo) (transfer full):
+ *   The returned list of #GAFlightInfo, %NULL on error.
+ *
+ * Since: 5.0.0
+ */
+GList *
+gaflight_client_list_flights(GAFlightClient *client,
+                             GAFlightCallOptions *options,
+                             GAFlightCriteria *criteria,
+                             GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  arrow::flight::FlightCallOptions flight_default_options;
+  const auto *flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  arrow::flight::Criteria flight_default_criteria;
+  const auto *flight_criteria = &flight_default_criteria;
+  if (criteria) {
+    flight_criteria = gaflight_criteria_get_raw(criteria);
+  }
+  std::unique_ptr<arrow::flight::FlightListing> flight_listing;
+  auto status = flight_client->ListFlights(*flight_options,
+                                           *flight_criteria,
+                                           &flight_listing);
+  if (!garrow::check(error,
+                     status,
+                     "[flight-client][list-flights]")) {
+    return NULL;
+  }
+  GList *listing = NULL;
+  std::unique_ptr<arrow::flight::FlightInfo> flight_info;
+  while (true) {
+    status = flight_listing->Next(&flight_info);
+    if (!garrow::check(error,
+                       status,
+                       "[flight-client][list-flights]")) {
+      g_list_free_full(listing, g_object_unref);
+      return NULL;
+    }
+    if (!flight_info) {
+      break;
+    }
+    auto info = gaflight_info_new_raw(flight_info.release());
+    listing = g_list_prepend(listing, info);
+  }
+  return g_list_reverse(listing);
+}
+
 
 G_END_DECLS
 
+
+arrow::flight::FlightCallOptions *
+gaflight_call_options_get_raw(GAFlightCallOptions *options)
+{
+  auto priv = GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
+}
 
 arrow::flight::FlightClientOptions *
 gaflight_client_options_get_raw(GAFlightClientOptions *options)

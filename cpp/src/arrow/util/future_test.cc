@@ -1052,6 +1052,59 @@ TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
   }
 }
 
+TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
+  struct : internal::Executor {
+    int GetCapacity() override { return pool_->GetCapacity(); }
+
+    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+
+    Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
+                     StopToken stop_token, StopCallback&& stop_callback) override {
+      ++spawn_count;
+      return pool_->Spawn(hints, std::move(task), std::move(stop_token),
+                          std::move(stop_callback));
+    }
+
+    std::atomic<int> spawn_count{0};
+    internal::Executor* pool_ = internal::GetCpuThreadPool();
+  } executor;
+
+  CallbackOptions options;
+  options.executor = &executor;
+  options.should_schedule = ShouldSchedule::IfDifferentExecutor;
+  auto pass_err = [](const Status& s) { return s; };
+
+  std::atomic<bool> fut0_on_executor{false};
+  std::atomic<bool> fut1_on_executor{false};
+
+  auto fut0 = Future<>::Make();
+  auto fut1 = Future<>::Make();
+
+  auto fut0_done = fut0.Then(
+      [&] {
+        // marked finished on main thread -> must be scheduled to executor
+        fut0_on_executor.store(executor.OwnsThisThread());
+
+        fut1.MarkFinished();
+      },
+      pass_err, options);
+
+  auto fut1_done = fut1.Then(
+      [&] {
+        // marked finished on executor -> no need to schedule
+        fut1_on_executor.store(executor.OwnsThisThread());
+      },
+      pass_err, options);
+
+  fut0.MarkFinished();
+
+  AllComplete({fut0_done, fut1_done}).Wait();
+
+  ASSERT_EQ(executor.spawn_count, 1);
+  ASSERT_TRUE(fut0_on_executor);
+  ASSERT_TRUE(fut1_on_executor);
+}
+
 TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
   CallbackOptions options;
   options.should_schedule = ShouldSchedule::Always;
@@ -1708,25 +1761,26 @@ TEST(FnOnceTest, MoveOnlyDataType) {
 
 TEST(FutureTest, MatcherExamples) {
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-              Raises(StatusCode::Invalid));
+              Finishes(Raises(StatusCode::Invalid)));
 
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-              Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary")));
+              Finishes(Raises(StatusCode::Invalid, testing::HasSubstr("arbitrary"))));
 
   // message doesn't match, so no match
-  EXPECT_THAT(
-      Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
-      testing::Not(Raises(StatusCode::Invalid, testing::HasSubstr("reasonable"))));
+  EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
+              Finishes(testing::Not(
+                  Raises(StatusCode::Invalid, testing::HasSubstr("reasonable")))));
 
   // different error code, so no match
   EXPECT_THAT(Future<int>::MakeFinished(Status::TypeError("arbitrary error")),
-              testing::Not(Raises(StatusCode::Invalid)));
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
 
   // not an error, so no match
-  EXPECT_THAT(Future<int>::MakeFinished(333), testing::Not(Raises(StatusCode::Invalid)));
+  EXPECT_THAT(Future<int>::MakeFinished(333),
+              Finishes(testing::Not(Raises(StatusCode::Invalid))));
 
   EXPECT_THAT(Future<std::string>::MakeFinished("hello world"),
-              ResultWith(testing::HasSubstr("hello")));
+              Finishes(ResultWith(testing::HasSubstr("hello"))));
 
   // Matcher waits on Futures
   auto string_fut = Future<std::string>::Make();
@@ -1734,15 +1788,15 @@ TEST(FutureTest, MatcherExamples) {
     SleepABit();
     string_fut.MarkFinished("hello world");
   });
-  EXPECT_THAT(string_fut, ResultWith(testing::HasSubstr("hello")));
+  EXPECT_THAT(string_fut, Finishes(ResultWith(testing::HasSubstr("hello"))));
   finisher.join();
 
   EXPECT_THAT(Future<std::string>::MakeFinished(Status::Invalid("XXX")),
-              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
 
   // holds a value, but that value doesn't match the given pattern
   EXPECT_THAT(Future<std::string>::MakeFinished("foo bar"),
-              testing::Not(ResultWith(testing::HasSubstr("hello"))));
+              Finishes(testing::Not(ResultWith(testing::HasSubstr("hello")))));
 }
 
 }  // namespace internal

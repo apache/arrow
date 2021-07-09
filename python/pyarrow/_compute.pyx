@@ -558,7 +558,10 @@ cdef class FunctionOptions(_Weakrefable):
         return options
 
     def __repr__(self):
-        return frombytes(self.get_options().ToString())
+        type_name = self.__class__.__name__
+        # Remove {} so we can use our own braces
+        string_repr = frombytes(self.get_options().ToString())[1:-1]
+        return f"{type_name}({string_repr})"
 
     def __eq__(self, FunctionOptions other):
         return self.get_options().Equals(deref(other.get_options()))
@@ -956,6 +959,18 @@ cdef class _StrptimeOptions(FunctionOptions):
 class StrptimeOptions(_StrptimeOptions):
     def __init__(self, format, unit):
         self._set_options(format, unit)
+
+
+cdef class _DayOfWeekOptions(FunctionOptions):
+    def _set_options(self, one_based_numbering, week_start):
+        self.wrapped.reset(
+            new CDayOfWeekOptions(one_based_numbering, week_start)
+        )
+
+
+class DayOfWeekOptions(_DayOfWeekOptions):
+    def __init__(self, one_based_numbering=False, week_start=1):
+        self._set_options(one_based_numbering, week_start)
 
 
 cdef class _VarianceOptions(FunctionOptions):

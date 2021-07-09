@@ -816,7 +816,19 @@ test_that("type checks on expressions", {
         b = is.integer(as.character(int)),
         c = is.integer(int + int),
         d = is.double(int + dbl),
-        e = is.logical(grepl("[def]", chr))
+        e = is.logical(dbl > pi)
+      ) %>%
+      collect(),
+    tbl
+  )
+  
+  # the code in the expectation below depends on RE2
+  skip_if_not_available("re2")
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.logical(grepl("[def]", chr))
       ) %>%
       collect(),
     tbl

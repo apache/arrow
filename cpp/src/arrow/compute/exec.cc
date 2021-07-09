@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -100,6 +101,12 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
     ARROW_CHECK_OK(PrettyPrint(*array, options, os));
     *os << "\n";
   }
+}
+
+std::string ExecBatch::ToString() const {
+  std::stringstream ss;
+  PrintTo(*this, &ss);
+  return ss.str();
 }
 
 ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
@@ -987,8 +994,9 @@ std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
 
 }  // namespace detail
 
-ExecContext::ExecContext(MemoryPool* pool, FunctionRegistry* func_registry)
-    : pool_(pool) {
+ExecContext::ExecContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
+                         FunctionRegistry* func_registry)
+    : pool_(pool), executor_(executor) {
   this->func_registry_ = func_registry == nullptr ? GetFunctionRegistry() : func_registry;
 }
 

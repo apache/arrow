@@ -244,10 +244,23 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
   std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
+struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
+ public:
+  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  constexpr static char const kTypeName[] = "DayOfWeekOptions";
+  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
+
+  /// Number days from 1 if true and from 0 if false
+  bool one_based_numbering;
+  /// What day does the week start with (Monday=1, Sunday=7)
+  uint32_t week_start;
+};
+
 /// @}
 
-/// \brief Get the absolute value of a value. Array values can be of arbitrary
-/// length. If argument is null the result will be null.
+/// \brief Get the absolute value of a value.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value transformed
 /// \param[in] options arithmetic options (overflow handling), optional
@@ -311,8 +324,9 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Negate a value. Array values can be of arbitrary length. If argument
-/// is null the result will be null.
+/// \brief Negate values.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value negated
 /// \param[in] options arithmetic options (overflow handling), optional
@@ -423,6 +437,55 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 /// \return the elementwise inverse tangent of the values
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
+/// \brief Get the natural log of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Ln(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                 ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 10 of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 10
+ARROW_EXPORT
+Result<Datum> Log10(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 2 of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 2
+ARROW_EXPORT
+Result<Datum> Log2(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Get the natural log of (1 + value).
+///
+/// If argument is null the result will be null.
+/// This function may be more accurate than Log(1 + value) for values close to zero.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
@@ -713,15 +776,22 @@ ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfWeek returns number of the day of the week value for each element of
-/// `values`. Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.
+/// `values`.
+///
+/// By default week starts on Monday denoted by 0 and ends on Sunday denoted
+/// by 6. Start day of the week (Monday=1, Sunday=7) and numbering base (0 or 1) can be
+/// set using DayOfWeekOptions
 ///
 /// \param[in] values input to extract number of the day of the week from
+/// \param[in] options for setting start of the week and day numbering
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 5.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values,
+                                     DayOfWeekOptions options = DayOfWeekOptions(),
+                                     ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfYear returns number of day of the year for each element of `values`.
 /// January 1st maps to day number 1, February 1st to 32, etc.

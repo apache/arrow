@@ -26,12 +26,14 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/csv/reader.h"
+#include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/compressed.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
@@ -282,6 +284,48 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
                              self->parse_options)
       .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
 }
+
+//
+// CsvFileWriter, CsvFileWriteOptions
+//
+
+std::shared_ptr<FileWriteOptions> CsvFileFormat::DefaultWriteOptions() {
+  std::shared_ptr<CsvFileWriteOptions> csv_options(
+      new CsvFileWriteOptions(shared_from_this()));
+  csv_options->write_options =
+      std::make_shared<csv::WriteOptions>(csv::WriteOptions::Defaults());
+  return csv_options;
+}
+
+Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
+    std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+    std::shared_ptr<FileWriteOptions> options,
+    fs::FileLocator destination_locator) const {
+  if (!Equals(*options->format())) {
+    return Status::TypeError("Mismatching format/write options.");
+  }
+  auto csv_options = checked_pointer_cast<CsvFileWriteOptions>(options);
+  ARROW_ASSIGN_OR_RAISE(
+      auto writer, csv::MakeCSVWriter(destination, schema, *csv_options->write_options));
+  return std::shared_ptr<FileWriter>(
+      new CsvFileWriter(std::move(destination), std::move(writer), std::move(schema),
+                        std::move(csv_options), std::move(destination_locator)));
+}
+
+CsvFileWriter::CsvFileWriter(std::shared_ptr<io::OutputStream> destination,
+                             std::shared_ptr<ipc::RecordBatchWriter> writer,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<CsvFileWriteOptions> options,
+                             fs::FileLocator destination_locator)
+    : FileWriter(std::move(schema), std::move(options), std::move(destination),
+                 std::move(destination_locator)),
+      batch_writer_(std::move(writer)) {}
+
+Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
+  return batch_writer_->WriteRecordBatch(*batch);
+}
+
+Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

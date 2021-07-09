@@ -23,21 +23,15 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
-// NOTES:
-// - ExecBatches only have arrays or scalars
-// - data streams may be ordered, so add input number?
-// - node to combine input needs to reorder
-
 namespace arrow {
 namespace compute {
-
-class ExecNode;
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
@@ -45,14 +39,16 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   virtual ~ExecPlan() = default;
 
+  ExecContext* exec_context() const { return exec_context_; }
+
   /// Make an empty exec plan
-  static Result<std::shared_ptr<ExecPlan>> Make();
+  static Result<std::shared_ptr<ExecPlan>> Make(ExecContext* = default_exec_context());
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
   Node* EmplaceNode(Args&&... args) {
-    auto node = std::unique_ptr<Node>(new Node{std::forward<Args>(args)...});
+    std::unique_ptr<Node> node{new Node{std::forward<Args>(args)...}};
     auto out = node.get();
     AddNode(std::move(node));
     return out;
@@ -66,16 +62,24 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   Status Validate();
 
-  /// Start producing on all nodes
+  /// \brief Start producing on all nodes
   ///
   /// Nodes are started in reverse topological order, such that any node
   /// is started before all of its inputs.
   Status StartProducing();
 
+  /// \brief Stop producing on all nodes
+  ///
+  /// Nodes are stopped in topological order, such that any node
+  /// is stopped before all of its outputs.
   void StopProducing();
 
+  /// \brief A future which will be marked finished when all nodes have stopped producing.
+  Future<> finished();
+
  protected:
-  ExecPlan() = default;
+  ExecContext* exec_context_;
+  explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
 class ARROW_EXPORT ExecNode {
@@ -204,13 +208,14 @@ class ARROW_EXPORT ExecNode {
   /// \brief Stop producing definitively to a single output
   ///
   /// This call is a hint that an output node has completed and is not willing
-  /// to not receive any further data.
+  /// to receive any further data.
   virtual void StopProducing(ExecNode* output) = 0;
 
-  /// \brief Stop producing definitively
-  ///
-  /// XXX maybe this should return a Future<>?
+  /// \brief Stop producing definitively to all outputs
   virtual void StopProducing() = 0;
+
+  /// \brief A future which will be marked finished when this node has stopped producing.
+  virtual Future<> finished() = 0;
 
  protected:
   ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
@@ -230,10 +235,10 @@ class ARROW_EXPORT ExecNode {
 
 /// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
 ///
-/// TODO this should accept an Executor and explicitly handle batches
-/// as they are generated on each of the Executor's threads.
+/// plan->exec_context()->executor() is used to parallelize pushing to
+/// outputs, if provided.
 ARROW_EXPORT
-ExecNode* MakeSourceNode(ExecPlan*, std::string label,
+ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          std::shared_ptr<Schema> output_schema,
                          std::function<Future<util::optional<ExecBatch>>()>);
 
@@ -267,6 +272,7 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
 
 /// \brief Make a node which groups input rows based on key fields and computes
 /// aggregates for each group
+ARROW_EXPORT
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> keys,
                                   std::vector<std::string> agg_srcs,

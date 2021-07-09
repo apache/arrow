@@ -221,6 +221,61 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestCastVarcharToBool) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true     ", 14), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true     ", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TRUE", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TrUe", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "1", 1), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "  1", 3), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false     ", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     false", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0", 1), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0   ", 4), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FALSE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FaLsE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -1254,6 +1309,53 @@ TEST(TestStringOps, TestLocate) {
               ::testing::HasSubstr(
                   "unexpected byte \\ff encountered while decoding utf8 string"));
   ctx.Reset();
+}
+
+TEST(TestStringOps, TestByteSubstr) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str;
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -6, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, -500, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 1000, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Str");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestReplace) {

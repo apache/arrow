@@ -18,6 +18,7 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+===================================
 Using Arrow C++ in your own project
 ===================================
 
@@ -25,10 +26,16 @@ This section assumes you already have the Arrow C++ libraries on your
 system, either after installing them using a package manager or after
 :ref:`building them yourself <building-arrow-cpp>`.
 
-The recommended way to integrate the Arrow C++ libraries in your own C++
-project is to use CMake's
-`find_package <https://cmake.org/cmake/help/latest/command/find_package.html>`_
-function for locating and integrating dependencies.
+The recommended way to integrate the Arrow C++ libraries in your own
+C++ project is to use CMake's `find_package
+<https://cmake.org/cmake/help/latest/command/find_package.html>`_
+function for locating and integrating dependencies. If you don't use
+CMake as a build system, you can use `pkg-config
+<https://www.freedesktop.org/wiki/Software/pkg-config/>`_ to find
+installed the Arrow C++ libraries.
+
+CMake
+=====
 
 Basic usage
 -----------
@@ -70,3 +77,60 @@ In most cases, it is recommended to use the Arrow shared libraries.
 
 .. seealso::
    A Docker-based :doc:`minimal build example <examples/cmake_minimal_build>`.
+
+pkg-config
+==========
+
+Basic usage
+-----------
+
+You can get suitable build flags by the following command line:
+
+.. code-block:: shell
+
+   pkg-config --cflags --libs arrow
+
+If you want to link the Arrow C++ static library, you need to add
+``--static`` option:
+
+.. code-block:: shell
+
+   pkg-config --cflags --libs --static arrow
+
+This minimal ``Makefile`` file compiles a ``my_example.cc`` source
+file into an executable linked with the Arrow C++ shared library:
+
+.. code-block:: makefile
+
+   my_example: my_example.cc
+   	$(CXX) -o $@ $(CXXFLAGS) $< $$(pkg-config --cflags --libs arrow)
+
+Many build systems support pkg-config. For example:
+
+  * `GNU Autotools <https://people.freedesktop.org/~dbn/pkg-config-guide.html#using>`_
+  * `CMake <https://cmake.org/cmake/help/latest/module/FindPkgConfig.html>`_
+    (But you should use ``find_package(Arrow)`` instead.)
+  * `Meson <https://mesonbuild.com/Reference-manual.html#dependency>`_
+
+Available packages
+------------------
+
+The Arrow C++ provides a pkg-config package for each module. Here are
+all available packages:
+
+  * ``arrow-csv``
+  * ``arrow-cuda``
+  * ``arrow-dataset``
+  * ``arrow-filesystem``
+  * ``arrow-flight-testing``
+  * ``arrow-flight``
+  * ``arrow-json``
+  * ``arrow-orc``
+  * ``arrow-python-flight``
+  * ``arrow-python``
+  * ``arrow-tensorflow``
+  * ``arrow-testing``
+  * ``arrow``
+  * ``gandiva``
+  * ``parquet``
+  * ``plasma``

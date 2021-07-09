@@ -280,6 +280,13 @@ void dataset___IpcFileWriteOptions__update1(
 }
 
 // [[dataset::export]]
+void dataset___CsvFileWriteOptions__update(
+    const std::shared_ptr<ds::CsvFileWriteOptions>& csv_options,
+    const std::shared_ptr<arrow::csv::WriteOptions>& write_options) {
+  *csv_options->write_options = *write_options;
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
   return std::make_shared<ds::IpcFileFormat>();
 }

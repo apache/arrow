@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
@@ -87,7 +88,7 @@ enum class SortOrder {
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(name), order(order) {}
+      : name(std::move(name)), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
   using util::EqualityComparable<SortKey>::operator==;
