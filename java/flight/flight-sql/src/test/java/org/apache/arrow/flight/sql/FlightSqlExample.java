@@ -17,41 +17,98 @@
 
 package org.apache.arrow.flight.sql;
 
-import java.io.File;
+import static io.grpc.Status.UNIMPLEMENTED;
+import static java.io.File.separator;
+import static java.lang.String.format;
+import static java.nio.file.Files.walk;
+import static java.sql.DriverManager.getConnection;
+import static java.sql.Types.ARRAY;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BIT;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.DATALINK;
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.DISTINCT;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.JAVA_OBJECT;
+import static java.sql.Types.LONGNVARCHAR;
+import static java.sql.Types.LONGVARBINARY;
+import static java.sql.Types.LONGVARCHAR;
+import static java.sql.Types.NCHAR;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.NULL;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.OTHER;
+import static java.sql.Types.REAL;
+import static java.sql.Types.REF;
+import static java.sql.Types.REF_CURSOR;
+import static java.sql.Types.ROWID;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.SQLXML;
+import static java.sql.Types.STRUCT;
+import static java.sql.Types.TIME;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.Types.TIME_WITH_TIMEZONE;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARBINARY;
+import static java.sql.Types.VARCHAR;
+import static java.util.Comparator.reverseOrder;
+import static java.util.Optional.empty;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static javax.management.ObjectName.WILDCARD;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkState;
+import static org.apache.arrow.vector.types.DateUnit.DAY;
+import static org.apache.arrow.vector.types.TimeUnit.MILLISECOND;
+import static org.apache.arrow.vector.types.pojo.ArrowType.Null.INSTANCE;
+import static org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
+import static org.slf4j.LoggerFactory.getLogger;
+
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
-import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
+import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
@@ -59,16 +116,22 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
-import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
+import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
+import org.apache.arrow.vector.types.pojo.ArrowType.Date;
+import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.ArrowType.Time;
+import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -79,171 +142,198 @@ import org.apache.commons.dbcp2.PoolableConnectionFactory;
 import org.apache.commons.dbcp2.PoolingDataSource;
 import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.slf4j.Logger;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Any;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
-import io.grpc.Status;
 
 /**
  * Proof of concept {@link FlightSqlProducer} implementation showing an Apache Derby backed Flight SQL server capable
  * of the following workflows:
- * - returning a list of tables from the action "GetTables".
- * - creation of a prepared statement from the action "GetPreparedStatement".
- * - execution of a prepared statement by using a {@link CommandPreparedStatementQuery} with getFlightInfo and
- * getStream.
+ * <!--
+ * TODO Revise summary: is it still matching?
+ * -->
+ * - returning a list of tables from the action `GetTables`.
+ * - creation of a prepared statement from the action `CreatePreparedStatement`.
+ * - execution of a prepared statement by using a {@link CommandPreparedStatementQuery}
+ * with {@link #getFlightInfo} and {@link #getStream}.
  */
 public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightSqlExample.class);
-
+  public static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
+  private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private static final int BIT_WIDTH_8 = 8;
   private static final int BIT_WIDTH_16 = 16;
   private static final int BIT_WIDTH_32 = 32;
   private static final int BIT_WIDTH_64 = 64;
   private static final boolean IS_SIGNED_TRUE = true;
-
   private static final int BATCH_ROW_SIZE = 1000;
-
+  @SuppressWarnings("unused") // TODO Verify whether this is needed.
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
 
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
   private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
 
-  public FlightSqlExample(Location location) {
-    removeDerbyDatabaseIfExists();
-    populateDerbyDatabase();
+  public FlightSqlExample(final Location location) {
+    checkState(
+        removeDerbyDatabaseIfExists() && populateDerbyDatabase(),
+        "Failed to reset Derby database!");
 
     final ConnectionFactory connectionFactory =
-            new DriverManagerConnectionFactory("jdbc:derby:target/derbyDB", null);
-    final PoolableConnectionFactory poolableConnectionFactory = new PoolableConnectionFactory(connectionFactory, null);
+        new DriverManagerConnectionFactory(DATABASE_URI, new Properties());
+    final PoolableConnectionFactory poolableConnectionFactory =
+        new PoolableConnectionFactory(connectionFactory, WILDCARD);
     final ObjectPool<PoolableConnection> connectionPool = new GenericObjectPool<>(poolableConnectionFactory);
-    poolableConnectionFactory.setPool(connectionPool);
 
-    // PoolingDataSource takes ownership of connectionPool.
+    poolableConnectionFactory.setPool(connectionPool);
+    // PoolingDataSource takes ownership of `connectionPool`
     dataSource = new PoolingDataSource<>(connectionPool);
 
     preparedStatementLoadingCache =
-            CacheBuilder.newBuilder()
-                    .maximumSize(100)
-                    .expireAfterWrite(10, java.util.concurrent.TimeUnit.MINUTES)
-                    .removalListener(new PreparedStatementRemovalListener())
-                    .build(new PreparedStatementCacheLoader(dataSource));
+        CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(10, MINUTES)
+            .removalListener(new PreparedStatementRemovalListener())
+            .build(new PreparedStatementCacheLoader(dataSource));
 
     commandExecutePreparedStatementLoadingCache =
-            CacheBuilder.newBuilder()
-                    .maximumSize(100)
-                    .expireAfterWrite(10, java.util.concurrent.TimeUnit.MINUTES)
-                    .removalListener(new CommandExecutePreparedStatementRemovalListener())
-                    .build(new CommandExecutePreparedStatementCacheLoader(preparedStatementLoadingCache));
+        CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .expireAfterWrite(10, MINUTES)
+            .removalListener(new CommandExecutePreparedStatementRemovalListener())
+            .build(new CommandExecutePreparedStatementCacheLoader(preparedStatementLoadingCache));
 
     this.location = location;
   }
 
-  @Override
-  public void getTables(FlightSql.ActionGetTablesRequest request, CallContext context,
-          StreamListener<Result> listener) {
-    try {
-      final String catalog = (request.getCatalog().isEmpty() ? null : request.getCatalog());
+  private static boolean removeDerbyDatabaseIfExists() {
+    boolean wasSuccess;
+    final Path path = Paths.get("target" + separator + "derbyDB");
 
-      final String schemaFilterPattern =
-              (request.getSchemaFilterPattern().isEmpty() ? null : request.getSchemaFilterPattern());
-
-      final String tableFilterPattern =
-              (request.getTableNameFilterPattern().isEmpty() ? null : request.getTableNameFilterPattern());
-
-      final String[] tableTypes = request.getTableTypesList().size() == 0 ? null :
-              request.getTableTypesList().toArray(new String[request.getTableTypesList().size()]);
-
-      try (final Connection connection = dataSource.getConnection();
-           final ResultSet tables = connection.getMetaData().getTables(
-                   catalog,
-                   schemaFilterPattern,
-                   tableFilterPattern,
-                   tableTypes)) {
-        while (tables.next()) {
-          listener.onNext(getTableResult(tables, request.getIncludeSchema()));
-        }
+    try (final Stream<Path> walk = walk(path)) {
+      /*
+       * Iterate over all paths to delete, mapping each path to the outcome of its own
+       * deletion as a boolean representing whether or not each individual operation was
+       * successful; then reduce all booleans into a single answer, and store that into
+       * `wasSuccess`, which will later be returned by this method.
+       * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
+       * this not expected.
+       */
+      wasSuccess = walk.sorted(reverseOrder())
+          .map(pathToDelete -> pathToDelete.toFile().delete())
+          .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
+    } catch (IOException e) {
+      /*
+       * The only acceptable scenario for an `IOException` to be thrown here is if
+       * an attempt to delete an non-existing file takes place -- which should be
+       * alright, since they would be deleted anyway.
+       */
+      if (!(wasSuccess = e instanceof NoSuchFileException)) {
+        LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       }
+    }
+
+    return wasSuccess;
+  }
+
+  private static boolean populateDerbyDatabase() {
+    Optional<SQLException> exception = empty();
+    try (final Connection connection = getConnection("jdbc:derby:target/derbyDB;create=true");
+         Statement statement = connection.createStatement()) {
+      statement.execute("CREATE TABLE intTable (keyName varchar(100), value int)");
+      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
+      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('zero', 0)");
+      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('negative one', -1)");
     } catch (SQLException e) {
-      listener.onError(e);
-    } finally {
-      listener.onCompleted();
+      LOGGER.error(
+          format("Failed attempt to populate DerbyDB: <%s>", e.getMessage()),
+          (exception = Optional.of(e)).get());
+    }
+
+    return !exception.isPresent();
+  }
+
+  /**
+   * Converts {@link Types} values returned from JDBC Apis to Arrow types.
+   *
+   * @param jdbcDataType {@link Types} value.
+   * @param precision    Precision of the type.
+   * @param scale        Scale of the type.
+   * @return The Arrow equivalent type.
+   */
+  static ArrowType getArrowTypeFromJdbcType(int jdbcDataType, int precision, int scale) {
+    switch (jdbcDataType) {
+      case BIT:
+      case BOOLEAN:
+        return Bool.INSTANCE;
+      case TINYINT:
+        // sint8
+        return new Int(BIT_WIDTH_8, IS_SIGNED_TRUE);
+      case SMALLINT:
+        // sint16
+        return new Int(BIT_WIDTH_16, IS_SIGNED_TRUE);
+      case INTEGER:
+        // sint32
+        return new Int(BIT_WIDTH_32, IS_SIGNED_TRUE);
+      case BIGINT:
+        // sint64
+        return new Int(BIT_WIDTH_64, IS_SIGNED_TRUE);
+      case FLOAT:
+      case REAL:
+        return new FloatingPoint(FloatingPointPrecision.SINGLE);
+      case DOUBLE:
+        return new FloatingPoint(FloatingPointPrecision.DOUBLE);
+      case NUMERIC:
+      case DECIMAL:
+        return new Decimal(precision, scale);
+      case DATE:
+        return new Date(DAY);
+      case TIME:
+        // millis as int32
+        return new Time(MILLISECOND, BIT_WIDTH_32);
+      case TIMESTAMP:
+        return new Timestamp(MILLISECOND, null);
+      case BINARY:
+      case VARBINARY:
+      case LONGVARBINARY:
+        return Binary.INSTANCE;
+      case NULL:
+        return INSTANCE;
+
+      case CHAR:
+      case VARCHAR:
+      case LONGVARCHAR:
+      case CLOB:
+      case NCHAR:
+      case NVARCHAR:
+      case LONGNVARCHAR:
+      case NCLOB:
+
+      case OTHER:
+      case JAVA_OBJECT:
+      case DISTINCT:
+      case STRUCT:
+      case ARRAY:
+      case BLOB:
+      case REF:
+      case DATALINK:
+      case ROWID:
+      case SQLXML:
+      case REF_CURSOR:
+      case TIME_WITH_TIMEZONE:
+      case TIMESTAMP_WITH_TIMEZONE:
+      default:
+        return Utf8.INSTANCE;
     }
   }
 
   private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
-
-    final String catalog = tables.getString("TABLE_CAT");
-    final String schema = tables.getString("TABLE_SCHEM");
-    final String table = tables.getString("TABLE_NAME");
-    final String tableType = tables.getString("TABLE_TYPE");
-
-    final ActionGetTablesResult.Builder builder = ActionGetTablesResult.newBuilder()
-            .setCatalog(catalog)
-            .setSchema(schema)
-            .setTable(table)
-            .setTableType(tableType);
-
-    if (includeSchema) {
-      final Schema pojoSchema = buildSchema(catalog, schema, table);
-      builder.setSchemaMetadata(ByteString.copyFrom(pojoSchema.toByteArray()));
-    }
-
-    return new Result(Any.pack(builder.build()).toByteArray());
-  }
-
-  @Override
-  public void getPreparedStatement(FlightSql.ActionGetPreparedStatementRequest request, CallContext context,
-          StreamListener<Result> listener) {
-    final PreparedStatementCacheKey handle = new PreparedStatementCacheKey(
-            UUID.randomUUID().toString(), request.getQuery());
-
-    try {
-      final PreparedStatementContext preparedStatementContext = preparedStatementLoadingCache.get(handle);
-      final PreparedStatement preparedStatement = preparedStatementContext.getPreparedStatement();
-
-      // todo
-      final Schema pojoParameterMetaDataSchema = buildSchema(preparedStatement.getParameterMetaData());
-      final Schema pojoResultSetSchema = buildSchema(preparedStatement.getMetaData());
-
-      listener.onNext(new Result(
-              Any.pack(ActionGetPreparedStatementResult.newBuilder()
-                      .setDatasetSchema(ByteString.copyFrom(pojoResultSetSchema.toByteArray()))
-                      .setParameterSchema(ByteString.copyFrom(pojoParameterMetaDataSchema.toByteArray()))
-                      .setPreparedStatementHandle(handle.toProtocol())
-                      .build())
-                      .toByteArray()));
-
-    } catch (Throwable e) {
-      listener.onError(e);
-    } finally {
-      listener.onCompleted();
-    }
-  }
-
-  @Override
-  public FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery command, FlightDescriptor descriptor,
-          CallContext context) {
-    try {
-      final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
-      final Schema schema = buildSchema(resultSet.getMetaData());
-
-      final List<FlightEndpoint> endpoints = ImmutableList
-              .of(new FlightEndpoint(new Ticket(Any.pack(command).toByteArray()), location));
-
-      return new FlightInfo(schema, descriptor, endpoints, -1, -1);
-    } catch (Throwable e) {
-      logger.error("There was a problem executing the prepared statement", e);
-      throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
-    }
+    // TODO
+    throw UNIMPLEMENTED.asRuntimeException();
   }
 
   private Schema buildSchema(String catalog, String schema, String table) throws SQLException {
@@ -251,21 +341,22 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     try (final Connection connection = dataSource.getConnection();
          final ResultSet columns = connection.getMetaData().getColumns(
-                 catalog,
-                 schema,
-                 table,
-                 null);) {
+             catalog,
+             schema,
+             table,
+             null);) {
 
       while (columns.next()) {
         final String columnName = columns.getString("COLUMN_NAME");
         final int jdbcDataType = columns.getInt("DATA_TYPE");
+        @SuppressWarnings("unused") // TODO Investigate why this might be here.
         final String jdbcDataTypeName = columns.getString("TYPE_NAME");
         final String jdbcIsNullable = columns.getString("IS_NULLABLE");
-        final boolean arrowIsNullable = jdbcIsNullable.equals("YES");
+        final boolean arrowIsNullable = "YES".equals(jdbcIsNullable);
 
         final int precision = columns.getInt("DECIMAL_DIGITS");
         final int scale = columns.getInt("COLUMN_SIZE");
-        final ArrowType arrowType = FlightSqlUtils.getArrowTypeFromJDBCType(jdbcDataType, precision, scale);
+        final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
 
         final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
         fields.add(new Field(columnName, fieldType, null));
@@ -277,12 +368,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
-          ServerStreamListener listener) {
+                                         ServerStreamListener listener) {
     try {
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
       final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
       final Schema schema = buildSchema(resultSetMetaData);
-      final DictionaryProvider dictionaryProvider = new DictionaryProvider.MapDictionaryProvider();
+      final DictionaryProvider dictionaryProvider = new MapDictionaryProvider();
 
       try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
            final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
@@ -302,8 +393,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
           listener.putNext();
         }
       }
-    } catch (Throwable e) {
-      listener.error(e);
+    } catch (Throwable t) {
+      listener.error(t);
     } finally {
       listener.completed();
       commandExecutePreparedStatementLoadingCache.invalidate(command);
@@ -311,31 +402,31 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private int readBatch(ResultSet resultSet, ResultSetMetaData resultSetMetaData, VectorSchemaRoot root,
-          int columnCount) throws SQLException {
+                        int columnCount) throws SQLException {
     int rowCounter = 0;
     do {
       for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
         final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
 
-        final FieldVector fieldVector = root.getVector(columnName);
+        try (final FieldVector vector = root.getVector(columnName)) {
+          if (vector instanceof VarCharVector) {
+            final String value = resultSet.getString(resultSetColumnCounter);
+            if (resultSet.wasNull()) {
+              // TODO handle null
+            } else {
+              ((VarCharVector) vector).setSafe(rowCounter, value.getBytes(), 0, value.length());
+            }
+          } else if (vector instanceof IntVector) {
+            final int value = resultSet.getInt(resultSetColumnCounter);
 
-        if (fieldVector instanceof VarCharVector) {
-          final String value = resultSet.getString(resultSetColumnCounter);
-          if (resultSet.wasNull()) {
-            // TODO handle null
+            if (resultSet.wasNull()) {
+              // TODO handle null
+            } else {
+              ((IntVector) vector).setSafe(rowCounter, value);
+            }
           } else {
-            ((VarCharVector) fieldVector).setSafe(rowCounter, value.getBytes(), 0, value.length());
+            throw new UnsupportedOperationException();
           }
-        } else if (fieldVector instanceof IntVector) {
-          final int value = resultSet.getInt(resultSetColumnCounter);
-
-          if (resultSet.wasNull()) {
-            // TODO handle null
-          } else {
-            ((IntVector) fieldVector).setSafe(rowCounter, value);
-          }
-        } else {
-          throw new UnsupportedOperationException();
         }
       }
       rowCounter++;
@@ -345,13 +436,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return rowCounter;
   }
 
-
   @Override
-  public void closePreparedStatement(FlightSql.ActionClosePreparedStatementRequest request, CallContext context,
-          StreamListener<Result> listener) {
+  public void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
+                                     StreamListener<Result> listener) {
     try {
       preparedStatementLoadingCache.invalidate(
-              PreparedStatementCacheKey.fromProtocol(request.getPreparedStatementHandleBytes()));
+          PreparedStatementCacheKey.fromProtocol(request.getPreparedStatementHandleBytes()));
     } catch (InvalidProtocolBufferException e) {
       listener.onError(e);
     } finally {
@@ -359,11 +449,32 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     }
   }
 
+  @Override
+  public FlightInfo getFlightInfoStatement(final CommandStatementQuery command, final CallContext context,
+                                           final FlightDescriptor descriptor) {
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery command,
+                                                   final CallContext context,
+                                                   final FlightDescriptor descriptor) {
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public SchemaResult getSchemaStatement(final CommandStatementQuery command, final CallContext context,
+                                         final FlightDescriptor descriptor) {
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
   private Schema buildSchema(ResultSetMetaData resultSetMetaData) throws SQLException {
-    Preconditions.checkNotNull(resultSetMetaData, "ResultSetMetaData object can't be null");
     final List<Field> resultSetFields = new ArrayList<>();
 
-    for (int resultSetCounter = 1; resultSetCounter <= resultSetMetaData.getColumnCount(); resultSetCounter++) {
+    for (int resultSetCounter = 1;
+         resultSetCounter <= checkNotNull(resultSetMetaData, "ResultSetMetaData object can't be null")
+             .getColumnCount();
+         resultSetCounter++) {
       final String name = resultSetMetaData.getColumnName(resultSetCounter);
 
       final int jdbcDataType = resultSetMetaData.getColumnType(resultSetCounter);
@@ -374,20 +485,22 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       final int precision = resultSetMetaData.getPrecision(resultSetCounter);
       final int scale = resultSetMetaData.getScale(resultSetCounter);
 
-      final ArrowType arrowType = getArrowTypeFromJDBCType(jdbcDataType, precision, scale);
+      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
 
       final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
       resultSetFields.add(new Field(name, fieldType, null));
     }
-    final Schema pojoResultSetSchema = new Schema(resultSetFields);
-    return pojoResultSetSchema;
+
+    return new Schema(resultSetFields);
   }
 
   private Schema buildSchema(ParameterMetaData parameterMetaData) throws SQLException {
-    Preconditions.checkNotNull(parameterMetaData, "ParameterMetaData object can't be null");
     final List<Field> parameterFields = new ArrayList<>();
 
-    for (int parameterCounter = 1; parameterCounter <= parameterMetaData.getParameterCount(); parameterCounter++) {
+    for (int parameterCounter = 1; parameterCounter <=
+        checkNotNull(parameterMetaData, "ParameterMetaData object can't be null")
+            .getParameterCount();
+         parameterCounter++) {
       final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
 
       final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
@@ -396,34 +509,181 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       final int precision = parameterMetaData.getPrecision(parameterCounter);
       final int scale = parameterMetaData.getScale(parameterCounter);
 
-      final ArrowType arrowType = getArrowTypeFromJDBCType(jdbcDataType, precision, scale);
+      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
 
       final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
       parameterFields.add(new Field(null, fieldType, null));
     }
-    final Schema pojoParameterMetaDataSchema = new Schema(parameterFields);
-    return pojoParameterMetaDataSchema;
+
+    return new Schema(parameterFields);
   }
 
   @Override
   public void close() throws Exception {
     try {
       commandExecutePreparedStatementLoadingCache.cleanUp();
-    } catch (Throwable e) {
-      // Swallow
+    } catch (Throwable t) {
+      LOGGER.error(format("Failed to close resources: <%s>", t.getMessage()), t);
     }
 
     try {
       preparedStatementLoadingCache.cleanUp();
-    } catch (Throwable e) {
-      // Swallow
+    } catch (Throwable t) {
+      LOGGER.error(format("Failed to close resources: <%s>", t.getMessage()), t);
     }
 
     AutoCloseables.close(dataSource);
   }
 
+  @Override
+  public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
+                                      final StreamListener<Result> listener) {
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public Runnable acceptPutStatement(CommandStatementUpdate command,
+                                     CallContext context, FlightStream flightStream,
+                                     StreamListener<PutResult> ackStream) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
+                                                   FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command, CallContext context,
+                                                  FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
+                                         final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
+                               final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs request, final CallContext context,
+                                          final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
+                                         final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
+                               final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
+                                        final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamTables(final CommandGetTables command, final CallContext context, final Ticket ticket,
+                              final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTableTypes(final CallContext context, final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys request, final CallContext context,
+                                             final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
+                                   final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public FlightInfo getFlightInfoForeignKeys(final CommandGetForeignKeys request, final CallContext context,
+                                             final FlightDescriptor descriptor) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamForeignKeys(final CommandGetForeignKeys command, final CallContext context, final Ticket ticket,
+                                   final ServerStreamListener listener) {
+    // TODO - build example implementation
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
+  @Override
+  public void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
+                                 ServerStreamListener listener) {
+    throw UNIMPLEMENTED.asRuntimeException();
+  }
+
   private static class CommandExecutePreparedStatementRemovalListener
-          implements RemovalListener<CommandPreparedStatementQuery, ResultSet> {
+      implements RemovalListener<CommandPreparedStatementQuery, ResultSet> {
     @Override
     public void onRemoval(RemovalNotification<CommandPreparedStatementQuery, ResultSet> notification) {
       try {
@@ -435,29 +695,28 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private static class CommandExecutePreparedStatementCacheLoader
-          extends CacheLoader<CommandPreparedStatementQuery, ResultSet> {
+      extends CacheLoader<CommandPreparedStatementQuery, ResultSet> {
 
     private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
 
     private CommandExecutePreparedStatementCacheLoader(LoadingCache<PreparedStatementCacheKey,
-            PreparedStatementContext> preparedStatementLoadingCache) {
+        PreparedStatementContext> preparedStatementLoadingCache) {
       this.preparedStatementLoadingCache = preparedStatementLoadingCache;
     }
 
     @Override
     public ResultSet load(CommandPreparedStatementQuery commandExecutePreparedStatement)
-            throws SQLException, InvalidProtocolBufferException, ExecutionException {
+        throws SQLException, InvalidProtocolBufferException, ExecutionException {
       final PreparedStatementCacheKey preparedStatementCacheKey =
-              PreparedStatementCacheKey.fromProtocol(commandExecutePreparedStatement.getPreparedStatementHandle());
+          PreparedStatementCacheKey.fromProtocol(commandExecutePreparedStatement.getPreparedStatementHandle());
       final PreparedStatementContext preparedStatementContext = preparedStatementLoadingCache
-              .get(preparedStatementCacheKey);
+          .get(preparedStatementCacheKey);
       return preparedStatementContext.getPreparedStatement().executeQuery();
     }
   }
 
-
   private static class PreparedStatementRemovalListener implements RemovalListener<PreparedStatementCacheKey,
-          PreparedStatementContext> {
+      PreparedStatementContext> {
     @Override
     public void onRemoval(RemovalNotification<PreparedStatementCacheKey, PreparedStatementContext> notification) {
       try {
@@ -469,7 +728,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private static class PreparedStatementCacheLoader extends CacheLoader<PreparedStatementCacheKey,
-          PreparedStatementContext> {
+      PreparedStatementContext> {
 
     // Owned by parent class.
     private final PoolingDataSource<PoolableConnection> dataSource;
@@ -490,187 +749,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         connection.close();
         throw e;
       }
-    }
-  }
-
-  private static void removeDerbyDatabaseIfExists() {
-    final Path path = Paths.get("target" + File.separator + "derbyDB");
-
-    try (final Stream<Path> walk = Files.walk(path)) {
-      walk.sorted(Comparator.reverseOrder())
-              .map(Path::toFile)
-              .forEach(File::delete);
-    } catch (NoSuchFileException e) {
-      // Ignore as there was no data directory to clean up.
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to remove derby data directory.", e);
-    }
-  }
-
-  private static void populateDerbyDatabase() {
-    try (final Connection conn = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true")) {
-      conn.createStatement().execute("CREATE TABLE intTable (keyName varchar(100), value int)");
-      conn.createStatement().execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
-      conn.createStatement().execute("INSERT INTO intTable (keyName, value) VALUES ('zero', 0)");
-      conn.createStatement().execute("INSERT INTO intTable (keyName, value) VALUES ('negative one', -1)");
-    } catch (SQLException e) {
-      throw new RuntimeException("Failed to create derby database.", e);
-    }
-  }
-
-
-  @Override
-  public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public FlightInfo getFlightInfoStatement(CommandStatementQuery command, FlightDescriptor descriptor,
-          CallContext context) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void getSqlCapabilities(CallContext context, StreamListener<Result> listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void getCatalogs(FlightSql.ActionGetCatalogsRequest request, CallContext context,
-          StreamListener<Result> listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void getSchemas(FlightSql.ActionGetSchemasRequest request, CallContext context,
-          StreamListener<Result> listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void getTableTypes(CallContext context, StreamListener<Result> listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public SchemaResult getSchemaStatement(CommandStatementQuery command, FlightDescriptor descriptor,
-          CallContext context) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public Runnable acceptPutStatement(CommandStatementUpdate command,
-          CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
-          FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command, CallContext context,
-          FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
-  public void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
-          ServerStreamListener listener) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-
-  /**
-   * Converts {@link java.sql.Types} values returned from JDBC Apis to Arrow types.
-   *
-   * @param jdbcDataType {@link java.sql.Types} value.
-   * @param precision    Precision of the type.
-   * @param scale        Scale of the type.
-   * @return The Arrow equivalent type.
-   */
-  static ArrowType getArrowTypeFromJDBCType(int jdbcDataType, int precision, int scale) {
-    switch (jdbcDataType) {
-      case Types.BIT:
-      case Types.BOOLEAN:
-        return ArrowType.Bool.INSTANCE;
-      case Types.TINYINT:
-        return new ArrowType.Int(BIT_WIDTH_8, IS_SIGNED_TRUE);
-      case Types.SMALLINT:
-        return new ArrowType.Int(BIT_WIDTH_16, IS_SIGNED_TRUE);
-      case Types.INTEGER:
-        return new ArrowType.Int(BIT_WIDTH_32, IS_SIGNED_TRUE);
-      case Types.BIGINT:
-        return new ArrowType.Int(BIT_WIDTH_64, IS_SIGNED_TRUE);
-      case Types.FLOAT:
-      case Types.REAL:
-        return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
-      case Types.DOUBLE:
-        return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
-      case Types.NUMERIC:
-      case Types.DECIMAL:
-        return new ArrowType.Decimal(precision, scale);
-      case Types.DATE:
-        return new ArrowType.Date(DateUnit.DAY);
-      case Types.TIME:
-        return new ArrowType.Time(TimeUnit.MILLISECOND, BIT_WIDTH_32);
-      case Types.TIMESTAMP:
-        return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
-      case Types.BINARY:
-      case Types.VARBINARY:
-      case Types.LONGVARBINARY:
-        return ArrowType.Binary.INSTANCE;
-      case Types.NULL:
-        return ArrowType.Null.INSTANCE;
-
-      case Types.CHAR:
-      case Types.VARCHAR:
-      case Types.LONGVARCHAR:
-      case Types.CLOB:
-      case Types.NCHAR:
-      case Types.NVARCHAR:
-      case Types.LONGNVARCHAR:
-      case Types.NCLOB:
-
-      case Types.OTHER:
-      case Types.JAVA_OBJECT:
-      case Types.DISTINCT:
-      case Types.STRUCT:
-      case Types.ARRAY:
-      case Types.BLOB:
-      case Types.REF:
-      case Types.DATALINK:
-      case Types.ROWID:
-      case Types.SQLXML:
-      case Types.REF_CURSOR:
-      case Types.TIME_WITH_TIMEZONE:
-      case Types.TIMESTAMP_WITH_TIMEZONE:
-      default:
-        return ArrowType.Utf8.INSTANCE;
     }
   }
 }
