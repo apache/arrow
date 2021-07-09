@@ -705,6 +705,55 @@ TEST(GroupBy, MinMaxOnly) {
   }
 }
 
+TEST(GroupBy, AnyAndAll) {
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", boolean()), field("key", int64())}), {R"([
+    [true,  1],
+    [null,  1]
+                        ])",
+                                                                                      R"([
+    [false, 2],
+    [null,  3],
+    [false, null],
+    [true,  1],
+    [true,  2]
+                        ])",
+                                                                                      R"([
+    [true,  2],
+    [false, null],
+    [null,  3]
+                        ])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy({table->GetColumnByName("argument"),
+                                            table->GetColumnByName("argument")},
+                                           {table->GetColumnByName("key")},
+                                           {
+                                               {"hash_any", nullptr},
+                                               {"hash_all", nullptr},
+                                           },
+                                           use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_any", boolean()),
+                                        field("hash_all", boolean()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [true,  true,  1],
+    [true,  false, 2],
+    [false, true, 3],
+    [false, false, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
