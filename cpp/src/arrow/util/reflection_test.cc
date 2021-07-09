@@ -221,11 +221,33 @@ TEST(Reflection, EnumTraits) {
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
 }
 
-constexpr const char* kColorsValues = "red green blue";
+ARROW_EXPORT
+constexpr const char* kColorsValues = R"(
+  red
+  green
+  blue
+)";
+
+TEST(Reflection, CompileTimeStringOps) {
+  static_assert(CaseInsensitiveEquals("a", "a"), "");
+  static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
+  static_assert(CaseInsensitiveEquals("Ab ", "ab", 2), "");
+  static_assert(CaseInsensitiveEquals(util::string_view{"Ab ", 2}, "ab"), "");
+
+  static_assert(CaseInsensitiveEquals(SkipWhitespace("  a"), "a"), "");
+  static_assert(CaseInsensitiveEquals(SkipWhitespace("a  b"), "a  b"), "");
+
+  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("  a"), "  a"), "");
+  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("a  b"), "  b"), "");
+
+  static_assert(TokenSize("aba ddf") == 3, "");
+
+  static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
+}
 
 TEST(Reflection, EnumType) {
   using Color = EnumType<kColorsValues>;
-  static_assert(Color::size == 3, "");
+  static_assert(Color::kSize == 3, "");
 
   static_assert(Color("red") == 0, "");
   static_assert(Color("GREEN") == 1, "");

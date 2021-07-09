@@ -41,11 +41,6 @@ constexpr bool CaseInsensitiveEquals(util::string_view l, util::string_view r) {
   return l.size() == r.size() && CaseInsensitiveEquals(l.data(), r.data(), l.size());
 }
 
-static_assert(CaseInsensitiveEquals("a", "a"), "");
-static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
-static_assert(CaseInsensitiveEquals("Ab ", "ab", 2), "");
-static_assert(CaseInsensitiveEquals(util::string_view{"Ab ", 2}, "ab"), "");
-
 constexpr const char* SkipWhitespace(const char* raw) {
   return *raw == '\0' || !IsSpace(*raw) ? raw : SkipWhitespace(raw + 1);
 }
@@ -62,28 +57,25 @@ constexpr size_t NextTokenStart(const char* raw, size_t token_start) {
   return SkipWhitespace(SkipNonWhitespace(raw + token_start)) - raw;
 }
 
-static_assert(CaseInsensitiveEquals(SkipWhitespace("  a"), "a"), "");
-
 using StringConstant = const char* const&;
 
 template <StringConstant Raw, size_t... Offsets>
 struct EnumTypeImpl {
-  static constexpr const char* raw = SkipWhitespace(Raw);
+  static constexpr int kSize = sizeof...(Offsets);
 
-  static constexpr int size = sizeof...(Offsets);
-
-  static constexpr util::string_view values[sizeof...(Offsets)] = {
-      {raw + Offsets, TokenSize(raw + Offsets)}...};
+  static constexpr util::string_view kValues[sizeof...(Offsets)] = {
+      {Raw + Offsets, TokenSize(Raw + Offsets)}...};
 
   static constexpr int GetIndex(util::string_view repr, int i = 0) {
-    return i == size ? -1
-                     : CaseInsensitiveEquals(values[i], repr) ? i : GetIndex(repr, i + 1);
+    return i == kSize
+               ? -1
+               : CaseInsensitiveEquals(kValues[i], repr) ? i : GetIndex(repr, i + 1);
   }
 };
 
 template <StringConstant Raw, size_t... Offsets>
 constexpr util::string_view const
-    EnumTypeImpl<Raw, Offsets...>::values[sizeof...(Offsets)];
+    EnumTypeImpl<Raw, Offsets...>::kValues[sizeof...(Offsets)];
 
 template <StringConstant Raw, bool IsEnd = false,
           size_t MaxOffset = SkipWhitespace(Raw) - Raw, size_t... Offsets>
@@ -99,13 +91,13 @@ struct EnumTypeBuilder<Raw, true, MaxOffset, Offsets...> {
 template <StringConstant Raw>
 struct EnumType : EnumTypeBuilder<Raw>::ImplType {
   constexpr EnumType() = default;
-  constexpr explicit EnumType(int i) : index{i < this->size ? i : -1} {}
+  constexpr explicit EnumType(int i) : index{i >= 0 && i < this->kSize ? i : -1} {}
   constexpr explicit EnumType(util::string_view repr) : index{this->GetIndex(repr)} {}
 
   constexpr bool operator==(EnumType other) const { return index == other.index; }
   constexpr bool operator!=(EnumType other) const { return index != other.index; }
 
-  std::string ToString() const { return this->values[index].to_string(); }
+  std::string ToString() const { return this->kValues[index].to_string(); }
   constexpr explicit operator bool() const { return index != -1; }
   constexpr operator int() const { return index; }  // NOLINT runtime/explicit
 
