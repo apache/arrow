@@ -116,54 +116,6 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-#' @export
-log.ArrowDatum <- function(x) {
-  call_function("ln_checked", x)
-}
-
-#' @export
-logb.ArrowDatum <- log.ArrowDatum
-
-#' @export
-log10.ArrowDatum <- function(x) {
-  call_function("log10_checked", x)
-}
-
-#' @export
-log2.ArrowDatum <- function(x) {
-  call_function("log2_checked", x)
-}
-
-#' @export
-log1p.ArrowDatum <- function(x) {
-  call_function("log1p_checked", x)
-}
-
-#' @export
-sin.ArrowDatum <- function(x) {
-  call_function("sin_checked", x)
-}
-
-#' @export
-cos.ArrowDatum <- function(x) {
-  call_function("cos_checked", x)
-}
-
-#' @export
-tan.ArrowDatum <- function(x) {
-  call_function("tan_checked", x)
-}
-
-#' @export
-asin.ArrowDatum <- function(x) {
-  call_function("asin_checked", x)
-}
-
-#' @export
-acos.ArrowDatum <- function(x) {
-  call_function("acos_checked", x)
-}
-
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   a <- collect_arrays_from_dots(list(...))
   if (!na.rm) {
