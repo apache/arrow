@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/enum.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
 
@@ -218,6 +219,41 @@ TEST(Reflection, EnumTraits) {
   static_assert(has_enum_traits<PersonType>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::CType, int8_t>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
+}
+
+constexpr const char* kColorsValues = "red green blue";
+
+TEST(Reflection, EnumType) {
+  using Color = EnumType<kColorsValues>;
+  static_assert(Color::size == 3, "");
+
+  static_assert(Color("red") == 0, "");
+  static_assert(Color("GREEN") == 1, "");
+  static_assert(Color("Blue") == 2, "");
+  static_assert(!Color("chartreuse"), "");
+
+  EXPECT_EQ(Color("red").ToString(), "red");
+  EXPECT_EQ(Color("GREEN").ToString(), "green");
+  EXPECT_EQ(Color("Blue").ToString(), "blue");
+
+  static_assert(Color("GREEN") == Color("Green"), "");
+  static_assert(Color("GREEN") == Color(1), "");
+  static_assert(Color("GREEN") != Color(), "");
+  static_assert(Color("violet") == Color(), "");
+
+  for (util::string_view repr : {"Red", "orange", "BLUE"}) {
+    switch (Color(repr)) {
+      case Color("blue"):
+        EXPECT_EQ(repr, "BLUE");
+        break;
+      case Color("red"):
+        EXPECT_EQ(repr, "Red");
+        break;
+      default:
+        EXPECT_EQ(repr, "orange");
+        break;
+    }
+  }
 }
 
 }  // namespace internal
