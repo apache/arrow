@@ -145,6 +145,8 @@ function(compile_pyx
             ${no_docstrings_arg}
             ${cython_debug_arg}
             ${CYTHON_FLAGS}
+            # Necessary for autodoc of function arguments
+            --directive embedsignature=True
             # Necessary for Cython code coverage
             --working
             ${CMAKE_CURRENT_SOURCE_DIR}
