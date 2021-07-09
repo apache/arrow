@@ -245,7 +245,7 @@ Future<std::vector<ExecBatch>> StartAndCollect(
   return AllComplete({plan->finished(), Future<>(collected_fut)})
       .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
         ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        return internal::MapVector(
+        return ::arrow::internal::MapVector(
             [](util::optional<ExecBatch> batch) { return std::move(*batch); },
             std::move(collected));
       });
@@ -458,8 +458,8 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
   auto sink_gen = MakeSinkNode(gby, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
-                  {int64(), utf8()}, R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")})));
+              Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+                  {int64(), utf8()}, R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
 }
 
 TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
@@ -494,12 +494,12 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
 
   auto sink_gen = MakeSinkNode(having, "sink");
 
-  ASSERT_THAT(
-      StartAndCollect(plan.get(), sink_gen),
-      ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON({int64(), utf8()}, R"([
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(
+                  UnorderedElementsAreArray({ExecBatchFromJSON({int64(), utf8()}, R"([
                       [36, "alfa"],
                       [20, "beta"]
-                  ])")})));
+                  ])")}))));
 }
 
 }  // namespace compute

@@ -670,7 +670,7 @@ struct GroupByNode : ExecNode {
 
     for (int i = 0; i < num_result_batches; ++i) {
       // Check finished flag
-      if (finished_) {
+      if (finished_.is_finished()) {
         break;
       }
 
@@ -727,14 +727,20 @@ struct GroupByNode : ExecNode {
     num_input_batches_total_ = seq;
     if (num_input_batches_processed_ == num_input_batches_total_) {
       Status status = OutputResult();
+      lock.unlock();
+
       if (!status.ok()) {
         ErrorReceived(input, status);
-        return;
+      } else {
+        finished_.MarkFinished();
       }
     }
   }
 
-  Status StartProducing() override { return Status::OK(); }
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+    return Status::OK();
+  }
 
   void PauseProducing(ExecNode* output) override {}
 
@@ -744,15 +750,17 @@ struct GroupByNode : ExecNode {
     DCHECK_EQ(output, outputs_[0]);
     inputs_[0]->StopProducing(this);
 
-    finished_ = true;
+    finished_.MarkFinished();
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
 
+  Future<> finished() override { return finished_; }
+
  private:
   ExecContext* ctx_;
   std::mutex mutex_;
-  bool finished_{false};
+  Future<> finished_ = Future<>::MakeFinished();
   int num_input_batches_processed_{0};
   int num_input_batches_total_{-1};
   int output_batch_size_{32 * 1024};
