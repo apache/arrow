@@ -73,6 +73,7 @@ import static org.apache.arrow.vector.types.pojo.ArrowType.Null.INSTANCE;
 import static org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -223,8 +224,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
        * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
        * this not expected.
        */
-      wasSuccess = walk.sorted(reverseOrder())
-          .map(pathToDelete -> pathToDelete.toFile().delete())
+      wasSuccess = walk.sorted(reverseOrder()).map(Path::toFile).map(File::delete)
           .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
     } catch (IOException e) {
       /*
