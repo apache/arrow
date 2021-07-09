@@ -221,8 +221,11 @@ TEST(Reflection, EnumTraits) {
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
 }
 
-ARROW_EXPORT
-constexpr const char* kColorsValues = R"(
+#if defined(_MSC_VER)
+// ensure this constant has linkage
+__declspec(dllexport)
+#endif
+    constexpr const char* kColorsValues = R"(
   red
   green
   blue
