@@ -631,13 +631,15 @@ struct GroupByNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper_->Consume(key_batch));
 
     // Execute aggregate kernels
-    auto num_groups = grouper_->num_groups();
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(agg_states_[i].get());
+
       ARROW_ASSIGN_OR_RAISE(
-          auto agg_batch, ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch,
-                                           Datum(num_groups)}));
+          auto agg_batch,
+          ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch}));
+
+      RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, grouper_->num_groups()));
       RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
     }
 
@@ -788,12 +790,8 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
   // Find input field indices for key fields
   std::vector<int> key_field_ids(keys.size());
   for (size_t i = 0; i < keys.size(); ++i) {
-    int key_field_id = input_schema->GetFieldIndex(keys[i]);
-    if (key_field_id < 0) {
-      return Status::Invalid("Key field named '", keys[i],
-                             "' not found or not unique in the input schema.");
-    }
-    key_field_ids[i] = key_field_id;
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(keys[i]).FindOne(*input_schema));
+    key_field_ids[i] = match[0];
   }
 
   // Build vector of key field data types
@@ -809,12 +807,8 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
   // Find input field indices for aggregates
   std::vector<int> agg_src_field_ids(aggs.size());
   for (size_t i = 0; i < aggs.size(); ++i) {
-    int agg_src_field_id = input_schema->GetFieldIndex(agg_srcs[i]);
-    if (agg_src_field_id < 0) {
-      return Status::Invalid("Aggregate source field named '", agg_srcs[i],
-                             "' not found or not unique in the input schema.");
-    }
-    agg_src_field_ids[i] = agg_src_field_id;
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(agg_srcs[i]).FindOne(*input_schema));
+    agg_src_field_ids[i] = match[0];
   }
 
   // Build vector of aggregate source field data types
