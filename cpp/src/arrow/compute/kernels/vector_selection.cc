@@ -1728,9 +1728,10 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
                           value_offset_buffer_builder_.Finish());
     DenseUnionArray typed_values(this->values);
     auto num_fields = typed_values.num_fields();
-    BufferVector buffers = {nullptr, child_ids_buffer, value_offsets_buffer};
-    *out =
-        ArrayData(typed_values.type(), child_ids_buffer->size(), std::move(buffers), 0);
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer),
+                         std::move(value_offsets_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
     for (auto i = 0; i < num_fields; i++) {
       ARROW_ASSIGN_OR_RAISE(auto child_indices_array,
                             child_indices_builders_[i].Finish());

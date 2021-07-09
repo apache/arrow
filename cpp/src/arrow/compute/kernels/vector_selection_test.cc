@@ -615,21 +615,23 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
       [5, "hello"],
       [5, "eh"],
       [2, null],
-      [2, 111]
+      [2, 111],
+      [5, null]
     ])";
-  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
-  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
+  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
+  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
       [2, 222],
       [5, "hello"],
-      null,
-      [2, 111]
+      [2, null],
+      [2, 111],
+      [5, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
-      null,
+  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
+      [2, null],
       [5, "hello"],
-      null
+      [2, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
+  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
 }
 
 class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
@@ -1287,7 +1289,8 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "eh"],
       [2, null],
-      [2, 111]
+      [2, 111],
+      [5, null]
     ])";
   CheckTake(union_type, union_json, "[]", "[]");
   CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
@@ -1297,14 +1300,15 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [2, 222],
       [5, "eh"]
     ])");
-  CheckTake(union_type, union_json, "[4, 2, 1]", R"([
-      null,
+  CheckTake(union_type, union_json, "[4, 2, 1, 6]", R"([
+      [2, null],
       [5, "hello"],
-      [2, 222]
+      [2, 222],
+      [5, null]
     ])");
-  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
+  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
   CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
-      null,
+      [2, null],
       [5, "hello"],
       [5, "hello"],
       [5, "hello"],
