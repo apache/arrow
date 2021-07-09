@@ -20,20 +20,21 @@
 
 env:
   ARROW_S3: {{ arrow_s3 }}
-  MACOSX_DEPLOYMENT_TARGET: {{ macos_deployment_target }}
+  MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
-  PYARROW_VERSION: {{ arrow.no_rc_version }}
-  PYTHON_VERSION: {{ python_version }}
-  PYTHON: /Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}
+  PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+  PYTHON_VERSION: "{{ python_version }}"
+  PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
+  VCPKG_VERSION: "{{ vcpkg_version }}"
 
 jobs:
   build:
     name: Build wheel for OS X
-    runs-on: macos-latest
+    runs-on: macos-10.15
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
