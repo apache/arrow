@@ -17,8 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.function.IntSupplier;
 
@@ -31,8 +31,8 @@ import org.apache.arrow.vector.holders.NullableFloat8Holder;
  */
 public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private Float8Vector vector;
-  private NullableFloat8Holder holder;
+  private final Float8Vector vector;
+  private final NullableFloat8Holder holder;
 
   public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
                                       IntSupplier currentRowSupplier) {
@@ -58,8 +58,8 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public String getString() {
-    final double result = getDouble();
-    return this.wasNull ? null : Double.toString(result);
+    final double value = getDouble();
+    return this.wasNull ? null : Double.toString(value);
   }
 
   @Override
@@ -100,10 +100,8 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    if (scale != 0) {
-      throw new UnsupportedOperationException("Can not use getBigDecimal(int scale) on a decimal accessor.");
-    }
-    return BigDecimal.valueOf(this.getDouble());
+    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.UNNECESSARY);
+    return this.wasNull ? null : value;
   }
 
   @Override
