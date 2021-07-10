@@ -45,7 +45,7 @@ const testOptions = {
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
     const args = [...execArgv];
-    if (format === 'esm' || target === 'ts') {
+    if (format === 'esm' || target === 'ts' || target === 'src') {
         args.unshift(`--experimental-vm-modules`);
     }
     if (argv.coverage) {

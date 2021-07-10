@@ -25,6 +25,8 @@ import {
     RecordBatchReader,
     RecordBatchStreamWriter
 } from 'apache-arrow';
+// @ts-ignore
+import { concatStream } from '@openpgp/web-stream-tools';
 
 import { validateRecordBatchAsyncIterator } from '../validate';
 import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers';
@@ -34,8 +36,6 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     if (process.env.TEST_DOM_STREAMS !== 'true') {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => {});
     }
-
-    const { concatStream } = require('@openpgp/web-stream-tools');
 
     for (const table of generateRandomTables([10, 20, 30])) {
 
