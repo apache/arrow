@@ -77,6 +77,7 @@ template <StringConstant Raw, size_t... Offsets>
 constexpr util::string_view const
     EnumTypeImpl<Raw, Offsets...>::kValues[sizeof...(Offsets)];
 
+/// \cond false
 template <StringConstant Raw, bool IsEnd = false,
           size_t MaxOffset = SkipWhitespace(Raw) - Raw, size_t... Offsets>
 struct EnumTypeBuilder
@@ -87,6 +88,7 @@ template <StringConstant Raw, size_t MaxOffset, size_t... Offsets>
 struct EnumTypeBuilder<Raw, true, MaxOffset, Offsets...> {
   using ImplType = EnumTypeImpl<Raw, Offsets...>;
 };
+/// \endcond
 
 template <StringConstant Raw>
 struct EnumType : EnumTypeBuilder<Raw>::ImplType {
