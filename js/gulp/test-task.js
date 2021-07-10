@@ -45,6 +45,9 @@ const testOptions = {
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
     const args = [...execArgv];
+    if (format === 'esm' || target === 'ts') {
+        args.unshift(`--experimental-vm-modules`);
+    }
     if (argv.coverage) {
         args.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`, `--no-cache`);
     } else {

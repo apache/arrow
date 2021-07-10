@@ -20,9 +20,9 @@ import { AsyncIterable } from 'ix';
 import { util } from 'apache-arrow';
 import { Builder } from 'apache-arrow';
 import { DataType, Vector, Chunked } from 'apache-arrow';
+import randstr from 'randomatic';
 
 const rand = Math.random.bind(Math);
-const randstr = require('randomatic');
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any> null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);

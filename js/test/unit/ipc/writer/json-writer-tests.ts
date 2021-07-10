@@ -23,8 +23,6 @@ import {
 import { validateRecordBatchIterator } from '../validate';
 import { Table, RecordBatchJSONWriter } from 'apache-arrow';
 
-const { parse: bignumJSONParse } = require('json-bignum');
-
 describe('RecordBatchJSONWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {
         testJSONWriter(table, `[${table.schema.fields.join(', ')}]`);
@@ -42,7 +40,7 @@ function testJSONWriter(table: Table, name: string) {
 
 async function validateTable(source: Table) {
     const writer = RecordBatchJSONWriter.writeAll(source);
-    const result = Table.from(bignumJSONParse(await writer.toString()));
+    const result = Table.from(JSON.parse(await writer.toString()));
     validateRecordBatchIterator(3, source.chunks);
     expect(result).toEqualTable(source);
 }

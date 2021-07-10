@@ -3,6 +3,6 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "esnext",
-    "module": "es2015",
+    "module": "es2020"
   }
 }

@@ -7,6 +7,6 @@
     "declaration": false,
     "noEmitHelpers": true,
     "importHelpers": true,
-    "downlevelIteration": true,
+    "downlevelIteration": true
   }
 }

@@ -48,8 +48,6 @@ import {
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    const { parse: bignumJSONParse } = require('json-bignum');
-
     for (const table of generateRandomTables([10, 20, 30])) {
 
         const file = ArrowIOTestHelper.file(table);
@@ -104,7 +102,7 @@ import {
 
             describe(`RecordBatchJSONWriter`, () => {
 
-                const toJSON = (x: any): { schema: any } => bignumJSONParse(`${Buffer.from(x)}`);
+                const toJSON = (x: any): { schema: any } => JSON.parse(`${Buffer.from(x)}`);
 
                 test('Uint8Array', json.buffer((source) => validate(toJSON(source))));
                 test('Promise<Uint8Array>', json.buffer((source) => validate(Promise.resolve(toJSON(source)))));

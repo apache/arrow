@@ -18,13 +18,17 @@
 module.exports = {
     ...require('../jest.config'),
     "rootDir": "../",
+    "preset": "ts-jest/presets/default-esm",
     "globals": {
         "ts-jest": {
             "diagnostics": false,
-            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.es5.esm.json"
+            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.es5.esm.json",
+            "useESM": true,
         }
     },
     "moduleNameMapper": {
-        "^apache-arrow(.*)": "<rootDir>/targets/es5/esm$1"
+        "^apache-arrow(.*)": "<rootDir>/targets/es5/esm$1",
+        "tslib": "tslib/tslib.es6.js",
+        "flatbuffers": "flatbuffers/js/flatbuffers.mjs"
     }
 };

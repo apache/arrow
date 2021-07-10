@@ -34,10 +34,6 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    const { PassThrough } = require('stream');
-    const MultiStream = require('multistream');
-    const { parse: bignumJSONParse } = require('json-bignum');
-
     for (const table of generateRandomTables([10, 20, 30])) {
 
         const file = ArrowIOTestHelper.file(table);
@@ -63,7 +59,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         describe(`toNodeStream (${name})`, () => {
 
             describe(`RecordBatchJSONReader`, () => {
-                test('Uint8Array', json.buffer((source) => validate(bignumJSONParse(`${Buffer.from(source)}`))));
+                test('Uint8Array', json.buffer((source) => validate(JSON.parse(`${Buffer.from(source)}`))));
             });
 
             describe(`RecordBatchFileReader`, () => {
@@ -108,6 +104,9 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     }
 
     it('readAll() should pipe to separate NodeJS WritableStreams', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
+        const { PassThrough } = await import('stream');
 
         expect.hasAssertions();
 
@@ -142,6 +141,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     });
 
     it('should not close the underlying NodeJS ReadableStream when reading multiple tables to completion', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
 
@@ -170,6 +171,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     });
 
     it('should close the underlying NodeJS ReadableStream when reading multiple tables and we break early', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
 

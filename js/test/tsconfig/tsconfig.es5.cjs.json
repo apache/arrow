@@ -4,6 +4,6 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
-    "downlevelIteration": true,
+    "downlevelIteration": true
   }
 }

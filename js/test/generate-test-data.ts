@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const randomatic = require('randomatic');
+import randomatic from 'randomatic';
 import { VectorType as V } from 'apache-arrow/interfaces';
 
 import {

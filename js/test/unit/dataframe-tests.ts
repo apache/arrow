@@ -20,6 +20,7 @@ import {
     predicate, DataFrame, RecordBatch
 } from 'apache-arrow';
 import { test_data } from './table-tests';
+import { jest } from '@jest/globals';
 
 const { col, lit, custom, and, or, And, Or } = predicate;
 

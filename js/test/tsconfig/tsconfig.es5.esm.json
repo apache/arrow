@@ -3,7 +3,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "esnext",
-    "module": "es2015",
-    "downlevelIteration": true,
+    "module": "es2020",
+    "downlevelIteration": true
   }
 }

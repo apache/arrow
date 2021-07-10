@@ -3,6 +3,6 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "esnext",
-    "module": "commonjs",
+    "module": "es2020"
   }
 }
