@@ -25,8 +25,6 @@ import {
     RecordBatchReader,
     RecordBatchStreamWriter
 } from 'apache-arrow';
-// @ts-ignore
-import { concatStream } from '@openpgp/web-stream-tools';
 
 import { validateRecordBatchAsyncIterator } from '../validate';
 import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers';
@@ -108,6 +106,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     }
 
     it('readAll() should pipe to separate WhatWG WritableStreams', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
@@ -145,6 +145,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     });
 
     it('should not close the underlying WhatWG ReadableStream when reading multiple tables to completion', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
@@ -176,6 +178,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     });
 
     it('should close the underlying WhatWG ReadableStream when reading multiple tables and we break early', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
