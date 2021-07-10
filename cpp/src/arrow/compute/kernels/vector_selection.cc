@@ -1699,7 +1699,7 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
           child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
           int32_t value_offset = typed_values.value_offset(index);
           value_offset_buffer_builder_.UnsafeAppend(
-              child_indices_builders_[child_id].length());
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
           RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
           child_indices_builders_[child_id].UnsafeAppend(value_offset);
           return Status::OK();
@@ -1708,7 +1708,7 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
           int8_t child_id = 0;
           child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
           value_offset_buffer_builder_.UnsafeAppend(
-              child_indices_builders_[child_id].length());
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
           RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
           child_indices_builders_[child_id].UnsafeAppendNull();
           return Status::OK();
