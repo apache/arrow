@@ -1622,7 +1622,6 @@ cdef class ListArray(BaseListArray):
             3
           ]
         ]
-
         # nulls in the offsets array become null lists
         >>> offsets = pa.array([0, None, 2, 4])
         >>> pa.ListArray.from_arrays(offsets, values)

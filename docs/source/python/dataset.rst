@@ -481,8 +481,8 @@ calculate the average of a column without loading the entire column into memory:
 
     sum = 0
     count = 0
-    for batch in dataset.to_batches(filter=~ds.field('a').is_null()):
-        sum += pc.sum(batch.column('a')).as_py()
+    for batch in dataset.to_batches(filter=~ds.field('col2').is_null()):
+        sum += pc.sum(batch.column('col2')).as_py()
         count += batch.num_rows
     mean_a = sum/count
 
@@ -580,28 +580,28 @@ directories.  You could also use this mechnaism to change which columns you are 
 on as well.  This is useful when you expect to query your data in specific ways and
 you can utilize partitioning to reduce the amount of data you need to read.
 
-Customizing & inspecting written files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. To add when ARROW-12364 is merged
+    Customizing & inspecting written files
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default the dataset API will create files named "part-i.format" where "i" is a integer
-generated during the write and "format" is the file format specified in the write_dataset
-call.  For simple datasets it may be possible to know which files will be created but for
-larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
-to supply a visitor that will be called as each file is created:
+    By default the dataset API will create files named "part-i.format" where "i" is a integer
+    generated during the write and "format" is the file format specified in the write_dataset
+    call.  For simple datasets it may be possible to know which files will be created but for
+    larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
+    to supply a visitor that will be called as each file is created:
 
-.. ipython:: python
+    .. ipython:: python
 
-    def file_visitor(written_file):
-        print(f"path={written_file.path}")
-        print(f"metadata={written_file.metadata}")
+        def file_visitor(written_file):
+            print(f"path={written_file.path}")
+            print(f"metadata={written_file.metadata}")
+        ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
+                        file_visitor=file_visitor)
 
-    ds.write_dataset(table, dataset_root, format="parquet", partitioning=part,
-                     file_visitor=file_visitor)
-
-This will allow you to collect the filenames that belong to the dataset and store them elsewhere
-which can be useful when you want to avoid scanning directories the next time you need to read
-the data.  It can also be used to generate the _metadata index file used by other tools such as
-dask or spark to create an index of the dataset.
+    This will allow you to collect the filenames that belong to the dataset and store them elsewhere
+    which can be useful when you want to avoid scanning directories the next time you need to read
+    the data.  It can also be used to generate the _metadata index file used by other tools such as
+    dask or spark to create an index of the dataset.
 
 Configuring format-specific parameters during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

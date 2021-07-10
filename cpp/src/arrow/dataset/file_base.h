@@ -39,6 +39,7 @@ namespace arrow {
 
 namespace dataset {
 
+/// \defgroup dataset-file-formats File formats for reading and writing datasets
 /// \defgroup dataset-filesystem File system datasets
 ///
 /// @{
