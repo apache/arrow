@@ -58,8 +58,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());
-  options.emplace_back(
-      new JoinOptions(JoinOptions::NullHandlingBehavior("replace"), "replacement"));
+  options.emplace_back(new JoinOptions(JoinOptions::REPLACE, "replacement"));
   options.emplace_back(new MatchSubstringOptions("pattern"));
   options.emplace_back(new MatchSubstringOptions("pattern", /*ignore_case=*/true));
   options.emplace_back(new SplitOptions());

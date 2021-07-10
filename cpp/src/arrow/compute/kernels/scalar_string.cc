@@ -3613,13 +3613,13 @@ struct BinaryJoinElementWise {
         s = UnboxScalar<Type>::Unbox(scalar);
       } else {
         switch (options.null_handling) {
-          case JoinOptions::NullHandlingBehavior("emit_null"):
+          case JoinOptions::EMIT_NULL:
             // Handled by CalculateRowSize
             DCHECK(false) << "unreachable";
             break;
-          case JoinOptions::NullHandlingBehavior("skip"):
+          case JoinOptions::SKIP:
             continue;
-          case JoinOptions::NullHandlingBehavior("replace"):
+          case JoinOptions::REPLACE:
             s = options.null_replacement;
             break;
         }
@@ -3685,7 +3685,7 @@ struct BinaryJoinElementWise {
         continue;
       } else if (num_valid < batch.values.size() - 1) {
         // We had some nulls
-        if (options.null_handling == JoinOptions::NullHandlingBehavior("emit_null")) {
+        if (options.null_handling == JoinOptions::EMIT_NULL) {
           builder.UnsafeAppendNull();
           continue;
         }
@@ -3696,12 +3696,12 @@ struct BinaryJoinElementWise {
         util::string_view value = valid_cols[col];
         if (!value.data()) {
           switch (options.null_handling) {
-            case JoinOptions::NullHandlingBehavior("emit_null"):
+            case JoinOptions::EMIT_NULL:
               DCHECK(false) << "unreachable";
               break;
-            case JoinOptions::NullHandlingBehavior("skip"):
+            case JoinOptions::SKIP:
               continue;
-            case JoinOptions::NullHandlingBehavior("replace"):
+            case JoinOptions::REPLACE:
               value = options.null_replacement;
               break;
           }
@@ -3756,11 +3756,11 @@ struct BinaryJoinElementWise {
       }
       if (!valid) {
         switch (options.null_handling) {
-          case JoinOptions::NullHandlingBehavior("emit_null"):
+          case JoinOptions::EMIT_NULL:
             return -1;
-          case JoinOptions::NullHandlingBehavior("skip"):
+          case JoinOptions::SKIP:
             continue;
-          case JoinOptions::NullHandlingBehavior("replace"):
+          case JoinOptions::REPLACE:
             element_size = options.null_replacement.size();
             break;
         }
