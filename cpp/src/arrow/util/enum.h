@@ -57,14 +57,12 @@ constexpr size_t NextTokenStart(const char* raw, size_t token_start) {
   return SkipWhitespace(SkipNonWhitespace(raw + token_start)) - raw;
 }
 
-using StringConstant = const char* const&;
-
-template <StringConstant Raw, size_t... Offsets>
+template <const char* Raw(), size_t... Offsets>
 struct EnumTypeImpl {
   static constexpr int kSize = sizeof...(Offsets);
 
   static constexpr util::string_view kValues[sizeof...(Offsets)] = {
-      {Raw + Offsets, TokenSize(Raw + Offsets)}...};
+      {Raw() + Offsets, TokenSize(Raw() + Offsets)}...};
 
   static constexpr int GetIndex(util::string_view repr, int i = 0) {
     return i == kSize
@@ -73,24 +71,24 @@ struct EnumTypeImpl {
   }
 };
 
-template <StringConstant Raw, size_t... Offsets>
+template <const char* Raw(), size_t... Offsets>
 constexpr util::string_view const
     EnumTypeImpl<Raw, Offsets...>::kValues[sizeof...(Offsets)];
 
 /// \cond false
-template <StringConstant Raw, bool IsEnd = false,
-          size_t MaxOffset = SkipWhitespace(Raw) - Raw, size_t... Offsets>
+template <const char* Raw(), bool IsEnd = false,
+          size_t MaxOffset = SkipWhitespace(Raw()) - Raw(), size_t... Offsets>
 struct EnumTypeBuilder
-    : EnumTypeBuilder<Raw, Raw[NextTokenStart(Raw, MaxOffset)] == '\0',
-                      NextTokenStart(Raw, MaxOffset), Offsets..., MaxOffset> {};
+    : EnumTypeBuilder<Raw, Raw()[NextTokenStart(Raw(), MaxOffset)] == '\0',
+                      NextTokenStart(Raw(), MaxOffset), Offsets..., MaxOffset> {};
 
-template <StringConstant Raw, size_t MaxOffset, size_t... Offsets>
+template <const char* Raw(), size_t MaxOffset, size_t... Offsets>
 struct EnumTypeBuilder<Raw, true, MaxOffset, Offsets...> {
   using ImplType = EnumTypeImpl<Raw, Offsets...>;
 };
 /// \endcond
 
-template <StringConstant Raw>
+template <const char* Raw()>
 struct EnumType : EnumTypeBuilder<Raw>::ImplType {
   constexpr EnumType() = default;
   constexpr explicit EnumType(int i) : index{i >= 0 && i < this->kSize ? i : -1} {}

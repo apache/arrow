@@ -221,16 +221,6 @@ TEST(Reflection, EnumTraits) {
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
 }
 
-#if defined(_MSC_VER)
-// ensure this constant has linkage
-__declspec(dllexport)
-#endif
-    constexpr const char* kColorsValues = R"(
-  red
-  green
-  blue
-)";
-
 TEST(Reflection, CompileTimeStringOps) {
   static_assert(CaseInsensitiveEquals("a", "a"), "");
   static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
@@ -248,8 +238,10 @@ TEST(Reflection, CompileTimeStringOps) {
   static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
 }
 
+constexpr const char* ColorsValues() { return R"(red green blue)"; }
+
 TEST(Reflection, EnumType) {
-  using Color = EnumType<kColorsValues>;
+  using Color = EnumType<ColorsValues>;
   static_assert(Color::kSize == 3, "");
 
   static_assert(Color("red") == 0, "");
