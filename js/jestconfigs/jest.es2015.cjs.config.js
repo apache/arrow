@@ -16,16 +16,16 @@
 // under the License.
 
 module.exports = {
-    ...require('../jest.config'),
-    "rootDir": "../",
-    "preset": "ts-jest",
-    "globals": {
-        "ts-jest": {
-            "diagnostics": false,
-            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.es2015.cjs.json"
-        }
+  ...require("../jest.config"),
+  rootDir: "../",
+  preset: "ts-jest",
+  globals: {
+    "ts-jest": {
+      diagnostics: false,
+      tsconfig: "<rootDir>/test/tsconfig/tsconfig.es2015.cjs.json",
     },
-    "moduleNameMapper": {
-        "^apache-arrow(.*)": "<rootDir>/targets/es2015/cjs$1"
-    }
+  },
+  moduleNameMapper: {
+    "^apache-arrow(.*)": "<rootDir>/targets/es2015/cjs$1",
+  },
 };

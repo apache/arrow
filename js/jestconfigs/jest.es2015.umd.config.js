@@ -16,16 +16,16 @@
 // under the License.
 
 module.exports = {
-    ...require('../jest.config'),
-    "rootDir": "../",
-    "preset": "ts-jest",
-    "globals": {
-        "ts-jest": {
-            "diagnostics": false,
-            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.es2015.umd.json"
-        }
+  ...require("../jest.config"),
+  rootDir: "../",
+  preset: "ts-jest",
+  globals: {
+    "ts-jest": {
+      diagnostics: false,
+      tsconfig: "<rootDir>/test/tsconfig/tsconfig.es2015.umd.json",
     },
-    "moduleNameMapper": {
-        "^apache-arrow(.*)": "<rootDir>/targets/es2015/umd/Arrow.js"
-    }
+  },
+  moduleNameMapper: {
+    "^apache-arrow(.*)": "<rootDir>/targets/es2015/umd/Arrow.js",
+  },
 };

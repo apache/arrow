@@ -16,13 +16,13 @@
 // under the License.
 
 module.exports = {
-    ...require('../jest.config'),
-    "rootDir": "../",
-    "globals": {
-        "ts-jest": {
-            "diagnostics": false,
-            "tsconfig": "<rootDir>/test/tsconfig/tsconfig.src.json",
-            "useESM": true
-        }
-    }
+  ...require("../jest.config"),
+  rootDir: "../",
+  globals: {
+    "ts-jest": {
+      diagnostics: false,
+      tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
+      useESM: true,
+    },
+  },
 };
