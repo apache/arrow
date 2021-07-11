@@ -639,10 +639,11 @@ namespace Apache.Arrow.Ipc
 
                 VectorOffset childFieldChildrenVectorOffset = GetChildrenFieldOffset(childField);
                 VectorOffset childFieldMetadataVectorOffset = GetFieldMetadataOffset(childField);
+                Offset<Flatbuf.DictionaryEncoding> dictionaryOffset = GetDictionaryOffset(childField);
 
                 children[i] = Flatbuf.Field.CreateField(Builder,
                     childFieldNameOffset, childField.IsNullable, childFieldType.Type, childFieldType.Offset,
-                    default, childFieldChildrenVectorOffset, childFieldMetadataVectorOffset);
+                    dictionaryOffset, childFieldChildrenVectorOffset, childFieldMetadataVectorOffset);
             }
 
             return Builder.CreateVectorOfTables(children);
@@ -899,7 +900,7 @@ namespace Apache.Arrow.Ipc
                 long id = dictionaryMemo.GetOrAssignId(field);
 
                 dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(arrayData, ref dictionaryMemo);
+                WalkChildren(dictionary.Data, ref dictionaryMemo);
             }
             else
             {

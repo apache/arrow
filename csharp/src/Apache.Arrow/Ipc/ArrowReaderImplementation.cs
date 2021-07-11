@@ -82,6 +82,16 @@ namespace Apache.Arrow.Ipc
             }
         }
 
+        /// <summary>
+        /// Create a record batch or dictionary batch from Flatbuf.Message.
+        /// </summary>
+        /// <remarks>
+        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
+        /// </remarks>>
+        /// <returns>
+        /// The record batch when the message type is RecordBatch.
+        /// Null when the message type is not RecordBatch.
+        /// </returns>
         protected RecordBatch CreateArrowObjectFromMessage(
             Flatbuf.Message message, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
         {

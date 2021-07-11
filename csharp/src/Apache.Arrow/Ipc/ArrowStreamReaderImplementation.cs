@@ -27,8 +27,6 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
-        private bool HasReadInitialDictionary { get; set; }
-        private bool HasCreatedDictionaryMemo => _dictionaryMemo != null;
 
         public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
@@ -43,42 +41,6 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Dispose();
             }
-        }
-
-        private void ReadInitialDictionaries()
-        {
-            if (HasReadInitialDictionary)
-            {
-                return;
-            }
-
-            if (HasCreatedDictionaryMemo)
-            {
-                int fieldCount = DictionaryMemo.GetFieldCount();
-                for (int i = 0; i < fieldCount; ++i)
-                {
-                    ReadArrowObject();
-                }
-            }
-            HasReadInitialDictionary = true;
-        }
-
-        private async ValueTask ReadInitialDictionariesAsync(CancellationToken cancellationToken)
-        {
-            if (HasReadInitialDictionary)
-            {
-                return;
-            }
-
-            if (HasCreatedDictionaryMemo)
-            {
-                int fieldCount = DictionaryMemo.GetFieldCount();
-                for (int i = 0; i < fieldCount; ++i)
-                {
-                    await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
-                }
-            }
-            HasReadInitialDictionary = true;
         }
 
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
@@ -97,19 +59,83 @@ namespace Apache.Arrow.Ipc
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
-            await ReadInitialDictionariesAsync(cancellationToken).ConfigureAwait(false);
+            RecordBatch result = default;
+            Flatbuf.MessageHeader messageHeaderType = Flatbuf.MessageHeader.NONE;
 
-            return await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
+            do
+            {
+                int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (messageLength == 0)
+                {
+                    // reached end
+                    return null;
+                }
+
+                await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
+                {
+                    int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
+                        .ConfigureAwait(false);
+                    EnsureFullRead(messageBuff, bytesRead);
+
+                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                    int bodyLength = checked((int)message.BodyLength);
+                    messageHeaderType = message.HeaderType;
+
+                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                    bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                        .ConfigureAwait(false);
+                    EnsureFullRead(bodyBuff, bytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
+                }).ConfigureAwait(false);
+            } while (messageHeaderType == Flatbuf.MessageHeader.DictionaryBatch);
+
+            return result;
         }
-
 
         protected RecordBatch ReadRecordBatch()
         {
             ReadSchema();
 
-            ReadInitialDictionaries();
+            RecordBatch result = default;
+            Flatbuf.MessageHeader messageHeaderType = Flatbuf.MessageHeader.NONE;
 
-            return ReadArrowObject();
+            do
+            {
+                int messageLength = ReadMessageLength(throwOnFullRead: false);
+
+                if (messageLength == 0)
+                {
+                    // reached end
+                    return null;
+                }
+
+                ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
+                {
+                    int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
+                    EnsureFullRead(messageBuff, bytesRead);
+
+                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                    int bodyLength = checked((int)message.BodyLength);
+                    messageHeaderType = message.HeaderType;
+
+                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                    bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                    EnsureFullRead(bodyBuff, bytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
+                });
+            } while (messageHeaderType == Flatbuf.MessageHeader.DictionaryBatch); 
+
+            return result;
         }
 
         protected virtual async ValueTask ReadSchemaAsync()
@@ -152,93 +178,6 @@ namespace Apache.Arrow.Ipc
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             });
-        }
-
-        /// <summary>
-        /// Read a record batch or dictionary batch from Flatbuf.Message.
-        /// </summary>
-        /// <remarks>
-        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
-        /// </remarks>>
-        /// <returns>
-        /// The record batch when the message type is RecordBatch.
-        /// Null when the message type is DictionaryBatch.
-        /// </returns>
-        private async ValueTask<RecordBatch> ReadArrowObjectAsync(CancellationToken cancellationToken)
-        {
-            int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (messageLength == 0)
-            {
-                // reached end
-                return null;
-            }
-
-            RecordBatch result = default;
-            await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
-            {
-                int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
-                    .ConfigureAwait(false);
-                EnsureFullRead(messageBuff, bytesRead);
-
-                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
-
-                int bodyLength = checked((int)message.BodyLength);
-
-                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
-                    .ConfigureAwait(false);
-                EnsureFullRead(bodyBuff, bytesRead);
-
-                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-            }).ConfigureAwait(false);
-
-            return result;
-        }
-
-        /// <summary>
-        /// Read a record batch or dictionary batch from Flatbuf.Message.
-        /// </summary>
-        /// <remarks>
-        /// This method adds data to _dictionaryMemo and returns null when the message type is DictionaryBatch.
-        /// </remarks>>
-        /// <returns>
-        /// The record batch when the message type is RecordBatch.
-        /// Null when the message type is DictionaryBatch.
-        /// </returns>
-        private RecordBatch ReadArrowObject()
-        {
-            int messageLength = ReadMessageLength(throwOnFullRead: false);
-
-            if (messageLength == 0)
-            {
-                // reached end
-                return null;
-            }
-
-            RecordBatch result = default;
-            ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
-            {
-                int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
-                EnsureFullRead(messageBuff, bytesRead);
-
-                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
-
-                int bodyLength = checked((int)message.BodyLength);
-
-                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-                EnsureFullRead(bodyBuff, bytesRead);
-
-                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-            });
-
-            return result;
         }
 
         private async ValueTask<int> ReadMessageLengthAsync(bool throwOnFullRead, CancellationToken cancellationToken = default)

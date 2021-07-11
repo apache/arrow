@@ -548,7 +548,7 @@ namespace Apache.Arrow.Tests
             var dictionaryData = new List<string> { "a", "b", "c" };
             int length = dictionaryData.Count;
 
-            var indicesSchema = new Schema(new List<Field> {
+            var schemaForSimpleCase = new Schema(new List<Field> {
                 new Field("int8", Int8Type.Default, true),
                 new Field("uint8", UInt8Type.Default, true),
                 new Field("int16", Int16Type.Default, true),
@@ -560,26 +560,54 @@ namespace Apache.Arrow.Tests
             }, null);
 
             StringArray dictionary = new StringArray.Builder().AppendRange(dictionaryData).Build();
-            IEnumerable<IArrowArray> indicesArrays = TestData.CreateArrays(indicesSchema, length);
+            IEnumerable<IArrowArray> indicesArraysForSimpleCase = TestData.CreateArrays(schemaForSimpleCase, length);
 
-            var fields = new List<Field>(capacity: length);
-            var dictionaryArrays = new List<DictionaryArray>(capacity: length);
+            var fields = new List<Field>(capacity: length + 1);
+            var testTargetArrays = new List<IArrowArray>(capacity: length + 1);
 
-            foreach (IArrowArray indices in indicesArrays)
+            foreach (IArrowArray indices in indicesArraysForSimpleCase)
             {
                 var dictionaryArray = new DictionaryArray(
                     new DictionaryType(indices.Data.DataType, StringType.Default, false),
                     indices, dictionary);
-                dictionaryArrays.Add(dictionaryArray);
+                testTargetArrays.Add(dictionaryArray);
                 fields.Add(new Field($"dictionaryField_{indices.Data.DataType.Name}", dictionaryArray.Data.DataType, false));
             }
+
+            (Field listField, ListArray listArray) = CreateDictionaryListArrayTestData(dictionary);
+
+            fields.Add(listField);
+            testTargetArrays.Add(listArray);
 
             var schema = new Schema(fields, null);
 
             return new List<RecordBatch> {
-                new RecordBatch(schema, dictionaryArrays, length),
-                new RecordBatch(schema, dictionaryArrays, length),
+                new RecordBatch(schema, testTargetArrays, length),
+                new RecordBatch(schema, testTargetArrays, length),
             };
+        }
+
+        private Tuple<Field, ListArray> CreateDictionaryListArrayTestData(StringArray dictionary)
+        {
+            List<int> indices = Enumerable.Range(0, dictionary.Length).ToList();
+            Int32Array indiceArray = new Int32Array.Builder().AppendRange(indices).Build();
+            var dictionaryType = new DictionaryType(Int32Type.Default, StringType.Default, false);
+            var dictionaryArray = new DictionaryArray(dictionaryType, indiceArray, dictionary);
+
+            var valueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+            var validityBufferBuilder = new ArrowBuffer.BitmapBuilder();
+
+            foreach (int i in Enumerable.Range(0, dictionary.Length + 1))
+            {
+                valueOffsetsBufferBuilder.Append(i);
+                validityBufferBuilder.Append(true);
+            }
+
+            var dictionaryField = new Field("dictionaryField_list", dictionaryType, false);
+            var listType = new ListType(dictionaryField);
+            var listArray = new ListArray(listType, valueOffsetsBufferBuilder.Length - 1, valueOffsetsBufferBuilder.Build(), dictionaryArray, valueOffsetsBufferBuilder.Build());
+
+            return Tuple.Create(new Field($"ListField_{listType.ValueDataType.Name}", listType, false), listArray);
         }
     }
 }

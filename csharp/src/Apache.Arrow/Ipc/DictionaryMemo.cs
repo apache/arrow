@@ -21,9 +21,9 @@ namespace Apache.Arrow.Ipc
 {
     class DictionaryMemo
     {
-        private Dictionary<long, IArrowArray> _idToDictionary;
-        private Dictionary<long, IArrowType> _idToValueType;
-        private Dictionary<Field, long> _fieldToId;
+        private readonly Dictionary<long, IArrowArray> _idToDictionary;
+        private readonly Dictionary<long, IArrowType> _idToValueType;
+        private readonly Dictionary<Field, long> _fieldToId;
 
         public DictionaryMemo()
         {
