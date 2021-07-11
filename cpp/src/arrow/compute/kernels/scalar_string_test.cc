@@ -282,8 +282,8 @@ TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
 TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
   const auto ty = this->type();
   JoinOptions options;
-  JoinOptions options_skip(JoinOptions::NullHandlingBehavior("skip"));
-  JoinOptions options_replace(JoinOptions::NullHandlingBehavior("replace"), "X");
+  JoinOptions options_skip(JoinOptions::SKIP);
+  JoinOptions options_replace(JoinOptions::REPLACE, "X");
   // Scalar args, Scalar separator
   this->CheckVarArgsScalar("binary_join_element_wise", R"([null])", ty, R"(null)",
                            &options);

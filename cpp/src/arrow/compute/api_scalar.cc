@@ -35,6 +35,25 @@ namespace arrow {
 
 namespace internal {
 template <>
+struct EnumTraits<compute::JoinOptions::NullHandlingBehavior>
+    : BasicEnumTraits<compute::JoinOptions::NullHandlingBehavior,
+                      compute::JoinOptions::NullHandlingBehavior::EMIT_NULL,
+                      compute::JoinOptions::NullHandlingBehavior::SKIP,
+                      compute::JoinOptions::NullHandlingBehavior::REPLACE> {
+  static std::string name() { return "JoinOptions::NullHandlingBehavior"; }
+  static std::string value_name(compute::JoinOptions::NullHandlingBehavior value) {
+    switch (value) {
+      case compute::JoinOptions::NullHandlingBehavior::EMIT_NULL:
+        return "EMIT_NULL";
+      case compute::JoinOptions::NullHandlingBehavior::SKIP:
+        return "SKIP";
+      case compute::JoinOptions::NullHandlingBehavior::REPLACE:
+        return "REPLACE";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
 struct EnumTraits<TimeUnit::type>
     : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
                       TimeUnit::type::MICRO, TimeUnit::type::NANO> {
@@ -82,8 +101,6 @@ struct EnumTraits<compute::CompareOperator>
 }  // namespace internal
 
 namespace compute {
-
-constexpr const char* JoinOptions::NullHandlingBehavior::kValues;
 
 // ----------------------------------------------------------------------
 // Function options

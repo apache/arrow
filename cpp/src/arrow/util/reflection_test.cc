@@ -239,7 +239,7 @@ TEST(Reflection, CompileTimeStringOps) {
 }
 
 struct Color : EnumType<Color> {
-  using EnumType::EnumType;
+  using EnumType<Color>::EnumType;
   static constexpr const char* kValues = R"(red green blue)";
 };
 
