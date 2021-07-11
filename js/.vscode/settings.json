@@ -3,15 +3,5 @@
   "editor.trimAutoWhitespace": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
-  },
-  "[json]": {
-    "editor.tabSize": 2,
-    "editor.wordWrap": "on",
-    "editor.formatOnSave": true,
-  },
-  "[jsonc]": {
-    "editor.tabSize": 2,
-    "editor.wordWrap": "on",
-    "editor.formatOnSave": true,
   }
 }
