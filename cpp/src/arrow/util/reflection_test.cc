@@ -262,10 +262,10 @@ TEST(Reflection, EnumType) {
 
   for (util::string_view repr : {"Red", "orange", "BLUE"}) {
     switch (Color(repr)) {
-      case Color("blue"):
+      case Color("blue").i:
         EXPECT_EQ(repr, "BLUE");
         break;
-      case Color("red"):
+      case Color("red").i:
         EXPECT_EQ(repr, "Red");
         break;
       default:
