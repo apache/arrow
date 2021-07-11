@@ -451,6 +451,18 @@ class BaseTestCSVRead:
             "cd": ["op"],
         }
 
+        # Can skip rows when block ends in middle of quoted value
+        opts.skip_rows_after_names = 2
+        opts.block_size = 26
+        table = self.read_bytes(rows, read_options=opts,
+                                parse_options=parse_opts)
+        self.check_names(table, ["ab", "cd"])
+        assert table.to_pydict() == {
+            "ab": ["mn"],
+            "cd": ["op"],
+        }
+        opts = ReadOptions()
+
         # Can skip rows that are beyond the first block without lexer
         rows, expected = make_random_csv(num_cols=5, num_rows=1000)
         opts.skip_rows_after_names = 900

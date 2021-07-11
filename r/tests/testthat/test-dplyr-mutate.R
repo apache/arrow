@@ -92,6 +92,41 @@ test_that("empty transmute()", {
   )
 })
 
+test_that("transmute() with unsupported arguments", {
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .keep = "all"),
+    "`transmute()` does not support the `.keep` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .before = lgl),
+    "`transmute()` does not support the `.before` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .after = chr),
+    "`transmute()` does not support the `.after` argument",
+    fixed = TRUE
+  )
+})
+
+test_that("transmute() defuses dots arguments (ARROW-13262)", {
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      transmute(stringr::str_c(chr, chr)) %>%
+      collect(),
+    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%

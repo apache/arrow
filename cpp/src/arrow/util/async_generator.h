@@ -77,16 +77,15 @@ Future<T> AsyncGeneratorEnd() {
 }
 
 /// returning a future that completes when all have been visited
-template <typename T>
-Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
-                             std::function<Status(T)> visitor) {
+template <typename T, typename Visitor>
+Future<> VisitAsyncGenerator(AsyncGenerator<T> generator, Visitor visitor) {
   struct LoopBody {
     struct Callback {
-      Result<ControlFlow<>> operator()(const T& result) {
-        if (IsIterationEnd(result)) {
+      Result<ControlFlow<>> operator()(const T& next) {
+        if (IsIterationEnd(next)) {
           return Break();
         } else {
-          auto visited = visitor(result);
+          auto visited = visitor(next);
           if (visited.ok()) {
             return Continue();
           } else {
@@ -95,7 +94,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
         }
       }
 
-      std::function<Status(T)> visitor;
+      Visitor visitor;
     };
 
     Future<ControlFlow<>> operator()() {
@@ -105,7 +104,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
     }
 
     AsyncGenerator<T> generator;
-    std::function<Status(T)> visitor;
+    Visitor visitor;
   };
 
   return Loop(LoopBody{std::move(generator), std::move(visitor)});
@@ -697,30 +696,38 @@ class ReadaheadGenerator {
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
       : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
 
-  Future<T> operator()() {
-    // Copy so we can capture into lambdas
+  Future<T> AddMarkFinishedContinuation(Future<T> fut) {
     auto state = state_;
-    if (state->readahead_queue.empty()) {
+    return fut.Then(
+        [state](const T& result) -> Result<T> {
+          state->MarkFinishedIfDone(result);
+          return result;
+        },
+        [state](const Status& err) -> Result<T> {
+          state->finished.store(true);
+          return err;
+        });
+  }
+
+  Future<T> operator()() {
+    if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
-      for (int i = 0; i < state->max_readahead; i++) {
-        auto next = state->source_generator();
-        auto state = state_;
-        next.AddCallback(
-            [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
-        state->readahead_queue.push(std::move(next));
+      for (int i = 0; i < state_->max_readahead; i++) {
+        auto next = state_->source_generator();
+        auto next_after_check = AddMarkFinishedContinuation(std::move(next));
+        state_->readahead_queue.push(std::move(next_after_check));
       }
     }
     // Pop one and add one
-    auto result = state->readahead_queue.front();
-    state->readahead_queue.pop();
-    if (state->finished.load()) {
-      state->readahead_queue.push(AsyncGeneratorEnd<T>());
+    auto result = state_->readahead_queue.front();
+    state_->readahead_queue.pop();
+    if (state_->finished.load()) {
+      state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
-      auto back_of_queue = state->source_generator();
-      auto state = state_;
-      back_of_queue.AddCallback(
-          [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
-      state->readahead_queue.push(std::move(back_of_queue));
+      auto back_of_queue = state_->source_generator();
+      auto back_of_queue_after_check =
+          AddMarkFinishedContinuation(std::move(back_of_queue));
+      state_->readahead_queue.push(std::move(back_of_queue_after_check));
     }
     return result;
   }
@@ -732,13 +739,9 @@ class ReadaheadGenerator {
       finished.store(false);
     }
 
-    void MarkFinishedIfDone(const Result<T>& next_result) {
-      if (!next_result.ok()) {
+    void MarkFinishedIfDone(const T& next_result) {
+      if (IsIterationEnd(next_result)) {
         finished.store(true);
-      } else {
-        if (IsIterationEnd(*next_result)) {
-          finished.store(true);
-        }
       }
     }
 
@@ -771,7 +774,7 @@ class PushGenerator {
   /// Producer API for PushGenerator
   class Producer {
    public:
-    explicit Producer(const std::shared_ptr<State> state) : weak_state_(state) {}
+    explicit Producer(const std::shared_ptr<State>& state) : weak_state_(state) {}
 
     /// \brief Push a value on the queue
     ///

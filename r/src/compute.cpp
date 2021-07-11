@@ -264,6 +264,16 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_replacements);
   }
 
+  if (func_name == "day_of_week") {
+    using Options = arrow::compute::DayOfWeekOptions;
+    bool one_based_numbering = true;
+    if (!Rf_isNull(options["one_based_numbering"])) {
+      one_based_numbering = cpp11::as_cpp<bool>(options["one_based_numbering"]);
+    }
+    return std::make_shared<Options>(one_based_numbering,
+                                     cpp11::as_cpp<uint32_t>(options["week_start"]));
+  }
+
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(
@@ -283,6 +293,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     }
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
                                      max_splits, reverse);
+  }
+
+  if (func_name == "utf8_lpad" || func_name == "utf8_rpad" ||
+      func_name == "utf8_center" || func_name == "ascii_lpad" ||
+      func_name == "ascii_rpad" || func_name == "ascii_center") {
+    using Options = arrow::compute::PadOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["width"]),
+                                     cpp11::as_cpp<std::string>(options["padding"]));
   }
 
   if (func_name == "utf8_split_whitespace" || func_name == "ascii_split_whitespace") {

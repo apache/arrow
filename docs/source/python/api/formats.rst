@@ -28,12 +28,16 @@ CSV Files
 .. autosummary::
    :toctree: ../generated/
 
-   ReadOptions
-   ParseOptions
    ConvertOptions
-   read_csv
-   open_csv
    CSVStreamingReader
+   CSVWriter
+   ISO8601
+   ParseOptions
+   ReadOptions
+   WriteOptions
+   open_csv
+   read_csv
+   write_csv
 
 .. _api.feather:
 

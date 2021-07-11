@@ -867,61 +867,41 @@ test_that("str_like", {
   )
 })
 
-test_that("substrings", {
-  df <- tibble(
-    x = "Apache Arrow"
-  )
+test_that("str_pad", {
 
-  # substr
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   expect_dplyr_equal(
     input %>%
-      mutate(
-        foo = "Apache Arrow",
-        bar1 = substr(foo, 1, 6), # Apache
-        bar2 = substr(foo, 0, 6), # Apache
-        bar3 = substr(foo, -1, 6), # Apache
-        bar4 = substr(foo, 6, 1), # ""
-        bar5 = substr(foo, -1, -2), # ""
-        bar6 = substr(foo, 8, 12) # Arrow
-      ) %>%
-      select(bar1:bar6) %>%
+      mutate(x = str_pad(x, width = 31)) %>%
       collect(),
     df
   )
 
-  # substring
-
   expect_dplyr_equal(
     input %>%
-      mutate(
-        foo = "Apache Arrow",
-        bar1 = substring(foo, 1, 6), # Apache
-        bar2 = substring(foo, 0, 6), # Apache
-        bar3 = substring(foo, -1, 6), # Apache
-        bar4 = substring(foo, 6, 1), # ""
-        bar5 = substring(foo, -1, -2), # ""
-        bar6 = substring(foo, 8, 12) # Arrow
-      ) %>%
-      select(bar1:bar6) %>%
+      mutate(x = str_pad(x, width = 30, side = "right")) %>%
       collect(),
     df
   )
 
-  # str_sub
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
 
   expect_dplyr_equal(
     input %>%
-      mutate(
-        foo = "Apache Arrow",
-        bar1 = str_sub(foo, 1, 6), # Apache
-        bar2 = str_sub(foo, 0, 6), # Apache
-        bar3 = str_sub(foo, -1, 6), # Apache
-        bar4 = str_sub(foo, 6, 1), # "" NEEDS FIX
-        bar5 = str_sub(foo, -1, -2), # "" NEEDS FIX
-        bar6 = str_sub(foo, 8, 12) # Arrow
-      ) %>%
-      select(bar1:bar6) %>%
+      mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 31, side = "both")) %>%
       collect(),
     df
   )

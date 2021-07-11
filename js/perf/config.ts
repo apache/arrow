@@ -57,7 +57,7 @@ const batches = Array.from({length: NUM_BATCHES}).map(() => {
     });
 });
 
-const tracks = new Arrow.Table(batches[0].schema, batches);
+const tracks = new Arrow.DataFrame(batches[0].schema, batches);
 
 console.timeEnd('Prepare Data');
 

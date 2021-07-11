@@ -239,7 +239,11 @@ macro(resolve_dependency DEPENDENCY_NAME)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
-      pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC ${ARG_PC_PACKAGE_NAME} QUIET)
+      pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC
+                        ${ARG_PC_PACKAGE_NAME}
+                        NO_CMAKE_PATH
+                        NO_CMAKE_ENVIRONMENT_PATH
+                        QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
       endif()
@@ -1842,7 +1846,7 @@ if(ARROW_BUILD_BENCHMARKS)
     # archive. So the benchmark package on conda-forge isn't report
     # the real version. We accept all the benchmark package with
     # conda. Conda users should install benchmark 1.5.2 or later by
-    # ci/conda_env_cpp.yml.
+    # ci/conda_env_cpp.txt.
     set(BENCHMARK_REQUIRED_VERSION 0.0.0)
   endif()
   resolve_dependency(benchmark

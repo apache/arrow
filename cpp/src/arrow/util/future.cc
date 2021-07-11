@@ -272,6 +272,8 @@ class ConcreteFutureImpl : public FutureImpl {
         return true;
       case ShouldSchedule::IfUnfinished:
         return !in_add_callback;
+      case ShouldSchedule::IfDifferentExecutor:
+        return !callback_record.options.executor->OwnsThisThread();
       default:
         DCHECK(false) << "Unrecognized ShouldSchedule option";
         return false;
@@ -309,7 +311,7 @@ class ConcreteFutureImpl : public FutureImpl {
     }
     cv_.notify_all();
 
-    // run callbacks, lock not needed since the future is finsihed by this
+    // run callbacks, lock not needed since the future is finished by this
     // point so nothing else can modify the callbacks list and it is safe
     // to iterate.
     //

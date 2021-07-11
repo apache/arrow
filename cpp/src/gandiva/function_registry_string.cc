@@ -75,6 +75,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "gdv_fn_initcap_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
+                     kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
+
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "gdv_fn_castINT_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
@@ -129,6 +132,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder),
+
+      NativeFunction("ilike", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_ilike_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),
 
       NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
@@ -243,6 +250,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                                     utf8(), utf8(), utf8(), utf8()},
                      utf8(), kResultNullNever,
                      "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("byte_substr", {"bytesubstring"},
+                     DataTypeVector{binary(), int32(), int32()}, binary(),
+                     kResultNullIfNull, "byte_substr_binary_int32_int32",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},

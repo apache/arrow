@@ -375,7 +375,7 @@ func TestFlightWithAppMetadata(t *testing.T) {
 	}
 }
 
-type flightErrorReturn struct {}
+type flightErrorReturn struct{}
 
 func (f *flightErrorReturn) DoGet(_ *flight.Ticket, _ flight.FlightService_DoGetServer) error {
 	return status.Error(codes.NotFound, "nofound")
