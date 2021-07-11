@@ -246,10 +246,9 @@ struct Color : EnumType<Color> {
 TEST(Reflection, EnumType) {
   static_assert(Color::size() == 3, "");
 
-  static_assert(Color("red") == 0, "");
-  static_assert(Color("GREEN") == 1, "");
-  static_assert(Color("Blue") == 2, "");
-  static_assert(!Color("chartreuse"), "");
+  static_assert(Color("red").index == 0, "");
+  static_assert(*Color("GREEN") == 1, "");
+  static_assert(Color("Blue") == Color(2), "");
 
   EXPECT_EQ(Color("red").ToString(), "red");
   EXPECT_EQ(Color("GREEN").ToString(), "green");
@@ -258,14 +257,19 @@ TEST(Reflection, EnumType) {
   static_assert(Color("GREEN") == Color("Green"), "");
   static_assert(Color("GREEN") == Color(1), "");
   static_assert(Color("GREEN") != Color(), "");
+
+  static_assert(!Color("chartreuse"), "");
   static_assert(Color("violet") == Color(), "");
+  static_assert(Color(-1) == Color(), "");
+  static_assert(Color(-29) == Color(), "");
+  static_assert(Color(12334) == Color(), "");
 
   for (util::string_view repr : {"Red", "orange", "BLUE"}) {
-    switch (Color(repr)) {
-      case Color("blue").i:
+    switch (*Color(repr)) {
+      case* Color("blue"):
         EXPECT_EQ(repr, "BLUE");
         break;
-      case Color("red").i:
+      case* Color("red"):
         EXPECT_EQ(repr, "Red");
         break;
       default:

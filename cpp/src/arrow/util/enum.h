@@ -96,23 +96,25 @@ template <typename Raw>
 struct EnumType {
   constexpr EnumType() = default;
   constexpr explicit EnumType(int index)
-      : i{index >= 0 && index < EnumTypeImpl<Raw>::kSize ? index : -1} {}
+      : index{index >= 0 && index < EnumTypeImpl<Raw>::kSize ? index : -1} {}
   constexpr explicit EnumType(util::string_view repr)
-      : i{EnumTypeImpl<Raw>::GetIndex(repr)} {}
+      : index{EnumTypeImpl<Raw>::GetIndex(repr)} {}
 
-  constexpr bool operator==(EnumType other) const { return i == other.i; }
-  constexpr bool operator!=(EnumType other) const { return i != other.i; }
+  constexpr bool operator==(EnumType other) const { return index == other.index; }
+  constexpr bool operator!=(EnumType other) const { return index != other.index; }
 
-  std::string ToString() const { return EnumTypeImpl<Raw>::kValueStrs[i].to_string(); }
-  constexpr explicit operator bool() const { return i != -1; }
-  constexpr operator int() const { return i; }  // NOLINT runtime/explicit
+  std::string ToString() const {
+    return EnumTypeImpl<Raw>::kValueStrs[index].to_string();
+  }
+  constexpr explicit operator bool() const { return index != -1; }
+  constexpr int operator*() const { return index; }
 
   static constexpr int size() { return EnumTypeImpl<Raw>::kSize; }
 
-  int i = -1;
+  int index = -1;
 
   friend inline void PrintTo(const EnumType& e, std::ostream* os) {
-    PrintTo(e.repr(), os);
+    PrintTo(e.ToString(), os);
   }
 };
 
