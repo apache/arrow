@@ -290,17 +290,6 @@ nse_funcs$substr <- function(string, start, stop) {
     msg = "Stop of length != 1 not supported in Arrow"
   )
 
-  if (start > stop) {
-    start <- 0
-    stop <- 0
-  } else {
-    start <- max(0, start - 1)
-    stop <- max(0, stop)
-    start_stop <- c(min(start, stop), max(start, stop))
-    start <- start_stop[1]
-    stop <- start_stop[2]
-  }
-
   Expression$create(
     "utf8_slice_codeunits",
     string,
@@ -323,17 +312,6 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     length(end) == 1,
     msg = "end of length != 1 not supported in Arrow"
   )
-
-  if (start > end) {
-    start <- 0
-    end <- 0
-  } else {
-    start <- max(0, start - 1)
-    end <- max(0, end)
-    start_end <- c(min(start, end), max(start, end))
-    start <- start_end[1]
-    end <- start_end[2]
-  }
 
   Expression$create(
     "utf8_slice_codeunits",
@@ -477,11 +455,11 @@ nse_funcs$pmax <- function(..., na.rm = FALSE) {
 }
 
 nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
-  
+
   assert_that(is_integerish(width))
   side <- match.arg(side)
   assert_that(is.string(pad))
-  
+
   if (side == "left") {
     pad_func = "utf8_lpad"
   } else if (side == "right") {
@@ -489,7 +467,7 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   } else if (side == "both") {
     pad_func = "utf8_center"
   }
-  
+
   Expression$create(
     pad_func,
     string,
