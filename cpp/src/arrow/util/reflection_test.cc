@@ -238,11 +238,13 @@ TEST(Reflection, CompileTimeStringOps) {
   static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
 }
 
-constexpr const char* ColorsValues() { return R"(red green blue)"; }
+struct Color : EnumType<Color> {
+  using EnumType<Color>::EnumType;
+  static constexpr const char* kValues = R"(red green blue)";
+};
 
 TEST(Reflection, EnumType) {
-  using Color = EnumType<ColorsValues>;
-  static_assert(Color::kSize == 3, "");
+  static_assert(Color::size() == 3, "");
 
   static_assert(Color("red") == 0, "");
   static_assert(Color("GREEN") == 1, "");

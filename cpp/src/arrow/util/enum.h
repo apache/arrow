@@ -57,49 +57,59 @@ constexpr size_t NextTokenStart(const char* raw, size_t token_start) {
   return SkipWhitespace(SkipNonWhitespace(raw + token_start)) - raw;
 }
 
-template <const char* Raw(), size_t... Offsets>
+template <typename Raw, size_t... Offsets>
 struct EnumTypeImpl {
   static constexpr int kSize = sizeof...(Offsets);
 
-  static constexpr util::string_view kValues[sizeof...(Offsets)] = {
-      {Raw() + Offsets, TokenSize(Raw() + Offsets)}...};
+  static constexpr util::string_view kValueStrs[sizeof...(Offsets)] = {
+      {Raw::kValues + Offsets, TokenSize(Raw::kValues + Offsets)}...};
 
   static constexpr int GetIndex(util::string_view repr, int i = 0) {
     return i == kSize
                ? -1
-               : CaseInsensitiveEquals(kValues[i], repr) ? i : GetIndex(repr, i + 1);
+               : CaseInsensitiveEquals(kValueStrs[i], repr) ? i : GetIndex(repr, i + 1);
   }
 };
 
-template <const char* Raw(), size_t... Offsets>
+template <typename Raw, size_t... Offsets>
 constexpr util::string_view const
-    EnumTypeImpl<Raw, Offsets...>::kValues[sizeof...(Offsets)];
+    EnumTypeImpl<Raw, Offsets...>::kValueStrs[sizeof...(Offsets)];
 
 /// \cond false
-template <const char* Raw(), bool IsEnd = false,
-          size_t MaxOffset = SkipWhitespace(Raw()) - Raw(), size_t... Offsets>
+template <typename Raw, bool IsEnd = false,
+          size_t MaxOffset = SkipWhitespace(Raw::kValues) - Raw::kValues,
+          size_t... Offsets>
 struct EnumTypeBuilder
-    : EnumTypeBuilder<Raw, Raw()[NextTokenStart(Raw(), MaxOffset)] == '\0',
-                      NextTokenStart(Raw(), MaxOffset), Offsets..., MaxOffset> {};
+    : EnumTypeBuilder<Raw, Raw::kValues[NextTokenStart(Raw::kValues, MaxOffset)] == '\0',
+                      NextTokenStart(Raw::kValues, MaxOffset), Offsets..., MaxOffset> {};
 
-template <const char* Raw(), size_t MaxOffset, size_t... Offsets>
+template <typename Raw, size_t MaxOffset, size_t... Offsets>
 struct EnumTypeBuilder<Raw, true, MaxOffset, Offsets...> {
   using ImplType = EnumTypeImpl<Raw, Offsets...>;
 };
+
+template <typename Raw>
+struct EnumTypeImpl<Raw> : EnumTypeBuilder<Raw>::ImplType {};
 /// \endcond
 
-template <const char* Raw()>
-struct EnumType : EnumTypeBuilder<Raw>::ImplType {
+template <typename Raw>
+struct EnumType {
   constexpr EnumType() = default;
-  constexpr explicit EnumType(int i) : index{i >= 0 && i < this->kSize ? i : -1} {}
-  constexpr explicit EnumType(util::string_view repr) : index{this->GetIndex(repr)} {}
+  constexpr explicit EnumType(int i)
+      : index{i >= 0 && i < EnumTypeImpl<Raw>::kSize ? i : -1} {}
+  constexpr explicit EnumType(util::string_view repr)
+      : index{EnumTypeImpl<Raw>::GetIndex(repr)} {}
 
   constexpr bool operator==(EnumType other) const { return index == other.index; }
   constexpr bool operator!=(EnumType other) const { return index != other.index; }
 
-  std::string ToString() const { return this->kValues[index].to_string(); }
+  std::string ToString() const {
+    return EnumTypeImpl<Raw>::kValueStrs[index].to_string();
+  }
   constexpr explicit operator bool() const { return index != -1; }
   constexpr operator int() const { return index; }  // NOLINT runtime/explicit
+
+  static constexpr int size() { return EnumTypeImpl<Raw>::kSize; }
 
   int index = -1;
 
