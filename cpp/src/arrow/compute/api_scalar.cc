@@ -285,6 +285,7 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
     : FunctionOptions(internal::kDayOfWeekOptionsType),
       one_based_numbering(one_based_numbering),
       week_start(week_start) {}
+DayOfWeekOptions::DayOfWeekOptions() : DayOfWeekOptions(false, 1) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
 namespace internal {

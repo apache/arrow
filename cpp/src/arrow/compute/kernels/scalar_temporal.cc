@@ -614,7 +614,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto day = MakeTemporal<Day, Int64Type>("day", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
-  static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
+  static auto default_day_of_week_options = DayOfWeekOptions();
   auto day_of_week = MakeTemporalWithOptions<DayOfWeek, Int64Type>(
       "day_of_week", &day_of_week_doc, default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));

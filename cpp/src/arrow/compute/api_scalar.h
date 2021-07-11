@@ -246,9 +246,9 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
-  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  explicit DayOfWeekOptions(bool one_based_numbering, uint32_t week_start);
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
-  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
+  DayOfWeekOptions();
 
   /// Number days from 1 if true and from 0 if false
   bool one_based_numbering;
