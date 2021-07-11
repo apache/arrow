@@ -28,7 +28,7 @@ module.exports = {
   rootDir: ".",
   roots: ["<rootDir>/test/"],
   preset: "ts-jest/presets/default-esm",
-  moduleFileExtensions: ["js", "ts"],
+  moduleFileExtensions: ["mjs", "js", "ts"],
   coverageReporters: ["lcov", "json"],
   coveragePathIgnorePatterns: [
     "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
@@ -47,7 +47,6 @@ module.exports = {
   testMatch: null,
   moduleNameMapper: {
     "^apache-arrow$": "<rootDir>/src/Arrow.node",
-    "^apache-arrow(.*)": "<rootDir>/src$1",
-    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+    "^apache-arrow(.*)": "<rootDir>/src$1"
   },
 };
