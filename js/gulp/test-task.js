@@ -62,7 +62,6 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         const cfgname = [target, format].filter(Boolean).join('.');
         args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `test/unit/`);
     }
-    console.log({ target, format, args: args.join(' ') });
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,
