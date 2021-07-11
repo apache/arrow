@@ -876,53 +876,55 @@ namespace Apache.Arrow.Ipc
             Schema schema = recordBatch.Schema;
             for (int i = 0; i < schema.Fields.Count; i++)
             {
-                {
-                    Field field = schema.GetFieldByIndex(i);
-                    IArrowArray array = recordBatch.Column(i);
+                Field field = schema.GetFieldByIndex(i);
+                IArrowArray array = recordBatch.Column(i);
 
-                    CollectDictionary(field, array, ref dictionaryMemo);
-                }
+                CollectDictionary(field, array.Data, ref dictionaryMemo);
             }
         }
 
-        private static void CollectDictionary(Field field, IArrowArray array, ref DictionaryMemo dictionaryMemo)
+        private static void CollectDictionary(Field field, ArrayData arrayData, ref DictionaryMemo dictionaryMemo)
         {
-            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            if (field.DataType is DictionaryType dictionaryType)
             {
-                IArrowArray dictionary = (array as DictionaryArray).Dictionary;
+                if (arrayData.Dictionary == null)
+                {
+                    throw new ArgumentException($"{nameof(arrayData.Dictionary)} must not be null");
+                }
+                arrayData.Dictionary.EnsureDataType(dictionaryType.ValueType.TypeId);
+
+                IArrowArray dictionary = ArrowArrayFactory.BuildArray(arrayData.Dictionary);
+
                 dictionaryMemo ??= new DictionaryMemo();
                 long id = dictionaryMemo.GetOrAssignId(field);
 
                 dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(dictionary, ref dictionaryMemo);
+                WalkChildren(arrayData, ref dictionaryMemo);
             }
             else
             {
-                WalkChildren(array, ref dictionaryMemo);
+                WalkChildren(arrayData, ref dictionaryMemo);
             }
         }
 
-        private static void WalkChildren(IArrowArray array, ref DictionaryMemo dictionaryMemo)
+        private static void WalkChildren(ArrayData arrayData, ref DictionaryMemo dictionaryMemo)
         {
-            ArrayData[] children = array.Data.Children;
+            ArrayData[] children = arrayData.Children;
 
             if (children == null)
             {
                 return;
             }
 
-            if (!(array.Data.DataType is NestedType nestedType))
+            if (arrayData.DataType is NestedType nestedType)
             {
-                return;
-            }
+                for (int i = 0; i < nestedType.Fields.Count; i++)
+                {
+                    Field childField = nestedType.Fields[i];
+                    ArrayData child = children[i];
 
-            for (int i = 0; i < nestedType.Fields.Count; i++)
-            {
-                Field childField = nestedType.Fields[i];
-                ArrayData child = children[i];
-                IArrowArray childArray = ArrowArrayFactory.BuildArray(child);
-
-                CollectDictionary(childField, childArray, ref dictionaryMemo);
+                    CollectDictionary(childField, child, ref dictionaryMemo);
+                }
             }
         }
     }

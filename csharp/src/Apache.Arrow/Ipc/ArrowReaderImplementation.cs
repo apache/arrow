@@ -33,10 +33,6 @@ namespace Apache.Arrow.Ipc
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
 
-        public ArrowReaderImplementation()
-        {
-        }
-
         public void Dispose()
         {
             Dispose(true);
