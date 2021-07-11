@@ -181,5 +181,7 @@ module.exports = {
     knownTargets, knownModules, tasksToSkipPerTargetOrFormat, gCCLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
-    publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
+    publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess,
+
+    targetAndModuleCombinations: [...combinations(targets, modules)]
 };

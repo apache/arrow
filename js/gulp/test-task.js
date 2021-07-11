@@ -28,9 +28,17 @@ const readFile = promisify(require('fs').readFile);
 const asyncDone = promisify(require('async-done'));
 const exec = promisify(require('child_process').exec);
 const parseXML = promisify(require('xml2js').parseString);
+const { targetAndModuleCombinations } = require('./util');
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
-argv.verbose && jestArgv.push(`--verbose`);
+
+if (argv.verbose) {
+    jestArgv.push(`--verbose`);
+}
+
+if (targetAndModuleCombinations.length > 1) {
+    jestArgv.push(`--detectOpenHandles`);
+}
 
 const jest = path.join(path.parse(require.resolve(`jest`)).dir, `../bin/jest.js`);
 const testOptions = {
@@ -49,11 +57,12 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         args.unshift(`--experimental-vm-modules`);
     }
     if (argv.coverage) {
-        args.push(`-c`, `jestconfigs/jest.coverage.config.js`, `-i`, `--no-cache`);
+        args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
-        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `-i`, `--no-cache`, `test/unit/`);
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `test/unit/`);
     }
+    console.log({ target, format, args: args.join(' ') });
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,
