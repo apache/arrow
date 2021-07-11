@@ -88,11 +88,10 @@ namespace Apache.Arrow.Ipc
             if (dictionaryEncoding.HasValue)
             {
                 Flatbuf.Int? indexTypeAsInt = dictionaryEncoding.Value.IndexType;
-                if (!indexTypeAsInt.HasValue)
-                {
-                    throw new InvalidDataException("Dictionary IndexType not defined");
-                }
-                IArrowType indexType = GetNumberType(indexTypeAsInt.Value.BitWidth, indexTypeAsInt.Value.IsSigned);
+                IArrowType indexType = indexTypeAsInt.HasValue ?
+                    GetNumberType(indexTypeAsInt.Value.BitWidth, indexTypeAsInt.Value.IsSigned) :
+                    GetNumberType(Int32Type.Default.BitWidth, Int32Type.Default.IsSigned);
+
                 type = new DictionaryType(indexType, type, dictionaryEncoding.Value.IsOrdered);
             }
 
