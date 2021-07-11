@@ -21,19 +21,21 @@ module.exports = {
     "globals": {
       "ts-jest": {
         "diagnostics": false,
-        "tsconfig": "test/tsconfig.json"
+        "tsconfig": "test/tsconfig.json",
+        "useESM": true
       }
     },
     "rootDir": ".",
     "roots": [
       "<rootDir>/test/"
     ],
+    "preset": "ts-jest/presets/default-esm",
     "moduleFileExtensions": [
       "js",
       "ts"
     ],
     "coverageReporters": [
-      "lcov"
+      "lcov", "json"
     ],
     "coveragePathIgnorePatterns": [
       "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
@@ -49,9 +51,10 @@ module.exports = {
       "/node_modules/(?!@openpgp/web-stream-tools)/"
     ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|js)$",
-    "preset": "ts-jest",
     "testMatch": null,
     "moduleNameMapper": {
-        "^apache-arrow(.*)": "<rootDir>/src/$1.js"
+      "^apache-arrow$": "<rootDir>/src/Arrow.node",
+      "^apache-arrow(.*)": "<rootDir>/src$1",
+      "flatbuffers": "flatbuffers/js/flatbuffers.mjs"
     }
 };

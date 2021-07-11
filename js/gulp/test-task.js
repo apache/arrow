@@ -49,7 +49,7 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         args.unshift(`--experimental-vm-modules`);
     }
     if (argv.coverage) {
-        args.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`, `--no-cache`);
+        args.push(`-c`, `jestconfigs/jest.coverage.config.js`, `-i`, `--no-cache`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
         args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `-i`, `--no-cache`, `test/unit/`);

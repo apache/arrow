@@ -21,8 +21,7 @@
     "doc": "del-cli ./doc && typedoc --options typedoc.js",
     "lint": "eslint src test --fix",
     "lint:ci": "eslint src test",
-    "prepublishOnly": "echo \"Error: do 'yarn release' instead of 'npm publish'\" && exit 1",
-    "version": "yarn && yarn clean:all"
+    "prepublishOnly": "echo \"Error: do 'yarn release' instead of 'npm publish'\" && exit 1"
   },
   "repository": {
     "type": "git",
@@ -42,14 +41,14 @@
     "bin",
     "src",
     "gulp",
+    "jestconfigs",
     "test",
     "*.json",
-    "tsconfig",
+    "tsconfigs",
     "README.md",
     "gulpfile.js",
     "npm-release.sh",
-    "jest.config.js",
-    "jest.coverage.config.js"
+    "jest.config.js"
   ],
   "dependencies": {
     "@types/flatbuffers": "^1.10.0",

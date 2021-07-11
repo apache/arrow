@@ -5,23 +5,15 @@
     "indentSize": 2
   },
   "compilerOptions": {
-    "target": "ESNEXT",
-    "module": "CommonJS",
+    "target": "esnext",
+    "module": "es2020",
     "noEmit": true,
     "esModuleInterop": true,
     "baseUrl": "./",
     "paths": {
-      "apache-arrow": [
-        "src/Arrow.node"
-      ],
-      "apache-arrow/*": [
-        "src/*"
-      ]
+      "apache-arrow": ["src/Arrow.node"],
+      "apache-arrow/*": ["src/*"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "perf/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
 }

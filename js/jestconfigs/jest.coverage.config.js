@@ -16,15 +16,15 @@
 // under the License.
 
 module.exports = {
-    ...require('./jest.config'),
+    ...require('../jest.config'),
+    "rootDir": "../",
+    collectCoverage: true,
     reporters: undefined,
-    coverageReporters: [
-        lcov, 'json'
-    ],
     globals: {
         'ts-jest': {
             diagnostics: false,
-            tsconfig: 'test/tsconfig.coverage.json'
+            tsconfig: 'test/tsconfig.coverage.json',
+            useESM: true
         }
     }
 };

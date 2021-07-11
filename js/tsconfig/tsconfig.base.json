@@ -5,9 +5,7 @@
   "compilerOptions": {
     "baseUrl": "./",
     "paths": {
-      "apache-arrow/*": [
-        "src/*"
-      ]
+      "apache-arrow/*": ["src/*"]
     },
 
     /* Basic stuff */
@@ -47,6 +45,6 @@
     "allowUnreachableCode": false,
     "noStrictGenericChecks": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": true
   }
 }

@@ -36,6 +36,9 @@
         // "TEST_TARGET": "es5",
         // "TEST_MODULE": "umd"
       },
+      "runtimeArgs": [
+        "--experimental-vm-modules"
+      ],
       "args": [
         "-i",
         "test/unit/",
@@ -205,6 +208,28 @@
         "${workspaceFolder}/bin/print-buffer-alignment.js",
         "./test/data/cpp/stream/struct_example.arrow"
       ]
+    },{
+      "type": "node",
+      "name": "vscode-jest-tests",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "disableOptimisticBPs": true,
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "runtimeArgs": [
+        "--experimental-vm-modules"
+      ],
+      "args": [
+        "--runInBand",
+        "--watchAll=false"
+      ],
+      "env": {
+        "NODE_NO_WARNINGS": "1",
+        "TEST_DOM_STREAMS": "true",
+        "TEST_NODE_STREAMS": "true",
+        "TEST_TS_SOURCE": "true"
+      },
     }
   ]
 }

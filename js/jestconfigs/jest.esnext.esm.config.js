@@ -18,7 +18,6 @@
 module.exports = {
     ...require('../jest.config'),
     "rootDir": "../",
-    "preset": "ts-jest/presets/default-esm",
     "globals": {
         "ts-jest": {
             "diagnostics": false,
