@@ -17,8 +17,13 @@
 
 package org.apache.arrow.flight.sql;
 
+import static com.google.protobuf.Any.pack;
+import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
+import static java.util.UUID.randomUUID;
+import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -45,9 +50,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
@@ -56,6 +64,7 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
@@ -289,7 +298,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
-    // TODO
+    /*
+    TODO
+    final String catalog = tables.getString("TABLE_CAT");
+    final String schema = tables.getString("TABLE_SCHEMA");
+    final String table = tables.getString("TABLE_NAME");
+    final String table_type = tables.getString("TABLE_TYPE");
+    */
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
@@ -326,29 +341,33 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
+
     try {
+      /*
+       * Do NOT prematurely close this resource!
+       * Should be closed upon executing `ClosePreparedStatement`.
+       */
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
       final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
       final Schema schema = buildSchema(resultSetMetaData);
       final DictionaryProvider dictionaryProvider = new MapDictionaryProvider();
 
-      try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-           final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+      final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
 
-        listener.start(root, dictionaryProvider);
-        final int columnCount = resultSetMetaData.getColumnCount();
+      listener.start(root, dictionaryProvider);
+      final int columnCount = resultSetMetaData.getColumnCount();
 
-        while (resultSet.next()) {
-          final int rowCounter = readBatch(resultSet, resultSetMetaData, root, columnCount);
+      while (resultSet.next()) {
+        final int rowCounter = readBatch(resultSet, resultSetMetaData, root, columnCount);
 
-          for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
-            final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
-            root.getVector(columnName).setValueCount(rowCounter);
-          }
-
-          root.setRowCount(rowCounter);
-          listener.putNext();
+        for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
+          final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
+          root.getVector(columnName).setValueCount(rowCounter);
         }
+
+        root.setRowCount(rowCounter);
+        listener.putNext();
       }
     } catch (Throwable t) {
       listener.error(t);
@@ -365,25 +384,24 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
         final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
 
-        try (final FieldVector vector = root.getVector(columnName)) {
-          if (vector instanceof VarCharVector) {
-            final String value = resultSet.getString(resultSetColumnCounter);
-            if (resultSet.wasNull()) {
-              // TODO handle null
-            } else {
-              ((VarCharVector) vector).setSafe(rowCounter, value.getBytes(), 0, value.length());
-            }
-          } else if (vector instanceof IntVector) {
-            final int value = resultSet.getInt(resultSetColumnCounter);
-
-            if (resultSet.wasNull()) {
-              // TODO handle null
-            } else {
-              ((IntVector) vector).setSafe(rowCounter, value);
-            }
+        final FieldVector vector = root.getVector(columnName);
+        if (vector instanceof VarCharVector) {
+          final String value = resultSet.getString(resultSetColumnCounter);
+          if (resultSet.wasNull()) {
+            // TODO handle null
           } else {
-            throw new UnsupportedOperationException();
+            ((VarCharVector) vector).setSafe(rowCounter, value.getBytes(), 0, value.length());
           }
+        } else if (vector instanceof IntVector) {
+          final int value = resultSet.getInt(resultSetColumnCounter);
+
+          if (resultSet.wasNull()) {
+            // TODO handle null
+          } else {
+            ((IntVector) vector).setSafe(rowCounter, value);
+          }
+        } else {
+          throw new UnsupportedOperationException();
         }
       }
       rowCounter++;
@@ -416,7 +434,24 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery command,
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    try {
+      /*
+       * Do NOT prematurely close this resource!
+       * Should be closed upon executing `ClosePreparedStatement`.
+       */
+      final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
+      final Schema schema = buildSchema(resultSet.getMetaData());
+
+      final List<FlightEndpoint> endpoints =
+          singletonList(new FlightEndpoint(new Ticket(pack(command).toByteArray()), location));
+
+      return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    } catch (ExecutionException | SQLException e) {
+      LOGGER.error(
+          format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
+          e);
+      throw new FlightRuntimeException(new CallStatus(INTERNAL, e, e.getMessage(), null));
+    }
   }
 
   @Override
@@ -507,7 +542,29 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final PreparedStatementCacheKey cacheKey =
+        new PreparedStatementCacheKey(randomUUID().toString(), request.getQuery());
+    try {
+      final PreparedStatementContext statementContext =
+          preparedStatementLoadingCache.get(cacheKey);
+      /*
+       * Do NOT prematurely close this resource!
+       * Should be closed upon executing `ClosePreparedStatement`.
+       */
+      final PreparedStatement preparedStatement = statementContext.getPreparedStatement();
+      final Schema parameterSchema = buildSchema(preparedStatement.getParameterMetaData());
+      final Schema datasetSchema = buildSchema(preparedStatement.getMetaData());
+      final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
+          .setDatasetSchema(copyFrom(datasetSchema.toByteArray()))
+          .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
+          .setPreparedStatementHandle(cacheKey.toProtocol())
+          .build();
+      listener.onNext(new Result(pack(result).toByteArray()));
+    } catch (final Throwable t) {
+      listener.onError(t);
+    } finally {
+      listener.onCompleted();
+    }
   }
 
   @Override
@@ -582,7 +639,39 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-    // TODO - build example implementation
+    /*
+    TODO
+    final String catalog = emptyToNull(request.getCatalog());
+    final String schemaFilterPattern = emptyToNull(request.getSchemaFilterPattern());
+    final String tableFilterPattern = emptyToNull(request.getTableNameFilterPattern());
+
+    final ProtocolStringList protocolStringList = request.getTableTypesList();
+    final int protocolSize = protocolStringList.size();
+    final String[] tableTypes =
+        protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
+
+    final List<Result> results = new ArrayList<>();
+
+    try (final Connection connection = getConnection(DATABASE_URI);
+         final ResultSet resultSet = connection.getMetaData()
+             .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
+      while (resultSet.next()) {
+        results.add(getTableResult(resultSet, request.getIncludeSchema()));
+      }
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getFlightInfoTables: <%s>.", e.getMessage()), e);
+    }
+
+    List<FlightEndpoint> endpoints =
+        results.stream()
+            .map(Result::getBody)
+            .map(Ticket::new)
+            .map(ticket -> new FlightEndpoint(ticket, location))
+            .collect(toList());
+
+    final Schema schema = new Schema(singletonList(nullable("Sample", Null.INSTANCE)));
+    return new FlightInfo(schema, descriptor, endpoints, Byte.MAX_VALUE, endpoints.size());
+    */
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
