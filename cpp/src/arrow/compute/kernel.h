@@ -41,7 +41,7 @@
 namespace arrow {
 namespace compute {
 
-struct FunctionOptions;
+class FunctionOptions;
 
 /// \brief Base class for opaque kernel-specific state. For example, if there
 /// is some kind of initialization required.
@@ -320,6 +320,9 @@ class ARROW_EXPORT OutputType {
     this->shape_ = other.shape_;
     this->resolver_ = other.resolver_;
   }
+
+  OutputType& operator=(const OutputType&) = default;
+  OutputType& operator=(OutputType&&) = default;
 
   /// \brief Return the shape and type of the expected output value of the
   /// kernel given the value descriptors (shapes and types) of the input

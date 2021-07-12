@@ -19,7 +19,7 @@ import '../../jest-extensions';
 import { AsyncIterable } from 'ix';
 import { validateVector } from './utils';
 import * as generate from '../../generate-test-data';
-import { Type, DataType, Chunked, util, Builder, UnionVector } from '../../Arrow';
+import { Type, DataType, Chunked, util, Builder, UnionVector } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -227,9 +227,9 @@ function fillNADefault(values: any[], nulls: any[]): any[] {
     });
 }
 
-type BuilderOptions<T extends DataType = any, TNull = any> = import('../../../src/builder').BuilderOptions<T, TNull>;
-type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('../../../src/io/node/builder').BuilderDuplexOptions<T, TNull>;
-type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('../../../src/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
+type BuilderOptions<T extends DataType = any, TNull = any> = import('apache-arrow/builder').BuilderOptions<T, TNull>;
+type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/node/builder').BuilderDuplexOptions<T, TNull>;
+type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
 
 async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = Builder.new(options);

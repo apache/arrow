@@ -387,7 +387,8 @@ individual table writes are wrapped using ``with`` statements so the
 .. code-block:: python
 
    # Remote file-system example
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
+   from pyarrow.fs import HadoopFileSystem
+   fs = HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)
    pq.write_to_dataset(table, root_path='dataset_name',
                        partition_cols=['one', 'two'], filesystem=fs)
 
@@ -545,46 +546,38 @@ This can be disabled by specifying ``use_threads=False``.
    The number of threads to use concurrently is automatically inferred by Arrow
    and can be inspected using the :func:`~pyarrow.cpu_count()` function.
 
+Reading from cloud storage
+--------------------------
 
-Reading a Parquet File from Azure Blob storage
-----------------------------------------------
-
-The code below shows how to use Azure's storage sdk along with pyarrow to read
-a parquet file into a Pandas dataframe.
-This is suitable for executing inside a Jupyter notebook running on a Python 3
-kernel.
-
-Dependencies:
-
-* python 3.6.2
-* azure-storage 0.36.0
-* pyarrow 0.8.0
+In addition to local files, pyarrow supports other filesystems, such as cloud
+filesystems, through the ``filesystem`` keyword:
 
 .. code-block:: python
 
-   import pyarrow.parquet as pq
-   from io import BytesIO
-   from azure.storage.blob import BlockBlobService
+    from pyarrow import fs
 
-   account_name = '...'
-   account_key = '...'
-   container_name = '...'
-   parquet_file = 'mysample.parquet'
+    s3  = fs.S3FileSystem(region="us-east-2")
+    table = pq.read_table("bucket/object/key/prefix", filesystem=s3)
 
-   byte_stream = io.BytesIO()
-   block_blob_service = BlockBlobService(account_name=account_name, account_key=account_key)
-   try:
-      block_blob_service.get_blob_to_stream(container_name=container_name, blob_name=parquet_file, stream=byte_stream)
-      df = pq.read_table(source=byte_stream).to_pandas()
-      # Do work on df ...
-   finally:
-      # Add finally block to ensure closure of the stream
-      byte_stream.close()
+Currently, :class:`HDFS <pyarrow.fs.HadoopFileSystem>` and
+:class:`Amazon S3-compatible storage <pyarrow.fs.S3FileSystem>` are
+supported. See the :ref:`filesystem` docs for more details. For those
+built-in filesystems, the filesystem can also be inferred from the file path,
+if specified as a URI:
 
-Notes:
+.. code-block:: python
 
-* The ``account_key`` can be found under ``Settings -> Access keys`` in the
-  Microsoft Azure portal for a given container
-* The code above works for a container with private access, Lease State =
-  Available, Lease Status = Unlocked
-* The parquet file was Blob Type = Block blob
+    table = pq.read_table("s3://bucket/object/key/prefix")
+
+Other filesystems can still be supported if there is an
+`fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__-compatible
+implementation available. See :ref:`filesystem-fsspec` for more details.
+One example is Azure Blob storage, which can be interfaced through the
+`adlfs <https://github.com/dask/adlfs>`__ package.
+
+.. code-block:: python
+
+    from adlfs import AzureBlobFileSystem
+
+    abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
+    table = pq.read_table("file.parquet", filesystem=abfs)

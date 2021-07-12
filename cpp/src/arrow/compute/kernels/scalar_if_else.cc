@@ -21,11 +21,13 @@
 #include <arrow/util/bit_block_counter.h>
 #include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
+#include <arrow/util/bitmap_reader.h>
 
 namespace arrow {
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::Bitmap;
+using internal::BitmapWordReader;
 
 namespace compute {
 
@@ -72,114 +74,265 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
   Bitmap cond_valid{cond.buffers[0], cond.offset, cond.length};
   Bitmap left_valid = GetBitmap(left_d, 0);
   Bitmap right_valid = GetBitmap(right_d, 0);
-  // sometimes Bitmaps will be ignored, in which case we replace access to them with
-  // duplicated (probably elided) access to cond_data
-  const Bitmap& _ = cond_data;
-
-  // lambda function that will be used inside the visitor
-  uint64_t* out_validity = nullptr;
-  int64_t i = 0;
-  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
-                   uint64_t r_valid) {
-    out_validity[i] = c_valid & ((c_data & l_valid) | (~c_data & r_valid));
-    i++;
-  };
 
   // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   // In the following cases, we dont need to allocate out_valid bitmap
 
-  // if cond & left & right all ones, then output is all valid --> out_valid = nullptr
+  // if cond & left & right all ones, then output is all valid. output validity buffer
+  // is already allocated, hence set all bits
   if (cond_const == kAllValid && left_const == kAllValid && right_const == kAllValid) {
+    BitUtil::SetBitmap(output->buffers[0]->mutable_data(), output->offset,
+                       output->length);
     return Status::OK();
   }
 
   if (left_const == kAllValid && right_const == kAllValid) {
-    // if both left and right are valid, no need to calculate out_valid bitmap. Pass
+    // if both left and right are valid, no need to calculate out_valid bitmap. Copy
     // cond validity buffer
-    // if there's an offset, copy bitmap (cannot slice a bitmap)
-    if (cond.offset) {
-      ARROW_ASSIGN_OR_RAISE(
-          output->buffers[0],
-          arrow::internal::CopyBitmap(ctx->memory_pool(), cond.buffers[0]->data(),
-                                      cond.offset, cond.length));
-    } else {  // just copy assign cond validity buffer
-      output->buffers[0] = cond.buffers[0];
-    }
+    arrow::internal::CopyBitmap(cond.buffers[0]->data(), cond.offset, cond.length,
+                                output->buffers[0]->mutable_data(), output->offset);
     return Status::OK();
   }
 
-  // following cases requires a separate out_valid buffer
-  ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-  out_validity = output->GetMutableValues<uint64_t>(0);
+  // lambda function that will be used inside the visitor
+  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
+                   uint64_t r_valid) {
+    return c_valid & ((c_data & l_valid) | (~c_data & r_valid));
+  };
 
-  enum { C_VALID, C_DATA, L_VALID, R_VALID };
+  std::array<Bitmap, 1> out_bitmaps{
+      Bitmap{output->buffers[0], output->offset, output->length}};
 
   switch (flag) {
     case COND_CONST | LEFT_CONST | RIGHT_CONST: {
-      Bitmap bitmaps[] = {_, cond_data, _, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], *left_const, *right_const);
-      });
+      std::array<Bitmap, 1> bitmaps{cond_data};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 1>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(*cond_const, words_in[0],
+                                                           *left_const, *right_const);
+                                 });
       break;
     }
     case LEFT_CONST | RIGHT_CONST: {
-      Bitmap bitmaps[] = {cond_valid, cond_data, _, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], *left_const, *right_const);
-      });
+      std::array<Bitmap, 2> bitmaps{cond_valid, cond_data};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 2>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(words_in[0], words_in[1],
+                                                           *left_const, *right_const);
+                                 });
       break;
     }
     case COND_CONST | RIGHT_CONST: {
       // bitmaps[C_VALID], bitmaps[R_VALID] might be null; override to make it safe for
       // Visit()
-      Bitmap bitmaps[] = {_, cond_data, left_valid, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], words[L_VALID], *right_const);
-      });
+      std::array<Bitmap, 2> bitmaps{cond_data, left_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 2>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(*cond_const, words_in[0],
+                                                           words_in[1], *right_const);
+                                 });
       break;
     }
     case RIGHT_CONST: {
       // bitmaps[R_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {cond_valid, cond_data, left_valid, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], *right_const);
-      });
+      std::array<Bitmap, 3> bitmaps{cond_valid, cond_data, left_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 3>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(words_in[0], words_in[1],
+                                                           words_in[2], *right_const);
+                                 });
       break;
     }
     case COND_CONST | LEFT_CONST: {
       // bitmaps[C_VALID], bitmaps[L_VALID] might be null; override to make it safe for
       // Visit()
-      Bitmap bitmaps[] = {_, cond_data, _, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], *left_const, words[R_VALID]);
-      });
+      std::array<Bitmap, 2> bitmaps{cond_data, right_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 2>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(*cond_const, words_in[0],
+                                                           *left_const, words_in[1]);
+                                 });
       break;
     }
     case LEFT_CONST: {
       // bitmaps[L_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {cond_valid, cond_data, _, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], *left_const, words[R_VALID]);
-      });
+      std::array<Bitmap, 3> bitmaps{cond_valid, cond_data, right_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 3>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(words_in[0], words_in[1],
+                                                           *left_const, words_in[2]);
+                                 });
       break;
     }
     case COND_CONST: {
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {_, cond_data, left_valid, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      std::array<Bitmap, 3> bitmaps{cond_data, left_valid, right_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 3>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(*cond_const, words_in[0],
+                                                           words_in[1], words_in[2]);
+                                 });
       break;
     }
     case 0: {
-      Bitmap bitmaps[] = {cond_valid, cond_data, left_valid, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      std::array<Bitmap, 4> bitmaps{cond_valid, cond_data, left_valid, right_valid};
+      Bitmap::VisitWordsAndWrite(bitmaps, &out_bitmaps,
+                                 [&](const std::array<uint64_t, 4>& words_in,
+                                     std::array<uint64_t, 1>* word_out) {
+                                   word_out->at(0) = apply(words_in[0], words_in[1],
+                                                           words_in[2], words_in[3]);
+                                 });
       break;
     }
   }
   return Status::OK();
+}
+
+using Word = uint64_t;
+static constexpr int64_t word_len = sizeof(Word) * 8;
+
+/// Runs the main if_else loop. Here, it is expected that the right data has already
+/// been copied to the output.
+/// If `invert` is meant to invert the cond.data. If is set to `true`, then the
+/// buffer will be inverted before calling the handle_bulk or handle_each functions.
+/// This is useful, when left is an array and right is scalar. Then rather than
+/// copying data from the right to output, we can copy left data to the output and
+/// invert the cond data to fill right values. Filling out with a scalar is presumed to
+/// be more efficient than filling with an array
+template <typename HandleBulk, typename HandleEach, bool invert = false>
+static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
+                          HandleEach handle_each) {
+  int64_t data_offset = 0;
+  int64_t bit_offset = cond.offset;
+  const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+
+  BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
+
+  int64_t cnt = cond_reader.words();
+  while (cnt--) {
+    Word word = cond_reader.NextWord();
+    if (invert) {
+      if (word == 0) {
+        handle_bulk(data_offset, word_len);
+      } else if (word != UINT64_MAX) {
+        for (int64_t i = 0; i < word_len; ++i) {
+          if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
+            handle_each(data_offset + i);
+          }
+        }
+      }
+    } else {
+      if (word == UINT64_MAX) {
+        handle_bulk(data_offset, word_len);
+      } else if (word) {
+        for (int64_t i = 0; i < word_len; ++i) {
+          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+            handle_each(data_offset + i);
+          }
+        }
+      }
+    }
+    data_offset += word_len;
+    bit_offset += word_len;
+  }
+
+  cnt = cond_reader.trailing_bytes();
+  while (cnt--) {
+    int valid_bits;
+    uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
+    if (invert) {
+      if (byte == 0 && valid_bits == 8) {
+        handle_bulk(data_offset, 8);
+      } else if (byte != UINT8_MAX) {
+        for (int i = 0; i < valid_bits; ++i) {
+          if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
+            handle_each(data_offset + i);
+          }
+        }
+      }
+    } else {
+      if (byte == UINT8_MAX && valid_bits == 8) {
+        handle_bulk(data_offset, 8);
+      } else if (byte) {
+        for (int i = 0; i < valid_bits; ++i) {
+          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+            handle_each(data_offset + i);
+          }
+        }
+      }
+    }
+    data_offset += 8;
+    bit_offset += 8;
+  }
+}
+
+template <typename HandleBulk, typename HandleEach>
+static void RunIfElseLoopInverted(const ArrayData& cond, HandleBulk handle_bulk,
+                                  HandleEach handle_each) {
+  return RunIfElseLoop<HandleBulk, HandleEach, true>(cond, handle_bulk, handle_each);
+}
+
+/// Runs if-else when cond is a scalar. Two special functions are required,
+/// 1.CopyArrayData, 2. BroadcastScalar
+template <typename CopyArrayData, typename BroadcastScalar>
+static Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left,
+                              const Datum& right, Datum* out,
+                              CopyArrayData copy_array_data,
+                              BroadcastScalar broadcast_scalar) {
+  if (left.is_scalar() && right.is_scalar()) {  // output will be a scalar
+    if (cond.is_valid) {
+      *out = cond.value ? left.scalar() : right.scalar();
+    } else {
+      *out = MakeNullScalar(left.type());
+    }
+    return Status::OK();
+  }
+
+  // either left or right is an array. Output is always an array`
+  const std::shared_ptr<ArrayData>& out_array = out->array();
+  if (!cond.is_valid) {
+    // cond is null; output is all null --> clear validity buffer
+    BitUtil::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                         out_array->length);
+    return Status::OK();
+  }
+
+  // cond is a non-null scalar
+  const auto& valid_data = cond.value ? left : right;
+  if (valid_data.is_array()) {
+    // valid_data is an array. Hence copy data to the output buffers
+    const auto& valid_array = valid_data.array();
+    if (valid_array->MayHaveNulls()) {
+      arrow::internal::CopyBitmap(
+          valid_array->buffers[0]->data(), valid_array->offset, valid_array->length,
+          out_array->buffers[0]->mutable_data(), out_array->offset);
+    } else {  // validity buffer is nullptr --> set all bits
+      BitUtil::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                         out_array->length);
+    }
+    copy_array_data(*valid_array, out_array.get());
+    return Status::OK();
+
+  } else {  // valid data is scalar
+    // valid data is a scalar that needs to be broadcasted
+    const auto& valid_scalar = *valid_data.scalar();
+    if (valid_scalar.is_valid) {  // if the scalar is non-null, broadcast
+      BitUtil::SetBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                         out_array->length);
+      broadcast_scalar(*valid_data.scalar(), out_array.get());
+    } else {  // scalar is null, clear the output validity buffer
+      BitUtil::ClearBitmap(out_array->buffers[0]->mutable_data(), out_array->offset,
+                           out_array->length);
+    }
+    return Status::OK();
+  }
 }
 
 template <typename Type, typename Enable = void>
@@ -191,178 +344,148 @@ struct IfElseFunctor {};
 template <typename Type>
 struct IfElseFunctor<Type, enable_if_number<Type>> {
   using T = typename TypeTraits<Type>::CType;
-  // A - Array
-  // S - Scalar
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    return RunIfElseScalar(
+        cond, left, right, out,
+        /*CopyArrayData*/
+        [&](const ArrayData& valid_array, ArrayData* out_array) {
+          std::memcpy(out_array->GetMutableValues<T>(1), valid_array.GetValues<T>(1),
+                      valid_array.length * sizeof(T));
+        },
+        /*BroadcastScalar*/
+        [&](const Scalar& scalar, ArrayData* out_array) {
+          T scalar_data = internal::UnboxScalar<Type>::Unbox(scalar);
+          std::fill(out_array->GetMutableValues<T>(1),
+                    out_array->GetMutableValues<T>(1) + out_array->length, scalar_data);
+        });
+  }
 
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    T* out_values = out->template GetMutableValues<T>(1);
 
     // copy right data to out_buff
     const T* right_data = right.GetValues<T>(1);
     std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
     // selectively copy values from left data
     const T* left_data = left.GetValues<T>(1);
-    int64_t offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.AllSet()) {  // all from left
-        std::memcpy(out_values, left_data, block.length * sizeof(T));
-      } else if (block.popcount) {  // selectively copy from left
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = left_data[i];
-          }
-        }
-      }
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::memcpy(out_values + data_offset, left_data + data_offset,
+                      num_elems * sizeof(T));
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data[data_offset]; });
 
-      offset += block.length;
-      out_values += block.length;
-      left_data += block.length;
-    }
-
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
   // ASA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    T* out_values = out->template GetMutableValues<T>(1);
 
     // copy right data to out_buff
     const T* right_data = right.GetValues<T>(1);
     std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.AllSet()) {  // all from left
-        std::fill(out_values, out_values + block.length, left_data);
-      } else if (block.popcount) {  // selectively copy from left
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = left_data;
-          }
-        }
-      }
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    left_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data; });
 
-      offset += block.length;
-      out_values += block.length;
-    }
-
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
   // AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    T* out_values = out->template GetMutableValues<T>(1);
 
     // copy left data to out_buff
     const T* left_data = left.GetValues<T>(1);
     std::memcpy(out_values, left_data, left.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    // selectively copy values from left data
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
-    int64_t offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    // left data is already in the output buffer. Therefore, mask needs to be inverted
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.NoneSet()) {  // all from right
-        std::fill(out_values, out_values + block.length, right_data);
-      } else if (block.popcount) {  // selectively copy from right
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (!BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = right_data;
-          }
-        }
-      }
+    RunIfElseLoopInverted(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    right_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = right_data; });
 
-      offset += block.length;
-      out_values += block.length;
-    }
-
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    T* out_values = out->template GetMutableValues<T>(1);
 
     // copy right data to out_buff
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
     std::fill(out_values, out_values + cond.length, right_data);
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t offset = cond.offset;
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    left_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data; });
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.AllSet()) {  // all from left
-        std::fill(out_values, out_values + block.length, left_data);
-      } else if (block.popcount) {  // selectively copy from left
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = left_data;
-          }
-        }
-      }
-
-      offset += block.length;
-      out_values += block.length;
-    }
-
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 };
 
 template <typename Type>
 struct IfElseFunctor<Type, enable_if_boolean<Type>> {
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    return RunIfElseScalar(
+        cond, left, right, out,
+        /*CopyArrayData*/
+        [&](const ArrayData& valid_array, ArrayData* out_array) {
+          arrow::internal::CopyBitmap(
+              valid_array.buffers[1]->data(), valid_array.offset, valid_array.length,
+              out_array->buffers[1]->mutable_data(), out_array->offset);
+        },
+        /*BroadcastScalar*/
+        [&](const Scalar& scalar, ArrayData* out_array) {
+          bool scalar_data = internal::UnboxScalar<Type>::Unbox(scalar);
+          BitUtil::SetBitsTo(out_array->buffers[1]->mutable_data(), out_array->offset,
+                             out_array->length, scalar_data);
+        });
+  }
+
   // AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
     // out_buff = right & ~cond
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          arrow::internal::BitmapAndNot(
-                              ctx->memory_pool(), right.buffers[1]->data(), right.offset,
-                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
+    const auto& out_buf = out->buffers[1];
+    arrow::internal::BitmapAndNot(right.buffers[1]->data(), right.offset,
+                                  cond.buffers[1]->data(), cond.offset, cond.length,
+                                  out->offset, out_buf->mutable_data());
 
     // out_buff = left & cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> temp_buf,
@@ -370,9 +493,9 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
                               ctx->memory_pool(), left.buffers[1]->data(), left.offset,
                               cond.buffers[1]->data(), cond.offset, cond.length, 0));
 
-    arrow::internal::BitmapOr(out_buf->data(), 0, temp_buf->data(), 0, cond.length, 0,
-                              out_buf->mutable_data());
-    out->buffers[1] = std::move(out_buf);
+    arrow::internal::BitmapOr(out_buf->data(), out->offset, temp_buf->data(), 0,
+                              cond.length, out->offset, out_buf->mutable_data());
+
     return Status::OK();
   }
 
@@ -380,19 +503,19 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
     // out_buff = right & ~cond
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          arrow::internal::BitmapAndNot(
-                              ctx->memory_pool(), right.buffers[1]->data(), right.offset,
-                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
+    const auto& out_buf = out->buffers[1];
+    arrow::internal::BitmapAndNot(right.buffers[1]->data(), right.offset,
+                                  cond.buffers[1]->data(), cond.offset, cond.length,
+                                  out->offset, out_buf->mutable_data());
 
     // out_buff = left & cond
     bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
     if (left_data) {
-      arrow::internal::BitmapOr(out_buf->data(), 0, cond.buffers[1]->data(), cond.offset,
-                                cond.length, 0, out_buf->mutable_data());
+      arrow::internal::BitmapOr(out_buf->data(), out->offset, cond.buffers[1]->data(),
+                                cond.offset, cond.length, out->offset,
+                                out_buf->mutable_data());
     }
 
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
@@ -400,20 +523,20 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
     // out_buff = left & cond
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          arrow::internal::BitmapAnd(
-                              ctx->memory_pool(), left.buffers[1]->data(), left.offset,
-                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
+    const auto& out_buf = out->buffers[1];
+    arrow::internal::BitmapAnd(left.buffers[1]->data(), left.offset,
+                               cond.buffers[1]->data(), cond.offset, cond.length,
+                               out->offset, out_buf->mutable_data());
 
     bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
 
     // out_buff = left & cond | right & ~cond
     if (right_data) {
-      arrow::internal::BitmapOrNot(out_buf->data(), 0, cond.buffers[1]->data(),
-                                   cond.offset, cond.length, 0, out_buf->mutable_data());
+      arrow::internal::BitmapOrNot(out_buf->data(), out->offset, cond.buffers[1]->data(),
+                                   cond.offset, cond.length, out->offset,
+                                   out_buf->mutable_data());
     }
 
-    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
@@ -423,65 +546,31 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
     bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
     bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
 
+    const auto& out_buf = out->buffers[1];
+
     // out_buf = left & cond | right & ~cond
-    std::shared_ptr<Buffer> out_buf = nullptr;
+    //    std::shared_ptr<Buffer> out_buf = nullptr;
     if (left_data) {
       if (right_data) {
         // out_buf = ones
-        ARROW_ASSIGN_OR_RAISE(out_buf, ctx->AllocateBitmap(cond.length));
-        // filling with UINT8_MAX upto the buffer's size (in bytes)
-        std::memset(out_buf->mutable_data(), UINT8_MAX, out_buf->size());
+        BitUtil::SetBitmap(out_buf->mutable_data(), out->offset, cond.length);
       } else {
         // out_buf = cond
-        out_buf = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
+        arrow::internal::CopyBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
+                                    out_buf->mutable_data(), out->offset);
       }
     } else {
       if (right_data) {
         // out_buf = ~cond
-        ARROW_ASSIGN_OR_RAISE(out_buf, arrow::internal::InvertBitmap(
-                                           ctx->memory_pool(), cond.buffers[1]->data(),
-                                           cond.offset, cond.length))
+        arrow::internal::InvertBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
+                                      out_buf->mutable_data(), out->offset);
       } else {
         // out_buf = zeros
-        ARROW_ASSIGN_OR_RAISE(out_buf, ctx->AllocateBitmap(cond.length));
+        BitUtil::ClearBitmap(out_buf->mutable_data(), out->offset, cond.length);
       }
     }
-    out->buffers[1] = std::move(out_buf);
+
     return Status::OK();
-  }
-};
-
-template <typename Type>
-struct IfElseFunctor<Type, enable_if_null<Type>> {
-  template <typename T>
-  static inline Status ReturnCopy(const T& in, T* out) {
-    // Nothing preallocated, so we assign in into the output
-    *out = in;
-    return Status::OK();
-  }
-
-  // AAA
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    return ReturnCopy(left, out);
-  }
-
-  // ASA
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                     const ArrayData& right, ArrayData* out) {
-    return ReturnCopy(right, out);
-  }
-
-  // AAS
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const Scalar& right, ArrayData* out) {
-    return ReturnCopy(left, out);
-  }
-
-  // ASS
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                     const Scalar& right, ArrayData* out) {
-    return ReturnCopy(cond, out);
   }
 };
 
@@ -491,32 +580,7 @@ struct ResolveIfElseExec {
     // cond is scalar
     if (batch[0].is_scalar()) {
       const auto& cond = batch[0].scalar_as<BooleanScalar>();
-      if (batch[1].is_scalar() && batch[2].is_scalar()) {
-        if (cond.is_valid) {
-          *out = cond.value ? batch[1].scalar() : batch[2].scalar();
-        } else {
-          *out = MakeNullScalar(batch[1].type());
-        }
-        return Status::OK();
-      }
-      // either left or right is an array. Output is always an array
-      if (!cond.is_valid) {
-        // cond is null; just create a null array
-        ARROW_ASSIGN_OR_RAISE(
-            *out, MakeArrayOfNull(batch[1].type(), batch.length, ctx->memory_pool()))
-        return Status::OK();
-      }
-
-      const auto& valid_data = cond.value ? batch[1] : batch[2];
-      if (valid_data.is_array()) {
-        *out = valid_data;
-      } else {
-        // valid data is a scalar that needs to be broadcasted
-        ARROW_ASSIGN_OR_RAISE(
-            *out,
-            MakeArrayFromScalar(*valid_data.scalar(), batch.length, ctx->memory_pool()));
-      }
-      return Status::OK();
+      return IfElseFunctor<Type>::Call(ctx, cond, batch[1], batch[2], out);
     }
 
     // cond is array. Use functors to sort things out
@@ -540,6 +604,20 @@ struct ResolveIfElseExec {
                                          *batch[2].scalar(), out->mutable_array());
       }
     }
+  }
+};
+
+template <>
+struct ResolveIfElseExec<NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].is_scalar()) {
+      *out = MakeNullScalar(null());
+    } else {
+      const std::shared_ptr<ArrayData>& cond_array = batch[0].array();
+      ARROW_ASSIGN_OR_RAISE(
+          *out, MakeArrayOfNull(null(), cond_array->length, ctx->memory_pool()));
+    }
+    return Status::OK();
   }
 };
 
@@ -574,14 +652,25 @@ struct IfElseFunction : ScalarFunction {
   }
 };
 
-void AddPrimitiveIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function,
+void AddNullIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
+  ScalarKernel kernel({boolean(), null(), null()}, null(),
+                      ResolveIfElseExec<NullType>::Exec);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  kernel.can_write_into_slices = false;
+
+  DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+}
+
+void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
                                const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec>(*type);
     // cond array needs to be boolean always
     ScalarKernel kernel({boolean(), type, type}, type, exec);
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::PREALLOCATE;
+    kernel.can_write_into_slices = true;
 
     DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
   }
@@ -607,7 +696,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
 
   AddPrimitiveIfElseKernels(func, NumericTypes());
   AddPrimitiveIfElseKernels(func, TemporalTypes());
-  AddPrimitiveIfElseKernels(func, {boolean(), null()});
+  AddPrimitiveIfElseKernels(func, {boolean()});
+  AddNullIfElseKernel(func);
   // todo add binary kernels
 
   DCHECK_OK(registry->AddFunction(std::move(func)));

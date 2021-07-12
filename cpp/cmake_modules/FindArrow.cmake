@@ -50,11 +50,12 @@ set(ARROW_SEARCH_LIB_PATH_SUFFIXES)
 if(CMAKE_LIBRARY_ARCHITECTURE)
   list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 endif()
-list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES
-            "lib64"
-            "lib32"
-            "lib"
-            "bin")
+list(APPEND
+     ARROW_SEARCH_LIB_PATH_SUFFIXES
+     "lib64"
+     "lib32"
+     "lib"
+     "bin")
 set(ARROW_CONFIG_SUFFIXES
     "_RELEASE"
     "_RELWITHDEBINFO"
@@ -120,10 +121,9 @@ endfunction()
 #   # -> ARROW_STATIC_LIBRARY_NAME=arrow.lib with MSVC on Windows
 #   # -> ARROW_STATIC_LIBRARY_NAME=libarrow.dll.a with MinGW on Windows
 function(arrow_build_static_library_name output_variable base_name)
-  set(
-    ${output_variable}
-    "${CMAKE_STATIC_LIBRARY_PREFIX}${base_name}${ARROW_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    PARENT_SCOPE)
+  set(${output_variable}
+      "${CMAKE_STATIC_LIBRARY_PREFIX}${base_name}${ARROW_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      PARENT_SCOPE)
 endfunction()
 
 # Internal function.
@@ -138,9 +138,11 @@ endfunction()
 function(arrow_extract_macro_value output_variable macro_name header_content)
   string(REGEX MATCH "#define +${macro_name} +[^\r\n]+" macro_definition
                "${header_content}")
-  string(REGEX
-         REPLACE "^#define +${macro_name} +(.+)$" "\\1" macro_value "${macro_definition}")
-  set(${output_variable} "${macro_value}" PARENT_SCOPE)
+  string(REGEX REPLACE "^#define +${macro_name} +(.+)$" "\\1" macro_value
+                       "${macro_definition}")
+  set(${output_variable}
+      "${macro_value}"
+      PARENT_SCOPE)
 endfunction()
 
 # Internal macro only for arrow_find_package.
@@ -152,7 +154,9 @@ macro(arrow_find_package_home)
             PATH_SUFFIXES "include"
             NO_DEFAULT_PATH)
   set(include_dir "${${prefix}_include_dir}")
-  set(${prefix}_INCLUDE_DIR "${include_dir}" PARENT_SCOPE)
+  set(${prefix}_INCLUDE_DIR
+      "${include_dir}"
+      PARENT_SCOPE)
 
   if(MSVC_TOOLCHAIN)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES_ORIGINAL ${CMAKE_FIND_LIBRARY_SUFFIXES})
@@ -169,13 +173,15 @@ macro(arrow_find_package_home)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_ORIGINAL})
   endif()
   set(shared_lib "${${prefix}_shared_lib}")
-  set(${prefix}_SHARED_LIB "${shared_lib}" PARENT_SCOPE)
+  set(${prefix}_SHARED_LIB
+      "${shared_lib}"
+      PARENT_SCOPE)
   if(shared_lib)
     add_library(${target_shared} SHARED IMPORTED)
     set_target_properties(${target_shared} PROPERTIES IMPORTED_LOCATION "${shared_lib}")
     if(include_dir)
-      set_target_properties(${target_shared}
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}")
+      set_target_properties(${target_shared} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                        "${include_dir}")
     endif()
     find_library(${prefix}_import_lib
                  NAMES "${import_lib_name}"
@@ -183,7 +189,9 @@ macro(arrow_find_package_home)
                  PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     set(import_lib "${${prefix}_import_lib}")
-    set(${prefix}_IMPORT_LIB "${import_lib}" PARENT_SCOPE)
+    set(${prefix}_IMPORT_LIB
+        "${import_lib}"
+        PARENT_SCOPE)
     if(import_lib)
       set_target_properties(${target_shared} PROPERTIES IMPORTED_IMPLIB "${import_lib}")
     endif()
@@ -195,13 +203,15 @@ macro(arrow_find_package_home)
                PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   set(static_lib "${${prefix}_static_lib}")
-  set(${prefix}_STATIC_LIB "${static_lib}" PARENT_SCOPE)
+  set(${prefix}_STATIC_LIB
+      "${static_lib}"
+      PARENT_SCOPE)
   if(static_lib)
     add_library(${target_static} STATIC IMPORTED)
     set_target_properties(${target_static} PROPERTIES IMPORTED_LOCATION "${static_lib}")
     if(include_dir)
-      set_target_properties(${target_static}
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}")
+      set_target_properties(${target_static} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                        "${include_dir}")
     endif()
   endif()
 endmacro()
@@ -212,7 +222,9 @@ endmacro()
 macro(arrow_find_package_cmake_package_configuration)
   find_package(${cmake_package_name} CONFIG)
   if(${cmake_package_name}_FOUND)
-    set(${prefix}_USE_CMAKE_PACKAGE_CONFIG TRUE PARENT_SCOPE)
+    set(${prefix}_USE_CMAKE_PACKAGE_CONFIG
+        TRUE
+        PARENT_SCOPE)
     if(TARGET ${target_shared})
       foreach(suffix ${ARROW_CONFIG_SUFFIXES})
         get_target_property(shared_lib ${target_shared} IMPORTED_LOCATION${suffix})
@@ -221,10 +233,11 @@ macro(arrow_find_package_cmake_package_configuration)
           #   libarrow.so.100.0.0 -> libarrow.so
           # Because ARROW_HOME and pkg-config approaches don't add
           # shared library version.
-          string(REGEX
-                 REPLACE "(${CMAKE_SHARED_LIBRARY_SUFFIX})[.0-9]+$" "\\1" shared_lib
-                         "${shared_lib}")
-          set(${prefix}_SHARED_LIB "${shared_lib}" PARENT_SCOPE)
+          string(REGEX REPLACE "(${CMAKE_SHARED_LIBRARY_SUFFIX})[.0-9]+$" "\\1"
+                               shared_lib "${shared_lib}")
+          set(${prefix}_SHARED_LIB
+              "${shared_lib}"
+              PARENT_SCOPE)
           break()
         endif()
       endforeach()
@@ -233,7 +246,9 @@ macro(arrow_find_package_cmake_package_configuration)
       foreach(suffix ${ARROW_CONFIG_SUFFIXES})
         get_target_property(static_lib ${target_static} IMPORTED_LOCATION${suffix})
         if(static_lib)
-          set(${prefix}_STATIC_LIB "${static_lib}" PARENT_SCOPE)
+          set(${prefix}_STATIC_LIB
+              "${static_lib}"
+              PARENT_SCOPE)
           break()
         endif()
       endforeach()
@@ -247,7 +262,9 @@ endmacro()
 macro(arrow_find_package_pkg_config)
   pkg_check_modules(${prefix}_PC ${pkg_config_name})
   if(${prefix}_PC_FOUND)
-    set(${prefix}_USE_PKG_CONFIG TRUE PARENT_SCOPE)
+    set(${prefix}_USE_PKG_CONFIG
+        TRUE
+        PARENT_SCOPE)
 
     set(include_dir "${${prefix}_PC_INCLUDEDIR}")
     set(lib_dir "${${prefix}_PC_LIBDIR}")
@@ -270,18 +287,21 @@ macro(arrow_find_package_pkg_config)
            rest_shared_lib_paths)
     endif()
 
-    set(${prefix}_VERSION "${${prefix}_PC_VERSION}" PARENT_SCOPE)
-    set(${prefix}_INCLUDE_DIR "${include_dir}" PARENT_SCOPE)
-    set(${prefix}_SHARED_LIB "${first_shared_lib_path}" PARENT_SCOPE)
+    set(${prefix}_VERSION
+        "${${prefix}_PC_VERSION}"
+        PARENT_SCOPE)
+    set(${prefix}_INCLUDE_DIR
+        "${include_dir}"
+        PARENT_SCOPE)
+    set(${prefix}_SHARED_LIB
+        "${first_shared_lib_path}"
+        PARENT_SCOPE)
 
     add_library(${target_shared} SHARED IMPORTED)
     set_target_properties(${target_shared}
-                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${include_dir}"
-                                     INTERFACE_LINK_LIBRARIES
-                                     "${rest_shared_lib_paths}"
-                                     IMPORTED_LOCATION
-                                     "${first_shared_lib_path}")
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}"
+                                     INTERFACE_LINK_LIBRARIES "${rest_shared_lib_paths}"
+                                     IMPORTED_LOCATION "${first_shared_lib_path}")
     get_target_property(shared_lib ${target_shared} IMPORTED_LOCATION)
 
     find_library(${prefix}_static_lib
@@ -289,7 +309,9 @@ macro(arrow_find_package_pkg_config)
                  PATHS "${lib_dir}"
                  NO_DEFAULT_PATH)
     set(static_lib "${${prefix}_static_lib}")
-    set(${prefix}_STATIC_LIB "${static_lib}" PARENT_SCOPE)
+    set(${prefix}_STATIC_LIB
+        "${static_lib}"
+        PARENT_SCOPE)
     if(static_lib)
       add_library(${target_static} STATIC IMPORTED)
       set_target_properties(${target_static}
@@ -315,7 +337,9 @@ function(arrow_find_package
 
   if(home)
     arrow_find_package_home()
-    set(${prefix}_FIND_APPROACH "HOME: ${home}" PARENT_SCOPE)
+    set(${prefix}_FIND_APPROACH
+        "HOME: ${home}"
+        PARENT_SCOPE)
   else()
     arrow_find_package_cmake_package_configuration()
     if(${cmake_package_name}_FOUND)
@@ -324,7 +348,9 @@ function(arrow_find_package
           PARENT_SCOPE)
     else()
       arrow_find_package_pkg_config()
-      set(${prefix}_FIND_APPROACH "pkg-config: ${pkg_config_name}" PARENT_SCOPE)
+      set(${prefix}_FIND_APPROACH
+          "pkg-config: ${pkg_config_name}"
+          PARENT_SCOPE)
     endif()
   endif()
 
@@ -336,7 +362,9 @@ function(arrow_find_package
     endif()
   endif()
   if(include_dir)
-    set(${prefix}_INCLUDE_DIR "${include_dir}" PARENT_SCOPE)
+    set(${prefix}_INCLUDE_DIR
+        "${include_dir}"
+        PARENT_SCOPE)
   endif()
 
   if(shared_lib)
@@ -346,9 +374,13 @@ function(arrow_find_package
   else()
     set(lib_dir NOTFOUND)
   endif()
-  set(${prefix}_LIB_DIR "${lib_dir}" PARENT_SCOPE)
+  set(${prefix}_LIB_DIR
+      "${lib_dir}"
+      PARENT_SCOPE)
   # For backward compatibility
-  set(${prefix}_LIBS "${lib_dir}" PARENT_SCOPE)
+  set(${prefix}_LIBS
+      "${lib_dir}"
+      PARENT_SCOPE)
 endfunction()
 
 if(NOT "$ENV{ARROW_HOME}" STREQUAL "")
@@ -384,9 +416,8 @@ if(ARROW_HOME)
     string(REGEX REPLACE "^\"(.+)\"$" "\\1" ARROW_SO_VERSION "${ARROW_SO_VERSION_QUOTED}")
     arrow_extract_macro_value(ARROW_FULL_SO_VERSION_QUOTED "ARROW_FULL_SO_VERSION"
                               "${ARROW_CONFIG_H_CONTENT}")
-    string(REGEX
-           REPLACE "^\"(.+)\"$" "\\1" ARROW_FULL_SO_VERSION
-                   "${ARROW_FULL_SO_VERSION_QUOTED}")
+    string(REGEX REPLACE "^\"(.+)\"$" "\\1" ARROW_FULL_SO_VERSION
+                         "${ARROW_FULL_SO_VERSION_QUOTED}")
   endif()
 else()
   if(ARROW_USE_CMAKE_PACKAGE_CONFIG)
@@ -416,16 +447,13 @@ mark_as_advanced(ARROW_ABI_VERSION
                  ARROW_VERSION_MINOR
                  ARROW_VERSION_PATCH)
 
-find_package_handle_standard_args(Arrow REQUIRED_VARS
-                                  # The first required variable is shown
-                                  # in the found message. So this list is
-                                  # not sorted alphabetically.
-                                  ARROW_INCLUDE_DIR
-                                  ARROW_LIB_DIR
-                                  ARROW_FULL_SO_VERSION
-                                  ARROW_SO_VERSION
-                                  VERSION_VAR
-                                  ARROW_VERSION)
+find_package_handle_standard_args(
+  Arrow
+  REQUIRED_VARS # The first required variable is shown
+                # in the found message. So this list is
+                # not sorted alphabetically.
+                ARROW_INCLUDE_DIR ARROW_LIB_DIR ARROW_FULL_SO_VERSION ARROW_SO_VERSION
+  VERSION_VAR ARROW_VERSION)
 set(ARROW_FOUND ${Arrow_FOUND})
 
 if(Arrow_FOUND AND NOT Arrow_FIND_QUIETLY)

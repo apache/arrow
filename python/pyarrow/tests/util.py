@@ -225,6 +225,15 @@ def change_cwd(path):
         os.chdir(curdir)
 
 
+@contextlib.contextmanager
+def disabled_gc():
+    gc.disable()
+    try:
+        yield
+    finally:
+        gc.enable()
+
+
 def _filesystem_uri(path):
     # URIs on Windows must follow 'file:///C:...' or 'file:/C:...' patterns.
     if os.name == 'nt':

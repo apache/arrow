@@ -55,6 +55,8 @@ struct FileSystemDatasetWriteOptions;
 class InMemoryDataset;
 
 class CsvFileFormat;
+class CsvFileWriter;
+class CsvFileWriteOptions;
 struct CsvFragmentScanOptions;
 
 class IpcFileFormat;

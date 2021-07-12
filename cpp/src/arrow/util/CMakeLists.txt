@@ -57,6 +57,7 @@ add_arrow_test(utility-test
                logging_test.cc
                queue_test.cc
                range_test.cc
+               reflection_test.cc
                rle_encoding_test.cc
                stl_util_test.cc
                string_test.cc
@@ -78,6 +79,7 @@ add_arrow_test(threading-utility-test
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
+add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(cache_benchmark)
 add_arrow_benchmark(compression_benchmark)
 add_arrow_benchmark(decimal_benchmark)

@@ -771,6 +771,17 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
+                                                    int32_t scale) {
+  if (type_id == Type::DECIMAL128) {
+    return Decimal128Type::Make(precision, scale);
+  } else if (type_id == Type::DECIMAL256) {
+    return Decimal256Type::Make(precision, scale);
+  } else {
+    return Status::Invalid("Not a decimal type_id: ", type_id);
+  }
+}
+
 // Taken from the Apache Impala codebase. The comments next
 // to the return values are the maximum value that can be represented in 2's
 // complement with the returned number of bytes.
@@ -1184,6 +1195,10 @@ std::string FieldRef::ToString() const {
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
+  if (auto name = this->name()) {
+    return internal::MapVector([](int i) { return FieldPath{i}; },
+                               schema.GetAllFieldIndices(*name));
+  }
   return FindAll(schema.fields());
 }
 

@@ -880,6 +880,10 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
                        int32_t scale)
       : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
 
+  /// Constructs concrete decimal types
+  static Result<std::shared_ptr<DataType>> Make(Type::type type_id, int32_t precision,
+                                                int32_t scale);
+
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 

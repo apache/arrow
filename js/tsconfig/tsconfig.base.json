@@ -3,6 +3,10 @@
   "include": ["../src/**/*.ts"],
   "compileOnSave": false,
   "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "apache-arrow/*": ["src/*"]
+    },
 
     /* Basic stuff */
     "moduleResolution": "node",
@@ -10,6 +14,7 @@
 
     /* Control what is emitted */
     "declaration": true,
+    "declarationMap": true,
     "noEmitOnError": true,
     "removeComments": false,
     "noErrorTruncation": true,
@@ -40,6 +45,6 @@
     "allowUnreachableCode": false,
     "noStrictGenericChecks": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": true
   }
 }

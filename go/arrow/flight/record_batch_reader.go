@@ -40,6 +40,7 @@ type dataMessageReader struct {
 	msg      *ipc.Message
 
 	lastAppMetadata []byte
+	descr           *FlightDescriptor
 }
 
 func (d *dataMessageReader) Message() (*ipc.Message, error) {
@@ -51,10 +52,12 @@ func (d *dataMessageReader) Message() (*ipc.Message, error) {
 			d.msg = nil
 		}
 		d.lastAppMetadata = nil
+		d.descr = nil
 		return nil, err
 	}
 
 	d.lastAppMetadata = fd.AppMetadata
+	d.descr = fd.FlightDescriptor
 	d.msg = ipc.NewMessage(memory.NewBufferBytes(fd.DataHeader), memory.NewBufferBytes(fd.DataBody))
 	return d.msg, nil
 }
@@ -104,6 +107,14 @@ func (r *Reader) Release() {
 // retrieved by calling Record().
 func (r *Reader) LatestAppMetadata() []byte {
 	return r.dmr.lastAppMetadata
+}
+
+// LatestFlightDescriptor returns a pointer to the last FlightDescriptor object
+// that was received in the most recently read FlightData message that was
+// processed by calling the Next function. The descriptor returned would correspond
+// to the record retrieved by calling Record().
+func (r *Reader) LatestFlightDescriptor() *FlightDescriptor {
+	return r.dmr.descr
 }
 
 // NewRecordReader constructs an ipc reader using the flight data stream reader

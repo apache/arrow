@@ -40,6 +40,19 @@ GAFlightServerOptions *
 gaflight_server_options_new(GAFlightLocation *location);
 
 
+#define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT       \
+  (gaflight_server_call_context_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
+                         gaflight_server_call_context,
+                         GAFLIGHT,
+                         SERVER_CALL_CONTEXT,
+                         GObject)
+struct _GAFlightServerCallContextClass
+{
+  GObjectClass parent_class;
+};
+
+
 #define GAFLIGHT_TYPE_SERVER (gaflight_server_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServer,
                          gaflight_server,
@@ -49,6 +62,11 @@ G_DECLARE_DERIVABLE_TYPE(GAFlightServer,
 struct _GAFlightServerClass
 {
   GObjectClass parent_class;
+
+  GList *(*list_flights)(GAFlightServer *server,
+                         GAFlightServerCallContext *context,
+                         GAFlightCriteria *criteria,
+                         GError **error);
 };
 
 GARROW_AVAILABLE_IN_5_0
@@ -68,5 +86,11 @@ gboolean
 gaflight_server_wait(GAFlightServer *server,
                      GError **error);
 
+GARROW_AVAILABLE_IN_5_0
+GList *
+gaflight_server_list_flights(GAFlightServer *server,
+                             GAFlightServerCallContext *context,
+                             GAFlightCriteria *criteria,
+                             GError **error);
 
 G_END_DECLS

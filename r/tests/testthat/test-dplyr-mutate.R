@@ -92,6 +92,41 @@ test_that("empty transmute()", {
   )
 })
 
+test_that("transmute() with unsupported arguments", {
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .keep = "all"),
+    "`transmute()` does not support the `.keep` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .before = lgl),
+    "`transmute()` does not support the `.before` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .after = chr),
+    "`transmute()` does not support the `.after` argument",
+    fixed = TRUE
+  )
+})
+
+test_that("transmute() defuses dots arguments (ARROW-13262)", {
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      transmute(stringr::str_c(chr, chr)) %>%
+      collect(),
+    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%
@@ -416,5 +451,36 @@ test_that("mutate and write_dataset", {
       mutate(twice = integer * 2) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("mutate and pmin/pmax", {
+  df <- tibble(
+    city = c("Chillan", "Valdivia", "Osorno"),
+    val1 = c(200, 300, NA),
+    val2 = c(100, NA, NA),
+    val3 = c(0, NA, NA)
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1, val2, val3),
+        max_val_2 = pmax(val1, val2, val3, na.rm = T),
+        min_val_1 = pmin(val1, val2, val3),
+        min_val_2 = pmin(val1, val2, val3, na.rm = T)
+      ) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = T),
+        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = T),
+      ) %>%
+      collect(),
+    df
   )
 })

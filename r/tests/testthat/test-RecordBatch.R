@@ -422,22 +422,22 @@ test_that("record_batch() scalar recycling with vectors", {
 })
 
 test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
 })
 
 test_that("record_batch() no recycling with tibbles", {
@@ -448,7 +448,7 @@ test_that("record_batch() no recycling with tibbles", {
     ),
     regexp = "All input tibbles or data.frames must have the same number of rows"
   )
-  
+
   expect_error(
     record_batch(
       tibble::tibble(a = 1:10),
@@ -553,15 +553,67 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
 })
 
 test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
-  
+
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
-  
+
   rb <- record_batch(!!!tbl)
-  
+
   expect_identical(length(rb), 3L)
+
+})
+
+test_that("RecordBatchReader to C-interface", {
+  skip_if_not_available("dataset")
   
+  tab <- Table$create(example_data)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+  tab_from_c_new <- circle$read_table()
+  expect_equal(tab, tab_from_c_new)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+
+  # export the RecordBatchStreamReader via the C-interface
+  stream_ptr_new <- allocate_arrow_array_stream()
+  bytes <- write_to_raw(example_data)
+  expect_type(bytes, "raw")
+  reader_new <- RecordBatchStreamReader$create(bytes)
+  reader_new$export_to_c(stream_ptr_new)
+
+  # then import it and check that the roundtripped value is the same
+  circle_new <- RecordBatchStreamReader$import_from_c(stream_ptr_new)
+  tab_from_c_new <- circle_new$read_table()
+  expect_equal(tab, tab_from_c_new)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr_new)
+})
+
+test_that("RecordBatch to C-interface", {
+  batch <- RecordBatch$create(example_data)
+
+  # export the RecordBatch via the C-interface
+  schema_ptr <- allocate_arrow_schema()
+  array_ptr <- allocate_arrow_array()
+  batch$export_to_c(array_ptr, schema_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
+  expect_equal
+
+  # must clean up the pointers or we leak
+  delete_arrow_schema(schema_ptr)
+  delete_arrow_array(array_ptr)
 })

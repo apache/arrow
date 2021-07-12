@@ -98,14 +98,7 @@ struct Utf8Length {
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();
-
-    OutValue length = 0;
-    while (strlen > 0) {
-      length += ((*str & 0xc0) != 0x80);
-      ++str;
-      --strlen;
-    }
-    return length;
+    return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
   }
 };
 
@@ -917,13 +910,44 @@ struct FindSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
+struct FindSubstringRegex {
+  std::unique_ptr<RE2> regex_match_;
+
+  explicit FindSubstringRegex(const MatchSubstringOptions& options,
+                              bool literal = false) {
+    std::string regex = "(";
+    regex.reserve(options.pattern.length() + 2);
+    regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
+    regex += ")";
+    regex_match_.reset(new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
+                                                     options, /*literal=*/false)));
+  }
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    re2::StringPiece piece(val.data(), val.length());
+    re2::StringPiece match;
+    if (re2::RE2::PartialMatch(piece, *regex_match_, &match)) {
+      return static_cast<OutValue>(match.data() - piece.data());
+    }
+    return -1;
+  }
+};
+#endif
+
 template <typename InputType>
 struct FindSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
-      return Status::NotImplemented("find_substring with ignore_case");
+#ifdef ARROW_WITH_RE2
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
+          kernel{FindSubstringRegex(options, /*literal=*/true)};
+      return kernel.Exec(ctx, batch, out);
+#endif
+      return Status::NotImplemented("ignore_case requires RE2");
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
         FindSubstring(PlainSubstringMatcher(options))};
@@ -938,21 +962,52 @@ const FunctionDoc find_substring_doc(
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
-void AddFindSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
-                                               &find_substring_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
-    std::shared_ptr<DataType> offset_type;
-    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-      offset_type = int64();
-    } else {
-      offset_type = int32();
-    }
-    DCHECK_OK(func->AddKernel({ty}, offset_type,
-                              GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
-                              MatchSubstringState::Init));
+#ifdef ARROW_WITH_RE2
+template <typename InputType>
+struct FindSubstringRegexExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
+        kernel{FindSubstringRegex(options, /*literal=*/false)};
+    return kernel.Exec(ctx, batch, out);
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+};
+
+const FunctionDoc find_substring_regex_doc(
+    "Find location of first match of regex pattern",
+    ("For each string in `strings`, emit the index of the first match of the given "
+     "pattern, or -1 if not found.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+#endif
+
+void AddFindSubstring(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
+                                                 &find_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                                MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("find_substring_regex", Arity::Unary(),
+                                                 &find_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(
+          func->AddKernel({ty}, offset_type,
+                          GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
+                          MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
 }
 
 // Substring count
@@ -2755,6 +2810,138 @@ Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDe
   return Status::Invalid("strptime does not provide default StrptimeOptions");
 }
 
+// ----------------------------------------------------------------------
+// string padding
+
+template <bool PadLeft, bool PadRight>
+struct AsciiPadTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit AsciiPadTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    if (options_.padding.size() != 1) {
+      return Status::Invalid("Padding must be one byte, got '", options_.padding, "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // This is likely very overallocated but hard to do better without
+    // actually looking at each string (because of strings that may be
+    // longer than the given width)
+    return input_ncodeunits + ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    if (input_string_ncodeunits >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_string_ncodeunits;
+    int64_t left = 0;
+    int64_t right = 0;
+    if (PadLeft && PadRight) {
+      // If odd number of spaces, put the extra space on the right
+      left = spaces / 2;
+      right = spaces - left;
+    } else if (PadLeft) {
+      left = spaces;
+    } else if (PadRight) {
+      right = spaces;
+    } else {
+      DCHECK(false) << "unreachable";
+      return 0;
+    }
+    std::fill(output, output + left, options_.padding[0]);
+    output += left;
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    std::fill(output, output + right, options_.padding[0]);
+    return options_.width;
+  }
+};
+
+template <bool PadLeft, bool PadRight>
+struct Utf8PadTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
+    auto strlen = options_.padding.size();
+    if (util::UTF8Length(str, str + strlen) != 1) {
+      return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
+                             "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // This is likely very overallocated but hard to do better without
+    // actually looking at each string (because of strings that may be
+    // longer than the given width)
+    // One codepoint may be up to 4 bytes
+    return input_ncodeunits + 4 * ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
+    if (input_width >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_width;
+    int64_t left = 0;
+    int64_t right = 0;
+    if (PadLeft && PadRight) {
+      // If odd number of spaces, put the extra space on the right
+      left = spaces / 2;
+      right = spaces - left;
+    } else if (PadLeft) {
+      left = spaces;
+    } else if (PadRight) {
+      right = spaces;
+    } else {
+      DCHECK(false) << "unreachable";
+      return 0;
+    }
+    uint8_t* start = output;
+    while (left) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      left--;
+    }
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    while (right) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      right--;
+    }
+    return output - start;
+  }
+};
+
+template <typename Type>
+using AsciiLPad = StringTransformExecWithState<Type, AsciiPadTransform<true, false>>;
+template <typename Type>
+using AsciiRPad = StringTransformExecWithState<Type, AsciiPadTransform<false, true>>;
+template <typename Type>
+using AsciiCenter = StringTransformExecWithState<Type, AsciiPadTransform<true, true>>;
+template <typename Type>
+using Utf8LPad = StringTransformExecWithState<Type, Utf8PadTransform<true, false>>;
+template <typename Type>
+using Utf8RPad = StringTransformExecWithState<Type, Utf8PadTransform<false, true>>;
+template <typename Type>
+using Utf8Center = StringTransformExecWithState<Type, Utf8PadTransform<true, true>>;
+
+// ----------------------------------------------------------------------
+// string trimming
+
 #ifdef ARROW_WITH_UTF8PROC
 
 template <bool TrimLeft, bool TrimRight>
@@ -2947,6 +3134,42 @@ using AsciiLTrim = StringTransformExecWithState<Type, AsciiTrimTransform<true, f
 
 template <typename Type>
 using AsciiRTrim = StringTransformExecWithState<Type, AsciiTrimTransform<false, true>>;
+
+const FunctionDoc utf8_center_doc(
+    "Center strings by padding with a given character",
+    ("For each string in `strings`, emit a centered string by padding both sides \n"
+     "with the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc utf8_lpad_doc(
+    "Right-align strings by padding with a given character",
+    ("For each string in `strings`, emit a right-aligned string by prepending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc utf8_rpad_doc(
+    "Left-align strings by padding with a given character",
+    ("For each string in `strings`, emit a left-aligned string by appending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_center_doc(
+    utf8_center_doc.description + "",
+    ("For each string in `strings`, emit a centered string by padding both sides \n"
+     "with the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_lpad_doc(
+    utf8_lpad_doc.description + "",
+    ("For each string in `strings`, emit a right-aligned string by prepending \n"
+     "the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_rpad_doc(
+    utf8_rpad_doc.description + "",
+    ("For each string in `strings`, emit a left-aligned string by appending \n"
+     "the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
@@ -3587,10 +3810,12 @@ void AddBinaryJoin(FunctionRegistry* registry) {
         "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
         &binary_join_element_wise_doc, &kDefaultJoinOptions);
     for (const auto& ty : BaseBinaryTypes()) {
-      DCHECK_OK(
-          func->AddKernel({InputType(ty)}, ty,
+      ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
-                          BinaryJoinElementWiseState::Init));
+                          BinaryJoinElementWiseState::Init};
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -3833,12 +4058,21 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_rtrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
   MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
-  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
-                                                 &ascii_lower_doc);
+
+  MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
+                                                   &ascii_center_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, &ascii_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
+                                                  &utf8_center_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
+
+  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, &ascii_trim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
-                                                  &ascii_lower_doc);
+                                                  &ascii_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiRTrim>("ascii_rtrim", registry,
-                                                  &ascii_lower_doc);
+                                                  &ascii_rtrim_doc);
 
   AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
 

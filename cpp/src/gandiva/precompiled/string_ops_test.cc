@@ -175,14 +175,22 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   EXPECT_TRUE(ctx.has_error());
   ctx.Reset();
 
-  // full valid utf8, but invalid replacement char length
+  // invalid utf8 (xa0 and xa1 are invalid) with empty replacement char length
   std::string f("ok-\xa0\xa1-valid");
   auto f_in_out_len = static_cast<int>(f.length());
   const char* f_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, f.data(), f_in_out_len, "", 0, &f_in_out_len);
-  EXPECT_EQ(std::string(f_str, f_in_out_len), "ok-\xa0\xa1-valid");
+  EXPECT_EQ(std::string(f_str, f_in_out_len), "ok--valid");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 
+  // invalid utf8 (xa0 and xa1 are invalid) with empty replacement char length
+  std::string g("\xa0\xa1-ok-\xa0\xa1-valid-\xa0\xa1");
+  auto g_in_out_len = static_cast<int>(g.length());
+  const char* g_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, g.data(), g_in_out_len, "", 0, &g_in_out_len);
+  EXPECT_EQ(std::string(g_str, g_in_out_len), "-ok--valid-");
+  EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 }
 
@@ -210,6 +218,61 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   out_str = castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestCastVarcharToBool) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true     ", 14), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "true     ", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     true", 9), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TRUE", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "TrUe", 4), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "1", 1), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "  1", 3), true);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "false     ", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "     false", 10), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0", 1), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "0   ", 4), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FALSE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "FaLsE", 5), false);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
   ctx.Reset();
 }
 
@@ -573,6 +636,54 @@ TEST(TestStringOps, TestSubstringInvalidInputs) {
   out_str = substr_utf8_int64_int64(ctx_ptr, "çåå†", 9, 2147483656, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestGdvFnStubs, TestCastVarbinaryUtf8) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "abc";
+  const char* out;
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "a");
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "\\x41\\x42\\x43";
+  const char* out;
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 8, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestConcat) {
@@ -1198,6 +1309,53 @@ TEST(TestStringOps, TestLocate) {
               ::testing::HasSubstr(
                   "unexpected byte \\ff encountered while decoding utf8 string"));
   ctx.Reset();
+}
+
+TEST(TestStringOps, TestByteSubstr) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str;
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -6, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 0, -500, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 1, 1000, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Str");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, 5, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = byte_substr_binary_int32_int32(ctx_ptr, "TestString", 10, -100, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestStringOps, TestReplace) {

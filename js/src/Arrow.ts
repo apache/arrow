@@ -112,3 +112,5 @@ export const util = {
     compareFields,
     compareTypes,
 };
+
+export { isTypedArray } from './util/args';

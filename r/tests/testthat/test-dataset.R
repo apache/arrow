@@ -1580,6 +1580,28 @@ test_that("Writing a dataset: Parquet format options", {
   )
 })
 
+test_that("Writing a dataset: CSV format options", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv")
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "csv")
+  expect_equivalent(new_ds %>% collect(), df)
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv", include_header = FALSE)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "csv",
+                         column_names = c("int", "dbl", "lgl", "chr"))
+  expect_equivalent(new_ds %>% collect(), df)
+})
+
 test_that("Dataset writing: unsupported features/input validation", {
   skip_if_not_available("parquet")
   expect_error(write_dataset(4), 'dataset must be a "Dataset"')

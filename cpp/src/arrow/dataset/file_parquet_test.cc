@@ -25,6 +25,7 @@
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -176,7 +177,7 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
 };
 
 TEST_F(TestParquetFileFormat, InspectFailureWithRelevantError) {
-  TestInspectFailureWithRelevantError(StatusCode::IOError);
+  TestInspectFailureWithRelevantError(StatusCode::Invalid, "Parquet");
 }
 TEST_F(TestParquetFileFormat, Inspect) { TestInspect(); }
 
@@ -281,6 +282,32 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
     // not(is_null) so trying to count with is_null doesn't work
   }
+}
+
+TEST_F(TestParquetFileFormat, MultithreadedScan) {
+  constexpr int64_t kNumRowGroups = 16;
+
+  // See PredicatePushdown test below for a description of the generated data
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto options = std::make_shared<ScanOptions>();
+
+  auto fragment = MakeFragment(*source);
+
+  FragmentDataset dataset(ArithmeticDatasetFixture::schema(), {fragment});
+  ScannerBuilder builder({&dataset, [](...) {}});
+
+  ASSERT_OK(builder.UseAsync(true));
+  ASSERT_OK(builder.UseThreads(true));
+  ASSERT_OK(builder.Project({call("add", {field_ref("i64"), literal(3)})}, {""}));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto gen, scanner->ScanBatchesUnorderedAsync());
+
+  auto collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_OK_AND_ASSIGN(auto batches, collect_fut.result());
+
+  ASSERT_EQ(batches.size(), kNumRowGroups);
 }
 
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
@@ -464,9 +491,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   auto all_row_groups = internal::Iota(static_cast<int>(kNumRowGroups));
   CountRowGroupsInFragment(fragment, all_row_groups, literal(true));
 
-  // FIXME this is only meaningful if "not here" is a virtual column
-  // CountRowGroupsInFragment(fragment, all_row_groups, "not here"_ == 0);
-
   for (int i = 0; i < kNumRowGroups; ++i) {
     CountRowGroupsInFragment(fragment, {i}, equal(field_ref("i64"), literal(i + 1)));
   }
@@ -489,9 +513,10 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
       fragment, {1, 3},
       or_(equal(field_ref("i64"), literal(2)), equal(field_ref("i64"), literal(4))));
 
-  // TODO(bkietz): better Assume support for InExpression
-  // auto set = ArrayFromJSON(int64(), "[2, 4]");
-  // CountRowGroupsInFragment(fragment, {1, 3}, field_ref("i64").In(set));
+  auto set = ArrayFromJSON(int64(), "[2, 4]");
+  CountRowGroupsInFragment(
+      fragment, {1, 3},
+      call("is_in", {field_ref("i64")}, compute::SetLookupOptions{set}));
 
   CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4}, less(field_ref("i64"), literal(6)));
 

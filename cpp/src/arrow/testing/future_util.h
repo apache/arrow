@@ -21,21 +21,21 @@
 #include "arrow/util/future.h"
 
 // This macro should be called by futures that are expected to
-// complete pretty quickly.  2 seconds is the default max wait
-// here.  Anything longer than that and it's a questionable
-// unit test anyways.
-#define ASSERT_FINISHES_IMPL(fut)                            \
-  do {                                                       \
-    ASSERT_TRUE(fut.Wait(300));                              \
-    if (!fut.is_finished()) {                                \
-      FAIL() << "Future did not finish in a timely fashion"; \
-    }                                                        \
+// complete pretty quickly.  arrow::kDefaultAssertFinishesWaitSeconds is the
+// default max wait here.  Anything longer than that and it's a questionable unit test
+// anyways.
+#define ASSERT_FINISHES_IMPL(fut)                                      \
+  do {                                                                 \
+    ASSERT_TRUE(fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)); \
+    if (!fut.is_finished()) {                                          \
+      FAIL() << "Future did not finish in a timely fashion";           \
+    }                                                                  \
   } while (false)
 
 #define ASSERT_FINISHES_OK(expr)                                              \
   do {                                                                        \
     auto&& _fut = (expr);                                                     \
-    ASSERT_TRUE(_fut.Wait(300));                                              \
+    ASSERT_TRUE(_fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds));       \
     if (!_fut.is_finished()) {                                                \
       FAIL() << "Future did not finish in a timely fashion";                  \
     }                                                                         \
@@ -74,12 +74,12 @@
     ASSERT_EQ(expected, _actual);                        \
   } while (0)
 
-#define EXPECT_FINISHES_IMPL(fut)                                   \
-  do {                                                              \
-    EXPECT_TRUE(fut.Wait(300));                                     \
-    if (!fut.is_finished()) {                                       \
-      ADD_FAILURE() << "Future did not finish in a timely fashion"; \
-    }                                                               \
+#define EXPECT_FINISHES_IMPL(fut)                                      \
+  do {                                                                 \
+    EXPECT_TRUE(fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)); \
+    if (!fut.is_finished()) {                                          \
+      ADD_FAILURE() << "Future did not finish in a timely fashion";    \
+    }                                                                  \
   } while (false)
 
 #define ON_FINISH_ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, future_name, lhs, rexpr) \
@@ -104,6 +104,8 @@
   } while (0)
 
 namespace arrow {
+
+constexpr double kDefaultAssertFinishesWaitSeconds = 64;
 
 template <typename T>
 void AssertNotFinished(const Future<T>& fut) {

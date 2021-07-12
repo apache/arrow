@@ -38,8 +38,8 @@ RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
 
 # create a conda environment
-ADD ci/conda_env_unix.yml /arrow/ci/
-RUN conda create -n arrow --file arrow/ci/conda_env_unix.yml git && \
+ADD ci/conda_env_unix.txt /arrow/ci/
+RUN conda create -n arrow --file arrow/ci/conda_env_unix.txt git && \
     conda clean --all
 
 # activate the created environment by default

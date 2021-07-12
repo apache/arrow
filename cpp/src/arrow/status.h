@@ -312,7 +312,10 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   StatusCode code() const { return ok() ? StatusCode::OK : state_->code; }
 
   /// \brief Return the specific error message attached to this status.
-  std::string message() const { return ok() ? "" : state_->msg; }
+  const std::string& message() const {
+    static const std::string no_message = "";
+    return ok() ? no_message : state_->msg;
+  }
 
   /// \brief Return the status detail attached to this message.
   const std::shared_ptr<StatusDetail>& detail() const {
@@ -440,7 +443,7 @@ namespace internal {
 
 // Extract Status from Status or Result<T>
 // Useful for the status check macros such as RETURN_NOT_OK.
-inline Status GenericToStatus(const Status& st) { return st; }
+inline const Status& GenericToStatus(const Status& st) { return st; }
 inline Status GenericToStatus(Status&& st) { return std::move(st); }
 
 }  // namespace internal

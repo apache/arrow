@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/kernels/test_util.h>
 #include <arrow/testing/gtest_util.h>
@@ -29,7 +30,7 @@ void CheckIfElseOutput(const Datum& cond, const Datum& left, const Datum& right,
   ASSERT_OK_AND_ASSIGN(Datum datum_out, IfElse(cond, left, right));
   if (datum_out.is_array()) {
     std::shared_ptr<Array> result = datum_out.make_array();
-    ASSERT_OK(result->ValidateFull());
+    ValidateOutput(*result);
     std::shared_ptr<Array> expected_ = expected.make_array();
     AssertArraysEqual(*expected_, *result, /*verbose=*/true);
   } else {  // expecting scalar
@@ -56,8 +57,15 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
-  auto cond = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+
+  // adding 64 consecutive 1's and 0's in the cond array to test all-true/ all-false
+  // word code paths
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
   auto left = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto right = std::static_pointer_cast<ArrayType>(

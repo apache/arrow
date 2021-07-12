@@ -36,7 +36,9 @@ function(extract_utf8proc_version)
         "${UTF8PROC_MAJOR_VERSION}.${UTF8PROC_MINOR_VERSION}.${UTF8PROC_PATCH_VERSION}"
         PARENT_SCOPE)
   else()
-    set(utf8proc_VERSION "" PARENT_SCOPE)
+    set(utf8proc_VERSION
+        ""
+        PARENT_SCOPE)
   endif()
 endfunction(extract_utf8proc_version)
 
@@ -44,10 +46,10 @@ if(ARROW_UTF8PROC_USE_SHARED)
   set(utf8proc_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
     list(APPEND utf8proc_LIB_NAMES
-                "${CMAKE_IMPORT_LIBRARY_PREFIX}utf8proc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}utf8proc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   endif()
   list(APPEND utf8proc_LIB_NAMES
-              "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+       "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
   if(MSVC AND NOT DEFINED utf8proc_MSVC_STATIC_LIB_SUFFIX)
     set(utf8proc_MSVC_STATIC_LIB_SUFFIX "_static")
@@ -80,22 +82,20 @@ else()
   extract_utf8proc_version()
 endif()
 
-find_package_handle_standard_args(utf8proc
-                                  REQUIRED_VARS
-                                  utf8proc_LIB
-                                  utf8proc_INCLUDE_DIR
-                                  VERSION_VAR
-                                  utf8proc_VERSION)
+find_package_handle_standard_args(
+  utf8proc
+  REQUIRED_VARS utf8proc_LIB utf8proc_INCLUDE_DIR
+  VERSION_VAR utf8proc_VERSION)
 
 if(utf8proc_FOUND)
   set(utf8proc_FOUND TRUE)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
-  set_target_properties(
-    utf8proc::utf8proc
-    PROPERTIES IMPORTED_LOCATION "${utf8proc_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-               "${utf8proc_INCLUDE_DIR}")
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION "${utf8proc_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
-    set_target_properties(utf8proc::utf8proc
-                          PROPERTIES INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC")
+    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILER_DEFINITIONS
+                                                        "UTF8PROC_STATIC")
   endif()
 endif()

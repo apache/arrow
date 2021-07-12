@@ -16,14 +16,18 @@
 // under the License.
 
 #include "arrow/builder.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
 
-namespace compute {
+using internal::checked_cast;
+using internal::checked_pointer_cast;
 
+namespace compute {
 namespace internal {
 
 namespace {
@@ -45,76 +49,55 @@ using arrow_vendored::date::literals::thu;
 using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
-// Based on ScalarUnaryNotNullStateful. Adds timezone awareness.
+using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
+
+const std::string& GetInputTimezone(const Datum& datum) {
+  return checked_cast<const TimestampType&>(*datum.type()).timezone();
+}
+
+const std::string& GetInputTimezone(const Scalar& scalar) {
+  return checked_cast<const TimestampType&>(*scalar.type).timezone();
+}
+
+const std::string& GetInputTimezone(const ArrayData& array) {
+  return checked_cast<const TimestampType&>(*array.type).timezone();
+}
+
+template <typename T>
+Status TemporalComponentExtractCheckTimezone(const T& input) {
+  const auto& timezone = GetInputTimezone(input);
+  if (!timezone.empty()) {
+    return Status::NotImplemented(
+        "Cannot extract components from timestamp with specific timezone: ", timezone);
+  }
+  return Status::OK();
+}
+
 template <typename Op, typename OutType>
-struct ScalarUnaryStatefulTemporal {
-  using ThisType = ScalarUnaryStatefulTemporal<Op, OutType>;
+struct TemporalComponentExtract {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
-  Op op;
-  explicit ScalarUnaryStatefulTemporal(Op op) : op(std::move(op)) {}
-
-  template <typename Type>
-  struct ArrayExec {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      const std::string timezone =
-          checked_pointer_cast<const TimestampType>(arg0.type)->timezone();
-      Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OutValue>(1);
-
-      if (timezone.empty()) {
-        internal::VisitArrayValuesInline<Int64Type>(
-            arg0,
-            [&](int64_t v) {
-              *out_data++ = functor.op.template Call<OutValue>(ctx, v, &st);
-            },
-            [&]() {
-              // null
-              ++out_data;
-            });
-      } else {
-        st = Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
-                             timezone);
-      }
-      return st;
-    }
-  };
-
-  Status Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
-    const std::string timezone =
-        checked_pointer_cast<const TimestampType>(arg0.type)->timezone();
-    Status st = Status::OK();
-    if (timezone.empty()) {
-      if (arg0.is_valid) {
-        int64_t arg0_val = internal::UnboxScalar<Int64Type>::Unbox(arg0);
-        internal::BoxScalar<OutType>::Box(
-            this->op.template Call<OutValue>(ctx, arg0_val, &st), out->scalar().get());
-      }
-    } else {
-      st = Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
-                           timezone);
-    }
-    return st;
-  }
-
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      return ArrayExec<OutType>::Exec(*this, ctx, *batch[0].array(), out);
-    } else {
-      return Scalar(ctx, *batch[0].scalar(), out);
-    }
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
+    return ScalarUnaryNotNull<OutType, TimestampType, Op>::Exec(ctx, batch, out);
   }
 };
 
 template <typename Op, typename OutType>
-struct ScalarUnaryTemporal {
+struct DayOfWeekExec {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // Seed kernel with dummy state
-    ScalarUnaryStatefulTemporal<Op, OutType> kernel({});
+    const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
+    if (options.week_start < 1 || 7 < options.week_start) {
+      return Status::Invalid(
+          "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
+          options.week_start);
+    }
+
+    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
+    applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
+        Op(options)};
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -124,8 +107,8 @@ struct ScalarUnaryTemporal {
 
 template <typename Duration>
 struct Year {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     return static_cast<T>(static_cast<const int32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).year()));
   }
@@ -136,8 +119,8 @@ struct Year {
 
 template <typename Duration>
 struct Month {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     return static_cast<T>(static_cast<const uint32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).month()));
   }
@@ -148,8 +131,8 @@ struct Month {
 
 template <typename Duration>
 struct Day {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     return static_cast<T>(static_cast<const uint32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).day()));
   }
@@ -157,16 +140,30 @@ struct Day {
 
 // ----------------------------------------------------------------------
 // Extract day of week from timestamp
+//
+// By default week starts on Monday represented by 0 and ends on Sunday represented
+// by 6. Start day of the week (Monday=1, Sunday=7) and numbering start (0 or 1) can be
+// set using DayOfWeekOptions
 
 template <typename Duration>
 struct DayOfWeek {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
-    return static_cast<T>(
-        weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))))
-            .iso_encoding() -
-        1);
+  explicit DayOfWeek(const DayOfWeekOptions& options) {
+    for (int i = 0; i < 7; i++) {
+      lookup_table[i] = i + 8 - options.week_start;
+      lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
+      lookup_table[i] += options.one_based_numbering;
+    }
   }
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto wd = arrow_vendored::date::year_month_weekday(
+                        floor<days>(sys_time<Duration>(Duration{arg})))
+                        .weekday()
+                        .iso_encoding();
+    return lookup_table[wd - 1];
+  }
+  std::array<int64_t, 7> lookup_table;
 };
 
 // ----------------------------------------------------------------------
@@ -174,8 +171,8 @@ struct DayOfWeek {
 
 template <typename Duration>
 struct DayOfYear {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
     return static_cast<T>(
         (t - sys_time<days>(year_month_day(t).year() / jan / 0)).count());
@@ -190,8 +187,8 @@ struct DayOfYear {
 
 template <typename Duration>
 struct ISOYear {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
     auto y = year_month_day{t + days{3}}.year();
     auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
@@ -211,8 +208,8 @@ struct ISOYear {
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 template <typename Duration>
 struct ISOWeek {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
     auto y = year_month_day{t + days{3}}.year();
     auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
@@ -229,8 +226,8 @@ struct ISOWeek {
 
 template <typename Duration>
 struct Quarter {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     const auto ymd = year_month_day(floor<days>(sys_time<Duration>(Duration{arg})));
     return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
   }
@@ -241,8 +238,8 @@ struct Quarter {
 
 template <typename Duration>
 struct Hour {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
   }
@@ -253,8 +250,8 @@ struct Hour {
 
 template <typename Duration>
 struct Minute {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
   }
@@ -265,8 +262,8 @@ struct Minute {
 
 template <typename Duration>
 struct Second {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>((t - floor<std::chrono::minutes>(t)) / std::chrono::seconds(1));
   }
@@ -277,8 +274,8 @@ struct Second {
 
 template <typename Duration>
 struct Subsecond {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         (std::chrono::duration<double>(t - floor<std::chrono::seconds>(t)).count()));
@@ -290,8 +287,8 @@ struct Subsecond {
 
 template <typename Duration>
 struct Millisecond {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000);
@@ -303,8 +300,8 @@ struct Millisecond {
 
 template <typename Duration>
 struct Microsecond {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000);
@@ -316,8 +313,8 @@ struct Microsecond {
 
 template <typename Duration>
 struct Nanosecond {
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, Status*) {
+  template <typename T, typename Arg0>
+  static T Call(KernelContext*, Arg0 arg, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
@@ -345,13 +342,7 @@ inline std::vector<int64_t> get_iso_calendar(int64_t arg) {
 template <typename Duration>
 struct ISOCalendar {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const std::string timezone =
-        checked_pointer_cast<const TimestampType>(in.type)->timezone();
-    if (!timezone.empty()) {
-      return Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
-                             timezone);
-    }
-
+    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(in));
     if (in.is_valid) {
       const std::shared_ptr<DataType> iso_calendar_type =
           struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -372,12 +363,8 @@ struct ISOCalendar {
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
-    const std::string timezone =
-        checked_pointer_cast<const TimestampType>(in.type)->timezone();
-    if (!timezone.empty()) {
-      return Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
-                             timezone);
-    }
+
+    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(in));
     const std::shared_ptr<DataType> iso_calendar_type =
         struct_({field("iso_year", int64()), field("iso_week", int64()),
                  field("iso_day_of_week", int64())});
@@ -421,23 +408,61 @@ std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc
     InputType in_type{match::TimestampTypeUnit(unit)};
     switch (unit) {
       case TimeUnit::SECOND: {
-        auto exec = ScalarUnaryTemporal<Op<std::chrono::seconds>, OutType>::Exec;
+        auto exec = TemporalComponentExtract<Op<std::chrono::seconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
         break;
       }
       case TimeUnit::MILLI: {
-        auto exec = ScalarUnaryTemporal<Op<std::chrono::milliseconds>, OutType>::Exec;
+        auto exec =
+            TemporalComponentExtract<Op<std::chrono::milliseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
         break;
       }
       case TimeUnit::MICRO: {
-        auto exec = ScalarUnaryTemporal<Op<std::chrono::microseconds>, OutType>::Exec;
+        auto exec =
+            TemporalComponentExtract<Op<std::chrono::microseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
         break;
       }
       case TimeUnit::NANO: {
-        auto exec = ScalarUnaryTemporal<Op<std::chrono::nanoseconds>, OutType>::Exec;
+        auto exec = TemporalComponentExtract<Op<std::chrono::nanoseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+        break;
+      }
+    }
+  }
+  return func;
+}
+
+template <template <typename...> class Op, typename OutType>
+std::shared_ptr<ScalarFunction> MakeTemporalWithOptions(
+    std::string name, const FunctionDoc* doc, const DayOfWeekOptions& default_options,
+    KernelInit init) {
+  const auto& out_type = TypeTraits<OutType>::type_singleton();
+  auto func =
+      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, &default_options);
+
+  for (auto unit : internal::AllTimeUnits()) {
+    InputType in_type{match::TimestampTypeUnit(unit)};
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto exec = DayOfWeekExec<Op<std::chrono::seconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::MILLI: {
+        auto exec = DayOfWeekExec<Op<std::chrono::milliseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::MICRO: {
+        auto exec = DayOfWeekExec<Op<std::chrono::microseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::NANO: {
+        auto exec = DayOfWeekExec<Op<std::chrono::nanoseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
     }
@@ -498,9 +523,14 @@ const FunctionDoc day_doc{
 
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
-    ("Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.\n"
+    ("By default, the week starts on Monday represented by 0 and ends on Sunday "
+     "represented by 6.\n"
+     "DayOfWeekOptions.week_start can be used to set another starting day using ISO "
+     "convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1 using "
+     "DayOfWeekOptions.one_based_numbering parameter.\n"
      "Returns an error if timestamp has a defined timezone. Null values return null."),
-    {"values"}};
+    {"values"},
+    "DayOfWeekOptions"};
 
 const FunctionDoc day_of_year_doc{
     "Extract number of day of year",
@@ -584,7 +614,9 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto day = MakeTemporal<Day, Int64Type>("day", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
-  auto day_of_week = MakeTemporal<DayOfWeek, Int64Type>("day_of_week", &day_of_week_doc);
+  static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
+  auto day_of_week = MakeTemporalWithOptions<DayOfWeek, Int64Type>(
+      "day_of_week", &day_of_week_doc, default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
   auto day_of_year = MakeTemporal<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);
@@ -608,7 +640,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto minute = MakeTemporal<Minute, Int64Type>("minute", &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
-  auto second = MakeTemporal<Second, DoubleType>("second", &second_doc);
+  auto second = MakeTemporal<Second, Int64Type>("second", &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =

@@ -18,15 +18,16 @@
 const del = require('del');
 const gulp = require('gulp');
 const { Observable } = require('rxjs');
+const { targets } = require('./gulp/argv');
 const cleanTask = require('./gulp/clean-task');
 const compileTask = require('./gulp/compile-task');
 const packageTask = require('./gulp/package-task');
-const { targets, modules } = require('./gulp/argv');
 const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     taskName, combinations,
     targetDir, knownTargets,
-    npmPkgName, tasksToSkipPerTargetOrFormat
+    npmPkgName, tasksToSkipPerTargetOrFormat,
+    targetAndModuleCombinations
 } = require('./gulp/util');
 
 for (const [target, format] of combinations([`all`], [`all`])) {
@@ -90,9 +91,9 @@ function gulpConcurrent(tasks) {
 
 function getTasks(name) {
     const tasks = [];
-    if (targets.indexOf(`ts`) !== -1) tasks.push(`${name}:ts`);
-    if (targets.indexOf(npmPkgName) !== -1) tasks.push(`${name}:${npmPkgName}`);
-    for (const [target, format] of combinations(targets, modules)) {
+    if (targets.includes(`ts`)) tasks.push(`${name}:ts`);
+    if (targets.includes(npmPkgName)) tasks.push(`${name}:${npmPkgName}`);
+    for (const [target, format] of targetAndModuleCombinations) {
         if (tasksToSkipPerTargetOrFormat[target] && tasksToSkipPerTargetOrFormat[target][name]) continue;
         if (tasksToSkipPerTargetOrFormat[format] && tasksToSkipPerTargetOrFormat[format][name]) continue;
         tasks.push(`${name}:${taskName(target, format)}`);

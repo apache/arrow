@@ -116,7 +116,7 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
   ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
-  ASSERT_OK(actual.make_array()->ValidateFull());
+  ValidateOutput(actual);
 
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
@@ -250,7 +250,7 @@ struct TestGrouper {
       // check that uniques_ are prefixes of new_uniques
       for (int i = 0; i < uniques_.num_values(); ++i) {
         auto new_unique = new_uniques[i].make_array();
-        ASSERT_OK(new_unique->ValidateFull());
+        ValidateOutput(*new_unique);
 
         AssertDatumsEqual(uniques_[i], new_unique->Slice(0, uniques_.length),
                           /*verbose=*/true);
@@ -261,7 +261,7 @@ struct TestGrouper {
 
     // check that the ids encode an equivalent key sequence
     auto ids = id_batch.make_array();
-    ASSERT_OK(ids->ValidateFull());
+    ValidateOutput(*ids);
 
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");
@@ -844,5 +844,47 @@ TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     aggregated_and_grouped,
                     /*verbose=*/true);
 }
+
+ExecContext* small_chunksize_context() {
+  static ExecContext ctx;
+  ctx.set_exec_chunksize(2);
+  return &ctx;
+}
+
+TEST(GroupBy, SmallChunkSizeSumOnly) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy({batch->GetColumnByName("argument")},
+                                         {batch->GetColumnByName("key")},
+                                         {
+                                             {"hash_sum", nullptr},
+                                         },
+                                         small_chunksize_context()));
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_sum", float64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [4.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 }  // namespace compute
 }  // namespace arrow

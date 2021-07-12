@@ -22,7 +22,7 @@ import {
     GeneratedVector
 } from '../generate-test-data';
 
-import { util } from '../Arrow';
+import { util } from 'apache-arrow';
 const { createElementComparator: compare } = util;
 
 type DeferredTest = { description: string; tests?: DeferredTest[]; run: (...args: any[]) => any };

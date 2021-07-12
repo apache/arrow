@@ -69,7 +69,7 @@ if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
 fi
 
 # Note that cflags may be empty in case of success
-if [ "$ARROW_HOME" ]; then
+if [ "$ARROW_HOME" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
   echo "*** Using ARROW_HOME as the source of libarrow"
   PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
   PKG_DIRS="-L$ARROW_HOME/lib"
@@ -88,7 +88,8 @@ else
   fi
 
   if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
-    echo "*** Arrow C++ libraries found via pkg-config"
+    FOUND_LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+    echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
     PKG_DIRS=${PKGCONFIG_DIRS}
@@ -244,7 +245,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
     fi
   fi
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
-  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
+  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS -fno-lto"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else

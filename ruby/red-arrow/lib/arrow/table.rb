@@ -442,8 +442,8 @@ module Arrow
       RollingWindow.new(self, size)
     end
 
-    def save(path, options={})
-      saver = TableSaver.new(self, path, options)
+    def save(output, options={})
+      saver = TableSaver.new(self, output, options)
       saver.save
     end
 

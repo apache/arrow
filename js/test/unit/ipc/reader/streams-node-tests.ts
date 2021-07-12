@@ -23,7 +23,7 @@ import {
     Table,
     RecordBatchReader,
     RecordBatchStreamWriter
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import { ArrowIOTestHelper } from '../helpers';
 import { validateRecordBatchAsyncIterator } from '../validate';
@@ -33,12 +33,6 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     if (process.env.TEST_NODE_STREAMS !== 'true') {
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
-
-    const { Readable, PassThrough } = require('stream');
-    const { parse: bignumJSONParse } = require('json-bignum');
-    const concatStream = ((MultiStream) => (...xs: any[]) =>
-        new Readable().wrap(new MultiStream(...xs))
-    )(require('multistream'));
 
     for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -65,7 +59,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         describe(`toNodeStream (${name})`, () => {
 
             describe(`RecordBatchJSONReader`, () => {
-                test('Uint8Array', json.buffer((source) => validate(bignumJSONParse(`${Buffer.from(source)}`))));
+                test('Uint8Array', json.buffer((source) => validate(JSON.parse(`${Buffer.from(source)}`))));
             });
 
             describe(`RecordBatchFileReader`, () => {
@@ -110,12 +104,15 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     }
 
     it('readAll() should pipe to separate NodeJS WritableStreams', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
+        const { PassThrough } = await import('stream');
 
         expect.hasAssertions();
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -144,12 +141,14 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     });
 
     it('should not close the underlying NodeJS ReadableStream when reading multiple tables to completion', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -172,12 +171,14 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     });
 
     it('should close the underlying NodeJS ReadableStream when reading multiple tables and we break early', async () => {
+        // @ts-ignore
+        const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
 
         const tables = [...generateRandomTables([10, 20, 30])];
 
-        const stream = concatStream(tables.map((table) =>
+        const stream = new MultiStream(tables.map((table) =>
             () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
         )) as NodeJS.ReadableStream;
 
@@ -205,8 +206,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
             }
         }
 
-        // stream.readable should be false here
-        validateStreamState(reader, stream, true);
+        validateStreamState(reader, stream, true, true);
         expect(tableIndex).toBe(tables.length / 2 | 0);
     });
 })();

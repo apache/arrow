@@ -41,6 +41,11 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     ccache -s
 fi
 
+if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
+    echo -e "Invalid value for \$ASAN_SYMBOLIZER_PATH: ${ASAN_SYMBOLIZER_PATH}"
+    exit 1
+fi
+
 mkdir -p ${build_dir}
 pushd ${build_dir}
 

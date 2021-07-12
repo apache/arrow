@@ -140,3 +140,9 @@ QuantileInterpolation <- enum("QuantileInterpolation",
 NullEncodingBehavior <- enum("NullEncodingBehavior",
   ENCODE = 0L, MASK = 1L
 )
+
+#' @export
+#' @rdname enums
+NullHandlingBehavior <- enum("NullHandlingBehavior",
+  EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
+)

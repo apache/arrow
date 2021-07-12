@@ -55,7 +55,9 @@ else()
                NAMES cares
                      "${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX}"
                PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(c-ares_INCLUDE_DIR NAMES ares.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_path(c-ares_INCLUDE_DIR
+            NAMES ares.h
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(c-aresAlt REQUIRED_VARS c-ares_LIB c-ares_INCLUDE_DIR)
@@ -63,9 +65,9 @@ find_package_handle_standard_args(c-aresAlt REQUIRED_VARS c-ares_LIB c-ares_INCL
 if(c-aresAlt_FOUND)
   if(NOT TARGET c-ares::cares)
     add_library(c-ares::cares UNKNOWN IMPORTED)
-    set_target_properties(
-      c-ares::cares
-      PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                 "${c-ares_INCLUDE_DIR}")
+    set_target_properties(c-ares::cares
+                          PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${c-ares_INCLUDE_DIR}")
   endif()
 endif()

@@ -38,9 +38,12 @@ import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.junit.Assert;
 import org.junit.Test;
@@ -171,6 +174,62 @@ public class TestExtensionType {
     assertTrue(e.getMessage().contains("underlyingVector can not be null."));
   }
 
+  /**
+   * Test that a custom Location type can be round-tripped through a temporary file.
+   */
+  @Test
+  public void roundtripLocation() throws IOException {
+    ExtensionTypeRegistry.register(new LocationType());
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("location", new LocationType())));
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      LocationVector vector = (LocationVector) root.getVector("location");
+      vector.allocateNew();
+      vector.set(0, 34.073814f, -118.240784f);
+      vector.set(2, 37.768056f, -122.3875f);
+      vector.set(3, 40.739716f, -73.840782f);
+      vector.setValueCount(4);
+      root.setRowCount(4);
+
+      final File file = File.createTempFile("locationtest", ".arrow");
+      try (final WritableByteChannel channel = FileChannel
+              .open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
+           final ArrowFileWriter writer = new ArrowFileWriter(root, null, channel)) {
+        writer.start();
+        writer.writeBatch();
+        writer.end();
+      }
+
+      try (final SeekableByteChannel channel = Files.newByteChannel(Paths.get(file.getAbsolutePath()));
+           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+        reader.loadNextBatch();
+        final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
+        Assert.assertEquals(root.getSchema(), readerRoot.getSchema());
+
+        final Field field = readerRoot.getSchema().getFields().get(0);
+        final LocationType expectedType = new LocationType();
+        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
+                expectedType.extensionName());
+        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
+                expectedType.serialize());
+
+        final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
+        Assert.assertTrue(deserialized instanceof LocationVector);
+        Assert.assertEquals(deserialized.getName(), "location");
+        StructVector deserStruct = (StructVector) deserialized.getUnderlyingVector();
+        Assert.assertNotNull(deserStruct.getChild("Latitude"));
+        Assert.assertNotNull(deserStruct.getChild("Longitude"));
+        Assert.assertEquals(vector.getValueCount(), deserialized.getValueCount());
+        for (int i = 0; i < vector.getValueCount(); i++) {
+          Assert.assertEquals(vector.isNull(i), deserialized.isNull(i));
+          if (!vector.isNull(i)) {
+            Assert.assertEquals(vector.getObject(i), deserialized.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
   static class UuidType extends ExtensionType {
 
     @Override
@@ -205,7 +264,6 @@ public class TestExtensionType {
     public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator) {
       return new UuidVector(name, allocator, new FixedSizeBinaryVector(name, allocator, 16));
     }
-
   }
 
   static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
@@ -235,6 +293,80 @@ public class TestExtensionType {
       bb.putLong(uuid.getMostSignificantBits());
       bb.putLong(uuid.getLeastSignificantBits());
       getUnderlyingVector().set(index, bb.array());
+    }
+  }
+
+  static class LocationType extends ExtensionType {
+
+    @Override
+    public ArrowType storageType() {
+      return Struct.INSTANCE;
+    }
+
+    @Override
+    public String extensionName() {
+      return "location";
+    }
+
+    @Override
+    public boolean extensionEquals(ExtensionType other) {
+      return other instanceof LocationType;
+    }
+
+    @Override
+    public ArrowType deserialize(ArrowType storageType, String serializedData) {
+      if (!storageType.equals(storageType())) {
+        throw new UnsupportedOperationException("Cannot construct LocationType from underlying type " + storageType);
+      }
+      return new LocationType();
+    }
+
+    @Override
+    public String serialize() {
+      return "";
+    }
+
+    @Override
+    public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator) {
+      return new LocationVector(name, allocator);
+    }
+  }
+
+  static class LocationVector extends ExtensionTypeVector<StructVector> {
+
+    private static StructVector buildUnderlyingVector(String name, BufferAllocator allocator) {
+      final StructVector underlyingVector =
+              new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
+      underlyingVector.addOrGet("Latitude",
+              FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+      underlyingVector.addOrGet("Longitude",
+              FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+      return underlyingVector;
+    }
+
+    public LocationVector(String name, BufferAllocator allocator) {
+      super(name, allocator, buildUnderlyingVector(name, allocator));
+    }
+
+    @Override
+    public int hashCode(int index) {
+      return hashCode(index, null);
+    }
+
+    @Override
+    public int hashCode(int index, ArrowBufHasher hasher) {
+      return getUnderlyingVector().hashCode(index, hasher);
+    }
+
+    @Override
+    public java.util.Map<String, ?> getObject(int index) {
+      return getUnderlyingVector().getObject(index);
+    }
+
+    public void set(int index, float latitude, float longitude) {
+      getUnderlyingVector().getChild("Latitude", Float4Vector.class).set(index, latitude);
+      getUnderlyingVector().getChild("Longitude", Float4Vector.class).set(index, longitude);
+      getUnderlyingVector().setIndexDefined(index);
     }
   }
 }

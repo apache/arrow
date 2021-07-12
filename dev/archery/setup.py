@@ -28,7 +28,7 @@ if sys.version_info < (3, 6):
 jinja_req = 'jinja2>=2.11'
 
 extras = {
-    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8', 'cmake_format==0.5.2'],
+    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8', 'cmake_format==0.6.13'],
     'benchmark': ['pandas'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': [jinja_req, 'jira', 'semver', 'gitpython'],

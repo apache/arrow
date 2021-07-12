@@ -131,6 +131,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
+      PYARROW_TEST_LARGE_MEMORY: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

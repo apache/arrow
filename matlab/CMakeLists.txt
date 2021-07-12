@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.20)
+
 set(CMAKE_CXX_STANDARD 11)
 
 set(MLARROW_VERSION "5.0.0-SNAPSHOT")
@@ -29,32 +30,45 @@ if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
 endif()
 
-## Arrow is Required
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_modules)
+
+# Arrow is Required
 find_package(Arrow REQUIRED)
 
-## MATLAB is required to be installed to build MEX interfaces
-set(MATLAB_ADDITIONAL_VERSIONS "R2018a=9.4")
-find_package(Matlab REQUIRED MX_LIBRARY)
+# MATLAB is Required
+find_package(Matlab REQUIRED)
 
-# Build featherread mex file based on the arrow shared library
-matlab_add_mex(NAME
-               featherreadmex
-               SRC
-               src/featherreadmex.cc
-               src/feather_reader.cc
-               src/util/handle_status.cc
-               src/util/unicode_conversion.cc
-               LINK_TO
-               ${ARROW_SHARED_LIB})
-target_include_directories(featherreadmex PRIVATE ${ARROW_INCLUDE_DIR})
+# Construct the absolute path to featherread's source files
+set(featherread_sources featherreadmex.cc feather_reader.cc util/handle_status.cc
+                        util/unicode_conversion.cc)
+list(TRANSFORM featherread_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)
 
-# Build featherwrite mex file based on the arrow shared library
-matlab_add_mex(NAME
-               featherwritemex
-               SRC
-               src/featherwritemex.cc
-               src/feather_writer.cc
-               src/util/handle_status.cc
-               LINK_TO
-               ${ARROW_SHARED_LIB})
-target_include_directories(featherwritemex PRIVATE ${ARROW_INCLUDE_DIR})
+# Build featherreadmex MEX binary
+matlab_add_mex(R2018a
+               NAME featherreadmex
+               SRC ${featherread_sources}
+               LINK_TO arrow_shared)
+
+# Construct the absolute path to featherwrite's source files
+set(featherwrite_sources featherwritemex.cc feather_writer.cc util/handle_status.cc
+                         util/unicode_conversion.cc)
+list(TRANSFORM featherwrite_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)
+
+# Build featherwritemex MEX binary
+matlab_add_mex(R2018a
+               NAME featherwritemex
+               SRC ${featherwrite_sources}
+               LINK_TO arrow_shared)
+
+# Ensure the MEX binaries are placed in the src directory on all platforms
+if(WIN32)
+  set_target_properties(featherreadmex PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+                                                  $<1:${CMAKE_SOURCE_DIR}/src>)
+  set_target_properties(featherwritemex PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+                                                   $<1:${CMAKE_SOURCE_DIR}/src>)
+else()
+  set_target_properties(featherreadmex PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+                                                  $<1:${CMAKE_SOURCE_DIR}/src>)
+  set_target_properties(featherwritemex PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+                                                   $<1:${CMAKE_SOURCE_DIR}/src>)
+endif()

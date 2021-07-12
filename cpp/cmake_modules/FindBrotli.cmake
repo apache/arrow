@@ -110,12 +110,9 @@ else()
   endif()
 endif()
 
-find_package_handle_standard_args(Brotli
-                                  REQUIRED_VARS
-                                  BROTLI_COMMON_LIBRARY
-                                  BROTLI_ENC_LIBRARY
-                                  BROTLI_DEC_LIBRARY
-                                  BROTLI_INCLUDE_DIR)
+find_package_handle_standard_args(
+  Brotli REQUIRED_VARS BROTLI_COMMON_LIBRARY BROTLI_ENC_LIBRARY BROTLI_DEC_LIBRARY
+                       BROTLI_INCLUDE_DIR)
 if(Brotli_FOUND OR BROTLI_FOUND)
   set(Brotli_FOUND TRUE)
   add_library(Brotli::brotlicommon UNKNOWN IMPORTED)

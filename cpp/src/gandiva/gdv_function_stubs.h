@@ -50,6 +50,9 @@ bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                 const char* pattern, int pattern_len,
                                 const char* escape_char, int escape_char_len);
 
+bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
+                            const char* pattern, int pattern_len);
+
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char* data,
                                        int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
@@ -70,6 +73,14 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
+
+GANDIVA_EXPORT
+const char* gdv_fn_castVARBINARY_int32_int64(int64_t context, gdv_int32 value,
+                                             int64_t out_len, int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_castVARBINARY_int64_int64(int64_t context, gdv_int64 value,
+                                             int64_t out_len, int32_t* out_length);
 
 GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,

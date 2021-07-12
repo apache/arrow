@@ -29,6 +29,7 @@
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: export
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

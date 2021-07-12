@@ -756,6 +756,7 @@ def test_large_binary_array(ty):
     assert len(arr) == nrepeats
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 @pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
 def test_large_binary_value(ty):
@@ -1725,7 +1726,7 @@ def test_struct_from_list_of_pairs():
         [('a', 6), ('a', 'bar'), ('b', False)],
     ]
     arr = pa.array(data, type=ty)
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         # TODO(kszucs): ARROW-9997
         arr.to_pylist()
 
@@ -2169,7 +2170,6 @@ def test_auto_chunking_list_of_binary():
     assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
 
 
-@pytest.mark.slow
 @pytest.mark.large_memory
 def test_auto_chunking_list_like():
     item = np.ones((2**28,), dtype='uint8')
@@ -2185,7 +2185,11 @@ def test_auto_chunking_list_like():
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 7
     assert len(arr.chunk(1)) == 1
-    assert arr.chunk(1)[0].as_py() == list(item)
+    chunk = arr.chunk(1)
+    scalar = chunk[0]
+    assert isinstance(scalar, pa.ListScalar)
+    expected = pa.array(item, type=pa.uint8())
+    assert scalar.values == expected
 
 
 @pytest.mark.slow
@@ -2232,3 +2236,49 @@ def test_nested_auto_chunking(ty, char):
         'integer': 1,
         'string-like': char
     }
+
+
+@pytest.mark.large_memory
+def test_array_from_pylist_data_overflow():
+    # Regression test for ARROW-12983
+    # Data buffer overflow - should result in chunked array
+    items = [b'a' * 4096] * (2 ** 19)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**19, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_array_from_pylist_offset_overflow():
+    # Regression test for ARROW-12983
+    # Offset buffer overflow - should result in chunked array
+    # Note this doesn't apply to primitive arrays
+    items = [b'a'] * (2 ** 31)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**31, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1

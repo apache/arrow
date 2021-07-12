@@ -20,7 +20,6 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include <queue>
 #include <tuple>
 #include <type_traits>
 #include <utility>

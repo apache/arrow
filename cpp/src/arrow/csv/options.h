@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/csv/type_fwd.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -173,6 +174,9 @@ struct ARROW_EXPORT WriteOptions {
   /// The CSV writer converts and writes data in batches of N rows.
   /// This number can impact performance.
   int32_t batch_size = 1024;
+
+  /// \brief IO context for writing.
+  io::IOContext io_context;
 
   /// Create write options with default values
   static WriteOptions Defaults();

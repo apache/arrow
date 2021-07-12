@@ -24,7 +24,7 @@ import {
     Table,
     RecordBatchReader,
     RecordBatchStreamWriter
-} from '../../../Arrow';
+} from 'apache-arrow';
 
 import { validateRecordBatchAsyncIterator } from '../validate';
 import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers';
@@ -34,9 +34,6 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     if (process.env.TEST_DOM_STREAMS !== 'true') {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => {});
     }
-
-    const { parse: bignumJSONParse } = require('json-bignum');
-    const { concatStream } = require('web-stream-tools').default;
 
     for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -63,7 +60,7 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
         describe(`toDOMStream (${name})`, () => {
 
             describe(`RecordBatchJSONReader`, () => {
-                test('Uint8Array', json.buffer((source) => validate(bignumJSONParse(`${Buffer.from(source)}`))));
+                test('Uint8Array', json.buffer((source) => validate(JSON.parse(`${Buffer.from(source)}`))));
             });
 
             describe(`RecordBatchFileReader`, () => {
@@ -109,6 +106,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     }
 
     it('readAll() should pipe to separate WhatWG WritableStreams', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
@@ -146,6 +145,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     });
 
     it('should not close the underlying WhatWG ReadableStream when reading multiple tables to completion', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
@@ -177,6 +178,8 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     });
 
     it('should close the underlying WhatWG ReadableStream when reading multiple tables and we break early', async () => {
+        // @ts-ignore
+        const { concatStream } = await import('@openpgp/web-stream-tools');
 
         expect.hasAssertions();
 
