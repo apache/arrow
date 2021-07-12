@@ -104,8 +104,8 @@ class GreedyDualSizeCache {
       }
 
       // insert the new item
-      auto iter = priority_set_.insert(
-          PriorityItem(value.cost + inflation_, value.cost, key));
+      auto iter =
+          priority_set_.insert(PriorityItem(value.cost + inflation_, value.cost, key));
       // save on map the value and the priority item iterator position
       map_[key] = std::make_pair(value, iter.first);
     }
@@ -122,9 +122,8 @@ class GreedyDualSizeCache {
     // if the value was found on the cache, update its cost (original + inflation)
     if (item.actual_priority != item.original_priority + inflation_) {
       priority_set_.erase(value_for_key->second.second);
-      auto iter = priority_set_.insert(
-          PriorityItem(item.original_priority + inflation_,
-                       item.original_priority, item.cache_key));
+      auto iter = priority_set_.insert(PriorityItem(
+          item.original_priority + inflation_, item.original_priority, item.cache_key));
       value_for_key->second.second = iter.first;
     }
     return value_for_key->second.first;
