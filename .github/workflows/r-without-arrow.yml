@@ -38,7 +38,7 @@ env:
 
 jobs:
   bundled:
-    name: "${{ matrix.config.org }}/${{ matrix.config.image }}:${{ matrix.config.tag }} without arrow"
+    name: "R package without arrow"
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -76,7 +76,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run -e LIBARROW_DOWNLOAD=FALSE -e LIBARROW_BUILD=FALSE -e WITH_ARROW=FALSE -e NOT_CRAN=FALSE r
+          archery docker run -e LIBARROW_DOWNLOAD=FALSE -e LIBARROW_BUILD=FALSE -e TEST_R_WITH_ARROW=FALSE -e NOT_CRAN=FALSE r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
