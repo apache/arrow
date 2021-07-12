@@ -19,6 +19,9 @@ ARG base
 FROM ${base}
 ARG arch
 
+ARG TZ="UTC"
+ENV TZ=${TZ}
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
@@ -93,7 +96,6 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
 COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
-ARG TZ="UTC"
 ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
@@ -109,5 +111,4 @@ ENV \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
-    LC_ALL=en_US.UTF-8 \
-    TZ=${TZ}
+    LC_ALL=en_US.UTF-8
