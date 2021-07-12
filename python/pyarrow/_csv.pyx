@@ -30,8 +30,8 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
                                                PyInvalidRowCallback)
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
-                          ensure_type, maybe_unbox_memory_pool, 
-                          get_input_stream, get_writer, 
+                          ensure_type, maybe_unbox_memory_pool,
+                          get_input_stream, get_writer,
                           native_transcoding_input_stream,
                           pyarrow_unwrap_batch, pyarrow_unwrap_schema,
                           pyarrow_unwrap_table, pyarrow_wrap_schema,
