@@ -93,16 +93,22 @@ function shouldRunInChildProcess(target, format) {
 
 const gulp = path.join(path.parse(require.resolve(`gulp`)).dir, `bin/gulp.js`);
 function spawnGulpCommandInChildProcess(command, target, format) {
-    const args = [gulp, command, '-t', target, '-m', format, `--silent`];
-    const opts = {
-        stdio: [`ignore`, `inherit`, `inherit`],
-        env: { ...process.env, NODE_NO_WARNINGS: `1` }
-    };
-    return asyncDone(() => child_process.spawn(`node`, args, opts))
-        .catch((e) => { throw `Error in "${command}:${taskName(target, format)}" task`; });
+    const err = [];
+    return asyncDone(() => {
+        const child = child_process.spawn(
+            `node`,
+            [gulp, command, '-t', target, '-m', format, `-L`],
+            {
+                stdio: [`ignore`, `ignore`, `pipe`],
+                env: { ...process.env, NODE_NO_WARNINGS: `1` }
+            });
+        child.stderr.on('data', (line) => err.push(line));
+        return child;
+    }).catch(() => Promise.reject(err.length > 0 ? err.join('\n')
+            : `Error in "${command}:${taskName(target, format)}" task.`));
 }
 
-const logAndDie = (e) => { if (e) { process.exit(1); } };
+const logAndDie = (e) => { if (e) { console.error(e); process.exit(1); } };
 function observableFromStreams(...streams) {
     if (streams.length <= 0) { return Observable.empty(); }
     const pumped = streams.length <= 1 ? streams[0] : pump(...streams, logAndDie);
