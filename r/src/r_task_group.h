@@ -17,8 +17,10 @@
 
 #pragma once
 
+#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
+#endif
 
 namespace arrow {
 namespace r {
