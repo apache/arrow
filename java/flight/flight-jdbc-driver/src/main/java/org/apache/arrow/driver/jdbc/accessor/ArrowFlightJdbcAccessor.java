@@ -56,6 +56,8 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     return currentRowSupplier.getAsInt();
   }
 
+  public abstract Class<?> getObjectClass();
+
   @Override
   public boolean wasNull() {
     return wasNull;
@@ -216,34 +218,38 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public <T> T getObject(Class<T> aClass) {
-    if (aClass == Byte.class) {
+  public <T> T getObject(Class<T> type) {
+
+    if (type == Byte.class) {
       final byte value = getByte();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Short.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Short.class) {
       final short value = getShort();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Integer.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Integer.class) {
       final int value = getInt();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Long.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Long.class) {
       final long value = getLong();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Float.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Float.class) {
       final float value = getFloat();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Double.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Double.class) {
       final double value = getDouble();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == String.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == String.class) {
       final String value = getString();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == BigDecimal.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == BigDecimal.class) {
       final BigDecimal value = getBigDecimal();
-      return this.wasNull ? null : aClass.cast(value);
-    } else if (aClass == Boolean.class) {
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == Boolean.class) {
       final boolean value = getBoolean();
-      return this.wasNull ? null : aClass.cast(value);
+      return this.wasNull ? null : type.cast(value);
+    } else if (type == getObjectClass()) {
+      final Object object = getObject();
+      return this.wasNull ? null : type.cast(object);
     }
 
     throw new UnsupportedOperationException();
