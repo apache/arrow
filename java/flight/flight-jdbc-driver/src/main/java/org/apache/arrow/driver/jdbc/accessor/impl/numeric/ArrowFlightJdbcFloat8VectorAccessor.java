@@ -63,7 +63,7 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public String getString() {
-    final double value = getDouble();
+    final double value = this.getDouble();
     return this.wasNull ? null : Double.toString(value);
   }
 
@@ -111,7 +111,8 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public byte[] getBytes() {
-    return ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
-        .putDouble(getDouble()).array();
+    final double value = this.getDouble();
+    return this.wasNull ? null : ByteBuffer.allocate(Float8Vector.TYPE_WIDTH)
+        .putDouble(value).array();
   }
 }
