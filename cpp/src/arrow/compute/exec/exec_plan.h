@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
@@ -268,6 +269,10 @@ Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression 
 ARROW_EXPORT
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
                                   std::vector<Expression> exprs);
+
+ARROW_EXPORT
+Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
+                                          std::vector<internal::Aggregate> aggregates);
 
 }  // namespace compute
 }  // namespace arrow

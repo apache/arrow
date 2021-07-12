@@ -62,9 +62,9 @@ struct SumImpl : public ScalarAggregator {
     const auto& data = batch[0].array();
     this->count = data->length - data->GetNullCount();
     if (is_boolean_type<ArrowType>::value) {
-      this->sum = static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+      this->sum += static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
     } else {
-      this->sum =
+      this->sum +=
           arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
     }
     return Status::OK();
