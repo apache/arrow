@@ -19,12 +19,6 @@
 
 set -e
 
-declare -A archs
-archs=([amd64]=x86_64
-       [arm32v7]=armv7l
-       [ppc64le]=ppc64le
-       [i386]=x86)
-
 declare -A platforms
 platforms=([windows]=Windows
            [macos]=MacOSX
@@ -36,18 +30,14 @@ versions=([3.6]=3.6.8
           [3.8]=3.8.9
           [3.9]=3.9.6)
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <architecture> <platform> <version>"
-  exit 1
-elif [[ -z ${archs[$1]} ]]; then
-  echo "Unexpected architecture: ${1}"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <platform> <version>"
   exit 1
 elif [[ -z ${platforms[$2]} ]]; then
   echo "Unexpected platform: ${2}"
   exit 1
 fi
 
-arch=${archs[$1]}
 platform=${platforms[$2]}
 version=$3
 full_version=${versions[$3]}

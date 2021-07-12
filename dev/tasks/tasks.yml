@@ -351,13 +351,15 @@ tasks:
 {############################## Wheel OSX ####################################}
 
 # enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3 in [("10.9", "mavericks", "OFF"),
-                                                   ("10.13", "high-sierra", "ON")] %}
-  {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
+{% for macos_arch, platform_arch, macos_version, macos_codename, arrow_s3 in [
+    ("amd64", "x86_64", "10.9", "mavericks", "OFF"),
+    ("amd64", "x86_64", "10.13", "high-sierra", "ON"),
+    ("arm64", "arm64", "11.0", "big-sur", "ON")] %}
+  {% set platform_tag = "macosx_{}_{}".format(macos_version.replace('.', '_'), platform_arch) %}
 
   wheel-osx-{{ macos_codename }}-{{ python_tag }}:
     ci: github
-    template: python-wheels/github.osx.amd64.yml
+    template: python-wheels/github.osx.{{ macos_arch }}.yml
     params:
       vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}
