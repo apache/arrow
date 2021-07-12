@@ -74,8 +74,7 @@ public class TestFlightSql {
 
   @BeforeClass
   public static void setUp() throws Exception {
-    try (final Reader reader = new BufferedReader(
-        new FileReader("target/generated-test-resources/network.properties"))) {
+    try (final Reader reader = new BufferedReader(new FileReader("target/generated-test-resources/network.properties"))) {
       final Properties properties = new Properties();
       properties.load(reader);
       port = Integer.parseInt(Objects.toString(properties.get("server.port")));
@@ -113,33 +112,26 @@ public class TestFlightSql {
 
   @Test
   public void testSimplePrepStmt() throws Exception {
+    final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
+    final Schema actualSchema = preparedStatement.getResultSetSchema();
+    collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
 
-    List<PreparedStatement> statements = new ArrayList<>();
+    final FlightInfo info = preparedStatement.execute();
+    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
 
-    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
-      final Schema actualSchema = preparedStatement.getResultSetSchema();
-      collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
 
-      final FlightInfo info = preparedStatement.execute();
-      collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+      final List<List<String>> result = getResults(stream);
+      final List<List<String>> expected = ImmutableList.of(
+          ImmutableList.of("one", "1"), ImmutableList.of("zero", "0"),
+          ImmutableList.of("negative one", "-1")
+      );
 
-      try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-        collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-
-        final List<List<String>> result = getResults(stream);
-        final List<List<String>> expected = ImmutableList.of(
-            ImmutableList.of("one", "1"), ImmutableList.of("zero", "0"),
-            ImmutableList.of("negative one", "-1")
-        );
-
-        collector.checkThat(result, is(expected));
-        statements.add(preparedStatement);
-      }
+      collector.checkThat(result, is(expected));
     }
 
-    boolean werePreparedStatementsClosedProperly = statements.stream()
-        .map(PreparedStatement::isClosed).reduce(Boolean::logicalAnd).orElse(false);
-    collector.checkThat(werePreparedStatementsClosedProperly, is(true));
+    collector.checkThat(preparedStatement.isClosed(), is(true));
   }
 
   List<List<String>> getResults(FlightStream stream) {
