@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from '../Arrow';
-import { Visitor } from '../Arrow';
+import { Field } from 'apache-arrow';
+import { Visitor } from 'apache-arrow';
 import {
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
@@ -27,7 +27,7 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Union, DenseUnion, SparseUnion,
-} from '../Arrow';
+} from 'apache-arrow';
 
 class BasicVisitor extends Visitor {
     public type: DataType | undefined;

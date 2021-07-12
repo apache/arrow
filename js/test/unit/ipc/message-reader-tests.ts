@@ -22,7 +22,7 @@ import {
 } from '../../data/tables';
 
 import { ArrowIOTestHelper } from './helpers';
-import { MessageReader, AsyncMessageReader } from '../../Arrow';
+import { MessageReader, AsyncMessageReader } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 

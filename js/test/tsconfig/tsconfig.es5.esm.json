@@ -1,0 +1,9 @@
+// TypeScript configuration for the ES5 ESModules target's tests
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "es2020",
+    "downlevelIteration": true
+  }
+}
