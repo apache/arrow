@@ -355,7 +355,7 @@ tasks:
                                                    ("10.13", "high-sierra", "ON")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
-  wheel-osx-{{ macos_codename }}-{{ python_tag }}-amd64:
+  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
     ci: github
     template: python-wheels/github.osx.amd64.yml
     params:
@@ -382,7 +382,7 @@ tasks:
 
 {############################## Wheel OSX M1 #################################}
 
-  wheel-osx-big-sur-cp39-arm64:
+  wheel-macos-big-sur-cp39-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:

@@ -38,7 +38,7 @@ echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 if [ "$(uname -m)" = "arm64" ]; then
-  export CMAKE_HOST_SYSTEM_PROCESSOR=arm64
+  # export CMAKE_HOST_SYSTEM_PROCESSOR=arm64
   export CMAKE_APPLE_SILICON_PROCESSOR=arm64
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
