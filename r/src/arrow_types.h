@@ -37,6 +37,7 @@
 #include <arrow/csv/type_fwd.h>
 
 #if defined(ARROW_R_WITH_DATASET)
+#include <arrow/dataset/file_csv.h>
 #include <arrow/dataset/type_fwd.h>
 #endif
 

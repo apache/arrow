@@ -22,7 +22,6 @@
 #include <arrow/array.h>
 #include <arrow/compute/api.h>
 #include <arrow/dataset/api.h>
-#include <arrow/dataset/file_csv.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/table.h>
