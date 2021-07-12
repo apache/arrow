@@ -589,7 +589,7 @@ test_that("backreferences (substitutions) in string replacement", {
         "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
         "path `\\2` on server `\\1`",
         url
-      )
+        )
       ) %>%
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")

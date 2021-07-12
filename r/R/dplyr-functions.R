@@ -431,7 +431,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     string,
     options = list(
       pattern =
-        opts$pattern,
+      opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
