@@ -18,8 +18,9 @@
 import '../jest-extensions';
 import {
     predicate, DataFrame, RecordBatch
-} from '../Arrow';
+} from 'apache-arrow';
 import { test_data } from './table-tests';
+import { jest } from '@jest/globals';
 
 const { col, lit, custom, and, or, And, Or } = predicate;
 
@@ -236,16 +237,6 @@ describe(`DataFrame`, () => {
                     expect(row.dictionary).toEqual(expected_row[DICT]);
                 }
             });
-            // test(`table.toString()`, () => {
-            //     let selected = table.select('i32', 'dictionary');
-            //     let headers = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Int8, Utf8>"`];
-            //     let expected = [headers.join(' | '), ...values.map((row, idx) => {
-            //         return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
-            //             return leftPad(str, ' ', headers[col].length);
-            //         }).join(' | ');
-            //     })].join('\n') + '\n';
-            //     expect(selected.toString()).toEqual(expected);
-            // });
             test(`table.filter(..).count() on always false predicates returns 0`, () => {
                 expect(df.filter(col('i32').ge(100)).count()).toEqual(0);
                 expect(df.filter(col('dictionary').eq('z')).count()).toEqual(0);

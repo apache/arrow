@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const randomatic = require('randomatic');
-import { VectorType as V } from '../src/interfaces';
+import randomatic from 'randomatic';
+import { VectorType as V } from 'apache-arrow/interfaces';
 
 import {
     Data, Vector, Visitor, DataType,

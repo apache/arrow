@@ -1,0 +1,11 @@
+// TypeScript configuration for the ES2015 Closure Compiler target's tests
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "umd",
+    "declaration": false,
+    "noEmitHelpers": true,
+    "importHelpers": true
+  }
+}

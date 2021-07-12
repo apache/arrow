@@ -16,7 +16,7 @@
 // under the License.
 
 import { validateVector } from './utils';
-import { Dictionary, Utf8, Int32, Vector } from '../../Arrow';
+import { Dictionary, Utf8, Int32, Vector } from 'apache-arrow';
 import {
     encodeAll,
     encodeEach,
