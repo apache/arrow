@@ -35,6 +35,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+import org.junit.rules.ExpectedException;
 
 public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
@@ -43,6 +44,10 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
+
+  @Rule
+  public ExpectedException exceptionCollector = ExpectedException.none();
+
 
   private FloatingPointVector vector;
 
@@ -134,6 +139,22 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getLong(), is((long) accessor.getDouble()));
         });
+  }
+
+  @Test
+  public void testShouldGetBytesMethodFloatingPointVector() throws Exception {
+    Float8Vector float8Vector = new Float8Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float8Vector.setSafe(0, 0x1.8965f02c82f69p-1);
+    float8Vector.setValueCount(1);
+
+    byte[] value = new byte[] {0x3f, (byte) 0xe8, (byte) 0x96, 0x5f, 0x2, (byte) 0xc8, 0x2f, 0x69};
+
+    iterateOnAccessor(float8Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getBytes(), CoreMatchers.is(value));
+        });
+
+    float8Vector.close();
   }
 
 
@@ -352,6 +373,15 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
           collector.checkThat(secondResult, equalTo(result));
 
           collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetObjectClass() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+
+          collector.checkThat(accessor.getObjectClass(), equalTo(Double.class));
         });
   }
 }
