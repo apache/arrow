@@ -487,7 +487,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
         @Override
         public String getColumnLabel(int column) throws SQLException {
-          return null;
+          return getColumnName(column);
         }
 
         @Override

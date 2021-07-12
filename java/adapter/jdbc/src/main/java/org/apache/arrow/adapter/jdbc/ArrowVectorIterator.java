@@ -139,7 +139,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   private void load(VectorSchemaRoot root) throws SQLException {
 
     for (int i = 1; i <= consumers.length; i++) {
-      consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnName(i)));
+      consumers[i - 1].resetValueVector(root.getVector(rsmd.getColumnLabel(i)));
     }
 
     consumeData(root);
