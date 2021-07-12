@@ -37,8 +37,8 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           pyarrow_unwrap_table, pyarrow_wrap_schema,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
                           pyarrow_unwrap_data_type, Table, RecordBatch,
-                          StopToken, _CRecordBatchWriter)
-from pyarrow._ipc cimport RecordBatchReader
+                          StopToken)
+from pyarrow._ipc cimport RecordBatchReader, _CRecordBatchWriter
 from pyarrow.lib import frombytes, tobytes, SignalStopHandler
 from pyarrow.util import _stringify_path
 
