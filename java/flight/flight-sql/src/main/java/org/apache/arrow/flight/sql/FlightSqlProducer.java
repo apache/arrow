@@ -17,24 +17,9 @@
 
 package org.apache.arrow.flight.sql;
 
-import static io.grpc.Status.INVALID_ARGUMENT;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_ACTIONS;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.parseOrThrow;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.unpackAndParseOrThrow;
-import static org.apache.arrow.flight.sql.FlightSqlUtils.unpackOrThrow;
-import static org.apache.arrow.vector.types.Types.MinorType.BIGINT;
-import static org.apache.arrow.vector.types.Types.MinorType.INT;
-import static org.apache.arrow.vector.types.Types.MinorType.VARBINARY;
-import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
-import static org.apache.arrow.vector.types.UnionMode.Dense;
-import static org.apache.arrow.vector.types.pojo.Field.nullable;
-import static org.apache.arrow.vector.types.pojo.FieldType.nullable;
-
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flight.Action;
@@ -61,6 +46,8 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -68,6 +55,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
+
+import io.grpc.Status;
 
 /**
  * API to Implement an Arrow Flight SQL producer.
@@ -84,37 +73,37 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   @Override
   public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
-    final Any command = parseOrThrow(descriptor.getCommand());
+    final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
       return getFlightInfoStatement(
-          unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getFlightInfoPreparedStatement(
-          unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return getFlightInfoCatalogs(
-          unpackOrThrow(command, CommandGetCatalogs.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetCatalogs.class), context, descriptor);
     } else if (command.is(CommandGetSchemas.class)) {
       return getFlightInfoSchemas(
-          unpackOrThrow(command, CommandGetSchemas.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, descriptor);
     } else if (command.is(CommandGetTables.class)) {
       return getFlightInfoTables(
-          unpackOrThrow(command, CommandGetTables.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, descriptor);
     } else if (command.is(CommandGetTableTypes.class)) {
       return getFlightInfoTableTypes(context, descriptor);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getFlightInfoSqlInfo(
-          unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return getFlightInfoPrimaryKeys(
-          unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
     } else if (command.is(CommandGetForeignKeys.class)) {
       return getFlightInfoForeignKeys(
-          unpackOrThrow(command, CommandGetForeignKeys.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class), context, descriptor);
     }
 
-    throw INVALID_ARGUMENT.asRuntimeException();
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -126,11 +115,11 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   @Override
   public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
-    final Any command = parseOrThrow(descriptor.getCommand());
+    final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
       return getSchemaStatement(
-          unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
       return getSchemaCatalogs();
     } else if (command.is(CommandGetSchemas.class)) {
@@ -147,7 +136,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       return getSchemaForeignKeys();
     }
 
-    throw INVALID_ARGUMENT.asRuntimeException();
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -172,28 +161,28 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
 
     if (command.is(CommandStatementQuery.class)) {
       getStreamStatement(
-          unpackOrThrow(command, CommandStatementQuery.class), context, ticket, listener);
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, ticket, listener);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       getStreamPreparedStatement(
-          unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
     } else if (command.is(CommandGetCatalogs.class)) {
       getStreamCatalogs(context, ticket, listener);
     } else if (command.is(CommandGetSchemas.class)) {
-      getStreamSchemas(unpackOrThrow(command, CommandGetSchemas.class), context, ticket, listener);
+      getStreamSchemas(FlightSqlUtils.unpackOrThrow(command, CommandGetSchemas.class), context, ticket, listener);
     } else if (command.is(CommandGetTables.class)) {
-      getStreamTables(unpackOrThrow(command, CommandGetTables.class), context, ticket, listener);
+      getStreamTables(FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, ticket, listener);
     } else if (command.is(CommandGetTableTypes.class)) {
       getStreamTableTypes(context, ticket, listener);
     } else if (command.is(CommandGetSqlInfo.class)) {
-      getStreamSqlInfo(unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
+      getStreamSqlInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, ticket, listener);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
-      getStreamPrimaryKeys(unpackOrThrow(command, CommandGetPrimaryKeys.class),
+      getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class),
           context, ticket, listener);
     } else if (command.is(CommandGetForeignKeys.class)) {
-      getStreamForeignKeys(unpackOrThrow(command, CommandGetForeignKeys.class),
+      getStreamForeignKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class),
           context, ticket, listener);
     } else {
-      throw INVALID_ARGUMENT.asRuntimeException();
+      throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
   }
 
@@ -211,23 +200,23 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   @Override
   public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    final Any command = parseOrThrow(flightStream.getDescriptor().getCommand());
+    final Any command = FlightSqlUtils.parseOrThrow(flightStream.getDescriptor().getCommand());
 
     if (command.is(CommandStatementUpdate.class)) {
       return acceptPutStatement(
-          unpackOrThrow(command, CommandStatementUpdate.class),
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
           context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementUpdate.class)) {
       return acceptPutPreparedStatementUpdate(
-          unpackOrThrow(command, CommandPreparedStatementUpdate.class),
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementUpdate.class),
           context, flightStream, ackStream);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       return acceptPutPreparedStatementQuery(
-          unpackOrThrow(command, CommandPreparedStatementQuery.class),
+          FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class),
           context, flightStream, ackStream);
     }
 
-    throw INVALID_ARGUMENT.asRuntimeException();
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -238,7 +227,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   @Override
   public void listActions(CallContext context, StreamListener<ActionType> listener) {
-    FLIGHT_SQL_ACTIONS.forEach(listener::onNext);
+    FlightSqlUtils.FLIGHT_SQL_ACTIONS.forEach(listener::onNext);
     listener.onCompleted();
   }
 
@@ -251,17 +240,17 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   @Override
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
-    if (action.getType().equals(FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
-      final ActionCreatePreparedStatementRequest request = unpackAndParseOrThrow(action.getBody(),
+    if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
+      final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
-    } else if (action.getType().equals(FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
-      final ActionClosePreparedStatementRequest request = unpackAndParseOrThrow(action.getBody(),
+    } else if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
+      final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);
     }
 
-    throw INVALID_ARGUMENT.asRuntimeException();
+    throw Status.INVALID_ARGUMENT.asRuntimeException();
   }
 
   /**
@@ -400,17 +389,17 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   public SchemaResult getSchemaSqlInfo() {
 
-    final List<Field> children = asList(
-        nullable("string_value", VARCHAR.getType()),
-        nullable("int_value", INT.getType()),
-        nullable("bigint_value", BIGINT.getType()),
-        nullable("int32_bitmask", INT.getType()));
+    final List<Field> children = Arrays.asList(
+        Field.nullable("string_value", MinorType.VARCHAR.getType()),
+        Field.nullable("int_value", MinorType.INT.getType()),
+        Field.nullable("bigint_value", MinorType.BIGINT.getType()),
+        Field.nullable("int32_bitmask", MinorType.INT.getType()));
 
-    List<Field> fields = asList(
-        nullable("info_name", VARCHAR.getType()),
+    List<Field> fields = Arrays.asList(
+        Field.nullable("info_name", MinorType.VARCHAR.getType()),
         new Field("value",
             // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-            new FieldType(false, new Union(Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
+            new FieldType(false, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
             children));
 
     return new SchemaResult(new Schema(fields));
@@ -447,7 +436,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
   public SchemaResult getSchemaCatalogs() {
     final List<Field> fields = new ArrayList<>();
 
-    fields.add(new Field("catalog_name", nullable(VARCHAR.getType()), null));
+    fields.add(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -480,9 +469,9 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaSchemas() {
-    List<Field> fields = asList(
-        nullable("catalog_name", VARCHAR.getType()),
-        nullable("schema_name", VARCHAR.getType()));
+    List<Field> fields = Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -516,12 +505,12 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTables() {
-    final List<Field> fields = asList(
-        nullable("catalog_name", VARCHAR.getType()),
-        nullable("schema_name", VARCHAR.getType()),
-        nullable("table_name", VARCHAR.getType()),
-        nullable("table_type", VARCHAR.getType()),
-        nullable("table_schema", VARBINARY.getType()));
+    final List<Field> fields = Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_type", MinorType.VARCHAR.getType()),
+        Field.nullable("table_schema", MinorType.VARBINARY.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -554,7 +543,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   public SchemaResult getSchemaTableTypes() {
     return new SchemaResult(
-        new Schema(singletonList(nullable("table_type", VARCHAR.getType()))));
+        new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType()))));
   }
 
   /**
@@ -584,13 +573,13 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaPrimaryKeys() {
-    final List<Field> fields = asList(
-        nullable("catalog_name", VARCHAR.getType()),
-        nullable("schema_name", VARCHAR.getType()),
-        nullable("table_name", VARCHAR.getType()),
-        nullable("column_name", VARCHAR.getType()),
-        nullable("key_sequence", INT.getType()),
-        nullable("key_name", VARCHAR.getType()));
+    final List<Field> fields = Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.nullable("key_name", MinorType.VARCHAR.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
@@ -624,20 +613,20 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaForeignKeys() {
-    final List<Field> fields = asList(
-        nullable("pk_catalog_name", VARCHAR.getType()),
-        nullable("pk_schema_name", VARCHAR.getType()),
-        nullable("pk_table_name", VARCHAR.getType()),
-        nullable("pk_column_name", VARCHAR.getType()),
-        nullable("fk_catalog_name", VARCHAR.getType()),
-        nullable("fk_schema_name", VARCHAR.getType()),
-        nullable("fk_table_name", VARCHAR.getType()),
-        nullable("fk_column_name", VARCHAR.getType()),
-        nullable("key_sequence", INT.getType()),
-        nullable("fk_key_name", VARCHAR.getType()),
-        nullable("pk_key_name", VARCHAR.getType()),
-        nullable("update_rule", INT.getType()),
-        nullable("delete_rule", INT.getType()));
+    final List<Field> fields = Arrays.asList(
+        Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
+        Field.nullable("update_rule", MinorType.INT.getType()),
+        Field.nullable("delete_rule", MinorType.INT.getType()));
 
     return new SchemaResult(new Schema(fields));
   }
