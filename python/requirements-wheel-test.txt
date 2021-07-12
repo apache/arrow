@@ -1,7 +1,7 @@
 cffi
 cython
 hypothesis
-numpy==1.19.4; sys_platform != "darwin" and not (python_version == "3.9" and platform_machine == "aarch64")
+numpy==1.19.4; sys_platform != "darwin" and (python_version != "3.9" or platform_machine != "aarch64")
 numpy==1.20.1; sys_platform != "darwin" and python_version == "3.9" and platform_machine == "aarch64"
 numpy==1.21.0; sys_platform == "darwin" and platform_machine == "arm64"
 pandas<1.1.0; python_version < "3.8" and platform_machine != "aarch64"
