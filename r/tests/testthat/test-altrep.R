@@ -94,3 +94,17 @@ test_that("empty vectors are not altrep", {
   expect_false(is_altrep_int_nonull(as.vector(v_int)))
   expect_false(is_altrep_dbl_nonull(as.vector(v_dbl)))
 })
+
+test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+
+  table <- Table$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  df_table <- as.data.frame(table)
+  expect_true(is_altrep_int_nonull(df_table$int))
+  expect_true(is_altrep_dbl_nonull(df_table$dbl))
+
+  batch <- RecordBatch$create(int = c(1L, 2L, 3L), dbl = c(1, 2, 3))
+  df_batch <- as.data.frame(batch)
+  expect_true(is_altrep_int_nonull(df_batch$int))
+  expect_true(is_altrep_dbl_nonull(df_batch$dbl))
+})

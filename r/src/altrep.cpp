@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cpp11/altrep.hpp>
-
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <cpp11/altrep.hpp>
 #if defined(HAS_ALTREP)
 
 #include <R_ext/Altrep.h>
