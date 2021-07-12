@@ -82,7 +82,10 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 
-cmake \
+SHOW_ARCH=$(arch)
+echo "ARCH: ${SHOW_ARCH}"
+
+arch -arm64 cmake \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
