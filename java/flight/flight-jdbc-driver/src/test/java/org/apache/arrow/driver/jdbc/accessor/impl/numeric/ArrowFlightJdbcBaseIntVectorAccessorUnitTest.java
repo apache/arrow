@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.nullValue;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
@@ -40,6 +41,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
   private static UInt8Vector int8Vector;
+  private static IntVector intVectorWithNull;
   private static TinyIntVector tinyIntVector;
   private static SmallIntVector smallIntVector;
   private static IntVector intVector;
@@ -56,6 +58,10 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
     int8Vector = new UInt8Vector("ID", rule.getRootAllocator());
     int8Vector.setSafe(0, 0xFFFFFFFFFFFFFFFFL);
     int8Vector.setValueCount(1);
+
+    intVectorWithNull = new IntVector("ID", rule.getRootAllocator());
+    intVectorWithNull.setNull(0);
+    intVectorWithNull.setValueCount(1);
 
     tinyIntVector = new TinyIntVector("ID", rule.getRootAllocator());
     tinyIntVector.setSafe(0, 0xAA);
@@ -81,6 +87,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
     smallIntVector.close();
     tinyIntVector.close();
     int8Vector.close();
+    intVectorWithNull.close();
     rule.close();
   }
 
@@ -104,6 +111,66 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
           collector.checkThat(accessor.getBytes(), CoreMatchers.is(value));
           })
     );
+  }
+
+  @Test
+  public void testShouldGetBytesFromIntVectorWithNull() throws Exception {
+
+    AccessorTestUtils
+        .iterateOnAccessor(intVectorWithNull, (
+            (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+                getCurrentRow)), ((accessor, currentRow) -> {
+              collector.checkThat(accessor.getBytes(), nullValue());
+            })
+    );
+  }
+
+  @Test
+  public void testShouldGetStringFromIntVectorWithNull() throws Exception {
+
+    AccessorTestUtils
+        .iterateOnAccessor(intVectorWithNull, (
+                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+                    getCurrentRow)), ((accessor, currentRow) -> {
+              collector.checkThat(accessor.getString(), nullValue());
+            })
+    );
+  }
+
+  @Test
+  public void testShouldGetObjectFromIntVectorWithNull() throws Exception {
+
+    AccessorTestUtils
+        .iterateOnAccessor(intVectorWithNull, (
+                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+                    getCurrentRow)), ((accessor, currentRow) -> {
+              collector.checkThat(accessor.getObject(), nullValue());
+            })
+        );
+  }
+
+  @Test
+  public void testShouldGetBigDecimalFromIntVectorWithNull() throws Exception {
+
+    AccessorTestUtils
+        .iterateOnAccessor(intVectorWithNull, (
+                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+                    getCurrentRow)), ((accessor, currentRow) -> {
+              collector.checkThat(accessor.getBigDecimal(), nullValue());
+            })
+        );
+  }
+
+  @Test
+  public void testShouldGetBigDecimalWithScaleFromIntVectorWithNull() throws Exception {
+
+    AccessorTestUtils
+        .iterateOnAccessor(intVectorWithNull, (
+                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+                    getCurrentRow)), ((accessor, currentRow) -> {
+              collector.checkThat(accessor.getBigDecimal(2), nullValue());
+            })
+        );
   }
 
   @Test
