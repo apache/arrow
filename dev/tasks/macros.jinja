@@ -62,17 +62,20 @@ on:
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
-{%- macro github_upload_releases(pattern) -%}
+{%- macro github_upload_releases(pattern, use_virtualenv=none) -%}
+  {% if not use_virtualenv %}
   - name: Set up Python
     uses: actions/setup-python@v2
     with:
       python-version: 3.8
-  - name: Setup Crossbow
-    shell: bash
-    run: pip install -e arrow/dev/archery[crossbow]
+  {% endif -%}
   - name: Upload artifacts
     shell: bash
     run: |
+    {% if use_virtualenv %}
+      source {{ use_virtualenv }}/bin/activate
+    {% endif %}
+      pip install -e arrow/dev/archery[crossbow]
       archery crossbow \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \

@@ -110,5 +110,5 @@ jobs:
           source test-env/bin/activate
           arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl", use_virtualenv="test-env")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
