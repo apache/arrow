@@ -100,40 +100,42 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
                               const Data& replacements, bool replacements_bitmap,
                               const CopyBitmap copy_bitmap, const uint8_t* mask_bitmap,
                               const uint8_t* mask_values, uint8_t* out_bitmap,
-                              uint8_t* out_values) {
+                              uint8_t* out_values, const int64_t out_offset) {
   Functor::CopyData(*array.type, out_values, /*out_offset=*/0, array, /*in_offset=*/0,
                     array.length);
   arrow::internal::OptionalBinaryBitBlockCounter counter(
       mask_values, mask.offset, mask_bitmap, mask.offset, mask.length);
-  int64_t out_offset = 0;
+  int64_t write_offset = 0;
   int64_t replacements_offset = 0;
-  while (out_offset < array.length) {
+  while (write_offset < array.length) {
     BitBlockCount block = counter.NextAndBlock();
     if (block.AllSet()) {
       // Copy from replacement array
-      Functor::CopyData(*array.type, out_values, out_offset, replacements,
+      Functor::CopyData(*array.type, out_values, out_offset + write_offset, replacements,
                         replacements_offset, block.length);
       if (replacements_bitmap) {
-        copy_bitmap.CopyBitmap(out_bitmap, out_offset, replacements_offset, block.length);
+        copy_bitmap.CopyBitmap(out_bitmap, out_offset + write_offset, replacements_offset,
+                               block.length);
       } else if (!replacements_bitmap && out_bitmap) {
-        BitUtil::SetBitsTo(out_bitmap, out_offset, block.length, true);
+        BitUtil::SetBitsTo(out_bitmap, out_offset + write_offset, block.length, true);
       }
       replacements_offset += block.length;
     } else if (block.popcount) {
       for (int64_t i = 0; i < block.length; ++i) {
-        if (BitUtil::GetBit(mask_values, out_offset + mask.offset + i) &&
+        if (BitUtil::GetBit(mask_values, write_offset + mask.offset + i) &&
             (!mask_bitmap ||
-             BitUtil::GetBit(mask_bitmap, out_offset + mask.offset + i))) {
-          Functor::CopyData(*array.type, out_values, out_offset + i, replacements,
-                            replacements_offset, /*length=*/1);
+             BitUtil::GetBit(mask_bitmap, write_offset + mask.offset + i))) {
+          Functor::CopyData(*array.type, out_values, out_offset + write_offset + i,
+                            replacements, replacements_offset, /*length=*/1);
           if (replacements_bitmap) {
-            copy_bitmap.SetBit(out_bitmap, out_offset + i, replacements_offset);
+            copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
+                               replacements_offset);
           }
           replacements_offset++;
         }
       }
     }
-    out_offset += block.length;
+    write_offset += block.length;
   }
 }
 
@@ -141,6 +143,7 @@ template <typename Functor>
 Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
                             const ArrayData& mask, const Datum& replacements,
                             ArrayData* output) {
+  const int64_t out_offset = output->offset;
   uint8_t* out_bitmap = nullptr;
   uint8_t* out_values = output->buffers[1]->mutable_data();
   const uint8_t* mask_bitmap = mask.MayHaveNulls() ? mask.buffers[0]->data() : nullptr;
@@ -165,18 +168,19 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
     }
   }
   if (array.MayHaveNulls() || mask.MayHaveNulls() || replacements_bitmap) {
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(array.length));
     out_bitmap = output->buffers[0]->mutable_data();
     output->null_count = -1;
     if (array.MayHaveNulls()) {
       // Copy array's bitmap
       arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset, array.length,
-                                  out_bitmap, /*dest_offset=*/0);
+                                  out_bitmap, out_offset);
     } else {
       // Array has no bitmap but mask/replacements do, generate an all-valid bitmap
-      std::memset(out_bitmap, 0xFF, output->buffers[0]->size());
+      BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, true);
     }
   } else {
+    BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), out_offset, array.length,
+                       true);
     output->null_count = 0;
   }
 
@@ -186,18 +190,17 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
         array, mask, array_repl, replacements_bitmap,
         CopyArrayBitmap{replacements_bitmap ? array_repl.buffers[0]->data() : nullptr,
                         array_repl.offset},
-        mask_bitmap, mask_values, out_bitmap, out_values);
+        mask_bitmap, mask_values, out_bitmap, out_values, out_offset);
   } else {
     const Scalar& scalar_repl = *replacements.scalar();
     ReplaceWithArrayMaskImpl<Functor>(array, mask, scalar_repl, replacements_bitmap,
                                       CopyScalarBitmap{scalar_repl.is_valid}, mask_bitmap,
-                                      mask_values, out_bitmap, out_values);
+                                      mask_values, out_bitmap, out_values, out_offset);
   }
 
   if (mask.MayHaveNulls()) {
-    arrow::internal::BitmapAnd(out_bitmap, /*left_offset=*/0, mask.buffers[0]->data(),
-                               mask.offset, array.length,
-                               /*out_offset=*/0, out_bitmap);
+    arrow::internal::BitmapAnd(out_bitmap, out_offset, mask.buffers[0]->data(),
+                               mask.offset, array.length, out_offset, out_bitmap);
   }
   return Status::OK();
 }
@@ -465,7 +468,12 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
   auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
-    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    if (is_fixed_width(get_id.id)) {
+      kernel.null_handling = NullHandling::type::COMPUTED_PREALLOCATE;
+    } else {
+      kernel.can_write_into_slices = false;
+      kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    }
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make(
         {InputType::Array(get_id.id), InputType(boolean()), InputType(get_id.id)},
