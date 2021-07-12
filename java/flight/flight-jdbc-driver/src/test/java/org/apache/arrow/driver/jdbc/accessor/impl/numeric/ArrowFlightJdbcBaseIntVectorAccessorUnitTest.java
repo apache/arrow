@@ -130,7 +130,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
     AccessorTestUtils
         .iterateOnAccessor(intVectorWithNull, (
-                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+            (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
                     getCurrentRow)), ((accessor, currentRow) -> {
               collector.checkThat(accessor.getString(), nullValue());
             })
@@ -142,11 +142,11 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
     AccessorTestUtils
         .iterateOnAccessor(intVectorWithNull, (
-                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+          (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
                     getCurrentRow)), ((accessor, currentRow) -> {
               collector.checkThat(accessor.getObject(), nullValue());
             })
-        );
+    );
   }
 
   @Test
@@ -154,11 +154,11 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
     AccessorTestUtils
         .iterateOnAccessor(intVectorWithNull, (
-                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+            (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
                     getCurrentRow)), ((accessor, currentRow) -> {
               collector.checkThat(accessor.getBigDecimal(), nullValue());
             })
-        );
+    );
   }
 
   @Test
@@ -166,11 +166,11 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
     AccessorTestUtils
         .iterateOnAccessor(intVectorWithNull, (
-                (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
+            (vector1, getCurrentRow) -> new ArrowFlightJdbcBaseIntVectorAccessor(intVectorWithNull,
                     getCurrentRow)), ((accessor, currentRow) -> {
               collector.checkThat(accessor.getBigDecimal(2), nullValue());
             })
-        );
+    );
   }
 
   @Test
