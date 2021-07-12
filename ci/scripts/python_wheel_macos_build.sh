@@ -22,6 +22,9 @@ set -ex
 source_dir=${1}
 build_dir=${2}
 
+echo "========= ARCH =========="
+arch
+
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf ${build_dir}/install
@@ -36,12 +39,12 @@ export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 if [ "$(uname -m)" = "arm64" ]; then
   export CMAKE_HOST_SYSTEM_PROCESSOR=arm64
+  export CMAKE_APPLE_SILICON_PROCESSOR=arm64
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
 else
-  export CMAKE_HOST_SYSTEM_PROCESSOR=x86_64
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
   export ARCHFLAGS="-arch x86_64"
@@ -107,10 +110,8 @@ cmake \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
-    -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_HOST_SYSTEM_PROCESSOR=${CMAKE_HOST_SYSTEM_PROCESSOR} \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
