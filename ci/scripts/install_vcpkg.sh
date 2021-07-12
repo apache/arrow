@@ -19,9 +19,6 @@
 
 set -e
 
-echo "============ ARCH ============="
-arch
-
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <vcpkg version> <target directory>"
   exit 1

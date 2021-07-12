@@ -22,9 +22,6 @@ set -ex
 source_dir=${1}
 build_dir=${2}
 
-echo "========= ARCH =========="
-arch
-
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf ${build_dir}/install

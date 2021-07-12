@@ -50,17 +50,7 @@ jobs:
         shell: bash
         run: rm -rf arrow vcpkg build-env test-env
 
-      - name: Show arch
-        shell: bash
-        run: arch
-
-
       {{ macros.github_checkout_arrow()|indent }}
-
-      - name: Show arch after escape
-        shell: bash
-        run: arch -arm64 arrow/ci/scripts/show_arch.sh
-
 
       - name: Add Brew's Bison to PATH
         shell: bash
