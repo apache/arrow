@@ -130,7 +130,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
   ValueCacheObject<std::shared_ptr<Filter>> value_cache =
-      *std::make_unique<ValueCacheObject<std::shared_ptr<Filter>>>(*filter, elapsed);
+      ValueCacheObject<std::shared_ptr<Filter>>(*filter, elapsed);
   cache.PutModule(cache_key, value_cache);
 
   return Status::OK();

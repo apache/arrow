@@ -35,29 +35,26 @@ void LogCacheSize(size_t capacity);
 template <class KeyType, typename ValueType>
 class Cache {
  public:
-  explicit Cache(size_t capacity) {
-    this->cache_ = std::make_unique<GreedyDualSizeCache<KeyType, ValueType>>(capacity);
-    LogCacheSize(capacity);
-  }
+  explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
 
   Cache() : Cache(GetCapacity()) {}
 
   ValueType GetModule(KeyType cache_key) {
     arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
-    result = (*cache_).get(cache_key);
+    result = cache_.get(cache_key);
     mtx_.unlock();
     return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
   void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
     mtx_.lock();
-    (*cache_).insert(cache_key, valueCacheObject);
+    cache_.insert(cache_key, valueCacheObject);
     mtx_.unlock();
   }
 
  private:
-  std::unique_ptr<GreedyDualSizeCache<KeyType, ValueType>> cache_;
+  GreedyDualSizeCache<KeyType, ValueType> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva

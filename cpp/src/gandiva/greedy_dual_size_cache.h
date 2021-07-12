@@ -31,16 +31,25 @@ namespace gandiva {
 template <typename ValueType>
 class ValueCacheObject {
  public:
-  explicit ValueCacheObject(ValueType module, uint64_t cost)
-      : module(module), cost(cost) {}
+  ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
   ValueCacheObject() = default;
   ValueType module;
   uint64_t cost;
-  bool operator<(const ValueCacheObject& other) const { return this->cost < other.cost; }
+  bool operator<(const ValueCacheObject& other) const { return cost < other.cost; }
 };
 
-// a particular LRU based cache which evicts the least recently used item
-// considering the different costs for each entry.
+// A particular cache based on the GreedyDual-Size cache which is a generalization of LRU
+// which defines costs for each cache values.
+// The algorithm associates a cost, C, with each cache value. Initially, when the value
+// is brought into cache, C is set to be the cost related to the value (the cost is
+// always non-negative). When a replacement needs to be made, the value with the lowest C
+// cost is replaced, and then all values reduce their C costs by the minimum value of C
+// over all the values already in the cache.
+// If a value is accessed, its C value is restored to its initial cost. Thus, the C costs
+// of recently accessed values retain a larger portion of the original cost than those of
+// values that have not been accessed for a long time. The C costs are reduced as time
+// goes and are restored when accessed.
+
 template <class Key, class Value>
 class GreedyDualSizeCache {
   // inner class to define the priority item
@@ -53,7 +62,7 @@ class GreedyDualSizeCache {
     // this ensure that the items with low priority stays in the beginning of the queue,
     // so it can be the one removed by evict operation
     bool operator<(const PriorityItem& other) const {
-      return this->actual_priority < other.actual_priority;
+      return actual_priority < other.actual_priority;
     }
     uint64_t actual_priority;
     uint64_t original_priority;
@@ -72,17 +81,13 @@ class GreedyDualSizeCache {
       Key, std::pair<ValueCacheObject<Value>, typename std::set<PriorityItem>::iterator>,
       hasher>;
 
-  explicit GreedyDualSizeCache(size_t capacity) : cache_capacity_(capacity) {
-    this->inflation_cost_ = 0;
-  }
-
-  GreedyDualSizeCache<Key, Value>() : cache_capacity_(capacity) {}
+  explicit GreedyDualSizeCache(size_t capacity) : inflation_(0), capacity_(capacity) {}
 
   ~GreedyDualSizeCache() = default;
 
   size_t size() const { return map_.size(); }
 
-  size_t capacity() const { return this->cache_capacity_; }
+  size_t capacity() const { return capacity_; }
 
   bool empty() const { return map_.empty(); }
 
@@ -94,13 +99,13 @@ class GreedyDualSizeCache {
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full, to evict an item
       // if it is necessary
-      if (size() >= this->cache_capacity_) {
+      if (size() >= capacity_) {
         evict();
       }
 
       // insert the new item
-      auto iter = this->priority_set_.insert(
-          PriorityItem(value.cost + this->inflation_cost_, value.cost, key));
+      auto iter = priority_set_.insert(
+          PriorityItem(value.cost + inflation_, value.cost, key));
       // save on map the value and the priority item iterator position
       map_[key] = std::make_pair(value, iter.first);
     }
@@ -115,10 +120,10 @@ class GreedyDualSizeCache {
     }
     PriorityItem item = *value_for_key->second.second;
     // if the value was found on the cache, update its cost (original + inflation)
-    if (item.actual_priority != item.original_priority + this->inflation_cost_) {
+    if (item.actual_priority != item.original_priority + inflation_) {
       priority_set_.erase(value_for_key->second.second);
       auto iter = priority_set_.insert(
-          PriorityItem(item.original_priority + this->inflation_cost_,
+          PriorityItem(item.original_priority + inflation_,
                        item.original_priority, item.cache_key));
       value_for_key->second.second = iter.first;
     }
@@ -136,15 +141,14 @@ class GreedyDualSizeCache {
     // lower priority value to the higher priority value.
     typename std::set<PriorityItem>::iterator i = priority_set_.begin();
     // update the inflation cost related to the evicted item
-    this->inflation_cost_ = (*i).actual_priority;
+    inflation_ = (*i).actual_priority;
     map_.erase((*i).cache_key);
     priority_set_.erase(i);
   }
 
- private:
   map_type map_;
   std::set<PriorityItem> priority_set_;
-  int64_t inflation_cost_;
-  size_t cache_capacity_{};
+  uint64_t inflation_;
+  size_t capacity_;
 };
 }  // namespace gandiva
