@@ -294,6 +294,16 @@ static inline bool GetBit(const uint8_t* bits, uint64_t i) {
   return (bits[i >> 3] >> (i & 0x07)) & 1;
 }
 
+static constexpr bool GetBit(const uint64_t word, uint8_t i) {
+  return (word >> (i & 0x3f)) & 1;
+}
+static_assert(GetBit(0xfedcba9876543210, 0) == false, "");
+static_assert(GetBit(0xfedcba9876543210, 63) == true, "");
+static_assert(GetBit(0xfedcba9876543210, 47) == true, "");
+static_assert(GetBit(0xfedcba9876543210, 14) == false, "");
+static_assert(GetBit(0xfedcba9876543210, 0) == GetBit(0xfedcba9876543210, 64), "");
+static_assert(GetBit(0xfedcba9876543210, 1) == GetBit(0xfedcba9876543210, 65), "");
+
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
 static inline bool GetBitFromByte(uint8_t byte, uint8_t i) { return byte & kBitmask[i]; }
 
@@ -308,8 +318,8 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // "Conditionally set or clear bits without branching"
   // NOTE: this seems to confuse Valgrind as it reads from potentially
   // uninitialized memory
-  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
-                 kBitmask[i % 8];
+  bits[i / 8] = (bits[i / 8] & (kBitmask[i % 8] ^ 0xff)) |
+                (-static_cast<uint8_t>(bit_is_set) & kBitmask[i % 8]);
 }
 
 /// \brief set or clear a range of bits quickly
