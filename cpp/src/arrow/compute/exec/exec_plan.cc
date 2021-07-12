@@ -575,7 +575,9 @@ struct SinkNode : ExecNode {
     std::unique_lock<std::mutex> lock(mutex_);
     emit_stop_ = seq_stop;
     lock.unlock();
-    Finish();
+    if (num_received_ == emit_stop_) {
+      Finish();
+    }
   }
 
  private:
