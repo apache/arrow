@@ -56,15 +56,15 @@ knownTargets.forEach((target) => {
     ));
 });
 
-// The main "apache-arrow" module builds the es2015/umd, esnext/cjs,
-// esnext/esm, and esnext/umd targets, then copies and renames the
+// The main "apache-arrow" module builds the es2015/umd, es2015/cjs,
+// es2015/esm, and esnext/umd targets, then copies and renames the
 // compiled output into the apache-arrow folder
 gulp.task(`build:${npmPkgName}`,
     gulp.series(
         gulp.parallel(
             `build:${taskName(`es2015`, `umd`)}`,
-            `build:${taskName(`esnext`, `cjs`)}`,
-            `build:${taskName(`esnext`, `esm`)}`,
+            `build:${taskName(`es2015`, `cjs`)}`,
+            `build:${taskName(`es2015`, `esm`)}`,
             `build:${taskName(`esnext`, `umd`)}`
         ),
         `clean:${npmPkgName}`,

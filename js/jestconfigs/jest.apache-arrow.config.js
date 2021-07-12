@@ -18,14 +18,15 @@
 module.exports = {
   ...require("../jest.config"),
   rootDir: "../",
-  preset: "ts-jest",
   globals: {
     "ts-jest": {
       diagnostics: false,
       tsconfig: "<rootDir>/test/tsconfig/tsconfig.apache-arrow.json",
+      useESM: true,
     },
   },
   moduleNameMapper: {
     "^apache-arrow(.*)": "<rootDir>/targets/apache-arrow$1",
+    tslib: "tslib/tslib.es6.js",
   },
 };
