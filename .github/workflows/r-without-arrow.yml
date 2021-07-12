@@ -44,13 +44,10 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix:
-        config:
-          - { org: "rhub", image: "ubuntu-gcc-release", tag: "latest" }
     env:
-      R_ORG: ${{ matrix.config.org }}
-      R_IMAGE: ${{ matrix.config.image }}
-      R_TAG: ${{ matrix.config.tag }}
+      R_ORG: rhub
+      R_IMAGE: ubuntu-gcc-release
+      R_TAG: latest
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -64,8 +61,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.config.image }}-r-
+          key: ubuntu-gcc-release-r-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-gcc-release-r-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
