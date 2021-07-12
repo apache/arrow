@@ -499,12 +499,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   @Override
-  public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
     throw Status.UNIMPLEMENTED.asRuntimeException();
