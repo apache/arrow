@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Cleanup
         shell: bash
-        run: rm -rf arrow vcpkg build build-env test-env
+        run: rm -rf arrow vcpkg build build-env test-env crossbow-env
 
       {{ macros.github_checkout_arrow()|indent }}
 
@@ -110,11 +110,19 @@ jobs:
           source test-env/bin/activate
           arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      - name: Install Archery
+      - name: Upload artifacts
         shell: bash
         run: |
           source crossbow-env/bin/activate
           arch -arm64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -arm64 archery crossbow \
+          --queue-path $(pwd) \
+          --queue-remote {{ queue_remote_url }} \
+          upload-artifacts \
+          --sha {{ task.branch }} \
+          --tag {{ task.tag }} \
+          "arrow/python/dist/*.whl"
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl", use_virtualenv="crossbow-env")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
