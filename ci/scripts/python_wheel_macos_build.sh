@@ -35,15 +35,13 @@ echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 if [ "$(uname -m)" = "arm64" ]; then
+  export CMAKE_HOST_SYSTEM_PROCESSOR=arm64
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
-  # Unsupported Arrow features on Apple Silicon
-  export ARROW_FLIGHT=OFF
-  export ARROW_JEMALLOC=OFF
-  export ARROW_SIMD_LEVEL=NONE
 else
+  export CMAKE_HOST_SYSTEM_PROCESSOR=x86_64
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
   export ARCHFLAGS="-arch x86_64"
@@ -112,6 +110,7 @@ cmake \
     -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_HOST_SYSTEM_PROCESSOR=${CMAKE_HOST_SYSTEM_PROCESSOR} \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
