@@ -4192,10 +4192,48 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
 
   ::arrow::AssertTablesEqual(*table, *expect_table);
 }
+
+TEST(TestArrowReadDeltaEncoding, DeltaLengthByteArray) {
+  auto file = test::get_data_file("delta_byte_array.parquet");
+  auto expect_file = test::get_data_file("delta_byte_array_expect.csv");
+  auto pool = ::arrow::default_memory_pool();
+  std::unique_ptr<FileReader> parquet_reader;
+  std::shared_ptr<::arrow::Table> parquet_table;
+  ASSERT_OK(
+      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
+  ASSERT_OK(parquet_reader->ReadTable(&parquet_table));
+  ASSERT_OK_AND_ASSIGN(auto actural_table, parquet_table->CombineChunks());
+
+  ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::array<std::string, 12> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  ASSERT_OK_AND_ASSIGN(auto csv_reader,
+                       ::arrow::csv::TableReader::Make(
+                           ::arrow::io::default_io_context(), input_file,
+                           ::arrow::csv::ReadOptions::Defaults(),
+                           ::arrow::csv::ParseOptions::Defaults(), convert_options));
+  ASSERT_OK_AND_ASSIGN(auto csv_table, csv_reader->Read());
+  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_table->CombineChunks());
+
+  ::arrow::AssertTablesEqual(*actural_table, *expect_table);
+}
+
 #else
 TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
+
+TEST(TestArrowReadDeltaEncoding, DeltaLengthByteArray) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+
 #endif
 
 }  // namespace arrow
