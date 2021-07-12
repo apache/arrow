@@ -293,7 +293,7 @@ nse_funcs$substr <- function(string, start, stop) {
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start, stop = stop)
+    options = list(start = start - 1L, stop = stop)
   )
 }
 
@@ -309,8 +309,8 @@ nse_funcs$substring <- function(text, first, last = 1000000L) {
 
   Expression$create(
     "utf8_slice_codeunits",
-    string,
-    options = list(start = first, stop = last)
+    text,
+    options = list(start = first - 1L, stop = last)
   )
 }
 
@@ -329,7 +329,7 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start, stop = end)
+    options = list(start = start - 1L, stop = end)
   )
 }
 

@@ -914,8 +914,9 @@ test_that("substr, substring, str_sub", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        x2 = substr(x1, 1, 6), # Apache
-        x3 = substr(x1, 8, 12) # Arrow
+        x2 = substr(x1, 0, 6), # "", SHOULD BE "Apache"
+        x3 = substr(x1, 1, 6), # "Apache"
+        x4 = substr(x1, 8, 12) # "Arrow"
       ) %>%
       collect(),
     df
@@ -924,18 +925,24 @@ test_that("substr, substring, str_sub", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        x2 = substring(x1, 1, 6), # Apache
-        x3 = substring(x1, 8, 12) # Arrow
+        x2 = substring(x1, 0, 6), # "", SHOULD BE "Apache"
+        x3 = substring(x1, 1, 6), # "Apache"
+        x4 = substring(x1, 8, 12) # "Arrow"
       ) %>%
       collect(),
     df
   )
 
+  # see https://issues.apache.org/jira/browse/ARROW-13259
   expect_dplyr_equal(
     input %>%
       mutate(
         x2 = str_sub(x1, 1, 6), # Apache
-        x3 = str_sub(x1, 8, 12) # Arrow
+        x3 = str_sub(x1, 8, 12), # Arrow
+        x4 = str_sub(x1, 8, 11), # Arro
+        x5 = str_sub(x1, -4, -1), # Arrow
+        x5 = str_sub(x1, -4, -2), # "Arrow", THIS SHOULD BE "Arro"
+        x6 = str_sub(x1, -5, -1) # " Arrow", THIS SHOULD BE "Arro"
       ) %>%
       collect(),
     df
