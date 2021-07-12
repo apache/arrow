@@ -21,22 +21,12 @@ package org.apache.arrow.driver.jdbc;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TinyIntVector;
-import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt2Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.util.AbstractCursor;
@@ -69,39 +59,12 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
                                         ArrayImpl.Factory factory) {
     final List<FieldVector> fieldVectors = root.getFieldVectors();
 
-    final List<Accessor> accessors = new ArrayList<>();
-    for (int i = 0; i < fieldVectors.size(); i++) {
-      FieldVector vector = root.getVector(i);
-      accessors.add(createAccessor(vector));
-    }
-
-    return accessors;
+    return IntStream.range(0, fieldVectors.size()).mapToObj(root::getVector).map(this::createAccessor)
+        .collect(Collectors.toCollection(() -> new ArrayList<>(fieldVectors.size())));
   }
 
   private Accessor createAccessor(FieldVector vector) {
-    if (vector instanceof UInt1Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, this::getCurrentRow);
-    } else if (vector instanceof UInt2Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, this::getCurrentRow);
-    } else if (vector instanceof UInt4Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, this::getCurrentRow);
-    } else if (vector instanceof UInt8Vector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, this::getCurrentRow);
-    } else if (vector instanceof TinyIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, this::getCurrentRow);
-    } else if (vector instanceof SmallIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, this::getCurrentRow);
-    } else if (vector instanceof IntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, this::getCurrentRow);
-    } else if (vector instanceof BigIntVector) {
-      return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, this::getCurrentRow);
-    } else if (vector instanceof Float4Vector) {
-      return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, this::getCurrentRow);
-    } else if (vector instanceof Float8Vector) {
-      return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, this::getCurrentRow);
-    }
-
-    throw new UnsupportedOperationException();
+    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow);
   }
 
   /**
