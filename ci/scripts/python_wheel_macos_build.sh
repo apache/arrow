@@ -35,7 +35,6 @@ echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 if [ "$(uname -m)" = "arm64" ]; then
-  # export CMAKE_HOST_SYSTEM_PROCESSOR=arm64
   export CMAKE_APPLE_SILICON_PROCESSOR=arm64
   export CFLAGS="-arch arm64"
   export CXXFLAGS="-arch arm64"
@@ -47,9 +46,6 @@ else
   export ARCHFLAGS="-arch x86_64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-x86_64"
 fi
-
-echo "=== DEBUG ENV ==="
-env
 
 echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
 pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
@@ -82,12 +78,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 
-SHOW_ARCH=$(arch)
-echo "ARCH: ${SHOW_ARCH}"
-
-which cmake
-
-arch -arm64 cmake \
+cmake \
     -DARROW_BUILD_SHARED=ON \
     -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
     -DARROW_BUILD_STATIC=OFF \
