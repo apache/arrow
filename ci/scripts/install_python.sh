@@ -33,14 +33,14 @@ versions=([3.6]=3.6.8
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
   exit 1
-elif [[ -z ${platforms[$2]} ]]; then
-  echo "Unexpected platform: ${2}"
+elif [[ -z ${platforms[$1]} ]]; then
+  echo "Unexpected platform: ${1}"
   exit 1
 fi
 
-platform=${platforms[$2]}
-version=$3
-full_version=${versions[$3]}
+platform=${platforms[$1]}
+version=$2
+full_version=${versions[$2]}
 
 if [ $platform == "MacOSX" ]; then
     echo "Downloading Python installer..."
