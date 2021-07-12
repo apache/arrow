@@ -74,7 +74,8 @@ public class TestFlightSql {
 
   @BeforeClass
   public static void setUp() throws Exception {
-    try (final Reader reader = new BufferedReader(new FileReader("target/generated-test-resources/network.properties"))) {
+    try (final Reader reader = new BufferedReader(
+        new FileReader("target/generated-test-resources/network.properties"))) {
       final Properties properties = new Properties();
       properties.load(reader);
       port = Integer.parseInt(Objects.toString(properties.get("server.port")));
