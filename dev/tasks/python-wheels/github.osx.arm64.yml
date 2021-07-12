@@ -28,7 +28,7 @@ env:
   ARROW_JEMALLOC: OFF
   ARROW_SIMD_LEVEL: NONE
   CC: "clang"
-  # CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+  CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Cleanup
         shell: bash
-        run: rm -rf arrow vcpkg build-env test-env
+        run: rm -rf arrow vcpkg build build-env test-env
 
       {{ macros.github_checkout_arrow()|indent }}
 
