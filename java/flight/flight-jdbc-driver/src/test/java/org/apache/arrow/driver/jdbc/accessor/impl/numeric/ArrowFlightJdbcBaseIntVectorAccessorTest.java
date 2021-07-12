@@ -387,4 +387,13 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
           collector.checkThat(result, CoreMatchers.notNullValue());
         });
   }
+
+  @Test
+  public void testShouldGetObjectClass() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+
+          collector.checkThat(accessor.getObjectClass(), equalTo(Long.class));
+        });
+  }
 }
