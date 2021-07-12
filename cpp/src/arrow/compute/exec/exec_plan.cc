@@ -22,11 +22,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
@@ -613,6 +615,43 @@ AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
                                                        std::string label) {
   AsyncGenerator<util::optional<ExecBatch>> out;
   (void)input->plan()->EmplaceNode<SinkNode>(input, std::move(label), &out);
+  return out;
+}
+
+std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input,
+                                                      std::string label) {
+  struct Impl : RecordBatchReader {
+    std::shared_ptr<Schema> schema() const override { return schema_; }
+    Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
+      ARROW_ASSIGN_OR_RAISE(auto batch, iterator_.Next());
+      if (!batch) {
+        *record_batch = nullptr;
+        return Status::OK();
+      }
+
+      ArrayVector columns(schema_->num_fields());
+      for (size_t i = 0; i < columns.size(); ++i) {
+        const Datum& value = batch->values[i];
+        if (value.is_array()) {
+          columns[i] = value.make_array();
+          continue;
+        }
+        ARROW_ASSIGN_OR_RAISE(columns[i],
+                              MakeArrayFromScalar(*value.scalar(), batch->length, pool_));
+      }
+      *record_batch = RecordBatch::Make(schema_, batch->length, std::move(columns));
+      return Status::OK();
+    }
+
+    MemoryPool* pool_;
+    std::shared_ptr<Schema> schema_;
+    Iterator<util::optional<ExecBatch>> iterator_;
+  };
+
+  auto out = std::make_shared<Impl>();
+  out->pool_ = input->plan()->exec_context()->memory_pool();
+  out->schema_ = input->output_schema();
+  out->iterator_ = MakeGeneratorIterator(MakeSinkNode(input, std::move(label)));
   return out;
 }
 

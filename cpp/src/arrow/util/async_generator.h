@@ -1492,7 +1492,7 @@ class GeneratorIterator {
 /// \brief Converts an AsyncGenerator<T> to an Iterator<T> by blocking until each future
 /// is finished
 template <typename T>
-Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
+Iterator<T> MakeGeneratorIterator(AsyncGenerator<T> source) {
   return Iterator<T>(GeneratorIterator<T>(std::move(source)));
 }
 

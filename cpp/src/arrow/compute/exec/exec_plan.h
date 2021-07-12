@@ -244,11 +244,16 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
-/// Emitted batches will not be ordered; instead they will be tagged with the `seq` at
-/// which they were received.
+/// Emitted batches will not be ordered.
 ARROW_EXPORT
 std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
                                                                 std::string label);
+
+/// \brief Add a sink node which forwards to a RecordBatchReader
+///
+/// Emitted batches will not be ordered.
+ARROW_EXPORT
+std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input, std::string label);
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
