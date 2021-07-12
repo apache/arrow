@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/enum.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
 
@@ -218,6 +219,71 @@ TEST(Reflection, EnumTraits) {
   static_assert(has_enum_traits<PersonType>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::CType, int8_t>::value, "");
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
+}
+
+TEST(Reflection, CompileTimeStringOps) {
+  static_assert(CaseInsensitiveEquals("a", "a"), "");
+  static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
+  static_assert(CaseInsensitiveEquals("Ab ", "ab", 2), "");
+  static_assert(CaseInsensitiveEquals(util::string_view{"Ab ", 2}, "ab"), "");
+
+  static_assert(CaseInsensitiveEquals(SkipWhitespace("  a"), "a"), "");
+  static_assert(CaseInsensitiveEquals(SkipWhitespace("a  b"), "a  b"), "");
+
+  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("  a"), "  a"), "");
+  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("a  b"), "  b"), "");
+
+  static_assert(TokenSize("aba ddf") == 3, "");
+
+  static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
+}
+
+/// \brief Enumeration of primary colors.
+///
+/// - red:   Hex value 0xff0000
+/// - green: Hex value 0x00ff00
+/// - blue:  Hex value 0x0000ff
+struct Color : EnumType<Color> {
+  using EnumType<Color>::EnumType;
+  static constexpr const char* kValues = "red green blue";
+};
+
+TEST(Reflection, EnumType) {
+  static_assert(Color::size() == 3, "");
+  EXPECT_EQ(Color::value_strings(),
+            std::vector<util::string_view>({"red", "green", "blue"}));
+
+  static_assert(Color("red").index == 0, "");
+  static_assert(*Color("GREEN") == 1, "");
+  static_assert(Color("Blue") == Color(2), "");
+
+  EXPECT_EQ(Color("red").ToString(), "red");
+  EXPECT_EQ(Color("GREEN").ToString(), "green");
+  EXPECT_EQ(Color("Blue").ToString(), "blue");
+
+  static_assert(Color("GREEN") == Color("Green"), "");
+  static_assert(Color("GREEN") == Color(1), "");
+  static_assert(Color("GREEN") != Color(), "");
+
+  static_assert(!Color("chartreuse"), "");
+  static_assert(Color("violet") == Color(), "");
+  static_assert(Color(-1) == Color(), "");
+  static_assert(Color(-29) == Color(), "");
+  static_assert(Color(12334) == Color(), "");
+
+  for (util::string_view repr : {"Red", "orange", "BLUE"}) {
+    switch (*Color(repr)) {
+      case* Color("blue"):
+        EXPECT_EQ(repr, "BLUE");
+        break;
+      case* Color("red"):
+        EXPECT_EQ(repr, "Red");
+        break;
+      default:
+        EXPECT_EQ(repr, "orange");
+        break;
+    }
+  }
 }
 
 }  // namespace internal
