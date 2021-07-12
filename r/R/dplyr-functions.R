@@ -310,7 +310,7 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
   )
   assert_that(
     length(end) == 1,
-    msg = "end of length != 1 not supported in Arrow"
+    msg = "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 
   Expression$create(
