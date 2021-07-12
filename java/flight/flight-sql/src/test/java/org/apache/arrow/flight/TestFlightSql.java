@@ -18,7 +18,6 @@
 package org.apache.arrow.flight;
 
 import static java.util.Arrays.asList;
-import static me.alexpanov.net.FreePortFinder.findFreeLocalPort;
 import static org.apache.arrow.util.AutoCloseables.close;
 import static org.apache.arrow.vector.types.Types.MinorType.INT;
 import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
@@ -26,9 +25,12 @@ import static org.apache.arrow.vector.types.pojo.Field.nullable;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
@@ -58,11 +60,21 @@ public class TestFlightSql {
       nullable("KEYNAME", VARCHAR.getType()),
       nullable("VALUE", INT.getType())));
   private static final String LOCALHOST = "localhost";
-  private static final int PORT = findFreeLocalPort();
+  private static final int PORT;
   private static BufferAllocator allocator;
   private static FlightServer server;
   private static FlightClient client;
   private static FlightSqlClient sqlClient;
+
+  static {
+    Properties properties = new Properties();
+    try {
+      properties.load(TestFlightSql.class.getResourceAsStream("network.properties"));
+      PORT = Integer.parseInt(Objects.toString(properties.get("server.port")));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
