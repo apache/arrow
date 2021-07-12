@@ -287,7 +287,7 @@ nse_funcs$substr <- function(string, start, stop) {
   )
   assert_that(
     length(stop) == 1,
-    msg = "Stop of length != 1 not supported in Arrow"
+    msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 
   Expression$create(
