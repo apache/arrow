@@ -455,9 +455,10 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
 
     add_definitions(-DARROW_HAVE_NEON)
 
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-       AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")
-      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                                "5.4")
+      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well."
+      )
     else()
       if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
         add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)

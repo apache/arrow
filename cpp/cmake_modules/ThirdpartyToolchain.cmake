@@ -945,7 +945,11 @@ macro(build_snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  resolve_dependency(Snappy HAVE_ALT TRUE PC_PACKAGE_NAMES snappy)
+  resolve_dependency(Snappy
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     snappy)
   if(${Snappy_SOURCE} STREQUAL "SYSTEM" AND NOT snappy_PC_FOUND)
     get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")

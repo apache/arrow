@@ -32,20 +32,19 @@ if(ARROW_SNAPPY_USE_SHARED)
   set(SnappyAlt_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
     list(APPEND SnappyAlt_LIB_NAMES
-                "${CMAKE_IMPORT_LIBRARY_PREFIX}snappy${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}snappy${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   endif()
   list(APPEND SnappyAlt_LIB_NAMES
-              "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
+       "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
   set(SnappyAlt_STATIC_LIB_NAME_BASE "snappy")
   if(MSVC)
     set(SnappyAlt_STATIC_LIB_NAME_BASE
         "${SNAPPY_STATIC_LIB_NAME_BASE}${SNAPPY_MSVC_STATIC_LIB_SUFFIX}")
   endif()
-  set(
-    SnappyAlt_LIB_NAMES
-    "${CMAKE_STATIC_LIBRARY_PREFIX}${SnappyAlt_STATIC_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  set(SnappyAlt_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}${SnappyAlt_STATIC_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
 endif()
 
 find_package(PkgConfig QUIET)
@@ -60,24 +59,21 @@ if(snappy_PC_FOUND)
   else()
     set(SnappyAlt_LINK_LIBRARIES)
     foreach(SnappyAlt_LIBRARY_NAME ${snappy_PC_STATIC_LIBRARIES})
-      find_library(
-        SnappyAlt_LIBRARY_${SnappyAlt_LIBRARY_NAME}
-        NAMES
-          "${CMAKE_STATIC_LIBRARY_PREFIX}${SnappyAlt_LIBRARY_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        HINTS ${snappy_PC_STATIC_LIBRARY_DIRS})
+      find_library(SnappyAlt_LIBRARY_${SnappyAlt_LIBRARY_NAME}
+                   NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}${SnappyAlt_LIBRARY_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                   HINTS ${snappy_PC_STATIC_LIBRARY_DIRS})
       list(APPEND SnappyAlt_LINK_LIBRARIES
-                  "${SnappyAlt_LIBRARY_${SnappyAlt_LIBRARY_NAME}}")
+           "${SnappyAlt_LIBRARY_${SnappyAlt_LIBRARY_NAME}}")
     endforeach()
     set(SnappyAlt_LINK_OPTIONS ${snappy_PC_STATIC_LDFLAGS_OTHER})
     set(SnappyAlt_COMPILE_OPTIONS ${snappy_PC_STATIC_CFLAGS_OTHER})
   endif()
   list(GET SnappyAlt_LINK_LIBRARIES 0 SnappyAlt_IMPORTED_LOCATION)
   list(REMOVE_AT SnappyAlt_LINK_LIBRARIES 0)
-  find_package_handle_standard_args(SnappyAlt
-                                    REQUIRED_VARS
-                                    SnappyAlt_IMPORTED_LOCATION
-                                    VERSION_VAR
-                                    SnappyAlt_VERSION)
+  find_package_handle_standard_args(
+    SnappyAlt
+    REQUIRED_VARS SnappyAlt_IMPORTED_LOCATION
+    VERSION_VAR SnappyAlt_VERSION)
 else()
   if(Snappy_ROOT)
     find_library(SnappyAlt_IMPORTED_LOCATION
@@ -98,20 +94,18 @@ else()
               PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
   find_package_handle_standard_args(SnappyAlt REQUIRED_VARS SnappyAlt_IMPORTED_LOCATION
-                                    SnappyAlt_INCLUDE_DIR)
+                                                            SnappyAlt_INCLUDE_DIR)
 endif()
 
 if(SnappyAlt_FOUND)
   if(NOT TARGET Snappy::snappy)
     add_library(Snappy::snappy UNKNOWN IMPORTED)
     set_target_properties(Snappy::snappy
-                          PROPERTIES IMPORTED_LOCATION
-                                     "${SnappyAlt_IMPORTED_LOCATION}"
+                          PROPERTIES IMPORTED_LOCATION "${SnappyAlt_IMPORTED_LOCATION}"
                                      INTERFACE_COMPILE_OPTIONS
                                      "${SnappyAlt_COMPILE_OPTIONS}"
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${SnappyAlt_INCLUDE_DIR}"
-                                     INTERFACE_LINK_OPTIONS
-                                     "${SnappyAlt_LINK_OPTIONS}")
+                                     INTERFACE_LINK_OPTIONS "${SnappyAlt_LINK_OPTIONS}")
   endif()
 endif()
