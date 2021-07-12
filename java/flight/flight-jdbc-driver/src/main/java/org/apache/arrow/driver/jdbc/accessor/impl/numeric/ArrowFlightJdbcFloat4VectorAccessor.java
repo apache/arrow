@@ -42,6 +42,11 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
+  public Class<?> getObjectClass() {
+    return Float.class;
+  }
+
+  @Override
   public String getString() {
     final float value = this.getFloat();
 
