@@ -3,6 +3,48 @@
   // Hover to view descriptions of existing attributes.
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
+  "inputs": [
+    {
+      "type": "pickString",
+      "default": "src",
+      "id": "TEST_TARGET",
+      "options": [
+        "src",
+        "apache-arrow",
+        "ts",
+        "es5.cjs",
+        "es5.esm",
+        "es5.umd",
+        "es2015.cjs",
+        "es2015.esm",
+        "es2015.umd",
+        "esnext.cjs",
+        "esnext.esm",
+        "esnext.umd",
+      ],
+      "description": "The JS version + Module format combination to test (or src to test source files)",
+    },
+    {
+      "type": "command",
+      "id": "TEST_FILE",
+      "command": "shellCommand.execute",
+      "args": {
+        "cwd": "${workspaceFolder}",
+        "description": "Select a file to debug",
+        "command": "./node_modules/.bin/jest --listTests | sed -r \"s@$PWD/test/@@g\"",
+      }
+    },
+    {
+      "type": "command",
+      "id": "TEST_RUNTIME_ARGS",
+      "command": "shellCommand.execute",
+      "args": {
+        "useSingleResult": "true",
+        "env": { "TEST_TARGET": "${input:TEST_TARGET}" },
+        "command": "case $TEST_TARGET in *cjs | *umd | apache-arrow) echo '';; *) echo '--experimental-vm-modules';; esac"
+      }
+    },
+  ],
   "configurations": [
     {
       "type": "node",
@@ -21,6 +63,7 @@
       "request": "launch",
       "name": "Debug Unit Tests",
       "cwd": "${workspaceRoot}",
+      "console": "integratedTerminal",
       "program": "${workspaceFolder}/node_modules/.bin/jest",
       "skipFiles": [
         "<node_internals>/**/*.js",
@@ -28,20 +71,20 @@
       ],
       "env": {
         "NODE_NO_WARNINGS": "1",
+        "NODE_ENV": "production",
         "TEST_DOM_STREAMS": "true",
         "TEST_NODE_STREAMS": "true",
-        // Modify these environment variables to run tests on a specific compilation target + module format combo
-        "TEST_TS_SOURCE": "true",
-        // "TEST_TS_SOURCE": "false",
-        // "TEST_TARGET": "es5",
-        // "TEST_MODULE": "umd"
+        // This is here so VSCode shows the test_target option
+        // selection before the test_runtime_args selection dropdown.
+        "TEST_TARGET": "${input:TEST_TARGET}",
       },
-      "runtimeArgs": [
-        "--experimental-vm-modules"
-      ],
+      "runtimeArgs": ["${input:TEST_RUNTIME_ARGS}"],
       "args": [
-        "-i",
-        "test/unit/",
+        "--verbose",
+        "--runInBand",
+        "-c", "jestconfigs/jest.${input:TEST_TARGET}.config.js",
+        "${input:TEST_FILE}"
+        // "test/unit/",
         // "test/unit/builders/",
         // Uncomment any of these to run individual test suites
         // "test/unit/builders/builder-tests.ts",
