@@ -412,7 +412,8 @@ TEST(ExecPlanExecution, SourceProjectSink) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*basic_data.schema));
   }
 
-  ASSERT_OK_AND_ASSIGN(auto projection, MakeProjectNode(source, "project", exprs));
+  ASSERT_OK_AND_ASSIGN(auto projection,
+                       MakeProjectNode(source, "project", exprs, {"!bool", "i32 + 1"}));
 
   auto sink_gen = MakeSinkNode(projection, "sink");
 

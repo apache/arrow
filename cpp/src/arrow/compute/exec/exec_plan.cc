@@ -493,15 +493,23 @@ struct ProjectNode : ExecNode {
 };
 
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
-                                  std::vector<Expression> exprs) {
+                                  std::vector<Expression> exprs,
+                                  std::vector<std::string> names) {
   FieldVector fields(exprs.size());
+
+  if (names.size() == 0) {
+    names.resize(exprs.size());
+    for (size_t i = 0; i < exprs.size(); ++i) {
+      names[i] = exprs[i].ToString();
+    }
+  }
 
   int i = 0;
   for (auto& expr : exprs) {
     if (!expr.IsBound()) {
       ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*input->output_schema()));
     }
-    fields[i] = field(expr.ToString(), expr.type());
+    fields[i] = field(std::move(names[i]), expr.type());
     ++i;
   }
 

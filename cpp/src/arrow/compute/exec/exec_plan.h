@@ -266,9 +266,11 @@ Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression 
 /// this node to produce a corresponding output column.
 ///
 /// If exprs are not already bound, they will be bound against the input's schema.
+/// If names are not provided, the string representations of exprs will be used.
 ARROW_EXPORT
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
-                                  std::vector<Expression> exprs);
+                                  std::vector<Expression> exprs,
+                                  std::vector<std::string> names = {});
 
 ARROW_EXPORT
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,

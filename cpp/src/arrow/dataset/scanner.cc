@@ -633,11 +633,16 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                         compute::MakeFilterNode(scan, "filter", scan_options_->filter));
 
   auto exprs = scan_options_->projection.call()->arguments;
-  exprs.push_back(compute::field_ref("__fragment_index"));
-  exprs.push_back(compute::field_ref("__batch_index"));
-  exprs.push_back(compute::field_ref("__last_in_fragment"));
-  ARROW_ASSIGN_OR_RAISE(auto project,
-                        compute::MakeProjectNode(filter, "project", std::move(exprs)));
+  auto names = checked_cast<const compute::ProjectOptions*>(
+                   scan_options_->projection.call()->options.get())
+                   ->field_names;
+  for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+    exprs.push_back(compute::field_ref(aug_name));
+    names.emplace_back(aug_name);
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto project,
+      compute::MakeProjectNode(filter, "project", std::move(exprs), std::move(names)));
 
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
       compute::MakeSinkNode(project, "sink");
