@@ -4,6 +4,7 @@
   "compileOnSave": false,
   "compilerOptions": {
     "baseUrl": "./",
+    "rootDir": "../src",
     "paths": {
       "apache-arrow/*": ["src/*"]
     },
