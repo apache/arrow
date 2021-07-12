@@ -451,7 +451,17 @@ if(ARROW_EXTRA_ERROR_CONTEXT)
   add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
+message(STATUS "=============================")
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+
+
 include(SetupCxxFlags)
+
+message(STATUS "=============================")
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+
 
 #
 # Build output directory
