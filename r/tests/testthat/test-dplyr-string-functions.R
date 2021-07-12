@@ -906,3 +906,38 @@ test_that("str_pad", {
     df
   )
 })
+
+test_that("substr, substring, str_sub", {
+
+  df <- tibble(x1 = "Apache Arrow")
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        x2 = substr(x1, 1, 6), # Apache
+        x3 = substr(x1, 8, 12) # Arrow
+      ) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        x2 = substring(x1, 1, 6), # Apache
+        x3 = substring(x1, 8, 12) # Arrow
+      ) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        x2 = str_sub(x1, 1, 6), # Apache
+        x3 = str_sub(x1, 8, 12) # Arrow
+      ) %>%
+      collect(),
+    df
+  )
+})

@@ -283,7 +283,7 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
 nse_funcs$substr <- function(string, start, stop) {
   assert_that(
     length(start) == 1,
-    msg = "Start of length != 1 not supported in Arrow"
+    msg = "`start` must be length 1 - other lengths are not supported in Arrow"
   )
   assert_that(
     length(stop) == 1,
@@ -298,7 +298,20 @@ nse_funcs$substr <- function(string, start, stop) {
 }
 
 nse_funcs$substring <- function(text, first, last = 1000000L) {
-  nse_funcs$substr(string = text, start = first, stop = last)
+  assert_that(
+    length(first) == 1,
+    msg = "`first` must be length 1 - other lengths are not supported in Arrow"
+  )
+  assert_that(
+    length(last) == 1,
+    msg = "`last` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  Expression$create(
+    "utf8_slice_codeunits",
+    string,
+    options = list(start = first, stop = last)
+  )
 }
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
@@ -306,7 +319,7 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
 
   assert_that(
     length(start) == 1,
-    msg = "Start of length != 1 not supported in Arrow"
+    msg = "`start` must be length 1 - other lengths are not supported in Arrow"
   )
   assert_that(
     length(end) == 1,
