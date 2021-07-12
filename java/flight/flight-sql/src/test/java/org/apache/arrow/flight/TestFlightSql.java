@@ -113,31 +113,24 @@ public class TestFlightSql {
   @Test
   public void testSimplePrepStmt() throws Exception {
 
-    List<PreparedStatement> statements = new ArrayList<>();
+    final PreparedStatement preparedStatement = sqlClient.prepare("Select * from intTable");
+    final Schema actualSchema = preparedStatement.getResultSetSchema();
+    collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
 
-    try (final PreparedStatement preparedStatement = sqlClient.prepare("Select * from intTable")) {
-      final Schema actualSchema = preparedStatement.getResultSetSchema();
-      collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
+    final FlightInfo info = preparedStatement.execute();
+    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
 
-      final FlightInfo info = preparedStatement.execute();
-      collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
 
-      try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-        collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-
-        final List<List<String>> results = getResults(stream);
-        collector.checkThat(results.size(), is(equalTo(3)));
-        collector.checkThat(results.get(0), is(asList("one", "1")));
-        collector.checkThat(results.get(1), is(asList("zero", "0")));
-        collector.checkThat(results.get(2), is(asList("negative one", "-1")));
-
-        statements.add(preparedStatement);
-      }
+      final List<List<String>> results = getResults(stream);
+      collector.checkThat(results.size(), is(equalTo(3)));
+      collector.checkThat(results.get(0), is(asList("one", "1")));
+      collector.checkThat(results.get(1), is(asList("zero", "0")));
+      collector.checkThat(results.get(2), is(asList("negative one", "-1")));
     }
 
-    boolean werePreparedStatementsClosedProperly = statements.stream()
-        .map(PreparedStatement::isClosed).reduce(Boolean::logicalAnd).orElse(false);
-    collector.checkThat(werePreparedStatementsClosedProperly, is(true));
+    collector.checkThat(preparedStatement.isClosed(), is(true));
   }
 
   List<List<String>> getResults(FlightStream stream) {
