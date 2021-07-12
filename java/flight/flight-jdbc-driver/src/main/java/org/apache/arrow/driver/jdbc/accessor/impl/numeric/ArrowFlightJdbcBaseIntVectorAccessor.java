@@ -107,6 +107,11 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
+  public Class<?> getObjectClass() {
+    return Long.class;
+  }
+
+  @Override
   public String getString() {
     final long number = getLong();
 
