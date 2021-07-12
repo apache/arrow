@@ -1841,6 +1841,39 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                               -M_PI_2, 0, M_PI));
 }
 
+TYPED_TEST(TestUnaryArithmeticIntegral, Trig) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  auto atan = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Atan(arg, ctx);
+  };
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sin, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[0, 0.8414709848078965]"));
+    this->AssertUnaryOp(Cos, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[1, 0.5403023058681398]"));
+    this->AssertUnaryOp(Tan, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[0, 1.5574077246549023]"));
+    this->AssertUnaryOp(Asin, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(0, M_PI_2)));
+    this->AssertUnaryOp(Acos, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(M_PI_2, 0)));
+    this->AssertUnaryOp(atan, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(0, M_PI_4)));
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Trig) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  auto atan2 = [](const Datum& y, const Datum& x, ArithmeticOptions, ExecContext* ctx) {
+    return Atan2(y, x, ctx);
+  };
+  this->AssertBinop(atan2, ArrayFromJSON(ty, "[0, 1]"), ArrayFromJSON(ty, "[1, 0]"),
+                    ArrayFromJSON(float64(), MakeArray(0, M_PI_2)));
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   using CType = typename TestFixture::CType;
   this->SetNansEqual(true);
@@ -1901,6 +1934,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
 }
 
 TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
+  // Integer arguments promoted to double, sanity check here
   auto ty = this->type_singleton();
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
@@ -1916,6 +1950,7 @@ TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Log) {
+  // Integer arguments promoted to double, sanity check here
   auto ty = this->type_singleton();
   this->SetNansEqual(true);
   this->SetOverflowCheck(false);
