@@ -591,27 +591,15 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
     const FragmentVector& fragments) {
   int num_fields = options.projected_schema->num_fields();
 
-  ArrayVector columns(num_fields);
-  for (size_t i = 0; i < columns.size(); ++i) {
-    const Datum& value = batch->values[i];
-    if (value.is_array()) {
-      columns[i] = value.make_array();
-      continue;
-    }
-    ARROW_ASSIGN_OR_RAISE(
-        columns[i], MakeArrayFromScalar(*value.scalar(), batch->length, options.pool));
-  }
-
   EnumeratedRecordBatch out;
   out.fragment.index = batch->values[num_fields].scalar_as<Int32Scalar>().value;
-  out.fragment.value = fragments[out.fragment.index];
   out.fragment.last = false;  // ignored during reordering
+  out.fragment.value = fragments[out.fragment.index];
 
   out.record_batch.index = batch->values[num_fields + 1].scalar_as<Int32Scalar>().value;
-  out.record_batch.value =
-      RecordBatch::Make(options.projected_schema, batch->length, std::move(columns));
   out.record_batch.last = batch->values[num_fields + 2].scalar_as<BooleanScalar>().value;
-
+  ARROW_ASSIGN_OR_RAISE(out.record_batch.value,
+                        batch->ToRecordBatch(options.projected_schema, options.pool));
   return out;
 }
 }  // namespace

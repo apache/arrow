@@ -624,22 +624,11 @@ std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input,
     std::shared_ptr<Schema> schema() const override { return schema_; }
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
       ARROW_ASSIGN_OR_RAISE(auto batch, iterator_.Next());
-      if (!batch) {
-        *record_batch = nullptr;
-        return Status::OK();
+      if (batch) {
+        ARROW_ASSIGN_OR_RAISE(*record_batch, batch->ToRecordBatch(schema_, pool_));
+      } else {
+        *record_batch = IterationEnd<std::shared_ptr<RecordBatch>>();
       }
-
-      ArrayVector columns(schema_->num_fields());
-      for (size_t i = 0; i < columns.size(); ++i) {
-        const Datum& value = batch->values[i];
-        if (value.is_array()) {
-          columns[i] = value.make_array();
-          continue;
-        }
-        ARROW_ASSIGN_OR_RAISE(columns[i],
-                              MakeArrayFromScalar(*value.scalar(), batch->length, pool_));
-      }
-      *record_batch = RecordBatch::Make(schema_, batch->length, std::move(columns));
       return Status::OK();
     }
 
