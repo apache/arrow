@@ -39,6 +39,10 @@ if [ "$(uname -m)" = "arm64" ]; then
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
+  # Unsupported Arrow features on Apple Silicon
+  export ARROW_FLIGHT=OFF
+  export ARROW_JEMALLOC=OFF
+  export ARROW_SIMD_LEVEL=NONE
 else
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
@@ -95,7 +99,6 @@ cmake \
     -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
-    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \

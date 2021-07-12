@@ -24,6 +24,9 @@
 
 env:
   ARROW_S3: {{ arrow_s3 }}
+  ARROW_FLIGHT: OFF
+  ARROW_JEMALLOC: OFF
+  ARROW_SIMD_LEVEL: NONE
   CC: "clang"
   CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
   CXX: "clang++"
@@ -98,13 +101,13 @@ jobs:
         shell: bash
         run: |
           source build-env/bin/activate
-          arch -arm64  arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
       - name: Test Wheel
         shell: bash
         run: |
           source test-env/bin/activate
-          arch -arm64  arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
