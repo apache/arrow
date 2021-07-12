@@ -1089,7 +1089,6 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
 
     EnsureDictionaryDecoded(values);
 
-    // Only promote types for binary functions
     if (values->size() == 2) {
       ReplaceNullWithOtherType(values);
     }

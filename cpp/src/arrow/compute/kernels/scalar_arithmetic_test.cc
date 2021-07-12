@@ -1843,7 +1843,6 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
 
 TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   using CType = typename TestFixture::CType;
-  auto ty = this->type_singleton();
   this->SetNansEqual(true);
   auto min_val = std::numeric_limits<CType>::min();
   auto max_val = std::numeric_limits<CType>::max();
@@ -1899,6 +1898,44 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("logarithm of negative number"),
                                   Log1p(lowest_val, this->options_));
+}
+
+TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
+  auto ty = this->type_singleton();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Ln, ArrayFromJSON(ty, "[1, null]"),
+                        ArrayFromJSON(float64(), "[0, null]"));
+    this->AssertUnaryOp(Log10, ArrayFromJSON(ty, "[1, 10, null]"),
+                        ArrayFromJSON(float64(), "[0, 1, null]"));
+    this->AssertUnaryOp(Log2, ArrayFromJSON(ty, "[1, 2, null]"),
+                        ArrayFromJSON(float64(), "[0, 1, null]"));
+    this->AssertUnaryOp(Log1p, ArrayFromJSON(ty, "[0, null]"),
+                        ArrayFromJSON(float64(), "[0, null]"));
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, Log) {
+  auto ty = this->type_singleton();
+  this->SetNansEqual(true);
+  this->SetOverflowCheck(false);
+  this->AssertUnaryOp(Ln, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log10, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log2, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log1p, ArrayFromJSON(ty, "[-2, -1]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->SetOverflowCheck(true);
+  this->AssertUnaryOpRaises(Ln, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Ln, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log10, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log10, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log2, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
 }
 
 }  // namespace compute
