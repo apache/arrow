@@ -52,10 +52,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Test direct usage of Flight SQL workflows.
  */
-@Ignore // FIXME Broken!
 public class TestFlightSql {
 
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
@@ -98,6 +99,7 @@ public class TestFlightSql {
   }
 
   @Test
+  @Ignore // FIXME Broken!
   public void testGetTables() throws Exception {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, false);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
@@ -112,24 +114,32 @@ public class TestFlightSql {
   @Test
   public void testSimplePrepStmt() throws Exception {
 
-    final PreparedStatement preparedStatement = sqlClient.prepare("Select * from intTable");
-    final Schema actualSchema = preparedStatement.getResultSetSchema();
-    collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
+    List<PreparedStatement> statements = new ArrayList<>();
 
-    final FlightInfo info = preparedStatement.execute();
-    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
+      final Schema actualSchema = preparedStatement.getResultSetSchema();
+      collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
 
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
+      final FlightInfo info = preparedStatement.execute();
+      collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
 
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results.size(), is(equalTo(3)));
-      collector.checkThat(results.get(0), is(asList("one", "1")));
-      collector.checkThat(results.get(1), is(asList("zero", "0")));
-      collector.checkThat(results.get(2), is(asList("negative one", "-1")));
+      try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+        collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
+
+        final List<List<String>> result = getResults(stream);
+        final List<List<String>> expected = ImmutableList.of(
+            ImmutableList.of("one", "1"), ImmutableList.of("zero", "0"),
+            ImmutableList.of("negative one", "-1")
+        );
+
+        collector.checkThat(result, is(expected));
+        statements.add(preparedStatement);
+      }
     }
 
-    collector.checkThat(preparedStatement.isClosed(), is(true));
+    boolean werePreparedStatementsClosedProperly = statements.stream()
+        .map(PreparedStatement::isClosed).reduce(Boolean::logicalAnd).orElse(false);
+    collector.checkThat(werePreparedStatementsClosedProperly, is(true));
   }
 
   List<List<String>> getResults(FlightStream stream) {
