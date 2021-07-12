@@ -38,6 +38,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
@@ -57,6 +58,8 @@ using internal::OptionalBitIndexer;
 
 namespace compute {
 namespace internal {
+
+using arrow::internal::Bitmap;
 
 int64_t GetFilterOutputSize(const ArrayData& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
@@ -584,16 +587,16 @@ class PrimitiveFilterImpl {
         filter_data_(filter.data),
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
-        null_selection_(null_selection) {
+        null_selection_(null_selection),
+        out_data_(reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data())),
+        out_offset_(out_arr->offset),
+        out_position_(0) {
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     } else {
       out_is_valid_ = nullptr;
     }
-    out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
-    out_offset_ = out_arr->offset;
-    out_position_ = 0;
   }
 
   void ExecNonNull() {
@@ -603,142 +606,222 @@ class PrimitiveFilterImpl {
         [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
   }
 
+  static constexpr uint64_t kAllSet = ~uint64_t(0), kNoneSet = uint64_t(0);
+  static constexpr uint8_t kWordBitSize = static_cast<uint8_t>(sizeof(uint64_t) * 8);
+
   void Exec() {
     if (filter_null_count_ == 0 && values_null_count_ == 0) {
       return ExecNonNull();
     }
 
-    // Bit counters used for both null_selection behaviors
-    DropNullCounter drop_null_counter(filter_is_valid_, filter_data_, filter_offset_,
-                                      values_length_);
-    OptionalBitBlockCounter data_counter(values_is_valid_, values_offset_,
-                                         values_length_);
-    OptionalBitBlockCounter filter_valid_counter(filter_is_valid_, filter_offset_,
-                                                 values_length_);
-
     int64_t in_position = 0;
-    while (in_position < values_length_) {
-      BitBlockCount filter_block = drop_null_counter.NextBlock();
-      BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
-      BitBlockCount data_block = data_counter.NextWord();
-      if (filter_block.AllSet() && data_block.AllSet()) {
+    auto visit = [&](uint64_t filter_valid_word, uint64_t filter_data_word,
+                     uint64_t values_valid_word) {
+      auto filter_word = filter_valid_word & filter_data_word;
+      if (filter_word == kAllSet && values_valid_word == kAllSet) {
+        /// works on a full word
         // Fastest path: all values in block are included and not null
-        BitUtil::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
-                           filter_block.length, true);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.AllSet()) {
+        BitUtil::SetBitsTo(out_is_valid_, out_offset_ + out_position_, kWordBitSize,
+                           true);
+        WriteValueSegment(in_position, kWordBitSize);
+      } else if (filter_word == kAllSet) {
+        /// works on a full word
         // Faster: all values are selected, but some values are null
         // Batch copy bits from values validity bitmap to output validity bitmap
-        CopyBitmap(values_is_valid_, values_offset_ + in_position, filter_block.length,
+        CopyBitmap(reinterpret_cast<const uint8_t*>(&values_valid_word), 0, kWordBitSize,
                    out_is_valid_, out_offset_ + out_position_);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.NoneSet() && null_selection_ == FilterOptions::DROP) {
+        WriteValueSegment(in_position, kWordBitSize);
+      } else if (filter_word == kNoneSet && null_selection_ == FilterOptions::DROP) {
+        /// works on a full word
         // For this exceedingly common case in low-selectivity filters we can
         // skip further analysis of the data and move on to the next block.
-        in_position += filter_block.length;
       } else {
         // Some filter values are false or null
-        if (data_block.AllSet()) {
+        if (values_valid_word == kAllSet) {
+          /// works on a full word
           // No values are null
-          if (filter_valid_block.AllSet()) {
+          if (filter_valid_word == kAllSet) {
             // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              bool advance = BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              const bool advance = BitUtil::GetBit(filter_data_word, i);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, advance);
-              WriteValue(in_position, advance);
-              ++in_position;
+              WriteValue(in_position + i, advance);
             }
           } else if (null_selection_ == FilterOptions::DROP) {
             // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              bool advance =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              bool advance = BitUtil::GetBit(filter_word, i);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, advance);
-              WriteValue(in_position, advance);
-              ++in_position;
+              WriteValue(in_position + i, advance);
             }
           } else {  // null_selection == FilterOptions::EMIT_NULL
             // Data values in this block are not null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              const bool is_selected =
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
-              BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
-                                is_selected && is_valid);
-              // todo this will write garbage values to out_data_[out_position_] when
-              //  emitting nulls, rather than writing T{} like in the previous impl
-              WriteValue(in_position, is_selected || !is_valid);
-              ++in_position;
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              const bool is_valid = BitUtil::GetBit(filter_valid_word, i);
+              const bool is_selected = BitUtil::GetBit(filter_word, i);
+              BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, is_selected);
+              WriteValue(in_position + i, is_selected || !is_valid);
             }
           }
         } else {  // !data_block.AllSet()
+                  /// MAY NOT work on a full word
           // Some values are null
-          if (filter_valid_block.AllSet()) {
+          if (filter_valid_word == kAllSet) {
             // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool advance =
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
-              const bool is_value_valid =
-                  BitUtil::GetBit(values_is_valid_, values_offset_ + in_position);
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              const bool advance = BitUtil::GetBit(filter_data_word, i);
+              const bool is_value_valid = BitUtil::GetBit(values_valid_word, i);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
                                 advance && is_value_valid);
-              WriteValue(in_position, advance);
-              ++in_position;
+              WriteValue(in_position + i, advance);
             }
           } else if (null_selection_ == FilterOptions::DROP) {
             // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              bool advance =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
-              const bool is_value_valid =
-                  BitUtil::GetBit(values_is_valid_, values_offset_ + in_position);
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              const bool advance = BitUtil::GetBit(filter_word, i);
+              const bool is_value_valid = BitUtil::GetBit(values_valid_word, i);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
                                 advance && is_value_valid);
-              WriteValue(in_position, advance);
-              ++in_position;
+              WriteValue(in_position + i, advance);
             }
           } else {  // null_selection == FilterOptions::EMIT_NULL
             // Data values in this block may be null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              bool is_valid =
-                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              bool is_selected =
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
-              bool is_value_valid =
-                  BitUtil::GetBit(values_is_valid_, values_offset_ + in_position);
+            for (auto i = 0; i < kWordBitSize; ++i) {
+              const bool is_valid = BitUtil::GetBit(filter_valid_word, i);
+              const bool is_selected = BitUtil::GetBit(filter_word, i);
+              const bool is_value_valid = BitUtil::GetBit(values_valid_word, i);
               BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
-                                is_selected && is_valid && is_value_valid);
-              // todo this will write garbage values to out_data_[out_position_] when
-              //  emitting nulls, rather than writing T{} like in the previous impl
-              WriteValue(in_position, is_selected || !is_valid);
-              ++in_position;
+                                is_selected && is_value_valid);
+              WriteValue(in_position + i, is_selected || !is_valid);
             }
           }
         }
       }  // !filter_block.AllSet()
-    }    // while(in_position < values_length_)
+
+      in_position += kWordBitSize;
+    };
+
+    // this will be used to do the prologue if there's an offset in the bitmaps. We
+    // need a separate visitor here because this falls into the non-optimized part of
+    // the VisitWords (<= 2 words) impl. There, prologue will be packed to the lower
+    // bits of the words, and this affects the in_/out_position offsets (If the
+    // prologue will be packed to the higher bits of the words and leading bits are
+    // cleared, we wouldn't need this!)
+    auto visit_prologue = [&](uint64_t filter_valid_word, uint64_t filter_data_word,
+                              uint64_t values_valid_word, uint8_t valid_bits_in_word) {
+      auto filter_word = filter_valid_word & filter_data_word;
+      if (null_selection_ == FilterOptions::DROP) {
+        // If any values are selected, they ARE NOT null
+        for (auto i = 0; i < valid_bits_in_word; ++i) {
+          const bool advance = BitUtil::GetBit(filter_word, i);
+          const bool is_value_valid = BitUtil::GetBit(values_valid_word, i);
+          BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
+                            advance && is_value_valid);
+          WriteValue(in_position + i, advance);
+        }
+      } else {  // null_selection == FilterOptions::EMIT_NULL
+        // Data values in this block may be null
+        for (auto i = 0; i < valid_bits_in_word; ++i) {
+          const bool is_valid = BitUtil::GetBit(filter_valid_word, i);
+          const bool is_selected = BitUtil::GetBit(filter_word, i);
+          const bool is_value_valid = BitUtil::GetBit(values_valid_word, i);
+          BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_,
+                            is_selected && is_value_valid);
+          WriteValue(in_position + i, is_selected || !is_valid);
+        }
+      }
+      in_position += valid_bits_in_word;
+      ARROW_CHECK_EQ(in_position, valid_bits_in_word);
+    };
+
+    Bitmap filter_data(filter_data_, filter_offset_, values_length_);
+
+    if (filter_null_count_ && values_null_count_) {
+      // filter may be null & values may be null
+      Bitmap filter_valid(filter_is_valid_, filter_offset_, values_length_);
+      Bitmap values_valid(values_is_valid_, values_offset_, values_length_);
+      int64_t min_offset = std::min(std::min(filter_data.word_offset<uint64_t>(),
+                                             filter_valid.word_offset<uint64_t>()),
+                                    values_valid.word_offset<uint64_t>());
+      if (min_offset) {
+        // if there's an offset, then there's a prologue to in the VisitWords
+        int64_t prologue_bits = kWordBitSize - min_offset;
+        Bitmap::VisitWords(
+            {filter_valid.Slice(0, prologue_bits), filter_data.Slice(0, prologue_bits),
+             values_valid.Slice(0, prologue_bits)},
+            [&](std::array<uint64_t, 3> words) {
+              visit_prologue(words[0], words[1], words[2], prologue_bits);
+            });
+
+        Bitmap::VisitWords(
+            {filter_valid.Slice(prologue_bits), filter_data.Slice(prologue_bits),
+             values_valid.Slice(prologue_bits)},
+            [&](std::array<uint64_t, 3> words) { visit(words[0], words[1], words[2]); });
+      } else {
+        Bitmap::VisitWords(
+            {filter_valid, filter_data, values_valid},
+            [&](std::array<uint64_t, 3> words) { visit(words[0], words[1], words[2]); });
+      }
+    } else if (filter_null_count_) {
+      // filter may be null, values all valid
+      Bitmap filter_valid(filter_is_valid_, filter_offset_, values_length_);
+      int64_t min_offset = std::min(filter_data.word_offset<uint64_t>(),
+                                    filter_valid.word_offset<uint64_t>());
+
+      if (min_offset) {
+        // if there's an offset, then there's a prologue to in the VisitWords
+        int64_t prologue_bits = kWordBitSize - min_offset;
+        Bitmap::VisitWords(
+            {filter_valid.Slice(0, prologue_bits), filter_data.Slice(0, prologue_bits)},
+            [&](std::array<uint64_t, 2> words) {
+              visit_prologue(words[0], words[1], kAllSet, prologue_bits);
+            });
+
+        Bitmap::VisitWords(
+            {filter_valid.Slice(prologue_bits), filter_data.Slice(prologue_bits)},
+            [&](std::array<uint64_t, 2> words) { visit(words[0], words[1], kAllSet); });
+
+      } else {
+        Bitmap::VisitWords(
+            {filter_valid, filter_data},
+            [&](std::array<uint64_t, 2> words) { visit(words[0], words[1], kAllSet); });
+      }
+    } else {
+      // filter all valid, values may be null
+      Bitmap values_valid(values_is_valid_, values_offset_, values_length_);
+      int64_t min_offset = std::min(filter_data.word_offset<uint64_t>(),
+                                    values_valid.word_offset<uint64_t>());
+
+      if (min_offset) {
+        // if there's an offset, then there's a prologue to in the VisitWords
+        int64_t prologue_bits = kWordBitSize - min_offset;
+        Bitmap::VisitWords(
+            {filter_data.Slice(0, prologue_bits), values_valid.Slice(0, prologue_bits)},
+            [&](std::array<uint64_t, 2> words) {
+              visit_prologue(kAllSet, words[0], words[1], prologue_bits);
+            });
+
+        Bitmap::VisitWords(
+            {filter_data.Slice(prologue_bits), values_valid.Slice(prologue_bits)},
+            [&](std::array<uint64_t, 2> words) { visit(kAllSet, words[0], words[1]); });
+      } else {
+        Bitmap::VisitWords(
+            {filter_data, values_valid},
+            [&](std::array<uint64_t, 2> words) { visit(kAllSet, words[0], words[1]); });
+      }
+    }
   }
 
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
-  void WriteValue(int64_t in_position, bool advance) {
+  inline void WriteValue(int64_t in_position, bool advance) {
     out_data_[out_position_] = values_data_[in_position];
     out_position_ += advance;
   }
 
-  void WriteValueSegment(int64_t in_start, int64_t length) {
+  inline void WriteValueSegment(int64_t in_start, int64_t length) {
     std::memcpy(out_data_ + out_position_, values_data_ + in_start, length * sizeof(T));
     out_position_ += length;
-  }
-
-  void WriteNull() {
-    // Zero the memory
-    out_data_[out_position_++] = T{};
   }
 
  private:
@@ -774,12 +857,6 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start
   out_position_ += length;
 }
 
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
-  // Zero the bit
-  BitUtil::ClearBit(out_data_, out_offset_ + out_position_++);
-}
-
 Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
@@ -809,8 +886,12 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // when a validity buffer is allocated in the output. This approach requires
   // an additional slot. Hence buffer lengths will be incremented by 1 when allocating
   // space and later this will be sliced to `output_length`.
-  RETURN_NOT_OK(PreallocateData(ctx, output_length + allocate_validity, values.bit_width,
-                                allocate_validity, out_arr));
+  if (allocate_validity) {
+    RETURN_NOT_OK(PreallocateData(ctx, BitUtil::RoundUp(output_length + 1, 64),
+                                  values.bit_width, true, out_arr));
+  } else {
+    RETURN_NOT_OK(PreallocateData(ctx, output_length, values.bit_width, false, out_arr));
+  }
 
   switch (values.bit_width) {
     case 1:

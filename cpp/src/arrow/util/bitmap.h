@@ -132,7 +132,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// All bitmaps must have identical length. The first bit in a visited bitmap
   /// may be offset within the first visited word, but words will otherwise contain
   /// densely packed bits loaded from the bitmap. That offset within the first word is
-  /// returned.
+  /// returned. Any trailing bits in words will be 0.
   ///
   /// TODO(bkietz) allow for early termination
   // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
@@ -384,6 +384,13 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
+  /// offset of first bit relative to words<Word>().data()
+  template <typename Word>
+  int64_t word_offset() const {
+    return offset_ + 8 * (reinterpret_cast<intptr_t>(buffer_->data()) -
+                          reinterpret_cast<intptr_t>(words<Word>().data()));
+  }
+
  private:
   /// string_view of all Words which contain any bit in this Bitmap
   ///
@@ -407,13 +414,6 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
         words_addr;
     return View<Word>(reinterpret_cast<const Word*>(words_addr),
                       word_byte_count / sizeof(Word));
-  }
-
-  /// offset of first bit relative to words<Word>().data()
-  template <typename Word>
-  int64_t word_offset() const {
-    return offset_ + 8 * (reinterpret_cast<intptr_t>(buffer_->data()) -
-                          reinterpret_cast<intptr_t>(words<Word>().data()));
   }
 
   /// load words from bitmaps bitwise
