@@ -42,6 +42,11 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
+  public Class<?> getObjectClass() {
+    return Double.class;
+  }
+
+  @Override
   public double getDouble() {
     vector.get(getCurrentRow(), holder);
 
