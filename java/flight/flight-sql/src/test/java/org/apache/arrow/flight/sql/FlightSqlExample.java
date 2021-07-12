@@ -23,6 +23,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -75,16 +76,9 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -341,74 +335,19 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
-
     try {
-      /*
-       * Do NOT prematurely close this resource!
-       * Should be closed upon executing `ClosePreparedStatement`.
-       */
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
-      final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
-      final Schema schema = buildSchema(resultSetMetaData);
-      final DictionaryProvider dictionaryProvider = new MapDictionaryProvider();
-
-      final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-      final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-
-      listener.start(root, dictionaryProvider);
-      final int columnCount = resultSetMetaData.getColumnCount();
-
-      while (resultSet.next()) {
-        final int rowCounter = readBatch(resultSet, resultSetMetaData, root, columnCount);
-
-        for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
-          final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
-          root.getVector(columnName).setValueCount(rowCounter);
-        }
-
-        root.setRowCount(rowCounter);
-        listener.putNext();
-      }
+      sqlToArrowVectorIterator(resultSet, new RootAllocator(Long.MAX_VALUE))
+          .forEachRemaining(vector -> {
+            listener.start(vector);
+            listener.putNext();
+          });
     } catch (Throwable t) {
       listener.error(t);
     } finally {
       listener.completed();
       commandExecutePreparedStatementLoadingCache.invalidate(command);
     }
-  }
-
-  private int readBatch(ResultSet resultSet, ResultSetMetaData resultSetMetaData, VectorSchemaRoot root,
-                        int columnCount) throws SQLException {
-    int rowCounter = 0;
-    do {
-      for (int resultSetColumnCounter = 1; resultSetColumnCounter <= columnCount; resultSetColumnCounter++) {
-        final String columnName = resultSetMetaData.getColumnName(resultSetColumnCounter);
-
-        final FieldVector vector = root.getVector(columnName);
-        if (vector instanceof VarCharVector) {
-          final String value = resultSet.getString(resultSetColumnCounter);
-          if (resultSet.wasNull()) {
-            // TODO handle null
-          } else {
-            ((VarCharVector) vector).setSafe(rowCounter, value.getBytes(), 0, value.length());
-          }
-        } else if (vector instanceof IntVector) {
-          final int value = resultSet.getInt(resultSetColumnCounter);
-
-          if (resultSet.wasNull()) {
-            // TODO handle null
-          } else {
-            ((IntVector) vector).setSafe(rowCounter, value);
-          }
-        } else {
-          throw new UnsupportedOperationException();
-        }
-      }
-      rowCounter++;
-    }
-    while (rowCounter < BATCH_ROW_SIZE && resultSet.next());
-
-    return rowCounter;
   }
 
   @Override
