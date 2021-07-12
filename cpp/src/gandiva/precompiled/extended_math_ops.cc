@@ -227,6 +227,28 @@ gdv_int32 round_int32(gdv_int32 num) { return num; }
 FORCE_INLINE
 gdv_int64 round_int64(gdv_int64 num) { return num; }
 
+#define FACTORIAL(IN_TYPE)                                                          \
+  FORCE_INLINE                                                                      \
+  gdv_int64 factorial_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE value) {               \
+    if (value < 0) {                                                                \
+      gdv_fn_context_set_error_msg(ctx, "Factorial of negative number not exist!"); \
+      return 0;                                                                     \
+    }                                                                               \
+    /* For numbers greater than 20 causes an overflow. */                           \
+    if (value > 20) {                                                               \
+      gdv_fn_context_set_error_msg(ctx, "Numbers greater than 20 cause overflow!"); \
+      return 0;                                                                     \
+    }                                                                               \
+    gdv_int64 factorial = 1;                                                        \
+    for(gdv_int64 i = 1; i <= value; ++i) {                                         \
+      factorial *= i;                                                               \
+    }                                                                               \
+    return factorial;                                                               \
+  }
+
+FACTORIAL(int32)
+FACTORIAL(int64)
+
 // rounds the number to the nearest integer
 #define ROUND_DECIMAL(TYPE)                                                 \
   FORCE_INLINE                                                              \

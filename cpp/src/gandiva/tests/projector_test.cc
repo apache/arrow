@@ -214,6 +214,39 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   EXPECT_EQ(projector0.get(), projector2.get());
 }
 
+TEST_F(TestProjector, TestFactorial) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_fac = field("fact", arrow::int64());
+
+  // Build expression
+  auto fac_expr = TreeExprBuilder::MakeExpression("factorial", {field0}, field_fac);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {fac_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+  // expected output
+  auto exp_fac = MakeArrowArrayInt64({1, 2, 6, 24}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_fac, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());

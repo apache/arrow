@@ -67,6 +67,9 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from, {}),
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, {}),
 
+      UNARY_UNSAFE_NULL_IF_NULL(factorial, {}, int32, int64),
+      UNARY_UNSAFE_NULL_IF_NULL(factorial, {}, int64, int64),
+
       // trigonometry functions
       MATH_UNARY_OPS(sin, {}), MATH_UNARY_OPS(cos, {}), MATH_UNARY_OPS(asin, {}),
       MATH_UNARY_OPS(acos, {}), MATH_UNARY_OPS(tan, {}), MATH_UNARY_OPS(atan, {}),

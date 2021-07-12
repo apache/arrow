@@ -43,6 +43,43 @@ TEST(TestExtendedMathOps, TestCbrt) {
   VerifyFuzzyEquals(cbrt_float64(15.625), 2.5);
 }
 
+TEST(TestExtendedMathOps, TestFactorial) {
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(factorial_int32(ctx, 1), 1);
+  EXPECT_EQ(factorial_int32(ctx, 2), 2);
+  EXPECT_EQ(factorial_int32(ctx, 3), 6);
+  EXPECT_EQ(factorial_int32(ctx, 5), 120);
+  EXPECT_EQ(factorial_int32(ctx, 7), 5040);
+  EXPECT_EQ(factorial_int32(ctx, 10), 3628800);
+  EXPECT_EQ(factorial_int32(ctx, 20), 2432902008176640000);
+
+  factorial_int32(ctx, 21);
+  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  context.Reset();
+
+  factorial_int32(ctx, -5);
+  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  context.Reset();
+
+  EXPECT_EQ(factorial_int64(ctx, 1), 1);
+  EXPECT_EQ(factorial_int64(ctx, 2), 2);
+  EXPECT_EQ(factorial_int64(ctx, 3), 6);
+  EXPECT_EQ(factorial_int64(ctx, 5), 120);
+  EXPECT_EQ(factorial_int64(ctx, 7), 5040);
+  EXPECT_EQ(factorial_int64(ctx, 10), 3628800);
+  EXPECT_EQ(factorial_int64(ctx, 20), 2432902008176640000);
+
+  factorial_int64(ctx, 21);
+  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  context.Reset();
+
+  factorial_int64(ctx, -5);
+  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  context.Reset();
+}
+
 TEST(TestExtendedMathOps, TestExp) {
   double val = 20.085536923187668;
 
