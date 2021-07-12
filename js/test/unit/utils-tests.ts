@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { isTypedArray } from 'apache-arrow';
+// import { isTypedArray } from 'apache-arrow';
 
-describe('isTypedArray', () => {
-    test('works for typed arrays', () => {
-        expect(isTypedArray(new Int8Array())).toBeTruthy();
-        expect(isTypedArray(new Int32Array())).toBeTruthy();
-        expect(isTypedArray(new BigInt64Array())).toBeTruthy();
-    });
+// describe('isTypedArray', () => {
+//     test('works for typed arrays', () => {
+//         expect(isTypedArray(new Int8Array())).toBeTruthy();
+//         expect(isTypedArray(new Int32Array())).toBeTruthy();
+//         expect(isTypedArray(new BigInt64Array())).toBeTruthy();
+//     });
 
-    test('does not recognize arrays, buffers, or data views', () => {
-        expect(isTypedArray(new Array([1, 2, 3]))).toBeFalsy();
-        expect(isTypedArray(new ArrayBuffer(10))).toBeFalsy();
-        expect(isTypedArray(new DataView(new ArrayBuffer(10)))).toBeFalsy();
-    });
-});
+//     test('does not recognize arrays, buffers, or data views', () => {
+//         expect(isTypedArray(new Array([1, 2, 3]))).toBeFalsy();
+//         expect(isTypedArray(new ArrayBuffer(10))).toBeFalsy();
+//         expect(isTypedArray(new DataView(new ArrayBuffer(10)))).toBeFalsy();
+//     });
+// });

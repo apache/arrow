@@ -109,5 +109,4 @@ export {
     TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
     UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
     Utf8Builder,
-    isTypedArray,
 } from './Arrow';
