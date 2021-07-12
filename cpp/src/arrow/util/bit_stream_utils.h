@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking.h"
@@ -140,7 +141,7 @@ class BitReader {
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
-  /// there are not enough bytes left. num_bits must be <= 32.
+  /// there are not enough bytes left.
   template <typename T>
   bool GetValue(int num_bits, T* v);
 
@@ -156,6 +157,10 @@ class BitReader {
   /// Assume the v was stored in buffer_ as a litte-endian format
   template <typename T>
   bool GetAligned(int num_bytes, T* v);
+
+  /// Advances the stream by a number of bits. Returns true if succeed or false if there
+  /// are not enough bits left.
+  bool Advance(int64_t num_bits);
 
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
@@ -334,6 +339,10 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
                            reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
+  } else if (sizeof(T) == 1 && num_bits == 8) {
+    memcpy(reinterpret_cast<uint8_t*>(v + i), buffer + byte_offset, batch_size - i);
+    byte_offset += batch_size - i;
+    i = batch_size;
   } else if (sizeof(T) == 8 && num_bits > 32) {
     // Use unpack64 only if num_bits is larger then 32
     // TODO: improve the performance of internal::unpack64 and remove the restriction of
@@ -387,6 +396,10 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   bit_offset_ = bit_offset;
   byte_offset_ = byte_offset;
   buffered_values_ = buffered_values;
+  // std::cerr << "[BitReader::GetBatch] bit_offset_: " << bit_offset_ << std::endl;
+  // std::cerr << "[BitReader::GetBatch] byte_offset_: " << byte_offset_ << std::endl;
+  // std::cerr << "[BitReader::GetBatch] buffered_values_: " << buffered_values_
+            // << std::endl;
 
   return batch_size;
 }
@@ -410,6 +423,25 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 
   // Reset buffered_values_
   bit_offset_ = 0;
+  int bytes_remaining = max_bytes_ - byte_offset_;
+  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
+    memcpy(&buffered_values_, buffer_ + byte_offset_, 8);
+  } else {
+    memcpy(&buffered_values_, buffer_ + byte_offset_, bytes_remaining);
+  }
+  buffered_values_ = arrow::BitUtil::FromLittleEndian(buffered_values_);
+  return true;
+}
+
+inline bool BitReader::Advance(int64_t num_bits) {
+  int bits_required = bit_offset_ + num_bits;
+  int bytes_required = static_cast<int>(BitUtil::BytesForBits(bits_required));
+  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_required > max_bytes_)) {
+    return false;
+  }
+  byte_offset_ += bits_required >> 3;
+  bit_offset_ = bits_required & 7;
+  // Reset buffered_values_
   int bytes_remaining = max_bytes_ - byte_offset_;
   if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
     memcpy(&buffered_values_, buffer_ + byte_offset_, 8);
