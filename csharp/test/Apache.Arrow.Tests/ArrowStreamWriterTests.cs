@@ -574,10 +574,15 @@ namespace Apache.Arrow.Tests
                 fields.Add(new Field($"dictionaryField_{indices.Data.DataType.Name}", dictionaryArray.Data.DataType, false));
             }
 
-            (Field listField, ListArray listArray) = CreateDictionaryListArrayTestData(dictionary);
+            (Field dictionaryTypeListArrayField, ListArray dictionaryTypeListArray) = CreateDictionaryTypeListArrayTestData(dictionary);
 
-            fields.Add(listField);
-            testTargetArrays.Add(listArray);
+            fields.Add(dictionaryTypeListArrayField);
+            testTargetArrays.Add(dictionaryTypeListArray);
+
+            (Field listTypeDictionaryArrayField, DictionaryArray listTypeDictionaryArray) = CreateListTypeDictionaryArrayTestData(dictionaryData);
+
+            fields.Add(listTypeDictionaryArrayField);
+            testTargetArrays.Add(listTypeDictionaryArray);
 
             var schema = new Schema(fields, null);
 
@@ -587,10 +592,11 @@ namespace Apache.Arrow.Tests
             };
         }
 
-        private Tuple<Field, ListArray> CreateDictionaryListArrayTestData(StringArray dictionary)
+        private Tuple<Field, ListArray> CreateDictionaryTypeListArrayTestData(StringArray dictionary)
         {
-            List<int> indices = Enumerable.Range(0, dictionary.Length).ToList();
-            Int32Array indiceArray = new Int32Array.Builder().AppendRange(indices).Build();
+            Int32Array indiceArray = new Int32Array.Builder().AppendRange(Enumerable.Range(0, dictionary.Length)).Build();
+
+            //DictionaryArray has no Builder for now, so creating ListArray directly.
             var dictionaryType = new DictionaryType(Int32Type.Default, StringType.Default, false);
             var dictionaryArray = new DictionaryArray(dictionaryType, indiceArray, dictionary);
 
@@ -607,7 +613,25 @@ namespace Apache.Arrow.Tests
             var listType = new ListType(dictionaryField);
             var listArray = new ListArray(listType, valueOffsetsBufferBuilder.Length - 1, valueOffsetsBufferBuilder.Build(), dictionaryArray, valueOffsetsBufferBuilder.Build());
 
-            return Tuple.Create(new Field($"ListField_{listType.ValueDataType.Name}", listType, false), listArray);
+            return Tuple.Create(new Field($"listField_{listType.ValueDataType.Name}", listType, false), listArray);
+        }
+
+        private Tuple<Field, DictionaryArray> CreateListTypeDictionaryArrayTestData(List<string> dictionaryDataBase)
+        {
+            var listBuilder = new ListArray.Builder(StringType.Default);
+            var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
+
+            foreach(string data in dictionaryDataBase) {
+                listBuilder.Append();
+                valueBuilder.Append(data);
+            }
+
+            ListArray dictionary = listBuilder.Build();
+            Int32Array indiceArray = new Int32Array.Builder().AppendRange(Enumerable.Range(0, dictionary.Length)).Build();
+            var dictionaryArrayType = new DictionaryType(Int32Type.Default, dictionary.Data.DataType, false);
+            var dictionaryArray = new DictionaryArray(dictionaryArrayType, indiceArray, dictionary);
+
+            return Tuple.Create(new Field($"dictionaryField_{dictionaryArray.Data.DataType.Name}", dictionaryArrayType, false), dictionaryArray);
         }
     }
 }

@@ -623,7 +623,11 @@ namespace Apache.Arrow.Ipc
 
         private VectorOffset GetChildrenFieldOffset(Field field)
         {
-            if (!(field.DataType is NestedType type))
+            IArrowType targetDataType = field.DataType is DictionaryType dictionaryType ?
+                dictionaryType.ValueType :
+                field.DataType;
+
+            if (!(targetDataType is NestedType type))
             {
                 return default;
             }

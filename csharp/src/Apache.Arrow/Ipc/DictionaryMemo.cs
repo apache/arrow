@@ -99,10 +99,5 @@ namespace Apache.Arrow.Ipc
         {
             _idToDictionary[id] = dictionary;
         }
-
-        public int GetFieldCount()
-        {
-            return _fieldToId.Count;
-        }
     }
 }
