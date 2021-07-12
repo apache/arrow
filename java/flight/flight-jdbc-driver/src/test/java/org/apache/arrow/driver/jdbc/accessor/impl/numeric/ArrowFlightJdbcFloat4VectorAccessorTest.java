@@ -34,6 +34,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+import org.junit.rules.ExpectedException;
 
 public class ArrowFlightJdbcFloat4VectorAccessorTest {
 
@@ -42,6 +43,9 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
+
+  @Rule
+  public ExpectedException exceptionCollector = ExpectedException.none();
 
   private Float4Vector vector;
 
@@ -81,11 +85,97 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
+  public void testShouldGetBytesMethodFromFloat4Vector() throws Exception {
+    Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setSafe(0, (float) 0x1.6f4f97c2d4d15p-3);
+    float4Vector.setValueCount(1);
+
+    byte[] value = new byte[] {0x3e, 0x37, (byte) 0xa7, (byte) 0xcc};
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getBytes(), CoreMatchers.is(value));
+        });
+
+    float4Vector.close();
+  }
+
+  @Test
   public void testShouldGetStringMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getString(), is(Float.toString(accessor.getFloat())));
         });
+  }
+
+  @Test
+  public void testShouldGetStringMethodFromFloat4VectorWithNull() throws Exception {
+    final Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setNull(0);
+    float4Vector.setValueCount(1);
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getString(), CoreMatchers.nullValue());
+        });
+
+    float4Vector.close();
+  }
+
+  @Test
+  public void testShouldGetBytesMethodFromFloat4VectorWithNull() throws Exception {
+    final Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setNull(0);
+    float4Vector.setValueCount(1);
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getBytes(), CoreMatchers.nullValue());
+        });
+
+    float4Vector.close();
+  }
+
+  @Test
+  public void testShouldGetFloatMethodFromFloat4VectorWithNull() throws Exception {
+    final Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setNull(0);
+    float4Vector.setValueCount(1);
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getFloat(), is(0.0F));
+        });
+
+    float4Vector.close();
+  }
+
+  @Test
+  public void testShouldGetBigDecimalMethodFromFloat4VectorWithNull() throws Exception {
+    final Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setNull(0);
+    float4Vector.setValueCount(1);
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getBigDecimal(), CoreMatchers.nullValue());
+        });
+
+    float4Vector.close();
+  }
+
+  @Test
+  public void testShouldGetObjectMethodFromFloat4VectorWithNull() throws Exception {
+    final Float4Vector float4Vector = new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator());
+    float4Vector.setNull(0);
+    float4Vector.setValueCount(1);
+
+    iterateOnAccessor(float4Vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getObject(), CoreMatchers.nullValue());
+        });
+
+    float4Vector.close();
   }
 
   @Test
@@ -142,8 +232,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
         (accessor, currentRow) -> {
           float value = accessor.getFloat();
           if (Double.isInfinite(value)) {
-            // BigDecimal does not support Infinities
-            return;
+            exceptionCollector.expect(UnsupportedOperationException.class);
           }
           collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
         });
@@ -341,6 +430,15 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
           collector.checkThat(secondResult, equalTo(result));
 
           collector.checkThat(result, CoreMatchers.notNullValue());
+        });
+  }
+
+  @Test
+  public void testShouldGetObjectClass() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+
+          collector.checkThat(accessor.getObjectClass(), equalTo(Float.class));
         });
   }
 }
