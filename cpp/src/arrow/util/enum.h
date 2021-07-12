@@ -18,6 +18,8 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
+#include <vector>
 
 #include "arrow/util/string_view.h"
 
@@ -83,33 +85,68 @@ struct EnumTypeBuilder
     : EnumTypeBuilder<Raw, Raw::kValues[NextTokenStart(Raw::kValues, MaxOffset)] == '\0',
                       NextTokenStart(Raw::kValues, MaxOffset), Offsets..., MaxOffset> {};
 
-template <typename Raw, size_t MaxOffset, size_t... Offsets>
-struct EnumTypeBuilder<Raw, true, MaxOffset, Offsets...> {
+template <typename Raw, size_t TerminalNullOffset, size_t... Offsets>
+struct EnumTypeBuilder<Raw, /*IsEnd=*/true, TerminalNullOffset, Offsets...> {
   using ImplType = EnumTypeImpl<Raw, Offsets...>;
 };
 
+// reuse struct as an alias for typename EnumTypeBuilder<Raw>::ImplType
 template <typename Raw>
 struct EnumTypeImpl<Raw> : EnumTypeBuilder<Raw>::ImplType {};
 /// \endcond
 
+struct EnumTypeTag {};
+
+/// \brief An enum replacement with minimal reflection capabilities.
+///
+/// Declare an enum by inheriting from this helper with CRTP, including a
+/// static string literal data member containing the enum's values:
+///
+///     struct Color : EnumType<Color> {
+///       using EnumType::EnumType;
+///       static constexpr char* kValues = "red green blue";
+///     };
+///
+/// Ensure the doccomment includes a description of each enum value.
+///
+/// Values of enumerations declared in this way can be constructed from their string
+/// representations at compile time, and can be converted to their string representation
+/// for easier debugging/logging/...
 template <typename Raw>
-struct EnumType {
+struct EnumType : EnumTypeTag {
   constexpr EnumType() = default;
+
   constexpr explicit EnumType(int index)
       : index{index >= 0 && index < EnumTypeImpl<Raw>::kSize ? index : -1} {}
+
   constexpr explicit EnumType(util::string_view repr)
       : index{EnumTypeImpl<Raw>::GetIndex(repr)} {}
 
   constexpr bool operator==(EnumType other) const { return index == other.index; }
   constexpr bool operator!=(EnumType other) const { return index != other.index; }
 
+  /// Return the string representation of this enum value.
   std::string ToString() const {
     return EnumTypeImpl<Raw>::kValueStrs[index].to_string();
   }
+
+  /// \brief Valid enum values will be truthy.
+  ///
+  /// Invalid enums are constructed with indices outside the range [0, size), with strings
+  /// not present in EnumType::value_strings(), or by default construction.
   constexpr explicit operator bool() const { return index != -1; }
+
+  /// Convert this enum value to its integer index.
   constexpr int operator*() const { return index; }
 
+  /// The number of values in this enumeration.
   static constexpr int size() { return EnumTypeImpl<Raw>::kSize; }
+
+  /// String representations of each value in this enumeration.
+  static std::vector<util::string_view> value_strings() {
+    const util::string_view* begin = EnumTypeImpl<Raw>::kValueStrs;
+    return {begin, begin + size()};
+  }
 
   int index = -1;
 
@@ -117,6 +154,9 @@ struct EnumType {
     PrintTo(e.ToString(), os);
   }
 };
+
+template <typename T>
+using is_reflection_enum = std::is_base_of<EnumTypeTag, T>;
 
 }  // namespace internal
 }  // namespace arrow

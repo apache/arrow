@@ -238,13 +238,20 @@ TEST(Reflection, CompileTimeStringOps) {
   static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
 }
 
+/// \brief Enumeration of primary colors.
+///
+/// - red:   Hex value 0xff0000
+/// - green: Hex value 0x00ff00
+/// - blue:  Hex value 0x0000ff
 struct Color : EnumType<Color> {
   using EnumType<Color>::EnumType;
-  static constexpr const char* kValues = R"(red green blue)";
+  static constexpr const char* kValues = "red green blue";
 };
 
 TEST(Reflection, EnumType) {
   static_assert(Color::size() == 3, "");
+  EXPECT_EQ(Color::value_strings(),
+            std::vector<util::string_view>({"red", "green", "blue"}));
 
   static_assert(Color("red").index == 0, "");
   static_assert(*Color("GREEN") == 1, "");
