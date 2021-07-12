@@ -44,6 +44,8 @@ import java.util.function.IntSupplier;
  */
 public abstract class ArrowFlightJdbcAccessor implements Accessor {
   private final IntSupplier currentRowSupplier;
+
+  //All the derived accessor classes should alter this as they encounter null Values
   protected boolean wasNull;
 
   protected ArrowFlightJdbcAccessor(IntSupplier currentRowSupplier) {
