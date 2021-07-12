@@ -85,6 +85,8 @@ pushd ${build_dir}/build
 SHOW_ARCH=$(arch)
 echo "ARCH: ${SHOW_ARCH}"
 
+which cmake
+
 arch -arm64 cmake \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
