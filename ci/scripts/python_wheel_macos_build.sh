@@ -41,13 +41,6 @@ if [ "$(uname -m)" = "arm64" ]; then
   export CXXFLAGS="-arch arm64"
   export ARCHFLAGS="-arch arm64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
-
-  # export CFLAGS+=" -arch arm64"
-  # export CXXFLAGS+=" -arch arm64"
-  # export CPPFLAGS+=" -arch arm64"
-  # export ARCHFLAGS+=" -arch arm64"
-  # export FCFLAGS+=" -arch arm64"
-  # export LDFLAGS+=" -arch arm64"
 else
   export CFLAGS="-arch x86_64"
   export CXXFLAGS="-arch x86_64"
