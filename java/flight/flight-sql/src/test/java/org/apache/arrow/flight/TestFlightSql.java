@@ -25,7 +25,9 @@ import static org.apache.arrow.vector.types.pojo.Field.nullable;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
-import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.Reader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,30 +62,27 @@ public class TestFlightSql {
       nullable("KEYNAME", VARCHAR.getType()),
       nullable("VALUE", INT.getType())));
   private static final String LOCALHOST = "localhost";
-  private static final int PORT;
+  private static int port;
   private static BufferAllocator allocator;
   private static FlightServer server;
   private static FlightClient client;
   private static FlightSqlClient sqlClient;
-
-  static {
-    Properties properties = new Properties();
-    try {
-      properties.load(TestFlightSql.class.getResourceAsStream("network.properties"));
-      PORT = Integer.parseInt(Objects.toString(properties.get("server.port")));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
   @BeforeClass
   public static void setUp() throws Exception {
+    try (final Reader reader = new BufferedReader(
+        new FileReader("target/generated-test-resources/network.properties"))) {
+      final Properties properties = new Properties();
+      properties.load(reader);
+      port = Integer.parseInt(Objects.toString(properties.get("server.port")));
+    }
+
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
-    final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, PORT);
+    final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, port);
     server = FlightServer.builder(allocator, serverLocation, new FlightSqlExample(serverLocation))
         .build()
         .start();
