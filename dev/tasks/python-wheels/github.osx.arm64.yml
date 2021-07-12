@@ -16,9 +16,6 @@
 
 # Prerequisits on the host:
 # - brew install bash bison coreutils ninja cmake
-# - sudo arrow/ci/scripts/install_python.sh macos 3.6
-# - sudo arrow/ci/scripts/install_python.sh macos 3.7
-# - sudo arrow/ci/scripts/install_python.sh macos 3.8
 # - sudo arrow/ci/scripts/install_python.sh macos 3.9
 
 {% import 'macros.jinja' as macros with context %}
