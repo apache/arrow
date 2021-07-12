@@ -34,6 +34,12 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   private final Float4Vector vector;
   private final NullableFloat4Holder holder;
 
+  /**
+   * Instantiate a accessor for the {@link Float4Vector}.
+   *
+   * @param vector an instance of a Float4Vector.
+   * @param currentRowSupplier the supplier to track the lines.
+   */
   public ArrowFlightJdbcFloat4VectorAccessor(Float4Vector vector,
                                              IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
