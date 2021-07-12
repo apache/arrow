@@ -468,8 +468,7 @@ Manual scheduling
 The :func:`~Dataset.to_table` method loads all selected data into memory
 at once resulting in a pyarrow Table. Alternatively, a dataset can also be
 scanned one RecordBatch at a time in an iterative manner using the
-:func:`~Dataset.scan` method::
+:func:`~Dataset.to_batches` method::
 
-    for scan_task in dataset.scan(columns=[...], filter=...):
-        for record_batch in scan_task.execute():
-            # process the record batch
+    for record_batch in dataset.to_batches(columns=[...], filter=...):
+        # process the record batch
