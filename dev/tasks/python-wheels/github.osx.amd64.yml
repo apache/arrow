@@ -86,7 +86,7 @@ jobs:
 
       - name: Install Python {{ python_version }}
         shell: bash
-        run: sudo arrow/ci/scripts/install_python.sh amd64 macos {{ python_version }}
+        run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
 
       - name: Install Virtualenvs for Building and Testing
         shell: bash

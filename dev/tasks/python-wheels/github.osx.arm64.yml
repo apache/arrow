@@ -45,7 +45,7 @@ jobs:
     steps:
       - name: Cleanup
         shell: bash
-        run: rm -rf arrow vcpkg
+        run: rm -rf arrow vcpkg build-env test-env
 
       {{ macros.github_checkout_arrow()|indent }}
 
@@ -86,10 +86,6 @@ jobs:
         run: arch -arm64 $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
       {% endif %}
 
-      - name: Install Python {{ python_version }}
-        shell: bash
-        run: sudo arrow/ci/scripts/install_python.sh amd64 macos {{ python_version }}
-
       - name: Install Virtualenvs for Building and Testing
         shell: bash
         run: |
@@ -102,13 +98,13 @@ jobs:
         shell: bash
         run: |
           source build-env/bin/activate
-          arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
+          arch -arm64  arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
       - name: Test Wheel
         shell: bash
         run: |
           source test-env/bin/activate
-          arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+          arch -arm64  arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
