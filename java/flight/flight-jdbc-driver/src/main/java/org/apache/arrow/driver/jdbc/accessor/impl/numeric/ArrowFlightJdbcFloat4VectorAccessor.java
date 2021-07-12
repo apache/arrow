@@ -105,12 +105,13 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public byte[] getBytes() {
-    return ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(this.getFloat()).array();
+    final float value = this.getFloat();
+    return this.wasNull ? null : ByteBuffer.allocate(Float4Vector.TYPE_WIDTH).putFloat(value).array();
   }
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.UNNECESSARY);
+    final BigDecimal value = BigDecimal.valueOf(this.getFloat()).setScale(scale, RoundingMode.UNNECESSARY);
     return this.wasNull ? null : value;
   }
 
