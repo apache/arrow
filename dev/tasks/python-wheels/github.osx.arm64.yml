@@ -93,10 +93,10 @@ jobs:
       - name: Install Virtualenvs for Building and Testing
         shell: bash
         run: |
-          $PYTHON -m virtualenv build-env
-          $PYTHON -m virtualenv test-env
-          build-env/bin/pip install --upgrade pip wheel
-          test-env/bin/pip install --upgrade pip wheel
+          for venv in build-env test-env crossbow-env; do
+            arch -arm64 $PYTHON -m virtualenv ${venv}
+            arch -arm64 ${venv}/bin/pip install --upgrade pip wheel
+          done
 
       - name: Build Wheel
         shell: bash
@@ -110,5 +110,11 @@ jobs:
           source test-env/bin/activate
           arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl", use_virtualenv="test-env")|indent }}
+      - name: Install Archery
+        shell: bash
+        run: |
+          source crossbow-env/bin/activate
+          arch -arm64 pip install -e arrow/dev/archery[crossbow-upload]
+
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl", use_virtualenv="crossbow-env")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

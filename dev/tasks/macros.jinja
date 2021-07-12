@@ -75,7 +75,7 @@ on:
     {% if use_virtualenv %}
       source {{ use_virtualenv }}/bin/activate
     {% endif %}
-      pip install -e arrow/dev/archery[crossbow]
+      pip install -e arrow/dev/archery[crossbow-upload]
       archery crossbow \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
@@ -119,7 +119,7 @@ on:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.8'
-  - script: pip install -e arrow/dev/archery[crossbow]
+  - script: pip install -e arrow/dev/archery[crossbow-upload]
     displayName: Install Crossbow
   - bash: |
       archery crossbow \
@@ -173,7 +173,7 @@ on:
 
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow-upload]
   - |
     archery crossbow \
       --queue-path $(pwd) \
