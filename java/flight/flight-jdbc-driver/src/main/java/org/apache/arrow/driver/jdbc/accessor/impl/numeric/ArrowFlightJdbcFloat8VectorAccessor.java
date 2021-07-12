@@ -34,6 +34,12 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   private final Float8Vector vector;
   private final NullableFloat8Holder holder;
 
+  /**
+   * Instantiate a accessor for the {@link Float8Vector}.
+   *
+   * @param vector an instance of a Float8Vector.
+   * @param currentRowSupplier the supplier to track the lines.
+   */
   public ArrowFlightJdbcFloat8VectorAccessor(Float8Vector vector,
                                       IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
