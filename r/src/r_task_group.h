@@ -53,4 +53,3 @@ class RTasks {
 }  // namespace arrow
 
 #endif
-
