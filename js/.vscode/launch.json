@@ -40,8 +40,7 @@
       "command": "shellCommand.execute",
       "args": {
         "useSingleResult": "true",
-        "env": { "TEST_TARGET": "${input:TEST_TARGET}" },
-        "command": "case $TEST_TARGET in *cjs | *umd | apache-arrow) echo '';; *) echo '--experimental-vm-modules';; esac"
+        "command": "case \"${input:TEST_TARGET}\" in *cjs | *umd | apache-arrow) echo '';; *) echo '--experimental-vm-modules';; esac"
       }
     },
   ],
@@ -74,9 +73,6 @@
         "NODE_ENV": "production",
         "TEST_DOM_STREAMS": "true",
         "TEST_NODE_STREAMS": "true",
-        // This is here so VSCode shows the test_target option
-        // selection before the test_runtime_args selection dropdown.
-        "TEST_TARGET": "${input:TEST_TARGET}",
       },
       "runtimeArgs": ["${input:TEST_RUNTIME_ARGS}"],
       "args": [
@@ -84,40 +80,6 @@
         "--runInBand",
         "-c", "jestconfigs/jest.${input:TEST_TARGET}.config.js",
         "${input:TEST_FILE}"
-        // "test/unit/",
-        // "test/unit/builders/",
-        // Uncomment any of these to run individual test suites
-        // "test/unit/builders/builder-tests.ts",
-        // "test/unit/builders/int64-tests.ts",
-        // "test/unit/builders/uint64-tests.ts",
-        // "test/unit/builders/date-tests.ts",
-        // "test/unit/builders/primitive-tests.ts",
-        // "test/unit/builders/dictionary-tests.ts",
-        // "test/unit/builders/utf8-tests.ts",
-        // "test/unit/int-tests.ts",
-        // "test/unit/math-tests.ts",
-        // "test/unit/table-tests.ts",
-        // "test/unit/generated-data-tests.ts",
-        // "test/unit/table/assign-tests.ts",
-        // "test/unit/table/serialize-tests.ts",
-        // "test/unit/recordbatch/record-batch-tests.ts",
-        // "test/unit/vector/vector-tests.ts",
-        // "test/unit/vector/bool-vector-tests.ts",
-        // "test/unit/vector/date-vector-tests.ts",
-        // "test/unit/vector/numeric-vector-tests.ts",
-        // "test/unit/visitor-tests.ts",
-        // "test/unit/ipc/message-reader-tests.ts",
-        // "test/unit/ipc/reader/file-reader-tests.ts",
-        // "test/unit/ipc/reader/json-reader-tests.ts",
-        // "test/unit/ipc/reader/from-inference-tests.ts",
-        // "test/unit/ipc/reader/stream-reader-tests.ts",
-        // "test/unit/ipc/reader/streams-dom-tests.ts",
-        // "test/unit/ipc/reader/streams-node-tests.ts",
-        // "test/unit/ipc/writer/file-writer-tests.ts",
-        // "test/unit/ipc/writer/json-writer-tests.ts",
-        // "test/unit/ipc/writer/stream-writer-tests.ts",
-        // "test/unit/ipc/writer/streams-dom-tests.ts",
-        // "test/unit/ipc/writer/streams-node-tests.ts",
       ]
     },
     {
