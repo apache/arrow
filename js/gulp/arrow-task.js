@@ -54,7 +54,7 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
         observableFromStreams(gulp.src(esmGlob),       gulpRename((p) => { p.extname = '.mjs'; }),          gulp.dest(out)), // copy esnext esm files and rename to `.mjs`
         observableFromStreams(gulp.src(es2015UmdGlob), gulpRename((p) => { p.basename += `.es2015.min`; }), gulp.dest(out)), // copy es2015 umd files and add `.min`
         observableFromStreams(gulp.src(esnextUmdGlob), gulpRename((p) => { p.basename += `.esnext.min`; }), gulp.dest(out)), // copy esnext umd files and add `.esnext.min`
-    ).pipe(share(new ReplaySubject()));
+    ).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
 const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {

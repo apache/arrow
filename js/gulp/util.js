@@ -120,11 +120,11 @@ function observableFromStreams(...streams) {
     const pumped = streams.length <= 1 ? streams[0] : pump(...streams, logAndDie);
     const fromEvent = ObservableFromEvent.bind(null, pumped);
     const streamObs = fromEvent(`data`).pipe(
-               mergeWith(fromEvent(`error`).pipe(flatMap((e) => ObservableThrow(e)))),
-           takeUntil(fromEvent(`end`).pipe(mergeWith(fromEvent(`close`)))),
-           defaultIfEmpty(`empty stream`),
-           share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false })
-           );
+        mergeWith(fromEvent(`error`).pipe(flatMap((e) => ObservableThrow(e)))),
+        takeUntil(fromEvent(`end`).pipe(mergeWith(fromEvent(`close`)))),
+        defaultIfEmpty(`empty stream`),
+        share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false })
+    );
     streamObs.stream = pumped;
     streamObs.observable = streamObs;
     return streamObs;

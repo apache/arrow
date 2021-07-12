@@ -48,7 +48,7 @@ const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target
     return compileTypescript(out, tsconfigPath)
         .pipe(mergeWith(compileBinFiles(target, format)))
         .pipe(takeLast(1))
-        .pipe(share(new ReplaySubject()))
+        .pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }))
 }))({});
 
 function compileBinFiles(target, format) {

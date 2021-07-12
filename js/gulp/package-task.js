@@ -43,7 +43,7 @@ const packageTask = ((cache) => memoizeTask(cache, function bundle(target, forma
     return ObservableForkJoin([
       observableFromStreams(gulp.src(metadataFiles), gulp.dest(out)), // copy metadata files
       observableFromStreams(gulp.src(`package.json`), jsonTransform, gulp.dest(out)) // write packageJSONs
-    ]).pipe(share(new ReplaySubject()));
+    ]).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
 module.exports = packageTask;
