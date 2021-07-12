@@ -4,3 +4,5 @@ numpy==1.19.4; python_version >= "3.9" or platform_machine == "aarch64"
 pandas<1.1.0; python_version < "3.8"
 setuptools_scm
 wheel
+
+# set numpy for arm64 macos 1.20...

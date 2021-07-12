@@ -48,6 +48,9 @@ else
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-x86_64"
 fi
 
+echo "=== DEBUG ENV ==="
+env
+
 echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
 pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
 
