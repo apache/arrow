@@ -102,13 +102,21 @@ jobs:
         shell: bash
         run: |
           source build-env/bin/activate
-          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh {{ arch }} $(pwd)/arrow $(pwd)/build
 
-      - name: Test Wheel
+      - name: Test Wheel on ARM64
         shell: bash
         run: |
           source test-env/bin/activate
           arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+
+      {% if arch == "universal2" %}
+      - name: Test Wheel on AMD64
+        shell: bash
+        run: |
+          source test-env/bin/activate
+          arch -x86_64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+      {% endif %}
 
       - name: Upload artifacts
         shell: bash

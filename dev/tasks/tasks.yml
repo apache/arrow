@@ -386,12 +386,25 @@ tasks:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
+      arch: arm64
       vcpkg_version: "2021.04.30"
       python_version: "3.9"
       macos_deployment_target: "11.0"
       arrow_s3: "ON"
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_arm64.whl
+
+  wheel-macos-big-sur-cp39-universal2:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: universal2
+      vcpkg_version: "2021.04.30"
+      python_version: "3.9"
+      macos_deployment_target: "11.0"
+      arrow_s3: "ON"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_universal2.whl
 
 {############################ Python sdist ####################################}
 
