@@ -770,6 +770,144 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename Type>
+struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    auto byte_width =
+        std::static_pointer_cast<FixedSizeBinaryType>(left.type())->byte_width();
+    return RunIfElseScalar(
+        cond, left, right, out,
+        /*CopyArrayData*/
+        [&](const ArrayData& valid_array, ArrayData* out_array) {
+          std::memcpy(
+              out_array->buffers[1]->mutable_data() + out_array->offset * byte_width,
+              valid_array.buffers[1]->mutable_data() + valid_array.offset * byte_width,
+              valid_array.length * byte_width);
+        },
+        /*BroadcastScalar*/
+        [&](const Scalar& scalar, ArrayData* out_array) {
+          const util::string_view& scalar_data =
+              internal::UnboxScalar<FixedSizeBinaryType>::Unbox(scalar);
+          uint8_t* start =
+              out_array->buffers[1]->mutable_data() + out_array->offset * byte_width;
+          for (int64_t i = 0; i < out_array->length; i++) {
+            std::memcpy(start + i * byte_width, scalar_data.data(), scalar_data.size());
+          }
+        });
+  }
+
+  //  AAA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const ArrayData& right, ArrayData* out) {
+    auto byte_width =
+        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
+
+    // copy right data to out_buff
+    const uint8_t* right_data = right.buffers[1]->data() + right.offset * byte_width;
+    std::memcpy(out_values, right_data, right.length * byte_width);
+
+    // selectively copy values from left data
+    const uint8_t* left_data = left.buffers[1]->data() + left.offset * byte_width;
+
+    RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
+      std::memcpy(out_values + data_offset * byte_width,
+                  left_data + data_offset * byte_width, num_elems * byte_width);
+    });
+
+    return Status::OK();
+  }
+
+  // ASA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const ArrayData& right, ArrayData* out) {
+    auto byte_width =
+        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
+
+    // copy right data to out_buff
+    const uint8_t* right_data = right.buffers[1]->data() + right.offset * byte_width;
+    std::memcpy(out_values, right_data, right.length * byte_width);
+
+    // selectively copy values from left data
+    const util::string_view& left_data =
+        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(left);
+
+    RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
+      if (left_data.data()) {
+        for (int64_t i = 0; i < num_elems; i++) {
+          std::memcpy(out_values + (data_offset + i) * byte_width, left_data.data(),
+                      left_data.size());
+        }
+      }
+    });
+
+    return Status::OK();
+  }
+
+  // AAS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const Scalar& right, ArrayData* out) {
+    auto byte_width =
+        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
+
+    // copy left data to out_buff
+    const uint8_t* left_data = left.buffers[1]->data() + left.offset * byte_width;
+    std::memcpy(out_values, left_data, left.length * byte_width);
+
+    const util::string_view& right_data =
+        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(right);
+
+    RunIfElseLoopInverted(cond, [&](int64_t data_offset, int64_t num_elems) {
+      if (right_data.data()) {
+        for (int64_t i = 0; i < num_elems; i++) {
+          std::memcpy(out_values + (data_offset + i) * byte_width, right_data.data(),
+                      right_data.size());
+        }
+      }
+    });
+
+    return Status::OK();
+  }
+
+  // ASS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const Scalar& right, ArrayData* out) {
+    auto byte_width =
+        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
+
+    // copy right data to out_buff
+    const util::string_view& right_data =
+        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(right);
+    if (right_data.data()) {
+      for (int64_t i = 0; i < cond.length; i++) {
+        std::memcpy(out_values + i * byte_width, right_data.data(), right_data.size());
+      }
+    }
+
+    // selectively copy values from left data
+    const util::string_view& left_data =
+        internal::UnboxScalar<FixedSizeBinaryType>::Unbox(left);
+
+    RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
+      if (left_data.data()) {
+        for (int64_t i = 0; i < num_elems; i++) {
+          std::memcpy(out_values + (data_offset + i) * byte_width, left_data.data(),
+                      left_data.size());
+        }
+      }
+    });
+
+    return Status::OK();
+  }
+};
+
 template <typename Type, typename AllocateMem>
 struct ResolveIfElseExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -893,6 +1031,21 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
   }
 }
 
+void AddFSBinaryIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
+  // cond array needs to be boolean always
+  ScalarKernel kernel(
+      {boolean(), InputType(Type::FIXED_SIZE_BINARY), InputType(Type::FIXED_SIZE_BINARY)},
+      OutputType([](KernelContext*, const std::vector<ValueDescr>& descrs) {
+        return ValueDescr(descrs[1].type, ValueDescr::ANY);
+      }),
+      ResolveIfElseExec<FixedSizeBinaryType, /*AllocateMem=*/std::false_type>::Exec);
+  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::PREALLOCATE;
+  kernel.can_write_into_slices = true;
+
+  DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+}
+
 }  // namespace
 
 const FunctionDoc if_else_doc{"Choose values based on a condition",
@@ -914,6 +1067,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   AddPrimitiveIfElseKernels(func, {boolean()});
   AddNullIfElseKernel(func);
   AddBinaryIfElseKernels(func, BaseBinaryTypes());
+  AddFSBinaryIfElseKernel(func);
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

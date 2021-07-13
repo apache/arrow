@@ -406,5 +406,91 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
+TEST_F(TestIfElseKernel, IfElseFSBinary) {
+  auto type = std::make_shared<FixedSizeBinaryType>(4);
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"([null, "abab", null, "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"([null, "abab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"([null, "abab", "abca", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"([null, "abab", "abca", "llll"])"));
+}
+
+TEST_F(TestIfElseKernel, IfElseFSBinaryRand) {
+  auto type = std::make_shared<FixedSizeBinaryType>(5);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+
+  //  this is to check the BitBlockCount::AllSet/ NoneSet code paths
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
+  auto left = std::static_pointer_cast<FixedSizeBinaryArray>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto right = std::static_pointer_cast<FixedSizeBinaryArray>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  FixedSizeBinaryBuilder builder(type);
+
+  for (int64_t i = 0; i < len; ++i) {
+    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
+        (!cond->Value(i) && !right->IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
+
+    const uint8_t* val;
+    if (cond->Value(i)) {
+      val = left->GetValue(i);
+    } else {
+      val = right->GetValue(i);
+    }
+    ASSERT_OK(builder.Append(val));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+  CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+
 }  // namespace compute
 }  // namespace arrow
