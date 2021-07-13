@@ -624,13 +624,9 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto names = checked_cast<const compute::ProjectOptions*>(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
-  for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-    exprs.push_back(compute::field_ref(aug_name));
-    names.emplace_back(aug_name);
-  }
   ARROW_ASSIGN_OR_RAISE(
       auto project,
-      compute::MakeProjectNode(filter, "project", std::move(exprs), std::move(names)));
+      MakeAugmentedProjectNode(filter, "project", std::move(exprs), std::move(names)));
 
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
       compute::MakeSinkNode(project, "sink");
@@ -1169,6 +1165,24 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   return MakeScanNode(plan, std::move(fragments_gen), std::move(scan_options));
 }
 
+Result<compute::ExecNode*> MakeAugmentedProjectNode(
+    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
+    std::vector<std::string> names) {
+  if (names.size() == 0) {
+    names.resize(exprs.size());
+    for (size_t i = 0; i < exprs.size(); ++i) {
+      names[i] = exprs[i].ToString();
+    }
+  }
+
+  for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+    exprs.push_back(compute::field_ref(aug_name));
+    names.emplace_back(aug_name);
+  }
+  return compute::MakeProjectNode(input, std::move(label), std::move(exprs),
+                                  std::move(names));
+}
+
 Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
     compute::ExecNode* input, std::string label) {
   auto unordered = compute::MakeSinkNode(input, std::move(label));
@@ -1192,7 +1206,7 @@ Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
   ARROW_ASSIGN_OR_RAISE(match, FieldRef("__last_in_fragment").FindOne(schema));
   i = match[0];
   auto last_in_fragment = [i](const compute::ExecBatch& batch) {
-    return batch.values[i].scalar_as<Int32Scalar>().value;
+    return batch.values[i].scalar_as<BooleanScalar>().value;
   };
 
   auto is_before_any = [=](const compute::ExecBatch& batch) {
