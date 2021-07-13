@@ -74,7 +74,8 @@ def check_config(obj):
     """
     Validate docker-compose configuration.
     """
-    # executes the body of the docker function above
+    # executes the body of the docker function above which does the validation
+    # during the configuration loading
 
 
 @docker.command('build')
