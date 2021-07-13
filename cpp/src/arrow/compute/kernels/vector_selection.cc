@@ -797,9 +797,8 @@ class PrimitiveFilterImpl {
         int64_t prologue_bits = kWordBitSize - min_offset;
         Bitmap::VisitWords(
             {filter_data.Slice(0, prologue_bits), values_valid.Slice(0, prologue_bits)},
-            [&](std::array<uint64_t, 2> words) {
-              visit_prologue(kAllSet, words[0], words[1], prologue_bits);
-            });
+            [&](std::array<uint64_t, 2> words) { visit(kAllSet, words[0], words[1]); });
+        in_position = prologue_bits;
 
         Bitmap::VisitWords(
             {filter_data.Slice(prologue_bits), values_valid.Slice(prologue_bits)},
