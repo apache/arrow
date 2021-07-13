@@ -239,18 +239,17 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     } else if (type == Double.class) {
       final double value = getDouble();
       return this.wasNull ? null : type.cast(value);
-    } else if (type == String.class) {
-      final String value = getString();
-      return this.wasNull ? null : type.cast(value);
-    } else if (type == BigDecimal.class) {
-      final BigDecimal value = getBigDecimal();
-      return this.wasNull ? null : type.cast(value);
     } else if (type == Boolean.class) {
       final boolean value = getBoolean();
       return this.wasNull ? null : type.cast(value);
+    } else if (type == BigDecimal.class) {
+      return type.cast(getBigDecimal());
+    } else if (type == String.class) {
+      return type.cast(getString());
+    } else if (type == byte[].class) {
+      return type.cast(getBytes());
     } else if (type == getObjectClass()) {
-      final Object object = getObject();
-      return this.wasNull ? null : type.cast(object);
+      return type.cast(getObject());
     }
 
     throw new UnsupportedOperationException();
