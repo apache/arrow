@@ -92,6 +92,11 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public boolean getBoolean() {
+    String value = getString();
+    if (value == null) {
+      return false;
+    }
+
     return ((Text) this.getObject()).getLength() > 0;
   }
 
@@ -149,39 +154,40 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public Date getDate(Calendar calendar) {
     Date date = Date.valueOf(getString());
+    if (calendar == null) {
+      return date;
+    }
 
     // Use Calendar to apply time zone's offset
-    if (calendar != null) {
-      long milliseconds = date.getTime();
-      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
-      date = new Date(milliseconds);
-    }
-    return date;
+    long milliseconds = date.getTime();
+    return new Date(applyCalendarOffset(milliseconds, calendar));
   }
 
   @Override
   public Time getTime(Calendar calendar) {
     Time time = Time.valueOf(getString());
+    if (calendar == null) {
+      return time;
+    }
 
     // Use Calendar to apply time zone's offset
-    if (calendar != null) {
-      long milliseconds = time.getTime();
-      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
-      time = new Time(milliseconds);
-    }
-    return time;
+    long milliseconds = time.getTime();
+    return new Time(applyCalendarOffset(milliseconds, calendar));
   }
 
   @Override
   public Timestamp getTimestamp(Calendar calendar) {
     Timestamp timestamp = Timestamp.valueOf(getString());
+    if (calendar == null) {
+      return timestamp;
+    }
 
     // Use Calendar to apply time zone's offset
-    if (calendar != null) {
-      long milliseconds = timestamp.getTime();
-      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
-      timestamp = new Timestamp(milliseconds);
-    }
-    return timestamp;
+    long milliseconds = timestamp.getTime();
+    return new Timestamp(applyCalendarOffset(milliseconds, calendar));
+  }
+
+  private static long applyCalendarOffset(long milliseconds, Calendar calendar) {
+    return milliseconds - calendar.getTimeZone().getOffset(milliseconds);
   }
 }
