@@ -75,9 +75,10 @@ verify_output <- function(...) {
 #' @param skip_record_batch string skip message, if should skip RB test
 #' @param skip_table string skip message, if should skip Table test
 #' @param warning string expected warning from the RecordBatch and Table paths,
-#'   passed to `expect_warning()` Default is `NA`, for no warning message.
-#'   `TRUE` is a special case to mean to check for the
-#'   "not supported in Arrow; pulling data into R" message.
+#'   passed to `expect_warning()`. Special values:
+#'     * `NA` (the default) for ensuring no warning message
+#'     * `TRUE` is a special case to mean to check for the
+#'      "not supported in Arrow; pulling data into R" message.
 #' @param ... additional arguments, passed to `expect_equivalent()`
 expect_dplyr_equal <- function(expr,
                                tbl,
