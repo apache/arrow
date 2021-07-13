@@ -104,8 +104,9 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public BigDecimal getBigDecimal() {
-    final BigDecimal value = BigDecimal.valueOf(this.getLong());
-    return this.wasNull ? null : value;
+    final long value = this.getLong();
+
+    return this.wasNull ? null : BigDecimal.valueOf(value);
   }
 
   @Override
