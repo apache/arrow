@@ -373,6 +373,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
+  // TODO Maybe replace with `FlightSqlProducer#getSchema`
   private Schema buildSchema(ResultSetMetaData resultSetMetaData) throws SQLException {
     final List<Field> resultSetFields = new ArrayList<>();
 
@@ -557,8 +558,14 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     try {
       final Connection connection = getConnection(DATABASE_URI);
+      // TODO Revisit this: should not access data before `#getStream`?
       final ResultSetMetaData metaData = connection.getMetaData()
           .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes).getMetaData();
+      /*
+       * TODO This will be tested to make sure the output is same as `FlightSqlProducer#getSchema`
+       * If output is the same, replace `FlightSqlProducer#getSchema`
+       * with `JdbcToArrowUtils#jdbcToArrowSchema`.
+       */
       final Schema schema = jdbcToArrowSchema(metaData, Calendar.getInstance());
       /*
        * Do NOT prematurely close the `resultSet`!
