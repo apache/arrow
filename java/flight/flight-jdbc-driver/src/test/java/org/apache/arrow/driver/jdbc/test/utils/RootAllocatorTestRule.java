@@ -112,6 +112,15 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     return result;
   }
 
+  public Float8Vector createFloat8VectorForNullTests() {
+    final Float8Vector float8Vector = new Float8Vector("ID", this.getRootAllocator());
+    float8Vector.allocateNew(1);
+    float8Vector.setNull(0);
+    float8Vector.setValueCount(1);
+
+    return float8Vector;
+  }
+
   /**
    * Create a Float4Vector to be used in the accessor tests.
    *
