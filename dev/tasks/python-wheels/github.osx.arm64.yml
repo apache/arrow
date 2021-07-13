@@ -63,7 +63,6 @@ jobs:
       - name: Install Packages
         run: |
           arch -arm64 $VCPKG_ROOT/vcpkg install \
-            abseil \
             aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
             boost-filesystem \
             brotli \
