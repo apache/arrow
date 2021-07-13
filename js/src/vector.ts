@@ -278,3 +278,33 @@ export class Vector<T extends DataType = any> {
     })(Vector.prototype);
 }
 
+import * as dtypes from './type';
+
+export function vector(data: Int8Array): Vector<dtypes.Int8>;
+export function vector(data: Int16Array): Vector<dtypes.Int16>;
+export function vector(data: Int32Array): Vector<dtypes.Int32>;
+export function vector(data: BigInt64Array): Vector<dtypes.Int64>;
+export function vector(data: Uint8Array): Vector<dtypes.Uint8>;
+export function vector(data: Uint16Array): Vector<dtypes.Uint16>;
+export function vector(data: Uint32Array): Vector<dtypes.Uint32>;
+export function vector(data: BigUint64Array): Vector<dtypes.Uint64>;
+export function vector(data: Float32Array): Vector<dtypes.Float32>;
+export function vector(data: Float64Array): Vector<dtypes.Float64>;
+export function vector(data: any) {
+    const type = (() => {
+        switch(data.constructor) {
+            case Int8Array: return new dtypes.Int8;
+            case Int16Array: return new dtypes.Int16;
+            case Int32Array: return new dtypes.Int32;
+            case BigInt64Array: return new dtypes.Int64;
+            case Uint8Array: return new dtypes.Uint8;
+            case Uint16Array: return new dtypes.Uint16;
+            case Uint32Array: return new dtypes.Uint32;
+            case BigUint64Array: return new dtypes.Uint64;
+            case Float32Array: return new dtypes.Float32;
+            case Float64Array: return new dtypes.Float64;
+            default: throw new Error('Unrecognized input');
+        }
+    })();
+    return new Vector(type, Data.new(type, 0, data.length, 0, [, data]));
+}

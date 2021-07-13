@@ -59,7 +59,7 @@ export {
     // Column,
     Schema, Field,
     Visitor,
-    Vector,
+    Vector, vector,
     // BaseVector,
     // BinaryVector,
     // BoolVector,
