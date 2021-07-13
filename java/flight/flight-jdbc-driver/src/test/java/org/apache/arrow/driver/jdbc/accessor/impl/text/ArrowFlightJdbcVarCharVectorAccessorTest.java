@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -36,16 +35,8 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.function.IntSupplier;
 
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
-import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
-import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.util.Text;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -61,9 +52,6 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   private Accessor accessor;
   private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
   private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSSXXX");
-
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
   @Mock
   private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
@@ -81,11 +69,12 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetStringFromNullReturnNull() throws Exception {
+  public void testShouldGetStringFromNullReturnEmptyString() throws Exception {
     when(getter.get(0)).thenReturn(null);
     final String result = accessor.getString();
 
-    collector.checkThat(result, equalTo(null));
+    collector.checkThat(result, instanceOf(String.class));
+    collector.checkThat(result, equalTo(""));
   }
 
   @Test
@@ -590,7 +579,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     final byte[] result = accessor.getBytes();
 
     collector.checkThat(result, instanceOf(byte[].class));
-    collector.checkThat(result, equalTo(value.toString().getBytes(StandardCharsets.UTF_8)));
+    collector.checkThat(result, equalTo(value.toString().getBytes()));
   }
 
   @Test
@@ -601,7 +590,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (InputStream result = accessor.getAsciiStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes, StandardCharsets.UTF_8), equalTo(value.toString()));
+      collector.checkThat(new String(resultBytes), equalTo(value.toString()));
     }
   }
 
@@ -614,48 +603,6 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       char[] resultChars = toCharArray(result);
 
       collector.checkThat(new String(resultChars), equalTo(value.toString()));
-    }
-  }
-
-  @Test
-  public void testShouldGetTimeStampBeConsistentWithTimeStampAccessor() throws Exception {
-    try (TimeStampVector timeStampVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
-      ArrowFlightJdbcTimeStampVectorAccessor timeStampVectorAccessor =
-          new ArrowFlightJdbcTimeStampVectorAccessor(timeStampVector, () -> 0);
-
-      Text value = new Text(timeStampVectorAccessor.getString());
-      when(getter.get(0)).thenReturn(value);
-
-      Timestamp timestamp = accessor.getTimestamp(null);
-      collector.checkThat(timestamp, equalTo(timeStampVectorAccessor.getTimestamp(null)));
-    }
-  }
-
-  @Test
-  public void testShouldGetTimeBeConsistentWithTimeAccessor() throws Exception {
-    try (TimeMilliVector timeVector = rootAllocatorTestRule.createTimeMilliVector()) {
-      ArrowFlightJdbcTimeVectorAccessor timeVectorAccessor =
-          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0);
-
-      Text value = new Text(timeVectorAccessor.getString());
-      when(getter.get(0)).thenReturn(value);
-
-      Time time = accessor.getTime(null);
-      collector.checkThat(time, equalTo(timeVectorAccessor.getTime(null)));
-    }
-  }
-
-  @Test
-  public void testShouldGetDateBeConsistentWithDateAccessor() throws Exception {
-    try (DateMilliVector dateVector = rootAllocatorTestRule.createDateMilliVector()) {
-      ArrowFlightJdbcDateVectorAccessor dateVectorAccessor =
-          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0);
-
-      Text value = new Text(dateVectorAccessor.getString());
-      when(getter.get(0)).thenReturn(value);
-
-      Date date = accessor.getDate(null);
-      collector.checkThat(date, equalTo(dateVectorAccessor.getDate(null)));
     }
   }
 }

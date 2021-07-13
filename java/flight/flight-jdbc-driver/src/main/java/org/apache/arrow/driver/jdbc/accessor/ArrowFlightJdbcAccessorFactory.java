@@ -23,12 +23,14 @@ import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVe
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
@@ -37,6 +39,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
 
 
 /**
@@ -78,6 +81,10 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof FixedSizeBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
+    } else if (vector instanceof VarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor(((VarCharVector) vector), getCurrentRow);
+    } else if (vector instanceof LargeVarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor(((LargeVarCharVector) vector), getCurrentRow);
     }
 
     throw new UnsupportedOperationException();

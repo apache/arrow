@@ -29,7 +29,6 @@ import java.util.Calendar;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.Text;
@@ -39,10 +38,11 @@ import org.apache.arrow.vector.util.Text;
  */
 public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccessor {
 
+  private static final String EMPTY_STRING = "";
+
   /**
-   * Functional interface to help integrating VarCharVector and LargeVarCharVector.
+   * Interface to help integrating VarCharVector and LargeVarCharVector.
    */
-  @FunctionalInterface
   interface Getter {
     Text get(int index);
   }
@@ -81,10 +81,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public String getString() {
     Text value = (Text) this.getObject();
-    if (value == null) {
-      return null;
-    }
-    return value.toString();
+    return value != null ? value.toString() : EMPTY_STRING;
   }
 
   @Override
@@ -94,8 +91,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public boolean getBoolean() {
-    String value = getString();
-    return value != null && !value.isEmpty() && !value.equals("false") && !value.equals("0");
+    return ((Text) this.getObject()).getLength() > 0;
   }
 
   @Override
@@ -152,36 +148,39 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public Date getDate(Calendar calendar) {
     Date date = Date.valueOf(getString());
-    if (calendar == null) {
-      return date;
-    }
 
     // Use Calendar to apply time zone's offset
-    long milliseconds = date.getTime();
-    return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    if (calendar != null) {
+      long milliseconds = date.getTime();
+      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
+      date = new Date(milliseconds);
+    }
+    return date;
   }
 
   @Override
   public Time getTime(Calendar calendar) {
     Time time = Time.valueOf(getString());
-    if (calendar == null) {
-      return time;
-    }
 
     // Use Calendar to apply time zone's offset
-    long milliseconds = time.getTime();
-    return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    if (calendar != null) {
+      long milliseconds = time.getTime();
+      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
+      time = new Time(milliseconds);
+    }
+    return time;
   }
 
   @Override
   public Timestamp getTimestamp(Calendar calendar) {
     Timestamp timestamp = Timestamp.valueOf(getString());
-    if (calendar == null) {
-      return timestamp;
-    }
 
     // Use Calendar to apply time zone's offset
-    long milliseconds = timestamp.getTime();
-    return new Timestamp(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    if (calendar != null) {
+      long milliseconds = timestamp.getTime();
+      milliseconds -= calendar.getTimeZone().getOffset(milliseconds);
+      timestamp = new Timestamp(milliseconds);
+    }
+    return timestamp;
   }
 }
