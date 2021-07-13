@@ -38,8 +38,6 @@ import org.apache.arrow.vector.util.Text;
  */
 public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private static final String EMPTY_STRING = "";
-
   /**
    * Interface to help integrating VarCharVector and LargeVarCharVector.
    */
@@ -81,7 +79,10 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public String getString() {
     Text value = (Text) this.getObject();
-    return value != null ? value.toString() : EMPTY_STRING;
+    if (value == null) {
+      return null;
+    }
+    return value.toString();
   }
 
   @Override
