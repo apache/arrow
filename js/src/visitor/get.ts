@@ -203,7 +203,7 @@ const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
     const { valueOffsets, stride } = data;
     const child: Data<T['valueType']> = data.children[0];
     const slice = child.slice(valueOffsets[index * stride], valueOffsets[index * stride + 1]);
-    return new Vector(slice.type, [slice], new Uint32Array([0, slice.length])) as T['TValue'];
+    return new Vector([slice]) as T['TValue'];
 };
 
 /** @ignore */
@@ -269,7 +269,7 @@ const getFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number)
     const { stride } = data;
     const child: Data<T['valueType']> = data.children[0];
     const slice = child.slice(index * stride, (index + 1) * stride);
-    return new Vector(slice.type, [slice], new Uint32Array([0, slice.length]));
+    return new Vector([slice]);
 };
 
 GetVisitor.prototype.visitNull                 =                 getNull;

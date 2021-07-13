@@ -202,10 +202,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return new Vector(
-                this.schema.fields[index].type,
-                this.data.children[index]
-            ) as Vector<R>;
+            return new Vector([this.data.children[index]]) as Vector<R>;
         }
         return null;
     }

@@ -58,21 +58,21 @@ const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
 export class Vector<T extends DataType = any> {
 
-    constructor(type: T, data: Data<T>);
-    constructor(type: T, chunks?: Data<T>[], offsets?: Uint32Array);
-    constructor(type: T, dataOrChunks?: Data<T> | Data<T>[], offsets?: Uint32Array) {
-        const data = Array.isArray(dataOrChunks) ? dataOrChunks : dataOrChunks ? [dataOrChunks] : [];
-        this.type = type;
-        this.data = data;
-        switch (data.length) {
-            case 0: this._offsets = new Uint32Array([0, 0]); break;
-            case 1: this._offsets = new Uint32Array([0, data[0].length]); break;
-            default: this._offsets = offsets ?? computeChunkOffsets(data); break;
+    constructor(data: Data<T>[]) {
+        this.data = data = Array.isArray(data) ? data : [];
+        if (data.some((x) => !(x instanceof Data))) {
+            throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
-        this.stride = strideForType(type);
-        this.numChildren = type.children?.length ?? 0;
+        this.type = data[0].type;
+        switch (data.length) {
+            case 0: this._offsets = new Uint32Array([0]); break;
+            case 1: this._offsets = new Uint32Array([0, data[0].length]); break;
+            default: this._offsets = computeChunkOffsets(data); break;
+        }
+        this.stride = strideForType(this.type);
+        this.numChildren = this.type.children?.length ?? 0;
         this.length = this._offsets[this._offsets.length - 1];
-        Object.setPrototypeOf(this, vectorPrototypesByTypeId[type.typeId]);
+        Object.setPrototypeOf(this, vectorPrototypesByTypeId[this.type.typeId]);
     }
 
     protected _offsets: Uint32Array;
@@ -196,7 +196,7 @@ export class Vector<T extends DataType = any> {
      * @param others Additional Vectors to add to the end of this Vector.
      */
     public concat(...others: Vector<T>[]): Vector<T> {
-        return new Vector(this.type, this.data.concat(others.flatMap((x) => x.data)));
+        return new Vector(this.data.concat(others.flatMap((x) => x.data)));
     }
 
     /**
@@ -243,11 +243,7 @@ export class Vector<T extends DataType = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.numChildren) {
-            return new Vector(
-                this.type.children[index].type,
-                this.data.map(({ children }) => children[index]),
-                this._offsets.slice()
-            );
+            return new Vector(this.data.map(({ children }) => children[index] as Data<R>));
         }
         return null;
     }
@@ -306,5 +302,5 @@ export function vector(data: any) {
             default: throw new Error('Unrecognized input');
         }
     })();
-    return new Vector(type, Data.new(type, 0, data.length, 0, [, data]));
+    return new Vector([Data.new(type, 0, data.length, 0, [, data])]);
 }

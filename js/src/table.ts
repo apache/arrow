@@ -215,11 +215,7 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return new Vector(
-                this.schema.fields[index].type,
-                this.data.map(({ children }) => children[index]),
-                this._offsets.slice()
-            ) as Vector<R>;
+            return new Vector(this.data.map(({ children }) => children[index] as Data<R>));
         }
         return null;
     }

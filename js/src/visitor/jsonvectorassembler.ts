@@ -95,13 +95,13 @@ export class JSONVectorAssembler extends Visitor {
         return { 'DATA': [...data.values] };
     }
     public visitUtf8<T extends Utf8>(data: Data<T>) {
-        return { 'DATA': [...new Vector(data.type, data)], 'OFFSET': [...data.valueOffsets] };
+        return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
     }
     public visitBinary<T extends Binary>(data: Data<T>) {
-        return { 'DATA': [...binaryToString(new Vector(data.type, data))], OFFSET: [...data.valueOffsets] };
+        return { 'DATA': [...binaryToString(new Vector([data]))], OFFSET: [...data.valueOffsets] };
     }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>) {
-        return { 'DATA': [...binaryToString(new Vector(data.type, data))] };
+        return { 'DATA': [...binaryToString(new Vector([data]))] };
     }
     public visitDate<T extends Date_>(data: Data<T>) {
         return {

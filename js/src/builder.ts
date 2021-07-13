@@ -243,7 +243,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Flush the `Builder` and return a `Vector<T>`.
      * @returns {Vector<T>} A `Vector<T>` of the flushed values.
      */
-    public toVector() { return new Vector(this.type, this.flush()); }
+    public toVector() { return new Vector([this.flush()]); }
 
     public get ArrayType() { return this.type.ArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }

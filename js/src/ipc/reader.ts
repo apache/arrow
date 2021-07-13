@@ -357,10 +357,10 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
         const dictionary = dictionaries.get(id);
         if (isDelta || !dictionary) {
             const type = schema.dictionaries.get(id)!;
-            const data = this._loadVectors(header.data, body, [type])[0];
+            const data = this._loadVectors(header.data, body, [type]);
             return (dictionary && isDelta ? dictionary.concat(
-                new Vector(data.type, data)) :
-                new Vector(data.type, data)) as Vector;
+                new Vector(data)) :
+                new Vector(data)) as Vector;
         }
         return dictionary;
     }
