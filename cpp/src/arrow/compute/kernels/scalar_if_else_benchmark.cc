@@ -133,8 +133,7 @@ static void CaseWhenBench(benchmark::State& state) {
                                        val3->Slice(offset), val4->Slice(offset)}));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          ((len - offset) / 8 + 4 * (len - offset) * sizeof(CType)));
+  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
 }
 
 template <typename Type>
@@ -172,8 +171,7 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
                                                 val3->Slice(offset)}));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          ((len - offset) / 8 + 3 * (len - offset) * sizeof(CType)));
+  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
 }
 
 static void CaseWhenBench64(benchmark::State& state) {
