@@ -32,7 +32,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BitVector vector;
   private final NullableBitHolder holder;
-  private static final int BYTES_T0_ALLOCATE = 1 ;
+  private final int bytesToAllocate;
 
   /**
    * Constructor for the BitVectorAccessor.
@@ -44,6 +44,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
     super(currentRowSupplier);
     this.vector = vector;
     this.holder = new NullableBitHolder();
+    this.bytesToAllocate = 1;
   }
 
   @Override
@@ -85,9 +86,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
   @Override
   public long getLong() {
     vector.get(getCurrentRow(), holder);
-
-    this.wasNull = holder.isSet == 0;
-    if (this.wasNull) {
+    if (this.wasNull = holder.isSet == 0) {
       return 0;
     }
 
@@ -106,15 +105,14 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public BigDecimal getBigDecimal() {
-    final long value = this.getLong();
-
-    return this.wasNull ? null : BigDecimal.valueOf(value);
+    final BigDecimal value = BigDecimal.valueOf(this.getLong());
+    return this.wasNull ? null : value;
   }
 
   @Override
   public byte[] getBytes() {
     final byte value = (byte) getLong();
-    return this.wasNull ? null : ByteBuffer.allocate(BYTES_T0_ALLOCATE).put(value).array();
+    return this.wasNull ? null : ByteBuffer.allocate(bytesToAllocate).put(value).array();
   }
 
   @Override
