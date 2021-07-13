@@ -170,6 +170,10 @@ class JsonReport(Report):
         #TODO remove the print
         print(jsonStr)
         return jsonStr
+        
+     #TODO: this just prints to the console for now
+     self.getJsonTasks()
+
 
 
 class EmailReport(Report):
@@ -287,8 +291,6 @@ class EmailReport(Report):
         import smtplib
 
         email = self.email()
-        #TODO: this just prints to the console for now
-        self.getJsonTasks()
 
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.ehlo()
