@@ -61,7 +61,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         }
       }
     } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
-      # If we have a list and "columns_metadata" this is apply row-level metadata
+      # If we have a list and "columns_metadata" this applies row-level metadata
       # inside of a column in a dataframe.
 
       # However, if we are inside of a dataset collection, we cannot apply this
