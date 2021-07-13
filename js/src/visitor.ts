@@ -30,6 +30,9 @@ export abstract class Visitor {
     public getVisitFn(node: any, throwIfNotFound = true) {
         return getVisitFn(this, node, throwIfNotFound);
     }
+    public getVisitFnByTypeId(typeId: Type, throwIfNotFound = true) {
+        return getVisitFnByTypeId(this, typeId, throwIfNotFound);
+    }
     public visitNull            (_node: any, ..._args: any[]): any { return null; }
     public visitBool            (_node: any, ..._args: any[]): any { return null; }
     public visitInt             (_node: any, ..._args: any[]): any { return null; }
@@ -52,13 +55,17 @@ export abstract class Visitor {
 
 /** @ignore */
 function getVisitFn<T extends DataType>(visitor: Visitor, node: any, throwIfNotFound = true) {
-    let fn: any = null;
     let dtype: T['TType'] = Type.NONE;
     if      (node instanceof Data    ) dtype = inferDType(node.type as T);
     else if (node instanceof Vector  ) dtype = inferDType(node.type as T);
     else if (node instanceof DataType) dtype = inferDType(node      as T);
     else if (typeof (dtype = node) !== 'number') dtype = Type[node] as any as T['TType'];
+    return getVisitFnByTypeId(visitor, dtype, throwIfNotFound);
+}
 
+/** @ignore */
+function getVisitFnByTypeId(visitor: Visitor, dtype: Type, throwIfNotFound = true) {
+    let fn: any = null;
     switch (dtype) {
         case Type.Null:                 fn = visitor.visitNull; break;
         case Type.Bool:                 fn = visitor.visitBool; break;

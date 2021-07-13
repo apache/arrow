@@ -54,6 +54,8 @@ export interface Vector<T extends DataType = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
+const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
+
 export class Vector<T extends DataType = any> {
 
     constructor(type: T, data: Data<T>);
@@ -258,22 +260,21 @@ export class Vector<T extends DataType = any> {
         (proto as any)[Symbol.isConcatSpreadable] = true;
         Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin()));
 
-        Object
+        Object.assign(vectorPrototypesByTypeId, Object
             .keys(Type).map((T: any) => Type[T] as any)
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE)
             .reduce((prototypes, typeId) => ({
                 ...prototypes,
-                [typeId]: Object.create(Vector.prototype, {
+                [typeId]: Object.create(proto, {
                     ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
-                    ['get']: { value: wrapChunkedCall1(wrapChunkedGet(getVisitor.getVisitFn(typeId))) },
-                    ['set']: { value: wrapChunkedCall2(wrapChunkedSet(setVisitor.getVisitFn(typeId))) },
-                    ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFn(typeId)) },
-                    ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFn(typeId)) },
+                    ['get']: { value: wrapChunkedCall1(wrapChunkedGet(getVisitor.getVisitFnByTypeId(typeId))) },
+                    ['set']: { value: wrapChunkedCall2(wrapChunkedSet(setVisitor.getVisitFnByTypeId(typeId))) },
+                    ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
+                    ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
                 })
-            }), vectorPrototypesByTypeId);
+            }), {}));
 
         return 'Vector';
     })(Vector.prototype);
 }
 
-const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
