@@ -779,6 +779,41 @@ TEST_F(TestProjector, TestModZero) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_mod, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestPmod) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto field1 = field("f1", arrow::int64());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_pmod = field("pmod", arrow::int64());
+
+  // Build expression
+  auto pmod_expr = TreeExprBuilder::MakeExpression("pmod", {field0, field1}, field_pmod);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {pmod_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt64({3, 4, -3, -4}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt64({4, 3, 4, 3}, {true, true, true, true});
+  // expected output
+  auto exp_pmod = MakeArrowArrayInt64({3, 1, 1, 2}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_pmod, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
