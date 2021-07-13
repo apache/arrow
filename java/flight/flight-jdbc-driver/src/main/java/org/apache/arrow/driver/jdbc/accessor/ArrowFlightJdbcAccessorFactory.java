@@ -19,13 +19,16 @@ package org.apache.arrow.driver.jdbc.accessor;
 
 import java.util.function.IntSupplier;
 
+import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
@@ -33,6 +36,7 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarBinaryVector;
 
 
 /**
@@ -43,7 +47,7 @@ public class ArrowFlightJdbcAccessorFactory {
   /**
    * Create an accessor according to the its type.
    *
-   * @param vector an instance of an arrow vector.
+   * @param vector        an instance of an arrow vector.
    * @param getCurrentRow a supplier to check which row is being accessed.
    * @return an instance of one of the accessors.
    */
@@ -68,6 +72,12 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, getCurrentRow);
     } else if (vector instanceof Float8Vector) {
       return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
+    } else if (vector instanceof VarBinaryVector) {
+      return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow);
+    } else if (vector instanceof LargeVarBinaryVector) {
+      return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
+    } else if (vector instanceof FixedSizeBinaryVector) {
+      return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
