@@ -146,8 +146,7 @@ static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
 static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
-    DataMember("format", &StrftimeOptions::format),
-    DataMember("timezone", &StrftimeOptions::timezone));
+    DataMember("format", &StrftimeOptions::format));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -241,13 +240,9 @@ StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
 StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
 constexpr char StrptimeOptions::kTypeName[];
 
-StrftimeOptions::StrftimeOptions(std::string format, std::string timezone)
-    : FunctionOptions(internal::kStrftimeOptionsType),
-      format(std::move(format)),
-      timezone(std::move(timezone)) {
-  tz = arrow_vendored::date::locate_zone(this->timezone);
-}
-StrftimeOptions::StrftimeOptions() : StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC") {}
+StrftimeOptions::StrftimeOptions(std::string format)
+    : FunctionOptions(internal::kStrftimeOptionsType), format(std::move(format)) {}
+StrftimeOptions::StrftimeOptions() : StrftimeOptions("%Y-%m-%dT%H:%M:%SZ") {}
 constexpr char StrftimeOptions::kTypeName[];
 
 PadOptions::PadOptions(int64_t width, std::string padding)

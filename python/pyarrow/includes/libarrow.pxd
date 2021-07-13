@@ -1953,7 +1953,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CStrftimeOptions \
             "arrow::compute::StrftimeOptions"(CFunctionOptions):
-        CStrftimeOptions(c_string format, c_string timezone)
+        CStrftimeOptions(c_string format)
 
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):

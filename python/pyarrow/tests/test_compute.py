@@ -131,7 +131,7 @@ def test_option_class_equality():
         pc.TrimOptions(" "),
     ]
     if sys.platform != 'win32':
-        options.append(pc.StrftimeOptions("%Y", "UTC"))
+        options.append(pc.StrftimeOptions())
     classes = {type(option) for option in options}
     for cls in exported_option_classes:
         if cls not in classes and sys.platform != 'win32' and \
@@ -1371,25 +1371,58 @@ def test_strptime():
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="Timezone database is not available on Windows yet")
 def test_strftime():
-    ts = pd.date_range(pd.Timestamp("2018-03-10 09:00"), periods=3, freq="s")
+    from pyarrow.vendored.version import Version
+
+    def _fix_timestamp(s):
+        if Version(pd.__version__) <= Version("0.23.0"):
+            return s.to_series().replace("NaT", pd.NaT)
+        else:
+            return s
+
+    times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
-    formats = ["%Y", "%M", "%F", "%Y-%m-%d %H:%M", "%B %d, %Y, %r"]
+
+    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
+               "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
+               "%X", "%%", "%G", "%V", "%u", "%V"]
 
     for timezone in timezones:
+        ts = pd.to_datetime(times).tz_localize(timezone)
         for unit in ["s", "ms", "us", "ns"]:
             tsa = pa.array(ts, type=pa.timestamp(unit, timezone))
             for fmt in formats:
-                options = pc.StrftimeOptions(fmt, timezone)
+                options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
-
-                expected = pa.array(ts.tz_localize(
-                    "UTC").tz_convert(timezone).strftime(fmt))
+                expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
                 assert result.equals(expected)
 
-    tsa = pa.array(ts, type=pa.timestamp("s", "UTC"))
-    result = pc.strftime(tsa)
-    expected = pa.array(ts.strftime("%Y-%m-%dT%H:%M:%S"))
-    assert result.equals(expected)
+        # Default format
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        result = pc.strftime(tsa, options=pc.StrftimeOptions())
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        assert result.equals(expected)
+
+        # Pandas %S is equivalent to %S in arrow for unit="s"
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        options = pc.StrftimeOptions("%S")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%S")))
+        assert result.equals(expected)
+
+        # Pandas %S.%f is equivalent to %S in arrow for unit="us"
+        tsa = pa.array(ts, type=pa.timestamp("us", timezone))
+        options = pc.StrftimeOptions("%S")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
+        assert result.equals(expected)
+
+    for unit in ["s", "ms", "us", "ns"]:
+        tsa = pa.array(ts, type=pa.timestamp(unit))
+        for fmt in formats:
+            with pytest.raises(pa.ArrowInvalid, match="Timezone naive "
+                                                      "timestamp can not be "
+                                                      "reliably printed."):
+                pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
 
 
 def _check_datetime_components(timestamps, timezone=None):

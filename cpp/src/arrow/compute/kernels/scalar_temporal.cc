@@ -449,21 +449,28 @@ struct Nanosecond {
 // Convert timestamps to a string representation with an arbitrary format
 
 template <typename Duration>
-inline std::string get_timestamp(int64_t arg, const StrftimeOptions* options) {
-  auto zt = arrow_vendored::date::zoned_time<Duration>{options->tz,
-                                                       sys_time<Duration>(Duration{arg})};
-  return arrow_vendored::date::format(options->format, zt.get_local_time());
+inline std::string get_timestamp(int64_t arg, const time_zone* tz,
+                                 const std::string* format) {
+  auto zt =
+      arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
+  return arrow_vendored::date::format(*format, zt);
 }
 
 template <typename Duration>
 struct Strftime {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    const auto& timezone = GetInputTimezone(in);
+    if (timezone.empty()) {
+      return Status::Invalid("Timezone naive timestamp can not be reliably printed.");
+    }
+    const arrow_vendored::date::time_zone* tz =
+        arrow_vendored::date::locate_zone(timezone);
     const StrftimeOptions options = StrftimeState::Get(ctx);
 
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
       *checked_cast<StringScalar*>(out) =
-          StringScalar(get_timestamp<Duration>(in_val, &options));
+          StringScalar(get_timestamp<Duration>(in_val, tz, &options.format));
     } else {
       out->is_valid = false;
     }
@@ -471,16 +478,24 @@ struct Strftime {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    const auto& timezone = GetInputTimezone(in);
+    if (timezone.empty()) {
+      return Status::Invalid("Timezone naive timestamp can not be reliably printed.");
+    }
+    const arrow_vendored::date::time_zone* tz =
+        arrow_vendored::date::locate_zone(timezone);
     const StrftimeOptions options = StrftimeState::Get(ctx);
 
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), utf8(), &array_builder));
     StringBuilder* string_builder = checked_cast<StringBuilder*>(array_builder.get());
-    RETURN_NOT_OK(string_builder->Reserve(in.length * 30));
+    auto expected_string_size = static_cast<int64_t>(
+        ceil(get_timestamp<Duration>(0, tz, &options.format).size() * 1.1));
+    RETURN_NOT_OK(string_builder->Reserve(in.length * expected_string_size));
 
     auto visit_null = [&]() { return string_builder->AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      return string_builder->Append(get_timestamp<Duration>(arg, &options));
+      return string_builder->Append(get_timestamp<Duration>(arg, tz, &options.format));
     };
     RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
@@ -799,9 +814,7 @@ const FunctionDoc subsecond_doc{
 const FunctionDoc strftime_doc{
     "Convert timestamps to a string representation with an arbitrary format",
     ("Strftime returns a string representation with an arbitrary format.\n"
-     "Returns an error if timestamp has a defined timezone.\n"
-     "The time format string and output timezone can be set"
-     "via options."),
+     "The time format string can be set via options."),
     {"values"},
     "StrftimeOptions"};
 

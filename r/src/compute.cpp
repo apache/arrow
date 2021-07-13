@@ -302,9 +302,6 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(options["format"])) {
       out->format = cpp11::as_cpp<std::string>(options["format"]);
     }
-    if (!Rf_isNull(options["timezone"])) {
-      out->timezone = cpp11::as_cpp<std::string>(options["timezone"]);
-    }
     return out;
   }
 

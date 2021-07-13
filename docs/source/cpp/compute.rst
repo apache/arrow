@@ -1132,7 +1132,6 @@ If the input timestamps have a non-empty timezone, localized timestamp component
   See `ISO 8601 week date definition`_ for more details.
 * \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 * \(4) Output is a timestamp string. To define timestamp format :member:`StrftimeOptions::format` can be used.
-  :member:`StrftimeOptions::timezone` states the timezone in which the timestamp string will be created.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 

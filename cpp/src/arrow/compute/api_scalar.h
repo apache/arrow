@@ -181,16 +181,12 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
  public:
-  explicit StrftimeOptions(std::string format, std::string timezone);
+  explicit StrftimeOptions(std::string format);
   StrftimeOptions();
   constexpr static char const kTypeName[] = "StrftimeOptions";
 
   /// The desired format string.
   std::string format;
-  /// Timezone to output the time in.
-  std::string timezone;
-  /// Timezone to output the time in.
-  const arrow_vendored::date::time_zone* tz;
 };
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {

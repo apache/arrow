@@ -385,24 +385,34 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
 
 #ifndef _WIN32
 TEST_F(ScalarTemporalTest, Strftime) {
-  auto options_seconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
-  auto options_milliseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
-  auto options_microseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
-  auto options_nanoseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
+  auto options_default = StrftimeOptions();
+  auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z");
 
-  const char* times_seconds = R"(["1970-01-01T00:00:59", null])";
-  const char* times_milliseconds = R"(["1970-01-01T00:00:59.123", null])";
-  const char* times_microseconds = R"(["1970-01-01T00:00:59.123456", null])";
-  const char* times_nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  const char* milliseconds = R"(["1970-01-01T00:00:59.123", null])";
+  const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
 
-  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), times_seconds, utf8(),
-                   times_seconds, &options_seconds);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI), times_milliseconds, utf8(),
-                   times_milliseconds, &options_milliseconds);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO), times_microseconds, utf8(),
-                   times_microseconds, &options_microseconds);
-  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO), times_nanoseconds, utf8(),
-                   times_nanoseconds, &options_nanoseconds);
+  const char* default_seconds = R"(["1970-01-01T00:00:59Z", null])";
+  const char* string_seconds = R"(["1970-01-01T00:00:59+0000", null])";
+  const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
+  const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
+  const char* string_nanoseconds = R"(["1969-12-31T14:00:59.123456789-1000", null])";
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   default_seconds, &options_default);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   string_seconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "GMT"), milliseconds, utf8(),
+                   string_milliseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_nanoseconds, &options);
+
+  auto naive_times = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+  ASSERT_RAISES(Invalid, Strftime(naive_times, options_default));
+  ASSERT_RAISES(Invalid, Strftime(naive_times, options));
 }
 #endif
 }  // namespace compute
