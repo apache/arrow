@@ -375,7 +375,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                                    final FlightDescriptor descriptor) {
     try {
       /*
-       * Do NOT prematurely close this resource!
+       * Do NOT prematurely close the `resultSet`!
        * Should be closed upon executing `ClosePreparedStatement`.
        */
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
@@ -481,7 +481,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       final PreparedStatementContext statementContext =
           preparedStatementLoadingCache.get(cacheKey);
       /*
-       * Do NOT prematurely close this resource!
+       * Do NOT prematurely close the `resultSet`!
        * Should be closed upon executing `ClosePreparedStatement`.
        */
       final PreparedStatement preparedStatement = statementContext.getPreparedStatement();
@@ -719,9 +719,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     @Override
     public PreparedStatementContext load(PreparedStatementCacheKey key) throws SQLException {
 
-      // Ownership of the connection will be passed to the context.
+      // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
       try {
+        /*
+         * Do NOT prematurely close the `preparedStatement`!
+         * Should be closed upon executing `ClosePreparedStatement`.
+         */
         final PreparedStatement preparedStatement = connection.prepareStatement(key.getSql());
         return new PreparedStatementContext(connection, preparedStatement);
       } catch (SQLException e) {
