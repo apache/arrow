@@ -69,12 +69,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetStringFromNullReturnEmptyString() throws Exception {
+  public void testShouldGetStringFromNullReturnNull() throws Exception {
     when(getter.get(0)).thenReturn(null);
     final String result = accessor.getString();
 
-    collector.checkThat(result, instanceOf(String.class));
-    collector.checkThat(result, equalTo(""));
+    collector.checkThat(result, equalTo(null));
   }
 
   @Test
