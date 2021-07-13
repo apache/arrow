@@ -149,7 +149,10 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run r
+          # Don't set a TZ here to test that case. These builds will have the following warning in them:
+          #   System has not been booted with systemd as init system (PID 1). Can't operate.
+          #   Failed to connect to bus: Host is down
+          archery docker run -e TZ="" r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
