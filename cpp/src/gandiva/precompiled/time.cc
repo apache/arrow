@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <regex>
+
 #include "./epoch_time_point.h"
 
 extern "C" {
@@ -155,21 +157,21 @@ int weekOfCurrentYear(const EpochTimePoint& tp) {
   switch (jan1_wday) {
     // Monday
     case 1:
-    // Tuesday
+      // Tuesday
     case 2:
-    // Wednesday
+      // Wednesday
     case 3:
-    // Thursday
+      // Thursday
     case 4: {
       return (tp.TmYday() + jan1_wday - 1) / 7 + 1;
     }
-    // Friday
+      // Friday
     case 5:
-    // Saturday
+      // Saturday
     case 6: {
       return (tp.TmYday() - (8 - jan1_wday)) / 7 + 1;
     }
-    // Sunday
+      // Sunday
     case 0: {
       return (tp.TmYday() - 1) / 7 + 1;
     }
@@ -839,6 +841,161 @@ FORCE_INLINE
 gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
   return extractMillis_daytimeinterval(in) +
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
+}
+
+FORCE_INLINE
+const char* from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len) {
+  gdv_int64 year = extractYear_timestamp(in);
+  gdv_int64 month = extractMonth_timestamp(in);
+  gdv_int64 day = extractDay_timestamp(in);
+  gdv_int64 hour = extractHour_timestamp(in);
+  gdv_int64 minute = extractMinute_timestamp(in);
+  gdv_int64 second = extractSecond_timestamp(in);
+
+  static const int kTimeStampStringLen = 19;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd hh:mm:ss
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+                     ":%02" PRId64,
+                     year, month, day, hour, minute, second);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = kTimeStampStringLen;
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
+                                     const char* pattern, gdv_int32 pattern_len,
+                                     gdv_int32* out_len) {
+  gdv_int64 year = extractYear_timestamp(in);
+  gdv_int64 month = extractMonth_timestamp(in);
+  gdv_int64 day = extractDay_timestamp(in);
+  gdv_int64 hour = extractHour_timestamp(in);
+  gdv_int64 minute = extractMinute_timestamp(in);
+  gdv_int64 second = extractSecond_timestamp(in);
+  gdv_int64 millis = in % MILLIS_IN_SEC;
+
+  if (pattern_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid allowed pattern size");
+    *out_len = 0;
+    return "";
+  }
+
+  static const int kTimeStampStringLen = pattern_len;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  const char* regex_format =
+      "y{4}(-[M]{2})?+.*?(-[d]{2})?+.*?( [h]{2})?+.*?"
+      "(:[mm]{2})?+.*?(:[s]{2})?+.*?(.[s]{3})?+.*?";
+  bool match = std::regex_match(pattern, std::regex(regex_format));
+
+  if (!match) {
+    gdv_fn_context_set_error_msg(context, "Invalid allowed pattern");
+    *out_len = 0;
+    return "";
+  }
+
+  // length from pattern
+  int res = 0;
+
+  switch (pattern_len) {
+    // yyyy
+    case 4:
+      res = snprintf(char_buffer, char_buffer_length, "%04" PRId64, year);
+      break;
+    // yyyy-MM
+    case 7:
+      res = snprintf(char_buffer, char_buffer_length, "%04" PRId64 "-%02" PRId64, year,
+                     month);
+      break;
+    // yyyy-MM-dd
+    case 10:
+      res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+      break;
+    // yyyy-MM-dd hh
+    case 13:
+      res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64, year, month,
+                     day, hour);
+      break;
+    // yyyy-MM-dd hh:mm
+    case 16:
+      res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64,
+                     year, month, day, hour, minute);
+      break;
+    // yyyy-MM-dd hh:mm:ss
+    case 19:
+      res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+                     ":%02" PRId64,
+                     year, month, day, hour, minute, second);
+      break;
+    // yyyy-MM-dd hh:mm:ss.sss
+    case 23:
+      res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+                     ":%02" PRId64 ".%03" PRId64,
+                     year, month, day, hour, minute, second, millis);
+      break;
+    default:
+      gdv_fn_context_set_error_msg(context, "Unsupported format length");
+      *out_len = 0;
+      return "";
+  }
+
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = res;
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
 }
 
 // Convert the seconds since epoch argument to timestamp
