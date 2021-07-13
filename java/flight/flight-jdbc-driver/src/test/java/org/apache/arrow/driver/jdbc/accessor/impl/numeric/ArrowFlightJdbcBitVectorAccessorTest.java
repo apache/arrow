@@ -17,15 +17,15 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.is;
+import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
+import static org.hamcrest.CoreMatchers.*;
 
 import java.math.BigDecimal;
-import java.util.function.Function;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BitVector;
+import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -44,15 +44,13 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;
 
-  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
+  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
-
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() {
-    this.arrayToAssert = new boolean[] {false, true};
+
+    this.arrayToAssert = new boolean[]{false, true};
     this.vector = rootAllocatorTestRule.createBitVector();
     this.vectorWithNull = rootAllocatorTestRule.createBitVectorForNullTests();
   }
@@ -63,102 +61,178 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(Function<ArrowFlightJdbcBitVectorAccessor, T> function, T result, T resultIfFalse,
-                           BitVector vector) throws Exception {
-    accessorIterator.assertAccessorGetter(vector, function,
-        ((accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse))
+  @Test
+  public void testShouldGetBooleanMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final boolean value = accessor.getBoolean();
+          collector.checkThat(value, is(arrayToAssert[currentRow]));
+        })
     );
   }
 
   @Test
-  public void testShouldGetBooleanMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBoolean, true, false, vector);
+  public void testShouldGetByteMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final byte value = accessor.getByte();
+
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? (byte) 1 : (byte) 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetByteMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getByte, (byte) 1, (byte) 0, vector);
+  public void testShouldGetShortMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final short value = accessor.getShort();
+
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? (short) 1 : (short) 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetShortMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getShort, (short) 1, (short) 0, vector);
+  public void testShouldGetIntMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final int value = accessor.getInt();
+
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? 1 : 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetIntMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getInt, 1, 0, vector);
+  public void testShouldGetLongMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final long value = accessor.getLong();
 
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? (long) 1 : (long) 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetLongMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getLong, (long) 1, (long) 0, vector);
+  public void testShouldGetFloatMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final float value = accessor.getFloat();
 
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? (float) 1 : (float) 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetFloatMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getFloat, (float) 1, (float) 0, vector);
+  public void testShouldGetDoubleMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final double value = accessor.getDouble();
 
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? (double) 1 : (double) 0));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetDoubleMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getDouble, (double) 1, (double) 0, vector);
-
-  }
-
-  @Test
-  public void testShouldGetBytesMethodFromBitVector() throws Exception {
+  public void testShouldGetBytesMethodFromFloat4Vector() throws Exception {
     byte[][] bytes = new byte[][] {{0x0}, {0x1}};
 
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBytes, bytes[1], bytes[0], vector);
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final byte[] value = accessor.getBytes();
+
+          collector.checkThat(value, CoreMatchers.is(bytes[currentRow]));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetBytesMethodFromBitVectorFromNll() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBytes, null, null, vectorWithNull);
+  public void testShouldGetBytesMethodFromFloat4VectorFromNll() throws Exception {
+    iterateOnAccessor(vectorWithNull, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final byte[] value = accessor.getBytes();
+
+          collector.checkThat(value, nullValue());
+        })
+    );
   }
 
   @Test
-  public void testShouldGetBigDecimalMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, BigDecimal.ONE, BigDecimal.ZERO, vector);
+  public void testShouldGetBigDecimalMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final BigDecimal value = accessor.getBigDecimal();
+
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? BigDecimal.ONE : BigDecimal.ZERO));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetBigDecimalMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getBigDecimal, null, null, vectorWithNull);
+  public void testShouldGetBigDecimalMethodFromFloat4VectorFromNull() throws Exception {
+    iterateOnAccessor(vectorWithNull, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final BigDecimal value = accessor.getBigDecimal();
 
+          collector.checkThat(value, nullValue());
+        })
+    );
   }
 
   @Test
-  public void testShouldGetObjectMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, 1L, 0L, vector);
+  public void testShouldGetObjectMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final Object value = accessor.getObject();
 
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? 1L : 0L));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetObjectMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getObject, null, null, vectorWithNull);
+  public void testShouldGetObjectMethodFromFloat4VectorFromNull() throws Exception {
+    iterateOnAccessor(vectorWithNull, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final Object value = accessor.getObject();
 
+          collector.checkThat(value, nullValue());
+        })
+    );
   }
 
   @Test
-  public void testShouldGetStringMethodFromBitVector() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getString, "true", "false", vector);
+  public void testShouldGetStringMethodFromFloat4Vector() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final String value = accessor.getString();
 
+          collector.checkThat(value, is(arrayToAssert[currentRow] ? "true" : "false"));
+        })
+    );
   }
 
   @Test
-  public void testShouldGetStringMethodFromBitVectorFromNull() throws Exception {
-    iterate(ArrowFlightJdbcBitVectorAccessor::getString, null, null, vectorWithNull);
+  public void testShouldGetStringMethodFromFloat4VectorFromNull() throws Exception {
+    iterateOnAccessor(vectorWithNull, accessorSupplier,
+        ((accessor, currentRow) -> {
+          final String value = accessor.getString();
 
+          collector.checkThat(value, nullValue());
+        })
+    );
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBitVectorAccessor::getObjectClass,
-        equalTo(Long.class));
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+
+          collector.checkThat(accessor.getObjectClass(), equalTo(Long.class));
+        });
   }
 }
