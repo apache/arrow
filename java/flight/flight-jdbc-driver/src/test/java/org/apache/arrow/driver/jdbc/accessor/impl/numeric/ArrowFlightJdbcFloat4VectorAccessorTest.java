@@ -187,7 +187,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetByteMethodFromFloatingPointVector() throws Exception {
+  public void testShouldGetByteMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getByte(), is((byte) accessor.getFloat()));
@@ -294,7 +294,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToIntegerViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToIntegerViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final int result = accessor.getObject(Integer.class);
@@ -308,7 +308,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToShortViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToShortViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final short result = accessor.getObject(Short.class);
@@ -322,7 +322,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToByteViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToByteViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final byte result = accessor.getObject(Byte.class);
@@ -336,7 +336,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToLongViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToLongViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final long result = accessor.getObject(Long.class);
@@ -350,7 +350,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToFloatViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToFloatViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final float result = accessor.getObject(Float.class);
@@ -369,7 +369,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToDoubleViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToDoubleViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final double result = accessor.getObject(Double.class);
@@ -387,7 +387,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToBigDecimalViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToBigDecimalViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           if (Double.isInfinite(accessor.getFloat())) {
@@ -406,7 +406,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToBooleanViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToBooleanViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final Boolean result = accessor.getObject(Boolean.class);
@@ -420,7 +420,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToStringViaGetObjectMethodFromBaseIntVector() throws Exception {
+  public void testShouldConvertToStringViaGetObjectMethodFromFloat4Vector() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           final String result = accessor.getObject(String.class);
