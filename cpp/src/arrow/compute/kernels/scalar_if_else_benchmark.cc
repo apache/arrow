@@ -99,7 +99,7 @@ static void IfElseBench32Contiguous(benchmark::State& state) {
   return IfElseBenchContiguous<UInt32Type>(state);
 }
 
-template <typename Type>
+template <typename Type, bool outer_nulls = false>
 static void CaseWhenBench(benchmark::State& state) {
   using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
@@ -118,9 +118,10 @@ static void CaseWhenBench(benchmark::State& state) {
       rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
-  auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
-                                  key_value_metadata({{"null_probability", "0.0"}})),
-                           len);
+  auto cond = rand.ArrayOf(
+      *field("", struct_({cond_field, cond_field, cond_field}),
+             key_value_metadata({{"null_probability", outer_nulls ? "0.01" : "0.0"}})),
+      len);
   auto val1 = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto val2 = std::static_pointer_cast<ArrayType>(
@@ -178,16 +179,13 @@ static void CaseWhenBench64(benchmark::State& state) {
   return CaseWhenBench<UInt64Type>(state);
 }
 
-static void CaseWhenBench32(benchmark::State& state) {
-  return CaseWhenBench<UInt32Type>(state);
+static void CaseWhenBench64OuterNulls(benchmark::State& state) {
+  // Benchmark where both children of cond have nulls and cond itself has nulls
+  return CaseWhenBench<UInt64Type, /*outer_nulls=*/true>(state);
 }
 
 static void CaseWhenBench64Contiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<UInt64Type>(state);
-}
-
-static void CaseWhenBench32Contiguous(benchmark::State& state) {
-  return CaseWhenBenchContiguous<UInt32Type>(state);
 }
 
 BENCHMARK(IfElseBench32)->Args({elems, 0});
@@ -202,16 +200,13 @@ BENCHMARK(IfElseBench64Contiguous)->Args({elems, 0});
 BENCHMARK(IfElseBench32Contiguous)->Args({elems, 99});
 BENCHMARK(IfElseBench64Contiguous)->Args({elems, 99});
 
-BENCHMARK(CaseWhenBench32)->Args({elems, 0});
 BENCHMARK(CaseWhenBench64)->Args({elems, 0});
-
-BENCHMARK(CaseWhenBench32)->Args({elems, 99});
 BENCHMARK(CaseWhenBench64)->Args({elems, 99});
 
-BENCHMARK(CaseWhenBench32Contiguous)->Args({elems, 0});
-BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
+BENCHMARK(CaseWhenBench64OuterNulls)->Args({elems, 0});
+BENCHMARK(CaseWhenBench64OuterNulls)->Args({elems, 99});
 
-BENCHMARK(CaseWhenBench32Contiguous)->Args({elems, 99});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 99});
 
 }  // namespace compute
