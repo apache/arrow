@@ -228,7 +228,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
    * @param precision    Precision of the type.
    * @param scale        Scale of the type.
    * @return The Arrow equivalent type.
+   * @deprecated should replace.
    */
+  @Deprecated
   static ArrowType getArrowTypeFromJdbcType(int jdbcDataType, int precision, int scale) {
     switch (jdbcDataType) {
       case Types.BIT:
@@ -295,6 +297,22 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     }
   }
 
+  /**
+   * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
+   *
+   * @param data     data to listen to.
+   * @param listener the listener.
+   * @throws SQLException an exception.
+   * @throws IOException  an exception.
+   */
+  protected static void makeListen(final ResultSet data, ServerStreamListener listener)
+      throws SQLException, IOException {
+    sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE)).forEachRemaining(vector -> {
+      listener.start(vector);
+      listener.putNext();
+    });
+  }
+
   private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
     /*
     TODO
@@ -309,15 +327,11 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
-    try {
-      final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
-      sqlToArrowVectorIterator(resultSet, new RootAllocator(Long.MAX_VALUE))
-          .forEachRemaining(vector -> {
-            listener.start(vector);
-            listener.putNext();
-          });
-    } catch (Throwable t) {
-      listener.error(t);
+    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command)) {
+      makeListen(resultSet, listener);
+    } catch (SQLException | IOException | ExecutionException e) {
+      LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
+      listener.error(e);
     } finally {
       listener.completed();
       commandExecutePreparedStatementLoadingCache.invalidate(command);
@@ -374,6 +388,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   // TODO Maybe replace with `FlightSqlProducer#getSchema`
+  @Deprecated
   private Schema buildSchema(ResultSetMetaData resultSetMetaData) throws SQLException {
     final List<Field> resultSetFields = new ArrayList<>();
 
@@ -400,6 +415,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new Schema(resultSetFields);
   }
 
+  @Deprecated
   private Schema buildSchema(ParameterMetaData parameterMetaData) throws SQLException {
     final List<Field> parameterFields = new ArrayList<>();
 
@@ -581,12 +597,28 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   @Override
-  public void getStreamTables(final CommandGetTables command, final CallContext context, final Ticket ticket,
-                              final ServerStreamListener listener) {
-    /*
-     * TODO Implement this next.
-     */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+  public void getStreamTables(final CommandGetTables command, final CallContext context,
+                              final Ticket ticket, final ServerStreamListener listener) {
+    final String catalog = emptyToNull(command.getCatalog());
+    final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
+    final String tableFilterPattern = emptyToNull(command.getTableNameFilterPattern());
+
+    final ProtocolStringList protocolStringList = command.getTableTypesList();
+    final int protocolSize = protocolStringList.size();
+    final String[] tableTypes =
+        protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
+
+    try (final Connection connection = getConnection(DATABASE_URI);
+         final ResultSet resultSet =
+             connection.getMetaData()
+                 .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
+      makeListen(resultSet, listener);
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
