@@ -427,7 +427,8 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 #undef GDV_FN_CAST_VARCHAR_REAL
 
 GANDIVA_EXPORT
-int32_t gdv_fn_utf8_char_length(char c) {
+FORCE_INLINE
+inline int32_t gdv_fn_utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
   } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
@@ -442,7 +443,8 @@ int32_t gdv_fn_utf8_char_length(char c) {
 }
 
 GANDIVA_EXPORT
-void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
+FORCE_INLINE
+inline void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
@@ -603,7 +605,8 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
 // https://www.compart.com/en/unicode/category shows
 // more information about characters categories.
 GANDIVA_EXPORT
-bool gdv_fn_is_codepoint_for_space(uint32_t val) {
+FORCE_INLINE
+inline bool gdv_fn_is_codepoint_for_space(uint32_t val) {
   auto category = utf8proc_category(val);
 
   return category != utf8proc_category_t::UTF8PROC_CATEGORY_LU &&
