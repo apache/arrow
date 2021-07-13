@@ -58,7 +58,13 @@ else
 fi
 
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
-pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
+export SITE_PACKAGES_DIR=$(python -c 'import site; print(site.getsitepackages()[0])')
+pip install \
+  --target $SITE_PACKAGES_DIR \
+  --only-binary=:all: \
+  --platform ${_PYTHON_HOST_PLATFORM} \
+  -r ${source_dir}/python/requirements-wheel-build.txt \
+  delocate
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
