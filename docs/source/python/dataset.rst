@@ -521,7 +521,7 @@ instead of a filename.
     ds.write_dataset(table, dataset_root, format="parquet")
 
 The above example will create a single file named part-0.parquet in our sample_dataset
-diretory.
+directory.
 
 .. warning::
 
@@ -608,7 +608,7 @@ Configuring format-specific parameters during a write
 
 In addition to the common options shared by all formats there are also format specific options
 that are unique to a particular format.  For example, to allow truncated timestamps while writing
-parquet files:
+Parquet files:
 
 .. ipython:: python
 
