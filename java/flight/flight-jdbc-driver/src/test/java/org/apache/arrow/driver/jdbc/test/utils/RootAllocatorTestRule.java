@@ -23,6 +23,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -411,6 +412,25 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     }
 
     return result;
+  }
+
+  public BitVector createBitVector() {
+    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public BitVector createBitVectorForNullTests() {
+    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
+    bitVector.allocateNew(2);
+    bitVector.setNull(0);
+    bitVector.setValueCount(1);
+
+    return bitVector;
   }
 
   /**
