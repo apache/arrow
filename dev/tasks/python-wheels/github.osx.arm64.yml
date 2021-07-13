@@ -58,6 +58,8 @@ jobs:
 
       - name: Install Vcpkg
         shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
 
       - name: Install Packages

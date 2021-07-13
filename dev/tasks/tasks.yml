@@ -370,7 +370,7 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-  wheel-windows-{{ python_tag }}:
+  wheel-windows-{{ python_tag }}-amd64:
     ci: github
     template: python-wheels/github.windows.yml
     params:
