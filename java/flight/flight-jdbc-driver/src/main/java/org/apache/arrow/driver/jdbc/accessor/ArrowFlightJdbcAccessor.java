@@ -45,7 +45,7 @@ import java.util.function.IntSupplier;
 public abstract class ArrowFlightJdbcAccessor implements Accessor {
   private final IntSupplier currentRowSupplier;
 
-  //All the derived accessor classes should alter this as they encounter null Values
+  // All the derived accessor classes should alter this as they encounter null Values
   protected boolean wasNull;
 
   protected ArrowFlightJdbcAccessor(IntSupplier currentRowSupplier) {
@@ -56,6 +56,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     return currentRowSupplier.getAsInt();
   }
 
+  // It needs to be public so this method can be accessed when creating the complex types.
   public abstract Class<?> getObjectClass();
 
   @Override
