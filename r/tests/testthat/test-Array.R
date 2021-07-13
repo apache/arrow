@@ -279,9 +279,9 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
     no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Asia/Pyongyang") + 1:10
+    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas") + 1:10
   )
-  if (!identical(Sys.timezone(), "Asia/Pyongyang")) {
+  if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
     expect_false(any(df$no_tz == df$yes_tz))
   }
