@@ -383,7 +383,7 @@ class ArrayCompareSorter {
                  int64_t offset, const ArraySortOptions& options) {
     auto nulls_begin = PartitionNulls<ArrayType, StablePartitioner>(
         indices_begin, indices_end, values, offset);
-    if (options.order == SortOrder::Ascending) {
+    if (options.order == SortOrder("ascending")) {
       std::stable_sort(
           indices_begin, nulls_begin, [&values, &offset](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
@@ -447,7 +447,7 @@ class ArrayCountSorter {
     // first slot reserved for prefix sum
     std::vector<CounterType> counts(1 + value_range);
 
-    if (options.order == SortOrder::Ascending) {
+    if (options.order == SortOrder("ascending")) {
       VisitRawValuesInline(
           values, [&](c_type v) { ++counts[v - min_ + 1]; }, []() {});
       for (uint32_t i = 1; i <= value_range; ++i) {
@@ -630,7 +630,7 @@ class ChunkedArrayCompareSorter {
     auto nulls_begin = PartitionNulls<ArrayType, StablePartitioner>(
         indices_begin, indices_end, arrays, null_count);
     ChunkedArrayResolver resolver(arrays);
-    if (options.order == SortOrder::Ascending) {
+    if (options.order == SortOrder("ascending")) {
       std::stable_sort(indices_begin, nulls_begin, [&](uint64_t left, uint64_t right) {
         const auto chunk_left = resolver.Resolve<ArrayType>(left);
         const auto chunk_right = resolver.Resolve<ArrayType>(right);
@@ -798,7 +798,7 @@ class ChunkedArraySorter : public TypeVisitor {
     indices_end = indices_middle + right_num_non_nulls;
     const ChunkedArrayResolver left_resolver(arrays);
     const ChunkedArrayResolver right_resolver(arrays);
-    if (order == SortOrder::Ascending) {
+    if (order == SortOrder("ascending")) {
       std::merge(indices_begin, indices_middle, indices_middle, indices_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
                    const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
@@ -907,7 +907,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     // TODO This is roughly the same as ArrayCompareSorter.
     // Also, we would like to use a counting sort if possible.  This requires
     // a counting sort compatible with indirect indexing.
-    if (order_ == SortOrder::Ascending) {
+    if (order_ == SortOrder("ascending")) {
       std::stable_sort(
           indices_begin, null_likes_begin, [&](uint64_t left, uint64_t right) {
             const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
@@ -1135,7 +1135,7 @@ class MultipleKeyComparator {
     } else {
       compared = -1;
     }
-    if (order == SortOrder::Descending) {
+    if (order == SortOrder("descending")) {
       compared = -compared;
     }
     return compared;
@@ -1166,7 +1166,7 @@ class MultipleKeyComparator {
     } else {
       compared = -1;
     }
-    if (order == SortOrder::Descending) {
+    if (order == SortOrder("descending")) {
       compared = -compared;
     }
     return compared;
@@ -1261,7 +1261,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       const auto value_right = array.GetView(right);
       if (value_left != value_right) {
         bool compared = value_left < value_right;
-        if (first_sort_key.order == SortOrder::Ascending) {
+        if (first_sort_key.order == SortOrder("ascending")) {
           return compared;
         } else {
           return !compared;
@@ -1473,7 +1473,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
         return comparator.Compare(left, right, 1);
       } else {
         auto compared = value_left < value_right;
-        if (first_sort_key.order == SortOrder::Ascending) {
+        if (first_sort_key.order == SortOrder("ascending")) {
           return compared;
         } else {
           return !compared;
@@ -1597,7 +1597,7 @@ class SortIndicesMetaFunction : public MetaFunction {
  private:
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
-    SortOrder order = SortOrder::Ascending;
+    SortOrder order("ascending");
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
     }
@@ -1607,7 +1607,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
-    SortOrder order = SortOrder::Ascending;
+    SortOrder order("ascending");
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
     }

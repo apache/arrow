@@ -35,25 +35,6 @@ namespace arrow {
 
 namespace internal {
 template <>
-struct EnumTraits<compute::JoinOptions::NullHandlingBehavior>
-    : BasicEnumTraits<compute::JoinOptions::NullHandlingBehavior,
-                      compute::JoinOptions::NullHandlingBehavior::EMIT_NULL,
-                      compute::JoinOptions::NullHandlingBehavior::SKIP,
-                      compute::JoinOptions::NullHandlingBehavior::REPLACE> {
-  static std::string name() { return "JoinOptions::NullHandlingBehavior"; }
-  static std::string value_name(compute::JoinOptions::NullHandlingBehavior value) {
-    switch (value) {
-      case compute::JoinOptions::NullHandlingBehavior::EMIT_NULL:
-        return "EMIT_NULL";
-      case compute::JoinOptions::NullHandlingBehavior::SKIP:
-        return "SKIP";
-      case compute::JoinOptions::NullHandlingBehavior::REPLACE:
-        return "REPLACE";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
 struct EnumTraits<TimeUnit::type>
     : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
                       TimeUnit::type::MICRO, TimeUnit::type::NANO> {
@@ -68,32 +49,6 @@ struct EnumTraits<TimeUnit::type>
         return "MICRO";
       case TimeUnit::type::NANO:
         return "NANO";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
-struct EnumTraits<compute::CompareOperator>
-    : BasicEnumTraits<
-          compute::CompareOperator, compute::CompareOperator::EQUAL,
-          compute::CompareOperator::NOT_EQUAL, compute::CompareOperator::GREATER,
-          compute::CompareOperator::GREATER_EQUAL, compute::CompareOperator::LESS,
-          compute::CompareOperator::LESS_EQUAL> {
-  static std::string name() { return "compute::CompareOperator"; }
-  static std::string value_name(compute::CompareOperator value) {
-    switch (value) {
-      case compute::CompareOperator::EQUAL:
-        return "EQUAL";
-      case compute::CompareOperator::NOT_EQUAL:
-        return "NOT_EQUAL";
-      case compute::CompareOperator::GREATER:
-        return "GREATER";
-      case compute::CompareOperator::GREATER_EQUAL:
-        return "GREATER_EQUAL";
-      case compute::CompareOperator::LESS:
-        return "LESS";
-      case compute::CompareOperator::LESS_EQUAL:
-        return "LESS_EQUAL";
     }
     return "<INVALID>";
   }
@@ -176,6 +131,8 @@ JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_re
       null_handling(null_handling),
       null_replacement(std::move(null_replacement)) {}
 constexpr char JoinOptions::kTypeName[];
+constexpr const char* JoinOptions::NullHandlingBehavior::kName;
+constexpr const char* JoinOptions::NullHandlingBehavior::kValues;
 
 MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
     : FunctionOptions(internal::kMatchSubstringOptionsType),
@@ -265,6 +222,8 @@ MakeStructOptions::MakeStructOptions(
       field_names(std::move(n)),
       field_nullability(std::move(r)),
       field_metadata(std::move(m)) {}
+
+CompareOptions::CompareOptions() : CompareOptions(CompareOperator("equal")) {}
 
 MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
     : FunctionOptions(internal::kMakeStructOptionsType),
@@ -424,25 +383,27 @@ SCALAR_EAGER_BINARY(KleeneAndNot, "and_not_kleene")
 Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
                       ExecContext* ctx) {
   std::string func_name;
-  switch (options.op) {
-    case CompareOperator::EQUAL:
+  switch (*options.op) {
+    case* CompareOperator("equal"):
       func_name = "equal";
       break;
-    case CompareOperator::NOT_EQUAL:
+    case* CompareOperator("not_equal"):
       func_name = "not_equal";
       break;
-    case CompareOperator::GREATER:
+    case* CompareOperator("greater"):
       func_name = "greater";
       break;
-    case CompareOperator::GREATER_EQUAL:
+    case* CompareOperator("greater_equal"):
       func_name = "greater_equal";
       break;
-    case CompareOperator::LESS:
+    case* CompareOperator("less"):
       func_name = "less";
       break;
-    case CompareOperator::LESS_EQUAL:
+    case* CompareOperator("less_equal"):
       func_name = "less_equal";
       break;
+    default:
+      return Status::Invalid("Invalid comparison operator ", *options.op);
   }
   return CallFunction(func_name, {left, right}, nullptr, ctx);
 }

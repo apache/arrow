@@ -30,6 +30,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/enum.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
@@ -40,29 +41,12 @@ struct Scalar;
 struct StructScalar;
 using ::arrow::internal::checked_cast;
 
-namespace internal {
-template <>
-struct EnumTraits<compute::SortOrder>
-    : BasicEnumTraits<compute::SortOrder, compute::SortOrder::Ascending,
-                      compute::SortOrder::Descending> {
-  static std::string name() { return "SortOrder"; }
-  static std::string value_name(compute::SortOrder value) {
-    switch (value) {
-      case compute::SortOrder::Ascending:
-        return "Ascending";
-      case compute::SortOrder::Descending:
-        return "Descending";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
 namespace compute {
 namespace internal {
 
 using arrow::internal::EnumTraits;
 using arrow::internal::has_enum_traits;
+using arrow::internal::is_reflection_enum;
 
 template <typename Enum, typename CType = typename std::underlying_type<Enum>::type>
 Result<Enum> ValidateEnumValue(CType raw) {
@@ -115,6 +99,11 @@ template <typename T>
 static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
     const T value) {
   return EnumTraits<T>::value_name(value);
+}
+
+template <typename Raw>
+static inline std::string GenericToString(::arrow::internal::EnumType<Raw> value) {
+  return value.ToString();
 }
 
 template <typename T>
@@ -180,16 +169,6 @@ static inline std::string GenericToString(const std::vector<T>& value) {
   return ss.str();
 }
 
-static inline std::string GenericToString(SortOrder value) {
-  switch (value) {
-    case SortOrder::Ascending:
-      return "Ascending";
-    case SortOrder::Descending:
-      return "Descending";
-  }
-  return "<INVALID SORT ORDER>";
-}
-
 static inline std::string GenericToString(const std::vector<SortKey>& value) {
   std::stringstream ss;
   ss << '[';
@@ -249,6 +228,12 @@ GenericTypeSingleton() {
 }
 
 template <typename T>
+static inline enable_if_t<is_reflection_enum<T>::value, std::shared_ptr<DataType>>
+GenericTypeSingleton() {
+  return int32();
+}
+
+template <typename T>
 static inline enable_if_same<T, std::shared_ptr<const KeyValueMetadata>,
                              std::shared_ptr<DataType>>
 GenericTypeSingleton() {
@@ -287,6 +272,12 @@ template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
   return GenericToScalar(static_cast<CType>(value));
+}
+
+template <typename Raw>
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
+    const ::arrow::internal::EnumType<Raw> value) {
+  return std::make_shared<Int32Scalar>(*value);
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& value) {
@@ -382,6 +373,16 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<typename EnumTraits<T>::CType>(value));
   return ValidateEnumValue<T>(raw_val);
+}
+
+template <typename T>
+static inline enable_if_t<is_reflection_enum<T>::value, Result<T>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  const int32_t raw_value = checked_cast<const Int32Scalar&>(*value).value;
+  if (T val{raw_value}) {
+    return val;
+  }
+  return Status::Invalid("Invalid value ", raw_value, " for enum ", T::kName);
 }
 
 template <typename T, typename U>

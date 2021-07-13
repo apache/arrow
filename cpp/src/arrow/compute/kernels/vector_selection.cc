@@ -67,7 +67,7 @@ int64_t GetFilterOutputSize(const ArrayData& filter,
     BinaryBitBlockCounter bit_counter(filter.buffers[1]->data(), filter.offset,
                                       filter_is_valid, filter.offset, filter.length);
     int64_t position = 0;
-    if (null_selection == FilterOptions::EMIT_NULL) {
+    if (null_selection == FilterOptions::NullSelectionBehavior("emit_null")) {
       while (position < filter.length) {
         BitBlockCount block = bit_counter.NextOrNotWord();
         output_size += block.popcount;
@@ -100,7 +100,8 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
   const uint8_t* filter_is_valid =
       have_filter_nulls ? filter.buffers[0]->data() : nullptr;
 
-  if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
+  if (have_filter_nulls &&
+      null_selection == FilterOptions::NullSelectionBehavior("emit_null")) {
     // Most complex case: the filter may have nulls and we don't drop them.
     // The logic is ternary:
     // - filter is null: emit null
@@ -165,7 +166,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
   if (have_filter_nulls) {
     // The filter may have nulls, so we scan the validity bitmap and the filter
     // data bitmap together.
-    DCHECK_EQ(null_selection, FilterOptions::DROP);
+    DCHECK_EQ(null_selection, FilterOptions::NullSelectionBehavior("drop"));
 
     // The position relative to the start of the filter
     T position = 0;
@@ -646,7 +647,8 @@ class PrimitiveFilterImpl {
                    out_is_valid_, out_offset_ + out_position_);
         WriteValueSegment(in_position, filter_block.length);
         in_position += filter_block.length;
-      } else if (filter_block.NoneSet() && null_selection_ == FilterOptions::DROP) {
+      } else if (filter_block.NoneSet() &&
+                 null_selection_ == FilterOptions::NullSelectionBehavior("drop")) {
         // For this exceedingly common case in low-selectivity filters we can
         // skip further analysis of the data and move on to the next block.
         in_position += filter_block.length;
@@ -662,7 +664,7 @@ class PrimitiveFilterImpl {
               }
               ++in_position;
             }
-          } else if (null_selection_ == FilterOptions::DROP) {
+          } else if (null_selection_ == FilterOptions::NullSelectionBehavior("drop")) {
             // If any values are selected, they ARE NOT null
             for (int64_t i = 0; i < filter_block.length; ++i) {
               if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
@@ -698,7 +700,7 @@ class PrimitiveFilterImpl {
               }
               ++in_position;
             }
-          } else if (null_selection_ == FilterOptions::DROP) {
+          } else if (null_selection_ == FilterOptions::NullSelectionBehavior("drop")) {
             // If any values are selected, they ARE NOT null
             for (int64_t i = 0; i < filter_block.length; ++i) {
               if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
@@ -797,7 +799,8 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+      (null_selection == FilterOptions::NullSelectionBehavior("drop") ||
+       filter.null_count == 0)) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
@@ -942,7 +945,8 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
     BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
     BitBlockCount values_valid_block = values_valid_counter.NextWord();
     BitBlockCount filter_block = filter_counter.NextWord();
-    if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
+    if (filter_block.NoneSet() &&
+        null_selection == FilterOptions::NullSelectionBehavior("drop")) {
       // For this exceedingly common case in low-selectivity filters we can
       // skip further analysis of the data and move on to the next block.
       in_position += filter_block.length;
@@ -1005,7 +1009,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
     } else {  // !filter_valid_block.AllSet()
       // Some of the filter values are null, so we have to handle the DROP
       // versus EMIT_NULL null selection behavior.
-      if (null_selection == FilterOptions::DROP) {
+      if (null_selection == FilterOptions::NullSelectionBehavior("drop")) {
         // Filter null values are treated as false.
         if (values_valid_block.AllSet()) {
           for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
@@ -1092,7 +1096,8 @@ Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+      (null_selection == FilterOptions::NullSelectionBehavior("drop") ||
+       filter.null_count == 0)) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
@@ -1350,7 +1355,8 @@ struct Selection {
       BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
       BitBlockCount values_valid_block = values_valid_counter.NextWord();
       BitBlockCount filter_block = filter_counter.NextWord();
-      if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
+      if (filter_block.NoneSet() &&
+          null_selection == FilterOptions::NullSelectionBehavior("drop")) {
         // For this exceedingly common case in low-selectivity filters we can
         // skip further analysis of the data and move on to the next block.
         in_position += filter_block.length;
@@ -1395,7 +1401,7 @@ struct Selection {
       } else {  // !filter_valid_block.AllSet()
         // Some of the filter values are null, so we have to handle the DROP
         // versus EMIT_NULL null selection behavior.
-        if (null_selection == FilterOptions::DROP) {
+        if (null_selection == FilterOptions::NullSelectionBehavior("drop")) {
           // Filter null values are treated as false.
           for (int64_t i = 0; i < filter_block.length; ++i) {
             if (BitUtil::GetBit(filter_is_valid, filter_offset + in_position) &&

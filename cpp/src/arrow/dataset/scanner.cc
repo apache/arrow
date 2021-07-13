@@ -1026,14 +1026,14 @@ Result<std::shared_ptr<Table>> Scanner::TakeRows(const Array& indices) {
   {
     ARROW_ASSIGN_OR_RAISE(
         auto sort_indices,
-        compute::SortIndices(*original_indices, compute::SortOrder::Ascending, &ctx));
+        compute::SortIndices(*original_indices, compute::SortOrder("ascending"), &ctx));
     ARROW_ASSIGN_OR_RAISE(original_indices_ptr,
                           compute::Take(*original_indices, *sort_indices,
                                         compute::TakeOptions::Defaults(), &ctx));
     original_indices = original_indices_ptr.get();
     ARROW_ASSIGN_OR_RAISE(
         unsort_indices,
-        compute::SortIndices(*sort_indices, compute::SortOrder::Ascending, &ctx));
+        compute::SortIndices(*sort_indices, compute::SortOrder("ascending"), &ctx));
   }
 
   RecordBatchVector out_batches;

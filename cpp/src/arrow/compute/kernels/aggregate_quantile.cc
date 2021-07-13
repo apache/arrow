@@ -34,37 +34,37 @@ using QuantileState = internal::OptionsWrapper<QuantileOptions>;
 // output is at some input data point, not interpolated
 bool IsDataPoint(const QuantileOptions& options) {
   // some interpolation methods return exact data point
-  return options.interpolation == QuantileOptions::LOWER ||
-         options.interpolation == QuantileOptions::HIGHER ||
-         options.interpolation == QuantileOptions::NEAREST;
+  return options.interpolation == QuantileOptions::Interpolation("lower") ||
+         options.interpolation == QuantileOptions::Interpolation("higher") ||
+         options.interpolation == QuantileOptions::Interpolation("nearest");
 }
 
 // quantile to exact datapoint index (IsDataPoint == true)
 uint64_t QuantileToDataPoint(size_t length, double q,
-                             enum QuantileOptions::Interpolation interpolation) {
+                             QuantileOptions::Interpolation interpolation) {
   const double index = (length - 1) * q;
   uint64_t datapoint_index = static_cast<uint64_t>(index);
   const double fraction = index - datapoint_index;
 
-  if (interpolation == QuantileOptions::LINEAR ||
-      interpolation == QuantileOptions::MIDPOINT) {
+  if (interpolation == QuantileOptions::Interpolation("linear") ||
+      interpolation == QuantileOptions::Interpolation("midpoint")) {
     DCHECK_EQ(fraction, 0);
   }
 
   // convert NEAREST interpolation method to LOWER or HIGHER
-  if (interpolation == QuantileOptions::NEAREST) {
+  if (interpolation == QuantileOptions::Interpolation("nearest")) {
     if (fraction < 0.5) {
-      interpolation = QuantileOptions::LOWER;
+      interpolation = QuantileOptions::Interpolation("lower");
     } else if (fraction > 0.5) {
-      interpolation = QuantileOptions::HIGHER;
+      interpolation = QuantileOptions::Interpolation("higher");
     } else {
       // round 0.5 to nearest even number, similar to numpy.around
-      interpolation =
-          (datapoint_index & 1) ? QuantileOptions::HIGHER : QuantileOptions::LOWER;
+      interpolation = (datapoint_index & 1) ? QuantileOptions::Interpolation("higher")
+                                            : QuantileOptions::Interpolation("lower");
     }
   }
 
-  if (interpolation == QuantileOptions::HIGHER && fraction != 0) {
+  if (interpolation == QuantileOptions::Interpolation("higher") && fraction != 0) {
     ++datapoint_index;
   }
 
@@ -148,8 +148,7 @@ struct SortQuantiler {
 
   // return quantile located exactly at some input data point
   CType GetQuantileAtDataPoint(std::vector<CType, Allocator>& in, uint64_t* last_index,
-                               double q,
-                               enum QuantileOptions::Interpolation interpolation) {
+                               double q, QuantileOptions::Interpolation interpolation) {
     const uint64_t datapoint_index = QuantileToDataPoint(in.size(), q, interpolation);
 
     if (datapoint_index != *last_index) {
@@ -164,8 +163,7 @@ struct SortQuantiler {
 
   // return quantile interpolated from adjacent input data points
   double GetQuantileByInterp(std::vector<CType, Allocator>& in, uint64_t* last_index,
-                             double q,
-                             enum QuantileOptions::Interpolation interpolation) {
+                             double q, QuantileOptions::Interpolation interpolation) {
     const double index = (in.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
     const double fraction = index - lower_index;
@@ -193,10 +191,10 @@ struct SortQuantiler {
 
     const double higher_value = static_cast<double>(in[higher_index]);
 
-    if (interpolation == QuantileOptions::LINEAR) {
+    if (interpolation == QuantileOptions::Interpolation("linear")) {
       // more stable than naive linear interpolation
       return fraction * higher_value + (1 - fraction) * lower_value;
-    } else if (interpolation == QuantileOptions::MIDPOINT) {
+    } else if (interpolation == QuantileOptions::Interpolation("midpoint")) {
       return lower_value / 2 + higher_value / 2;
     } else {
       DCHECK(false);
@@ -283,7 +281,7 @@ struct CountQuantiler {
 
   // return quantile located exactly at some input data point
   CType GetQuantileAtDataPoint(int64_t in_length, AdjacentBins* bins, double q,
-                               enum QuantileOptions::Interpolation interpolation) {
+                               QuantileOptions::Interpolation interpolation) {
     const uint64_t datapoint_index = QuantileToDataPoint(in_length, q, interpolation);
     while (datapoint_index >= bins->total_count &&
            static_cast<size_t>(bins->left_index) < this->counts.size() - 1) {
@@ -296,7 +294,7 @@ struct CountQuantiler {
 
   // return quantile interpolated from adjacent input data points
   double GetQuantileByInterp(int64_t in_length, AdjacentBins* bins, double q,
-                             enum QuantileOptions::Interpolation interpolation) {
+                             QuantileOptions::Interpolation interpolation) {
     const double index = (in_length - 1) * q;
     const uint64_t index_floor = static_cast<uint64_t>(index);
     const double fraction = index - index_floor;
@@ -327,9 +325,9 @@ struct CountQuantiler {
     DCHECK_GT(this->counts[bins->right_index], 0);
     const double higher_value = static_cast<double>(bins->right_index + this->min);
 
-    if (interpolation == QuantileOptions::LINEAR) {
+    if (interpolation == QuantileOptions::Interpolation("linear")) {
       return fraction * higher_value + (1 - fraction) * lower_value;
-    } else if (interpolation == QuantileOptions::MIDPOINT) {
+    } else if (interpolation == QuantileOptions::Interpolation("midpoint")) {
       return lower_value / 2 + higher_value / 2;
     } else {
       DCHECK(false);

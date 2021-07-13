@@ -27,6 +27,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/enum.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -57,16 +58,17 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
 class ARROW_EXPORT JoinOptions : public FunctionOptions {
  public:
   /// How to handle null values. (A null separator always results in a null output.)
-  enum NullHandlingBehavior {
-    /// A null in any input results in a null in the output.
-    EMIT_NULL,
-    /// Nulls in inputs are skipped.
-    SKIP,
-    /// Nulls in inputs are replaced with the replacement string.
-    REPLACE,
+  /// emit_null: a null in any input results in a null in the output.
+  /// skip: nulls in inputs are skipped.
+  /// replace: nulls in inputs are replaced with the replacement string.
+  struct NullHandlingBehavior : public ::arrow::internal::EnumType<NullHandlingBehavior> {
+    using EnumType::EnumType;
+    static constexpr const char* kName = "NullHandlingBehavior";
+    static constexpr const char* kValues = "emit_null skip replace";
   };
-  explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
-                       std::string null_replacement = "");
+  explicit JoinOptions(
+      NullHandlingBehavior null_handling = NullHandlingBehavior("emit_null"),
+      std::string null_replacement = "");
   constexpr static char const kTypeName[] = "JoinOptions";
   static JoinOptions Defaults() { return JoinOptions(); }
   NullHandlingBehavior null_handling;
@@ -209,19 +211,26 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   int64_t start, stop, step;
 };
 
-enum CompareOperator : int8_t {
-  EQUAL,
-  NOT_EQUAL,
-  GREATER,
-  GREATER_EQUAL,
-  LESS,
-  LESS_EQUAL,
+/// A choice of comparison operator.
+///
+/// Valid operators:
+/// - equal
+/// - not_equal
+/// - greater
+/// - greater_equal
+/// - less
+/// - less_equal
+struct CompareOperator : public ::arrow::internal::EnumType<CompareOperator> {
+  using EnumType::EnumType;
+  static constexpr const char* kName = "CompareOperator";
+  static constexpr const char* kValues =
+      "equal not_equal greater greater_equal less less_equal";
 };
 
 struct ARROW_EXPORT CompareOptions {
   explicit CompareOptions(CompareOperator op) : op(op) {}
-  CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
-  enum CompareOperator op;
+  CompareOptions();
+  CompareOperator op;
 };
 
 class ARROW_EXPORT MakeStructOptions : public FunctionOptions {

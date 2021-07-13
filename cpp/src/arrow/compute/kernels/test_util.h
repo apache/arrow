@@ -60,10 +60,7 @@ std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
 }
 
 inline std::string CompareOperatorToFunctionName(CompareOperator op) {
-  static std::string function_names[] = {
-      "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
-  };
-  return function_names[op];
+  return op.ToString();
 }
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,

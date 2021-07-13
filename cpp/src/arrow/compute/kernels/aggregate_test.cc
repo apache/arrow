@@ -2006,9 +2006,10 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 
-  std::vector<enum QuantileOptions::Interpolation> interpolations_ = {
-      QuantileOptions::LINEAR, QuantileOptions::LOWER, QuantileOptions::HIGHER,
-      QuantileOptions::NEAREST, QuantileOptions::MIDPOINT};
+  std::vector<QuantileOptions::Interpolation> interpolations_ = {
+      QuantileOptions::Interpolation("linear"), QuantileOptions::Interpolation("lower"),
+      QuantileOptions::Interpolation("higher"), QuantileOptions::Interpolation("nearest"),
+      QuantileOptions::Interpolation("midpoint")};
 };
 
 #define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
@@ -2249,7 +2250,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
     // linear interpolated exact quantile as reference
     std::vector<std::vector<Datum>> exact =
-        NaiveQuantile(*chunked, quantiles, {QuantileOptions::LINEAR});
+        NaiveQuantile(*chunked, quantiles, {QuantileOptions::Interpolation("linear")});
     const double* approx = out_array->data()->GetValues<double>(1);
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
@@ -2260,13 +2261,13 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
   std::vector<std::vector<Datum>> NaiveQuantile(
       const std::shared_ptr<Array>& array, const std::vector<double>& quantiles,
-      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
+      const std::vector<QuantileOptions::Interpolation>& interpolations) {
     return NaiveQuantile(ChunkedArray(array), quantiles, interpolations);
   }
 
   std::vector<std::vector<Datum>> NaiveQuantile(
       const ChunkedArray& chunked, const std::vector<double>& quantiles,
-      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
+      const std::vector<QuantileOptions::Interpolation>& interpolations) {
     // copy and sort input chunked array
     int64_t index = 0;
     std::vector<CType> input(chunked.length() - chunked.null_count());
@@ -2295,17 +2296,17 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
   }
 
   Datum GetQuantile(const std::vector<CType>& input, double q,
-                    enum QuantileOptions::Interpolation interp) {
+                    QuantileOptions::Interpolation interp) {
     const double index = (input.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
     const double fraction = index - lower_index;
 
-    switch (interp) {
-      case QuantileOptions::LOWER:
+    switch (*interp) {
+      case* QuantileOptions::Interpolation("lower"):
         return Datum(input[lower_index]);
-      case QuantileOptions::HIGHER:
+      case* QuantileOptions::Interpolation("higher"):
         return Datum(input[lower_index + (fraction != 0)]);
-      case QuantileOptions::NEAREST:
+      case* QuantileOptions::Interpolation("nearest"):
         if (fraction < 0.5) {
           return Datum(input[lower_index]);
         } else if (fraction > 0.5) {
@@ -2313,14 +2314,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
         } else {
           return Datum(input[lower_index + (lower_index & 1)]);
         }
-      case QuantileOptions::LINEAR:
+      case* QuantileOptions::Interpolation("linear"):
         if (fraction == 0) {
           return Datum(input[lower_index] * 1.0);
         } else {
           return Datum(fraction * input[lower_index + 1] +
                        (1 - fraction) * input[lower_index]);
         }
-      case QuantileOptions::MIDPOINT:
+      case* QuantileOptions::Interpolation("midpoint"):
         if (fraction == 0) {
           return Datum(input[lower_index] * 1.0);
         } else {

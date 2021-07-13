@@ -1813,14 +1813,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
-    enum CJoinNullHandlingBehavior \
-            "arrow::compute::JoinOptions::NullHandlingBehavior":
-        CJoinNullHandlingBehavior_EMIT_NULL \
-            "arrow::compute::JoinOptions::EMIT_NULL"
-        CJoinNullHandlingBehavior_SKIP \
-            "arrow::compute::JoinOptions::SKIP"
-        CJoinNullHandlingBehavior_REPLACE \
-            "arrow::compute::JoinOptions::REPLACE"
+    cdef cppclass CJoinNullHandlingBehavior\
+            " arrow::compute::JoinOptions::NullHandlingBehavior":
+        CJoinNullHandlingBehavior()
+        CJoinNullHandlingBehavior(c_string repr)
+        c_bool operator bool() const
 
     cdef cppclass CJoinOptions \
             "arrow::compute::JoinOptions"(CFunctionOptions):
@@ -1904,12 +1901,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_float_truncate
         c_bool allow_invalid_utf8
 
-    enum CFilterNullSelectionBehavior \
+    cdef cppclass CFilterNullSelectionBehavior \
             "arrow::compute::FilterOptions::NullSelectionBehavior":
-        CFilterNullSelectionBehavior_DROP \
-            "arrow::compute::FilterOptions::DROP"
-        CFilterNullSelectionBehavior_EMIT_NULL \
-            "arrow::compute::FilterOptions::EMIT_NULL"
+        CFilterNullSelectionBehavior()
+        CFilterNullSelectionBehavior(c_string repr)
+        c_bool operator bool() const
 
     cdef cppclass CFilterOptions \
             " arrow::compute::FilterOptions"(CFunctionOptions):
@@ -1917,12 +1913,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFilterOptions(CFilterNullSelectionBehavior null_selection)
         CFilterNullSelectionBehavior null_selection_behavior
 
-    enum CDictionaryEncodeNullEncodingBehavior \
+    cdef cppclass CDictionaryEncodeNullEncodingBehavior \
             "arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior":
-        CDictionaryEncodeNullEncodingBehavior_ENCODE \
-            "arrow::compute::DictionaryEncodeOptions::ENCODE"
-        CDictionaryEncodeNullEncodingBehavior_MASK \
-            "arrow::compute::DictionaryEncodeOptions::MASK"
+        CDictionaryEncodeNullEncodingBehavior()
+        CDictionaryEncodeNullEncodingBehavior(c_string repr)
+        c_bool operator bool() const
 
     cdef cppclass CDictionaryEncodeOptions \
             "arrow::compute::DictionaryEncodeOptions"(CFunctionOptions):
@@ -1976,11 +1971,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMakeStructOptions(vector[c_string] field_names)
         vector[c_string] field_names
 
-    ctypedef enum CSortOrder" arrow::compute::SortOrder":
-        CSortOrder_Ascending \
-            "arrow::compute::SortOrder::Ascending"
-        CSortOrder_Descending \
-            "arrow::compute::SortOrder::Descending"
+    cdef cppclass CSortOrder" arrow::compute::SortOrder":
+        CSortOrder()
+        CSortOrder(c_string repr)
+        c_bool operator bool() const
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
@@ -1997,13 +1991,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOptions(vector[CSortKey] sort_keys)
         vector[CSortKey] sort_keys
 
-    enum CQuantileInterp \
-            "arrow::compute::QuantileOptions::Interpolation":
-        CQuantileInterp_LINEAR   "arrow::compute::QuantileOptions::LINEAR"
-        CQuantileInterp_LOWER    "arrow::compute::QuantileOptions::LOWER"
-        CQuantileInterp_HIGHER   "arrow::compute::QuantileOptions::HIGHER"
-        CQuantileInterp_NEAREST  "arrow::compute::QuantileOptions::NEAREST"
-        CQuantileInterp_MIDPOINT "arrow::compute::QuantileOptions::MIDPOINT"
+    cdef cppclass CQuantileInterp\
+            " arrow::compute::QuantileOptions::Interpolation":
+        CQuantileInterp()
+        CQuantileInterp(c_string repr)
+        c_bool operator bool() const
 
     cdef cppclass CQuantileOptions \
             "arrow::compute::QuantileOptions"(CFunctionOptions):

@@ -147,7 +147,20 @@ def test_option_class_equality():
         assert option1 != option2
 
     assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1)"
-    assert repr(pc.ArraySortOptions()) == "ArraySortOptions(order=Ascending)"
+    assert repr(pc.ArraySortOptions()) == "ArraySortOptions(order=ascending)"
+
+
+def test_option_class_validation():
+    with pytest.raises(ValueError,
+                       match='"crash" is not a valid null_handling'):
+        pc.JoinOptions(null_handling='crash')
+    with pytest.raises(ValueError, match='"random" is not a valid order'):
+        pc.ArraySortOptions(order='random')
+    with pytest.raises(ValueError, match='"random" is not a valid order'):
+        pc.SortOptions(sort_keys=[("foo", "random")])
+    with pytest.raises(ValueError,
+                       match='"just guess" is not a valid interpolation'):
+        pc.QuantileOptions(interpolation='just guess')
 
 
 def test_list_functions():
@@ -1584,7 +1597,7 @@ def test_quantile():
 
     with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
         pc.quantile(arr, q=1.1)
-    with pytest.raises(ValueError, match="'zzz' is not a valid interpolation"):
+    with pytest.raises(ValueError, match='"zzz" is not a valid interpolation'):
         pc.quantile(arr, interpolation='zzz')
 
 

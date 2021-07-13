@@ -25,33 +25,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-namespace internal {
-template <>
-struct EnumTraits<compute::QuantileOptions::Interpolation>
-    : BasicEnumTraits<compute::QuantileOptions::Interpolation,
-                      compute::QuantileOptions::LINEAR, compute::QuantileOptions::LOWER,
-                      compute::QuantileOptions::HIGHER, compute::QuantileOptions::NEAREST,
-                      compute::QuantileOptions::MIDPOINT> {
-  static std::string name() { return "QuantileOptions::Interpolation"; }
-  static std::string value_name(compute::QuantileOptions::Interpolation value) {
-    switch (value) {
-      case compute::QuantileOptions::LINEAR:
-        return "LINEAR";
-      case compute::QuantileOptions::LOWER:
-        return "LOWER";
-      case compute::QuantileOptions::HIGHER:
-        return "HIGHER";
-      case compute::QuantileOptions::NEAREST:
-        return "NEAREST";
-      case compute::QuantileOptions::MIDPOINT:
-        return "MIDPOINT";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -93,15 +66,17 @@ VarianceOptions::VarianceOptions(int ddof)
     : FunctionOptions(internal::kVarianceOptionsType), ddof(ddof) {}
 constexpr char VarianceOptions::kTypeName[];
 
-QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation)
+QuantileOptions::QuantileOptions(double q, Interpolation interpolation)
     : FunctionOptions(internal::kQuantileOptionsType),
       q{q},
       interpolation{interpolation} {}
-QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation interpolation)
+QuantileOptions::QuantileOptions(std::vector<double> q, Interpolation interpolation)
     : FunctionOptions(internal::kQuantileOptionsType),
       q{std::move(q)},
       interpolation{interpolation} {}
 constexpr char QuantileOptions::kTypeName[];
+constexpr const char* QuantileOptions::Interpolation::kName;
+constexpr const char* QuantileOptions::Interpolation::kValues;
 
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size)
     : FunctionOptions(internal::kTDigestOptionsType),

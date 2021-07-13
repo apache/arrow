@@ -149,8 +149,11 @@ struct EnumType : EnumTypeTag {
 
   int index = -1;
 
-  friend inline void PrintTo(const EnumType& e, std::ostream* os) {
-    PrintTo(e.ToString(), os);
+  friend inline void PrintTo(const EnumType& e, std::ostream* os) { *os << e.ToString(); }
+
+  friend inline std::ostream& operator<<(std::ostream& os, const EnumType<Raw>& e) {
+    PrintTo(e, &os);
+    return os;
   }
 };
 

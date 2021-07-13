@@ -185,7 +185,8 @@ class DictEncodeAction final : public ActionBase {
 
   template <class Index>
   void ObserveNullFound(Index index) {
-    if (encode_options_.null_encoding_behavior == DictionaryEncodeOptions::MASK) {
+    if (encode_options_.null_encoding_behavior ==
+        DictionaryEncodeOptions::NullEncodingBehavior("mask")) {
       indices_builder_.UnsafeAppendNull();
     } else {
       indices_builder_.UnsafeAppend(index);
@@ -208,7 +209,8 @@ class DictEncodeAction final : public ActionBase {
   }
 
   bool ShouldEncodeNulls() {
-    return encode_options_.null_encoding_behavior == DictionaryEncodeOptions::ENCODE;
+    return encode_options_.null_encoding_behavior ==
+           DictionaryEncodeOptions::NullEncodingBehavior("encode");
   }
 
   Status Flush(Datum* out) {

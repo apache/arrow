@@ -38,41 +38,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace internal {
-using compute::DictionaryEncodeOptions;
-using compute::FilterOptions;
-template <>
-struct EnumTraits<FilterOptions::NullSelectionBehavior>
-    : BasicEnumTraits<FilterOptions::NullSelectionBehavior, FilterOptions::DROP,
-                      FilterOptions::EMIT_NULL> {
-  static std::string name() { return "FilterOptions::NullSelectionBehavior"; }
-  static std::string value_name(FilterOptions::NullSelectionBehavior value) {
-    switch (value) {
-      case FilterOptions::DROP:
-        return "DROP";
-      case FilterOptions::EMIT_NULL:
-        return "EMIT_NULL";
-    }
-    return "<INVALID>";
-  }
-};
-template <>
-struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
-    : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior,
-                      DictionaryEncodeOptions::ENCODE, DictionaryEncodeOptions::MASK> {
-  static std::string name() { return "DictionaryEncodeOptions::NullEncodingBehavior"; }
-  static std::string value_name(DictionaryEncodeOptions::NullEncodingBehavior value) {
-    switch (value) {
-      case DictionaryEncodeOptions::ENCODE:
-        return "ENCODE";
-      case DictionaryEncodeOptions::MASK:
-        return "MASK";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -83,15 +48,7 @@ bool SortKey::Equals(const SortKey& other) const {
 }
 std::string SortKey::ToString() const {
   std::stringstream ss;
-  ss << name << ' ';
-  switch (order) {
-    case SortOrder::Ascending:
-      ss << "ASC";
-      break;
-    case SortOrder::Descending:
-      ss << "DESC";
-      break;
-  }
+  ss << name << ' ' << order.ToString();
   return ss.str();
 }
 
@@ -118,6 +75,8 @@ FilterOptions::FilterOptions(NullSelectionBehavior null_selection)
     : FunctionOptions(internal::kFilterOptionsType),
       null_selection_behavior(null_selection) {}
 constexpr char FilterOptions::kTypeName[];
+constexpr const char* FilterOptions::NullSelectionBehavior::kName;
+constexpr const char* FilterOptions::NullSelectionBehavior::kValues;
 
 TakeOptions::TakeOptions(bool boundscheck)
     : FunctionOptions(internal::kTakeOptionsType), boundscheck(boundscheck) {}
@@ -127,6 +86,11 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
     : FunctionOptions(internal::kDictionaryEncodeOptionsType),
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
+constexpr const char* DictionaryEncodeOptions::NullEncodingBehavior::kName;
+constexpr const char* DictionaryEncodeOptions::NullEncodingBehavior::kValues;
+
+constexpr const char* SortOrder::kName;
+constexpr const char* SortOrder::kValues;
 
 ArraySortOptions::ArraySortOptions(SortOrder order)
     : FunctionOptions(internal::kArraySortOptionsType), order(order) {}
@@ -276,7 +240,7 @@ Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indi
 }
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  return SortIndices(values, SortOrder::Ascending, ctx);
+  return SortIndices(values, SortOrder("ascending"), ctx);
 }
 
 }  // namespace compute

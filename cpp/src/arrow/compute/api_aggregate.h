@@ -23,6 +23,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/enum.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -85,25 +86,24 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 class ARROW_EXPORT QuantileOptions : public FunctionOptions {
  public:
   /// Interpolation method to use when quantile lies between two data points
-  enum Interpolation {
-    LINEAR = 0,
-    LOWER,
-    HIGHER,
-    NEAREST,
-    MIDPOINT,
+  struct Interpolation : ::arrow::internal::EnumType<Interpolation> {
+    using EnumType::EnumType;
+    static constexpr const char* kName = "Interpolation";
+    static constexpr const char* kValues = "linear lower higher nearest midpoint";
   };
 
-  explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR);
+  explicit QuantileOptions(double q = 0.5,
+                           Interpolation interpolation = Interpolation("linear"));
 
   explicit QuantileOptions(std::vector<double> q,
-                           enum Interpolation interpolation = LINEAR);
+                           Interpolation interpolation = Interpolation("linear"));
 
   constexpr static char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
   /// quantile must be between 0 and 1 inclusive
   std::vector<double> q;
-  enum Interpolation interpolation;
+  Interpolation interpolation;
 };
 
 /// \brief Control TDigest approximate quantile kernel behavior

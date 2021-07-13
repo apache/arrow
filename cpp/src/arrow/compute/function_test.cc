@@ -46,7 +46,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new VarianceOptions(/*ddof=*/2));
   options.emplace_back(new QuantileOptions());
   options.emplace_back(
-      new QuantileOptions(/*q=*/0.75, QuantileOptions::Interpolation::MIDPOINT));
+      new QuantileOptions(/*q=*/0.75, QuantileOptions::Interpolation("midpoint")));
   options.emplace_back(new TDigestOptions());
   options.emplace_back(
       new TDigestOptions(/*q=*/0.75, /*delta=*/50, /*buffer_size=*/1024));
@@ -58,7 +58,8 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());
-  options.emplace_back(new JoinOptions(JoinOptions::REPLACE, "replacement"));
+  options.emplace_back(
+      new JoinOptions(JoinOptions::NullHandlingBehavior("replace"), "replacement"));
   options.emplace_back(new MatchSubstringOptions("pattern"));
   options.emplace_back(new MatchSubstringOptions("pattern", /*ignore_case=*/true));
   options.emplace_back(new SplitOptions());
@@ -93,18 +94,18 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new CastOptions(CastOptions::Unsafe(int64())));
   options.emplace_back(new FilterOptions());
   options.emplace_back(
-      new FilterOptions(FilterOptions::NullSelectionBehavior::EMIT_NULL));
+      new FilterOptions(FilterOptions::NullSelectionBehavior("emit_null")));
   options.emplace_back(new TakeOptions());
   options.emplace_back(new TakeOptions(/*boundscheck=*/false));
   options.emplace_back(new DictionaryEncodeOptions());
-  options.emplace_back(
-      new DictionaryEncodeOptions(DictionaryEncodeOptions::NullEncodingBehavior::ENCODE));
+  options.emplace_back(new DictionaryEncodeOptions(
+      DictionaryEncodeOptions::NullEncodingBehavior("encode")));
   options.emplace_back(new ArraySortOptions());
-  options.emplace_back(new ArraySortOptions(SortOrder::Descending));
+  options.emplace_back(new ArraySortOptions(SortOrder("descending")));
   options.emplace_back(new SortOptions());
-  options.emplace_back(new SortOptions({SortKey("key", SortOrder::Ascending)}));
-  options.emplace_back(new SortOptions(
-      {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
+  options.emplace_back(new SortOptions({SortKey("key", SortOrder("ascending"))}));
+  options.emplace_back(new SortOptions({SortKey("key", SortOrder("descending")),
+                                        SortKey("value", SortOrder("descending"))}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
 

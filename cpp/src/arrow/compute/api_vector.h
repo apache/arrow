@@ -23,6 +23,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/enum.h"
 
 namespace arrow {
 namespace compute {
@@ -34,19 +35,21 @@ class ExecContext;
 
 class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
-  /// Configure the action taken when a slot of the selection mask is null
-  enum NullSelectionBehavior {
-    /// the corresponding filtered value will be removed in the output
-    DROP,
-    /// the corresponding filtered value will be null in the output
-    EMIT_NULL,
+  /// Configure the action taken when a slot of the selection mask is null.
+  /// drop: the corresponding filtered value will be removed in the output.
+  /// emit_null: the corresponding filtered value will be null in the output.
+  struct NullSelectionBehavior : ::arrow::internal::EnumType<NullSelectionBehavior> {
+    using EnumType::EnumType;
+    static constexpr const char* kName = "NullSelectionBehavior";
+    static constexpr const char* kValues = "drop emit_null";
   };
 
-  explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
+  explicit FilterOptions(
+      NullSelectionBehavior null_selection = NullSelectionBehavior("drop"));
   constexpr static char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
-  NullSelectionBehavior null_selection_behavior = DROP;
+  NullSelectionBehavior null_selection_behavior = NullSelectionBehavior("drop");
 };
 
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
@@ -64,29 +67,32 @@ class ARROW_EXPORT TakeOptions : public FunctionOptions {
 class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
-  enum NullEncodingBehavior {
-    /// the null value will be added to the dictionary with a proper index
-    ENCODE,
-    /// the null value will be masked in the indices array
-    MASK
+  /// encode: the null value will be added to the dictionary with a proper index.
+  /// mask: the null value will be masked in the indices array.
+  struct NullEncodingBehavior : ::arrow::internal::EnumType<NullEncodingBehavior> {
+    using EnumType::EnumType;
+    static constexpr const char* kName = "NullEncodingBehavior";
+    static constexpr const char* kValues = "encode mask";
   };
 
-  explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
+  explicit DictionaryEncodeOptions(
+      NullEncodingBehavior null_encoding = NullEncodingBehavior("mask"));
   constexpr static char const kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
-  NullEncodingBehavior null_encoding_behavior = MASK;
+  NullEncodingBehavior null_encoding_behavior = NullEncodingBehavior("mask");
 };
 
-enum class SortOrder {
-  Ascending,
-  Descending,
+struct SortOrder : public ::arrow::internal::EnumType<SortOrder> {
+  using EnumType::EnumType;
+  static constexpr const char* kName = "SortOrder";
+  static constexpr const char* kValues = "ascending descending";
 };
 
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
-  explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
+  explicit SortKey(std::string name, SortOrder order = SortOrder("ascending"))
       : name(name), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
@@ -103,7 +109,7 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
-  explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
+  explicit ArraySortOptions(SortOrder order = SortOrder("ascending"));
   constexpr static char const kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions{}; }
 
@@ -251,7 +257,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 /// \return offsets indices that would sort an array
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> SortIndices(const Array& array,
-                                           SortOrder order = SortOrder::Ascending,
+                                           SortOrder order = SortOrder("ascending"),
                                            ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort a chunked array in the
@@ -272,7 +278,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 /// \return offsets indices that would sort an array
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
-                                           SortOrder order = SortOrder::Ascending,
+                                           SortOrder order = SortOrder("ascending"),
                                            ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an input in the

@@ -715,7 +715,8 @@ TEST_F(TestHashKernel, NullEncodingSchemes) {
                                                expected_encoded_dict);
 
   auto options = DictionaryEncodeOptions::Defaults();
-  options.null_encoding_behavior = DictionaryEncodeOptions::ENCODE;
+  options.null_encoding_behavior =
+      DictionaryEncodeOptions::NullEncodingBehavior("encode");
   ASSERT_OK_AND_ASSIGN(datum_result, DictionaryEncode(values, options));
   result = datum_result.make_array();
   AssertArraysEqual(*expected, *result);

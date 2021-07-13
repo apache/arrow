@@ -56,14 +56,16 @@ TEST(GetTakeIndices, Basics) {
   };
 
   // Drop null cases
-  CheckCase("[]", "[]", FilterOptions::DROP);
-  CheckCase("[null]", "[]", FilterOptions::DROP);
-  CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]", FilterOptions::DROP);
+  CheckCase("[]", "[]", FilterOptions::NullSelectionBehavior("drop"));
+  CheckCase("[null]", "[]", FilterOptions::NullSelectionBehavior("drop"));
+  CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]",
+            FilterOptions::NullSelectionBehavior("drop"));
 
   // Emit null cases
-  CheckCase("[]", "[]", FilterOptions::EMIT_NULL);
-  CheckCase("[null]", "[null]", FilterOptions::EMIT_NULL);
-  CheckCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
+  CheckCase("[]", "[]", FilterOptions::NullSelectionBehavior("emit_null"));
+  CheckCase("[null]", "[null]", FilterOptions::NullSelectionBehavior("emit_null"));
+  CheckCase("[null, false, true, true]", "[null, 2, 3]",
+            FilterOptions::NullSelectionBehavior("emit_null"));
 }
 
 TEST(GetTakeIndices, NullValidityBuffer) {
@@ -71,13 +73,15 @@ TEST(GetTakeIndices, NullValidityBuffer) {
   auto expected_indices = ArrayFromJSON(uint16(), "[]");
 
   ASSERT_OK_AND_ASSIGN(auto indices,
-                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
+                       internal::GetTakeIndices(
+                           *filter.data(), FilterOptions::NullSelectionBehavior("drop")));
   auto indices_array = MakeArray(indices);
   ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(
-      indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
+      indices, internal::GetTakeIndices(
+                   *filter.data(), FilterOptions::NullSelectionBehavior("emit_null")));
   indices_array = MakeArray(indices);
   ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
@@ -89,7 +93,8 @@ template <typename IndexArrayType>
 void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   const auto& filter = checked_cast<const BooleanArray&>(untyped_filter);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayData> drop_indices,
-                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
+                       internal::GetTakeIndices(
+                           *filter.data(), FilterOptions::NullSelectionBehavior("drop")));
   // Verify DROP indices
   {
     IndexArrayType indices(drop_indices);
@@ -107,12 +112,14 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
     ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
-              internal::GetFilterOutputSize(*filter.data(), FilterOptions::DROP));
+              internal::GetFilterOutputSize(
+                  *filter.data(), FilterOptions::NullSelectionBehavior("drop")));
   }
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> emit_indices,
-      internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
+      internal::GetTakeIndices(*filter.data(),
+                               FilterOptions::NullSelectionBehavior("emit_null")));
   // Verify EMIT_NULL indices
   {
     IndexArrayType indices(emit_indices);
@@ -134,7 +141,8 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
     ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
-              internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));
+              internal::GetFilterOutputSize(
+                  *filter.data(), FilterOptions::NullSelectionBehavior("emit_null")));
   }
 }
 
@@ -176,7 +184,9 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
 template <typename ArrowType>
 class TestFilterKernel : public ::testing::Test {
  protected:
-  TestFilterKernel() : emit_null_(FilterOptions::EMIT_NULL), drop_(FilterOptions::DROP) {}
+  TestFilterKernel()
+      : emit_null_(FilterOptions::NullSelectionBehavior("emit_null")),
+        drop_(FilterOptions::NullSelectionBehavior("drop")) {}
 
   void AssertFilter(std::shared_ptr<Array> values, std::shared_ptr<Array> filter,
                     std::shared_ptr<Array> expected) {
@@ -207,8 +217,8 @@ class TestFilterKernel : public ::testing::Test {
 
 void ValidateFilter(const std::shared_ptr<Array>& values,
                     const std::shared_ptr<Array>& filter_boxed) {
-  FilterOptions emit_null(FilterOptions::EMIT_NULL);
-  FilterOptions drop(FilterOptions::DROP);
+  FilterOptions emit_null(FilterOptions::NullSelectionBehavior("emit_null"));
+  FilterOptions drop(FilterOptions::NullSelectionBehavior("drop"));
 
   ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter_boxed, emit_null));
   auto filtered_emit_null = out_datum.make_array();
@@ -221,12 +231,14 @@ void ValidateFilter(const std::shared_ptr<Array>& values,
   // Create the expected arrays using Take
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> drop_indices,
-      internal::GetTakeIndices(*filter_boxed->data(), FilterOptions::DROP));
+      internal::GetTakeIndices(*filter_boxed->data(),
+                               FilterOptions::NullSelectionBehavior("drop")));
   ASSERT_OK_AND_ASSIGN(Datum expected_drop, Take(values, Datum(drop_indices)));
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> emit_null_indices,
-      internal::GetTakeIndices(*filter_boxed->data(), FilterOptions::EMIT_NULL));
+      internal::GetTakeIndices(*filter_boxed->data(),
+                               FilterOptions::NullSelectionBehavior("emit_null")));
   ASSERT_OK_AND_ASSIGN(Datum expected_emit_null, Take(values, Datum(emit_null_indices)));
 
   AssertArraysEqual(*expected_drop.make_array(), *filtered_drop,
@@ -339,7 +351,7 @@ Comparator<CType>* GetComparator(CompareOperator op) {
       // LESS_EQUAL
       [](CType l, CType r) { return l <= r; },
   };
-  return cmp[op];
+  return cmp[*op];
 }
 
 template <typename T, typename Fn, typename CType = typename TypeTraits<T>::CType>
@@ -379,15 +391,13 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
         checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
     CType c_fifty = 50;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
-    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(
-          Datum selection,
-          CallFunction(CompareOperatorToFunctionName(op), {array, Datum(fifty)}));
+    for (auto op : {"equal", "not_equal", "greater", "less_equal"}) {
+      ASSERT_OK_AND_ASSIGN(Datum selection, CallFunction(op, {array, Datum(fifty)}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(array, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
-      auto expected =
-          CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
+      auto expected = CompareAndFilter<TypeParam>(array->raw_values(), array->length(),
+                                                  c_fifty, CompareOperator(op));
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
   }
@@ -403,14 +413,13 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
     auto rhs = checked_pointer_cast<ArrayType>(
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
-    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection,
-                           CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
+    for (auto op : {"equal", "not_equal", "greater", "less_equal"}) {
+      ASSERT_OK_AND_ASSIGN(Datum selection, CallFunction(op, {lhs, rhs}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(lhs, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
       auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
-                                                  rhs->raw_values(), op);
+                                                  rhs->raw_values(), CompareOperator(op));
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
   }

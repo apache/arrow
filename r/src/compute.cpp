@@ -133,7 +133,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     SEXP keep_na = options["keep_na"];
     if (!Rf_isNull(keep_na) && cpp11::as_cpp<bool>(keep_na)) {
-      out->null_selection_behavior = Options::EMIT_NULL;
+      out->null_selection_behavior = Options::NullSelectionBehavior("emit_null");
     }
     return out;
   }
@@ -150,7 +150,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // false means descending, true means ascending
     auto order = cpp11::as_cpp<bool>(options["order"]);
     auto out =
-        std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
+        std::make_shared<Options>(Options(Order(order ? "descending" : "ascending")));
     return out;
   }
 
@@ -164,8 +164,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
     std::vector<Key> keys;
     for (size_t i = 0; i < names.size(); i++) {
-      keys.push_back(
-          Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
+      keys.push_back(Key(names[i], Order(orders[i] > 0 ? "descending" : "ascending")));
     }
     auto out = std::make_shared<Options>(Options(keys));
     return out;
@@ -199,9 +198,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     SEXP interpolation = options["interpolation"];
     if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP &&
         XLENGTH(interpolation) == 1) {
-      out->interpolation =
-          cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
-              interpolation);
+      out->interpolation = Options::Interpolation(cpp11::as_cpp<int>(interpolation));
     }
     return out;
   }
@@ -216,9 +213,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::DictionaryEncodeOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_encoding_behavior"])) {
-      out->null_encoding_behavior = cpp11::as_cpp<
-          enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
-          options["null_encoding_behavior"]);
+      out->null_encoding_behavior = Options::NullEncodingBehavior(
+          cpp11::as_cpp<int>(options["null_encoding_behavior"]));
     }
     return out;
   }
@@ -232,8 +228,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_handling"])) {
       out->null_handling =
-          cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
-              options["null_handling"]);
+          Options::NullHandlingBehavior(cpp11::as_cpp<int>(options["null_handling"]));
     }
     if (!Rf_isNull(options["null_replacement"])) {
       out->null_replacement = cpp11::as_cpp<std::string>(options["null_replacement"]);

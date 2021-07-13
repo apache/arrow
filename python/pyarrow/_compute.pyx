@@ -703,20 +703,14 @@ cdef class _JoinOptions(FunctionOptions):
     def _set_options(self, null_handling, null_replacement):
         cdef:
             CJoinNullHandlingBehavior c_null_handling = \
-                CJoinNullHandlingBehavior_EMIT_NULL
+                CJoinNullHandlingBehavior(tobytes(null_handling))
             c_string c_null_replacement = tobytes(null_replacement)
-        if null_handling == 'emit_null':
-            c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
-        elif null_handling == 'skip':
-            c_null_handling = CJoinNullHandlingBehavior_SKIP
-        elif null_handling == 'replace':
-            c_null_handling = CJoinNullHandlingBehavior_REPLACE
+        # TODO: cython doesn't apply 'operator bool' when preceded by a 'not'
+        if c_null_handling:
+            self.wrapped.reset(
+                new CJoinOptions(c_null_handling, c_null_replacement))
         else:
-            raise ValueError(
-                '"{}" is not a valid null_handling'
-                .format(null_handling))
-        self.wrapped.reset(
-            new CJoinOptions(c_null_handling, c_null_replacement))
+            raise ValueError(f'"{null_handling}" is not a valid null_handling')
 
 
 class JoinOptions(_JoinOptions):
@@ -805,16 +799,14 @@ class SliceOptions(_SliceOptions):
 
 cdef class _FilterOptions(FunctionOptions):
     def _set_options(self, null_selection_behavior):
-        if null_selection_behavior == 'drop':
-            self.wrapped.reset(
-                new CFilterOptions(CFilterNullSelectionBehavior_DROP))
-        elif null_selection_behavior == 'emit_null':
-            self.wrapped.reset(
-                new CFilterOptions(CFilterNullSelectionBehavior_EMIT_NULL))
+        cdef CFilterNullSelectionBehavior c_behavior = \
+            CFilterNullSelectionBehavior(tobytes(null_selection_behavior))
+        if c_behavior:
+            self.wrapped.reset(new CFilterOptions(c_behavior))
         else:
             raise ValueError(
-                '"{}" is not a valid null_selection_behavior'
-                .format(null_selection_behavior))
+                f'"{null_selection_behavior}" is not a '
+                f'valid null_selection_behavior')
 
 
 class FilterOptions(_FilterOptions):
@@ -824,17 +816,15 @@ class FilterOptions(_FilterOptions):
 
 cdef class _DictionaryEncodeOptions(FunctionOptions):
     def _set_options(self, null_encoding_behavior):
-        if null_encoding_behavior == 'encode':
-            self.wrapped.reset(
-                new CDictionaryEncodeOptions(
-                    CDictionaryEncodeNullEncodingBehavior_ENCODE))
-        elif null_encoding_behavior == 'mask':
-            self.wrapped.reset(
-                new CDictionaryEncodeOptions(
-                    CDictionaryEncodeNullEncodingBehavior_MASK))
+        cdef CDictionaryEncodeNullEncodingBehavior c_behavior = \
+            CDictionaryEncodeNullEncodingBehavior(
+                tobytes(null_encoding_behavior))
+        if c_behavior:
+            self.wrapped.reset(new CDictionaryEncodeOptions(c_behavior))
         else:
-            raise ValueError('"{}" is not a valid null_encoding_behavior'
-                             .format(null_encoding_behavior))
+            raise ValueError(
+                f'"{null_encoding_behavior}" is not a '
+                f'valid null_encoding_behavior')
 
 
 class DictionaryEncodeOptions(_DictionaryEncodeOptions):
@@ -1010,14 +1000,11 @@ class SplitPatternOptions(_SplitPatternOptions):
 
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order):
-        if order == "ascending":
-            self.wrapped.reset(new CArraySortOptions(CSortOrder_Ascending))
-        elif order == "descending":
-            self.wrapped.reset(new CArraySortOptions(CSortOrder_Descending))
+        cdef CSortOrder c_order = CSortOrder(tobytes(order))
+        if c_order:
+            self.wrapped.reset(new CArraySortOptions(c_order))
         else:
-            raise ValueError(
-                "{!r} is not a valid order".format(order)
-            )
+            raise ValueError(f'"{order}" is not a valid order')
 
 
 class ArraySortOptions(_ArraySortOptions):
@@ -1033,16 +1020,12 @@ cdef class _SortOptions(FunctionOptions):
             CSortOrder c_order
 
         for name, order in sort_keys:
-            if order == "ascending":
-                c_order = CSortOrder_Ascending
-            elif order == "descending":
-                c_order = CSortOrder_Descending
+            c_order = CSortOrder(tobytes(order))
+            if c_order:
+                c_name = tobytes(name)
+                c_sort_keys.push_back(CSortKey(c_name, c_order))
             else:
-                raise ValueError(
-                    "{!r} is not a valid order".format(order)
-                )
-            c_name = tobytes(name)
-            c_sort_keys.push_back(CSortKey(c_name, c_order))
+                raise ValueError(f'"{order}" is not a valid order')
 
         self.wrapped.reset(new CSortOptions(c_sort_keys))
 
@@ -1056,19 +1039,12 @@ class SortOptions(_SortOptions):
 
 cdef class _QuantileOptions(FunctionOptions):
     def _set_options(self, quantiles, interp):
-        interp_dict = {
-            'linear': CQuantileInterp_LINEAR,
-            'lower': CQuantileInterp_LOWER,
-            'higher': CQuantileInterp_HIGHER,
-            'nearest': CQuantileInterp_NEAREST,
-            'midpoint': CQuantileInterp_MIDPOINT,
-        }
-        if interp not in interp_dict:
-            raise ValueError(
-                '{!r} is not a valid interpolation'
-                .format(interp))
-        self.wrapped.reset(
-            new CQuantileOptions(quantiles, interp_dict[interp]))
+        cdef CQuantileInterp c_interp = CQuantileInterp(tobytes(interp))
+        if c_interp:
+            self.wrapped.reset(
+                new CQuantileOptions(quantiles, c_interp))
+        else:
+            raise ValueError(f'"{interp}" is not a valid interpolation')
 
 
 class QuantileOptions(_QuantileOptions):
