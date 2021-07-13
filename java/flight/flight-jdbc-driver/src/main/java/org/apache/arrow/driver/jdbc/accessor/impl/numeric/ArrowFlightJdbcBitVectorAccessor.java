@@ -32,7 +32,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BitVector vector;
   private final NullableBitHolder holder;
-  private final int bytesToAllocate;
+  private final int BYTES_T0_ALLOCATE = 1 ;
 
   /**
    * Constructor for the BitVectorAccessor.
@@ -44,7 +44,6 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
     super(currentRowSupplier);
     this.vector = vector;
     this.holder = new NullableBitHolder();
-    this.bytesToAllocate = 1;
   }
 
   @Override
@@ -112,7 +111,7 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
   @Override
   public byte[] getBytes() {
     final byte value = (byte) getLong();
-    return this.wasNull ? null : ByteBuffer.allocate(bytesToAllocate).put(value).array();
+    return this.wasNull ? null : ByteBuffer.allocate(BYTES_T0_ALLOCATE).put(value).array();
   }
 
   @Override
