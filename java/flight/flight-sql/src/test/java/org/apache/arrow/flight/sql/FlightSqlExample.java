@@ -17,13 +17,16 @@
 
 package org.apache.arrow.flight.sql;
 
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
+import static java.sql.DriverManager.getConnection;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -34,7 +37,6 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -43,6 +45,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -109,6 +112,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ProtocolStringList;
 
 import io.grpc.Status;
 
@@ -202,7 +206,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   private static boolean populateDerbyDatabase() {
     Optional<SQLException> exception = empty();
-    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
+    try (final Connection connection = getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
       statement.execute("CREATE TABLE intTable (keyName varchar(100), value int)");
       statement.execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
@@ -300,36 +304,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final String table_type = tables.getString("TABLE_TYPE");
     */
     throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  private Schema buildSchema(String catalog, String schema, String table) throws SQLException {
-    final List<Field> fields = new ArrayList<>();
-
-    try (final Connection connection = dataSource.getConnection();
-         final ResultSet columns = connection.getMetaData().getColumns(
-             catalog,
-             schema,
-             table,
-             null);) {
-
-      while (columns.next()) {
-        final String columnName = columns.getString("COLUMN_NAME");
-        final int jdbcDataType = columns.getInt("DATA_TYPE");
-        @SuppressWarnings("unused") // TODO Investigate why this might be here.
-        final String jdbcDataTypeName = columns.getString("TYPE_NAME");
-        final String jdbcIsNullable = columns.getString("IS_NULLABLE");
-        final boolean arrowIsNullable = "YES".equals(jdbcIsNullable);
-
-        final int precision = columns.getInt("DECIMAL_DIGITS");
-        final int scale = columns.getInt("COLUMN_SIZE");
-        final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-
-        final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
-        fields.add(new Field(columnName, fieldType, null));
-      }
-    }
-
-    return new Schema(fields);
   }
 
   @Override
@@ -572,8 +546,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-    /*
-    TODO
     final String catalog = emptyToNull(request.getCatalog());
     final String schemaFilterPattern = emptyToNull(request.getSchemaFilterPattern());
     final String tableFilterPattern = emptyToNull(request.getTableNameFilterPattern());
@@ -583,35 +555,30 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final String[] tableTypes =
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
-    final List<Result> results = new ArrayList<>();
-
-    try (final Connection connection = getConnection(DATABASE_URI);
-         final ResultSet resultSet = connection.getMetaData()
-             .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
-      while (resultSet.next()) {
-        results.add(getTableResult(resultSet, request.getIncludeSchema()));
-      }
+    try {
+      final Connection connection = getConnection(DATABASE_URI);
+      final ResultSetMetaData metaData = connection.getMetaData()
+          .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes).getMetaData();
+      final Schema schema = jdbcToArrowSchema(metaData, Calendar.getInstance());
+      /*
+       * Do NOT prematurely close the `resultSet`!
+       * Should be closed upon executing `ClosePreparedStatement`.
+       */
+      final List<FlightEndpoint> endpoints =
+          singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+      return new FlightInfo(schema, descriptor, endpoints, -1, -1);
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getFlightInfoTables: <%s>.", e.getMessage()), e);
+      throw new RuntimeException(e);
     }
-
-    List<FlightEndpoint> endpoints =
-        results.stream()
-            .map(Result::getBody)
-            .map(Ticket::new)
-            .map(ticket -> new FlightEndpoint(ticket, location))
-            .collect(toList());
-
-    final Schema schema = new Schema(singletonList(nullable("Sample", Null.INSTANCE)));
-    return new FlightInfo(schema, descriptor, endpoints, Byte.MAX_VALUE, endpoints.size());
-    */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public void getStreamTables(final CommandGetTables command, final CallContext context, final Ticket ticket,
                               final ServerStreamListener listener) {
-    // TODO - build example implementation
+    /*
+     * TODO Implement this next.
+     */
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
