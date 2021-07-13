@@ -35,7 +35,7 @@ RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
 export {
     DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
-    Data,
+    Data, makeData,
     DataType,
     Null,
     Bool,
@@ -59,7 +59,7 @@ export {
     // Column,
     Schema, Field,
     Visitor,
-    Vector, vector,
+    Vector, makeVector,
     // BaseVector,
     // BinaryVector,
     // BoolVector,

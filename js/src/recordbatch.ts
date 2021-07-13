@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
+import { Data, makeData } from './data';
 import { Table } from './table';
 import { Vector } from './vector';
 import { Visitor } from './visitor';
@@ -58,10 +58,11 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 if (!(this.schema instanceof Schema)) {
                     throw new TypeError('RecordBatch constructor expects a [Schema, Data] pair.');
                 }
-                [, this.data = Data.Struct(
-                    new Struct<T>(this.schema.fields),
-                    0, 0, 0, null,
-                    this.schema.fields.map((f) => Data.new(f.type, 0, 0)))
+                [,
+                    this.data = makeData({
+                        type: new Struct<T>(this.schema.fields),
+                        children: this.schema.fields.map((f) => makeData({ type: f.type }))
+                    })
                 ] = args;
                 if (!(this.data instanceof Data)) {
                     throw new TypeError('RecordBatch constructor expects a [Schema, Data] pair.');
@@ -83,7 +84,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 });
 
                 const schema = new Schema<T>(fields);
-                const data = Data.Struct(new Struct<T>(fields), 0, length, -1, null, children);
+                const data = makeData({ type: new Struct<T>(fields), length, children });
                 [this.schema, this.data] = ensureSameLengthData<T>(schema, data.children as Data<T[keyof T]>[], length);
                 break;
             }
@@ -215,7 +216,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
         const schema = this.schema.selectAt(...columnIndices);
         const children = columnIndices.map((i) => this.data.children[i]).filter(Boolean);
-        const subset = Data.Struct(new Struct(schema.fields), 0, this.numRows, 0, null, children);
+        const subset = makeData({ type: new Struct(schema.fields), length: this.numRows, children });
         return new RecordBatch<{ [key: string]: K }>(schema, subset);
     }
 
@@ -236,11 +237,6 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
 /** @ignore */
 const ensureSameLengthData = (() => {
 
-    const noopBuf = new Uint8Array(0);
-    const nullBufs = (bitmapLength: number) => <unknown>[
-        noopBuf, noopBuf, new Uint8Array(bitmapLength), noopBuf
-    ] as import('./data').Buffers<any>;
-
     return function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
         schema: Schema<T>,
         columns: Data<T[keyof T]>[],
@@ -260,14 +256,19 @@ const ensureSameLengthData = (() => {
                 field = field.clone({ nullable: true });
                 child = child
                     ? child._changeLengthAndBackfillNullBitmap(length)
-                    : Data.new(field.type, 0, length, length, nullBufs(nullCount));
+                    : makeData({
+                        type: field.type,
+                        length,
+                        nullCount: length,
+                        nullBitmap: new Uint8Array(nullCount)
+                    });
             }
             fields[columnIndex] = field;
             children[columnIndex] = child;
         }
         return [
             new Schema<T>(fields),
-            Data.Struct(new Struct<T>(fields), 0, length, -1, null, children)
+            makeData({ type: new Struct<T>(fields), length, children })
         ] as [Schema<T>, Data<Struct<T>>];
     };
 })();
@@ -304,8 +305,8 @@ class DictionaryCollector extends Visitor {
 /* eslint-disable @typescript-eslint/naming-convention */
 export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: DataType } = any> extends RecordBatch<T> {
     constructor(schema: Schema<T>) {
-        const children = schema.fields.map((f) => Data.new(f.type, 0, 0, 0));
-        const data = Data.Struct(new Struct<T>(schema.fields), 0, 0, 0, null, children);
+        const children = schema.fields.map((f) => makeData({ type: f.type }));
+        const data = makeData({ type: new Struct<T>(schema.fields), nullCount: 0, children });
         super(schema, data);
     }
 }

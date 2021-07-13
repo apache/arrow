@@ -16,9 +16,9 @@
 // under the License.
 
 import { Vector } from './vector';
-import { MapRow, kKeys } from './row/map';
 import { BufferType } from './enum';
-import { Data, Buffers } from './data';
+import { Data, makeData } from './data';
+import { MapRow, kKeys } from './row/map';
 import { createIsValidFunction } from './builder/valid';
 import { BuilderType as B} from './interfaces';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';
@@ -380,9 +380,15 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
         nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
 
-        const data = Data.new<T>(
-            this.type, 0, length, nullCount, buffers as Buffers<T>,
-            this.children.map((child) => child.flush())) as Data<T>;
+        const data = makeData<T>({
+            type: this.type,
+            offset: 0, length, nullCount,
+            data: buffers[BufferType.DATA],
+            typeIds: buffers[BufferType.TYPE],
+            nullBitmap: buffers[BufferType.VALIDITY],
+            valueOffsets: buffers[BufferType.OFFSET],
+            children: this.children.map((child) => child.flush()),
+        }) as Data<T>;
 
         this.clear();
 

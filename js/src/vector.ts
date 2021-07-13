@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
 import { Type } from './enum';
+import { Data, makeData } from './data';
 import { DataType, strideForType } from './type';
 
 import {
@@ -196,7 +196,7 @@ export class Vector<T extends DataType = any> {
      * @param others Additional Vectors to add to the end of this Vector.
      */
     public concat(...others: Vector<T>[]): Vector<T> {
-        return new Vector(this.data.concat(others.flatMap((x) => x.data)));
+        return new Vector(this.data.concat(others.map((x) => x.data).flat()));
     }
 
     /**
@@ -276,17 +276,17 @@ export class Vector<T extends DataType = any> {
 
 import * as dtypes from './type';
 
-export function vector(data: Int8Array): Vector<dtypes.Int8>;
-export function vector(data: Int16Array): Vector<dtypes.Int16>;
-export function vector(data: Int32Array): Vector<dtypes.Int32>;
-export function vector(data: BigInt64Array): Vector<dtypes.Int64>;
-export function vector(data: Uint8Array): Vector<dtypes.Uint8>;
-export function vector(data: Uint16Array): Vector<dtypes.Uint16>;
-export function vector(data: Uint32Array): Vector<dtypes.Uint32>;
-export function vector(data: BigUint64Array): Vector<dtypes.Uint64>;
-export function vector(data: Float32Array): Vector<dtypes.Float32>;
-export function vector(data: Float64Array): Vector<dtypes.Float64>;
-export function vector(data: any) {
+export function makeVector(data: Int8Array): Vector<dtypes.Int8>;
+export function makeVector(data: Int16Array): Vector<dtypes.Int16>;
+export function makeVector(data: Int32Array): Vector<dtypes.Int32>;
+export function makeVector(data: BigInt64Array): Vector<dtypes.Int64>;
+export function makeVector(data: Uint8Array): Vector<dtypes.Uint8>;
+export function makeVector(data: Uint16Array): Vector<dtypes.Uint16>;
+export function makeVector(data: Uint32Array): Vector<dtypes.Uint32>;
+export function makeVector(data: BigUint64Array): Vector<dtypes.Uint64>;
+export function makeVector(data: Float32Array): Vector<dtypes.Float32>;
+export function makeVector(data: Float64Array): Vector<dtypes.Float64>;
+export function makeVector(data: any) {
     const type = (() => {
         switch(data.constructor) {
             case Int8Array: return new dtypes.Int8;
@@ -302,5 +302,5 @@ export function vector(data: any) {
             default: throw new Error('Unrecognized input');
         }
     })();
-    return new Vector([Data.new(type, 0, data.length, 0, [, data])]);
+    return new Vector([makeData({ type, length: data.length, nullCount: 0, data })]);
 }

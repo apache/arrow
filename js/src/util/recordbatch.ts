@@ -16,15 +16,10 @@
 // under the License.
 
 import { Vector } from '../vector';
+import { Data, makeData } from '../data';
 import { DataType, Struct } from '../type';
-import { Data, Buffers } from '../data';
 import { Schema, Field } from '../schema';
 import { RecordBatch } from '../recordbatch';
-
-const noopBuf = new Uint8Array(0);
-const nullBufs = (bitmapLength: number) => <unknown> [
-    noopBuf, noopBuf, new Uint8Array(bitmapLength), noopBuf
-] as Buffers<any>;
 
 /** @ignore */
 export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: Vector<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
@@ -53,7 +48,12 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
         if (isFinite(batchLength)) {
             children = distributeChildren(fields, batchLength, children, cols, memo);
             if (batchLength > 0) {
-                batches[numBatches++] = Data.Struct(new Struct(fields), 0, batchLength, 0, null, children.slice());
+                batches[numBatches++] = makeData({
+                    type: new Struct(fields),
+                    length: batchLength,
+                    nullCount: 0,
+                    children: children.slice()
+                });
             }
         }
     }
@@ -81,8 +81,14 @@ function distributeChildren<T extends { [key: string]: DataType } = any>(fields:
             }
         } else {
             (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
-            children[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
-                : Data.new(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
+            children[i] = data
+                ? data._changeLengthAndBackfillNullBitmap(batchLength)
+                : makeData({
+                    type: field.type,
+                    length: batchLength,
+                    nullCount: batchLength,
+                    nullBitmap: new Uint8Array(bitmapLength)
+                }) as Data<T[keyof T]>;
         }
     }
     return children;

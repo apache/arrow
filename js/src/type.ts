@@ -54,7 +54,7 @@ export interface DataType<TType extends Type = Type, TChildren extends { [key: s
  */
 export abstract class DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
 
-    public [Symbol.toStringTag]: string;
+    declare public [Symbol.toStringTag]: string;
 
     /** @nocollapse */ static            isNull (x: any): x is Null            { return x?.typeId === Type.Null;            }
     /** @nocollapse */ static             isInt (x: any): x is Int_            { return x?.typeId === Type.Int;             }
@@ -74,6 +74,9 @@ export abstract class DataType<TType extends Type = Type, TChildren extends { [k
     /** @nocollapse */ static   isFixedSizeList (x: any): x is FixedSizeList   { return x?.typeId === Type.FixedSizeList;   }
     /** @nocollapse */ static             isMap (x: any): x is Map_            { return x?.typeId === Type.Map;             }
     /** @nocollapse */ static      isDictionary (x: any): x is Dictionary      { return x?.typeId === Type.Dictionary;      }
+
+    /** @nocollapse */ static      isDenseUnion (x: any): x is DenseUnion      { return DataType.isUnion(x) && x.mode === UnionMode.Dense;  }
+    /** @nocollapse */ static     isSparseUnion (x: any): x is SparseUnion     { return DataType.isUnion(x) && x.mode === UnionMode.Sparse; }
 
     public get typeId(): TType { return <any> Type.NONE; }
 
@@ -115,7 +118,7 @@ interface Int_<T extends Ints = Ints> extends DataType<T> { TArray: IType[T]['TA
 /** @ignore */
 class Int_<T extends Ints = Ints> extends DataType<T> {
     constructor(public readonly isSigned: IType[T]['isSigned'],
-               public readonly bitWidth: IType[T]['bitWidth']) {
+                public readonly bitWidth: IType[T]['bitWidth']) {
         super();
     }
     public get typeId() { return Type.Int as T; }
@@ -283,7 +286,7 @@ export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; T
 /** @ignore */
 export class Decimal extends DataType<Type.Decimal> {
     constructor(public readonly scale: number,
-               public readonly precision: number) {
+                public readonly precision: number) {
         super();
     }
     public get typeId() { return Type.Decimal as Type.Decimal; }
@@ -339,7 +342,7 @@ interface Time_<T extends Times = Times> extends DataType<T> {
 /** @ignore */
 class Time_<T extends Times = Times> extends DataType<T> {
     constructor(public readonly unit: TimesType[T]['unit'],
-               public readonly bitWidth: TimeBitWidth) {
+                public readonly bitWidth: TimeBitWidth) {
         super();
     }
     public get typeId() { return Type.Time as T; }
@@ -375,7 +378,7 @@ interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
 /** @ignore */
 class Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
     constructor(public readonly unit: TimeUnit,
-               public readonly timezone?: string | null) {
+                public readonly timezone?: string | null) {
         super();
     }
     public get typeId() { return Type.Timestamp as T; }

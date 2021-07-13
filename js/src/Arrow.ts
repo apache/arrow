@@ -28,7 +28,7 @@ export { MessageHeader } from './fb/Message';
 
 export { Type, BufferType } from './enum';
 
-export { Data } from './data';
+export { Data, makeData } from './data';
 export {
     DataType,
     Null,
@@ -52,7 +52,7 @@ export {
 } from './type';
 
 export { Table } from './table';
-export { Vector, vector } from './vector';
+export { Vector, makeVector } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
 

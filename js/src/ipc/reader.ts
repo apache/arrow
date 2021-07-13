@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
+import { makeData } from '../data';
 import { Vector } from '../vector';
 import { DataType, Struct } from '../type';
 import { MessageHeader } from '../enum';
@@ -348,8 +348,8 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
 
     protected _loadRecordBatch(header: metadata.RecordBatch, body: any) {
         const children = this._loadVectors(header, body, this.schema.fields);
-        const data = Data.Struct(new Struct(this.schema.fields), 0, header.length, 0, null, children);
-        return new RecordBatch<T>(this.schema, data);
+        const data = makeData({ type: new Struct(this.schema.fields), length: header.length, children });
+        return new RecordBatch(this.schema, data);
     }
     protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
         const { id, isDelta } = header;
