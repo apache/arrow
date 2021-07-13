@@ -68,15 +68,9 @@ def docker(obj, src, dry_run):
     obj['compose'] = compose
 
 
-@docker.group("validate-config")
-@click.option("--src", metavar="<arrow_src>", default=None,
-              callback=validate_arrow_sources,
-              help="Specify Arrow source directory.")
-@click.option('--dry-run/--execute', default=False,
-              help="Display the docker-compose commands instead of executing "
-                   "them.")
+@docker.command("check-config")
 @click.pass_obj
-def validate_config(obj):
+def check_config(obj):
     """
     Validate docker-compose configuration.
     """
