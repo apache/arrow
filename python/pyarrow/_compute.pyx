@@ -793,12 +793,12 @@ class ExtractRegexOptions(_ExtractRegexOptions):
 
 
 cdef class _SliceOptions(FunctionOptions):
-    def _set_options(self, start, stop, step):
+    def _set_options(self, int64_t start, int64_t stop, int64_t step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, stop=sys.maxsize, step=1):
+    def __init__(self, int64_t start, int64_t stop=sys.maxsize, int64_t step=1):
         self._set_options(start, stop, step)
 
 
