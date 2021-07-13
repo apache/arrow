@@ -93,11 +93,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public boolean getBoolean() {
     String value = getString();
-    if (value == null) {
-      return false;
-    }
-
-    return ((Text) this.getObject()).getLength() > 0;
+    return value != null && !value.isEmpty() && !value.equals("false") && !value.equals("0");
   }
 
   @Override
