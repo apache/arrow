@@ -92,7 +92,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getString() throws Exception {
+  public void testShouldGetStringReturnExpectedString() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           String expected = new String(accessor.getBytes(), StandardCharsets.UTF_8);
@@ -102,7 +102,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getStringForNull() throws Exception {
+  public void testShouldGetStringReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
@@ -112,7 +112,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getBytes() throws Exception {
+  public void testShouldGetBytesReturnExpectedByteArray() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           if (vector instanceof VarBinaryVector) {
@@ -125,7 +125,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getBytesForNull() throws Exception {
+  public void testShouldGetBytesReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
@@ -135,7 +135,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getObject() throws Exception {
+  public void testShouldGetObjectReturnAsGetBytes() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           collector.checkThat(accessor.getObject(), is(accessor.getBytes()));
@@ -144,7 +144,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getObjectForNull() throws Exception {
+  public void testShouldGetObjectReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
@@ -154,7 +154,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getAsciiStream() throws Exception {
+  public void testShouldGetAsciiStreamReturnCorrectInputStream() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           InputStream inputStream = accessor.getAsciiStream();
@@ -165,7 +165,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getAsciiStreamForNull() throws Exception {
+  public void testShouldGetAsciiStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
@@ -175,7 +175,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getBinaryStream() throws Exception {
+  public void testShouldGetBinaryStreamReturnCurrentInputStream() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           InputStream inputStream = accessor.getBinaryStream();
@@ -186,7 +186,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getBinaryStreamForNull() throws Exception {
+  public void testShouldGetBinaryStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
@@ -196,7 +196,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getCharacterStream() throws Exception {
+  public void testShouldGetCharacterStreamReturnCorrectReader() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Reader characterStream = accessor.getCharacterStream();
@@ -207,7 +207,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   }
 
   @Test
-  public void getCharacterStreamForNull() throws Exception {
+  public void testShouldGetCharacterStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
