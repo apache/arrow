@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
-import java.sql.SQLException;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -30,7 +29,7 @@ public class AccessorTestUtils {
     int currentRow = 0;
     int limit;
 
-    Cursor(int limit) {
+    public Cursor(int limit) {
       this.limit = limit;
     }
 
@@ -42,7 +41,7 @@ public class AccessorTestUtils {
       return currentRow < limit;
     }
 
-    int getCurrentRow() {
+    public int getCurrentRow() {
       return currentRow;
     }
   }
@@ -52,12 +51,12 @@ public class AccessorTestUtils {
   }
 
   public interface AccessorConsumer<T extends ArrowFlightJdbcAccessor> {
-    void accept(T accessor, int currentRow) throws SQLException;
+    void accept(T accessor, int currentRow) throws Exception;
   }
 
   public static <T extends ArrowFlightJdbcAccessor> void iterateOnAccessor(
       ValueVector vector, AccessorSupplier<T> accessorSupplier, AccessorConsumer<T> accessorConsumer)
-      throws SQLException {
+      throws Exception {
     Cursor cursor = new Cursor(vector.getValueCount());
     T accessor = accessorSupplier.supply(vector, cursor::getCurrentRow);
 
