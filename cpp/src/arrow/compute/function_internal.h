@@ -44,19 +44,7 @@ using ::arrow::internal::checked_cast;
 namespace compute {
 namespace internal {
 
-using arrow::internal::EnumTraits;
-using arrow::internal::has_enum_traits;
 using arrow::internal::is_reflection_enum;
-
-template <typename Enum, typename CType = typename std::underlying_type<Enum>::type>
-Result<Enum> ValidateEnumValue(CType raw) {
-  for (auto valid : EnumTraits<Enum>::values()) {
-    if (raw == static_cast<CType>(valid)) {
-      return static_cast<Enum>(raw);
-    }
-  }
-  return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
-}
 
 class GenericOptionsType : public FunctionOptionsType {
  public:
@@ -80,8 +68,7 @@ ARROW_EXPORT
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(const Buffer& buffer);
 
 template <typename T>
-static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
-    const T& value) {
+static inline std::string GenericToString(const T& value) {
   std::stringstream ss;
   ss << value;
   return ss.str();
@@ -96,9 +83,18 @@ static inline std::string GenericToString(const std::string& value) {
 }
 
 template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
-    const T value) {
-  return EnumTraits<T>::value_name(value);
+static inline std::string GenericToString(const TimeUnit::type value) {
+  switch (value) {
+    case TimeUnit::type::SECOND:
+      return "SECOND";
+    case TimeUnit::type::MILLI:
+      return "MILLI";
+    case TimeUnit::type::MICRO:
+      return "MICRO";
+    case TimeUnit::type::NANO:
+      return "NANO";
+  }
+  return "<INVALID>";
 }
 
 template <typename Raw>
@@ -241,9 +237,9 @@ GenericTypeSingleton() {
 }
 
 template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::shared_ptr<DataType>>
+static inline enable_if_same<T, TimeUnit::type, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
-  return TypeTraits<typename EnumTraits<T>::Type>::type_singleton();
+  return int32();
 }
 
 template <typename T>
@@ -268,10 +264,9 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(bool value) {
   return MakeScalar(value);
 }
 
-template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
-static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
-  using CType = typename EnumTraits<T>::CType;
-  return GenericToScalar(static_cast<CType>(value));
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
+    const TimeUnit::type value) {
+  return GenericToScalar(static_cast<int32_t>(value));
 }
 
 template <typename Raw>
@@ -367,12 +362,24 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   return holder.value;
 }
 
+template <typename T, typename U>
+using enable_if_same_result = enable_if_same<T, U, Result<T>>;
+
 template <typename T>
-static inline enable_if_primitive_ctype<typename EnumTraits<T>::Type, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
-  ARROW_ASSIGN_OR_RAISE(auto raw_val,
-                        GenericFromScalar<typename EnumTraits<T>::CType>(value));
-  return ValidateEnumValue<T>(raw_val);
+static inline enable_if_same_result<T, TimeUnit::type> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  ARROW_ASSIGN_OR_RAISE(auto raw_val, GenericFromScalar<int32_t>(value));
+  switch (raw_val) {
+    case static_cast<int32_t>(TimeUnit::type::SECOND):
+      return TimeUnit::type::SECOND;
+    case static_cast<int32_t>(TimeUnit::type::MILLI):
+      return TimeUnit::type::MILLI;
+    case static_cast<int32_t>(TimeUnit::type::MICRO):
+      return TimeUnit::type::MICRO;
+    case static_cast<int32_t>(TimeUnit::type::NANO):
+      return TimeUnit::type::NANO;
+  }
+  return Status::Invalid("Invalid value for TimeUnit::type: ", raw_val);
 }
 
 template <typename T>
@@ -384,9 +391,6 @@ static inline enable_if_t<is_reflection_enum<T>::value, Result<T>> GenericFromSc
   }
   return Status::Invalid("Invalid value ", raw_value, " for enum ", T::kName);
 }
-
-template <typename T, typename U>
-using enable_if_same_result = enable_if_same<T, U, Result<T>>;
 
 template <typename T>
 static inline enable_if_same_result<T, std::string> GenericFromScalar(

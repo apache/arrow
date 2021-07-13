@@ -32,29 +32,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-namespace internal {
-template <>
-struct EnumTraits<TimeUnit::type>
-    : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
-                      TimeUnit::type::MICRO, TimeUnit::type::NANO> {
-  static std::string name() { return "TimeUnit::type"; }
-  static std::string value_name(TimeUnit::type value) {
-    switch (value) {
-      case TimeUnit::type::SECOND:
-        return "SECOND";
-      case TimeUnit::type::MILLI:
-        return "MILLI";
-      case TimeUnit::type::MICRO:
-        return "MICRO";
-      case TimeUnit::type::NANO:
-        return "NANO";
-    }
-    return "<INVALID>";
-  }
-};
-}  // namespace internal
-
 namespace compute {
 
 // ----------------------------------------------------------------------

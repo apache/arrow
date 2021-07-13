@@ -126,7 +126,7 @@ TEST(FunctionOptions, Equality) {
         auto deserialized,
         FunctionOptions::Deserialize(std::string(type_name, std::strlen(type_name)),
                                      *serialized));
-    ASSERT_TRUE(cur.Equals(*deserialized));
+    ASSERT_EQ(cur, *deserialized);
   }
 }
 

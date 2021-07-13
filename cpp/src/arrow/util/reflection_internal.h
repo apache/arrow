@@ -113,21 +113,5 @@ PropertyTuple<Properties...> MakeProperties(Properties... props) {
   return {std::make_tuple(props...)};
 }
 
-template <typename Enum>
-struct EnumTraits {};
-
-template <typename Enum, Enum... Values>
-struct BasicEnumTraits {
-  using CType = typename std::underlying_type<Enum>::type;
-  using Type = typename CTypeTraits<CType>::ArrowType;
-  static std::array<Enum, sizeof...(Values)> values() { return {Values...}; }
-};
-
-template <typename T, typename Enable = void>
-struct has_enum_traits : std::false_type {};
-
-template <typename T>
-struct has_enum_traits<T, void_t<typename EnumTraits<T>::Type>> : std::true_type {};
-
 }  // namespace internal
 }  // namespace arrow
