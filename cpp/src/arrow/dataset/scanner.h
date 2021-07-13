@@ -414,6 +414,13 @@ ARROW_DS_EXPORT Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*,
                                                         std::shared_ptr<Dataset>,
                                                         std::shared_ptr<ScanOptions>);
 
+/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+///
+/// Emitted batches will be ordered by fragment and batch indices, or an error
+/// will be raised if those fields are not available in the input.
+ARROW_DS_EXPORT Result<AsyncGenerator<util::optional<compute::ExecBatch>>>
+MakeOrderedSinkNode(compute::ExecNode*, std::string label);
+
 /// @}
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.

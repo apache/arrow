@@ -249,11 +249,13 @@ ARROW_EXPORT
 std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
                                                                 std::string label);
 
-/// \brief Add a sink node which forwards to a RecordBatchReader
+/// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///
-/// Emitted batches will not be ordered.
+/// The RecordBatchReader does not impose any ordering on emitted batches.
 ARROW_EXPORT
-std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input, std::string label);
+std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
+    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    MemoryPool*);
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///

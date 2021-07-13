@@ -1169,5 +1169,71 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   return MakeScanNode(plan, std::move(fragments_gen), std::move(scan_options));
 }
 
+Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
+    compute::ExecNode* input, std::string label) {
+  auto unordered = compute::MakeSinkNode(input, std::move(label));
+
+  const Schema& schema = *input->output_schema();
+  ARROW_ASSIGN_OR_RAISE(FieldPath match, FieldRef("__fragment_index").FindOne(schema));
+  int i = match[0];
+  auto fragment_index = [i](const compute::ExecBatch& batch) {
+    return batch.values[i].scalar_as<Int32Scalar>().value;
+  };
+  compute::ExecBatch before_any{{}, 0};
+  before_any.values.resize(i + 1);
+  before_any.values.back() = Datum(-1);
+
+  ARROW_ASSIGN_OR_RAISE(match, FieldRef("__batch_index").FindOne(schema));
+  i = match[0];
+  auto batch_index = [i](const compute::ExecBatch& batch) {
+    return batch.values[i].scalar_as<Int32Scalar>().value;
+  };
+
+  ARROW_ASSIGN_OR_RAISE(match, FieldRef("__last_in_fragment").FindOne(schema));
+  i = match[0];
+  auto last_in_fragment = [i](const compute::ExecBatch& batch) {
+    return batch.values[i].scalar_as<Int32Scalar>().value;
+  };
+
+  auto is_before_any = [=](const compute::ExecBatch& batch) {
+    return fragment_index(batch) < 0;
+  };
+
+  auto left_after_right = [=](const util::optional<compute::ExecBatch>& left,
+                              const util::optional<compute::ExecBatch>& right) {
+    // Before any comes first
+    if (is_before_any(*left)) {
+      return false;
+    }
+    if (is_before_any(*right)) {
+      return true;
+    }
+    // Compare batches if fragment is the same
+    if (fragment_index(*left) == fragment_index(*right)) {
+      return batch_index(*left) > batch_index(*right);
+    }
+    // Otherwise compare fragment
+    return fragment_index(*left) > fragment_index(*right);
+  };
+
+  auto is_next = [=](const util::optional<compute::ExecBatch>& prev,
+                     const util::optional<compute::ExecBatch>& next) {
+    // Only true if next is the first batch
+    if (is_before_any(*prev)) {
+      return fragment_index(*next) == 0 && batch_index(*next) == 0;
+    }
+    // If same fragment, compare batch index
+    if (fragment_index(*next) == fragment_index(*prev)) {
+      return batch_index(*next) == batch_index(*prev) + 1;
+    }
+    // Else only if next first batch of next fragment and prev is last batch of previous
+    return fragment_index(*next) == fragment_index(*prev) + 1 &&
+           last_in_fragment(*prev) && batch_index(*next) == 0;
+  };
+
+  return MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
+                                 util::make_optional(std::move(before_any)));
+}
+
 }  // namespace dataset
 }  // namespace arrow

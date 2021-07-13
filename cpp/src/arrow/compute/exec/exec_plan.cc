@@ -618,10 +618,12 @@ AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
   return out;
 }
 
-std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input,
-                                                      std::string label) {
+std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
+    std::shared_ptr<Schema> schema,
+    std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
   struct Impl : RecordBatchReader {
     std::shared_ptr<Schema> schema() const override { return schema_; }
+
     Status ReadNext(std::shared_ptr<RecordBatch>* record_batch) override {
       ARROW_ASSIGN_OR_RAISE(auto batch, iterator_.Next());
       if (batch) {
@@ -638,9 +640,9 @@ std::shared_ptr<RecordBatchReader> MakeSinkNodeReader(ExecNode* input,
   };
 
   auto out = std::make_shared<Impl>();
-  out->pool_ = input->plan()->exec_context()->memory_pool();
-  out->schema_ = input->output_schema();
-  out->iterator_ = MakeGeneratorIterator(MakeSinkNode(input, std::move(label)));
+  out->pool_ = pool;
+  out->schema_ = std::move(schema);
+  out->iterator_ = MakeGeneratorIterator(std::move(gen));
   return out;
 }
 
@@ -657,11 +659,10 @@ struct ScalarAggregateNode : ExecNode {
 
   const char* kind_name() override { return "ScalarAggregateNode"; }
 
-  Status DoConsume(const ExecBatch& batch,
-                   const std::vector<std::unique_ptr<KernelState>>& states) {
-    for (size_t i = 0; i < states.size(); ++i) {
+  Status DoConsume(const ExecBatch& batch, size_t thread_index) {
+    for (size_t i = 0; i < kernels_.size(); ++i) {
       KernelContext batch_ctx{plan()->exec_context()};
-      batch_ctx.SetState(states[i].get());
+      batch_ctx.SetState(states_[i][thread_index].get());
       ExecBatch single_column_batch{{batch.values[i]}, batch.length};
       RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
     }
@@ -679,8 +680,7 @@ struct ScalarAggregateNode : ExecNode {
 
     lock.unlock();
 
-    const auto& thread_local_state = states_[thread_index];
-    Status st = DoConsume(std::move(batch), thread_local_state);
+    Status st = DoConsume(std::move(batch), thread_index);
     if (!st.ok()) {
       outputs_[0]->ErrorReceived(this, std::move(st));
       return;
@@ -743,13 +743,8 @@ struct ScalarAggregateNode : ExecNode {
 
     for (size_t i = 0; i < kernels_.size(); ++i) {
       KernelContext ctx{plan()->exec_context()};
-      ctx.SetState(states_[0][i].get());
-
-      for (size_t thread_index = 1; thread_index < thread_indices_.size();
-           ++thread_index) {
-        RETURN_NOT_OK(
-            kernels_[i]->merge(&ctx, std::move(*states_[thread_index][i]), ctx.state()));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
+                                             kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
     lock->unlock();
@@ -778,45 +773,40 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
 
   auto exec_ctx = input->plan()->exec_context();
 
-  std::vector<std::shared_ptr<ScalarAggregateFunction>> functions(aggregates.size());
   std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
-  std::vector<std::vector<std::unique_ptr<KernelState>>> states(
-      exec_ctx->executor() ? exec_ctx->executor()->GetCapacity() : 1);
-  FieldVector fields(aggregates.size());
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
+  FieldVector fields(kernels.size());
 
-  for (size_t i = 0; i < aggregates.size(); ++i) {
+  for (size_t i = 0; i < kernels.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           exec_ctx->func_registry()->GetFunction(aggregates[i].function));
+
     if (function->kind() != Function::SCALAR_AGGREGATE) {
       return Status::Invalid("Provided non ScalarAggregateFunction ",
                              aggregates[i].function);
     }
 
-    functions[i] = checked_pointer_cast<ScalarAggregateFunction>(std::move(function));
-
     auto in_type = ValueDescr::Array(input->output_schema()->fields()[i]->type());
 
-    ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, functions[i]->DispatchExact({in_type}));
+    ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact({in_type}));
     kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
     if (aggregates[i].options == nullptr) {
-      aggregates[i].options = functions[i]->default_options();
+      aggregates[i].options = function->default_options();
     }
 
     KernelContext kernel_ctx{exec_ctx};
-    for (auto& thread_local_states : states) {
-      thread_local_states.resize(kernels.size());
-      ARROW_ASSIGN_OR_RAISE(
-          thread_local_states[i],
-          kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                       {
-                                                           in_type,
-                                                       },
-                                                       aggregates[i].options}));
-    }
+    states[i].resize(exec_ctx->executor() ? exec_ctx->executor()->GetCapacity() : 1);
+    RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
+                                  KernelInitArgs{kernels[i],
+                                                 {
+                                                     in_type,
+                                                 },
+                                                 aggregates[i].options},
+                                  &states[i]));
 
     // pick one to resolve the kernel signature
-    kernel_ctx.SetState(states[0][i].get());
+    kernel_ctx.SetState(states[i][0].get());
     ARROW_ASSIGN_OR_RAISE(
         auto descr, kernels[i]->signature->out_type().Resolve(&kernel_ctx, {in_type}));
 
