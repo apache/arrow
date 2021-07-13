@@ -154,6 +154,97 @@ DataFrame output:
    df = pa.ipc.open_file(buf).read_pandas()
    df[:5]
 
+Efficiently Writing and Reading Arrow Arrays
+--------------------------------------------
+
+Being optimized for zero copy and memory mapped data, Arrow allows to easily
+read and write arrays consuming the minimum amount of resident memory.
+
+When writing and reading raw Arrow data, we can use the Arrow File Format
+or the Arrow Streaming Format.
+
+To dump an array to file, you can use the :meth:`~pyarrow.ipc.new_file`
+which will provide a new :class:`~pyarrow.ipc.RecordBatchFileWriter` instance
+that can be used to write batches of data to that file.
+
+For example to write an array of 100M integers, we could write it in 1000 chunks
+of 100000 entries:
+
+.. ipython:: python
+
+      BATCH_SIZE = 100000
+      NUM_BATCHES = 1000
+
+      schema = pa.schema([pa.field('nums', pa.int32())])
+
+      with pa.OSFile('bigfile.arrow', 'wb') as sink:
+         with pa.ipc.new_file(sink, schema) as writer:
+            for row in range(NUM_BATCHES):
+                  batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
+                  writer.write(batch)
+
+record batches support multiple columns, so in practice we always write the
+equivalent of a :class:`~pyarrow.Table`.
+
+Writing in batches is effective because we in theory need to keep in memory only
+the current batch we are writing. But when reading back, we can be even more effective
+by directly mapping the data from disk and avoid allocating any new memory on read.
+
+Under normal conditions, reading back our file will consume a few hundred megabytes
+of memory:
+
+.. ipython:: python
+
+      with pa.OSFile('bigfile.arrow', 'rb') as source:
+         loaded_array = pa.ipc.open_file(source).read_all()
+
+      print("LEN:", len(loaded_array))
+      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+
+To more efficiently read big data from disk, we can memory map the file, so that
+the arrow can directly reference the data mapped from disk and avoid having to
+allocate its own memory.
+In such case the operating system will be able to page in the mapped memory
+lazily and page it out without any write back cost when under pressure,
+allowing to more easily read arrays bigger than the total memory.
+
+.. ipython:: python
+
+      with pa.memory_map('bigfile.arrow', 'r') as source:
+         loaded_array = pa.ipc.open_file(source).read_all()
+      print("LEN:", len(loaded_array))
+      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+
+Equally we can write back to disk the loaded array without consuming any
+extra memory thanks to the fact that iterating over the array will just
+scan through the data without the need to make copies of it
+
+.. ipython:: python
+
+      with pa.OSFile('bigfile2.arrow', 'wb') as sink:
+         with pa.ipc.new_file(sink, schema) as writer:
+            for chunk in loaded_array[0].iterchunks():
+                  batch = pa.record_batch([chunk], schema)
+                  writer.write(batch)
+      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+
+Most high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
+``memory_map`` option. But in those cases, the memory mapping can't help with
+reducing resident memory consumption. Because Parquet data needs to be decoded
+from the parquet format and compression, it can't be directly mapped from disk,
+thus the ``memory_map`` option might perform better on some systems but won't
+help much with resident memory consumption.
+
+.. code-block:: python
+
+      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=True)
+      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+      RSS: 4299MB
+
+      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=False)
+      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+      RSS: 4299MB   
+
 Arbitrary Object Serialization
 ------------------------------
 
