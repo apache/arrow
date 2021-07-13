@@ -32,7 +32,6 @@ template <typename ValueType>
 class ValueCacheObject {
  public:
   ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
-  ValueCacheObject() = default;
   ValueType module;
   uint64_t cost;
   bool operator<(const ValueCacheObject& other) const { return cost < other.cost; }
@@ -107,7 +106,7 @@ class GreedyDualSizeCache {
       auto iter =
           priority_set_.insert(PriorityItem(value.cost + inflation_, value.cost, key));
       // save on map the value and the priority item iterator position
-      map_[key] = std::make_pair(value, iter.first);
+      map_.emplace(key, std::make_pair(value, iter.first));
     }
   }
 
