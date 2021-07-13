@@ -282,6 +282,10 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
   EXPECT_EQ(std::string(out_str, out_len), "111");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = bin_int32(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
   out_str = bin_int32(ctx_ptr, 28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
   EXPECT_FALSE(ctx.has_error());
@@ -308,6 +312,10 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
 
   out_str = bin_int64(ctx_ptr, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = bin_int64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = bin_int64(ctx_ptr, 28550, &out_len);

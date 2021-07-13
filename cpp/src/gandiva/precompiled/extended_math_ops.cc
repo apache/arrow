@@ -378,19 +378,27 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
       gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
       return "";                                                                      \
     }                                                                                 \
+    /* handle case when value is zero */                                              \
+    if (value == 0) {                                                                 \
+      *out_len = 1;                                                                   \
+      ret[0] = '0';                                                                   \
+      return ret;                                                                     \
+    }                                                                                 \
     /* generate binary representation iteratively */                                  \
     gdv_u##IN_TYPE i;                                                                 \
+    int8_t count = 0;                                                                 \
     bool first = false; /* flag for not printing left zeros in positive numbers */    \
     for (i = static_cast<gdv_u##IN_TYPE>(1) << (len - 1); i > 0; i = i / 2) {         \
       if ((value & i) != 0) {                                                         \
-        ret[*out_len] = '1';                                                          \
+        ret[count] = '1';                                                             \
         if (!first) first = true;                                                     \
       } else {                                                                        \
         if (!first) continue;                                                         \
-        ret[*out_len] = '0';                                                          \
+        ret[count] = '0';                                                             \
       }                                                                               \
-      *out_len += 1;                                                                  \
+      count += 1;                                                                     \
     }                                                                                 \
+    *out_len = count;                                                                 \
     return ret;                                                                       \
   }
 
