@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -64,5 +66,16 @@ public class AccessorTestUtils {
       accessorConsumer.accept(accessor, cursor.getCurrentRow());
       cursor.next();
     }
+  }
+
+  public static <T extends ArrowFlightJdbcAccessor> List<Object> accessorToObjectList(
+      ValueVector vector, AccessorSupplier<T> accessorSupplier)
+      throws Exception {
+    List<Object> result = new ArrayList<>();
+    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
+      result.add(accessor.getObject());
+    });
+
+    return result;
   }
 }
