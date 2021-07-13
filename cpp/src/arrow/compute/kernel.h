@@ -522,6 +522,10 @@ struct Kernel {
   /// set up any options or state relevant for execution.
   KernelInit init;
 
+  /// \brief Create a vector of new KernelState for invocations of this kernel.
+  static Status InitAll(KernelContext*, const KernelInitArgs&,
+                        std::vector<std::unique_ptr<KernelState>>*);
+
   /// \brief Indicates whether execution can benefit from parallelization
   /// (splitting large chunks into smaller chunks and using multiple
   /// threads). Some kernels may not support parallel execution at
@@ -672,6 +676,12 @@ struct ScalarAggregateKernel : public Kernel {
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
             std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+
+  /// \brief Merge a vector of KernelStates into a single KernelState.
+  /// The merged state will be returned and will be set on the KernelContext.
+  static Result<std::unique_ptr<KernelState>> MergeAll(
+      const ScalarAggregateKernel* kernel, KernelContext* ctx,
+      std::vector<std::unique_ptr<KernelState>> states);
 
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
