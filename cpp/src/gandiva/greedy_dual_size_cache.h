@@ -101,10 +101,6 @@ class GreedyDualSizeCache {
       if (size() >= capacity_) {
         evict();
       }
-      // check and handle possible overflow
-      if (UINT64_MAX - value.cost < inflation_) {
-        overflow();
-      }
 
       // insert the new item
       auto item =
@@ -122,10 +118,6 @@ class GreedyDualSizeCache {
       return arrow::util::nullopt;
     }
     PriorityItem item = *value_for_key->second.second;
-    // check and handle possible overflow
-    if (UINT64_MAX - item.original_priority < inflation_) {
-      overflow();
-    }
     // if the value was found on the cache, update its cost (original + inflation)
     if (item.actual_priority != item.original_priority + inflation_) {
       priority_set_.erase(value_for_key->second.second);
@@ -143,6 +135,8 @@ class GreedyDualSizeCache {
 
  private:
   void evict() {
+    // TODO: inflation overflow is unlikely to happen but needs to be handled
+    //  for correctness.
     // evict item from the beginning of the set. This set is ordered from the
     // lower priority value to the higher priority value.
     typename std::set<PriorityItem>::iterator i = priority_set_.begin();
@@ -150,23 +144,6 @@ class GreedyDualSizeCache {
     inflation_ = (*i).actual_priority;
     map_.erase((*i).cache_key);
     priority_set_.erase(i);
-  }
-
-  void overflow() {
-    // iterate over all set reassigning all entries cost to the original one, also
-    // updating it in the main map
-    std::set<PriorityItem> aux_set_;
-    typename std::set<PriorityItem>::iterator i = priority_set_.begin();
-    while (i != priority_set_.end()) {
-      auto it = aux_set_.insert(
-          PriorityItem((*i).original_priority, (*i).original_priority, (*i).cache_key));
-      // find the updated key in map to update
-      typename map_type::iterator im = map_.find((*i).cache_key);
-      im->second.second = it.first;
-      i++;
-    }
-    priority_set_ = aux_set_;
-    inflation_ = 0;
   }
 
   map_type map_;
