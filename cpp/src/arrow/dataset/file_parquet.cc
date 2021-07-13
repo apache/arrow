@@ -952,7 +952,8 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
 
   ARROW_ASSIGN_OR_RAISE(auto fragments, CollectParquetFragments(*partitioning));
   return FileSystemDataset::Make(std::move(schema), compute::literal(true), format_,
-                                 filesystem_, std::move(fragments));
+                                 filesystem_, std::move(fragments),
+                                 std::move(partitioning));
 }
 
 }  // namespace dataset
