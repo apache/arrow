@@ -974,7 +974,35 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
       });
     }
   }
-  // TODO: need to initialize output values
+  if (!have_else_arg) {
+    // Need to initialize any remaining null slots (uninitialized memory)
+    BitBlockCounter counter(mask, /*offset=*/0, batch.length);
+    int64_t offset = 0;
+    auto bit_width = checked_cast<const FixedWidthType&>(*out->type()).bit_width();
+    auto byte_width = BitUtil::BytesForBits(bit_width);
+    while (offset < batch.length) {
+      const auto block = counter.NextWord();
+      if (block.AllSet()) {
+        if (bit_width == 1) {
+          BitUtil::SetBitsTo(out_values, out_offset + offset, block.length, false);
+        } else {
+          std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
+                      byte_width * block.length);
+        }
+      } else if (!block.NoneSet()) {
+        for (int64_t j = 0; j < block.length; ++j) {
+          if (BitUtil::GetBit(out_valid, out_offset + offset + j)) continue;
+          if (bit_width == 1) {
+            BitUtil::ClearBit(out_values, out_offset + offset + j);
+          } else {
+            std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
+                        byte_width);
+          }
+        }
+      }
+      offset += block.length;
+    }
+  }
   return Status::OK();
 }
 
