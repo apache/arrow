@@ -23,15 +23,18 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -408,5 +411,53 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     }
 
     return result;
+  }
+
+  /**
+   * Create a VarBinaryVector to be used in the accessor tests.
+   *
+   * @return VarBinaryVector
+   */
+  public VarBinaryVector createVarBinaryVector() {
+    VarBinaryVector valueVector = new VarBinaryVector("", this.getRootAllocator());
+    valueVector.allocateNew(3);
+    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
+    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
+    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setValueCount(3);
+
+    return valueVector;
+  }
+
+  /**
+   * Create a LargeVarBinaryVector to be used in the accessor tests.
+   *
+   * @return LargeVarBinaryVector
+   */
+  public LargeVarBinaryVector createLargeVarBinaryVector() {
+    LargeVarBinaryVector valueVector = new LargeVarBinaryVector("", this.getRootAllocator());
+    valueVector.allocateNew(3);
+    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
+    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
+    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setValueCount(3);
+
+    return valueVector;
+  }
+
+  /**
+   * Create a FixedSizeBinaryVector to be used in the accessor tests.
+   *
+   * @return FixedSizeBinaryVector
+   */
+  public FixedSizeBinaryVector createFixedSizeBinaryVector() {
+    FixedSizeBinaryVector valueVector = new FixedSizeBinaryVector("", this.getRootAllocator(), 16);
+    valueVector.allocateNew(3);
+    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
+    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
+    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setValueCount(3);
+
+    return valueVector;
   }
 }
