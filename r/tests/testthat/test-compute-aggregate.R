@@ -209,19 +209,14 @@ test_that("Edge cases", {
   for (type in c(int32(), float64(), bool())) {
     expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
     expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
-    expect_warning(
-      expect_equal(
-        as.vector(min(a$cast(type), na.rm = TRUE)),
-        min(NA, na.rm = TRUE)
-      ),
-      "no non-missing arguments"
+    expect_equal(
+      as.vector(min(a$cast(type), na.rm = TRUE)),
+      # Suppress the base R warning about no non-missing arguments
+      suppressWarnings(min(NA, na.rm = TRUE))
     )
-    expect_warning(
-      expect_equal(
-        as.vector(max(a$cast(type), na.rm = TRUE)),
-        max(NA, na.rm = TRUE)
-      ),
-      "no non-missing arguments"
+    expect_equal(
+      as.vector(max(a$cast(type), na.rm = TRUE)),
+      suppressWarnings(max(NA, na.rm = TRUE))
     )
   }
 })
