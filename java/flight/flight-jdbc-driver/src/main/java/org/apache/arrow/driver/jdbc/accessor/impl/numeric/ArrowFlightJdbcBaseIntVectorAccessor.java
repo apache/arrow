@@ -101,9 +101,12 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public long getLong() {
     getter.get(getCurrentRow(), holder);
-    this.wasNull = holder.isSet == 0;
 
-    return this.wasNull ? 0L : holder.value;
+    if (this.wasNull = holder.isSet == 0) {
+      return 0;
+    }
+
+    return holder.value;
   }
 
   @Override
