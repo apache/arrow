@@ -180,7 +180,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Stop measuring time and calculate the elapsed time
   auto end = std::chrono::high_resolution_clock::now();
   auto elapsed =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;

@@ -125,7 +125,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Stop measuring time and calculate the elapsed time
   auto end = std::chrono::high_resolution_clock::now();
   auto elapsed =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
