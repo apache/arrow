@@ -76,7 +76,6 @@ export class Vector<T extends DataType = any> {
     protected _offsets: Uint32Array;
     protected _nullCount!: number;
     protected _byteLength!: number;
-    protected _children?: Vector[];
 
     /**
      * @summary Get and set elements by index.
@@ -242,7 +241,7 @@ export class Vector<T extends DataType = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.numChildren) {
-            return (this._children ??= [])[index] ??= new Vector(
+            return new Vector(
                 this.type.children[index].type,
                 this.data.map(({ children }) => children[index]),
                 this._offsets.slice()

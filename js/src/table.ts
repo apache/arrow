@@ -113,7 +113,6 @@ export class Table<T extends { [key: string]: DataType } = any> {
 
     protected _offsets!: Uint32Array;
     protected _nullCount!: number;
-    protected _children?: Vector[];
 
     /**
      * @summary Get and set elements by index.
@@ -216,11 +215,11 @@ export class Table<T extends { [key: string]: DataType } = any> {
      */
     public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
-            return (this._children ??= [])[index] ??= new Vector(
+            return new Vector(
                 this.schema.fields[index].type,
                 this.data.map(({ children }) => children[index]),
                 this._offsets.slice()
-            );
+            ) as Vector<R>;
         }
         return null;
     }
