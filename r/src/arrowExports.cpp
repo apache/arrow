@@ -1808,10 +1808,10 @@ extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_s
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___CsvFileWriteOptions__update(const std::shared_ptr<arrow::ds::CsvFileWriteOptions>& csv_options, const std::shared_ptr<arrow::csv::WriteOptions>& write_options);
+void dataset___CsvFileWriteOptions__update(const std::shared_ptr<ds::CsvFileWriteOptions>& csv_options, const std::shared_ptr<arrow::csv::WriteOptions>& write_options);
 extern "C" SEXP _arrow_dataset___CsvFileWriteOptions__update(SEXP csv_options_sexp, SEXP write_options_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ds::CsvFileWriteOptions>&>::type csv_options(csv_options_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::CsvFileWriteOptions>&>::type csv_options(csv_options_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
 	dataset___CsvFileWriteOptions__update(csv_options, write_options);
 	return R_NilValue;
