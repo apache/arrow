@@ -56,8 +56,11 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   public double getDouble() {
     vector.get(getCurrentRow(), holder);
 
-    this.wasNull = holder.isSet == 0;
-    return this.wasNull ? 0 : holder.value;
+    if (this.wasNull = holder.isSet == 0) {
+      return 0;
+    }
+
+    return holder.value;
   }
 
   @Override
