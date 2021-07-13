@@ -770,8 +770,15 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
     const ArrayData& array = *in_values.array();
     if (out_valid) {
       if (array.MayHaveNulls()) {
-        arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset + in_offset,
-                                    length, out_valid, out_offset);
+        if (length == 1) {
+          // CopyBitmap is slow for short runs
+          BitUtil::SetBitTo(
+              out_valid, out_offset,
+              BitUtil::GetBit(array.buffers[0]->data(), array.offset + in_offset));
+        } else {
+          arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset + in_offset,
+                                      length, out_valid, out_offset);
+        }
       } else {
         BitUtil::SetBitsTo(out_valid, out_offset, length, true);
       }
