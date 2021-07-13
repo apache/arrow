@@ -831,7 +831,7 @@ class StreamingReaderImpl : public ReaderMixin,
                       const ConvertOptions& convert_options, bool count_rows)
       : ReaderMixin(io_context, std::move(input), read_options, parse_options,
                     convert_options, count_rows),
-        bytes_decoded_(0) {}
+        bytes_decoded_(std::make_shared<std::atomic<int64_t>>(0)) {}
 
   Future<> Init(Executor* cpu_executor) {
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
@@ -856,7 +856,7 @@ class StreamingReaderImpl : public ReaderMixin,
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
-  int64_t bytes_read() const override { return bytes_decoded_.load(); }
+  int64_t bytes_read() const override { return bytes_decoded_->load(); }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     auto next_fut = ReadNextAsync();
@@ -879,7 +879,7 @@ class StreamingReaderImpl : public ReaderMixin,
     std::shared_ptr<Buffer> after_header;
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
                           ProcessHeader(first_buffer, &after_header));
-    bytes_decoded_.fetch_add(header_bytes_consumed);
+    bytes_decoded_->fetch_add(header_bytes_consumed);
     auto parser_op =
         BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, count_rows_);
     ARROW_ASSIGN_OR_RAISE(
@@ -916,10 +916,11 @@ class StreamingReaderImpl : public ReaderMixin,
       restarted_gen = std::move(readahead_gen);
     }
 
-    auto self = shared_from_this();
+    auto bytes_decoded = bytes_decoded_;
     auto unwrap_and_record_bytes =
-        [self](const DecodedBlock& block) -> Result<std::shared_ptr<RecordBatch>> {
-      self->bytes_decoded_.fetch_add(block.bytes_processed);
+        [bytes_decoded](
+            const DecodedBlock& block) -> Result<std::shared_ptr<RecordBatch>> {
+      bytes_decoded->fetch_add(block.bytes_processed);
       return block.record_batch;
     };
 
@@ -933,7 +934,7 @@ class StreamingReaderImpl : public ReaderMixin,
   std::shared_ptr<Schema> schema_;
   AsyncGenerator<std::shared_ptr<RecordBatch>> record_batch_gen_;
   // bytes which have been decoded and asked for by the caller
-  std::atomic<int64_t> bytes_decoded_;
+  std::shared_ptr<std::atomic<int64_t>> bytes_decoded_;
 };
 
 /////////////////////////////////////////////////////////////////////////
