@@ -36,30 +36,35 @@ template <typename Functor>
 Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
                              const BooleanScalar& mask, const Datum& replacements,
                              ArrayData* output) {
+  Datum source = array;
   if (!mask.is_valid) {
     // Output = null
-    ARROW_ASSIGN_OR_RAISE(auto replacement_array,
-                          MakeArrayOfNull(array.type, array.length, ctx->memory_pool()));
-    *output = *replacement_array->data();
-    return Status::OK();
+    source = MakeNullScalar(output->type);
   } else if (mask.value) {
     // Output = replacement
-    if (replacements.is_scalar()) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto replacement_array,
-          MakeArrayFromScalar(*replacements.scalar(), array.length, ctx->memory_pool()));
-      *output = *replacement_array->data();
+    source = replacements;
+  }
+  uint8_t* out_bitmap = output->buffers[0]->mutable_data();
+  uint8_t* out_values = output->buffers[1]->mutable_data();
+  const int64_t out_offset = output->offset;
+  if (source.is_array()) {
+    const ArrayData& in_data = *source.array();
+    if (in_data.length < array.length) {
+      return ReplacementArrayTooShort(array.length, in_data.length);
+    }
+    Functor::CopyData(*array.type, out_values, out_offset, in_data, /*in_offset=*/0,
+                      array.length);
+    if (in_data.MayHaveNulls()) {
+      arrow::internal::CopyBitmap(in_data.buffers[0]->data(), in_data.offset,
+                                  array.length, out_bitmap, out_offset);
     } else {
-      const ArrayData& replacement_array = *replacements.array();
-      if (replacement_array.length < array.length) {
-        return ReplacementArrayTooShort(array.length, replacement_array.length);
-      }
-      *output = replacement_array;
-      output->length = array.length;
+      BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, true);
     }
   } else {
-    // Output = input
-    *output = array;
+    const Scalar& in_data = *source.scalar();
+    Functor::CopyData(*array.type, out_values, out_offset, in_data, /*in_offset=*/0,
+                      array.length);
+    BitUtil::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
   }
   return Status::OK();
 }
