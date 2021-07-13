@@ -57,7 +57,7 @@ else
   exit 1
 fi
 
-echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
+echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 pip install -r ${source_dir}/python/requirements-wheel-build.txt delocate
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
