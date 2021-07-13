@@ -471,6 +471,12 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
+
+      // test case for ARROW-13321
+      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+        ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
+        AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
+      }
     }
   }
 
