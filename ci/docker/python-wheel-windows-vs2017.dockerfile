@@ -42,7 +42,9 @@ RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 # statements but bash notation in ENV statements
 # VCPKG_FORCE_SYSTEM_BINARIES=1 spare around ~750MB of image size if the system
 # cmake's and ninja's versions are recent enough
-COPY ci/vcpkg arrow/ci/vcpkg
+COPY ci/vcpkg/*.patch \
+     ci/vcpkg/*windows*.cmake \
+     arrow/ci/vcpkg/
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
