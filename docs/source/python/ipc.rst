@@ -167,12 +167,12 @@ To dump an array to file, you can use the :meth:`~pyarrow.ipc.new_file`
 which will provide a new :class:`~pyarrow.ipc.RecordBatchFileWriter` instance
 that can be used to write batches of data to that file.
 
-For example to write an array of 100M integers, we could write it in 1000 chunks
-of 100000 entries:
+For example to write an array of 10M integers, we could write it in 1000 chunks
+of 10000 entries:
 
 .. ipython:: python
 
-      BATCH_SIZE = 100000
+      BATCH_SIZE = 10000
       NUM_BATCHES = 1000
 
       schema = pa.schema([pa.field('nums', pa.int32())])
