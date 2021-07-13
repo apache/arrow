@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/array/concatenate.h>
-#include <arrow/compute/api_scalar.h>
-#include <arrow/testing/gtest_util.h>
-#include <arrow/testing/random.h>
 #include <benchmark/benchmark.h>
+
+#include "arrow/array/concatenate.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace compute {
@@ -114,6 +116,11 @@ static void CaseWhenBench(benchmark::State& state) {
       rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto cond3 = std::static_pointer_cast<BooleanArray>(
       rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto cond_field =
+      field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
+  auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
+                                  key_value_metadata({{"null_probability", "0.0"}})),
+                           len);
   auto val1 = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto val2 = std::static_pointer_cast<ArrayType>(
@@ -122,11 +129,6 @@ static void CaseWhenBench(benchmark::State& state) {
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto val4 = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
-  ASSERT_OK_AND_ASSIGN(
-      auto cond,
-      StructArray::Make({cond1, cond2, cond3}, std::vector<std::string>{"a", "b", "c"},
-                        nullptr, /*null_count=*/0));
-
   for (auto _ : state) {
     ABORT_NOT_OK(
         CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
@@ -147,9 +149,7 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
 
   ASSERT_OK_AND_ASSIGN(auto trues, MakeArrayFromScalar(BooleanScalar(true), len / 3));
   ASSERT_OK_AND_ASSIGN(auto falses, MakeArrayFromScalar(BooleanScalar(false), len / 3));
-  auto null_scalar = MakeNullScalar(boolean());
-  ASSERT_OK_AND_ASSIGN(auto nulls,
-                       MakeArrayFromScalar(*null_scalar, len - 2 * (len / 3)));
+  ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(boolean(), len - 2 * (len / 3)));
   ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({trues, falses, nulls}));
   auto cond1 = std::static_pointer_cast<BooleanArray>(concat);
 

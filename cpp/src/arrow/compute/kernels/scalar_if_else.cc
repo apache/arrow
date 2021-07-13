@@ -1024,16 +1024,17 @@ const FunctionDoc if_else_doc{"Choose values based on a condition",
 
 const FunctionDoc case_when_doc{
     "Choose values based on multiple conditions",
-    ("`cond` must be a sequence of alternating Boolean condition data "
-     "and value data (of any type, but all must be the same type or "
-     "castable to a common type), along with an optional datum of "
-     "\"else\" values. At least one datum must be given.\n"
+    ("`cond` must be a struct of Boolean values. `cases` can be a mix "
+     "of scalar and array arguments (of any type, but all must be the "
+     "same type or castable to a common type), with either exactly one "
+     "datum per child of `cond`, or one more `cases` than children of "
+     "`cond` (in which case we have an \"else\" value).\n"
      "Each row of the output will be the corresponding value of the "
-     "first value datum for which the corresponding condition datum "
+     "first datum in `cases` for which the corresponding child of `cond` "
      "is true, or otherwise the \"else\" value (if given), or null. "
-     "Essentially, this implements a switch-case or if-else if-else "
+     "Essentially, this implements a switch-case or if-else, if-else... "
      "statement."),
-    {"*cond"}};
+    {"cond", "*cases"}};
 }  // namespace
 
 void RegisterScalarIfElse(FunctionRegistry* registry) {

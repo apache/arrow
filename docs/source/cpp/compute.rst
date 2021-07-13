@@ -860,37 +860,38 @@ Structural transforms
 
 .. XXX (this category is a bit of a hodgepodge)
 
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| Function name            | Arity      | Input types                                    | Output type         | Notes   |
-+==========================+============+================================================+=====================+=========+
-| case_when                | Varargs    | Boolean, Any fixed-width                       | Input type          | \(1)   |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(2)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          | \(3)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_finite                | Unary      | Float, Double                                  | Boolean             | \(4)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(5)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(6)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                            | Boolean             | \(7)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                            | Boolean             | \(8)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(9)    |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
-| project                  | Varargs    | Any                                            | Struct              | \(10)   |
-+--------------------------+------------+------------------------------------------------+---------------------+---------+
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                                       | Output type         | Notes   |
++==========================+============+===================================================+=====================+=========+
+| case_when                | Varargs    | Struct of Boolean (Arg 0), Any fixed-width (rest) | Input type          | \(1)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(2)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(3)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_finite                | Unary      | Float, Double                                     | Boolean             | \(4)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_inf                   | Unary      | Float, Double                                     | Boolean             | \(5)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_nan                   | Unary      | Float, Double                                     | Boolean             | \(6)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_null                  | Unary      | Any                                               | Boolean             | \(7)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_valid                 | Unary      | Any                                               | Boolean             | \(8)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                         | Int32 or Int64      | \(9)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                               | Struct              | \(10)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL 'case when' statement or switch-case. The
-  input is any number of alternating Boolean and value data, followed by an
-  optional value datum to represent the 'else' or 'default' case. At least one
-  input must be provided. The output is of the same type as the value inputs;
-  each row will be the corresponding value from the first value datum for which
-  the corresponding Boolean is true, or the corresponding value from the
-  'default' input, or null otherwise.
+  input is a "condition" value, which is a struct of Booleans, followed by the
+  values for each "branch". There must be either exactly one value argument for
+  each child of the condition struct, or one more value argument than children
+  (in which case we have an 'else' or 'default' value). The output is of the
+  same type as the value inputs; each row will be the corresponding value from
+  the first value datum for which the corresponding Boolean is true, or the
+  corresponding value from the 'default' input, or null otherwise.
 
 * \(2) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
