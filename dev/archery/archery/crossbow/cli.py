@@ -235,6 +235,29 @@ def latest_prefix(obj, prefix, fetch):
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.pass_obj
+def save_report_data(obj, job_name):
+    """
+    Just print there the state of the job
+    """
+    output = obj['output']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+
+    job = queue.get(job_name)
+    report = EmailReport(
+        job=job,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
+
+    report.show(output)
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
 @click.option('--sender-name', '-n',
               help='Name to use for report e-mail.')
 @click.option('--sender-email', '-e',

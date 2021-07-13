@@ -121,6 +121,57 @@ class ConsoleReport(Report):
                                    asset))
 
 
+class JsonReport(Report):
+
+    HEADER = textwrap.dedent("""
+        Arrow Build Report for Job {job_name}
+
+        All tasks: {all_tasks_url}
+    """)
+
+    TASK = textwrap.dedent("""
+          - {name}:
+            URL: {url}
+    """).strip()
+
+    STATUS_HEADERS = {
+        # from CombinedStatus
+        'error': 'Errored Tasks:',
+        'failure': 'Failed Tasks:',
+        'pending': 'Pending Tasks:',
+        'success': 'Succeeded Tasks:',
+    }
+
+    def __init__(self, job):
+        super().__init__(job)
+
+    def url(self, query):
+        repo_url = self.job.queue.remote_url.strip('.git')
+        return '{}/branches/all?query={}'.format(repo_url, query)
+
+    def todayStr(self):
+        date = datetime.utcnow()
+        return "{}-{}-{}".format(date.year, date.month, date.day)
+
+    def tasksToDict(self, date, tasks):
+        jsonTasks = []
+        for task_name, task in tasks.items():
+            jsonTasks.append({
+                "build" : task_name,
+                "link" : self.url(task.branch),
+                "status" : task.status().combined_state.upper(),
+                "timestamp" : date})
+
+        return jsonTasks
+
+    def getJsonTasks(self):
+        tasks = self.tasksToDict(self.todayStr(), self.job.tasks.items())
+        jsonStr = json.dump(tasks)
+        #TODO remove the print
+        print(jsonStr)
+        return jsonStr
+
+
 class EmailReport(Report):
 
     HEADER = textwrap.dedent("""
