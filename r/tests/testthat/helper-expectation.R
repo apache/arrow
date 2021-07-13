@@ -70,20 +70,38 @@ verify_output <- function(...) {
   testthat::verify_output(...)
 }
 
-expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
-                               tbl,  # A tbl/df as reference, will make RB/Table with
-                               skip_record_batch = NULL, # Msg, if should skip RB test
-                               skip_table = NULL,        # Msg, if should skip Table test
+#' @param expr A dplyr pipeline with `input` as its start
+#' @param tbl A tbl/df as reference, will make RB/Table with
+#' @param skip_record_batch string skip message, if should skip RB test
+#' @param skip_table string skip message, if should skip Table test
+#' @param warning string expected warning from the RecordBatch and Table paths,
+#'   passed to `expect_warning()` Default is `NA`, for no warning message.
+#'   `TRUE` is a special case to mean to check for the
+#'   "not supported in Arrow; pulling data into R" message.
+#' @param ... additional arguments, passed to `expect_equivalent()`
+expect_dplyr_equal <- function(expr,
+                               tbl,
+                               skip_record_batch = NULL,
+                               skip_table = NULL,
+                               warning = NA,
                                ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
 
+  if (isTRUE(warning)) {
+    # Special-case the simple warning:
+    warning <- "not supported in Arrow; pulling data into R"
+  }
+
   skip_msg <- NULL
 
   if (is.null(skip_record_batch)) {
-    via_batch <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    expect_warning(
+      via_batch <- rlang::eval_tidy(
+        expr,
+        rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+      ),
+      warning
     )
     expect_equivalent(via_batch, expected, ...)
   } else {
@@ -91,9 +109,12 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
   }
 
   if (is.null(skip_table)) {
-    via_table <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    expect_warning(
+      via_table <- rlang::eval_tidy(
+        expr,
+        rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+      ),
+      warning
     )
     expect_equivalent(via_table, expected, ...)
   } else {
@@ -110,7 +131,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
                                ...) {
   # ensure we have supplied tbl
   force(tbl)
-  
+
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
@@ -126,7 +147,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
       # but what we really care about is the `x` block
       # so (temporarily) let's pull those blocks out when we find them
       pattern <- i18ize_error_messages()
-      
+
       if (grepl(pattern, msg)) {
         msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
       }
@@ -179,7 +200,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
   if (is.null(skip_chunked_array)) {
     # split input vector into two to exercise ChunkedArray with >1 chunk
     split_vector <- split_vector_as_list(vec)
-    
+
     via_chunked <- rlang::eval_tidy(
       expr,
       rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
@@ -199,29 +220,29 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
                                 skip_array = NULL, # Msg, if should skip Array test
                                 skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
                                 ...) {
-  
+
   expr <- rlang::enquo(expr)
-  
+
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec))),
     error = function (e) {
       msg <- conditionMessage(e)
-      
+
       pattern <- i18ize_error_messages()
-      
+
       if (grepl(pattern, msg)) {
         msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
       }
       msg
     }
   )
-  
+
   expect_true(identical(typeof(msg), "character"), label = "vector errored")
-  
+
   skip_msg <- NULL
-  
+
   if (is.null(skip_array)) {
-    
+
     expect_error(
       rlang::eval_tidy(
         expr,
@@ -233,11 +254,11 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   } else {
     skip_msg <- c(skip_msg, skip_array)
   }
-  
+
   if (is.null(skip_chunked_array)) {
     # split input vector into two to exercise ChunkedArray with >1 chunk
     split_vector <- split_vector_as_list(vec)
-    
+
     expect_error(
       rlang::eval_tidy(
         expr,
@@ -249,7 +270,7 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   } else {
     skip_msg <- c(skip_msg, skip_chunked_array)
   }
-  
+
   if (!is.null(skip_msg)) {
     skip(paste(skip_msg, collpase = "\n"))
   }

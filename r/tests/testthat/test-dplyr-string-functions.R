@@ -774,7 +774,8 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
 })
 
 test_that("stri_reverse and arrow_ascii_reverse functions", {
-  skip("TODO: these actually aren't implemented")
+  # TODO: these actually aren't implemented (ARROW-12869)
+  # Fix them, then remove the `warning = TRUE` arguments
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
 
   df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
@@ -783,14 +784,16 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
-    df_utf8
+    df_utf8,
+    warning = TRUE # Remove me
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
-    df_ascii
+    df_ascii,
+    warning = TRUE # Remove me
   )
 
   expect_equivalent(
