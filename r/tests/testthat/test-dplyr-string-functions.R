@@ -652,6 +652,11 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
+  # base::strptime() defaults to local timezone
+  # but arrow's strptime defaults to UTC.
+  # So that tests are consistent, set the local timezone to UTC
+  # TODO: consider reevaluating this workaround after ARROW-12980
+  withr::local_timezone("UTC")
 
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
@@ -769,25 +774,28 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
 })
 
 test_that("stri_reverse and arrow_ascii_reverse functions", {
-  
+  # TODO: these actually aren't implemented (ARROW-12869)
+  # Fix them, then remove the `warning = TRUE` arguments
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
-  
+
   df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
-    df_utf8
+    df_utf8,
+    warning = TRUE # Remove me
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
-    df_ascii
+    df_ascii,
+    warning = TRUE # Remove me
   )
-  
+
   expect_equivalent(
     df_ascii %>%
       Table$create() %>%
@@ -795,7 +803,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
       collect(),
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
-  
+
   expect_error(
     df_utf8 %>%
       Table$create() %>%
@@ -806,12 +814,12 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
-  
+
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   # TODO: After new version of stringr with str_like has been released, update all
   # these tests to use expect_dplyr_equal
-  
+
   # No match - entire string
   expect_equivalent(
     df %>%
@@ -820,7 +828,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Match - entire string
   expect_equivalent(
     df %>%
@@ -829,7 +837,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Wildcard
   expect_equivalent(
     df %>%
@@ -838,7 +846,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Ignore case
   expect_equivalent(
     df %>%
@@ -847,7 +855,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Single character
   expect_equivalent(
     df %>%
@@ -856,9 +864,9 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, TRUE))
   )
-  
+
   # This will give an error until a new version of stringr with str_like has been released
-  skip("Test will fail until stringr > 1.4.0 is release")
+  skip_if_not(packageVersion("stringr") > "1.4.0")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
@@ -868,42 +876,41 @@ test_that("str_like", {
 })
 
 test_that("str_pad", {
-  
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 30, side = "right")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31, side = "both")) %>%
       collect(),
     df
   )
-  
+
 })
