@@ -277,7 +277,7 @@ cdef class ListType(DataType):
         self.list_type = <const CListType*> type.get()
 
     def __reduce__(self):
-        return list_, (self.value_type,)
+        return list_, (self.value_field,)
 
     @property
     def value_field(self):
@@ -302,7 +302,7 @@ cdef class LargeListType(DataType):
         self.list_type = <const CLargeListType*> type.get()
 
     def __reduce__(self):
-        return large_list, (self.value_type,)
+        return large_list, (self.value_field,)
 
     @property
     def value_field(self):
