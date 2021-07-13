@@ -390,7 +390,6 @@ tasks:
       vcpkg_version: "2021.04.30"
       python_version: "3.9"
       macos_deployment_target: "11.0"
-      arrow_s3: "ON"
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_arm64.whl
 
@@ -402,7 +401,6 @@ tasks:
       vcpkg_version: "2021.04.30"
       python_version: "3.9"
       macos_deployment_target: "11.0"
-      arrow_s3: "ON"
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_universal2.whl
 

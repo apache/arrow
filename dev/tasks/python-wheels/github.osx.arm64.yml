@@ -23,11 +23,11 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_S3: {{ arrow_s3 }}
   ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
   ARROW_SIMD_LEVEL: NONE
   CC: "clang"
+  CMAKE_BUILD_TYPE: release
   CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
@@ -35,12 +35,11 @@ env:
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
-  VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
+  VCPKG_DEFAULT_TRIPLET: {{ arch }}-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
   VCPKG_VERSION: "{{ vcpkg_version }}"
-  CMAKE_BUILD_TYPE: release
 
 jobs:
   build:
@@ -65,6 +64,7 @@ jobs:
         run: |
           arch -arm64 $VCPKG_ROOT/vcpkg install \
             abseil \
+            aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
             boost-filesystem \
             brotli \
             bzip2 \
@@ -84,11 +84,6 @@ jobs:
             utf8proc \
             zlib \
             zstd
-
-      {% if arrow_s3 == "ON" %}
-      - name: Install AWS SDK C++
-        run: arch -arm64 $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
-      {% endif %}
 
       - name: Install Virtualenvs for Building and Testing
         shell: bash
