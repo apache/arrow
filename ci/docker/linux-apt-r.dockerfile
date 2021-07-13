@@ -19,8 +19,8 @@ ARG base
 FROM ${base}
 ARG arch
 
-ARG TZ="UTC"
-ENV TZ=${TZ}
+ARG tz="UTC"
+ENV TZ=${tz}
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
