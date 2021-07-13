@@ -42,16 +42,16 @@ if [ $arch = "arm64" ]; then
   # export CXXFLAGS="-arch arm64"
   # export ARCHFLAGS="-arch arm64"
   export CMAKE_OSX_ARCHITECTURES="arm64"
-  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
+  export _PYTHON_HOST_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_arm64"
 elif [ $arch = "amd64" ] || [ $arch = "x86_64" ]; then
   # export CFLAGS="-arch x86_64"
   # export CXXFLAGS="-arch x86_64"
   # export ARCHFLAGS="-arch x86_64"
   export CMAKE_OSX_ARCHITECTURES="x86_64"
-  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-x86_64"
+  export _PYTHON_HOST_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_x86_64"
 elif [ $arch = "universal2" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
-  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-universal2"
+  export _PYTHON_HOST_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_universal2"
 else
   echo "Unexpected architecture: $arch"
   exit 1
