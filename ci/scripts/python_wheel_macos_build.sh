@@ -63,8 +63,8 @@ pip install \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
-  -r ${source_dir}/python/requirements-wheel-build.txt \
-  delocate
+  -r ${source_dir}/python/requirements-wheel-build.txt
+pip install delocate
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
