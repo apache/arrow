@@ -102,7 +102,7 @@ jobs:
         shell: bash
         run: |
           source build-env/bin/activate
-          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
 
       - name: Test Wheel
         shell: bash

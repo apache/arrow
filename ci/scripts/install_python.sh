@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -eu
 
 declare -A platforms
 platforms=([windows]=Windows
@@ -42,7 +42,7 @@ platform=${platforms[$1]}
 version=$2
 full_version=${versions[$2]}
 
-if [ $platform == "MacOSX" ]; then
+if [ $platform = "MacOSX" ]; then
     echo "Downloading Python installer..."
     if [ "$(uname -m)" = "arm64" ]; then
         fname="python-${full_version}-macos11.pkg"
@@ -61,12 +61,6 @@ if [ $platform == "MacOSX" ]; then
 
     $python -m ensurepip
     $pip install -U pip setuptools virtualenv
-
-    # Install certificates for Python 3.6
-    # local inst_cmd="/Applications/Python ${py_mm}/Install Certificates.command"
-    # if [ -e "$inst_cmd" ]; then
-    #     sh "$inst_cmd"
-    # fi
 else
     echo "Unsupported platform: $platform"
 fi

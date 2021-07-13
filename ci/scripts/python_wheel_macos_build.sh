@@ -19,8 +19,9 @@
 
 set -ex
 
-source_dir=${1}
-build_dir=${2}
+arch=${1}
+source_dir=${2}
+build_dir=${3}
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -34,17 +35,26 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
-if [ "$(uname -m)" = "arm64" ]; then
-  export CMAKE_APPLE_SILICON_PROCESSOR=arm64
-  export CFLAGS="-arch arm64"
-  export CXXFLAGS="-arch arm64"
-  export ARCHFLAGS="-arch arm64"
+
+export CMAKE_APPLE_SILICON_PROCESSOR=arm64
+if [ $arch = "arm64" ]; then
+  # export CFLAGS="-arch arm64"
+  # export CXXFLAGS="-arch arm64"
+  # export ARCHFLAGS="-arch arm64"
+  export CMAKE_OSX_ARCHITECTURES="arm64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-arm64"
-else
-  export CFLAGS="-arch x86_64"
-  export CXXFLAGS="-arch x86_64"
-  export ARCHFLAGS="-arch x86_64"
+elif [ $arch = "amd64" ] || [ $arch = "x86_64" ]; then
+  # export CFLAGS="-arch x86_64"
+  # export CXXFLAGS="-arch x86_64"
+  # export ARCHFLAGS="-arch x86_64"
+  export CMAKE_OSX_ARCHITECTURES="x86_64"
   export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-x86_64"
+elif [ $arch = "universal2" ]; then
+  export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+  export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-universal2"
+else
+  echo "Unexpected architecture: $arch"
+  exit 1
 fi
 
 echo "=== (${PYTHON_VERSION}) Install python build dependencies ==="
@@ -81,6 +91,7 @@ pushd ${build_dir}/build
 cmake \
     -DARROW_BUILD_SHARED=ON \
     -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
+    -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_DATASET=${ARROW_DATASET} \
