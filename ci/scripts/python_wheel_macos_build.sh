@@ -39,14 +39,8 @@ export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then
-  # export CFLAGS="-arch arm64"
-  # export CXXFLAGS="-arch arm64"
-  # export ARCHFLAGS="-arch arm64"
   export CMAKE_OSX_ARCHITECTURES="arm64"
 elif [ $arch = "x86_64" ]; then
-  # export CFLAGS="-arch x86_64"
-  # export CXXFLAGS="-arch x86_64"
-  # export ARCHFLAGS="-arch x86_64"
   export CMAKE_OSX_ARCHITECTURES="x86_64"
 elif [ $arch = "universal2" ]; then
   export CMAKE_OSX_ARCHITECTURES="x86_64;arm64"
