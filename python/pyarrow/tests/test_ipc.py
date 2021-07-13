@@ -329,6 +329,36 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
         reader.read_next_batch()
 
 
+def test_compression_roundtrip():
+    sink = io.BytesIO()
+    rng = np.random.default_rng(seed=42)
+    values = rng.integers(0, 10, 100000)
+    table = pa.Table.from_arrays([values], names=["values"])
+
+    options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=1)
+    writer = pa.ipc.RecordBatchFileWriter(sink, table.schema, options=options)
+    writer.write_table(table)
+    writer.close()
+    len1 = len(sink.getvalue())
+
+    sink2 = io.BytesIO()
+    options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=5)
+    writer = pa.ipc.RecordBatchFileWriter(sink2, table.schema, options=options)
+    writer.write_table(table)
+    writer.close()
+    len2 = len(sink2.getvalue())
+
+    # In theory len2 should be less than len1 but for this test we just want
+    # to ensure compression_level is being correctly passed down to the C++
+    # layer so we don't really care if it makes it worse or better
+    assert len2 != len1
+
+    t1 = pa.ipc.open_file(sink).read_all()
+    t2 = pa.ipc.open_file(sink2).read_all()
+
+    assert t1 == t2
+
+
 def test_write_options():
     options = pa.ipc.IpcWriteOptions()
     assert options.allow_64bit is False
@@ -353,6 +383,20 @@ def test_write_options():
         assert options.compression == value
         options.compression = value.upper()
         assert options.compression == value
+
+    options.compression = 'zstd'
+    for compression_level in [-5, 0, 5]:
+        options.compression_level = compression_level
+        assert options.compression_level == compression_level
+
+    # Cannot set compression_level with lz4
+    with pytest.raises(pa.ArrowInvalid):
+        options.compression = 'lz4'
+
+    options.compression_level = None
+    options.compression = 'lz4'
+    assert options.compression == 'lz4'
+
     options.compression = None
     assert options.compression is None
 

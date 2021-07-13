@@ -96,9 +96,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         If true, allow field lengths that don't fit in a signed 32-bit int.
     use_legacy_format : bool, default False
         Whether to use the pre-Arrow 0.15 IPC format.
-    compression: str or None
-        If not None, compression codec to use for record batch buffers.
-        May only be "lz4", "zstd" or None.
+    compression: str, or None
+        compression codec to use for record batch buffers.
+        If None then batch buffers will be uncompressed.
+        Must be "lz4", "zstd" or None.
+    compression_level: int, or None
+        The compression level to use.
+        Higher indicates more compression, details depend on the codec.
+        If None then a default level for the codec will be used.
     use_threads: bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
@@ -112,12 +117,13 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  bint allow_64bit=False, use_legacy_format=False,
-                 compression=None, bint use_threads=True,
-                 bint emit_dictionary_deltas=False):
+                 compression=None, compression_level=None,
+                 bint use_threads=True, bint emit_dictionary_deltas=False):
         self.c_options = CIpcWriteOptions.Defaults()
         self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
         self.metadata_version = metadata_version
+        self._compression_level = compression_level
         if compression is not None:
             self.compression = compression
         self.use_threads = use_threads
@@ -159,8 +165,23 @@ cdef class IpcWriteOptions(_Weakrefable):
         if value is None:
             self.c_options.codec.reset()
         else:
-            self.c_options.codec = shared_ptr[CCodec](GetResultValue(
-                CCodec.Create(_ensure_compression(value))).release())
+            if self._compression_level is None:
+                self.c_options.codec = shared_ptr[CCodec](GetResultValue(
+                    CCodec.Create(_ensure_compression(value))).release())
+            else:
+                self.c_options.codec = shared_ptr[CCodec](GetResultValue(
+                    CCodec.CreateWithLevel(_ensure_compression(value),
+                                  self._compression_level)).release())
+
+    @property
+    def compression_level(self):
+        return self._compression_level
+
+    @compression_level.setter
+    def compression_level(self, value):
+        self._compression_level = value
+        # Recompute the codec
+        self.compression = self.compression
 
     @property
     def use_threads(self):

@@ -38,6 +38,7 @@ cdef class _Weakrefable:
 cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
+        object _compression_level
 
 
 cdef class Message(_Weakrefable):
