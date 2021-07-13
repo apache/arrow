@@ -32,6 +32,7 @@ Status ReplacementArrayTooShort(int64_t expected, int64_t actual) {
 
 // Helper to implement replace_with kernel with scalar mask for fixed-width types,
 // using callbacks to handle both bool and byte-sized types
+template <typename Functor>
 Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
                              const BooleanScalar& mask, const Datum& replacements,
                              ArrayData* output) {
@@ -41,8 +42,7 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
                           MakeArrayOfNull(array.type, array.length, ctx->memory_pool()));
     *output = *replacement_array->data();
     return Status::OK();
-  }
-  if (mask.value) {
+  } else if (mask.value) {
     // Output = replacement
     if (replacements.is_scalar()) {
       ARROW_ASSIGN_OR_RAISE(
@@ -50,11 +50,12 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
           MakeArrayFromScalar(*replacements.scalar(), array.length, ctx->memory_pool()));
       *output = *replacement_array->data();
     } else {
-      auto replacement_array = replacements.array();
-      if (replacement_array->length != array.length) {
-        return ReplacementArrayTooShort(array.length, replacement_array->length);
+      const ArrayData& replacement_array = *replacements.array();
+      if (replacement_array.length < array.length) {
+        return ReplacementArrayTooShort(array.length, replacement_array.length);
       }
-      *output = *replacement_array;
+      *output = replacement_array;
+      output->length = array.length;
     }
   } else {
     // Output = input
@@ -98,7 +99,7 @@ struct CopyScalarBitmap {
 template <typename Functor, typename Data, typename CopyBitmap>
 void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
                               const Data& replacements, bool replacements_bitmap,
-                              const CopyBitmap copy_bitmap, const uint8_t* mask_bitmap,
+                              const CopyBitmap& copy_bitmap, const uint8_t* mask_bitmap,
                               const uint8_t* mask_values, uint8_t* out_bitmap,
                               uint8_t* out_values, const int64_t out_offset) {
   Functor::CopyData(*array.type, out_values, /*out_offset=*/0, array, /*in_offset=*/0,
@@ -155,14 +156,9 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
     // Check that we have enough replacement values
     const int64_t replacements_length = replacements.array()->length;
 
-    arrow::internal::OptionalBinaryBitBlockCounter counter(
-        mask_values, mask.offset, mask_bitmap, mask.offset, mask.length);
-    int64_t count = 0;
-    for (int64_t offset = 0; offset < mask.length;) {
-      BitBlockCount block = counter.NextAndBlock();
-      count += block.popcount;
-      offset += block.length;
-    }
+    BooleanArray mask_arr(mask.length, mask.buffers[1], mask.buffers[0], mask.null_count,
+                          mask.offset);
+    const int64_t count = mask_arr.true_count();
     if (count > replacements_length) {
       return ReplacementArrayTooShort(count, replacements_length);
     }
@@ -229,7 +225,8 @@ struct ReplaceWithMask<Type, enable_if_number<Type>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask(ctx, array, mask, replacements, output);
+    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
+                                                        output);
   }
 
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
@@ -256,7 +253,8 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask(ctx, array, mask, replacements, output);
+    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
+                                                        output);
   }
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,
@@ -295,7 +293,8 @@ struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask(ctx, array, mask, replacements, output);
+    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
+                                                        output);
   }
 
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
@@ -332,7 +331,8 @@ struct ReplaceWithMask<Type, enable_if_decimal<Type>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask(ctx, array, mask, replacements, output);
+    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
+                                                        output);
   }
 
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
@@ -367,7 +367,32 @@ struct ReplaceWithMask<Type, enable_if_base_binary<Type>> {
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask(ctx, array, mask, replacements, output);
+    if (!mask.is_valid) {
+      // Output = null
+      ARROW_ASSIGN_OR_RAISE(
+          auto replacement_array,
+          MakeArrayOfNull(array.type, array.length, ctx->memory_pool()));
+      *output = *replacement_array->data();
+    } else if (mask.value) {
+      // Output = replacement
+      if (replacements.is_scalar()) {
+        ARROW_ASSIGN_OR_RAISE(auto replacement_array,
+                              MakeArrayFromScalar(*replacements.scalar(), array.length,
+                                                  ctx->memory_pool()));
+        *output = *replacement_array->data();
+      } else {
+        const ArrayData& replacement_array = *replacements.array();
+        if (replacement_array.length < array.length) {
+          return ReplacementArrayTooShort(array.length, replacement_array.length);
+        }
+        *output = replacement_array;
+        output->length = array.length;
+      }
+    } else {
+      // Output = input
+      *output = array;
+    }
+    return Status::OK();
   }
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,

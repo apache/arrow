@@ -176,6 +176,8 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
                this->array("[]"), this->array("[1]"));
   this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
                this->array("[0]"), this->array("[0]"));
+  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
+               this->array("[2, 0]"), this->array("[2]"));
   this->Assert(ReplaceWithMask, this->array("[1]"), this->null_mask_scalar(),
                this->array("[]"), this->array("[null]"));
 
@@ -258,12 +260,6 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
 }
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskErrors) {
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Replacement array must be of appropriate length (expected 1 "
-                           "items but got 2 items)"),
-      this->AssertRaises(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
-                         this->array("[0, 1]")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr("Replacement array must be of appropriate length (expected 2 "
@@ -349,12 +345,6 @@ TEST_F(TestReplaceBoolean, ReplaceWithMask) {
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMaskErrors) {
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Replacement array must be of appropriate length (expected 1 "
-                           "items but got 2 items)"),
-      this->AssertRaises(ReplaceWithMask, this->array("[true]"), this->mask_scalar(true),
-                         this->array("[false, false]")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr("Replacement array must be of appropriate length (expected 2 "
