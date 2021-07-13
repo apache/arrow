@@ -131,6 +131,7 @@ public class TestFlightSql {
 
       collector.checkThat(result, is(expected));
     }
+    preparedStatement.close();
 
     collector.checkThat(preparedStatement.isClosed(), is(true));
   }
