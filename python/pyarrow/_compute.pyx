@@ -798,7 +798,8 @@ cdef class _SliceOptions(FunctionOptions):
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, int64_t start, int64_t stop=sys.maxsize, int64_t step=1):
+    def __init__(self, int64_t start, int64_t stop=sys.maxsize,
+                 int64_t step=1):
         self._set_options(start, stop, step)
 
 
