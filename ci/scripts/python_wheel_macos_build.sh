@@ -33,17 +33,18 @@ rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
-export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
-
+export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
 export CMAKE_APPLE_SILICON_PROCESSOR=arm64
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.9}
+export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
+
 if [ $arch = "arm64" ]; then
   # export CFLAGS="-arch arm64"
   # export CXXFLAGS="-arch arm64"
   # export ARCHFLAGS="-arch arm64"
   export CMAKE_OSX_ARCHITECTURES="arm64"
   export _PYTHON_HOST_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_arm64"
-elif [ $arch = "amd64" ] || [ $arch = "x86_64" ]; then
+elif [ $arch = "x86_64" ]; then
   # export CFLAGS="-arch x86_64"
   # export CXXFLAGS="-arch x86_64"
   # export ARCHFLAGS="-arch x86_64"
@@ -58,11 +59,13 @@ else
 fi
 
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
-export SITE_PACKAGES_DIR=$(python -c 'import site; print(site.getsitepackages()[0])')
+export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
+export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
+
 pip install \
-  --target $SITE_PACKAGES_DIR \
   --only-binary=:all: \
-  --platform ${_PYTHON_HOST_PLATFORM} \
+  --target $PIP_SITE_PACKAGES \
+  --platform $PIP_TARGET_PLATFORM \
   -r ${source_dir}/python/requirements-wheel-build.txt \
   delocate
 
