@@ -311,7 +311,8 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
 };
 
 template <typename Type>
-struct UnboxScalar<Type, enable_if_base_binary<Type>> {
+struct UnboxScalar<Type, enable_if_t<is_base_binary_type<Type>::value ||
+                                     is_fixed_size_binary_type<Type>::value>> {
   static util::string_view Unbox(const Scalar& val) {
     if (!val.is_valid) return util::string_view();
     return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
