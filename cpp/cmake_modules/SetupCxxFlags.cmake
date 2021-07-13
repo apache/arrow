@@ -445,6 +445,8 @@ endif()
 
 if(ARROW_CPU_FLAG STREQUAL "armv8")
   if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+    set(ARROW_HAVE_NEON ON)
+
     if(NOT CXX_SUPPORTS_ARMV8_ARCH)
       message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
     endif()
