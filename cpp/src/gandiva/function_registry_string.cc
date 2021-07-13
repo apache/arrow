@@ -75,6 +75,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "gdv_fn_initcap_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
+                     kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
+
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "gdv_fn_castINT_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
@@ -129,6 +132,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder),
+
+      NativeFunction("ilike", {}, DataTypeVector{utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_ilike_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),
 
       NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
@@ -245,6 +252,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("byte_substr", {"bytesubstring"},
+                     DataTypeVector{binary(), int32(), int32()}, binary(),
+                     kResultNullIfNull, "byte_substr_binary_int32_int32",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
@@ -332,6 +344,30 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("right", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "right_utf8_int32",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{binary(), int64()}, binary(),
+                     kResultNullIfNull, "castVARBINARY_binary_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{utf8(), int64()}, binary(),
+                     kResultNullIfNull, "castVARBINARY_utf8_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{int32(), int64()}, binary(),
+                     kResultNullIfNull, "gdv_fn_castVARBINARY_int32_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{int64(), int64()}, binary(),
+                     kResultNullIfNull, "gdv_fn_castVARBINARY_int64_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{float32(), int64()}, binary(),
+                     kResultNullIfNull, "gdv_fn_castVARBINARY_float32_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castVARBINARY", {}, DataTypeVector{float64(), int64()}, binary(),
+                     kResultNullIfNull, "gdv_fn_castVARBINARY_float64_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",

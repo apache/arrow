@@ -56,41 +56,39 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
   }
 }
 
-std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
-                                           int64_t length,
+std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
                                            int64_t null_count, int64_t offset) {
   AdjustNonNullable(type->id(), length, &buffers, &null_count);
-  return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
-                                     offset);
+  return std::make_shared<ArrayData>(std::move(type), length, std::move(buffers),
+                                     null_count, offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
-    const std::shared_ptr<DataType>& type, int64_t length,
+    std::shared_ptr<DataType> type, int64_t length,
     std::vector<std::shared_ptr<Buffer>> buffers,
     std::vector<std::shared_ptr<ArrayData>> child_data, int64_t null_count,
     int64_t offset) {
   AdjustNonNullable(type->id(), length, &buffers, &null_count);
-  return std::make_shared<ArrayData>(type, length, std::move(buffers),
+  return std::make_shared<ArrayData>(std::move(type), length, std::move(buffers),
                                      std::move(child_data), null_count, offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Make(
-    const std::shared_ptr<DataType>& type, int64_t length,
+    std::shared_ptr<DataType> type, int64_t length,
     std::vector<std::shared_ptr<Buffer>> buffers,
     std::vector<std::shared_ptr<ArrayData>> child_data,
     std::shared_ptr<ArrayData> dictionary, int64_t null_count, int64_t offset) {
   AdjustNonNullable(type->id(), length, &buffers, &null_count);
-  auto data = std::make_shared<ArrayData>(type, length, std::move(buffers),
+  auto data = std::make_shared<ArrayData>(std::move(type), length, std::move(buffers),
                                           std::move(child_data), null_count, offset);
   data->dictionary = std::move(dictionary);
   return data;
 }
 
-std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
-                                           int64_t length, int64_t null_count,
-                                           int64_t offset) {
-  return std::make_shared<ArrayData>(type, length, null_count, offset);
+std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
+                                           int64_t null_count, int64_t offset) {
+  return std::make_shared<ArrayData>(std::move(type), length, null_count, offset);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {

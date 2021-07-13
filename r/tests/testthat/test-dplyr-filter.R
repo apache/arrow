@@ -315,31 +315,25 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
 })
 
 test_that("Filtering with unsupported functions", {
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(int > 2, pnorm(dbl) > .99) %>%
-        collect(),
-      tbl
-    ),
-    'Expression pnorm(dbl) > 0.99 not supported in Arrow; pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 2, pnorm(dbl) > .99) %>%
+      collect(),
+    tbl,
+    warning = 'Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R'
   )
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(
-          nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
-          int > 2,                                         # good
-          pnorm(dbl) > .99                                 # bad, opaque
-        ) %>%
-        collect(),
-      tbl
-    ),
-'* In nchar(chr, type = "bytes", allowNA = TRUE) == 1, allowNA = TRUE not supported by Arrow
-* Expression pnorm(dbl) > 0.99 not supported in Arrow
-pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      filter(
+        nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
+        int > 2,                                         # good
+        pnorm(dbl) > .99                                 # bad, opaque
+      ) %>%
+      collect(),
+    tbl,
+    warning = '\\* In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported by Arrow
+\\* Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow
+pulling data into R'
   )
 })
 

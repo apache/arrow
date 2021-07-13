@@ -1532,6 +1532,43 @@ TEST(BitUtilTests, TestSetBitsTo) {
   }
 }
 
+TEST(BitUtilTests, TestSetBitmap) {
+  using BitUtil::SetBitsTo;
+  for (const auto fill_byte_int : {0xff}) {
+    const uint8_t fill_byte = static_cast<uint8_t>(fill_byte_int);
+    {
+      // test set within a byte
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      BitUtil::SetBitmap(bitmap, 2, 2);
+      BitUtil::ClearBitmap(bitmap, 4, 2);
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & ~0x3C) | 0xC)});
+    }
+    {
+      // test straddling a single byte boundary
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      BitUtil::SetBitmap(bitmap, 4, 7);
+      BitUtil::ClearBitmap(bitmap, 11, 7);
+      ASSERT_BYTES_EQ(bitmap, {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x7,
+                               static_cast<uint8_t>(fill_byte & ~0x3)});
+    }
+    {
+      // test byte aligned end
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      BitUtil::SetBitmap(bitmap, 4, 4);
+      BitUtil::ClearBitmap(bitmap, 8, 8);
+      ASSERT_BYTES_EQ(bitmap,
+                      {static_cast<uint8_t>((fill_byte & 0xF) | 0xF0), 0x00, fill_byte});
+    }
+    {
+      // test byte aligned end, multiple bytes
+      uint8_t bitmap[] = {fill_byte, fill_byte, fill_byte, fill_byte};
+      BitUtil::ClearBitmap(bitmap, 0, 24);
+      uint8_t false_byte = static_cast<uint8_t>(0);
+      ASSERT_BYTES_EQ(bitmap, {false_byte, false_byte, false_byte, fill_byte});
+    }
+  }
+}
+
 TEST(BitUtilTests, TestCopyBitmap) {
   const int kBufferSize = 1000;
 
@@ -1975,6 +2012,34 @@ TEST(BitUtil, BitsetStack) {
   ASSERT_EQ(stack.TopSize(), 0);
 }
 
+TEST(SpliceWord, SpliceWord) {
+  static_assert(
+      BitUtil::PrecedingWordBitmask<uint8_t>(0) == BitUtil::kPrecedingBitmask[0], "");
+  static_assert(
+      BitUtil::PrecedingWordBitmask<uint8_t>(5) == BitUtil::kPrecedingBitmask[5], "");
+  static_assert(BitUtil::PrecedingWordBitmask<uint8_t>(8) == UINT8_MAX, "");
+
+  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(0) == uint64_t(0), "");
+  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(33) == 8589934591, "");
+  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(64) == UINT64_MAX, "");
+  static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(65) == UINT64_MAX, "");
+
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(0, 0x12, 0xef), 0xef);
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(8, 0x12, 0xef), 0x12);
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(3, 0x12, 0xef), 0xea);
+
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(0, 0x12345678, 0xfedcba98), 0xfedcba98);
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(32, 0x12345678, 0xfedcba98), 0x12345678);
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(24, 0x12345678, 0xfedcba98), 0xfe345678);
+
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(0, 0x0123456789abcdef, 0xfedcba9876543210),
+            0xfedcba9876543210);
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(64, 0x0123456789abcdef, 0xfedcba9876543210),
+            0x0123456789abcdef);
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(48, 0x0123456789abcdef, 0xfedcba9876543210),
+            0xfedc456789abcdef);
+}
+
 // test the basic assumption of word level Bitmap::Visit
 TEST(Bitmap, ShiftingWordsOptimization) {
   // single word
@@ -2155,6 +2220,73 @@ TEST(Bitmap, VisitWordsAnd) {
     }
   }
 }
+
+void DoBitmapVisitAndWrite(int64_t part, bool with_offset) {
+  int64_t bits = part * 4;
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto arrow_data = rand.ArrayOf(boolean(), bits, 0);
+
+  std::shared_ptr<Buffer>& arrow_buffer = arrow_data->data()->buffers[1];
+
+  Bitmap bm0(arrow_buffer, 0, part);
+  Bitmap bm1(arrow_buffer, part * 1, part);
+  Bitmap bm2(arrow_buffer, part * 2, part);
+
+  std::array<Bitmap, 2> out_bms;
+  if (with_offset) {
+    ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part * 4));
+    out_bms[0] = Bitmap(out, part, part);
+    out_bms[1] = Bitmap(out, part * 2, part);
+  } else {
+    ASSERT_OK_AND_ASSIGN(auto out0, AllocateBitmap(part));
+    ASSERT_OK_AND_ASSIGN(auto out1, AllocateBitmap(part));
+    out_bms[0] = Bitmap(out0, 0, part);
+    out_bms[1] = Bitmap(out1, 0, part);
+  }
+
+  // out0 = bm0 & bm1, out1= bm0 | bm2
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
+  Bitmap::VisitWordsAndWrite(
+      in_bms, &out_bms,
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>* out) {
+        out->at(0) = in[0] & in[1];
+        out->at(1) = in[0] | in[2];
+      });
+
+  auto pool = MemoryPool::CreateDefault();
+  ASSERT_OK_AND_ASSIGN(auto exp_0,
+                       BitmapAnd(pool.get(), bm0.buffer()->data(), bm0.offset(),
+                                 bm1.buffer()->data(), bm1.offset(), part, 0));
+  ASSERT_OK_AND_ASSIGN(auto exp_1,
+                       BitmapOr(pool.get(), bm0.buffer()->data(), bm0.offset(),
+                                bm2.buffer()->data(), bm2.offset(), part, 0));
+
+  ASSERT_TRUE(BitmapEquals(exp_0->data(), 0, out_bms[0].buffer()->data(),
+                           out_bms[0].offset(), part))
+      << "exp: " << Bitmap(exp_0->data(), 0, part).ToString() << std::endl
+      << "got: " << out_bms[0].ToString();
+
+  ASSERT_TRUE(BitmapEquals(exp_1->data(), 0, out_bms[1].buffer()->data(),
+                           out_bms[1].offset(), part))
+      << "exp: " << Bitmap(exp_1->data(), 0, part).ToString() << std::endl
+      << "got: " << out_bms[1].ToString();
+}
+
+class TestBitmapVisitAndWrite : public ::testing::TestWithParam<int32_t> {};
+
+INSTANTIATE_TEST_SUITE_P(VisitWriteGeneral, TestBitmapVisitAndWrite,
+                         testing::Values(199, 256, 1000));
+
+INSTANTIATE_TEST_SUITE_P(VisitWriteEdgeCases, TestBitmapVisitAndWrite,
+                         testing::Values(5, 13, 21, 29, 37, 41, 51, 59, 64, 97));
+
+INSTANTIATE_TEST_SUITE_P(VisitWriteEdgeCases2, TestBitmapVisitAndWrite,
+                         testing::Values(8, 16, 24, 32, 40, 48, 56, 64));
+
+TEST_P(TestBitmapVisitAndWrite, NoOffset) { DoBitmapVisitAndWrite(GetParam(), false); }
+
+TEST_P(TestBitmapVisitAndWrite, WithOffset) { DoBitmapVisitAndWrite(GetParam(), true); }
 
 }  // namespace internal
 }  // namespace arrow

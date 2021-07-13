@@ -298,10 +298,10 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 #' A `FileWriteOptions` holds write options specific to a `FileFormat`.
 FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
   public = list(
-    update = function(...) {
+    update = function(table, ...) {
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(self,
-            ParquetWriterProperties$create(...),
+            ParquetWriterProperties$create(table, ...),
             ParquetArrowWriterProperties$create(...))
       } else if (self$type == "ipc") {
         args <- list(...)
@@ -315,6 +315,9 @@ FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
               args$codec,
               get_ipc_metadata_version(args$metadata_version))
         }
+      } else if (self$type == "csv") {
+          dataset___CsvFileWriteOptions__update(self,
+              CsvWriteOptions$create(...))
       }
       invisible(self)
     }

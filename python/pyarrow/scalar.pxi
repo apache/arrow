@@ -614,17 +614,14 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             CStructType* dtype = <CStructType*> sp.type.get()
             vector[shared_ptr[CField]] fields = dtype.fields()
 
-        if sp.is_valid:
-            for i in range(dtype.num_fields()):
-                yield frombytes(fields[i].get().name())
+        for i in range(dtype.num_fields()):
+            yield frombytes(fields[i].get().name())
+
+    def items(self):
+        return ((key, self[i]) for i, key in enumerate(self))
 
     def __contains__(self, key):
-        try:
-            self[key]
-        except (KeyError, IndexError):
-            return False
-        else:
-            return True
+        return key in list(self)
 
     def __getitem__(self, key):
         """
@@ -652,20 +649,41 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
 
         try:
             return Scalar.wrap(GetResultValue(sp.field(ref)))
-        except ArrowInvalid:
+        except ArrowInvalid as exc:
             if isinstance(key, int):
-                raise IndexError(key)
+                raise IndexError(key) from exc
             else:
-                raise KeyError(key)
+                raise KeyError(key) from exc
 
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return {k: v.as_py() for k, v in self.items()}
+            try:
+                return {k: self[k].as_py() for k in self.keys()}
+            except KeyError:
+                raise ValueError(
+                    "Converting to Python dictionary is not supported when "
+                    "duplicate field names are present")
         else:
             return None
+
+    def _as_py_tuple(self):
+        # a version that returns a tuple instead of dict to support repr/str
+        # with the presence of duplicate field names
+        if self.is_valid:
+            return [(key, self[i].as_py()) for i, key in enumerate(self)]
+        else:
+            return None
+
+    def __repr__(self):
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, self._as_py_tuple()
+        )
+
+    def __str__(self):
+        return str(self._as_py_tuple())
 
 
 cdef class MapScalar(ListScalar):

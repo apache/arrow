@@ -92,6 +92,41 @@ test_that("empty transmute()", {
   )
 })
 
+test_that("transmute() with unsupported arguments", {
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .keep = "all"),
+    "`transmute()` does not support the `.keep` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .before = lgl),
+    "`transmute()` does not support the `.before` argument",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      transmute(int = int + 42L, .after = chr),
+    "`transmute()` does not support the `.after` argument",
+    fixed = TRUE
+  )
+})
+
+test_that("transmute() defuses dots arguments (ARROW-13262)", {
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      transmute(stringr::str_c(chr, chr)) %>%
+      collect(),
+    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%
@@ -119,20 +154,17 @@ test_that("nchar() arguments", {
     tbl
   )
   # This tests the whole abandon_ship() machinery
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(int, verses) %>%
-        mutate(
-          line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
-          longer = line_lengths * 10
-        ) %>%
-        filter(line_lengths > 15) %>%
-        collect(),
-      tbl
-    ),
-    'In nchar(verses, type = "bytes", allowNA = TRUE), allowNA = TRUE not supported by Arrow; pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      select(int, verses) %>%
+      mutate(
+        line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl,
+    warning = 'In nchar\\(verses, type = "bytes", allowNA = TRUE\\), allowNA = TRUE not supported by Arrow; pulling data into R'
   )
 })
 
@@ -218,28 +250,24 @@ test_that("dplyr::mutate's examples", {
   # but warn that they're pulling data into R to do so
 
   # across + autosplicing: ARROW-11699
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, homeworld, species) %>%
-        mutate(across(!name, as.factor)) %>%
-        collect(),
-      starwars
-    ),
-    "Expression across.*not supported in Arrow"
+  expect_dplyr_equal(
+    input %>%
+      select(name, homeworld, species) %>%
+      mutate(across(!name, as.factor)) %>%
+      collect(),
+    starwars,
+    warning = "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, mass, homeworld) %>%
-        group_by(homeworld) %>%
-        mutate(rank = min_rank(desc(mass))) %>%
-        collect(),
-      starwars
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>%
+      select(name, mass, homeworld) %>%
+      group_by(homeworld) %>%
+      mutate(rank = min_rank(desc(mass))) %>%
+      collect(),
+    starwars,
+    warning = TRUE
   )
 
   # `.before` and `.after` experimental args: ARROW-11701
@@ -310,15 +338,13 @@ test_that("dplyr::mutate's examples", {
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
   # TODO(ARROW-11702)
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, mass, species) %>%
-        mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
-        collect(),
-      starwars
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>%
+      select(name, mass, species) %>%
+      mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
+      collect(),
+    starwars,
+    warning = TRUE
   )
 })
 
@@ -416,5 +442,36 @@ test_that("mutate and write_dataset", {
       mutate(twice = integer * 2) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("mutate and pmin/pmax", {
+  df <- tibble(
+    city = c("Chillan", "Valdivia", "Osorno"),
+    val1 = c(200, 300, NA),
+    val2 = c(100, NA, NA),
+    val3 = c(0, NA, NA)
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1, val2, val3),
+        max_val_2 = pmax(val1, val2, val3, na.rm = T),
+        min_val_1 = pmin(val1, val2, val3),
+        min_val_2 = pmin(val1, val2, val3, na.rm = T)
+      ) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = T),
+        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = T),
+      ) %>%
+      collect(),
+    df
   )
 })

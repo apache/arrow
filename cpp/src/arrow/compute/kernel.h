@@ -41,7 +41,7 @@
 namespace arrow {
 namespace compute {
 
-struct FunctionOptions;
+class FunctionOptions;
 
 /// \brief Base class for opaque kernel-specific state. For example, if there
 /// is some kind of initialization required.

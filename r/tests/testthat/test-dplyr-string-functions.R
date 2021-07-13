@@ -20,6 +20,7 @@ skip_if_not_available("utf8proc")
 
 library(dplyr)
 library(stringr)
+library(stringi)
 
 test_that("paste, paste0, and str_c", {
   df <- tibble(
@@ -651,6 +652,11 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
+  # base::strptime() defaults to local timezone
+  # but arrow's strptime defaults to UTC.
+  # So that tests are consistent, set the local timezone to UTC
+  # TODO: consider reevaluating this workaround after ARROW-12980
+  withr::local_timezone("UTC")
 
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
@@ -724,6 +730,50 @@ test_that("errors in strptime", {
   )
 })
 
+test_that("arrow_find_substring and arrow_find_substring_regex", {
+
+  df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
+
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(
+        x,
+        options = list(pattern = "b", ignore_case = TRUE)
+      )) %>%
+      collect(),
+    tibble(x = c(8, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "^[fb]")
+      )) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "[AEIOU]", ignore_case = TRUE)
+      )) %>%
+      collect(),
+    tibble(x = c(1, 1))
+  )
+})
+
+
 test_that("stri_reverse and arrow_ascii_reverse functions", {
   
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
@@ -746,7 +796,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
       collect(),
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
-  
+
   expect_error(
     df_utf8 %>%
       Table$create() %>%
@@ -757,12 +807,12 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
-  
+
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   # TODO: After new version of stringr with str_like has been released, update all
   # these tests to use expect_dplyr_equal
-  
+
   # No match - entire string
   expect_equivalent(
     df %>%
@@ -771,7 +821,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Match - entire string
   expect_equivalent(
     df %>%
@@ -780,7 +830,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Wildcard
   expect_equivalent(
     df %>%
@@ -789,7 +839,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Ignore case
   expect_equivalent(
     df %>%
@@ -798,7 +848,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Single character
   expect_equivalent(
     df %>%
@@ -807,13 +857,54 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, TRUE))
   )
-  
+
   # This will give an error until a new version of stringr with str_like has been released
-  skip("Test will fail until stringr > 1.4.0 is release")
+  skip_if_not(packageVersion("stringr") > "1.4.0")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
       collect(),
     df
+
   )
+})
+
+test_that("str_pad", {
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 31)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 30, side = "right")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 31, side = "both")) %>%
+      collect(),
+    df
+  )
+
 })

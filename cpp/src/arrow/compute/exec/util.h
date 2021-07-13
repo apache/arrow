@@ -112,24 +112,26 @@ class BitUtil {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,
-                              uint16_t* indexes);
+                              uint16_t* indexes, int bit_offset = 0);
 
   static void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
                                   const int num_bits, const uint8_t* bits,
                                   const uint16_t* input_indexes, int* num_indexes,
-                                  uint16_t* indexes);
+                                  uint16_t* indexes, int bit_offset = 0);
 
   // Input and output indexes may be pointing to the same data (in-place filtering).
   static void bits_split_indexes(int64_t hardware_flags, const int num_bits,
                                  const uint8_t* bits, int* num_indexes_bit0,
-                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1);
+                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1,
+                                 int bit_offset = 0);
 
   // Bit 1 is replaced with byte 0xFF.
   static void bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bits, uint8_t* bytes);
+                            const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
+
   // Return highest bit of each byte.
   static void bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bytes, uint8_t* bits);
+                            const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
 
   static bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
                                  uint32_t num_bytes);
@@ -144,10 +146,6 @@ class BitUtil {
   static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
                                        const uint8_t* bits, const uint16_t* input_indexes,
                                        int* num_indexes, uint16_t* indexes);
-  static void bits_to_bytes_internal(const int num_bits, const uint8_t* bits,
-                                     uint8_t* bytes);
-  static void bytes_to_bits_internal(const int num_bits, const uint8_t* bytes,
-                                     uint8_t* bits);
 
 #if defined(ARROW_HAVE_AVX2)
   static void bits_to_indexes_avx2(int bit_to_search, const int num_bits,

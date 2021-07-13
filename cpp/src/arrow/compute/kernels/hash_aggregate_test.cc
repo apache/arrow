@@ -844,5 +844,47 @@ TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     aggregated_and_grouped,
                     /*verbose=*/true);
 }
+
+ExecContext* small_chunksize_context() {
+  static ExecContext ctx;
+  ctx.set_exec_chunksize(2);
+  return &ctx;
+}
+
+TEST(GroupBy, SmallChunkSizeSumOnly) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy({batch->GetColumnByName("argument")},
+                                         {batch->GetColumnByName("key")},
+                                         {
+                                             {"hash_sum", nullptr},
+                                         },
+                                         small_chunksize_context()));
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_sum", float64()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [4.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 }  // namespace compute
 }  // namespace arrow

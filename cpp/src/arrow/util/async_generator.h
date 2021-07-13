@@ -17,13 +17,16 @@
 
 #pragma once
 
+#include <atomic>
 #include <cassert>
+#include <cstring>
 #include <deque>
+#include <limits>
 #include <queue>
-#include <thread>
 
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
@@ -74,16 +77,15 @@ Future<T> AsyncGeneratorEnd() {
 }
 
 /// returning a future that completes when all have been visited
-template <typename T>
-Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
-                             std::function<Status(T)> visitor) {
+template <typename T, typename Visitor>
+Future<> VisitAsyncGenerator(AsyncGenerator<T> generator, Visitor visitor) {
   struct LoopBody {
     struct Callback {
-      Result<ControlFlow<>> operator()(const T& result) {
-        if (IsIterationEnd(result)) {
+      Result<ControlFlow<>> operator()(const T& next) {
+        if (IsIterationEnd(next)) {
           return Break();
         } else {
-          auto visited = visitor(result);
+          auto visited = visitor(next);
           if (visited.ok()) {
             return Continue();
           } else {
@@ -92,7 +94,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
         }
       }
 
-      std::function<Status(T)> visitor;
+      Visitor visitor;
     };
 
     Future<ControlFlow<>> operator()() {
@@ -102,7 +104,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
     }
 
     AsyncGenerator<T> generator;
-    std::function<Status(T)> visitor;
+    Visitor visitor;
   };
 
   return Loop(LoopBody{std::move(generator), std::move(visitor)});
@@ -259,43 +261,17 @@ class MappingGenerator {
 /// Note: Errors returned from the `map` function will be propagated
 ///
 /// If the source generator is async-reentrant then this generator will be also
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Result<V>(const T&)> map) {
-  std::function<Future<V>(const T&)> future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<V(const T&)> map) {
-  std::function<Future<V>(const T&)> maybe_future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(maybe_future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Future<V>(const T&)> map) {
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
-}
-
-template <typename V, typename T, typename MapFunc>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFunc map) {
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   struct MapCallback {
-    MapFunc map;
+    MapFn map_;
 
-    Future<V> operator()(const T& val) { return EnsureFuture(map(val)); }
-
-    Future<V> EnsureFuture(Result<V> val) {
-      return Future<V>::MakeFinished(std::move(val));
-    }
-    Future<V> EnsureFuture(V val) { return Future<V>::MakeFinished(std::move(val)); }
-    Future<V> EnsureFuture(Future<V> val) { return val; }
+    Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
   };
-  std::function<Future<V>(const T&)> map_fn = MapCallback{map};
-  return MappingGenerator<T, V>(std::move(source_generator), map_fn);
+
+  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
 }
 
 /// \see MakeSequencingGenerator
@@ -720,30 +696,38 @@ class ReadaheadGenerator {
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
       : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
 
-  Future<T> operator()() {
-    // Copy so we can capture into lambdas
+  Future<T> AddMarkFinishedContinuation(Future<T> fut) {
     auto state = state_;
-    if (state->readahead_queue.empty()) {
+    return fut.Then(
+        [state](const T& result) -> Result<T> {
+          state->MarkFinishedIfDone(result);
+          return result;
+        },
+        [state](const Status& err) -> Result<T> {
+          state->finished.store(true);
+          return err;
+        });
+  }
+
+  Future<T> operator()() {
+    if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
-      for (int i = 0; i < state->max_readahead; i++) {
-        auto next = state->source_generator();
-        auto state = state_;
-        next.AddCallback(
-            [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
-        state->readahead_queue.push(std::move(next));
+      for (int i = 0; i < state_->max_readahead; i++) {
+        auto next = state_->source_generator();
+        auto next_after_check = AddMarkFinishedContinuation(std::move(next));
+        state_->readahead_queue.push(std::move(next_after_check));
       }
     }
     // Pop one and add one
-    auto result = state->readahead_queue.front();
-    state->readahead_queue.pop();
-    if (state->finished.load()) {
-      state->readahead_queue.push(AsyncGeneratorEnd<T>());
+    auto result = state_->readahead_queue.front();
+    state_->readahead_queue.pop();
+    if (state_->finished.load()) {
+      state_->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
-      auto back_of_queue = state->source_generator();
-      auto state = state_;
-      back_of_queue.AddCallback(
-          [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
-      state->readahead_queue.push(std::move(back_of_queue));
+      auto back_of_queue = state_->source_generator();
+      auto back_of_queue_after_check =
+          AddMarkFinishedContinuation(std::move(back_of_queue));
+      state_->readahead_queue.push(std::move(back_of_queue_after_check));
     }
     return result;
   }
@@ -755,13 +739,9 @@ class ReadaheadGenerator {
       finished.store(false);
     }
 
-    void MarkFinishedIfDone(const Result<T>& next_result) {
-      if (!next_result.ok()) {
+    void MarkFinishedIfDone(const T& next_result) {
+      if (IsIterationEnd(next_result)) {
         finished.store(true);
-      } else {
-        if (IsIterationEnd(*next_result)) {
-          finished.store(true);
-        }
       }
     }
 
@@ -794,7 +774,7 @@ class PushGenerator {
   /// Producer API for PushGenerator
   class Producer {
    public:
-    explicit Producer(const std::shared_ptr<State> state) : weak_state_(state) {}
+    explicit Producer(const std::shared_ptr<State>& state) : weak_state_(state) {}
 
     /// \brief Push a value on the queue
     ///
@@ -1271,6 +1251,8 @@ class BackgroundGenerator {
   }
 
  protected:
+  static constexpr uint64_t kUnlikelyThreadId{std::numeric_limits<uint64_t>::max()};
+
   struct State {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
@@ -1342,7 +1324,7 @@ class BackgroundGenerator {
     const int max_q;
     const int q_restart;
     Iterator<T> it;
-    std::thread::id worker_thread_id;
+    std::atomic<uint64_t> worker_thread_id{kUnlikelyThreadId};
 
     // If true, the task is actively pumping items from the queue and does not need a
     // restart
@@ -1351,8 +1333,7 @@ class BackgroundGenerator {
     bool finished;
     // Signal to the background task to end early because consumers have given up on it
     bool should_shutdown;
-    // If the queue is empty then the consumer will create a waiting future and wait for
-    // it
+    // If the queue is empty, the consumer will create a waiting future and wait for it
     std::queue<Result<T>> queue;
     util::optional<Future<T>> waiting_future;
     // Every background task is given a future to complete when it is entirely finished
@@ -1370,7 +1351,7 @@ class BackgroundGenerator {
       ///
       /// It's a deadlock if we enter cleanup from
       /// the worker thread but it can happen if the consumer doesn't transfer away
-      assert(state->worker_thread_id != std::this_thread::get_id());
+      assert(state->worker_thread_id.load() != ::arrow::internal::GetThreadId());
       Future<> finish_fut;
       {
         auto lock = state->mutex.Lock();
@@ -1389,9 +1370,9 @@ class BackgroundGenerator {
   };
 
   static void WorkerTask(std::shared_ptr<State> state) {
+    state->worker_thread_id.store(::arrow::internal::GetThreadId());
     // We need to capture the state to read while outside the mutex
     bool reading = true;
-    state->worker_thread_id = std::this_thread::get_id();
     while (reading) {
       auto next = state->it.Next();
       // Need to capture state->waiting_future inside the mutex to mark finished outside
@@ -1443,7 +1424,7 @@ class BackgroundGenerator {
       // reference it.  We can safely transition to idle now.
       task_finished = state->task_finished;
       state->task_finished = Future<>();
-      state->worker_thread_id = std::thread::id();
+      state->worker_thread_id.store(kUnlikelyThreadId);
     }
     task_finished.MarkFinished();
   }

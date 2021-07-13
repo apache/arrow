@@ -1,4 +1,4 @@
-function metadata = createMetadataStruct(description, numRows, numVariables)
+function metadata = createMetadataStruct(numRows, numVariables)
 % CREATEMETADATASTRUCT Helper function for creating Feather MEX metadata
 % struct.
 
@@ -17,8 +17,7 @@ function metadata = createMetadataStruct(description, numRows, numVariables)
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-metadata = struct('Description', description, ...
-                  'NumRows', numRows, ...
+metadata = struct('NumRows', numRows, ...
                   'NumVariables', numVariables);
 end
 

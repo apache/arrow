@@ -15,28 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp
-benchmark=1.5.2
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-gflags
-glog
-gmock>=1.10.0
-grpc-cpp>=1.27.3
-gtest=1.10.0
-libprotobuf
-libutf8proc
-lz4-c
-make
-ninja
-pkg-config
-python
-rapidjson
-re2
-snappy
-thrift-cpp>=0.11.0
-zlib
-zstd
+from .core import DockerCompose, UndefinedImage  # noqa

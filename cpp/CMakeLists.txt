@@ -507,6 +507,11 @@ endif()
 include(BuildUtils)
 enable_testing()
 
+# For arrow.pc. Requires.private and Libs.private are used when
+# "pkg-config --libs --static arrow" is used.
+set(ARROW_PC_REQUIRES_PRIVATE)
+set(ARROW_PC_LIBS_PRIVATE)
+
 include(ThirdpartyToolchain)
 
 # Add common flags
@@ -855,8 +860,9 @@ endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
 
-if(THREADS_FOUND)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+if(CMAKE_THREAD_LIBS_INIT)
+  string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
 if(WIN32)

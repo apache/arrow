@@ -145,6 +145,7 @@ struct CSVBlock {
   std::shared_ptr<Buffer> buffer;
   int64_t block_index;
   bool is_final;
+  int64_t bytes_skipped;
   std::function<Status(int64_t)> consume_bytes;
 };
 
@@ -153,7 +154,7 @@ struct CSVBlock {
 
 template <>
 struct IterationTraits<csv::CSVBlock> {
-  static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, {}}; }
+  static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, 0, {}}; }
   static bool IsEnd(const csv::CSVBlock& val) { return val.block_index < 0; }
 };
 
@@ -222,18 +223,24 @@ class SerialBlockReader : public BlockReader {
     }
 
     bool is_final = (next_buffer == nullptr);
+    int64_t bytes_skipped = 0;
 
     if (skip_rows_) {
+      bytes_skipped += partial_->size();
+      auto orig_size = buffer_->size();
       RETURN_NOT_OK(
           chunker_->ProcessSkip(partial_, buffer_, is_final, &skip_rows_, &buffer_));
-      partial_ = SliceBuffer(buffer_, 0, 0);
+      bytes_skipped += orig_size - buffer_->size();
+      auto empty = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
         // Still have rows beyond this buffer to skip return empty block
+        partial_ = std::move(buffer_);
         buffer_ = next_buffer;
-        return TransformYield<CSVBlock>(CSVBlock{partial_, partial_, partial_,
-                                                 block_index_++, is_final,
+        return TransformYield<CSVBlock>(CSVBlock{empty, empty, empty, block_index_++,
+                                                 is_final, bytes_skipped,
                                                  [](int64_t) { return Status::OK(); }});
       }
+      partial_ = std::move(empty);
     }
 
     std::shared_ptr<Buffer> completion;
@@ -262,7 +269,7 @@ class SerialBlockReader : public BlockReader {
     };
 
     return TransformYield<CSVBlock>(CSVBlock{partial_, completion, buffer_,
-                                             block_index_++, is_final,
+                                             block_index_++, is_final, bytes_skipped,
                                              std::move(consume_bytes)});
   }
 };
@@ -294,11 +301,15 @@ class ThreadedBlockReader : public BlockReader {
 
     auto current_partial = std::move(partial_);
     auto current_buffer = std::move(buffer_);
+    int64_t bytes_skipped = 0;
 
     if (skip_rows_) {
+      auto orig_size = current_buffer->size();
+      bytes_skipped = current_partial->size();
       RETURN_NOT_OK(chunker_->ProcessSkip(current_partial, current_buffer, is_final,
                                           &skip_rows_, &current_buffer));
-      current_partial = SliceBuffer(current_buffer, 0, 0);
+      bytes_skipped += orig_size - current_buffer->size();
+      current_partial = std::make_shared<Buffer>(nullptr, 0);
       if (skip_rows_) {
         partial_ = std::move(current_buffer);
         buffer_ = std::move(next_buffer);
@@ -307,6 +318,7 @@ class ThreadedBlockReader : public BlockReader {
                                                  current_partial,
                                                  block_index_++,
                                                  is_final,
+                                                 bytes_skipped,
                                                  {}});
       }
     }
@@ -332,8 +344,8 @@ class ThreadedBlockReader : public BlockReader {
     partial_ = std::move(next_partial);
     buffer_ = std::move(next_buffer);
 
-    return TransformYield<CSVBlock>(
-        CSVBlock{current_partial, completion, whole, block_index_++, is_final, {}});
+    return TransformYield<CSVBlock>(CSVBlock{
+        current_partial, completion, whole, block_index_++, is_final, bytes_skipped, {}});
   }
 };
 
@@ -761,12 +773,13 @@ class SerialStreamingReader : public BaseStreamingReader,
 
     auto self = shared_from_this();
     // Read schema from first batch
-    return ReadNextAsync().Then([self](const std::shared_ptr<RecordBatch>& first_batch)
-                                    -> Result<std::shared_ptr<csv::StreamingReader>> {
-      self->pending_batch_ = first_batch;
-      DCHECK_NE(self->schema_, nullptr);
-      return self;
-    });
+    return ReadNextAsync(true).Then(
+        [self](const std::shared_ptr<RecordBatch>& first_batch)
+            -> Result<std::shared_ptr<csv::StreamingReader>> {
+          self->pending_batch_ = first_batch;
+          DCHECK_NE(self->schema_, nullptr);
+          return self;
+        });
   }
 
   Result<std::shared_ptr<RecordBatch>> DecodeBatchAndUpdateSchema() {
@@ -788,6 +801,7 @@ class SerialStreamingReader : public BaseStreamingReader,
       return block_generator_()
           .Then([self](const CSVBlock& maybe_block) -> Status {
             if (!IsIterationEnd(maybe_block)) {
+              self->bytes_parsed_ += maybe_block.bytes_skipped;
               self->last_block_index_ = maybe_block.block_index;
               auto maybe_parsed = self->ParseAndInsert(
                   maybe_block.partial, maybe_block.completion, maybe_block.buffer,
@@ -797,6 +811,7 @@ class SerialStreamingReader : public BaseStreamingReader,
                 self->eof_ = true;
                 return maybe_parsed.status();
               }
+              self->bytes_parsed_ += *maybe_parsed;
               RETURN_NOT_OK(maybe_block.consume_bytes(*maybe_parsed));
             } else {
               self->source_eof_ = true;
@@ -815,16 +830,46 @@ class SerialStreamingReader : public BaseStreamingReader,
   }
 
   Future<std::shared_ptr<RecordBatch>> ReadNextSkippingEmpty(
-      std::shared_ptr<SerialStreamingReader> self) {
-    return DoReadNext(self).Then([self](const std::shared_ptr<RecordBatch>& batch) {
-      if (batch != nullptr && batch->num_rows() == 0) {
-        return self->ReadNextSkippingEmpty(self);
-      }
-      return Future<std::shared_ptr<RecordBatch>>::MakeFinished(batch);
-    });
+      std::shared_ptr<SerialStreamingReader> self, bool internal_read) {
+    return DoReadNext(self).Then(
+        [self, internal_read](const std::shared_ptr<RecordBatch>& batch) {
+          if (batch != nullptr && batch->num_rows() == 0) {
+            return self->ReadNextSkippingEmpty(self, internal_read);
+          }
+          if (!internal_read) {
+            self->bytes_decoded_ += self->bytes_parsed_;
+            self->bytes_parsed_ = 0;
+          }
+          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(batch);
+        });
   }
 
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
+    return ReadNextAsync(false);
+  };
+
+  int64_t bytes_read() const override { return bytes_decoded_; }
+
+ protected:
+  Future<> SetupReader(std::shared_ptr<SerialStreamingReader> self) {
+    return buffer_generator_().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
+      if (first_buffer == nullptr) {
+        return Status::Invalid("Empty CSV file");
+      }
+      auto own_first_buffer = first_buffer;
+      auto start = own_first_buffer->data();
+      RETURN_NOT_OK(self->ProcessHeader(own_first_buffer, &own_first_buffer));
+      self->bytes_decoded_ = own_first_buffer->data() - start;
+      RETURN_NOT_OK(self->MakeColumnDecoders());
+
+      self->block_generator_ = SerialBlockReader::MakeAsyncIterator(
+          std::move(self->buffer_generator_), MakeChunker(self->parse_options_),
+          std::move(own_first_buffer), self->read_options_.skip_rows_after_names);
+      return Status::OK();
+    });
+  }
+
+  Future<std::shared_ptr<RecordBatch>> ReadNextAsync(bool internal_read) {
     if (eof_) {
       return Future<std::shared_ptr<RecordBatch>>::MakeFinished(nullptr);
     }
@@ -835,38 +880,25 @@ class SerialStreamingReader : public BaseStreamingReader,
     auto self = shared_from_this();
     if (!block_generator_) {
       return SetupReader(self).Then(
-          [self]() -> Future<std::shared_ptr<RecordBatch>> {
-            return self->ReadNextSkippingEmpty(self);
+          [self, internal_read]() -> Future<std::shared_ptr<RecordBatch>> {
+            return self->ReadNextSkippingEmpty(self, internal_read);
           },
           [self](const Status& err) -> Result<std::shared_ptr<RecordBatch>> {
             self->eof_ = true;
             return err;
           });
     } else {
-      return self->ReadNextSkippingEmpty(self);
+      return self->ReadNextSkippingEmpty(self, internal_read);
     }
-  };
-
- protected:
-  Future<> SetupReader(std::shared_ptr<SerialStreamingReader> self) {
-    return buffer_generator_().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
-      if (first_buffer == nullptr) {
-        return Status::Invalid("Empty CSV file");
-      }
-      auto own_first_buffer = first_buffer;
-      RETURN_NOT_OK(self->ProcessHeader(own_first_buffer, &own_first_buffer));
-      RETURN_NOT_OK(self->MakeColumnDecoders());
-
-      self->block_generator_ = SerialBlockReader::MakeAsyncIterator(
-          std::move(self->buffer_generator_), MakeChunker(self->parse_options_),
-          std::move(own_first_buffer), self->read_options_.skip_rows_after_names);
-      return Status::OK();
-    });
   }
 
   bool source_eof_ = false;
   int64_t last_block_index_ = 0;
   AsyncGenerator<CSVBlock> block_generator_;
+  // bytes of data parsed but not yet decoded
+  int64_t bytes_parsed_ = 0;
+  // bytes which have been decoded for caller
+  int64_t bytes_decoded_ = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////

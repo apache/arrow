@@ -31,8 +31,8 @@
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
 #include <arrow/util/logging.h>
-#include <arrow/util/parallel.h>
-#include <arrow/util/task_group.h>
+
+#include "./r_task_group.h"
 
 namespace arrow {
 
@@ -49,90 +49,6 @@ using internal::MakeChunker;
 using internal::MakeConverter;
 
 namespace r {
-
-class RTasks {
- public:
-  using Task = internal::FnOnce<Status()>;
-
-  explicit RTasks(bool use_threads)
-      : use_threads_(use_threads),
-        stop_source_(),
-        parallel_tasks_(
-            use_threads ? arrow::internal::TaskGroup::MakeThreaded(
-                              arrow::internal::GetCpuThreadPool(), stop_source_.token())
-                        : nullptr) {}
-
-  // This Finish() method must never be called from a thread pool thread
-  // as this would deadlock.
-  //
-  // Usage is to :
-  // - create an RTasks instance on the main thread
-  // - add some tasks with .Append()
-  // - and then call .Finish() so that the parallel tasks are finished
-  Status Finish() {
-    Status status = Status::OK();
-
-    // run the delayed tasks now
-    for (auto& task : delayed_serial_tasks_) {
-      status &= std::move(task)();
-    }
-
-    // then wait for the parallel tasks to finish
-    if (use_threads_) {
-      status &= parallel_tasks_->Finish();
-    }
-
-    return status;
-  }
-
-  void Append(bool parallel, Task&& task) {
-    StoppingTask stopping_task(stop_source_, std::move(task));
-    if (parallel && use_threads_) {
-      parallel_tasks_->Append(std::move(stopping_task));
-    } else {
-      delayed_serial_tasks_.push_back(std::move(stopping_task));
-    }
-  }
-
-  void Reset() {
-    delayed_serial_tasks_.clear();
-
-    stop_source_.Reset();
-    if (use_threads_) {
-      parallel_tasks_ = arrow::internal::TaskGroup::MakeThreaded(
-          arrow::internal::GetCpuThreadPool(), stop_source_.token());
-    }
-  }
-
-  bool use_threads_;
-  StopSource stop_source_;
-  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
-  std::vector<Task> delayed_serial_tasks_;
-
- private:
-  class StoppingTask {
-   public:
-    StoppingTask(StopSource stop_source, Task&& task) : task_(std::move(task)) {}
-
-    Status operator()() {
-      Status status;
-      StopToken token = stop_source_.token();
-      if (token.IsStopRequested()) {
-        status &= token.Poll();
-      } else {
-        Status status = std::move(task_)();
-        if (!status.ok()) {
-          stop_source_.RequestStop();
-        }
-      }
-      return status;
-    }
-
-   private:
-    StopSource stop_source_;
-    Task task_;
-  };
-};
 
 struct RConversionOptions {
   RConversionOptions() = default;

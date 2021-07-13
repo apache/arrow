@@ -15,13 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cpp11/altrep.hpp>
-
 #include "./arrow_types.h"
 
+#if defined(ARROW_R_WITH_ARROW)
+
+#include <cpp11/altrep.hpp>
 #if defined(HAS_ALTREP)
 
+#if R_VERSION < R_Version(3, 6, 0)
+
+// workaround because R's <R_ext/Altrep.h> not so conveniently uses `class`
+// as a variable name, and C++ is not happy about that
+//
+// SEXP R_new_altrep(R_altrep_class_t class, SEXP data1, SEXP data2);
+//
+#define class klass
+
+// Because functions declared in <R_ext/Altrep.h> have C linkage
+extern "C" {
 #include <R_ext/Altrep.h>
+}
+
+// undo the workaround
+#undef class
+
+#else
+#include <R_ext/Altrep.h>
+#endif
+
 #include <arrow/array.h>
 
 namespace arrow {
@@ -164,3 +185,5 @@ bool is_altrep_dbl_nonull(SEXP x) {
   return false;
 #endif
 }
+
+#endif

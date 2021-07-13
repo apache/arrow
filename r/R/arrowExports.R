@@ -148,8 +148,8 @@ Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector`, array)
 }
 
-ChunkedArray__as_vector <- function(chunked_array){
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
+ChunkedArray__as_vector <- function(chunked_array, use_threads){
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array, use_threads)
 }
 
 RecordBatch__to_dataframe <- function(batch, use_threads){
@@ -458,6 +458,10 @@ dataset___IpcFileWriteOptions__update2 <- function(ipc_options, use_legacy_forma
 
 dataset___IpcFileWriteOptions__update1 <- function(ipc_options, use_legacy_format, metadata_version){
     invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update1`, ipc_options, use_legacy_format, metadata_version))
+}
+
+dataset___CsvFileWriteOptions__update <- function(csv_options, write_options){
+    invisible(.Call(`_arrow_dataset___CsvFileWriteOptions__update`, csv_options, write_options))
 }
 
 dataset___IpcFileFormat__Make <- function(){

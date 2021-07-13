@@ -18,15 +18,13 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/record_batch.h"
 #include "arrow/testing/visibility.h"
-#include "arrow/util/async_generator.h"
-#include "arrow/util/type_fwd.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace compute {
@@ -36,35 +34,12 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 
 // Make a dummy node that has no execution behaviour
 ARROW_TESTING_EXPORT
-ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
+ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
 
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-
-// Make a source node (no inputs) that produces record batches by reading in the
-// background from a RecordBatchReader.
 ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    std::shared_ptr<RecordBatchReader> reader,
-                                    ::arrow::internal::Executor* io_executor);
-
-ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    std::shared_ptr<Schema> schema,
-                                    RecordBatchGenerator generator,
-                                    ::arrow::internal::Executor* io_executor);
-
-class RecordBatchCollectNode : public ExecNode {
- public:
-  virtual RecordBatchGenerator generator() = 0;
-
- protected:
-  using ExecNode::ExecNode;
-};
-
-ARROW_TESTING_EXPORT
-RecordBatchCollectNode* MakeRecordBatchCollectNode(ExecPlan* plan, std::string label,
-                                                   const std::shared_ptr<Schema>& schema);
+ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+                            util::string_view json);
 
 }  // namespace compute
 }  // namespace arrow

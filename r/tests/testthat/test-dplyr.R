@@ -361,6 +361,14 @@ test_that("relocate with selection helpers", {
     input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
     df
   )
+  # works after other dplyr verbs
+  expect_dplyr_equal(
+    input %>%
+      mutate(c = as.character(c)) %>%
+      relocate(d, e, f, .after = where(is.numeric)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("explicit type conversions with cast()", {
@@ -794,6 +802,33 @@ test_that("type checks with is_*()", {
         lgl_is_int = is_integer(lgl),
         lgl_is_lst = is_list(lgl),
         lgl_is_lgl = is_logical(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("type checks on expressions", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.character(as.character(int)),
+        b = is.integer(as.character(int)),
+        c = is.integer(int + int),
+        d = is.double(int + dbl),
+        e = is.logical(dbl > pi)
+      ) %>%
+      collect(),
+    tbl
+  )
+  
+  # the code in the expectation below depends on RE2
+  skip_if_not_available("re2")
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.logical(grepl("[def]", chr))
       ) %>%
       collect(),
     tbl
