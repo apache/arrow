@@ -551,14 +551,23 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs request, final CallContext context,
                                           final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final Schema schema = getSchemaCatalogs().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    try {
+      final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
+      makeListen(catalogs, listener);
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
@@ -578,28 +587,11 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-    /*
-    TODO
-    final String catalog = emptyToNull(request.getCatalog());
-    final String schemaFilterPattern = emptyToNull(request.getSchemaFilterPattern());
-    final String tableFilterPattern = emptyToNull(request.getTableNameFilterPattern());
-
-    final ProtocolStringList protocolStringList = request.getTableTypesList();
-    final int protocolSize = protocolStringList.size();
-    final String[] tableTypes =
-        protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
-
-    final List<Result> results = new ArrayList<>();
-
-    try (final Connection connection = getConnection(DATABASE_URI);
-         final ResultSet resultSet = connection.getMetaData()
-             .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
-      while (resultSet.next()) {
-        results.add(getTableResult(resultSet, request.getIncludeSchema()));
-      }
-    } catch (SQLException e) {
-      LOGGER.error(format("Failed to getFlightInfoTables: <%s>.", e.getMessage()), e);
-    }
+    final Schema schema = getSchemaTables().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+  }
 
     List<FlightEndpoint> endpoints =
         results.stream()
@@ -614,11 +606,17 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
-  @Override
-  public void getStreamTables(final CommandGetTables command, final CallContext context, final Ticket ticket,
-                              final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    try {
+      final Connection connection = getConnection(DATABASE_URI);
+      final ResultSet resultSet =
+          connection.getMetaData().getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
+      makeListen(resultSet, listener);
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
