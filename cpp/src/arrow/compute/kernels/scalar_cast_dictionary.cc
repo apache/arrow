@@ -35,10 +35,6 @@ Status CastDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const CastOptions& options = CastState::Get(ctx);
   auto out_type = std::static_pointer_cast<DictionaryType>(out->type());
 
-  if (!is_integer(out_type->index_type()->id())) {
-    return Status::Invalid("non-integer type used for DictionaryType::index_type");
-  }
-
   // if out type is same as in type, return input
   if (out_type->Equals(batch[0].type())) {
     *out = batch[0];

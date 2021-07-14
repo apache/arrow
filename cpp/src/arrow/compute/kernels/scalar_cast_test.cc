@@ -1912,14 +1912,34 @@ TEST(Cast, ExtensionTypeToIntDowncast) {
 }
 
 TEST(Cast, DictTypeToAnotherDict) {
-  const std::shared_ptr<Array>& arr =
-      ArrayFromJSON(dictionary(int8(), int16()), "[1, 2, 3, 1, null, 3]");
+  auto check_cast = [&](const std::shared_ptr<DataType>& in_type,
+                        const std::shared_ptr<DataType>& out_type,
+                        const std::string& json_str,
+                        const CastOptions& options = CastOptions()) {
+    auto arr = ArrayFromJSON(in_type, json_str);
+    auto exp = in_type->Equals(out_type) ? arr : ArrayFromJSON(out_type, json_str);
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, out_type, options));
+    ValidateOutput(casted);
+    AssertArraysEqual(*exp, *casted.make_array(), /*verbose=*/true);
+  };
 
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, dictionary(int32(), int64())));
+  //  check same type passed on to casting
+  check_cast(dictionary(int8(), int16()), dictionary(int8(), int16()),
+             "[1, 2, 3, 1, null, 3]");
+  check_cast(dictionary(int8(), int16()), dictionary(int32(), int64()),
+             "[1, 2, 3, 1, null, 3]");
+  check_cast(dictionary(int32(), utf8()), dictionary(int8(), utf8()),
+             R"(["a", "b", "a", null])");
 
-//  std::cout << "input: " << arr->ToString() << std::endl;
-//  std::cout << "res: " << casted.make_array()->ToString() << std::endl;
+  auto arr = ArrayFromJSON(dictionary(int32(), int32()), "[1, 1000]");
+  // check unsafe
+  ASSERT_OK_AND_ASSIGN(auto casted,
+                       Cast(arr, dictionary(int8(), int8()), CastOptions::Unsafe()));
   ValidateOutput(casted);
+  // check safe
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Integer value 1000 not in range"),
+      Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
 }
 
 }  // namespace compute
