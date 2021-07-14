@@ -25,6 +25,7 @@ import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -49,6 +50,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.arrow.flight.CallStatus;
@@ -290,6 +292,35 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       default:
         return ArrowType.Utf8.INSTANCE;
     }
+  }
+
+  /**
+   * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
+   *
+   * @param data     data to listen to.
+   * @param listener the listener.
+   * @throws SQLException an exception.
+   * @throws IOException  an exception.
+   */
+  protected static void makeListen(final ResultSet data, ServerStreamListener listener)
+      throws SQLException, IOException {
+    sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE)).forEachRemaining(vector -> {
+      listener.start(vector);
+      listener.putNext();
+    });
+  }
+
+  protected static ResultSet rotate(final ResultSet data, int until)
+      throws SQLException, IOException {
+    checkArgument(until >= 0);
+    IntStream.iterate(0, x -> x++).limit(until).forEach(iter -> {
+      try {
+        data.next();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    });
+    return data;
   }
 
   private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
@@ -613,7 +644,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       final Connection connection = getConnection(DATABASE_URI);
       final ResultSet resultSet =
           connection.getMetaData().getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
-      makeListen(resultSet, listener);
+      makeListen(rotate(resultSet, 23), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
