@@ -37,7 +37,7 @@ jobs:
       R_IMAGE: "r-base"
       R_TAG: "latest-focal"
       ARROW_R_DEV: "TRUE"
-      DEPENDENCY_SOURCE: {{ "${{ matrix.os }}" }}
+      DEPENDENCY_SOURCE: {{ "${{ matrix.dep_source }}" }}
     steps:
       - name: Checkout Arrow
         run: |
