@@ -1312,12 +1312,11 @@ const FunctionDoc absolute_value_checked_doc{
      "doesn't fail on overflow, use function \"abs\"."),
     {"x"}};
 
-const FunctionDoc add_doc{
-    "Add the arguments element-wise",
-    ("Results will wrap around on integer overflow.\n"
-     "Use function \"add_checked\" if you want overflow\n"
-     "to return an error."),
-    {"x", "y"}};
+const FunctionDoc add_doc{"Add the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"add_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
 const FunctionDoc add_checked_doc{
     "Add the arguments element-wise",
@@ -1325,12 +1324,11 @@ const FunctionDoc add_checked_doc{
      "doesn't fail on overflow, use function \"add\"."),
     {"x", "y"}};
 
-const FunctionDoc sub_doc{
-    "Subtract the arguments element-wise",
-    ("Results will wrap around on integer overflow.\n"
-     "Use function \"subtract_checked\" if you want overflow\n"
-     "to return an error."),
-    {"x", "y"}};
+const FunctionDoc sub_doc{"Subtract the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"subtract_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
 const FunctionDoc sub_checked_doc{
     "Subtract the arguments element-wise",
@@ -1338,12 +1336,11 @@ const FunctionDoc sub_checked_doc{
      "doesn't fail on overflow, use function \"subtract\"."),
     {"x", "y"}};
 
-const FunctionDoc mul_doc{
-    "Multiply the arguments element-wise",
-    ("Results will wrap around on integer overflow.\n"
-     "Use function \"multiply_checked\" if you want overflow\n"
-     "to return an error."),
-    {"x", "y"}};
+const FunctionDoc mul_doc{"Multiply the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"multiply_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
 const FunctionDoc mul_checked_doc{
     "Multiply the arguments element-wise",
@@ -1365,12 +1362,11 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
-const FunctionDoc negate_doc{
-    "Negate the argument element-wise",
-    ("Results will wrap around on integer overflow.\n"
-     "Use function \"negate_checked\" if you want overflow\n"
-     "to return an error."),
-    {"x"}};
+const FunctionDoc negate_doc{"Negate the argument element-wise",
+                             ("Results will wrap around on integer overflow.\n"
+                              "Use function \"negate_checked\" if you want overflow\n"
+                              "to return an error."),
+                             {"x"}};
 
 const FunctionDoc negate_checked_doc{
     "Negate the arguments element-wise",
@@ -1396,24 +1392,16 @@ const FunctionDoc sign_doc{
     {"x"}};
 
 const FunctionDoc bit_wise_not_doc{
-    "Bit-wise negate the arguments element-wise",
-    ("Null values return null."),
-    {"x"}};
+    "Bit-wise negate the arguments element-wise", ("Null values return null."), {"x"}};
 
 const FunctionDoc bit_wise_and_doc{
-    "Bit-wise AND the arguments element-wise",
-    ("Null values return null."),
-    {"x", "y"}};
+    "Bit-wise AND the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc bit_wise_or_doc{
-    "Bit-wise OR the arguments element-wise",
-    ("Null values return null."),
-    {"x", "y"}};
+    "Bit-wise OR the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc bit_wise_xor_doc{
-    "Bit-wise XOR the arguments element-wise",
-    ("Null values return null."),
-    {"x", "y"}};
+    "Bit-wise XOR the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
@@ -1453,12 +1441,11 @@ const FunctionDoc shift_right_checked_doc{
      "See \"shift_right\" for a variant that doesn't fail for an invalid shift amount"),
     {"x", "y"}};
 
-const FunctionDoc sin_doc{
-    "Compute the sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function returns NaN on values outside its domain. "
-     "To raise an error instead, see \"sin_checked\"."),
-    {"x"}};
+const FunctionDoc sin_doc{"Compute the sine of the elements argument-wise",
+                          ("Integer arguments return double values. "
+                           "This function returns NaN on values outside its domain. "
+                           "To raise an error instead, see \"sin_checked\"."),
+                          {"x"}};
 
 const FunctionDoc sin_checked_doc{
     "Compute the sine of the elements argument-wise",
@@ -1467,12 +1454,11 @@ const FunctionDoc sin_checked_doc{
      "To return NaN instead, see \"sin\"."),
     {"x"}};
 
-const FunctionDoc cos_doc{
-    "Compute the cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function returns NaN on values outside its domain. "
-     "To raise an error instead, see \"cos_checked\"."),
-    {"x"}};
+const FunctionDoc cos_doc{"Compute the cosine of the elements argument-wise",
+                          ("Integer arguments return double values. "
+                           "This function returns NaN on values outside its domain. "
+                           "To raise an error instead, see \"cos_checked\"."),
+                          {"x"}};
 
 const FunctionDoc cos_checked_doc{
     "Compute the cosine of the elements argument-wise",
@@ -1481,12 +1467,11 @@ const FunctionDoc cos_checked_doc{
      "To return NaN instead, see \"cos\"."),
     {"x"}};
 
-const FunctionDoc tan_doc{
-    "Compute the tangent of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function returns NaN on values outside its domain. "
-     "To raise an error instead, see \"tan_checked\"."),
-    {"x"}};
+const FunctionDoc tan_doc{"Compute the tangent of the elements argument-wise",
+                          ("Integer arguments return double values. "
+                           "This function returns NaN on values outside its domain. "
+                           "To raise an error instead, see \"tan_checked\"."),
+                          {"x"}};
 
 const FunctionDoc tan_checked_doc{
     "Compute the tangent of the elements argument-wise",
@@ -1495,12 +1480,11 @@ const FunctionDoc tan_checked_doc{
      "To return NaN instead, see \"tan\"."),
     {"x"}};
 
-const FunctionDoc asin_doc{
-    "Compute the inverse sine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function returns NaN on values outside its domain. "
-     "To raise an error instead, see \"asin_checked\"."),
-    {"x"}};
+const FunctionDoc asin_doc{"Compute the inverse sine of the elements argument-wise",
+                           ("Integer arguments return double values. "
+                            "This function returns NaN on values outside its domain. "
+                            "To raise an error instead, see \"asin_checked\"."),
+                           {"x"}};
 
 const FunctionDoc asin_checked_doc{
     "Compute the inverse sine of the elements argument-wise",
@@ -1509,12 +1493,11 @@ const FunctionDoc asin_checked_doc{
      "To return NaN instead, see \"asin\"."),
     {"x"}};
 
-const FunctionDoc acos_doc{
-    "Compute the inverse cosine of the elements argument-wise",
-    ("Integer arguments return double values. "
-     "This function returns NaN on values outside its domain. "
-     "To raise an error instead, see \"acos_checked\"."),
-    {"x"}};
+const FunctionDoc acos_doc{"Compute the inverse cosine of the elements argument-wise",
+                           ("Integer arguments return double values. "
+                            "This function returns NaN on values outside its domain. "
+                            "To raise an error instead, see \"acos_checked\"."),
+                           {"x"}};
 
 const FunctionDoc acos_checked_doc{
     "Compute the inverse cosine of the elements argument-wise",
@@ -1523,10 +1506,9 @@ const FunctionDoc acos_checked_doc{
      "To return NaN instead, see \"acos\"."),
     {"x"}};
 
-const FunctionDoc atan_doc{
-    "Compute the principal value of the inverse tangent",
-    ("Integer arguments return double values."),
-    {"x"}};
+const FunctionDoc atan_doc{"Compute the principal value of the inverse tangent",
+                           ("Integer arguments return double values."),
+                           {"x"}};
 
 const FunctionDoc atan2_doc{
     "Compute the inverse tangent using argument signs to determine the quadrant",
