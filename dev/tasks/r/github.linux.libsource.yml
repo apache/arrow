@@ -26,16 +26,13 @@ on:
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:latest-focal"
+    name: "Ubuntu Dependency Source"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         dep_source: ["AUTO", "BUNDLED"]
     env:
-      R_ORG: "rstudio"
-      R_IMAGE: "r-base"
-      R_TAG: "latest-focal"
       ARROW_R_DEV: "TRUE"
       DEPENDENCY_SOURCE: {{ "${{ matrix.dep_source }}" }}
     steps:
