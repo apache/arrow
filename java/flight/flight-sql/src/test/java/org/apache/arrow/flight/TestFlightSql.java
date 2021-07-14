@@ -53,6 +53,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -116,7 +117,7 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetTables() throws Exception {
+  public void testGetTablesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
@@ -187,17 +188,42 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetTableTypes() throws Exception {
+  public void testGetTableTypesSchema() {
     final FlightInfo info = sqlClient.getTableTypes();
     final Schema infoSchema = info.getSchema();
     final Schema expectedInfoSchema =
         new Schema(singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
     collector.checkThat(infoSchema, is(expectedInfoSchema));
+  }
 
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+  @Test
+  public void testGetTableTypesResult() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
       List<List<String>> catalogs = getResults(stream);
       // TODO Check expected values.
       collector.checkThat(catalogs, is(allOf(notNullValue(), not(emptyList()))));
+    }
+  }
+
+  @Test
+  @Ignore // TODO
+  public void testGetSchemasSchema() {
+    final FlightInfo info = sqlClient.getSchemas(null, null);
+    final Schema infoSchema = info.getSchema();
+    final Schema expectedSchema = new Schema(asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType())));
+    collector.checkThat(infoSchema, is(expectedSchema));
+  }
+
+  @Test
+  public void testGetSchemasResult() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
+      final List<List<String>> schemas = getResults(stream);
+      // TODO Check values.
+      collector.checkThat(schemas, is(allOf(notNullValue(), not(emptyList()))));
     }
   }
 
