@@ -988,14 +988,14 @@ test_that("substring", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = substring(x, 0, 6)) %>% #nope
+      mutate(y = substring(x, 0, 6)) %>% 
       collect(),
     df
   )
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = substring(x, -1, 6)) %>% #nope
+      mutate(y = substring(x, -1, 6)) %>% 
       collect(),
     df
   )
@@ -1037,7 +1037,7 @@ test_that("substring", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = substring(x, -5, -1)) %>% # nope
+      mutate(y = substring(x, -5, -1)) %>% 
       collect(),
     df
   )
@@ -1056,7 +1056,7 @@ test_that("str_sub", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = str_sub(x, 0, 6)) %>% # nope
+      mutate(y = str_sub(x, 0, 6)) %>%
       collect(),
     df
   )
@@ -1077,7 +1077,7 @@ test_that("str_sub", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = str_sub(x, -1, -2)) %>% # nope
+      mutate(y = str_sub(x, -1, -2)) %>% 
       collect(),
     df
   )
@@ -1105,7 +1105,7 @@ test_that("str_sub", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(y = str_sub(x, -5, -1)) %>% # nope
+      mutate(y = str_sub(x, -5, -1)) %>% 
       collect(),
     df
   )
