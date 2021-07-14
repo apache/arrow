@@ -241,17 +241,15 @@ def save_report_data(obj, job_name):
     Just print there the state of the job
     """
     output = obj['output']
+    
     queue = obj['queue']
+    print(dir(queue))
+    
     if fetch:
         queue.fetch()
 
     job = queue.get(job_name)
-    report = EmailReport(
-        job=job,
-        sender_name=sender_name,
-        sender_email=sender_email,
-        recipient_email=recipient_email
-    )
+    report = JsonReport(job=job)
 
     report.show(output)
 
