@@ -22,7 +22,7 @@ NULL
 # This environment is an internal cache for things including data mask functions
 # We'll populate it at package load time.
 .cache <- NULL
-init_env <- function () {
+init_env <- function() {
   .cache <<- new.env(hash = TRUE)
 }
 init_env()
@@ -150,16 +150,20 @@ nse_funcs$is.character <- function(x) {
   x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
 }
 nse_funcs$is.numeric <- function(x) {
-  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
-                          "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-                          "DECIMAL", "DECIMAL256")]
+  x$type_id() %in% Type[c(
+    "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+    "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+    "DECIMAL", "DECIMAL256"
+  )]
 }
 nse_funcs$is.double <- function(x) {
   x$type_id() == Type["DOUBLE"]
 }
 nse_funcs$is.integer <- function(x) {
-  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
-                          "UINT64", "INT64")]
+  x$type_id() %in% Type[c(
+    "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+    "UINT64", "INT64"
+  )]
 }
 nse_funcs$is.integer64 <- function(x) {
   x$type_id() == Type["INT64"]
@@ -293,7 +297,7 @@ nse_funcs$substr <- function(string, start, stop) {
   if (start <= 0) {
     start <- 1
   }
-  
+
   if (stop < start) {
     stop <- 0
   }
@@ -301,7 +305,7 @@ nse_funcs$substr <- function(string, start, stop) {
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start -1L, stop = stop)
+    options = list(start = start - 1L, stop = stop)
   )
 }
 
@@ -315,6 +319,14 @@ nse_funcs$substring <- function(text, first, last = 1000000L) {
     msg = "`last` must be length 1 - other lengths are not supported in Arrow"
   )
 
+  if (first <= 0) {
+    first <- 1
+  }
+
+  if (last < first) {
+    last <- 0
+  }
+
   Expression$create(
     "utf8_slice_codeunits",
     text,
@@ -323,8 +335,6 @@ nse_funcs$substring <- function(text, first, last = 1000000L) {
 }
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
-  if(end <= -1) end <- .Machine$integer.max
-
   assert_that(
     length(start) == 1,
     msg = "`start` must be length 1 - other lengths are not supported in Arrow"
@@ -334,10 +344,26 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     msg = "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 
+  if (start == 0) {
+    start <- 1
+  }
+
+  if (end == -1) {
+    end <- .Machine$integer.max
+  }
+
+  if (end < start) {
+    end <- 0
+  }
+
+  if (start > 0) {
+    start <- start - 1L
+  }
+
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start - 1L, stop = end)
+    options = list(start = start, stop = end)
   )
 }
 
@@ -452,7 +478,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     string,
     options = list(
       pattern =
-      opts$pattern,
+        opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
@@ -476,17 +502,16 @@ nse_funcs$pmax <- function(..., na.rm = FALSE) {
 }
 
 nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
-
   assert_that(is_integerish(width))
   side <- match.arg(side)
   assert_that(is.string(pad))
 
   if (side == "left") {
-    pad_func = "utf8_lpad"
+    pad_func <- "utf8_lpad"
   } else if (side == "right") {
-    pad_func = "utf8_rpad"
+    pad_func <- "utf8_rpad"
   } else if (side == "both") {
-    pad_func = "utf8_center"
+    pad_func <- "utf8_center"
   }
 
   Expression$create(
@@ -618,5 +643,4 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
   }
 
   Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
-
 }
