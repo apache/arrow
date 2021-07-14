@@ -1013,6 +1013,10 @@ tasks:
   test-r-devdocs:
     ci: github
     template: r/github.devdocs.yml
+    
+  test-r-depsource:
+    ci: github
+    template: r/github.linux.libsource.yml
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
