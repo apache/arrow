@@ -324,7 +324,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       step = cpp11::as_cpp<int64_t>(options["step"]);
     }
     
-    int64_t stop = std::numeric_limits<int64_t>::max();
+    int64_t stop = std::numeric_limits<int32_t>::max();
     if (!Rf_isNull(options["stop"])) {
       stop = cpp11::as_cpp<int64_t>(options["stop"]);
     }
