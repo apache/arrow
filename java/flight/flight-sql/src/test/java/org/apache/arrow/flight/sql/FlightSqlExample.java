@@ -557,8 +557,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final Schema schema = getSchemaSchemas().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
