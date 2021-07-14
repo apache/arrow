@@ -426,7 +426,6 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
-GANDIVA_EXPORT
 FORCE_INLINE
 inline int32_t gdv_fn_utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
@@ -442,7 +441,6 @@ inline int32_t gdv_fn_utf8_char_length(char c) {
   return 0;
 }
 
-GANDIVA_EXPORT
 FORCE_INLINE
 inline void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
@@ -604,7 +602,6 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
 // The Unicode characters also are divided between categories. This link
 // https://www.compart.com/en/unicode/category shows
 // more information about characters categories.
-GANDIVA_EXPORT
 FORCE_INLINE
 inline bool gdv_fn_is_codepoint_for_space(uint32_t val) {
   auto category = utf8proc_category(val);
