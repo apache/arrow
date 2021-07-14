@@ -19,12 +19,15 @@ package org.apache.arrow.driver.jdbc.test.utils;
 
 import java.math.BigDecimal;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -33,6 +36,18 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeNanoVector;
+import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
+import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -480,6 +495,158 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
     valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
     valueVector.setValueCount(3);
+
+    return valueVector;
+  }
+
+  public TimeStampNanoVector createTimeStampNanoVector() {
+    TimeStampNanoVector valueVector = new TimeStampNanoVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampNanoTZVector createTimeStampNanoTZVector(String timeZone) {
+    TimeStampNanoTZVector valueVector = new TimeStampNanoTZVector("", this.getRootAllocator(), timeZone);
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toNanos(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toNanos(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampMicroVector createTimeStampMicroVector() {
+    TimeStampMicroVector valueVector = new TimeStampMicroVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toMicros(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toMicros(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampMicroTZVector createTimeStampMicroTZVector(String timeZone) {
+    TimeStampMicroTZVector valueVector = new TimeStampMicroTZVector("", this.getRootAllocator(), timeZone);
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toMicros(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toMicros(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampMilliVector createTimeStampMilliVector() {
+    TimeStampMilliVector valueVector = new TimeStampMilliVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 1625702400000L);
+    valueVector.setSafe(1, 1625788800000L);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampMilliTZVector createTimeStampMilliTZVector(String timeZone) {
+    TimeStampMilliTZVector valueVector = new TimeStampMilliTZVector("", this.getRootAllocator(), timeZone);
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 1625702400000L);
+    valueVector.setSafe(1, 1625788800000L);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampSecVector createTimeStampSecVector() {
+    TimeStampSecVector valueVector = new TimeStampSecVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toSeconds(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toSeconds(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeStampSecTZVector createTimeStampSecTZVector(String timeZone) {
+    TimeStampSecTZVector valueVector = new TimeStampSecTZVector("", this.getRootAllocator(), timeZone);
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, TimeUnit.MILLISECONDS.toSeconds(1625702400000L));
+    valueVector.setSafe(1, TimeUnit.MILLISECONDS.toSeconds(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public TimeNanoVector createTimeNanoVector() {
+    TimeNanoVector valueVector = new TimeNanoVector("", this.getRootAllocator());
+    valueVector.allocateNew(5);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1_000_000_000L); // 1 second
+    valueVector.setSafe(2, 60 * 1_000_000_000L); // 1 minute
+    valueVector.setSafe(3, 60 * 60 * 1_000_000_000L); // 1 hour
+    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000_000_000L); // 23:59:59
+    valueVector.setValueCount(5);
+
+    return valueVector;
+  }
+
+  public TimeMicroVector createTimeMicroVector() {
+    TimeMicroVector valueVector = new TimeMicroVector("", this.getRootAllocator());
+    valueVector.allocateNew(5);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1_000_000L); // 1 second
+    valueVector.setSafe(2, 60 * 1_000_000L); // 1 minute
+    valueVector.setSafe(3, 60 * 60 * 1_000_000L); // 1 hour
+    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000_000L); // 23:59:59
+    valueVector.setValueCount(5);
+
+    return valueVector;
+  }
+
+  public TimeMilliVector createTimeMilliVector() {
+    TimeMilliVector valueVector = new TimeMilliVector("", this.getRootAllocator());
+    valueVector.allocateNew(5);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1_000); // 1 second
+    valueVector.setSafe(2, 60 * 1_000); // 1 minute
+    valueVector.setSafe(3, 60 * 60 * 1_000); // 1 hour
+    valueVector.setSafe(4, (24 * 60 * 60 - 1) * 1_000); // 23:59:59
+    valueVector.setValueCount(5);
+
+    return valueVector;
+  }
+
+  public TimeSecVector createTimeSecVector() {
+    TimeSecVector valueVector = new TimeSecVector("", this.getRootAllocator());
+    valueVector.allocateNew(5);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1); // 1 second
+    valueVector.setSafe(2, 60); // 1 minute
+    valueVector.setSafe(3, 60 * 60); // 1 hour
+    valueVector.setSafe(4, (24 * 60 * 60 - 1)); // 23:59:59
+    valueVector.setValueCount(5);
+
+    return valueVector;
+  }
+
+  public DateDayVector createDateDayVector() {
+    DateDayVector valueVector = new DateDayVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, (int) TimeUnit.MILLISECONDS.toDays(1625702400000L));
+    valueVector.setSafe(1, (int) TimeUnit.MILLISECONDS.toDays(1625788800000L));
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public DateMilliVector createDateMilliVector() {
+    DateMilliVector valueVector = new DateMilliVector("", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 1625702400000L);
+    valueVector.setSafe(1, 1625788800000L);
+    valueVector.setValueCount(2);
 
     return valueVector;
   }

@@ -17,18 +17,16 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Getter;
-import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Holder;
-import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.createGetter;
+import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.*;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.ValueVector;
@@ -87,9 +85,14 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
     }
 
     long value = holder.value;
-    long milliseconds = this.timeUnit.toMillis(value);
+    long millis = this.timeUnit.toMillis(value);
 
-    return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    if (calendar != null) {
+      TimeZone timeZone = calendar.getTimeZone();
+      millis += timeZone.getOffset(millis);
+    }
+
+    return new Date(millis);
   }
 
   @Override

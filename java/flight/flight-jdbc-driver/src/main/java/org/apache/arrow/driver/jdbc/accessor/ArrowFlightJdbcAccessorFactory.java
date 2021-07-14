@@ -20,7 +20,10 @@ package org.apache.arrow.driver.jdbc.accessor;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalVectorAccessor;
@@ -29,6 +32,8 @@ import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8V
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
@@ -39,6 +44,11 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeNanoVector;
+import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -93,6 +103,20 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof FixedSizeBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
+    } else if (vector instanceof TimeStampVector) {
+      return new ArrowFlightJdbcTimeStampVectorAccessor((TimeStampVector) vector, getCurrentRow);
+    } else if (vector instanceof TimeNanoVector) {
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeNanoVector) vector, getCurrentRow);
+    } else if (vector instanceof TimeMicroVector) {
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeMicroVector) vector, getCurrentRow);
+    } else if (vector instanceof TimeMilliVector) {
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeMilliVector) vector, getCurrentRow);
+    } else if (vector instanceof TimeSecVector) {
+      return new ArrowFlightJdbcTimeVectorAccessor((TimeSecVector) vector, getCurrentRow);
+    } else if (vector instanceof DateDayVector) {
+      return new ArrowFlightJdbcDateVectorAccessor(((DateDayVector) vector), getCurrentRow);
+    } else if (vector instanceof DateMilliVector) {
+      return new ArrowFlightJdbcDateVectorAccessor(((DateMilliVector) vector), getCurrentRow);
     } else if (vector instanceof VarCharVector) {
       return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow);
     } else if (vector instanceof LargeVarCharVector) {

@@ -42,7 +42,6 @@ final class ArrowFlightJdbcDateVectorGetter {
   /**
    * Functional interface used to unify Date*Vector#get implementations.
    */
-  @FunctionalInterface
   interface Getter {
     void get(int index, Holder holder);
   }
