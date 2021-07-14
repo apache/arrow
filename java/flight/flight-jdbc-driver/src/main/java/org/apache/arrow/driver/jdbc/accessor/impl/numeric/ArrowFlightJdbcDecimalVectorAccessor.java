@@ -22,32 +22,18 @@ import java.math.RoundingMode;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
-import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 
 /**
- * Accessor for {@link DecimalVector} and {@link Decimal256Vector}.
+ * Accessor for the DecimalVector.
  */
 public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private final Getter getter;
-
-  /**
-   * Functional interface used to unify Decimal*Vector#getObject implementations.
-   */
-  @FunctionalInterface
-  interface Getter {
-    BigDecimal getObject(int index);
-  }
+  private DecimalVector vector;
 
   public ArrowFlightJdbcDecimalVectorAccessor(DecimalVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
-    this.getter = vector::getObject;
-  }
-
-  public ArrowFlightJdbcDecimalVectorAccessor(Decimal256Vector vector, IntSupplier currentRowSupplier) {
-    super(currentRowSupplier);
-    this.getter = vector::getObject;
+    this.vector = vector;
   }
 
   @Override
@@ -57,7 +43,7 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public BigDecimal getBigDecimal() {
-    final BigDecimal value = getter.getObject(getCurrentRow());
+    final BigDecimal value = vector.getObject(getCurrentRow());
     this.wasNull = value == null;
     return value;
   }
@@ -118,10 +104,10 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public BigDecimal getBigDecimal(int scale) {
+  public BigDecimal getBigDecimal(int i) {
     final BigDecimal value = this.getBigDecimal();
 
-    return this.wasNull ? null : value.setScale(scale, RoundingMode.HALF_UP);
+    return this.wasNull ? null : value.setScale(i, RoundingMode.UNNECESSARY);
   }
 
   @Override
