@@ -458,10 +458,7 @@ is materialized as columns when reading the data and can be used for filtering:
 
 Another benefit of manually scheduling the files is that the order of the files
 controls the order of the data.  When performing an ordered read (or a read to
-a table) then the rows returned will match the order of the files given.  This
-only applies when the dataset is constructed with a list of files.  There
-are no order guarantees given when the files are instead discovered by scanning
-a directory.
+a table) then the rows returned will match the order of the files given.
 
 Iterative (out of core or streaming) reads
 ------------------------------------------
@@ -479,12 +476,12 @@ calculate the average of a column without loading the entire column into memory:
 
     import pyarrow.compute as pc
 
-    sum = 0
+    col2_sum = 0
     count = 0
     for batch in dataset.to_batches(filter=~ds.field('col2').is_null()):
-        sum += pc.sum(batch.column('col2')).as_py()
+        col2_sum += pc.sum(batch.column('col2')).as_py()
         count += batch.num_rows
-    mean_a = sum/count
+    mean_a = col2_sum/count
 
 Customizing the batch size
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
