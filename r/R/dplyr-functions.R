@@ -290,10 +290,18 @@ nse_funcs$substr <- function(string, start, stop) {
     msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 
+  if (start <= 0) {
+    start <- 1
+  }
+  
+  if (stop < start) {
+    stop <- 0
+  }
+
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start - 1L, stop = stop)
+    options = list(start = start -1L, stop = stop)
   )
 }
 

@@ -907,44 +907,207 @@ test_that("str_pad", {
   )
 })
 
-test_that("substr, substring, str_sub", {
-
-  df <- tibble(x1 = "Apache Arrow")
-
+test_that("substr", {
+  
+  df <- tibble(x = "Apache Arrow")
+  
   expect_dplyr_equal(
     input %>%
-      mutate(
-        x2 = substr(x1, 0, 6), # "", SHOULD BE "Apache"
-        x3 = substr(x1, 1, 6), # "Apache"
-        x4 = substr(x1, 8, 12) # "Arrow"
-      ) %>%
+      mutate(y = substr(x, 1, 6)) %>%
       collect(),
     df
   )
-
+  
   expect_dplyr_equal(
     input %>%
-      mutate(
-        x2 = substring(x1, 0, 6), # "", SHOULD BE "Apache"
-        x3 = substring(x1, 1, 6), # "Apache"
-        x4 = substring(x1, 8, 12) # "Arrow"
-      ) %>%
+      mutate(y = substr(x, 0, 6)) %>%
       collect(),
     df
   )
-
-  # see https://issues.apache.org/jira/browse/ARROW-13259
+  
   expect_dplyr_equal(
     input %>%
-      mutate(
-        x2 = str_sub(x1, 1, 6), # Apache
-        x3 = str_sub(x1, 8, 12), # Arrow
-        x4 = str_sub(x1, 8, 11), # Arro
-        x5 = str_sub(x1, -4, -1), # Arrow
-        x5 = str_sub(x1, -4, -2), # "Arrow", THIS SHOULD BE "Arro"
-        x6 = str_sub(x1, -5, -1) # " Arrow", THIS SHOULD BE "Arro"
-      ) %>%
+      mutate(y = substr(x, -1, 6)) %>% 
       collect(),
     df
   )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 6, 1)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, -1, -2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 9, 6)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 1, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x,  8, 12)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, -5, -1)) %>% 
+      collect(),
+    df
+  )
+})
+
+test_that("substring", {
+  
+  df <- tibble(x = "Apache Arrow")
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 0, 6)) %>% #nope
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, -1, 6)) %>% #nope
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 6, 1)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, -1, -2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 9, 6)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 1, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x,  8, 12)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, -5, -1)) %>% # nope
+      collect(),
+    df
+  )
+})
+
+test_that("str_sub", {
+  
+  df <- tibble(x = "Apache Arrow")
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 1, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 0, 6)) %>% # nope
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -1, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 6, 1)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -1, -2)) %>% # nope
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 9, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 1, 6)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x,  8, 12)) %>% 
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -5, -1)) %>% # nope
+      collect(),
+    df
+  )
+  
 })
