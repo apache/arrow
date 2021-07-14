@@ -2351,10 +2351,11 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
     cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
         CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
+
         @staticmethod
         CResult[unique_ptr[CCodec]] CreateWithLevel" Create"(
-                                        CCompressionType codec,
-                                        int compression_level)
+            CCompressionType codec,
+            int compression_level)
 
         @staticmethod
         c_bool IsAvailable(CCompressionType codec)

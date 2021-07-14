@@ -171,7 +171,7 @@ cdef class IpcWriteOptions(_Weakrefable):
             else:
                 self.c_options.codec = shared_ptr[CCodec](GetResultValue(
                     CCodec.CreateWithLevel(_ensure_compression(value),
-                                  self._compression_level)).release())
+                                           self._compression_level)).release())
 
     @property
     def compression_level(self):
