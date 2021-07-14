@@ -20,13 +20,19 @@ skip_if_not_available("dataset")
 library(lubridate)
 library(dplyr)
 
+# base::strptime() defaults to local timezone
+# but arrow's strptime defaults to UTC.
+# So that tests are consistent, set the local timezone to UTC
+# TODO: consider reevaluating this workaround after ARROW-12980
+withr::local_timezone("UTC")
+
 test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 test_df <- tibble::tibble(date = test_date)
 
 # We can support this feature after ARROW-12980 is merged
-test_that("timezone aware timestamps are not supported",{
+test_that("timezone aware timestamps are not supported", {
 
-  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "BST")
+  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Asia/Pyongyang")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
 
   expect_error(
@@ -106,7 +112,6 @@ test_that("extract day from date", {
     test_df
   )
 })
-
 
 test_that("extract wday from date", {
  expect_dplyr_equal(

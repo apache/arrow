@@ -1323,5 +1323,86 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
               Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
+TEST(ScanNode, MinimalEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // for now, we must replicate the dataset schema here
+  options->dataset_schema = dataset->schema();
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  ASSERT_OK_AND_ASSIGN(b_is_true, b_is_true.Bind(*dataset->schema()));
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*dataset->schema()));
+  options->projection = call("project", {a_times_2}, compute::ProjectOptions{{"a * 2"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
+                       dataset::MakeScanNode(plan.get(), dataset, options));
+
+  // pipe the scan node into a filter node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
+                       compute::MakeFilterNode(scan, "filter", b_is_true));
+
+  // pipe the filter node into a project node
+  // NB: we're using the project node factory which preserves fragment/batch index
+  // tagging, so we *can* reorder later if we choose. The tags will not appear in
+  // our output.
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * project,
+                       dataset::MakeAugmentedProjectNode(filter, "project", {a_times_2}));
+
+  // finally, pipe the project node into a sink node
+  // NB: if we don't need ordering, we could use compute::MakeSinkNode instead
+  ASSERT_OK_AND_ASSIGN(auto sink_gen, dataset::MakeOrderedSinkNode(project, "sink"));
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
+
+  // start the ExecPlan then wait 1s for completion
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  auto expected = TableFromJSON(schema({field("a * 2", int32())}), {
+                                                                       R"([
+                                               {"a * 2": 4},
+                                               {"a * 2": null},
+                                               {"a * 2": null}
+                                          ])"});
+
+  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+}
+
 }  // namespace dataset
 }  // namespace arrow

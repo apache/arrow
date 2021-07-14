@@ -186,9 +186,9 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
-| all           | Unary | Boolean     | Scalar Boolean |                                  |       |
+| all           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| any           | Unary | Boolean     | Scalar Boolean |                                  |       |
+| any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | count         | Unary | Any         | Scalar Int64   | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -196,15 +196,15 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | mean          | Unary | Numeric     | Scalar Float64 | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(1)  |
+| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(2)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(2)  |
+| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(3)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(3)  |
+| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(4)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | stddev        | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(4)  |
+| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -213,18 +213,21 @@ Aggregations
 
 Notes:
 
-* \(1) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(1) If null values are taken into account by setting ScalarAggregateOptions
+  parameter skip_nulls = false then `Kleene logic`_ logic is applied.
 
-* \(2) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(2) Output is a ``{"min": input type, "max": input type}`` Struct.
+
+* \(3) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(3) Output is Float64 or input type, depending on QuantileOptions.
+* \(4) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+* \(5) Output is Int64, UInt64 or Float64, depending on the input type.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -850,6 +853,7 @@ in reverse order.
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 
+.. _cpp-compute-scalar-structural-transforms:
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -861,7 +865,7 @@ Structural transforms
 +==========================+============+================================================+=====================+=========+
 | fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          + \(2)    |
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          | \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 | is_finite                | Unary      | Float, Double                                  | Boolean             | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
@@ -887,6 +891,8 @@ Structural transforms
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
+
+  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
 * \(3) Output is true iff the corresponding input element is finite (not Infinity,
   -Infinity, or NaN).
@@ -1154,6 +1160,8 @@ value, but smaller than nulls.
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
+.. _cpp-compute-vector-structural-transforms:
+
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -1172,3 +1180,18 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
+
+These functions create a copy of the first input with some elements
+replaced, based on the remaining inputs.
+
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
++==========================+============+=======================+==============+==============+==============+=======+
+| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+
+* \(1) Each element in input 1 for which the corresponding Boolean in input 2
+  is true is replaced with the next value from input 3. A null in input 2
+  results in a corresponding null in the output.
+
+  Also see: :ref:`if_else <cpp-compute-scalar-structural-transforms>`.

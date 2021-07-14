@@ -292,6 +292,14 @@ Conversions
    cast
    strptime
 
+Replacements
+------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   replace_with_mask
+
 Selections
 ----------
 

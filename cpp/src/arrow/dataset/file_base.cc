@@ -197,12 +197,14 @@ struct FileSystemDataset::FragmentSubtrees {
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, compute::Expression root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    std::vector<std::shared_ptr<FileFragment>> fragments) {
+    std::vector<std::shared_ptr<FileFragment>> fragments,
+    std::shared_ptr<Partitioning> partitioning) {
   std::shared_ptr<FileSystemDataset> out(
       new FileSystemDataset(std::move(schema), std::move(root_partition)));
   out->format_ = std::move(format);
   out->filesystem_ = std::move(filesystem);
   out->fragments_ = std::move(fragments);
+  out->partitioning_ = std::move(partitioning);
   out->SetupSubtreePruning();
   return out;
 }
