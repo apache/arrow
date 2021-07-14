@@ -46,18 +46,18 @@ const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
     bin: orig.bin,
     name: npmPkgName,
-    type: 'module',
-    main: `${mainExport}.node.cjs`,
-    module: `${mainExport}.dom.mjs`,
-    browser: `${mainExport}.dom.mjs`,
+    type: 'commonjs',
+    main: `${mainExport}.node.js`,
+    module: `${mainExport}.dom.js`,
+    browser: `${mainExport}.dom.js`,
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true },
     exports: {
-        import: `${mainExport}.node.mjs`,
-        require: `${mainExport}.node.cjs`,
+        import: `./${mainExport}.node.mjs`,
+        require: `./${mainExport}.node.js`,
     }
 });
 
