@@ -39,8 +39,9 @@ import org.apache.arrow.vector.util.Text;
 public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccessor {
 
   /**
-   * Interface to help integrating VarCharVector and LargeVarCharVector.
+   * Functional interface to help integrating VarCharVector and LargeVarCharVector.
    */
+  @FunctionalInterface
   interface Getter {
     Text get(int index);
   }
