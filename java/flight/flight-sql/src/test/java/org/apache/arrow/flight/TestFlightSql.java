@@ -32,7 +32,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -122,12 +121,13 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
                      .getEndpoints().get(0).getTicket())) {
-      // TODO Filter results.
-      final List<String> results = new ArrayDeque<>(getResults(stream)).getLast();
+      final List<String> results =
+          getResults(stream).stream().flatMap(List::stream)
+              .map(Strings::emptyToNull).filter(Objects::nonNull)
+              .collect(toList());
+      // TODO Check correctness.
       final List<String> expectedResults = asList("APP", "INTTABLE", "TABLE");
-      collector.checkThat(
-          results.stream().map(Strings::emptyToNull).filter(Objects::nonNull).collect(toList()),
-          is(expectedResults));
+      collector.checkThat(results, is(expectedResults));
     }
   }
 
