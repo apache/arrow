@@ -1917,8 +1917,8 @@ TEST(Cast, DictTypeToAnotherDict) {
 
   ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, dictionary(int32(), int32())));
 
-  std::cout << "input: " << arr->ToString() << std::endl;
-  std::cout << "res: " << casted.make_array()->ToString() << std::endl;
+//  std::cout << "input: " << arr->ToString() << std::endl;
+//  std::cout << "res: " << casted.make_array()->ToString() << std::endl;
   ValidateOutput(casted);
 }
 
