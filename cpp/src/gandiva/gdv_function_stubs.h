@@ -43,6 +43,17 @@ using gdv_utf8 = char*;
 using gdv_binary = char*;
 using gdv_day_time_interval = int64_t;
 
+#ifdef GANDIVA_UNIT_TEST
+// unit tests may be compiled without O2, so inlining may not happen.
+#define GDV_FORCE_INLINE
+#else
+#ifdef _MSC_VER
+#define GDV_FORCE_INLINE __forceinline
+#else
+#define GDV_FORCE_INLINE inline __attribute__((always_inline))
+#endif
+#endif
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
