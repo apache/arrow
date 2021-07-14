@@ -58,6 +58,9 @@ else
   ARROW_DEPENDENCY_SOURCE="BUNDLED"
 fi
 
+echo "**** DEPENDENCY_SOURCE is....(delete this from the PR!)"
+echo "$ARROW_DEPENDENCY_SOURCE"
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
