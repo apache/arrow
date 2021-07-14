@@ -408,6 +408,19 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
        ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]"),
        ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
       ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
+
+  // Error cases
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("cond struct must not be null"),
+      CallFunction(
+          "case_when",
+          {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
+           Datum(scalar1)}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("cond struct must not have nulls"),
+      CallFunction(
+          "case_when",
+          {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)), Datum(values1)}));
 }
 
 TEST(TestCaseWhen, Null) {

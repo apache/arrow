@@ -831,6 +831,9 @@ struct CaseWhenFunction : ScalarFunction {
 template <typename Type>
 Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
+  if (!conds.is_valid) {
+    return Status::Invalid("cond struct must not be null");
+  }
   Datum result;
   for (size_t i = 0; i < batch.values.size() - 1; i++) {
     if (i < conds.value.size()) {
@@ -865,6 +868,9 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out
 template <typename Type>
 Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& conds_array = *batch.values[0].array();
+  if (conds_array.GetNullCount() > 0) {
+    return Status::Invalid("cond struct must not have nulls");
+  }
   ArrayData* output = out->mutable_array();
   const int64_t out_offset = output->offset;
   const auto num_value_args = batch.values.size() - 1;
@@ -887,8 +893,6 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   std::memset(mask, 0xFF, mask_buffer->size());
 
   // Then iterate through each argument in turn and set elements.
-  const uint8_t* conds_valid =
-      conds_array.GetNullCount() > 0 ? conds_array.buffers[0]->data() : nullptr;
   for (size_t i = 0; i < batch.values.size() - (have_else_arg ? 2 : 1); i++) {
     const ArrayData& cond_array = *conds_array.child_data[i];
     const int64_t cond_offset = conds_array.offset + cond_array.offset;
@@ -896,7 +900,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
     const Datum& values_datum = batch[i + 1];
     int64_t offset = 0;
 
-    if (!conds_valid && cond_array.GetNullCount() == 0) {
+    if (cond_array.GetNullCount() == 0) {
       // If no valid buffer, visit mask & cond bitmap simultaneously
       BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values, cond_offset,
                                     batch.length);
@@ -918,8 +922,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
         }
         offset += block.length;
       }
-      continue;
-    } else if (!conds_valid) {
+    } else {
       // Visit mask & cond bitmap & cond validity
       const uint8_t* cond_valid = cond_array.buffers[0]->data();
       Bitmap bitmaps[3] = {{mask, /*offset=*/0, batch.length},
@@ -943,34 +946,6 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
             }
           }
         }
-      });
-    } else {
-      // Visit mask & cond bitmap & cond validity & struct validity
-      const uint8_t* cond_valid = cond_array.buffers[0]->data();
-      Bitmap bitmaps[4] = {{mask, /*offset=*/0, batch.length},
-                           {cond_values, cond_offset, batch.length},
-                           {cond_valid, cond_offset, batch.length},
-                           {conds_valid, conds_array.offset, batch.length}};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        const uint64_t word = words[0] & words[1] & words[2] & words[3];
-        const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
-        if (word == std::numeric_limits<uint64_t>::max()) {
-          CopyValues<Type>(values_datum, offset, block_length, out_valid, out_values,
-                           out_offset + offset);
-          BitUtil::SetBitsTo(mask, offset, block_length, false);
-        } else if (word) {
-          for (int64_t j = 0; j < block_length; ++j) {
-            if (BitUtil::GetBit(mask, offset + j) &&
-                BitUtil::GetBit(cond_valid, cond_offset + offset + j) &&
-                BitUtil::GetBit(cond_values, cond_offset + offset + j) &&
-                BitUtil::GetBit(conds_valid, conds_array.offset + offset + j)) {
-              CopyValues<Type>(values_datum, offset + j, /*length=*/1, out_valid,
-                               out_values, out_offset + offset + j);
-              BitUtil::SetBitTo(mask, offset + j, false);
-            }
-          }
-        }
-        offset += block_length;
       });
     }
   }
