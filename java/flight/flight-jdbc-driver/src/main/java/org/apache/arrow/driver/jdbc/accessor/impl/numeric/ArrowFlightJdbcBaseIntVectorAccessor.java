@@ -17,7 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.*;
+import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.Getter;
+import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcNumericGetter.createGetter;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

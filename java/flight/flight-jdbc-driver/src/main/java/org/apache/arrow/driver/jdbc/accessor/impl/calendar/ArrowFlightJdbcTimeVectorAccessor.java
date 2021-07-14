@@ -17,7 +17,9 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.*;
+import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.Getter;
+import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.Holder;
+import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorGetter.createGetter;
 
 import java.sql.Time;
 import java.sql.Timestamp;
