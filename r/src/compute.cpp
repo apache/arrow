@@ -318,15 +318,18 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "utf8_slice_codeunits") {
     using Options = arrow::compute::SliceOptions;
-    int64_t start = 1;
-    int64_t stop = -1;
-    if (!Rf_isNull(options["start"])) {
-      start = cpp11::as_cpp<int64_t>(options["start"]);
+
+    int64_t step = 1;
+    if (!Rf_isNull(options["step"])) {
+      step = cpp11::as_cpp<int64_t>(options["step"]);
     }
+    
+    int64_t stop = std::numeric_limits<int64_t>::max();
     if (!Rf_isNull(options["stop"])) {
       stop = cpp11::as_cpp<int64_t>(options["stop"]);
     }
-    return std::make_shared<Options>(start, stop);
+    
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["start"]), stop, step);
   }
 
   if (func_name == "variance" || func_name == "stddev") {
