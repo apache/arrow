@@ -341,9 +341,11 @@ class ArrayPrinter : public PrettyPrinter {
   Status Visit(const ExtensionArray& array) { return Print(*array.storage()); }
 
   template <typename T>
-  bool CheckPrintableArray(const NumericArray<T> &array) { return array.raw_values() != nullptr; }
+  bool CheckPrintableArray(const NumericArray<T>& array) {
+    return array.raw_values() != nullptr;
+  }
 
-  bool CheckPrintableArray(const Array &array) { return true; }
+  bool CheckPrintableArray(const Array& array) { return true; }
 
   Status WriteValidityBitmap(const Array& array);
 
