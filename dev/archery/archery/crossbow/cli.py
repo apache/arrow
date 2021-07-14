@@ -246,12 +246,7 @@ def save_report_data(obj, job_name):
         queue.fetch()
 
     job = queue.get(job_name)
-    report = JsonReport(
-        job=job,
-        sender_name=sender_name,
-        sender_email=sender_email,
-        recipient_email=recipient_email
-    )
+    report = JsonReport(job=job)
 
     report.show(output)
 
