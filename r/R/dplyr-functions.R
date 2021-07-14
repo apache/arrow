@@ -344,21 +344,13 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     msg = "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 
-  if (start == 0) {
-    start <- 1
-  }
+  if (start == 0) start <- 1
 
-  if (end == -1) {
-    end <- .Machine$integer.max
-  }
+  if (end == -1) end <- .Machine$integer.max
 
-  if (end < start) {
-    end <- 0
-  }
+  if (end < start) end <- 0
 
-  if (start > 0) {
-    start <- start - 1L
-  }
+  if (start > 0) start <- start - 1L
 
   Expression$create(
     "utf8_slice_codeunits",
