@@ -51,7 +51,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   @Before
   public void setup() {
 
-    this.arrayToAssert = new boolean[]{false, true};
+    this.arrayToAssert = new boolean[] {false, true};
     this.vector = rootAllocatorTestRule.createBitVector();
     this.vectorWithNull = rootAllocatorTestRule.createBitVectorForNullTests();
   }
@@ -62,7 +62,8 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(Function<ArrowFlightJdbcBitVectorAccessor, T> function, T result, T resultIfFalse, BitVector vector) throws Exception {
+  private <T> void iterate(Function<ArrowFlightJdbcBitVectorAccessor, T> function, T result, T resultIfFalse,
+                           BitVector vector) throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         ((accessor, currentRow) -> {
           final T value = function.apply(accessor);

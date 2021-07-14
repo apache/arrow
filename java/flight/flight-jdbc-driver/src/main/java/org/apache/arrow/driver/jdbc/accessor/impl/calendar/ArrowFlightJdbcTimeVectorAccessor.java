@@ -24,11 +24,11 @@ import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdb
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
@@ -116,14 +116,9 @@ public class ArrowFlightJdbcTimeVectorAccessor extends ArrowFlightJdbcAccessor {
     }
 
     long value = holder.value;
-    long millis = this.timeUnit.toMillis(value);
+    long milliseconds = this.timeUnit.toMillis(value);
 
-    if (calendar != null) {
-      TimeZone timeZone = calendar.getTimeZone();
-      millis += timeZone.getOffset(millis);
-    }
-
-    return new Time(millis);
+    return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
   }
 
   @Override

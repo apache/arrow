@@ -29,6 +29,7 @@ import java.util.Calendar;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.Text;
@@ -157,7 +158,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
     // Use Calendar to apply time zone's offset
     long milliseconds = date.getTime();
-    return new Date(applyCalendarOffset(milliseconds, calendar));
+    return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
   }
 
   @Override
@@ -169,7 +170,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
     // Use Calendar to apply time zone's offset
     long milliseconds = time.getTime();
-    return new Time(applyCalendarOffset(milliseconds, calendar));
+    return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
   }
 
   @Override
@@ -181,10 +182,6 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
     // Use Calendar to apply time zone's offset
     long milliseconds = timestamp.getTime();
-    return new Timestamp(applyCalendarOffset(milliseconds, calendar));
-  }
-
-  private static long applyCalendarOffset(long milliseconds, Calendar calendar) {
-    return milliseconds - calendar.getTimeZone().getOffset(milliseconds);
+    return new Timestamp(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
   }
 }
