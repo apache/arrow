@@ -456,6 +456,12 @@ Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
                              });
 }
 
+const FieldVector kAugmentedFields{
+    field("__fragment_index", int32()),
+    field("__batch_index", int32()),
+    field("__last_in_fragment", boolean()),
+};
+
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
                                         FragmentGenerator fragment_gen,
                                         std::shared_ptr<ScanOptions> options) {
@@ -496,12 +502,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         return batch;
       });
 
-  auto augmented_fields = options->dataset_schema->fields();
-  augmented_fields.push_back(field("__fragment_index", int32()));
-  augmented_fields.push_back(field("__batch_index", int32()));
-  augmented_fields.push_back(field("__last_in_fragment", boolean()));
-  return compute::MakeSourceNode(plan, "dataset_scan",
-                                 schema(std::move(augmented_fields)), std::move(gen));
+  auto fields = options->dataset_schema->fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
+  return compute::MakeSourceNode(plan, "dataset_scan", schema(std::move(fields)),
+                                 std::move(gen));
 }
 
 class OneShotScanTask : public ScanTask {
@@ -1157,6 +1163,25 @@ Result<int64_t> SyncScanner::CountRows() {
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
                                         std::shared_ptr<Dataset> dataset,
                                         std::shared_ptr<ScanOptions> scan_options) {
+  if (scan_options->dataset_schema == nullptr) {
+    scan_options->dataset_schema = dataset->schema();
+  }
+
+  if (!scan_options->filter.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
+                          scan_options->filter.Bind(*dataset->schema()));
+  }
+
+  if (!scan_options->projection.IsBound()) {
+    auto fields = dataset->schema()->fields();
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                          scan_options->projection.Bind(Schema(std::move(fields))));
+  }
+
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
@@ -1175,9 +1200,9 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
     }
   }
 
-  for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-    exprs.push_back(compute::field_ref(aug_name));
-    names.emplace_back(aug_name);
+  for (const auto& aug_field : kAugmentedFields) {
+    exprs.push_back(compute::field_ref(aug_field->name()));
+    names.push_back(aug_field->name());
   }
   return compute::MakeProjectNode(input, std::move(label), std::move(exprs),
                                   std::move(names));

@@ -1175,6 +1175,22 @@ DatasetAndBatches MakeBasicDataset() {
 
   return {dataset, batches};
 }
+
+compute::Expression Materialize(std::vector<std::string> names,
+                                bool include_aug_fields = false) {
+  if (include_aug_fields) {
+    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+      names.emplace_back(aug_name);
+    }
+  }
+
+  std::vector<compute::Expression> exprs;
+  for (const auto& name : names) {
+    exprs.push_back(field_ref(name));
+  }
+
+  return project(exprs, names);
+}
 }  // namespace
 
 TEST(ScanNode, Schema) {
@@ -1184,7 +1200,7 @@ TEST(ScanNode, Schema) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  options->projection = Materialize({});  // set an empty projection
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1192,6 +1208,8 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
+  // output_schema is *always* the full augmented dataset schema, regardless of projection
+  // (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());
 }
 
@@ -1202,7 +1220,8 @@ TEST(ScanNode, Trivial) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
   auto sink_gen = MakeSinkNode(scan, "sink");
@@ -1220,9 +1239,9 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK_AND_ASSIGN(options->filter,
-                       less(field_ref("c"), literal(30)).Bind(*basic.dataset->schema()));
+  options->filter = less(field_ref("c"), literal(30));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1245,10 +1264,9 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK_AND_ASSIGN(
-      options->filter,
-      greater(field_ref("a"), literal(4)).Bind(*basic.dataset->schema()));
+  options->filter = greater(field_ref("a"), literal(4));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1270,8 +1288,7 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK(SetProjection(options.get(), {field_ref("b")}, {"b"}));
+  options->projection = Materialize({"b"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1298,16 +1315,14 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
   ASSERT_OK_AND_ASSIGN(
       auto project,
-      compute::MakeProjectNode(
-          scan, "project",
-          {field_ref("a"), field_ref("b"), field_ref("c"), field_ref("__fragment_index"),
-           field_ref("__batch_index"), field_ref("__last_in_fragment")}));
+      dataset::MakeAugmentedProjectNode(
+          scan, "project", {field_ref("a"), field_ref("b"), field_ref("c")}));
 
   auto sink_gen = MakeSinkNode(project, "sink");
 
@@ -1352,16 +1367,12 @@ TEST(ScanNode, MinimalEndToEnd) {
   auto options = std::make_shared<ScanOptions>();
   // sync scanning is not supported by ScanNode
   options->use_async = true;
-  // for now, we must replicate the dataset schema here
-  options->dataset_schema = dataset->schema();
   // specify the filter
   compute::Expression b_is_true = field_ref("b");
-  ASSERT_OK_AND_ASSIGN(b_is_true, b_is_true.Bind(*dataset->schema()));
   options->filter = b_is_true;
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*dataset->schema()));
   options->projection = call("project", {a_times_2}, compute::ProjectOptions{{"a * 2"}});
 
   // construct the scan node
@@ -1387,12 +1398,14 @@ TEST(ScanNode, MinimalEndToEnd) {
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
       schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
 
-  // start the ExecPlan then wait 1s for completion
+  // start the ExecPlan
   ASSERT_OK(plan->StartProducing());
-  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(schema({field("a * 2", int32())}), {
                                                                        R"([
@@ -1400,7 +1413,6 @@ TEST(ScanNode, MinimalEndToEnd) {
                                                {"a * 2": null},
                                                {"a * 2": null}
                                           ])"});
-
   AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
 }
 
