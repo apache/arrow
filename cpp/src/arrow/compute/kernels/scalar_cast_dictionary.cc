@@ -35,28 +35,52 @@ Status CastDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const CastOptions& options = CastState::Get(ctx);
   auto out_type = std::static_pointer_cast<DictionaryType>(out->type());
 
-  if (is_integer(out_type->index_type()->id())){
+  if (!is_integer(out_type->index_type()->id())) {
     return Status::Invalid("non-integer type used for DictionaryType::index_type");
   }
 
-  if (batch[0].is_scalar()) {
+  // if out type is same as in type, return input
+  if (out_type->Equals(batch[0].type())) {
+    *out = batch[0];
+    return Status::OK();
+  }
+
+  if (batch[0].is_scalar()) {  // if input is scalar
     auto in_scalar = std::static_pointer_cast<DictionaryScalar>(batch[0].scalar());
 
-    ARROW_ASSIGN_OR_RAISE(auto casted_index,
-                          Cast(in_scalar->value.index, out_type->index_type(), options,
-                               ctx->exec_context()));
-    ARROW_ASSIGN_OR_RAISE(auto casted_dict,
-                          Cast(in_scalar->value.dictionary, out_type->value_type(),
-                               options, ctx->exec_context()));
+    Datum casted_index, casted_dict;
+    if (in_scalar->value.index->type->Equals(out_type->index_type())) {
+      casted_index = in_scalar->value.index;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(casted_index,
+                            Cast(in_scalar->value.index, out_type->index_type(), options,
+                                 ctx->exec_context()));
+    }
+
+    if (in_scalar->value.dictionary->type()->Equals(out_type->value_type())) {
+      casted_dict = in_scalar->value.dictionary;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          casted_dict, Cast(in_scalar->value.dictionary, out_type->value_type(), options,
+                            ctx->exec_context()));
+    }
 
     *out = std::static_pointer_cast<Scalar>(
         DictionaryScalar::Make(casted_index.scalar(), casted_dict.make_array()));
+
+    return Status::OK();
+  }
+
+  // if input is array
+  const std::shared_ptr<ArrayData>& in_array = batch[0].array();
+  auto in_type = std::static_pointer_cast<DictionaryType>(in_array->type);
+
+  ArrayData* out_array = out->mutable_array();
+
+  if (in_type->index_type()->Equals(out_type->index_type())) {
+    out_array->buffers[0] = in_array->buffers[0];
+    out_array->buffers[1] = in_array->buffers[1];
   } else {
-    const std::shared_ptr<ArrayData>& in_array = batch[0].array();
-    auto in_type = std::static_pointer_cast<DictionaryType>(in_array->type);
-
-    ArrayData* out_array = out->mutable_array();
-
     // for indices, create a dummy ArrayData with index_type()
     const std::shared_ptr<ArrayData>& indices_arr =
         ArrayData::Make(in_type->index_type(), in_array->length, in_array->buffers,
@@ -65,8 +89,12 @@ Status CastDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
                                                     options, ctx->exec_context()));
     out_array->buffers[0] = std::move(casted_indices.array()->buffers[0]);
     out_array->buffers[1] = std::move(casted_indices.array()->buffers[1]);
+  }
 
-    // data
+  // data (dict)
+  if (in_type->index_type()->Equals(out_type->index_type())) {
+    out_array->dictionary = in_array->dictionary;
+  } else {
     const std::shared_ptr<Array>& dict_arr = MakeArray(in_array->dictionary);
     ARROW_ASSIGN_OR_RAISE(auto casted_data, Cast(dict_arr, out_type->value_type(),
                                                  options, ctx->exec_context()));

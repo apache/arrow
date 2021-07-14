@@ -1913,9 +1913,9 @@ TEST(Cast, ExtensionTypeToIntDowncast) {
 
 TEST(Cast, DictTypeToAnotherDict) {
   const std::shared_ptr<Array>& arr =
-      ArrayFromJSON(dictionary(int8(), int8()), "[1, 2, 3, 1, null, 3]");
+      ArrayFromJSON(dictionary(int8(), int16()), "[1, 2, 3, 1, null, 3]");
 
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, dictionary(int32(), int32())));
+  ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, dictionary(int32(), int64())));
 
 //  std::cout << "input: " << arr->ToString() << std::endl;
 //  std::cout << "res: " << casted.make_array()->ToString() << std::endl;
