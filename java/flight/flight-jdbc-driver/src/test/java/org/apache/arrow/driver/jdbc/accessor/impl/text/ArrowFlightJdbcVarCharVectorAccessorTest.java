@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -578,7 +579,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     final byte[] result = accessor.getBytes();
 
     collector.checkThat(result, instanceOf(byte[].class));
-    collector.checkThat(result, equalTo(value.toString().getBytes()));
+    collector.checkThat(result, equalTo(value.toString().getBytes(StandardCharsets.UTF_8)));
   }
 
   @Test
@@ -589,7 +590,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (InputStream result = accessor.getAsciiStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes), equalTo(value.toString()));
+      collector.checkThat(new String(resultBytes, StandardCharsets.UTF_8), equalTo(value.toString()));
     }
   }
 
