@@ -171,10 +171,9 @@ class JsonReport(Report):
         print(jsonStr)
         return jsonStr
         
-     #TODO: this just prints to the console for now
-     self.getJsonTasks()
-
-
+    #TODO: this just prints to the console for now
+    self.getJsonTasks()
+     
 
 class EmailReport(Report):
 
