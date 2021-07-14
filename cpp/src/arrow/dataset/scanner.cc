@@ -782,21 +782,6 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
   });
 }
 
-namespace {
-Result<int64_t> GetSelectionSize(const Datum& selection, int64_t length) {
-  if (length == 0) return 0;
-
-  if (selection.is_scalar()) {
-    if (!selection.scalar()->is_valid) return 0;
-    if (!selection.scalar_as<BooleanScalar>().value) return 0;
-    return length;
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto count, compute::Sum(selection));
-  return static_cast<int64_t>(count.scalar_as<UInt64Scalar>().value);
-}
-}  // namespace
-
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
@@ -808,7 +793,7 @@ Result<int64_t> AsyncScanner::CountRows() {
 
   fragment_gen = MakeMappedGenerator(
       std::move(fragment_gen), [&](const std::shared_ptr<Fragment>& fragment) {
-        return fragment->CountRows(scan_options_->filter, scan_options_)
+        return fragment->CountRows(options->filter, options)
             .Then([&, fragment](util::optional<int64_t> fast_count) mutable
                   -> std::shared_ptr<Fragment> {
               if (fast_count) {
@@ -831,22 +816,19 @@ Result<int64_t> AsyncScanner::CountRows() {
       auto get_selection,
       compute::MakeProjectNode(scan, "get_selection", {options->filter}));
 
+  ARROW_ASSIGN_OR_RAISE(
+      auto sum_selection,
+      compute::MakeScalarAggregateNode(get_selection, "sum_selection",
+                                       {compute::internal::Aggregate{"sum", nullptr}}));
+
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(get_selection, "sink");
+      compute::MakeSinkNode(sum_selection, "sink");
 
   RETURN_NOT_OK(plan->StartProducing());
 
-  RETURN_NOT_OK(
-      VisitAsyncGenerator(std::move(sink_gen),
-                          [&](const util::optional<compute::ExecBatch>& batch) {
-                            // TODO replace with scalar aggregation node
-                            ARROW_ASSIGN_OR_RAISE(
-                                int64_t slow_count,
-                                GetSelectionSize(batch->values[0], batch->length));
-                            total += slow_count;
-                            return Status::OK();
-                          })
-          .status());
+  auto maybe_slow_count = sink_gen().result();
+  ARROW_ASSIGN_OR_RAISE(auto slow_count, maybe_slow_count);
+  total += slow_count->values[0].scalar_as<UInt64Scalar>().value;
 
   plan->finished().Wait();
 

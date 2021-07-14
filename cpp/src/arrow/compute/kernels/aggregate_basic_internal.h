@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+#include <utility>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
@@ -59,8 +60,15 @@ struct SumImpl : public ScalarAggregator {
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (batch[0].is_scalar() && batch[0].scalar()->is_valid) {
+      using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+      this->count += batch.length;
+      this->sum += static_cast<typename SumType::c_type>(
+          batch[0].scalar_as<ScalarType>().value * batch.length);
+      return Status::OK();
+    }
     const auto& data = batch[0].array();
-    this->count = data->length - data->GetNullCount();
+    this->count += data->length - data->GetNullCount();
     if (is_boolean_type<ArrowType>::value) {
       this->sum += static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
     } else {
@@ -223,9 +231,8 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(const std::shared_ptr<DataType>& out_type,
-             const ScalarAggregateOptions& options)
-      : out_type(out_type), options(options) {}
+  MinMaxImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
+      : out_type(std::move(out_type)), options(std::move(options)) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
