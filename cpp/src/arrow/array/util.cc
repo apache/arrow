@@ -528,6 +528,11 @@ class RepeatedArrayFactory {
     return FinishFixedWidth(value.data(), value.size());
   }
 
+  Status Visit(const Decimal256Type&) {
+    auto value = checked_cast<const Decimal256Scalar&>(scalar_).value.ToBytes();
+    return FinishFixedWidth(value.data(), value.size());
+  }
+
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T&) {
     std::shared_ptr<Buffer> value =

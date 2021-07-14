@@ -850,6 +850,7 @@ in reverse order.
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 
+.. _cpp-compute-scalar-structural-transforms:
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
@@ -861,7 +862,7 @@ Structural transforms
 +==========================+============+================================================+=====================+=========+
 | fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          + \(2)    |
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          | \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 | is_finite                | Unary      | Float, Double                                  | Boolean             | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
@@ -887,6 +888,8 @@ Structural transforms
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the
   output, otherwise nulls will be chosen based on the first input values.
+
+  Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
 * \(3) Output is true iff the corresponding input element is finite (not Infinity,
   -Infinity, or NaN).
@@ -1154,6 +1157,8 @@ value, but smaller than nulls.
   table. If the input is a record batch or table, one or more sort
   keys must be specified.
 
+.. _cpp-compute-vector-structural-transforms:
+
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -1172,3 +1177,18 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
+
+These functions create a copy of the first input with some elements
+replaced, based on the remaining inputs.
+
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
++==========================+============+=======================+==============+==============+==============+=======+
+| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+
+* \(1) Each element in input 1 for which the corresponding Boolean in input 2
+  is true is replaced with the next value from input 3. A null in input 2
+  results in a corresponding null in the output.
+
+  Also see: :ref:`if_else <cpp-compute-scalar-structural-transforms>`.
