@@ -23,7 +23,10 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.arrow.util.AutoCloseables.close;
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.notNullValue;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -199,9 +202,23 @@ public class TestFlightSql {
 
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       List<List<String>> catalogs = getResults(stream);
-      // No catalogs.
+      // TODO No catalogs to test as of currently.
       collector.checkThat(catalogs, is(emptyList()));
     }
   }
 
+  @Test
+  public void testGetTableTypes() throws Exception {
+    final FlightInfo info = sqlClient.getTableTypes();
+    final Schema infoSchema = info.getSchema();
+    final Schema expectedInfoSchema =
+        new Schema(singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
+    collector.checkThat(infoSchema, is(expectedInfoSchema));
+
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      List<List<String>> catalogs = getResults(stream);
+      // TODO Check expected values.
+      collector.checkThat(catalogs, is(allOf(notNullValue(), not(emptyList()))));
+    }
+  }
 }
