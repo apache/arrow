@@ -92,7 +92,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
       TimeZone timeZone = calendar.getTimeZone();
       long millis = this.timeUnit.toMillis(value);
       localDateTime = localDateTime
-          .plus(timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
+          .minus(timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
     }
     return localDateTime;
   }
