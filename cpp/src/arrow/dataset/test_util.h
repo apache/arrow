@@ -544,7 +544,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     opts_->use_threads = GetParam().use_threads;
     if (GetParam().use_async) {
       EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
       return batch_it;
     }
     EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));

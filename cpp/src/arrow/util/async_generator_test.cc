@@ -618,7 +618,7 @@ TEST(TestAsyncUtil, SynchronousFinish) {
 
 TEST(TestAsyncUtil, GeneratorIterator) {
   auto generator = BackgroundAsyncVectorIt({1, 2, 3});
-  ASSERT_OK_AND_ASSIGN(auto iterator, MakeGeneratorIterator(std::move(generator)));
+  auto iterator = MakeGeneratorIterator(std::move(generator));
   ASSERT_OK_AND_EQ(TestInt(1), iterator.Next());
   ASSERT_OK_AND_EQ(TestInt(2), iterator.Next());
   ASSERT_OK_AND_EQ(TestInt(3), iterator.Next());

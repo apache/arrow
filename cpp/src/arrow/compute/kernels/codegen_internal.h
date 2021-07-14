@@ -311,7 +311,7 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
 };
 
 template <typename Type>
-struct UnboxScalar<Type, enable_if_base_binary<Type>> {
+struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   static util::string_view Unbox(const Scalar& val) {
     if (!val.is_valid) return util::string_view();
     return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
@@ -1240,6 +1240,7 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
+    case Type::INTERVAL_MONTHS:
       return Generator<UInt32Type>::Exec;
     case Type::UINT64:
     case Type::INT64:
@@ -1248,6 +1249,7 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::TIMESTAMP:
     case Type::TIME64:
     case Type::DURATION:
+    case Type::INTERVAL_DAY_TIME:
       return Generator<UInt64Type>::Exec;
     default:
       DCHECK(false);

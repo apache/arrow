@@ -640,6 +640,13 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
+
+  # base::strptime() defaults to local timezone
+  # but arrow's strptime defaults to UTC.
+  # So that tests are consistent, set the local timezone to UTC
+  # TODO: consider reevaluating this workaround after ARROW-12980
+  withr::local_timezone("UTC")
+
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
 
@@ -791,6 +798,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
+
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   # TODO: After new version of stringr with str_like has been released, update all
@@ -842,7 +850,7 @@ test_that("str_like", {
   )
 
   # This will give an error until a new version of stringr with str_like has been released
-  skip("Test will fail until stringr > 1.4.0 is release")
+  skip_if_not(packageVersion("stringr") > "1.4.0")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
@@ -1089,4 +1097,5 @@ test_that("str_sub", {
       collect(),
     df
   )
+
 })

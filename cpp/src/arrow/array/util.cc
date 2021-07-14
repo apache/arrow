@@ -510,16 +510,26 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_t<is_number_type<T>::value || is_fixed_size_binary_type<T>::value ||
-                  is_temporal_type<T>::value,
-              Status>
-  Visit(const T&) {
+  enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value, Status> Visit(
+      const T&) {
     auto value = checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     return FinishFixedWidth(&value, sizeof(value));
   }
 
-  Status Visit(const Decimal128Type&) {
-    auto value = checked_cast<const Decimal128Scalar&>(scalar_).value.ToBytes();
+  Status Visit(const FixedSizeBinaryType& type) {
+    auto value = checked_cast<const FixedSizeBinaryScalar&>(scalar_).value;
+    return FinishFixedWidth(value->data(), type.byte_width());
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    auto value = checked_cast<const ScalarType&>(scalar_).value.ToBytes();
+    return FinishFixedWidth(value.data(), value.size());
+  }
+
+  Status Visit(const Decimal256Type&) {
+    auto value = checked_cast<const Decimal256Scalar&>(scalar_).value.ToBytes();
     return FinishFixedWidth(value.data(), value.size());
   }
 

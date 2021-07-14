@@ -59,6 +59,26 @@ Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t n
   return result;
 }
 
+Status Kernel::InitAll(KernelContext* ctx, const KernelInitArgs& args,
+                       std::vector<std::unique_ptr<KernelState>>* states) {
+  for (auto& state : *states) {
+    ARROW_ASSIGN_OR_RAISE(state, args.kernel->init(ctx, args));
+  }
+  return Status::OK();
+}
+
+Result<std::unique_ptr<KernelState>> ScalarAggregateKernel::MergeAll(
+    const ScalarAggregateKernel* kernel, KernelContext* ctx,
+    std::vector<std::unique_ptr<KernelState>> states) {
+  auto out = std::move(states.back());
+  states.pop_back();
+  ctx->SetState(out.get());
+  for (auto& state : states) {
+    RETURN_NOT_OK(kernel->merge(ctx, std::move(*state), out.get()));
+  }
+  return std::move(out);
+}
+
 // ----------------------------------------------------------------------
 // Some basic TypeMatcher implementations
 

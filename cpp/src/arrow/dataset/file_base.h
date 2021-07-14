@@ -228,6 +228,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] filesystem the filesystem of each FileFragment, or nullptr if the
   ///            fragments wrap buffers.
   /// \param[in] fragments list of fragments to create the dataset from.
+  /// \param[in] partitioning the Partitioning object in case the dataset is created
+  ///            with a known partitioning (e.g. from a discovered partitioning
+  ///            through a DatasetFactory), or nullptr if not known.
   ///
   /// Note that fragments wrapping files resident in differing filesystems are not
   /// permitted; to work with multiple filesystems use a UnionDataset.
@@ -236,7 +239,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, compute::Expression root_partition,
       std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-      std::vector<std::shared_ptr<FileFragment>> fragments);
+      std::vector<std::shared_ptr<FileFragment>> fragments,
+      std::shared_ptr<Partitioning> partitioning = NULLPTR);
 
   /// \brief Write a dataset.
   static Status Write(const FileSystemDatasetWriteOptions& write_options,
@@ -258,6 +262,10 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \brief Return the filesystem. May be nullptr if the fragments wrap buffers.
   const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
+  /// \brief Return the partitioning. May be nullptr if the dataset was not constructed
+  /// with a partitioning.
+  const std::shared_ptr<Partitioning>& partitioning() const { return partitioning_; }
+
   std::string ToString() const;
 
  protected:
@@ -277,6 +285,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
+  std::shared_ptr<Partitioning> partitioning_;
 
   std::shared_ptr<FragmentSubtrees> subtrees_;
 };

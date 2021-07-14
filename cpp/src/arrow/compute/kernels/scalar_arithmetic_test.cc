@@ -1042,6 +1042,26 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   for (std::string name : {"negate", "negate_checked", "abs", "abs_checked"}) {
     CheckDispatchFails(name, {null()});
   }
+
+  for (std::string name :
+       {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {int32()}, {float64()});
+      CheckDispatchBest(name, {uint8()}, {float64()});
+
+      CheckDispatchBest(name, {dictionary(int8(), int64())}, {float64()});
+    }
+  }
+
+  CheckDispatchBest("atan", {int32()}, {float64()});
+  CheckDispatchBest("atan2", {int32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), uint8()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), null()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
+  // Integer always promotes to double
+  CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Negate) {
@@ -1821,9 +1841,41 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                               -M_PI_2, 0, M_PI));
 }
 
+TYPED_TEST(TestUnaryArithmeticIntegral, Trig) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  auto atan = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Atan(arg, ctx);
+  };
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sin, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[0, 0.8414709848078965]"));
+    this->AssertUnaryOp(Cos, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[1, 0.5403023058681398]"));
+    this->AssertUnaryOp(Tan, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), "[0, 1.5574077246549023]"));
+    this->AssertUnaryOp(Asin, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(0, M_PI_2)));
+    this->AssertUnaryOp(Acos, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(M_PI_2, 0)));
+    this->AssertUnaryOp(atan, ArrayFromJSON(ty, "[0, 1]"),
+                        ArrayFromJSON(float64(), MakeArray(0, M_PI_4)));
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Trig) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  auto atan2 = [](const Datum& y, const Datum& x, ArithmeticOptions, ExecContext* ctx) {
+    return Atan2(y, x, ctx);
+  };
+  this->AssertBinop(atan2, ArrayFromJSON(ty, "[0, 1]"), ArrayFromJSON(ty, "[1, 0]"),
+                    ArrayFromJSON(float64(), MakeArray(0, M_PI_2)));
+}
+
 TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   using CType = typename TestFixture::CType;
-  auto ty = this->type_singleton();
   this->SetNansEqual(true);
   auto min_val = std::numeric_limits<CType>::min();
   auto max_val = std::numeric_limits<CType>::max();
@@ -1879,6 +1931,46 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("logarithm of negative number"),
                                   Log1p(lowest_val, this->options_));
+}
+
+TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Ln, ArrayFromJSON(ty, "[1, null]"),
+                        ArrayFromJSON(float64(), "[0, null]"));
+    this->AssertUnaryOp(Log10, ArrayFromJSON(ty, "[1, 10, null]"),
+                        ArrayFromJSON(float64(), "[0, 1, null]"));
+    this->AssertUnaryOp(Log2, ArrayFromJSON(ty, "[1, 2, null]"),
+                        ArrayFromJSON(float64(), "[0, 1, null]"));
+    this->AssertUnaryOp(Log1p, ArrayFromJSON(ty, "[0, null]"),
+                        ArrayFromJSON(float64(), "[0, null]"));
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, Log) {
+  // Integer arguments promoted to double, sanity check here
+  auto ty = this->type_singleton();
+  this->SetNansEqual(true);
+  this->SetOverflowCheck(false);
+  this->AssertUnaryOp(Ln, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log10, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log2, ArrayFromJSON(ty, "[-1, 0]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertUnaryOp(Log1p, ArrayFromJSON(ty, "[-2, -1]"),
+                      ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->SetOverflowCheck(true);
+  this->AssertUnaryOpRaises(Ln, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Ln, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log10, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log10, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log2, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
 }
 
 }  // namespace compute

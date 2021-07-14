@@ -182,6 +182,9 @@ struct ARROW_EXPORT ExecBatch {
 
   static Result<ExecBatch> Make(std::vector<Datum> values);
 
+  Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;
+
   /// The values representing positional arguments to be passed to a kernel's
   /// exec function for processing.
   std::vector<Datum> values;

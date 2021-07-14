@@ -172,5 +172,27 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> descrs,
 // Check that function fails to produce a Kernel for the set of ValueDescrs.
 void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> descrs);
 
+// Helper to get a default instance of a type, including parameterized types
+template <typename T>
+enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
+  return TypeTraits<T>::type_singleton();
+}
+template <typename T>
+enable_if_time<T, std::shared_ptr<DataType>> default_type_instance() {
+  // Time32 requires second/milli, Time64 requires nano/micro
+  if (bit_width(T::type_id) == 32) {
+    return std::make_shared<T>(TimeUnit::type::SECOND);
+  }
+  return std::make_shared<T>(TimeUnit::type::NANO);
+}
+template <typename T>
+enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(TimeUnit::type::SECOND);
+}
+template <typename T>
+enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(5, 2);
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -31,7 +31,7 @@
   "str_to_lower" = "utf8_lower",
   "str_to_upper" = "utf8_upper",
   # str_pad is defined in dplyr-functions.R
-  "str_reverse" = "utf8_reverse",
+  "stri_reverse" = "utf8_reverse",
   # str_trim is defined in dplyr-functions.R
   # str_sub is defined in dplyr-functions.R
   # substr is defined in dplyr-functions.R
