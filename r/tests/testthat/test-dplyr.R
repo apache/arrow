@@ -948,7 +948,7 @@ test_that("abs()", {
 
 test_that("log functions", {
   
-  df <- tibble(x = c(as.numeric(1:10), NA, NA))
+  df <- tibble(x = c(1:10, NA, NA))
   
   expect_dplyr_equal(
     input %>%
