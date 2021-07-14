@@ -71,6 +71,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
@@ -621,14 +622,29 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public FlightInfo getFlightInfoTableTypes(final CallContext context, final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    try {
+      final Schema schema = getSchemaTableTypes().getSchema();
+      final List<FlightEndpoint> endpoints =
+          singletonList(new FlightEndpoint(
+              new Ticket(pack(CommandGetTableTypes.parseFrom(descriptor.getCommand())).toByteArray()), location));
+      return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    } catch (InvalidProtocolBufferException e) {
+      LOGGER.error(format("Failed to getFlightInfoTableTypes: <%s>.", e.getMessage()), e);
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    try {
+      final ResultSet tableTypes = dataSource.getConnection().getMetaData().getTableTypes();
+      makeListen(tableTypes, listener);
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
