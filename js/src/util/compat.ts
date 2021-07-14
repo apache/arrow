@@ -143,12 +143,14 @@ export const isFetchResponse = (x: any): x is Response => {
     return isObject(x) && isReadableDOMStream(x['body']);
 };
 
+const isReadableInterop = <T = any>(x: any): x is ReadableInterop<T> => ('_getDOMStream' in x && '_getNodeStream' in x);
+
 /** @ignore */
 export const isWritableDOMStream = <T = any>(x: any): x is WritableStream<T> => {
     return isObject(x) &&
         isFunction(x['abort']) &&
         isFunction(x['getWriter']) &&
-        !(x instanceof ReadableInterop);
+        !isReadableInterop(x);
 };
 
 /** @ignore */
@@ -156,7 +158,7 @@ export const isReadableDOMStream = <T = any>(x: any): x is ReadableStream<T> => 
     return isObject(x) &&
         isFunction(x['cancel']) &&
         isFunction(x['getReader']) &&
-        !(x instanceof ReadableInterop);
+        !isReadableInterop(x);
 };
 
 /** @ignore */
@@ -165,7 +167,7 @@ export const isWritableNodeStream = (x: any): x is NodeJS.WritableStream => {
         isFunction(x['end']) &&
         isFunction(x['write']) &&
         isBoolean(x['writable']) &&
-        !(x instanceof ReadableInterop);
+        !isReadableInterop(x);
 };
 
 /** @ignore */
@@ -174,5 +176,17 @@ export const isReadableNodeStream = (x: any): x is NodeJS.ReadableStream => {
         isFunction(x['read']) &&
         isFunction(x['pipe']) &&
         isBoolean(x['readable']) &&
-        !(x instanceof ReadableInterop);
+        !isReadableInterop(x);
+};
+
+/** @ignore */
+export const isFlatbuffersByteBuffer = (x: any): x is import('flatbuffers').flatbuffers.ByteBuffer => {
+    return isObject(x) &&
+           isFunction(x['clear']) &&
+           isFunction(x['bytes']) &&
+           isFunction(x['position']) &&
+           isFunction(x['setPosition']) &&
+           isFunction(x['capacity']) &&
+           isFunction(x['getBufferIdentifier']) &&
+           isFunction(x['createLong']);
 };

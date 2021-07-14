@@ -19,6 +19,8 @@ import { Data } from '../data';
 import { BN } from '../util/bn';
 import { Vector } from '../vector';
 import { Visitor } from '../visitor';
+import { MapRow } from '../row/map';
+import { StructRow } from '../row/struct';
 import { decodeUtf8 } from '../util/utf8';
 import { TypeToDataType } from '../interfaces';
 import { uint16ToFloat64 } from '../util/math';
@@ -208,12 +210,14 @@ const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
 
 /** @ignore */
 const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
-    return data.type.createRow(data, index) as T['TValue'];
+    const { [index]: begin, [index + 1]: end } = data.valueOffsets;
+    const child = data.children[0] as Data<T['childType']>;
+    return new MapRow(child.slice(begin, end));
 };
 
 /** @ignore */
 const getStruct = <T extends Struct>(data: Data<T>, index: number): T['TValue'] => {
-    return data.type.createRow(data, index);
+    return StructRow.bind(data.type._row || (data.type._row = new StructRow(data)), index);
 };
 
 /* istanbul ignore next */

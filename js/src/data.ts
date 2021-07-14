@@ -18,7 +18,6 @@
 import { Vector } from './vector';
 import { BufferType, Type } from './enum';
 import { DataType, strideForType } from './type';
-import { instance as makeDataVisitor } from './visitor/data';
 import { popcnt_bit_range, truncateBitmap } from './util/bit';
 import { toBigInt64Array, toBigUint64Array } from './util/buffer';
 
@@ -207,16 +206,4 @@ export class Data<T extends DataType = DataType> {
 
 (Data.prototype as any).children = Object.freeze([]);
 
-export function makeData<T extends DataType>(props: {
-    type: T,
-    offset?: number,
-    length?: number,
-    nullCount?: number,
-    valueOffsets?: ValueOffsetsBuffer,
-    data?: DataBuffer<T>,
-    nullBitmap?: NullBuffer,
-    typeIds?: TypeIdsBuffer,
-    children?: Data[],
-}): Data<T> {
-    return makeDataVisitor.visit(props);
-}
+export { makeData } from './visitor/data';

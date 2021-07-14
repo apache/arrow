@@ -17,7 +17,6 @@
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
-import { Data } from './data';
 import { Field } from './schema';
 import { Vector } from './vector';
 import { MapRow } from './row/map';
@@ -26,6 +25,7 @@ import { flatbuffers } from 'flatbuffers';
 import { TypedArrayConstructor } from './interfaces';
 
 import Long = flatbuffers.Long;
+
 import {
     Type,
     Precision, UnionMode,
@@ -444,7 +444,7 @@ export class List<T extends DataType = any> extends DataType<Type.List, { [0]: T
         super();
         this.children = [child];
     }
-    public readonly children: Field<T>[];
+    public declare readonly children: Field<T>[];
     public get typeId() { return Type.List as Type.List; }
     public toString() { return `List<${this.valueType}>`; }
     public get valueType(): T { return this.children[0].type as T; }
@@ -465,17 +465,14 @@ export interface Struct<T extends { [key: string]: DataType } = any> extends Dat
 
 /** @ignore */
 export class Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct, T> {
-    private _row!: StructRow<T>;
-    public readonly children: Field<T[keyof T]>[];
+    public declare _row: StructRow<T>;
+    public declare readonly children: Field<T[keyof T]>[];
     constructor(children: Field<T[keyof T]>[]) {
         super();
         this.children = children;
     }
     public get typeId() { return Type.Struct as Type.Struct; }
     public toString() { return `Struct<{${this.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
-    public createRow(data: Data<this>, index: number) {
-        return StructRow.bind<T>(this._row || (this._row = new StructRow<T>(data)), index);
-    }
     protected static [Symbol.toStringTag] = ((proto: Struct) => {
         (<any> proto).children = null;
         return proto[Symbol.toStringTag] = 'Struct';
@@ -488,10 +485,10 @@ type Unions = Type.Union | Type.DenseUnion | Type.SparseUnion;
 interface Union_<T extends Unions = Unions> extends DataType<T> { TArray: Int8Array; TValue: any; ArrayType: TypedArrayConstructor<Int8Array> }
 /** @ignore */
 class Union_<T extends Unions = Unions> extends DataType<T> {
-    public readonly mode: UnionMode;
-    public readonly typeIds: Int32Array;
-    public readonly children: Field<any>[];
-    public readonly typeIdToChildIndex: { [key: number]: number };
+    public declare readonly mode: UnionMode;
+    public declare readonly typeIds: Int32Array;
+    public declare readonly children: Field<any>[];
+    public declare readonly typeIdToChildIndex: { [key: number]: number };
     constructor(mode: UnionMode,
                 typeIds: number[] | Int32Array,
                 children: Field<any>[]) {
@@ -564,7 +561,7 @@ export interface FixedSizeList<T extends DataType = any> extends DataType<Type.F
 
 /** @ignore */
 export class FixedSizeList<T extends DataType = any> extends DataType<Type.FixedSizeList, { [0]: T }> {
-    public readonly children: Field<T>[];
+    public declare readonly children: Field<T>[];
     constructor(public readonly listSize: number, child: Field<T>) {
         super();
         this.children = [child];
@@ -595,17 +592,13 @@ export class Map_<TKey extends DataType = any, TValue extends DataType = any> ex
         this.children = [child];
         this.keysSorted = keysSorted;
     }
-    public readonly keysSorted: boolean;
-    public readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];
+    public declare readonly keysSorted: boolean;
+    public declare readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];
     public get typeId() { return Type.Map as Type.Map; }
     public get keyType(): TKey { return this.children[0].type.children[0].type as TKey; }
     public get valueType(): TValue { return this.children[0].type.children[1].type as TValue; }
     public get childType() { return this.children[0].type as Struct<{ key: TKey; value: TValue }>; }
     public toString() { return `Map<{${this.children[0].type.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
-    public createRow(data: Data<this>, index: number) {
-        const { [index]: begin, [index + 1]: end } = data.valueOffsets;
-        return new MapRow(data.children[0].slice(begin, end) as Data<this['childType']>);
-    }
     protected static [Symbol.toStringTag] = ((proto: Map_) => {
         (<any> proto).children = null;
         (<any> proto).keysSorted = null;
@@ -627,10 +620,10 @@ export interface Dictionary<T extends DataType = any, TKey extends TKeys = TKeys
 
 /** @ignore */
 export class Dictionary<T extends DataType = any, TKey extends TKeys = TKeys> extends DataType<Type.Dictionary> {
-    public readonly id: number;
-    public readonly indices: TKey;
-    public readonly dictionary: T;
-    public readonly isOrdered: boolean;
+    public declare readonly id: number;
+    public declare readonly indices: TKey;
+    public declare readonly dictionary: T;
+    public declare readonly isOrdered: boolean;
     constructor(dictionary: T, indices: TKey, id?: Long | number | null, isOrdered?: boolean | null) {
         super();
         this.indices = indices;

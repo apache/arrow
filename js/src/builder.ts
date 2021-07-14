@@ -380,7 +380,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
         nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
 
-        const data = makeData<T>({
+        const data = makeData(<any> {
             type: this.type,
             offset: 0, length, nullCount,
             data: buffers[BufferType.DATA],

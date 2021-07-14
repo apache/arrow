@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { flatbuffers } from 'flatbuffers';
 import { encodeUtf8 } from '../util/utf8';
-import ByteBuffer = flatbuffers.ByteBuffer;
 import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult, BigInt64Array, BigUint64Array } from './compat';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat';
+
+type ByteBuffer = import('flatbuffers').flatbuffers.ByteBuffer;
 
 /** @ignore */
 const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer);
@@ -107,7 +107,7 @@ export function toArrayBufferView<
     if (typeof value === 'string') { value = encodeUtf8(value); }
     if (value instanceof ArrayBuffer) { return new ArrayBufferViewCtor(value); }
     if (value instanceof SharedArrayBuf) { return new ArrayBufferViewCtor(value); }
-    if (value instanceof ByteBuffer) { return toArrayBufferView(ArrayBufferViewCtor, value.bytes()); }
+    if (isFlatbuffersByteBuffer(value)) { return toArrayBufferView(ArrayBufferViewCtor, value.bytes()); }
     return !ArrayBuffer.isView(value) ? ArrayBufferViewCtor.from(value) : value.byteLength <= 0 ? new ArrayBufferViewCtor(0)
         : new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength / ArrayBufferViewCtor.BYTES_PER_ELEMENT);
 }

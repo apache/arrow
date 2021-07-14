@@ -30,22 +30,3 @@ RecordBatchReader['throughNode'] = recordBatchReaderThroughNodeStream;
 RecordBatchWriter['throughNode'] = recordBatchWriterThroughNodeStream;
 
 export * from './Arrow.dom';
-
-export * from './add/binary'
-export * from './add/bool'
-export * from './add/date'
-export * from './add/decimal'
-export * from './add/dictionary'
-export * from './add/fixedSizeBinary'
-export * from './add/fixedSizeList'
-export * from './add/float'
-export * from './add/interval'
-export * from './add/int'
-export * from './add/list'
-export * from './add/map'
-export * from './add/null'
-export * from './add/struct'
-export * from './add/timestamp'
-export * from './add/time'
-export * from './add/union'
-export * from './add/utf8'

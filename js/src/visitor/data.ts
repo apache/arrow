@@ -40,6 +40,19 @@ import {
     strideForType,
 } from '../type';
 
+/** @ignore */ export type DataProps<T extends DataType> = {
+    type: T,
+    offset?: number,
+    length?: number,
+    nullCount?: number,
+    valueOffsets?: ValueOffsetsBuffer,
+    data?: DataBuffer<T>,
+    nullBitmap?: NullBuffer,
+    typeIds?: TypeIdsBuffer,
+    children?: Data[],
+    child?: Data,
+    dictionary?: Vector,
+};
 /** @ignore */ export type NullDataProps<T extends Null> = {type: T, offset?: number, length?: number};
 /** @ignore */ export type IntDataProps<T extends Int> = {type: T, offset?: number, length?: number, nullCount?: number, nullBitmap?: NullBuffer, data?: DataBuffer<T>};
 /** @ignore */ export type DictionaryDataProps<T extends Dictionary> = {type: T, offset?: number, length?: number, nullCount?: number, nullBitmap?: NullBuffer, data?: DataBuffer<T>, dictionary: Vector<T['dictionary']>};
@@ -98,6 +111,25 @@ export class MakeDataVisitor extends Visitor {
         return this.getVisitFn(props.type).call(this, props);
     }
 }
+
+MakeDataVisitor.prototype.visitBinary = visitBinary;
+MakeDataVisitor.prototype.visitBool = visitBool;
+MakeDataVisitor.prototype.visitDate = visitDate;
+MakeDataVisitor.prototype.visitDecimal = visitDecimal;
+MakeDataVisitor.prototype.visitDictionary = visitDictionary;
+MakeDataVisitor.prototype.visitFixedSizeBinary = visitFixedSizeBinary;
+MakeDataVisitor.prototype.visitFixedSizeList = visitFixedSizeList;
+MakeDataVisitor.prototype.visitFloat = visitFloat;
+MakeDataVisitor.prototype.visitInterval = visitInterval;
+MakeDataVisitor.prototype.visitInt = visitInt;
+MakeDataVisitor.prototype.visitList = visitList;
+MakeDataVisitor.prototype.visitMap = visitMap;
+MakeDataVisitor.prototype.visitNull = visitNull;
+MakeDataVisitor.prototype.visitStruct = visitStruct;
+MakeDataVisitor.prototype.visitTimestamp = visitTimestamp;
+MakeDataVisitor.prototype.visitTime = visitTime;
+MakeDataVisitor.prototype.visitUnion = visitUnion;
+MakeDataVisitor.prototype.visitUtf8 = visitUtf8;
 
 export const instance = new MakeDataVisitor();
 
@@ -251,4 +283,29 @@ export function visitMap<T extends Map_>(props: MapDataProps<T>) {
     const valueOffsets = toInt32Array(props.valueOffsets);
     const { length = valueOffsets.length - 1, nullCount = props.nullBitmap ? -1 : 0, } = props;
     return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
+}
+
+export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
+export function makeData<T extends Bool>(props: BoolDataProps<T>): Data<T>;
+export function makeData<T extends Date_>(props: DateDataProps<T>): Data<T>;
+export function makeData<T extends Decimal>(props: DecimalDataProps<T>): Data<T>;
+export function makeData<T extends Dictionary>(props: DictionaryDataProps<T>): Data<T>;
+export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
+export function makeData<T extends FixedSizeList>(props: FixedSizeListDataProps<T>): Data<T>;
+export function makeData<T extends Float>(props: FloatDataProps<T>): Data<T>;
+export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<T>;
+export function makeData<T extends Int>(props: IntDataProps<T>): Data<T>;
+export function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
+export function makeData<T extends Map_>(props: MapDataProps<T>): Data<T>;
+export function makeData<T extends Null>(props: NullDataProps<T>): Data<T>;
+export function makeData<T extends Struct>(props: StructDataProps<T>): Data<T>;
+export function makeData<T extends Timestamp>(props: TimestampDataProps<T>): Data<T>;
+export function makeData<T extends Time>(props: TimeDataProps<T>): Data<T>;
+export function makeData<T extends SparseUnion>(props: SparseUnionDataProps<T>): Data<T>;
+export function makeData<T extends DenseUnion>(props: DenseUnionDataProps<T>): Data<T>;
+export function makeData<T extends Union>(props: UnionDataProps<T>): Data<T>;
+export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
+export function makeData<T extends DataType>(props: DataProps<T>): Data<T>;
+export function makeData(props: any) {
+    return instance.visit(props);
 }

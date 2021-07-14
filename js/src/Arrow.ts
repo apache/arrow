@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+export { MessageHeader } from './fb/Message';
+
 export {
+    Type,
+    BufferType,
     DateUnit,
     TimeUnit,
     Precision,
     UnionMode,
     IntervalUnit,
     MetadataVersion,
-} from './fb/Schema';
-
-export { MessageHeader } from './fb/Message';
-
-export { Type, BufferType } from './enum';
+} from './enum';
 
 export { Data, makeData } from './data';
 export {
