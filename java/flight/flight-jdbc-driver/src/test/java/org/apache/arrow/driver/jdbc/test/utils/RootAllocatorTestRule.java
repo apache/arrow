@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
+import java.math.BigDecimal;
 import java.util.Random;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -24,6 +25,8 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -414,25 +417,6 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     return result;
   }
 
-  public BitVector createBitVector() {
-    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public BitVector createBitVectorForNullTests() {
-    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
-    bitVector.allocateNew(2);
-    bitVector.setNull(0);
-    bitVector.setValueCount(1);
-
-    return bitVector;
-  }
-
   /**
    * Create a VarBinaryVector to be used in the accessor tests.
    *
@@ -480,4 +464,130 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
 
     return valueVector;
   }
+
+  /**
+   * Create a DecimalVector to be used in the accessor tests.
+   *
+   * @return DecimalVector
+   */
+  public DecimalVector createDecimalVector() {
+
+    BigDecimal[] bigDecimalValues = new BigDecimal[] {
+        new BigDecimal(0),
+        new BigDecimal(1),
+        new BigDecimal(-1),
+        new BigDecimal(Byte.MIN_VALUE),
+        new BigDecimal(Byte.MAX_VALUE),
+        new BigDecimal(-Short.MAX_VALUE),
+        new BigDecimal(Short.MIN_VALUE),
+        new BigDecimal(Integer.MIN_VALUE),
+        new BigDecimal(Integer.MAX_VALUE),
+        new BigDecimal(Long.MIN_VALUE),
+        new BigDecimal(-Long.MAX_VALUE),
+        new BigDecimal("170141183460469231731687303715884105727")
+    };
+
+    DecimalVector result = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
+    result.setValueCount(MAX_VALUE);
+    for (int i = 0; i < MAX_VALUE; i++) {
+      if (i < bigDecimalValues.length) {
+        result.setSafe(i, bigDecimalValues[i]);
+      } else {
+        result.setSafe(i, random.nextLong());
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Create a DecimalVector to be used in the accessor tests.
+   *
+   * @return DecimalVector
+   */
+  public DecimalVector createDecimalVectorForNullTests() {
+    final DecimalVector decimalVector = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
+    decimalVector.allocateNew(1);
+    decimalVector.setNull(0);
+    decimalVector.setValueCount(1);
+
+    return decimalVector;
+  }
+
+  /**
+   * Create a Decimal256Vector to be used in the accessor tests.
+   *
+   * @return Decimal256Vector
+   */
+  public Decimal256Vector createDecimal256Vector() {
+
+    BigDecimal[] bigDecimalValues = new BigDecimal[] {
+        new BigDecimal(0),
+        new BigDecimal(1),
+        new BigDecimal(-1),
+        new BigDecimal(Byte.MIN_VALUE),
+        new BigDecimal(Byte.MAX_VALUE),
+        new BigDecimal(-Short.MAX_VALUE),
+        new BigDecimal(Short.MIN_VALUE),
+        new BigDecimal(Integer.MIN_VALUE),
+        new BigDecimal(Integer.MAX_VALUE),
+        new BigDecimal(Long.MIN_VALUE),
+        new BigDecimal(-Long.MAX_VALUE),
+        new BigDecimal("170141183460469231731687303715884105727"),
+        new BigDecimal("17014118346046923173168234157303715884105727"),
+        new BigDecimal("1701411834604692317316823415265417303715884105727"),
+        new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
+        new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
+        new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
+        new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
+        new BigDecimal("57896044618658097711785492504343953926634992332820282019728792003956564819967"),
+        new BigDecimal("-56896044618658097711785492504343953926634992332820282019728792003956564819967")
+    };
+
+    Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
+    result.setValueCount(MAX_VALUE);
+    for (int i = 0; i < MAX_VALUE; i++) {
+      if (i < bigDecimalValues.length) {
+        result.setSafe(i, bigDecimalValues[i]);
+      } else {
+        result.setSafe(i, random.nextLong());
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Create a Decimal256Vector to be used in the accessor tests.
+   *
+   * @return Decimal256Vector
+   */
+  public Decimal256Vector createDecimal256VectorForNullTests() {
+    final Decimal256Vector decimal256Vector = new Decimal256Vector("ID", this.getRootAllocator(), 39, 0);
+    decimal256Vector.allocateNew(1);
+    decimal256Vector.setNull(0);
+    decimal256Vector.setValueCount(1);
+
+    return decimal256Vector;
+  }
+
+  public BitVector createBitVector() {
+    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public BitVector createBitVectorForNullTests() {
+    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
+    bitVector.allocateNew(2);
+    bitVector.setNull(0);
+    bitVector.setValueCount(1);
+
+    return bitVector;
+  }
+
 }
