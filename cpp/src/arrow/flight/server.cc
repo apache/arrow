@@ -656,7 +656,7 @@ class FlightServiceImpl : public FlightService::Service {
     FlightPayload schema_payload;
     SERVICE_RETURN_NOT_OK(flight_context, data_stream->GetSchemaPayload(&schema_payload));
     auto status = internal::WritePayload(schema_payload, writer);
-    if (!status.ok() && status.IsIOError()) {
+    if (status.IsIOError()) {
       // gRPC doesn't give any way for us to know why the message
       // could not be written.
       RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);
@@ -671,7 +671,7 @@ class FlightServiceImpl : public FlightService::Service {
       if (payload.ipc_message.metadata == nullptr) break;
       auto status = internal::WritePayload(payload, writer);
       // Connection terminated
-      if (!status.ok() && status.IsIOError()) break;
+      if (status.IsIOError()) break;
       SERVICE_RETURN_NOT_OK(flight_context, status);
     }
     RETURN_WITH_MIDDLEWARE(flight_context, grpc::Status::OK);

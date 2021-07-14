@@ -689,7 +689,7 @@ class GrpcStreamWriter : public FlightStreamWriter {
     FlightPayload payload{};
     payload.app_metadata = app_metadata;
     auto status = internal::WritePayload(payload, writer_->stream().get());
-    if (!status.ok() && status.IsIOError()) {
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write metadata to stream"));
     }
@@ -810,7 +810,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
     }
 
     auto status = internal::WritePayload(payload, writer_->stream().get());
-    if (!status.ok() && status.IsIOError()) {
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write record batch to stream"));
     }
@@ -853,7 +853,7 @@ Status GrpcStreamWriter<ProtoReadT, FlightReadT>::Open(
     FlightPayload payload{};
     RETURN_NOT_OK(internal::ToPayload(descriptor, &payload.descriptor));
     auto status = internal::WritePayload(payload, instance->writer_->stream().get());
-    if (!status.ok() && status.IsIOError()) {
+    if (status.IsIOError()) {
       return writer->Finish(MakeFlightError(FlightStatusCode::Internal,
                                             "Could not write descriptor to stream"));
     }

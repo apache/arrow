@@ -165,7 +165,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 // Update the sizes of our Protobuf fields based on the given IPC payload.
 grpc::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
                                   size_t* header_size, int32_t* metadata_size) {
-  DCHECK_LT(ipc_msg.metadata->size(), kInt32Max);
+  DCHECK_LE(ipc_msg.metadata->size(), kInt32Max);
   *metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
 
   // 1 byte for metadata tag
@@ -193,7 +193,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // Write the descriptor if present
   int32_t descriptor_size = 0;
   if (msg.descriptor != nullptr) {
-    DCHECK_LT(msg.descriptor->size(), kInt32Max);
+    DCHECK_LE(msg.descriptor->size(), kInt32Max);
     descriptor_size = static_cast<int32_t>(msg.descriptor->size());
     header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
   }
@@ -201,7 +201,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // App metadata tag if appropriate
   int32_t app_metadata_size = 0;
   if (msg.app_metadata && msg.app_metadata->size() > 0) {
-    DCHECK_LT(msg.app_metadata->size(), kInt32Max);
+    DCHECK_LE(msg.app_metadata->size(), kInt32Max);
     app_metadata_size = static_cast<int32_t>(msg.app_metadata->size());
     header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
   }
