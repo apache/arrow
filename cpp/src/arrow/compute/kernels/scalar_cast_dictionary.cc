@@ -44,6 +44,12 @@ Status CastDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (batch[0].is_scalar()) {  // if input is scalar
     auto in_scalar = std::static_pointer_cast<DictionaryScalar>(batch[0].scalar());
 
+    // if invalid scalar, return null scalar
+    if (!in_scalar->is_valid) {
+      *out = MakeNullScalar(out_type);
+      return Status::OK();
+    }
+
     Datum casted_index, casted_dict;
     if (in_scalar->value.index->type->Equals(out_type->index_type())) {
       casted_index = in_scalar->value.index;

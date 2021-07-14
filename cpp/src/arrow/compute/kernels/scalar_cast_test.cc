@@ -1918,12 +1918,11 @@ TEST(Cast, DictTypeToAnotherDict) {
                         const CastOptions& options = CastOptions()) {
     auto arr = ArrayFromJSON(in_type, json_str);
     auto exp = in_type->Equals(out_type) ? arr : ArrayFromJSON(out_type, json_str);
-    ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, out_type, options));
-    ValidateOutput(casted);
-    AssertArraysEqual(*exp, *casted.make_array(), /*verbose=*/true);
+    // this checks for scalars as well
+    CheckCast(arr, exp, options);
   };
 
-  //  check same type passed on to casting
+  //    check same type passed on to casting
   check_cast(dictionary(int8(), int16()), dictionary(int8(), int16()),
              "[1, 2, 3, 1, null, 3]");
   check_cast(dictionary(int8(), int16()), dictionary(int32(), int64()),
