@@ -155,12 +155,14 @@ Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("min_max", {value}, &options, ctx);
 }
 
-Result<Datum> Any(const Datum& value, ExecContext* ctx) {
-  return CallFunction("any", {value}, ctx);
+Result<Datum> Any(const Datum& value, const ScalarAggregateOptions& options,
+                  ExecContext* ctx) {
+  return CallFunction("any", {value}, &options, ctx);
 }
 
-Result<Datum> All(const Datum& value, ExecContext* ctx) {
-  return CallFunction("all", {value}, ctx);
+Result<Datum> All(const Datum& value, const ScalarAggregateOptions& options,
+                  ExecContext* ctx) {
+  return CallFunction("all", {value}, &options, ctx);
 }
 
 Result<Datum> Mode(const Datum& value, const ModeOptions& options, ExecContext* ctx) {
