@@ -27,6 +27,9 @@ ENV R_BIN=${r_bin}
 ARG r_dev=FALSE
 ENV ARROW_R_DEV=${r_dev}
 
+ARG dep_src="BUNDLED"
+ENV DEPENDENCY_SOURCE=${dep_src}
+
 ARG devtoolset_version=-1
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
