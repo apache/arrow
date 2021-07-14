@@ -643,9 +643,9 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   bool last_char_was_space = true;
 
   for (int32_t i = 0; i < data_len; i += char_len) {
-    char_len = gdv_fn_utf8_char_length(data[i]);
     // An optimization for single byte characters:
-    if (char_len == 1) {
+    if (static_cast<signed char>(data[i]) >= 0) {  // 1-byte char (0x00 ~ 0x7F)
+      char_len = 1;
       char cur = data[i];
 
       if (cur >= 0x61 && cur <= 0x7a && last_char_was_space) {
@@ -667,6 +667,8 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
       }
       continue;
     }
+
+    char_len = gdv_fn_utf8_char_length(data[i]);
 
     // Control reaches here when we encounter a multibyte character
     const auto* in_char = (const uint8_t*)(data + i);
