@@ -46,7 +46,6 @@ final class ArrowFlightJdbcTimeVectorGetter {
   /**
    * Functional interface used to unify TimeStamp*Vector#get implementations.
    */
-  @FunctionalInterface
   interface Getter {
     void get(int index, Holder holder);
   }
