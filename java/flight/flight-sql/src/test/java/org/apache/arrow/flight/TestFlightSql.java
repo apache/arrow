@@ -18,17 +18,18 @@
 package org.apache.arrow.flight;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+import static java.util.Objects.isNull;
+import static java.util.stream.Collectors.toList;
 import static org.apache.arrow.util.AutoCloseables.close;
-import static org.apache.arrow.vector.types.Types.MinorType.INT;
-import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
-import static org.apache.arrow.vector.types.pojo.Field.nullable;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +45,8 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -52,6 +55,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -60,8 +64,8 @@ import com.google.common.collect.ImmutableList;
 public class TestFlightSql {
 
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
-      nullable("KEYNAME", VARCHAR.getType()),
-      nullable("VALUE", INT.getType())));
+      Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
+      Field.nullable("VALUE", MinorType.INT.getType())));
   private static final String LOCALHOST = "localhost";
   private static int port;
   private static BufferAllocator allocator;
@@ -99,15 +103,27 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // FIXME Broken!
+  @Ignore // FIXME Assert fails!
   public void testGetTables() throws Exception {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, false);
+
+    final List<Field> fields = asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_type", MinorType.VARCHAR.getType()),
+        Field.nullable("table_schema", MinorType.VARBINARY.getType()));
+    final Schema expectedInfoSchema = new Schema(fields);
+    final Schema infoSchema = info.getSchema();
+    collector.checkThat(infoSchema, is(expectedInfoSchema));
+
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results.size(), is(equalTo(1)));
+      // TODO Filter results.
+      final List<String> results = new ArrayDeque<>(getResults(stream)).getLast();
+      final List<String> expectedResults = asList("APP", "INTTABLE", "TABLE");
       collector.checkThat(
-          results.get(0),
-          is(asList(null, "APP", "INTTABLE", "TABLE", SCHEMA_INT_TABLE.toJson())));
+          results.stream().map(Strings::emptyToNull).filter(Objects::nonNull).collect(toList()),
+          is(expectedResults));
     }
   }
 
@@ -150,7 +166,8 @@ public class TestFlightSql {
             if (fieldVector instanceof VarCharVector) {
               final VarCharVector varcharVector = (VarCharVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                results.get(rowIndex).add(varcharVector.getObject(rowIndex).toString());
+                Object obj = varcharVector.getObject(rowIndex);
+                results.get(rowIndex).add(isNull(obj) ? null : obj.toString());
               }
             } else if (fieldVector instanceof IntVector) {
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
@@ -171,4 +188,20 @@ public class TestFlightSql {
 
     return results;
   }
+
+  @Test
+  public void testGetCatalogs() throws Exception {
+    final FlightInfo info = sqlClient.getCatalogs();
+    final Schema infoSchema = info.getSchema();
+    final Schema expectedInfoSchema =
+        new Schema(singletonList(Field.nullable("catalog_name", MinorType.VARCHAR.getType())));
+    collector.checkThat(infoSchema, is(expectedInfoSchema));
+
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      List<List<String>> catalogs = getResults(stream);
+      // No catalogs.
+      collector.checkThat(catalogs, is(emptyList()));
+    }
+  }
+
 }
