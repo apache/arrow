@@ -36,6 +36,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts();
 std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts();
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts();
 std::vector<std::shared_ptr<CastFunction>> GetNestedCasts();
+std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts();
 
 }  // namespace internal
 }  // namespace compute
