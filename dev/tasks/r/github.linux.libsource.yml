@@ -25,8 +25,8 @@ on:
       - "*-github-*"
 
 jobs:
-  r-versions:
-    name: "Ubuntu Dependency Source"
+  r-lib-source:
+    name: "Ubuntu Dependency Source: {{ matrix.dep_source }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
