@@ -241,7 +241,10 @@ def save_report_data(obj, job_name):
     Just print there the state of the job
     """
     output = obj['output']
+    
     queue = obj['queue']
+    print(dir(queue))
+    
     if fetch:
         queue.fetch()
 
