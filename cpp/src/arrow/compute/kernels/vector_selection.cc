@@ -1668,6 +1668,81 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   }
 };
 
+struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
+  using Base = Selection<DenseUnionImpl, DenseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<int32_t> value_offset_buffer_builder_;
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  std::vector<int8_t> type_codes_;
+  std::vector<Int32Builder> child_indices_builders_;
+
+  DenseUnionImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
+                 Datum* out)
+      : Base(ctx, batch, output_length, out),
+        value_offset_buffer_builder_(ctx->memory_pool()),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_codes_(checked_cast<const UnionType&>(*this->values->type).type_codes()),
+        child_indices_builders_(type_codes_.size()) {
+    for (auto& child_indices_builder : child_indices_builders_) {
+      child_indices_builder = Int32Builder(ctx->memory_pool());
+    }
+  }
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    DenseUnionArray typed_values(this->values);
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          int8_t child_id = typed_values.child_id(index);
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          int32_t value_offset = typed_values.value_offset(index);
+          value_offset_buffer_builder_.UnsafeAppend(
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppend(value_offset);
+          return Status::OK();
+        },
+        [&]() {
+          int8_t child_id = 0;
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          value_offset_buffer_builder_.UnsafeAppend(
+              static_cast<int32_t>(child_indices_builders_[child_id].length()));
+          RETURN_NOT_OK(child_indices_builders_[child_id].Reserve(1));
+          child_indices_builders_[child_id].UnsafeAppendNull();
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    RETURN_NOT_OK(value_offset_buffer_builder_.Reserve(output_length));
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto value_offsets_buffer,
+                          value_offset_buffer_builder_.Finish());
+    DenseUnionArray typed_values(this->values);
+    auto num_fields = typed_values.num_fields();
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer),
+                         std::move(value_offsets_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
+    for (auto i = 0; i < num_fields; i++) {
+      ARROW_ASSIGN_OR_RAISE(auto child_indices_array,
+                            child_indices_builders_[i].Finish());
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> child_array,
+                            Take(*typed_values.field(i), *child_indices_array));
+      out->child_data.push_back(child_array->data());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -2141,6 +2216,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::LIST), FilterExec<ListImpl<ListType>>},
       {InputType::Array(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
       {InputType::Array(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
       {InputType::Array(Type::STRUCT), StructFilter},
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), FilterExec<ListImpl<MapType>>},
@@ -2170,6 +2246,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::LIST), TakeExec<ListImpl<ListType>>},
       {InputType::Array(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
       {InputType::Array(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
       {InputType::Array(Type::STRUCT), TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), TakeExec<ListImpl<MapType>>},
