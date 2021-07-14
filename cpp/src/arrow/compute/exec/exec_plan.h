@@ -289,8 +289,7 @@ ARROW_EXPORT
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> keys,
                                   std::vector<std::string> agg_srcs,
-                                  std::vector<internal::Aggregate> aggs,
-                                  ExecContext* ctx = default_exec_context());
+                                  std::vector<internal::Aggregate> aggs);
 
 }  // namespace compute
 }  // namespace arrow

@@ -1208,8 +1208,7 @@ struct GroupByNode : ExecNode {
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> keys,
                                   std::vector<std::string> agg_srcs,
-                                  std::vector<internal::Aggregate> aggs,
-                                  ExecContext* ctx) {
+                                  std::vector<internal::Aggregate> aggs) {
   // Get input schema
   auto input_schema = input->output_schema();
 
@@ -1235,6 +1234,8 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
     agg_src_descrs[i] =
         ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
   }
+
+  auto ctx = input->plan()->exec_context();
 
   // Construct aggregates
   ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
