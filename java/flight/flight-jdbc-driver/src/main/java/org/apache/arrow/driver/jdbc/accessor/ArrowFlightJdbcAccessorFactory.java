@@ -20,12 +20,14 @@ package org.apache.arrow.driver.jdbc.accessor;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -88,6 +90,8 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcVarCharVectorAccessor(((VarCharVector) vector), getCurrentRow);
     } else if (vector instanceof LargeVarCharVector) {
       return new ArrowFlightJdbcVarCharVectorAccessor(((LargeVarCharVector) vector), getCurrentRow);
+    } else if (vector instanceof DurationVector) {
+      return new ArrowFlightJdbcDurationVectorAccessor(((DurationVector) vector), getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
