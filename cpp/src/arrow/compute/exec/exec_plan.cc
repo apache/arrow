@@ -760,7 +760,7 @@ struct ScalarAggregateNode : ExecNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
   std::unordered_map<std::thread::id, size_t> thread_indices_;
   std::mutex mutex_;
-  int num_received_ = 0, num_total_;
+  int num_received_ = 0, num_total_ = -1;
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
