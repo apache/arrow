@@ -330,6 +330,12 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 
 
 def test_compression_roundtrip():
+    # The ability to set a seed this way is not present on older versions of
+    # numpy (currently in our python 3.6 CI build).  Some inputs might just
+    # happen to compress the same between the two levels so using seeded
+    # random numbers is neccesary
+    if not hasattr(np.random, 'default_rng'):
+        pytest.skip('Requires newer version of numpy')
     sink = io.BytesIO()
     rng = np.random.default_rng(seed=42)
     values = rng.integers(0, 10, 100000)
