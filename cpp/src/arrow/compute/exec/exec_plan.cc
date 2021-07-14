@@ -832,7 +832,8 @@ class SharedSequenceOfObjects {
     if (vid >= num_created_vectors_) {
       std::lock_guard<std::mutex> lock(mutex_);
       while (vid >= num_created_vectors_) {
-        objects_[num_created_vectors_].resize(1 << num_created_vectors_);
+        objects_[num_created_vectors_].resize(static_cast<size_t>(1)
+                                              << num_created_vectors_);
         ++num_created_vectors_;
       }
     }
