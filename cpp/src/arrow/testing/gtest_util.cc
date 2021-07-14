@@ -849,15 +849,18 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
 class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
  public:
   explicit Impl(double timeout_seconds)
-      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
+      : timeout_seconds_(timeout_seconds),
+        status_(),
+        unlocked_(false),
+        num_launched_(0) {}
 
   ~Impl() {
-    if (num_running_ != num_launched_) {
+    if (num_running_ != num_launched_.load()) {
       ADD_FAILURE()
           << "A GatingTask instance was destroyed but some underlying tasks did not "
              "start running"
           << std::endl;
-    } else if (num_finished_ != num_launched_) {
+    } else if (num_finished_ != num_launched_.load()) {
       ADD_FAILURE()
           << "A GatingTask instance was destroyed but some underlying tasks did not "
              "finish running"
@@ -866,7 +869,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   std::function<void()> Task() {
-    num_launched_++;
+    num_launched_.fetch_add(1);
     auto self = shared_from_this();
     return [self] { self->RunTask(); };
   }
@@ -907,7 +910,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   double timeout_seconds_;
   Status status_;
   bool unlocked_;
-  int num_launched_ = 0;
+  std::atomic<int> num_launched_;
   int num_running_ = 0;
   int num_finished_ = 0;
   std::mutex mx_;
