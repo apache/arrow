@@ -1958,8 +1958,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
             "implementation."
         )
         metadata_collector = kwargs.pop('metadata_collector', None)
+        file_visitor = None
         if metadata_collector is not None:
-            raise ValueError(msg.format("metadata_collector"))
+            def file_visitor(written_file):
+                metadata_collector.append(written_file.metadata)
         if partition_filename_cb is not None:
             raise ValueError(msg.format("partition_filename_cb"))
 
@@ -1979,7 +1981,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         ds.write_dataset(
             table, root_path, filesystem=filesystem,
             format=parquet_format, file_options=write_options, schema=schema,
-            partitioning=partitioning, use_threads=use_threads)
+            partitioning=partitioning, use_threads=use_threads,
+            file_visitor=file_visitor)
         return
 
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)

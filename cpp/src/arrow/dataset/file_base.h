@@ -369,6 +369,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
     return Status::OK();
   };
 
+  /// Callback to be invoked against all FileWriters after they have
+  /// called FileWriter::Finish().
+  std::function<Status(FileWriter*)> writer_post_finish = [](FileWriter*) {
+    return Status::OK();
+  };
+
   const std::shared_ptr<FileFormat>& format() const {
     return file_write_options->format();
   }
