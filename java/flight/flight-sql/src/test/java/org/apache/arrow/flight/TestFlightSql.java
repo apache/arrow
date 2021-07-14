@@ -53,13 +53,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 
 /**
  * Test direct usage of Flight SQL workflows.
@@ -106,21 +104,23 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // FIXME Assert fails!
-  public void testGetTables() throws Exception {
+  public void testGetTablesSchema() {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, false);
-
-    final List<Field> fields = asList(
+    final Schema expectedInfoSchema = new Schema(asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
         Field.nullable("table_name", MinorType.VARCHAR.getType()),
         Field.nullable("table_type", MinorType.VARCHAR.getType()),
-        Field.nullable("table_schema", MinorType.VARBINARY.getType()));
-    final Schema expectedInfoSchema = new Schema(fields);
-    final Schema infoSchema = info.getSchema();
-    collector.checkThat(infoSchema, is(expectedInfoSchema));
+        Field.nullable("table_schema", MinorType.VARBINARY.getType())));
+    collector.checkThat(info.getSchema(), is(expectedInfoSchema));
+  }
 
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+  @Test
+  public void testGetTables() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(
+                 sqlClient.getTables(null, null, null, null, false)
+                     .getEndpoints().get(0).getTicket())) {
       // TODO Filter results.
       final List<String> results = new ArrayDeque<>(getResults(stream)).getLast();
       final List<String> expectedResults = asList("APP", "INTTABLE", "TABLE");
@@ -131,28 +131,74 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testSimplePrepStmt() throws Exception {
-    final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
-    final Schema actualSchema = preparedStatement.getResultSetSchema();
-    collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
+  public void testSimplePreparedStatementSchema() throws Exception {
+    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
+      final Schema actualSchema = preparedStatement.getResultSetSchema();
+      collector.checkThat(actualSchema, is(SCHEMA_INT_TABLE));
 
-    final FlightInfo info = preparedStatement.execute();
-    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+      final FlightInfo info = preparedStatement.execute();
+      collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+    }
+  }
 
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+  @Test
+  public void testSimplePreparedStatementResults() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(
+                 sqlClient.prepare("SELECT * FROM intTable")
+                     .execute()
+                     .getEndpoints()
+                     .get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
 
       final List<List<String>> result = getResults(stream);
-      final List<List<String>> expected = ImmutableList.of(
-          ImmutableList.of("one", "1"), ImmutableList.of("zero", "0"),
-          ImmutableList.of("negative one", "-1")
-      );
+      final List<List<String>> expected = asList(
+          asList("one", "1"), asList("zero", "0"), asList("negative one", "-1"));
 
       collector.checkThat(result, is(expected));
     }
-    preparedStatement.close();
+  }
 
+  @Test
+  public void testSimplePreparedStatementClosesProperly() {
+    final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
+    collector.checkThat(preparedStatement.isClosed(), is(false));
+    preparedStatement.close();
     collector.checkThat(preparedStatement.isClosed(), is(true));
+  }
+
+  @Test
+  public void testGetCatalogsSchema() throws Exception {
+    final FlightInfo info = sqlClient.getCatalogs();
+    final Schema infoSchema = info.getSchema();
+    final Schema expectedInfoSchema =
+        new Schema(singletonList(Field.nullable("catalog_name", MinorType.VARCHAR.getType())));
+    collector.checkThat(infoSchema, is(expectedInfoSchema));
+  }
+
+  @Test
+  public void testGetCatalogs() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
+      List<List<String>> catalogs = getResults(stream);
+      // TODO No catalogs to test as of currently.
+      collector.checkThat(catalogs, is(emptyList()));
+    }
+  }
+
+  @Test
+  public void testGetTableTypes() throws Exception {
+    final FlightInfo info = sqlClient.getTableTypes();
+    final Schema infoSchema = info.getSchema();
+    final Schema expectedInfoSchema =
+        new Schema(singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
+    collector.checkThat(infoSchema, is(expectedInfoSchema));
+
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      List<List<String>> catalogs = getResults(stream);
+      // TODO Check expected values.
+      collector.checkThat(catalogs, is(allOf(notNullValue(), not(emptyList()))));
+    }
   }
 
   List<List<String>> getResults(FlightStream stream) {
@@ -190,35 +236,5 @@ public class TestFlightSql {
     }
 
     return results;
-  }
-
-  @Test
-  public void testGetCatalogs() throws Exception {
-    final FlightInfo info = sqlClient.getCatalogs();
-    final Schema infoSchema = info.getSchema();
-    final Schema expectedInfoSchema =
-        new Schema(singletonList(Field.nullable("catalog_name", MinorType.VARCHAR.getType())));
-    collector.checkThat(infoSchema, is(expectedInfoSchema));
-
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      List<List<String>> catalogs = getResults(stream);
-      // TODO No catalogs to test as of currently.
-      collector.checkThat(catalogs, is(emptyList()));
-    }
-  }
-
-  @Test
-  public void testGetTableTypes() throws Exception {
-    final FlightInfo info = sqlClient.getTableTypes();
-    final Schema infoSchema = info.getSchema();
-    final Schema expectedInfoSchema =
-        new Schema(singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-    collector.checkThat(infoSchema, is(expectedInfoSchema));
-
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      List<List<String>> catalogs = getResults(stream);
-      // TODO Check expected values.
-      collector.checkThat(catalogs, is(allOf(notNullValue(), not(emptyList()))));
-    }
   }
 }
