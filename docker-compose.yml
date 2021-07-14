@@ -1058,12 +1058,6 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
-  ubuntu-r-only-r:
-    extends: ubuntu-r
-    command: >
-      /bin/bash -c "
-        /arrow/ci/scripts/r_test.sh /arrow"
-
   r:
     # This lets you test building/installing the arrow R package
     # (including building the C++ library) on any Docker image that contains R
