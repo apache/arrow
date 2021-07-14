@@ -49,8 +49,9 @@ class ArrowFlightJdbcNumericGetter {
   }
 
   /**
-   * A interface for a getter to baseInt values.
+   * Functional interface for a getter to baseInt values.
    */
+  @FunctionalInterface
   interface Getter {
     void get(int index, NumericHolder holder);
   }
