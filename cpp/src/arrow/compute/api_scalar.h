@@ -41,6 +41,7 @@ class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
   explicit ArithmeticOptions(bool check_overflow = false);
   constexpr static char const kTypeName[] = "ArithmeticOptions";
+  bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
@@ -516,12 +517,10 @@ Result<Datum> MinElementWise(
 /// is null the result will be null.
 ///
 /// \param[in] arg the value to extract sign from
-/// \param[in] options options for handling signed zero, optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise sign function
 ARROW_EXPORT
-Result<Datum> Sign(const Datum& arg, SignOptions options = SignOptions(),
-                   ExecContext* ctx = NULLPTR);
+Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///
