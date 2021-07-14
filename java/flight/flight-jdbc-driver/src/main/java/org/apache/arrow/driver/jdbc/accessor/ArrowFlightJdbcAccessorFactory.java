@@ -22,14 +22,16 @@ import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimal256VectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
-import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -78,18 +80,20 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, getCurrentRow);
     } else if (vector instanceof Float8Vector) {
       return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
-    } else if (vector instanceof BitVector) {
-      return new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
+    } else if (vector instanceof DecimalVector) {
+      return new ArrowFlightJdbcDecimalVectorAccessor(((DecimalVector) vector), getCurrentRow);
+    } else if (vector instanceof Decimal256Vector) {
+      return new ArrowFlightJdbcDecimal256VectorAccessor(((Decimal256Vector) vector), getCurrentRow);
+    } else if (vector instanceof VarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow);
+    } else if (vector instanceof LargeVarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow);
     } else if (vector instanceof VarBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof LargeVarBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof FixedSizeBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
-    } else if (vector instanceof VarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor(((VarCharVector) vector), getCurrentRow);
-    } else if (vector instanceof LargeVarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor(((LargeVarCharVector) vector), getCurrentRow);
     } else if (vector instanceof DurationVector) {
       return new ArrowFlightJdbcDurationVectorAccessor(((DurationVector) vector), getCurrentRow);
     }
