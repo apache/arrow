@@ -26,7 +26,7 @@ on:
 
 jobs:
   r-lib-source:
-    name: "Ubuntu Dependency Source: {{ matrix.dep_source }}"
+    name: "Ubuntu Dependency Source"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
