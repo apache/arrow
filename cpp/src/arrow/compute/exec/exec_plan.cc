@@ -31,16 +31,16 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/bit_util.h"
 
 namespace arrow {
 
+using BitUtil::CountLeadingZeros;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using BitUtil::CountLeadingZeros;
 
 namespace compute {
 
@@ -567,7 +567,7 @@ struct SinkNode : ExecNode {
     producer_.Push(std::move(batch));
 
     std::unique_lock<std::mutex> lock(mutex_);
-  
+
     ++num_received_;
     if (num_received_ == emit_stop_) {
       lock.unlock();
@@ -819,77 +819,76 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
       std::move(states));
 }
 
-template<typename T>
+template <typename T>
 class SharedSequenceOfObjects {
-public:
-    SharedSequenceOfObjects(int log_max_objects = 16) {
-        objects_.resize(log_max_objects);
-        num_created_vectors_ = 0;
+ public:
+  explicit SharedSequenceOfObjects(int log_max_objects = 16) {
+    objects_.resize(log_max_objects);
+    num_created_vectors_ = 0;
+  }
+  T* get(int id) {
+    int vid = vector_id(id);
+    ARROW_DCHECK(static_cast<size_t>(vid) < objects_.size());
+    if (vid >= num_created_vectors_) {
+      std::lock_guard<std::mutex> lock(mutex_);
+      while (vid >= num_created_vectors_) {
+        objects_[num_created_vectors_].resize(1 << num_created_vectors_);
+        ++num_created_vectors_;
+      }
     }
-    T* get(int id) {
-        int vid = vector_id(id);
-        ARROW_DCHECK(static_cast<size_t>(vid) < objects_.size());
-        if (vid >= num_created_vectors_) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            while (vid >= num_created_vectors_) {
-                objects_[num_created_vectors_].resize(1 << num_created_vectors_);
-                ++num_created_vectors_;
-            }
-        }
-        return &objects_[vid][id];
-    }
-private:
-    static int vector_id(int id) {
-        return 32 - CountLeadingZeros(static_cast<uint32_t>(id));
-    }
+    return &objects_[vid][id];
+  }
 
-    int num_created_vectors_;
-    std::vector<std::vector<T>> objects_;
-    std::mutex mutex_;
+ private:
+  static int vector_id(int id) {
+    return 32 - CountLeadingZeros(static_cast<uint32_t>(id));
+  }
+
+  int num_created_vectors_;
+  std::vector<std::vector<T>> objects_;
+  std::mutex mutex_;
 };
 
 class SmallUniqueIdAssignment {
-public:
-    SmallUniqueIdAssignment() {
-        num_ids_ = 0;
+ public:
+  SmallUniqueIdAssignment() { num_ids_ = 0; }
+  int Get() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (stack_.empty()) {
+      return num_ids_++;
+    } else {
+      int last = stack_.back();
+      stack_.pop_back();
+      return last;
     }
-    int Get() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (stack_.empty()) {
-            return num_ids_++;
-        } else {
-            int last = stack_.back();
-            stack_.pop_back();
-            return last;
-        }
-    }
-    void Return(int id) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        stack_.push_back(id);
-    }
-    int num_ids() const { return num_ids_; }
-private:
-    std::vector<int> stack_;
-    int num_ids_;
-    std::mutex mutex_;
+  }
+  void Return(int id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    stack_.push_back(id);
+  }
+  int num_ids() const { return num_ids_; }
+
+ private:
+  std::vector<int> stack_;
+  int num_ids_;
+  std::mutex mutex_;
 };
 
 class SmallUniqueIdHolder {
-public:
-    SmallUniqueIdHolder() = delete;
-    SmallUniqueIdHolder(const SmallUniqueIdHolder&) = delete;
-    SmallUniqueIdHolder(const SmallUniqueIdHolder&&) = delete;
-    SmallUniqueIdHolder(SmallUniqueIdAssignment* id_mgr) {
-        id_mgr_ = id_mgr;
-        id_ = id_mgr->Get();
-    }
-    ~SmallUniqueIdHolder() {
-      id_mgr_->Return(id_);
-    }
-    int get() const { return id_; }
-private:
-    SmallUniqueIdAssignment* id_mgr_;
-    int id_;
+ public:
+  SmallUniqueIdHolder() = delete;
+  SmallUniqueIdHolder(const SmallUniqueIdHolder&) = delete;
+  SmallUniqueIdHolder(const SmallUniqueIdHolder&&) = delete;
+  explicit SmallUniqueIdHolder(SmallUniqueIdAssignment* id_mgr) {
+    id_mgr_ = id_mgr;
+    id_ = id_mgr->Get();
+  }
+  ~SmallUniqueIdHolder() { id_mgr_->Return(id_); }
+  int get() const { return id_; }
+
+ private:
+  SmallUniqueIdAssignment* id_mgr_;
+  int id_;
 };
 
 namespace internal {
@@ -920,18 +919,18 @@ struct GroupByNode : ExecNode {
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
         agg_kernels_(std::move(agg_kernels)) {
-          num_input_batches_processed_.store(0);
-          num_input_batches_total_.store(-1);
-          num_output_batches_processed_.store(0);
-          output_started_.store(false);
-        }
+    num_input_batches_processed_.store(0);
+    num_input_batches_total_.store(-1);
+    num_output_batches_processed_.store(0);
+    output_started_.store(false);
+  }
 
   const char* kind_name() override { return "GroupByNode"; }
 
-private:
+ private:
   struct ThreadLocalState;
-public:
 
+ public:
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
     auto input_schema = inputs_[0]->output_schema();
@@ -956,12 +955,14 @@ public:
             ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
       }
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(state->agg_states,
-                              internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+        ARROW_ASSIGN_OR_RAISE(
+            state->agg_states,
+            internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
 
         ARROW_ASSIGN_OR_RAISE(
             FieldVector agg_result_fields,
-            internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states, ctx_, agg_src_descrs));
+            internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states, ctx_,
+                                     agg_src_descrs));
       }
     }
     return Status::OK();
@@ -1017,7 +1018,7 @@ public:
 
         RETURN_NOT_OK(agg_kernels_[i]->resize(&batch_ctx, state0->grouper->num_groups()));
         RETURN_NOT_OK(agg_kernels_[i]->merge(&batch_ctx, std::move(*state->agg_states[i]),
-                                        *transposition.array()));
+                                             *transposition.array()));
         state->agg_states[i].reset();
       }
     }
@@ -1072,8 +1073,10 @@ public:
     ARROW_ASSIGN_OR_RAISE(ExecBatch output_batch, ExecBatch::Make(output_slices));
     outputs_[0]->InputReceived(this, n, output_batch);
 
-    uint32_t num_output_batches_processed = 1 + num_output_batches_processed_.fetch_add(1);
-    if (static_cast<uint64_t>(num_output_batches_processed) * output_batch_size_ >= num_out_groups_) {
+    uint32_t num_output_batches_processed =
+        1 + num_output_batches_processed_.fetch_add(1);
+    if (static_cast<uint64_t>(num_output_batches_processed) * output_batch_size_ >=
+        num_out_groups_) {
       finished_.MarkFinished();
     }
 
@@ -1087,9 +1090,10 @@ public:
     }
 
     RETURN_NOT_OK(Merge());
-    RETURN_NOT_OK(Finalize());    
+    RETURN_NOT_OK(Finalize());
 
-    int num_result_batches = (num_out_groups_ + output_batch_size_ - 1) / output_batch_size_;
+    int num_result_batches =
+        (num_out_groups_ + output_batch_size_ - 1) / output_batch_size_;
     outputs_[0]->InputFinished(this, num_result_batches);
 
     auto executor = arrow::internal::GetCpuThreadPool();
@@ -1259,8 +1263,8 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
 
   return input->plan()->EmplaceNode<GroupByNode>(
       input, std::move(label), schema(std::move(output_fields)), ctx,
-      std::move(key_field_ids), std::move(agg_src_field_ids),
-      std::move(aggs), std::move(agg_kernels));
+      std::move(key_field_ids), std::move(agg_src_field_ids), std::move(aggs),
+      std::move(agg_kernels));
 }
 
 }  // namespace compute
