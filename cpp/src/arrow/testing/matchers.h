@@ -57,10 +57,7 @@ class FutureMatcher {
           *listener << "which didn't finish within " << wait_seconds_ << " seconds";
           return false;
         }
-
-        const Result<ValueType>& maybe_value = fut.result();
-        testing::StringMatchResultListener value_listener;
-        return result_matcher_.MatchAndExplain(maybe_value, &value_listener);
+        return result_matcher_.MatchAndExplain(fut.result(), listener);
       }
 
       const testing::Matcher<Result<ValueType>> result_matcher_;

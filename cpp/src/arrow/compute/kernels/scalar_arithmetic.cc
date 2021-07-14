@@ -1076,6 +1076,37 @@ struct ArithmeticFunction : ScalarFunction {
   }
 };
 
+/// An ArithmeticFunction that promotes integer arguments to double.
+struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
+  using ArithmeticFunction::ArithmeticFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+    RETURN_NOT_OK(CheckDecimals(values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    if (values->size() == 2) {
+      ReplaceNullWithOtherType(values);
+    }
+
+    for (auto& descr : *values) {
+      if (is_integer(descr.type->id())) {
+        descr.type = float64();
+      }
+    }
+    if (auto type = CommonNumeric(*values)) {
+      ReplaceTypes(type, values);
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
@@ -1164,7 +1195,8 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
     std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func =
+      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
@@ -1176,7 +1208,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
     std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func =
+      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
@@ -1188,7 +1221,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
     std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+  auto func =
+      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);

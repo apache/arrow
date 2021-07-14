@@ -244,11 +244,18 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
-/// Emitted batches will not be ordered; instead they will be tagged with the `seq` at
-/// which they were received.
+/// Emitted batches will not be ordered.
 ARROW_EXPORT
 std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
                                                                 std::string label);
+
+/// \brief Wrap an ExecBatch generator in a RecordBatchReader.
+///
+/// The RecordBatchReader does not impose any ordering on emitted batches.
+ARROW_EXPORT
+std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
+    std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
+    MemoryPool*);
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
@@ -266,9 +273,15 @@ Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression 
 /// this node to produce a corresponding output column.
 ///
 /// If exprs are not already bound, they will be bound against the input's schema.
+/// If names are not provided, the string representations of exprs will be used.
 ARROW_EXPORT
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
-                                  std::vector<Expression> exprs);
+                                  std::vector<Expression> exprs,
+                                  std::vector<std::string> names = {});
+
+ARROW_EXPORT
+Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
+                                          std::vector<internal::Aggregate> aggregates);
 
 /// \brief Make a node which groups input rows based on key fields and computes
 /// aggregates for each group

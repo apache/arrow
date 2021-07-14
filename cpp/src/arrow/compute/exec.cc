@@ -148,6 +148,22 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   return ExecBatch(std::move(values), length);
 }
 
+Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
+    std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  ArrayVector columns(schema->num_fields());
+
+  for (size_t i = 0; i < columns.size(); ++i) {
+    const Datum& value = values[i];
+    if (value.is_array()) {
+      columns[i] = value.make_array();
+      continue;
+    }
+    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
+  }
+
+  return RecordBatch::Make(std::move(schema), length, std::move(columns));
+}
+
 namespace {
 
 Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t length,

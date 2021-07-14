@@ -15,48 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dynamically load an Arrow target build based on command line arguments
+import 'web-streams-polyfill';
 
-import 'web-streams-polyfill/es6';
-
-// import this before assigning window global since it does a `typeof window` check
-require('web-stream-tools');
-
-(<any> global).window = (<any> global).window || global;
-
-// Fix for Jest in node v10.x
-Object.defineProperty(Object, Symbol.hasInstance, {
-    writable: true,
-    configurable: true,
-    value(inst: any) {
-        return inst?.constructor && inst.constructor.name === 'Object';
-    }
-});
-Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
-    writable: true,
-    configurable: true,
-    value(inst: any) {
-        return inst?.constructor && inst.constructor.name === 'ArrayBuffer';
-    }
-});
-
-// these are duplicated in the gulpfile :<
-const targets = [`es5`, `es2015`, `esnext`];
-const formats = [`cjs`, `esm`, `cls`, `umd`];
-
-const path = require('path');
-const target = process.env.TEST_TARGET!;
-const format = process.env.TEST_MODULE!;
-const useSrc = process.env.TEST_TS_SOURCE === `true` || (!~targets.indexOf(target) || !~formats.indexOf(format));
-
-let modulePath = ``;
-
-if (useSrc) modulePath = '../src';
-else if (target === `ts` || target === `apache-arrow`) modulePath = target;
-else modulePath = path.join(target, format);
-
-modulePath = path.resolve(`./targets`, modulePath);
-modulePath = path.join(modulePath, `Arrow${format === 'umd' ? '' : '.node'}`);
-const Arrow: typeof import('../src/Arrow') = require(modulePath);
-
-export = Arrow;
+export * from 'apache-arrow';

@@ -134,7 +134,7 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
 
 ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
                             util::string_view json) {
-  auto fields = arrow::internal::MapVector(
+  auto fields = ::arrow::internal::MapVector(
       [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
 
   ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};

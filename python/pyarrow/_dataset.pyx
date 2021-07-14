@@ -669,6 +669,25 @@ cdef class FileSystemDataset(Dataset):
     def filesystem(self):
         return FileSystem.wrap(self.filesystem_dataset.filesystem())
 
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+
+        If the FileSystemDataset is created using the ``dataset()`` factory
+        function with a partitioning specified, this will return the
+        finalized Partitioning object from the dataset discovery. In all
+        other cases, this returns None.
+        """
+        c_partitioning = self.filesystem_dataset.partitioning()
+        if c_partitioning.get() == nullptr:
+            return None
+        try:
+            return Partitioning.wrap(c_partitioning)
+        except TypeError:
+            # e.g. type_name "default"
+            return None
+
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
@@ -2083,6 +2102,27 @@ cdef class DirectoryPartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If not available, this returns None.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.directory_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                return None
+            res.append(pyarrow_wrap_array(arr))
+        return res
+
 
 cdef class HivePartitioning(Partitioning):
     """
@@ -2213,6 +2253,27 @@ cdef class HivePartitioning(Partitioning):
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
+
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If not available, this returns None.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.hive_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                return None
+            res.append(pyarrow_wrap_array(arr))
+        return res
 
 
 cdef class DatasetFactory(_Weakrefable):

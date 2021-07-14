@@ -206,7 +206,7 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
                                      bool slow) {
   DCHECK_GT(batches_with_schema.batches.size(), 0);
 
-  auto opt_batches = arrow::internal::MapVector(
+  auto opt_batches = ::arrow::internal::MapVector(
       [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
       std::move(batches_with_schema.batches));
 
@@ -216,10 +216,10 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
     // emulate batches completing initial decode-after-scan on a cpu thread
     ARROW_ASSIGN_OR_RAISE(
         gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
-                                     arrow::internal::GetCpuThreadPool()));
+                                     ::arrow::internal::GetCpuThreadPool()));
 
     // ensure that callbacks are not executed immediately on a background thread
-    gen = MakeTransferredGenerator(std::move(gen), arrow::internal::GetCpuThreadPool());
+    gen = MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
   } else {
     gen = MakeVectorGenerator(std::move(opt_batches));
   }
@@ -402,12 +402,16 @@ TEST(ExecPlanExecution, SourceProjectSink) {
                        MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
+  std::vector<Expression> exprs{
+      not_(field_ref("bool")),
+      call("add", {field_ref("i32"), literal(1)}),
+  };
+  for (auto& expr : exprs) {
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*basic_data.schema));
+  }
+
   ASSERT_OK_AND_ASSIGN(auto projection,
-                       MakeProjectNode(source, "project",
-                                       {
-                                           not_(field_ref("bool")),
-                                           call("add", {field_ref("i32"), literal(1)}),
-                                       }));
+                       MakeProjectNode(source, "project", exprs, {"!bool", "i32 + 1"}));
 
   auto sink_gen = MakeSinkNode(projection, "sink");
 
@@ -500,6 +504,29 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
                       [36, "alfa"],
                       [20, "beta"]
                   ])")}))));
+}
+
+TEST(ExecPlanExecution, SourceScalarAggSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  auto basic_data = MakeBasicBatches();
+
+  ASSERT_OK_AND_ASSIGN(auto source,
+                       MakeTestSourceNode(plan.get(), "source", basic_data,
+                                          /*parallel=*/false, /*slow=*/false));
+
+  ASSERT_OK_AND_ASSIGN(auto scalar_agg,
+                       MakeScalarAggregateNode(source, "scalar_agg",
+                                               {{"sum", nullptr}, {"any", nullptr}}));
+
+  auto sink_gen = MakeSinkNode(scalar_agg, "sink");
+
+  ASSERT_THAT(
+      StartAndCollect(plan.get(), sink_gen),
+      Finishes(ResultWith(UnorderedElementsAreArray({
+          ExecBatchFromJSON({ValueDescr::Scalar(int64()), ValueDescr::Scalar(boolean())},
+                            "[[22, true]]"),
+      }))));
 }
 
 }  // namespace compute

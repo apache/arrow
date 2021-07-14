@@ -85,6 +85,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             browser:  format === 'umd' ? `${mainExport}.js` : `${mainExport}.dom.js`,
             // set "main" to "Arrow" if building scoped UMD target, otherwise "Arrow.node"
             main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node`,
+            // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
+            type:     format === 'esm' ? `module` : `commonjs`,
             // set "module" (for https://www.npmjs.com/package/@pika/pack) if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.dom.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target

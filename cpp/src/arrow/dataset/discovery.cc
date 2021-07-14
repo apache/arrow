@@ -274,7 +274,8 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     fragments.push_back(fragment);
   }
 
-  return FileSystemDataset::Make(schema, root_partition_, format_, fs_, fragments);
+  return FileSystemDataset::Make(std::move(schema), root_partition_, format_, fs_,
+                                 std::move(fragments), std::move(partitioning));
 }
 
 }  // namespace dataset
