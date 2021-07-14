@@ -62,6 +62,29 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
 
+      - name: Install OpenSSL
+        shell: bash
+        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+
+      {% if arch == "universal2" %}
+      # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
+      # unable to propagate the list of architectures from VCPKG_OSX_ARCHIETCTURES.
+      # In order to prevent link time warnings (which may turn out to be errors)
+      # we compile OpenSSL separately for the two architectures and merge the
+      # binaries into universal2 ones using `lipo`.
+      - name: Create universal binaries for OpenSSL
+        shell: bash
+        run: |
+          for arch in arm64 x64; do
+            VCPKG_DEFAULT_TRIPLET=${arch}-osx-static-release arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+          done
+          for lib in libcrypto libssl; do
+            lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
+                         $VCPKG_ROOT/installed/x64-osx-static-release/lib/${lib}.a \
+                 -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
+          done
+      {% endif %}
+
       - name: Install Packages
         run: |
           arch -arm64 $VCPKG_ROOT/vcpkg install \
@@ -75,7 +98,6 @@ jobs:
             gflags \
             glog \
             lz4 \
-            openssl \
             orc \
             protobuf \
             rapidjson \
