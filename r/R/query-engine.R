@@ -15,6 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
+  public = list(
+    Scan = function(dataset) {
+      # Handle arrow_dplyr_query
+      # TODO: why do I need to filter/project here?
+      ExecNode_Scan(self, dataset, filter, colnames)
+    },
+    Run = function(node) {
+      assert_is(node, "ExecNode")
+      ExecPlan_run(self, node)
+    }
+  )
+)
+ExecPlan$create <- ExecPlan_create
+
 ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
@@ -24,6 +39,13 @@ ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
     Filter = function(expr) {
       assert_is(expr, "Expression")
       ExecNode_Filter(self, expr)
+    },
+    ScalarAggregate = function(options, targets, out_field_names) {
+      ExecNode_ScalarAggregate(self, options, targets, out_field_names)
     }
   )
 )
+
+# plan <- ExecPlan$create()
+# final_node <- plan$Scan(dataset)$Filter(expr)$Project(exprs)$ScalarAggregate(something)
+# plan$Run(final_node)

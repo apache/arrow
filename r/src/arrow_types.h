@@ -60,6 +60,7 @@ namespace fs = ::arrow::fs;
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
+arrow::compute::ExecContext* gc_context();
 
 #if (R_VERSION < R_Version(3, 5, 0))
 #define LOGICAL_RO(x) ((const int*)LOGICAL(x))

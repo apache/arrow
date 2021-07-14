@@ -22,11 +22,13 @@
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
+#include <arrow/util/thread_pool.h>
 
 std::shared_ptr<arrow::compute::CastOptions> make_cast_options(cpp11::list options);
 
 arrow::compute::ExecContext* gc_context() {
-  static arrow::compute::ExecContext context(gc_memory_pool());
+  static arrow::compute::ExecContext context(gc_memory_pool(),
+                                             arrow::internal::GetCpuThreadPool());
   return &context;
 }
 
