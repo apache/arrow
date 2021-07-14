@@ -690,8 +690,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string GetString(int i)
 
     cdef cppclass CStructArray" arrow::StructArray"(CArray):
-        CStructArray(shared_ptr[CDataType] type, int64_t length,
-                     vector[shared_ptr[CArray]] children,
+        CStructArray(shared_ptr[CDataType]& type, int64_t length,
+                     vector[shared_ptr[CArray]]& children,
                      shared_ptr[CBuffer] null_bitmap=nullptr,
                      int64_t null_count=-1,
                      int64_t offset=0)
