@@ -676,7 +676,6 @@ struct ScalarAggregateNode : ExecNode {
     std::unique_lock<std::mutex> lock(mutex_);
     auto it =
         thread_indices_.emplace(std::this_thread::get_id(), thread_indices_.size()).first;
-    ++num_received_;
     auto thread_index = it->second;
 
     lock.unlock();
@@ -688,6 +687,7 @@ struct ScalarAggregateNode : ExecNode {
     }
 
     lock.lock();
+    ++num_received_;
     st = MaybeFinish(&lock);
     if (!st.ok()) {
       outputs_[0]->ErrorReceived(this, std::move(st));
