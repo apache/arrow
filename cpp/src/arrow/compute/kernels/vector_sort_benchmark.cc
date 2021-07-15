@@ -157,7 +157,7 @@ BatchOrTableBenchmarkData MakeBatchOrTableBenchmarkDataInt64(
   for (int64_t i = 0; i < args.num_columns; ++i) {
     auto name = std::to_string(i);
     fields.push_back(field(name, int64()));
-    auto order = (i % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
+    auto order = SortOrder((i % 2) == 0 ? "ascending" : "descending");
     data.sort_keys.emplace_back(name, order);
     ArrayVector chunks;
     if ((args.num_records % num_chunks) != 0) {

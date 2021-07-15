@@ -30,8 +30,8 @@ namespace compute {
 
 constexpr auto kSeed = 0x94378165;
 
-template <CompareOperator op, typename Type>
-static void CompareArrayScalar(benchmark::State& state) {
+template <typename Type>
+static void CompareArrayScalar(benchmark::State& state, CompareOperator op) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
   auto ty = TypeTraits<Type>::type_singleton();
   auto rand = random::RandomArrayGenerator(kSeed);
@@ -43,8 +43,8 @@ static void CompareArrayScalar(benchmark::State& state) {
   }
 }
 
-template <CompareOperator op, typename Type>
-static void CompareArrayArray(benchmark::State& state) {
+template <typename Type>
+static void CompareArrayArray(benchmark::State& state, CompareOperator op) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
   auto ty = TypeTraits<Type>::type_singleton();
   auto rand = random::RandomArrayGenerator(kSeed);
@@ -56,19 +56,19 @@ static void CompareArrayArray(benchmark::State& state) {
 }
 
 static void GreaterArrayArrayInt64(benchmark::State& state) {
-  CompareArrayArray<GREATER, Int64Type>(state);
+  CompareArrayArray<Int64Type>(state, CompareOperator("greater"));
 }
 
 static void GreaterArrayScalarInt64(benchmark::State& state) {
-  CompareArrayScalar<GREATER, Int64Type>(state);
+  CompareArrayScalar<Int64Type>(state, CompareOperator("greater"));
 }
 
 static void GreaterArrayArrayString(benchmark::State& state) {
-  CompareArrayArray<GREATER, StringType>(state);
+  CompareArrayArray<StringType>(state, CompareOperator("greater"));
 }
 
 static void GreaterArrayScalarString(benchmark::State& state) {
-  CompareArrayScalar<GREATER, StringType>(state);
+  CompareArrayScalar<StringType>(state, CompareOperator("greater"));
 }
 
 BENCHMARK(GreaterArrayArrayInt64)->Apply(RegressionSetArgs);
