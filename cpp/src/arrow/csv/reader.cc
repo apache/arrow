@@ -382,7 +382,8 @@ struct IterationTraits<csv::DecodedBlock> {
 namespace csv {
 namespace {
 
-// A functor that takes in a buffer of CSV data and returns a parsed batch of CSV data.
+// A function object that takes in a buffer of CSV data and returns a parsed batch of CSV
+// data (CSVBlock -> ParsedBlock) for use with MakeMappedGenerator.
 // The parsed batch contains a list of offsets for each of the columns so that columns
 // can be individually scanned
 //
@@ -397,7 +398,7 @@ class BlockParsingOperator {
         count_rows_(count_rows) {}
 
   Result<ParsedBlock> operator()(const CSVBlock& block) {
-    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
+    constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
     auto parser = std::make_shared<BlockParser>(
         io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
 
@@ -439,6 +440,8 @@ class BlockParsingOperator {
   int num_rows_seen_ = 0;
 };
 
+// A function object that takes in parsed batch of CSV data and decodes it to an arrow
+// record batch (ParsedBlock -> DecodedBlock) for use with MakeMappedGenerator.
 class BlockDecodingOperator {
  public:
   Future<DecodedBlock> operator()(const ParsedBlock& block) {
@@ -448,7 +451,7 @@ class BlockDecodingOperator {
       decoded_array_futs.push_back(decoder->Decode(block.parser));
     }
     auto bytes_parsed_or_skipped = block.bytes_parsed_or_skipped;
-    auto decoded_arrays_fut = All(decoded_array_futs);
+    auto decoded_arrays_fut = All(std::move(decoded_array_futs));
     auto state = state_;
     return decoded_arrays_fut.Then(
         [state, bytes_parsed_or_skipped](
@@ -457,7 +460,8 @@ class BlockDecodingOperator {
           ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
                                 internal::UnwrapOrRaise(maybe_decoded_arrays));
 
-          ARROW_ASSIGN_OR_RAISE(auto batch, state->DecodedArraysToBatch(decoded_arrays));
+          ARROW_ASSIGN_OR_RAISE(auto batch,
+                                state->DecodedArraysToBatch(std::move(decoded_arrays)));
           return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
   }
@@ -484,7 +488,7 @@ class BlockDecodingOperator {
           conversion_schema(std::move(conversion_schema)) {}
 
     Result<std::shared_ptr<RecordBatch>> DecodedArraysToBatch(
-        std::vector<std::shared_ptr<Array>>& arrays) {
+        std::vector<std::shared_ptr<Array>> arrays) {
       if (schema == nullptr) {
         FieldVector fields(arrays.size());
         for (size_t i = 0; i < arrays.size(); ++i) {
@@ -1177,8 +1181,8 @@ class CSVRowCounter : public ReaderMixin,
   }
 
   Future<int64_t> DoCount(const std::shared_ptr<CSVRowCounter>& self) {
-    // We must return a value instead of Status/Future<> to work with
-    // MakeMappedGenerator, and we must use a type with a valid end value to work with
+    // count_cb must return a value instead of Status/Future<> to work with
+    // MakeMappedGenerator, and it must use a type with a valid end value to work with
     // IterationEnd.
     std::function<Result<util::optional<int64_t>>(const CSVBlock&)> count_cb =
         [self](const CSVBlock& maybe_block) -> Result<util::optional<int64_t>> {

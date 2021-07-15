@@ -210,7 +210,7 @@ Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
   if (!already_taken) {
     auto maybe_array = RunInference(parser);
     first_inference_run_.MarkFinished();
-    return Future<std::shared_ptr<Array>>::MakeFinished(maybe_array);
+    return Future<std::shared_ptr<Array>>::MakeFinished(std::move(maybe_array));
   }
 
   // Non-first block: wait for inference to finish on first block now,
@@ -218,7 +218,7 @@ Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
   return first_inference_run_.Then([this, parser] {
     DCHECK(type_frozen_);
     auto maybe_array = converter_->Convert(*parser, col_index_);
-    return maybe_array;
+    return converter_->Convert(*parser, col_index_);
   });
 }
 
