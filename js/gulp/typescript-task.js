@@ -61,8 +61,8 @@ function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
     return Observable.forkJoin(writeSources, writeDTypes, writeJS);
 }
 
-function cjsMapFile(mapFilePath) { return mapFilePath.replace('.js.map', '.cjs.map'); }
-function esmMapFile(mapFilePath) { return mapFilePath; }
+function cjsMapFile(mapFilePath) { return mapFilePath; }
+function esmMapFile(mapFilePath) { return mapFilePath.replace('.js.map', '.mjs.map'); }
 
 module.exports = typescriptTask;
 module.exports.typescriptTask = typescriptTask;
