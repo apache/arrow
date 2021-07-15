@@ -68,6 +68,16 @@ def docker(obj, src, dry_run):
     obj['compose'] = compose
 
 
+@docker.command("check-config")
+@click.pass_obj
+def check_config(obj):
+    """
+    Validate docker-compose configuration.
+    """
+    # executes the body of the docker function above which does the validation
+    # during the configuration loading
+
+
 @docker.command('build')
 @click.argument('image')
 @click.option('--force-pull/--no-pull', default=True,
