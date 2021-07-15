@@ -86,16 +86,8 @@ class NullColumnDecoder : public ConcreteColumnDecoder {
 
 Future<std::shared_ptr<Array>> NullColumnDecoder::Decode(
     const std::shared_ptr<BlockParser>& parser) {
-  // Spawn a task that will build an array of nulls with the right DataType
-  const int32_t num_rows = parser->num_rows();
-  DCHECK_GE(num_rows, 0);
-
-  std::unique_ptr<ArrayBuilder> builder;
-  RETURN_NOT_OK(MakeBuilder(pool_, type_, &builder));
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(builder->AppendNulls(num_rows));
-  RETURN_NOT_OK(builder->Finish(&array));
-  return Future<std::shared_ptr<Array>>::MakeFinished(std::move(array));
+  DCHECK_GE(parser->num_rows(), 0);
+  return MakeArrayOfNull(type_, parser->num_rows(), pool_);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -884,17 +884,20 @@ class StreamingReaderImpl : public ReaderMixin,
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
                           ProcessHeader(first_buffer, &after_header));
     bytes_decoded_->fetch_add(header_bytes_consumed);
+
     auto parser_op =
         BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, count_rows_);
     ARROW_ASSIGN_OR_RAISE(
         auto decoder_op,
         BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
+
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
     auto parsed_block_gen =
         MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
+
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
       return self->InitAfterFirstBatch(first_block, std::move(rb_gen), max_readahead);
