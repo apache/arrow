@@ -17,15 +17,19 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
+import static org.hamcrest.CoreMatchers.is;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.ValueVector;
+import org.hamcrest.Matcher;
+import org.junit.rules.ErrorCollector;
 
 public class AccessorTestUtils {
-
 
   public static class Cursor {
     int currentRow = 0;
@@ -77,5 +81,38 @@ public class AccessorTestUtils {
     });
 
     return result;
+  }
+
+  public interface MatcherGetter<T extends ArrowFlightJdbcAccessor, R> {
+    Matcher<R> get(T accessor, int currentRow);
+  }
+
+  public static class AccessorIterator<T extends ArrowFlightJdbcAccessor> {
+    private final ErrorCollector collector;
+    private final AccessorSupplier<T> accessorSupplier;
+
+    public AccessorIterator(ErrorCollector collector,
+                            AccessorSupplier<T> accessorSupplier) {
+      this.collector = collector;
+      this.accessorSupplier = accessorSupplier;
+    }
+
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, MatcherGetter<T, R> matcherGetter) {
+      int valueCount = vector.getValueCount();
+      if (valueCount == 0) {
+        throw new IllegalArgumentException("Vector is empty");
+      }
+
+      Cursor cursor = new Cursor(valueCount);
+      T accessor = accessorSupplier.supply(vector, cursor::getCurrentRow);
+
+      while (cursor.hasNext()) {
+        R object = getter.apply(accessor);
+
+        collector.checkThat(object, matcherGetter.get(accessor, cursor.getCurrentRow()));
+        collector.checkThat(accessor.wasNull(), is(object == null));
+        cursor.next();
+      }
+    }
   }
 }
