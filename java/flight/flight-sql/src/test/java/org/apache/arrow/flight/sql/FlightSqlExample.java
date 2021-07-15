@@ -21,7 +21,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.sql.DriverManager.getConnection;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
@@ -214,7 +213,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   private static boolean populateDerbyDatabase() {
     Optional<SQLException> exception = empty();
-    try (final Connection connection = getConnection("jdbc:derby:target/derbyDB;create=true");
+    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
       statement.execute("CREATE TABLE intTable (keyName varchar(100), value int)");
       statement.execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
@@ -321,8 +320,14 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     });
   }
 
+  protected static final Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
+      throws SQLException, IOException {
+    Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
+    return () -> iterator;
+  }
+
   protected Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
-                                                            boolean includeSchema)
+                                                     boolean includeSchema)
       throws SQLException, IOException {
     return stream(getVectorsFromData(data).spliterator(), false)
         .map(root ->
@@ -353,12 +358,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         })
         .map(VectorSchemaRoot::new)
         .collect(toList());
-  }
-
-  protected static final Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
-      throws SQLException, IOException {
-    Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
-    return () -> iterator;
   }
 
   @Override
