@@ -1931,13 +1931,28 @@ TEST(Cast, DictTypeToAnotherDict) {
              R"(["a", "b", "a", null])");
 
   auto arr = ArrayFromJSON(dictionary(int32(), int32()), "[1, 1000]");
-  // check unsafe
+  // check unsafe values
   ASSERT_OK_AND_ASSIGN(auto casted,
                        Cast(arr, dictionary(int8(), int8()), CastOptions::Unsafe()));
   ValidateOutput(casted);
-  // check safe
+  // check safe values
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Integer value 1000 not in range"),
+      Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
+
+  // check unsafe indices
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+  auto val_arr = rand.ArrayOf(int32(), len, /*null_probability=*/0.01);
+  ASSERT_OK_AND_ASSIGN(auto arr2, DictionaryEncode(val_arr));
+  // check unsafe indices. Cannot validate this array because ValidateOutput throws an
+  // out of bounds error
+  ASSERT_OK_AND_ASSIGN(auto casted2, Cast(arr2.make_array(), dictionary(int8(), int8()),
+                                          CastOptions::Unsafe()));
+
+  // check safe indices
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("not in range"),
       Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
 }
 

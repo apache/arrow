@@ -385,8 +385,8 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_cast_boolean.cc
-          compute/kernels/scalar_cast_dictionary.cc
-          compute/kernels/scalar_cast_internal.cc
+       compute/kernels/scalar_cast_dictionary.cc
+       compute/kernels/scalar_cast_internal.cc
        compute/kernels/scalar_cast_nested.cc
        compute/kernels/scalar_cast_numeric.cc
        compute/kernels/scalar_cast_string.cc
