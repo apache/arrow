@@ -1316,4 +1316,41 @@ TEST_F(TestProjector, TestRpad) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_rpad, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestBinRepresentation) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_result = field("bin", arrow::utf8());
+
+  // Build expression
+  auto myexpr = TreeExprBuilder::MakeExpression("bin", {field0}, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {myexpr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayInt64({7, -28550, 58117}, {true, true, true});
+  // expected output
+  auto exp = MakeArrowArrayUtf8(
+      {"111", "1111111111111111111111111111111111111111111111111001000001111010",
+       "1110001100000101"},
+      {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 }  // namespace gandiva

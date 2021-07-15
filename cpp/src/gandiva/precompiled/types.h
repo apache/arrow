@@ -156,6 +156,9 @@ gdv_int32 round_int32(gdv_int32);
 gdv_int64 round_int64(gdv_int64);
 gdv_int64 get_power_of_10(gdv_int32);
 
+const char* bin_int32(int64_t context, gdv_int32 value, int32_t* out_len);
+const char* bin_int64(int64_t context, gdv_int64 value, int32_t* out_len);
+
 gdv_float64 cbrt_int32(gdv_int32);
 gdv_float64 cbrt_int64(gdv_int64);
 gdv_float64 cbrt_float32(gdv_float32);
