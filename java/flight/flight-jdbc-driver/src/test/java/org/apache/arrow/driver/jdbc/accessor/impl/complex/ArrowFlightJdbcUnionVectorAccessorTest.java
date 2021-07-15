@@ -76,18 +76,11 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
     this.vector.setType(2, Types.MinorType.TIMESTAMPMILLI);
     this.vector.setSafe(2, nullableTimeStampMilliHolder);
 
-//    NullableIntervalDayHolder nullableIntervalDayHolder = new NullableIntervalDayHolder();
-//    nullableIntervalDayHolder.isSet = 1;
-//    nullableIntervalDayHolder.days = 7;
-//    nullableIntervalDayHolder.milliseconds = 100;
-//    this.vector.setType(3, Types.MinorType.INTERVALDAY);
-//    this.vector.setSafe(3, nullableIntervalDayHolder);
-
     nullableBigIntHolder.isSet = 0;
-    this.vector.setType(4, Types.MinorType.BIGINT);
-    this.vector.setSafe(4, nullableBigIntHolder);
+    this.vector.setType(3, Types.MinorType.BIGINT);
+    this.vector.setSafe(3, nullableBigIntHolder);
 
-    this.vector.setValueCount(6);
+    this.vector.setValueCount(5);
   }
 
   @After
@@ -102,8 +95,6 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
         Long.MAX_VALUE,
         Math.PI,
         new Timestamp(1625702400000L),
-//        Duration.ofDays(7).plusMillis(100),
-        null,
         null,
         null);
 

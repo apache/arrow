@@ -33,6 +33,12 @@ public class ArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessorW
   private final UnionVector vector;
   private final ArrowFlightJdbcAccessor[] accessors;
 
+  /**
+   * Instantiate an accessor for a {@link UnionVector}.
+   *
+   * @param vector             an instance of a UnionVector.
+   * @param currentRowSupplier the supplier to track the rows.
+   */
   public ArrowFlightJdbcUnionVectorAccessor(UnionVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
     this.vector = vector;
