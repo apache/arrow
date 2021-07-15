@@ -32,9 +32,6 @@ import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.TimeUnit;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -70,8 +67,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<ValueVector>) () -> {
-          FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
-          IntervalDayVector vector = new IntervalDayVector("", fieldType, rootAllocatorTestRule.getRootAllocator());
+          IntervalDayVector vector = new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -81,8 +77,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           return vector;
         }, "IntervalDayVector"},
         {(Supplier<ValueVector>) () -> {
-          FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
-          IntervalYearVector vector = new IntervalYearVector("", fieldType, rootAllocatorTestRule.getRootAllocator());
+          IntervalYearVector vector = new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -109,7 +104,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectReturnValidDuration() throws Exception {
+  public void testShouldGetObjectReturnValidObject() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Object result = accessor.getObject();
@@ -120,7 +115,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectPassingDurationAsParameterReturnValidDuration() throws Exception {
+  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
@@ -173,7 +168,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectClassReturnDurationClass() throws Exception {
+  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
