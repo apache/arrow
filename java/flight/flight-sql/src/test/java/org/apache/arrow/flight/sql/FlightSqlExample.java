@@ -25,6 +25,8 @@ import static java.sql.DriverManager.getConnection;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.apache.arrow.util.Preconditions.checkArgument;
@@ -37,6 +39,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -46,6 +49,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -83,6 +87,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -306,12 +311,34 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
    * @throws SQLException an exception.
    * @throws IOException  an exception.
    */
-  protected static void makeListen(final ResultSet data, ServerStreamListener listener)
+  protected static void makeListen(final Iterable<VectorSchemaRoot> data, final ServerStreamListener listener)
       throws SQLException, IOException {
-    sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE)).forEachRemaining(vector -> {
-      listener.start(vector);
+    data.forEach(root -> {
+      listener.start(root);
       listener.putNext();
     });
+  }
+
+  protected static Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
+                                                            boolean includeSchema)
+      throws SQLException, IOException {
+    // TODO
+    checkArgument(!includeSchema, "includeSchema not supported yet.");
+    return stream(getVectorsFromData(data).spliterator(), false)
+        .map(root ->
+            new VectorSchemaRoot(
+                root.getFieldVectors().stream().filter(vector -> {
+                  switch (vector.getName()) {
+                    case "TABLE_CAT":
+                    case "TABLE_SCHEM":
+                    case "TABLE_NAME":
+                    case "TABLE_TYPE":
+                      return true;
+                    default:
+                      return false;
+                  }
+                }).collect(toList())))
+        .collect(toList());
   }
 
   protected static ResultSet rotate(final ResultSet data, int until)
@@ -325,6 +352,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       }
     });
     return data;
+  }
+
+  protected static final Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
+      throws SQLException, IOException {
+    Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
+    return () -> iterator;
   }
 
   private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
@@ -342,7 +375,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
     try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command)) {
-      makeListen(resultSet, listener);
+      makeListen(getVectorsFromData(resultSet), listener);
     } catch (SQLException | IOException | ExecutionException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -560,7 +593,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
     try {
       final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
-      makeListen(catalogs, listener);
+      makeListen(getVectorsFromData(catalogs), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -607,10 +640,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
     try {
-      final Connection connection = getConnection(DATABASE_URI);
-      final ResultSet resultSet =
-          connection.getMetaData().getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
-      makeListen(rotate(resultSet, 23), listener);
+      final Connection connection = DriverManager.getConnection(DATABASE_URI);
+      final ResultSet resultSet = connection.getMetaData()
+          .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
+      makeListen(getTablesRoot(resultSet, command.getIncludeSchema()), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -637,7 +670,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
     try {
       final ResultSet tableTypes = dataSource.getConnection().getMetaData().getTableTypes();
-      makeListen(tableTypes, listener);
+      makeListen(getVectorsFromData(tableTypes), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
