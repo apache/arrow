@@ -342,16 +342,16 @@ def test_compression_roundtrip():
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=1)
-    writer = pa.ipc.RecordBatchFileWriter(sink, table.schema, options=options)
-    writer.write_table(table)
-    writer.close()
+    with pa.ipc.RecordBatchFileWriter(
+            sink, table.schema, options=options) as writer:
+        writer.write_table(table)
     len1 = len(sink.getvalue())
 
     sink2 = io.BytesIO()
     options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=5)
-    writer = pa.ipc.RecordBatchFileWriter(sink2, table.schema, options=options)
-    writer.write_table(table)
-    writer.close()
+    with pa.ipc.RecordBatchFileWriter(
+            sink2, table.schema, options=options) as writer:
+        writer.write_table(table)
     len2 = len(sink2.getvalue())
 
     # In theory len2 should be less than len1 but for this test we just want
