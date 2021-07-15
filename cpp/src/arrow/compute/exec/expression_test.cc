@@ -939,7 +939,6 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   ExpectReplacesTo(is_valid(field_ref("str")), i32_valid_str_null,
                    is_valid(null_literal(utf8())));
 
-  ASSERT_OK_AND_ASSIGN(auto expr, field_ref("dict_str").Bind(*kBoringSchema));
   Datum dict_i32{
       DictionaryScalar::Make(MakeScalar<int32_t>(0), ArrayFromJSON(int32(), R"([3])"))};
   // cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
