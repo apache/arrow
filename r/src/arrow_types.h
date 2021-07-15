@@ -47,6 +47,15 @@
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
+namespace arrow {
+namespace compute {
+
+class ExecPlan;
+class ExecNode;
+
+}  // namespace compute
+}  // namespace arrow
+
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
 #endif

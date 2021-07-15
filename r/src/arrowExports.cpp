@@ -1092,6 +1092,87 @@ extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP ra
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecPlan> ExecPlan_create();
+extern "C" SEXP _arrow_ExecPlan_create(){
+BEGIN_CPP11
+	return cpp11::as_sexp(ExecPlan_create());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_create(){
+	Rf_error("Cannot call ExecPlan_create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> ExecPlan_run(std::shared_ptr<compute::ExecPlan> plan, std::shared_ptr<compute::ExecNode> final_node);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::shared_ptr<compute::ExecPlan>>::type plan(plan_sexp);
+	arrow::r::Input<std::shared_ptr<compute::ExecNode>>::type final_node(final_node_sexp);
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp){
+	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_Scan(std::shared_ptr<compute::ExecPlan> plan, std::shared_ptr<arrow::dataset::Dataset> dataset, std::shared_ptr<compute::Expression> filter, std::vector<std::string> materialized_field_names);
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::shared_ptr<compute::ExecPlan>>::type plan(plan_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::dataset::Dataset>>::type dataset(dataset_sexp);
+	arrow::r::Input<std::shared_ptr<compute::Expression>>::type filter(filter_sexp);
+	arrow::r::Input<std::vector<std::string>>::type materialized_field_names(materialized_field_names_sexp);
+	return cpp11::as_sexp(ExecNode_Scan(plan, dataset, filter, materialized_field_names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
+	Rf_error("Cannot call ExecNode_Scan(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_Filter(std::shared_ptr<compute::ExecNode> input, std::shared_ptr<compute::Expression> filter);
+extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::shared_ptr<compute::ExecNode>>::type input(input_sexp);
+	arrow::r::Input<std::shared_ptr<compute::Expression>>::type filter(filter_sexp);
+	return cpp11::as_sexp(ExecNode_Filter(input, filter));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Filter(SEXP input_sexp, SEXP filter_sexp){
+	Rf_error("Cannot call ExecNode_Filter(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_Project(std::shared_ptr<compute::ExecNode> input, std::vector<std::shared_ptr<compute::Expression>> exprs, std::vector<std::string> names);
+extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::shared_ptr<compute::ExecNode>>::type input(input_sexp);
+	arrow::r::Input<std::vector<std::shared_ptr<compute::Expression>>>::type exprs(exprs_sexp);
+	arrow::r::Input<std::vector<std::string>>::type names(names_sexp);
+	return cpp11::as_sexp(ExecNode_Project(input, exprs, names));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP names_sexp){
+	Rf_error("Cannot call ExecNode_Project(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -7011,6 +7092,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
+		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 0}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 2}, 
+		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
+		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
+		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 

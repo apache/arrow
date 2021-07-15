@@ -19,7 +19,24 @@ ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
       # Handle arrow_dplyr_query
-      # TODO: why do I need to filter/project here?
+      if (inherits(dataset, "arrow_dplyr_query")) {
+        filter <- dataset$filtered_rows
+        if (isTRUE(filter)) {
+          filter <- Expression$scalar(TRUE)
+        }
+        # TODO: use FieldsInExpression to find all from dataset$selected_columns
+        colnames <- names(dataset$.data)
+        dataset <- dataset$.data
+      } else {
+        if (inherits(dataset, "ArrowTabular")) {
+          dataset <- InMemoryDataset$create(dataset)
+        }
+        assert_is(dataset, "Dataset")
+        # Set some defaults
+        filter <- Expression$scalar(TRUE)
+        colnames <- names(dataset)
+      }
+      # TODO: why do I _need_ to filter/project here?
       ExecNode_Scan(self, dataset, filter, colnames)
     },
     Run = function(node) {
@@ -45,7 +62,3 @@ ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
     }
   )
 )
-
-# plan <- ExecPlan$create()
-# final_node <- plan$Scan(dataset)$Filter(expr)$Project(exprs)$ScalarAggregate(something)
-# plan$Run(final_node)

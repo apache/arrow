@@ -26,6 +26,9 @@
 
 namespace compute = ::arrow::compute;
 
+std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
+                                                               cpp11::list options);
+
 // [[arrow::export]]
 std::shared_ptr<compute::ExecPlan> ExecPlan_create() {
   return ValueOrStop(compute::ExecPlan::Make(gc_context()));
@@ -104,7 +107,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Filter(
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
     std::shared_ptr<compute::ExecNode> input,
     std::vector<std::shared_ptr<compute::Expression>> exprs,
-    std::vector<std::string> names = {}) {
+    std::vector<std::string> names) {
   // We have shared_ptrs of expressions but need the Expressions
   std::vector<compute::Expression> expressions;
   for (auto expr : exprs) {
@@ -130,8 +133,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
     keep_alives.push_back(std::move(opts));
   }
 
-  auto scalar_agg = ValueOrStop(MakeScalarAggregateNode(
-      source, /*label=*/"scalar_agg", aggregates, targets, out_field_names));
+  auto scalar_agg = ValueOrStop(compute::MakeScalarAggregateNode(
+      input, /*label=*/"scalar_agg", aggregates, targets, out_field_names));
 
   return std::shared_ptr<compute::ExecNode>(scalar_agg, [keep_alives](...) {
     // empty destructor: ExecNode lifetime is managed by an ExecPlan
