@@ -878,8 +878,8 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
 
     // Insert the path, or increase the count of row groups. It will be assumed that the
     // RowGroup of a file are ordered exactly as in the metadata file.
-    auto inserted_index = paths_to_index.insert(
-        {std::move(path), static_cast<int>(paths_with_row_group_ids.size())});
+    auto inserted_index = paths_to_index.emplace(
+        std::move(path), static_cast<int>(paths_with_row_group_ids.size()));
     if (inserted_index.second) {
       paths_with_row_group_ids.push_back({inserted_index.first->first, {}});
     }
