@@ -778,15 +778,14 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // SXX
   static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
                      const Datum& right, Datum* out) {
-    auto byte_width =
-        std::static_pointer_cast<FixedSizeBinaryType>(left.type())->byte_width();
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type(), *right.type()));
     return RunIfElseScalar(
         cond, left, right, out,
         /*CopyArrayData*/
         [&](const ArrayData& valid_array, ArrayData* out_array) {
           std::memcpy(
               out_array->buffers[1]->mutable_data() + out_array->offset * byte_width,
-              valid_array.buffers[1]->mutable_data() + valid_array.offset * byte_width,
+              valid_array.buffers[1]->data() + valid_array.offset * byte_width,
               valid_array.length * byte_width);
         },
         /*BroadcastScalar*/
@@ -804,8 +803,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    auto byte_width =
-        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
 
     // copy right data to out_buff
@@ -826,8 +824,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    auto byte_width =
-        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
 
     // copy right data to out_buff
@@ -853,8 +850,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
-    auto byte_width =
-        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
 
     // copy left data to out_buff
@@ -879,8 +875,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    auto byte_width =
-        std::static_pointer_cast<FixedSizeBinaryType>(left.type)->byte_width();
+    ARROW_ASSIGN_OR_RAISE(auto byte_width, GetByteWidth(*left.type, *right.type));
     auto* out_values = out->buffers[1]->mutable_data() + out->offset * byte_width;
 
     // copy right data to out_buff
@@ -906,6 +901,16 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
     });
 
     return Status::OK();
+  }
+
+  static Result<int32_t> GetByteWidth(const DataType& left_type,
+                                      const DataType& right_type) {
+    int width = checked_cast<const FixedSizeBinaryType&>(left_type).byte_width();
+    if (width == checked_cast<const FixedSizeBinaryType&>(right_type).byte_width()) {
+      return width;
+    } else {
+      return Status::Invalid("FixedSizeBinaryType byte_widths should be equal");
+    }
   }
 };
 

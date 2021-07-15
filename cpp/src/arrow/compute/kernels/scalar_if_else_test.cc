@@ -453,6 +453,14 @@ TEST_F(TestIfElseKernel, IfElseFSBinary) {
                            ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
                            ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
                            ArrayFromJSON(type, R"([null, "abab", "abca", "llll"])"));
+
+  // should fails for non-equal byte_widths
+  auto type1 = std::make_shared<FixedSizeBinaryType>(5);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("FixedSizeBinaryType byte_widths should be equal"),
+      CallFunction("if_else", {ArrayFromJSON(boolean(), "[true]"),
+                               ArrayFromJSON(type, R"(["aaaa"])"),
+                               ArrayFromJSON(type1, R"(["aaaaa"])")}));
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinaryRand) {
