@@ -954,9 +954,8 @@ struct ResolveIfElseExec<NullType, AllocateMem> {
     if (batch[0].is_scalar() && batch[1].is_scalar() && batch[2].is_scalar()) {
       *out = MakeNullScalar(null());
     } else {
-      int64_t len =
-          std::max(batch[0].length(), std::max(batch[1].length(), batch[2].length()));
-      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayOfNull(null(), len, ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(*out,
+                            MakeArrayOfNull(null(), batch.length, ctx->memory_pool()));
     }
     return Status::OK();
   }
