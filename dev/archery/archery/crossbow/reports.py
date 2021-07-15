@@ -123,25 +123,6 @@ class ConsoleReport(Report):
 
 class JsonReport(Report):
 
-    HEADER = textwrap.dedent("""
-        Arrow Build Report for Job {job_name}
-
-        All tasks: {all_tasks_url}
-    """)
-
-    TASK = textwrap.dedent("""
-          - {name}:
-            URL: {url}
-    """).strip()
-
-    STATUS_HEADERS = {
-        # from CombinedStatus
-        'error': 'Errored Tasks:',
-        'failure': 'Failed Tasks:',
-        'pending': 'Pending Tasks:',
-        'success': 'Succeeded Tasks:',
-    }
-
     def __init__(self, job):
         super().__init__(job)
 
