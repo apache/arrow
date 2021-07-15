@@ -115,10 +115,10 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) {
+  public BigDecimal getBigDecimal(int scale) {
     final BigDecimal value = this.getBigDecimal();
 
-    return this.wasNull ? null : value.setScale(i, RoundingMode.UNNECESSARY);
+    return this.wasNull ? null : value.setScale(scale, RoundingMode.HALF_UP);
   }
 
   @Override
