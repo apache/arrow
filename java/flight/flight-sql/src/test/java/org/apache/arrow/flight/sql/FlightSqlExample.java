@@ -27,7 +27,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
-import static org.apache.arrow.util.Preconditions.checkArgument;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -85,6 +84,8 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -101,6 +102,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.apache.commons.dbcp2.ConnectionFactory;
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory;
 import org.apache.commons.dbcp2.PoolableConnection;
@@ -314,11 +316,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     });
   }
 
-  protected static Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
+  protected Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
                                                             boolean includeSchema)
       throws SQLException, IOException {
-    // TODO
-    checkArgument(!includeSchema, "includeSchema not supported yet.");
     return stream(getVectorsFromData(data).spliterator(), false)
         .map(root ->
             new VectorSchemaRoot(
@@ -333,6 +333,20 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                       return false;
                   }
                 }).collect(toList())))
+        .map(root -> {
+          final VarCharVector vector =
+              new VarCharVector("SCHEMA", new RootAllocator(Long.MAX_VALUE));
+          final int valueCount = root.getRowCount();
+          IntStream.range(0, valueCount)
+              .forEachOrdered(
+                  index ->
+                      vector.setSafe(index, new Text(getSchemaTables().getSchema().toJson())));
+          vector.setValueCount(valueCount);
+          List<FieldVector> vectors = root.getFieldVectors();
+          vectors.add(vector);
+          return vectors;
+        })
+        .map(VectorSchemaRoot::new)
         .collect(toList());
   }
 
