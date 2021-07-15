@@ -650,7 +650,6 @@ nse_funcs$log <- function(x, base = exp(1)) {
   stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
 }
 
-
 nse_funcs$logb <- nse_funcs$log
 
 nse_funcs$ifelse <- function(test, yes, no){
@@ -658,12 +657,15 @@ nse_funcs$ifelse <- function(test, yes, no){
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
-
-  assert_is(false, class(true))
-
   if (inherits(true, "character") || inherits(false, "character")) {
     stop("`true` and `false` character values not yet supported in Arrow")
   }
 
-  Expression$create("if_else", condition, true, false)
+  build_expr("if_else", condition, true, false)
+}
+
+# Although base R ifelse allows `yes` and `no` to be different classes
+#
+nse_funcs$ifelse <- function(test, yes, no){
+ nse_funcs$if_else(condition = test, true = yes, false = no)
 }

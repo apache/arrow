@@ -1055,13 +1055,21 @@ test_that("trig functions", {
 
 })
 
-test_that("if_else", {
+test_that("if_else and ifelse", {
   df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
 
   expect_dplyr_equal(
     input %>%
       mutate(
         y = if_else(x > 0, 1, 0)
+      ) %>% collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = ifelse(x > 0, 1, 0)
       ) %>% collect(),
     df
   )
