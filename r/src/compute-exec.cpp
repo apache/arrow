@@ -36,8 +36,8 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create() {
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run(
-    std::shared_ptr<compute::ExecPlan> plan,
-    std::shared_ptr<compute::ExecNode> final_node) {
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   auto sink_gen = compute::MakeSinkNode(final_node.get(), "sink");
@@ -65,9 +65,9 @@ std::shared_ptr<compute::ExecNode> ExecNodeOrStop(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
-    std::shared_ptr<compute::ExecPlan> plan,
-    std::shared_ptr<arrow::dataset::Dataset> dataset,
-    std::shared_ptr<compute::Expression> filter,
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<arrow::dataset::Dataset>& dataset,
+    const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
   // TODO: pass in ScanOptions by file type
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
@@ -97,16 +97,16 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
-    std::shared_ptr<compute::ExecNode> input,
-    std::shared_ptr<compute::Expression> filter) {
+    const std::shared_ptr<compute::ExecNode>& input,
+    const std::shared_ptr<compute::Expression>& filter) {
   return ExecNodeOrStop(
       compute::MakeFilterNode(input.get(), /*label=*/"filter", *filter));
 }
 
 // [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Project(
-    std::shared_ptr<compute::ExecNode> input,
-    std::vector<std::shared_ptr<compute::Expression>> exprs,
+    const std::shared_ptr<compute::ExecNode>& input,
+    const std::vector<std::shared_ptr<compute::Expression>>& exprs,
     std::vector<std::string> names) {
   // We have shared_ptrs of expressions but need the Expressions
   std::vector<compute::Expression> expressions;
@@ -118,7 +118,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
 }
 
 std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
-    std::shared_ptr<compute::ExecNode> input, cpp11::list options,
+    const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> targets, std::vector<std::string> out_field_names) {
   // PROBLEM: need to keep these alive as long as the plan somehow.
   std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
