@@ -147,7 +147,10 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
                    "image and its ancestors use --no-cache option.")
 @click.option('--resource-limit', default=None,
               help="A CPU/memory limit preset to mimic CI environments like "
-                   "GitHub Actions. Implies --using-docker-cli.")
+                   "GitHub Actions. Implies --using-docker-cli. Note that "
+                   "exporting ARCHERY_DOCKER_BIN=\"sudo docker\" is likely "
+                   "required, unless Docker is configured with cgroups v2 "
+                   "(else Docker will silently ignore the limits).")
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
