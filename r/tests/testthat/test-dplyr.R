@@ -1056,28 +1056,26 @@ test_that("trig functions", {
 })
 
 test_that("if_else and ifelse", {
-  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
-
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(x > 0, 1, 0)
+        y = if_else(int > 5, 1, 0)
       ) %>% collect(),
-    df
+    example_data
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(x > 0, x, 0)
+        y = if_else(int > 5, int, 0L)
       ) %>% collect(),
-    df
+    example_data
   )
 
   expect_error(
-    Table$create(df) %>%
+    Table$create(example_data) %>%
       mutate(
-        y = if_else(x > 0, 1, FALSE)
+        y = if_else(int > 5, 1, FALSE)
       ) %>% collect(),
     'NotImplemented: Function if_else has no kernel matching input types'
   )
@@ -1085,32 +1083,69 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(x > 0, 1, NA_real_)
+        y = if_else(int > 5, 1, NA_real_)
       ) %>% collect(),
-    df
+    example_data
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = ifelse(x > 0, 1, 0)
+        y = ifelse(int > 5, 1, 0)
       ) %>% collect(),
-    df
+    example_data
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = ifelse(x > 0, x, 0)
+        y = ifelse(dbl > 5, TRUE, FALSE)
       ) %>% collect(),
-    df
+    example_data
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = ifelse(chr %in% letters[1:3], 1L, 3L)
+      ) %>% collect(),
+    example_data
+  )
+
+  # TODO: this should not warn / pull into R, once ARROW-12955 merges
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, "one", "zero")
+      ) %>% collect(),
+    example_data,
+    warn = TRUE
+  )
+
+  # TODO: this should not warn / pull into R, once ARROW-12955 merges
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, chr, chr)
+      ) %>% collect(),
+    example_data,
+    warn = TRUE
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, fct, factor("a"))
+      ) %>% collect(),
+    example_data,
+    warn = TRUE
   )
 
   skip("TODO: could? should? we support the autocasting in ifelse")
   expect_dplyr_equal(
     input %>%
-      mutate(y = ifelse(x > 0, 1, FALSE)) %>%
+      mutate(y = ifelse(int > 5, 1, FALSE)) %>%
       collect(),
-    df
+    example_data
   )
 })
