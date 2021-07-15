@@ -119,7 +119,7 @@ def test_option_class_equality():
         pc.MatchSubstringOptions("pattern"),
         pc.PadOptions(5, " "),
         pc.PartitionNthOptions(1),
-        pc.MakeStructOptions([b"field", b"names"]),
+        pc.MakeStructOptions(["field", "names"]),
         pc.DayOfWeekOptions(False, 0),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
         pc.ReplaceSubstringOptions("a", "b"),
@@ -1645,3 +1645,29 @@ def test_min_max_element_wise():
     assert result == pa.array([2, 3, None])
     result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([1, 2, None])
+
+
+def test_make_struct():
+    assert pc.make_struct(1, 'a').as_py() == {'0': 1, '1': 'a'}
+
+    assert pc.make_struct(1, 'a', field_names=['i', 's']).as_py() == {
+        'i': 1, 's': 'a'}
+
+    assert pc.make_struct([1, 2, 3],
+                          "a b c".split()) == pa.StructArray.from_arrays([
+                              [1, 2, 3],
+                              "a b c".split()], names='0 1'.split())
+
+    with pytest.raises(ValueError, match="Array arguments must all "
+                                         "be the same length"):
+        pc.make_struct([1, 2, 3, 4], "a b c".split())
+
+    with pytest.raises(ValueError, match="0 arguments but 2 field names"):
+        pc.make_struct(field_names=['one', 'two'])
+
+
+def test_case_when():
+    assert pc.case_when(pc.make_struct([True, False, None],
+                                       [False, True, None]),
+                        [1, 2, 3],
+                        [11, 12, 13]) == pa.array([1, 12, None])

@@ -868,7 +868,7 @@ cdef class _MakeStructOptions(FunctionOptions):
             vector[c_string] c_field_names
         for n in field_names:
             c_field_names.push_back(tobytes(n))
-        self.wrapped.reset(new CMakeStructOptions(field_names))
+        self.wrapped.reset(new CMakeStructOptions(c_field_names))
 
 
 class MakeStructOptions(_MakeStructOptions):
