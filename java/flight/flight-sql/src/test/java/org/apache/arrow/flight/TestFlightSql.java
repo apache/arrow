@@ -119,30 +119,150 @@ public class TestFlightSql {
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
-          asList("" /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+          asList("" /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()),
+          asList("" /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE", new Schema(asList(
+              Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+              Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_name", MinorType.VARCHAR.getType()),
+              Field.nullable("table_type", MinorType.VARCHAR.getType()),
+              Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()));
       collector.checkThat(results, is(expectedResults));
     }
   }
@@ -157,6 +277,30 @@ public class TestFlightSql {
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
           asList("" /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+      collector.checkThat(results, is(expectedResults));
+    }
+  }
+
+  @Test
+  public void testGetTablesResultFilteredWithSchema() throws Exception {
+    try (final FlightStream stream =
+             sqlClient.getStream(
+                 sqlClient.getTables(null, null, null, singletonList("TABLE"), true)
+                     .getEndpoints().get(0).getTicket())) {
+      final List<List<String>> results = getResults(stream);
+      final List<List<String>> expectedResults = ImmutableList.of(
+          // catalog_name | schema_name | table_name | table_type | table_schema
+          asList(
+              "" /* TODO No catalog yet */,
+              "APP",
+              "INTTABLE",
+              "TABLE",
+              new Schema(asList(
+                  Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+                  Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+                  Field.nullable("table_name", MinorType.VARCHAR.getType()),
+                  Field.nullable("table_type", MinorType.VARCHAR.getType()),
+                  Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()));
       collector.checkThat(results, is(expectedResults));
     }
   }
