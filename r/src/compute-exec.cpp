@@ -21,17 +21,32 @@
 
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
+#include <arrow/compute/exec/expression.h>
 #include <arrow/table.h>
 #include <arrow/util/future.h>
+#include <arrow/util/thread_pool.h>
 
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
                                                                cpp11::list options);
 
+template <typename T>
+void AddKeepalive(compute::ExecPlan* plan, T keepalive) {
+  struct Callback {
+    void operator()(const arrow::Status&) && {}
+    T keepalive;
+  };
+  plan->finished().AddCallback(Callback{std::move(keepalive)});
+}
+
 // [[arrow::export]]
-std::shared_ptr<compute::ExecPlan> ExecPlan_create() {
-  return ValueOrStop(compute::ExecPlan::Make(gc_context()));
+std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
+  auto executor = use_threads ? arrow::internal::GetCpuThreadPool() : nullptr;
+  auto context = std::make_shared<compute::ExecContext>(gc_memory_pool(), executor);
+  auto plan = ValueOrStop(compute::ExecPlan::Make(context.get()));
+  AddKeepalive(plan.get(), std::move(context));
+  return plan;
 }
 
 // [[arrow::export]]
@@ -69,7 +84,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<arrow::dataset::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
-  // TODO: pass in ScanOptions by file type
+  // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 
   options->use_async = true;
@@ -119,9 +134,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
 
 std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
-    std::vector<std::string> targets, std::vector<std::string> out_field_names) {
-  // PROBLEM: need to keep these alive as long as the plan somehow.
-  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
+    std::vector<std::string> target_names, std::vector<std::string> out_field_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
 
   for (cpp11::list name_opts : options) {
@@ -130,16 +143,17 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
 
     aggregates.push_back(
         arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-    keep_alives.push_back(std::move(opts));
+
+    AddKeepalive(input->plan(), std::move(opts));
   }
 
-  auto scalar_agg = ValueOrStop(compute::MakeScalarAggregateNode(
-      input, /*label=*/"scalar_agg", aggregates, targets, out_field_names));
-
-  return std::shared_ptr<compute::ExecNode>(scalar_agg, [keep_alives](...) {
-    // empty destructor: ExecNode lifetime is managed by an ExecPlan
-    // also carries the function options
-  });
+  std::vector<arrow::FieldRef> targets;
+  for (auto&& name : target_names) {
+    targets.emplace_back(std::move(name));
+  }
+  return ExecNodeOrStop(compute::MakeScalarAggregateNode(
+      input.get(), /*label=*/"scalar_agg", std::move(aggregates), std::move(targets),
+      std::move(out_field_names)));
 }
 
 #endif

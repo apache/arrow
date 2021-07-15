@@ -109,6 +109,7 @@ Collate:
     'metadata.R'
     'parquet.R'
     'python.R'
+    'query-engine.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'

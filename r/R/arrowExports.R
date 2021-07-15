@@ -280,8 +280,8 @@ io___CompressedInputStream__Make <- function(codec, raw){
     .Call(`_arrow_io___CompressedInputStream__Make`, codec, raw)
 }
 
-ExecPlan_create <- function(){
-    .Call(`_arrow_ExecPlan_create`)
+ExecPlan_create <- function(use_threads){
+    .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
 ExecPlan_run <- function(plan, final_node){

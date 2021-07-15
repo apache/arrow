@@ -531,9 +531,11 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
                        MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  ASSERT_OK_AND_ASSIGN(auto scalar_agg,
-                       MakeScalarAggregateNode(source, "scalar_agg",
-                                               {{"sum", nullptr}, {"any", nullptr}}));
+  ASSERT_OK_AND_ASSIGN(
+      auto scalar_agg,
+      MakeScalarAggregateNode(source, "scalar_agg", {{"sum", nullptr}, {"any", nullptr}},
+                              /*targets=*/{"i32", "bool"},
+                              /*out_field_names=*/{"sum(i32)", "any(bool)"}));
 
   auto sink_gen = MakeSinkNode(scalar_agg, "sink");
 

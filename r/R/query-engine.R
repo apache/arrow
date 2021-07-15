@@ -36,7 +36,8 @@ ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
         filter <- Expression$scalar(TRUE)
         colnames <- names(dataset)
       }
-      # TODO: why do I _need_ to filter/project here?
+      # ScanNode needs the filter to do predicate pushdown and skip partitions,
+      # and it needs to know which fields to materialize (and which are unnecessary)
       ExecNode_Scan(self, dataset, filter, colnames)
     },
     Run = function(node) {
@@ -45,7 +46,9 @@ ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
     }
   )
 )
-ExecPlan$create <- ExecPlan_create
+ExecPlan$create <- function(use_threads = option_use_threads()) {
+  ExecPlan_create(use_threads)
+}
 
 ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
   public = list(

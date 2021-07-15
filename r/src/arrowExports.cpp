@@ -1094,14 +1094,15 @@ extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP ra
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::ExecPlan> ExecPlan_create();
-extern "C" SEXP _arrow_ExecPlan_create(){
+std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads);
+extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 BEGIN_CPP11
-	return cpp11::as_sexp(ExecPlan_create());
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(ExecPlan_create(use_threads));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_create(){
+extern "C" SEXP _arrow_ExecPlan_create(SEXP use_threads_sexp){
 	Rf_error("Cannot call ExecPlan_create(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -7092,7 +7093,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
-		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 0}, 
+		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 2}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 

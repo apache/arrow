@@ -285,7 +285,9 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
 
 ARROW_EXPORT
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
-                                          std::vector<internal::Aggregate> aggregates);
+                                          std::vector<internal::Aggregate> aggregates,
+                                          std::vector<FieldRef> arguments,
+                                          std::vector<std::string> out_field_names);
 
 /// \brief Make a node which groups input rows based on key fields and computes
 /// aggregates for each group
