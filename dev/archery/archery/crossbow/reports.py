@@ -121,7 +121,7 @@ class ConsoleReport(Report):
                                    asset))
 
 
-class JsonReport(Report):
+class json_report(report):
 
     def __init__(self, job):
         super().__init__(job)
@@ -130,27 +130,27 @@ class JsonReport(Report):
         repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
 
-    def todayStr(self):
+    def today_str(self):
         date = datetime.utcnow()
         return "{}-{}-{}".format(date.year, date.month, date.day)
 
-    def tasksToDict(self, date, tasks):
-        jsonTasks = []
+    def tasks_to_dict(self, date, tasks):
+        json_tasks = []
         for task_name, task in tasks.items():
-            jsonTasks.append({
+            json_tasks.append({
                 "build" : task_name,
                 "link" : self.url(task.branch),
                 "status" : task.status().combined_state.upper(),
                 "timestamp" : date})
 
-        return jsonTasks
+        return json_tasks
 
-    def getJsonTasks(self):
-        tasks = self.tasksToDict(self.todayStr(), self.job.tasks.items())
-        jsonStr = json.dump(tasks)
+    def get_json_tasks(self):
+        tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
+        json_str = json.dump(tasks)
         #TODO remove the print
-        print(jsonStr)
-        return jsonStr
+        print(json_str)
+        return json_str
      
 
 class EmailReport(Report):
