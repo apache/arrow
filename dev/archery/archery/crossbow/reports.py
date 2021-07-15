@@ -148,8 +148,6 @@ class json_report(report):
     def get_json_tasks(self):
         tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
         json_str = json.dump(tasks)
-        #TODO remove the print
-        print(json_str)
         return json_str
      
 
