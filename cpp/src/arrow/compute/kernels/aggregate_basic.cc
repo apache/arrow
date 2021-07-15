@@ -66,8 +66,8 @@ struct CountImpl : public ScalarAggregator {
       this->non_nulls += input.length - nulls;
     } else {
       const Scalar& input = *batch[0].scalar();
-      this->nulls += !input.is_valid;
-      this->non_nulls += input.is_valid;
+      this->nulls += !input.is_valid * batch.length;
+      this->non_nulls += input.is_valid * batch.length;
     }
     return Status::OK();
   }
