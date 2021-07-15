@@ -21,40 +21,37 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorWrapper;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /**
  * Accessor for the Arrow type {@link UnionVector}.
  */
-public class ArrowFlightJdbcUnionVectorAccessor extends AbstractArrowFlightJdbcUnionVectorAccessor {
+public class ArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessorWrapper {
 
   private final UnionVector vector;
+  private final ArrowFlightJdbcAccessor[] accessors;
 
-  /**
-   * Instantiate an accessor for a {@link UnionVector}.
-   *
-   * @param vector             an instance of a UnionVector.
-   * @param currentRowSupplier the supplier to track the rows.
-   */
   public ArrowFlightJdbcUnionVectorAccessor(UnionVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
     this.vector = vector;
+    this.accessors = new ArrowFlightJdbcAccessor[128];
   }
 
-  @Override
-  protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
+  private ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
     return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow);
   }
 
-  @Override
-  protected byte getCurrentTypeId() {
+  protected ArrowFlightJdbcAccessor getAccessor() {
     int index = getCurrentRow();
-    return (byte) this.vector.getTypeValue(index);
-  }
+    int typeId = this.vector.getTypeValue(index);
+    ValueVector vector = this.vector.getVectorByType(typeId);
 
-  @Override
-  protected ValueVector getVectorByTypeId(byte typeId) {
-    return this.vector.getVectorByType(typeId);
+    if (this.accessors[typeId] == null) {
+      this.accessors[typeId] = this.createAccessorForVector(vector);
+    }
+
+    return this.accessors[typeId];
   }
 }
