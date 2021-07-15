@@ -877,7 +877,7 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
                            "How to handle filtered values",
                            GARROW_TYPE_FILTER_NULL_SELECTION_BEHAVIOR,
                            static_cast<GArrowFilterNullSelectionBehavior>(
-                             default_options.null_selection_behavior),
+                             *default_options.null_selection_behavior),
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_NULL_SELECTION_BEHAVIOR, spec);
 }
@@ -1389,7 +1389,7 @@ garrow_sort_options_get_sort_keys(GArrowSortOptions *options)
   for (const auto &arrow_sort_key : arrow_options->sort_keys) {
     auto sort_key =
       garrow_sort_key_new(arrow_sort_key.name.c_str(),
-                          static_cast<GArrowSortOrder>(arrow_sort_key.order));
+                          static_cast<GArrowSortOrder>(*arrow_sort_key.order));
     sort_keys = g_list_prepend(sort_keys, sort_key);
   }
   return g_list_reverse(sort_keys);
