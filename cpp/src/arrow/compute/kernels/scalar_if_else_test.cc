@@ -417,7 +417,7 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
           {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
            Datum(scalar1)}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("cond struct must not have nulls"),
+      Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
       CallFunction(
           "case_when",
           {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)), Datum(values1)}));
