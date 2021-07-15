@@ -873,7 +873,9 @@ TEST(TestTime, TestFromUnixtimeWithoutPattern) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 out_len;
-  gdv_timestamp ts = StringToTimestamp("2010-06-01 06:58:22");
+  // StringToTimestamp generate milliseconds, from_unitxime only works with seconds from
+  // epoch.
+  gdv_timestamp ts = StringToTimestamp("2010-06-01 06:58:22") / 1000;
   const char* out = from_unixtime_int64(context_ptr, ts, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58:22");
 
@@ -888,39 +890,56 @@ TEST(TestTime, TestFromUnixtimeWithPattern) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 out_len = 0;
-
-  gdv_timestamp ts_from_string = StringToTimestamp("2010-06-01 06:58:22");
-  const char* pattern1 = "yyyy-MM-dd hh:mm:ss.sss";
+  // StringToTimestamp generate milliseconds, from_unitxime only works with seconds from
+  // epoch.
+  gdv_timestamp ts_from_string = StringToTimestamp("2010-06-01 06:58:22") / 1000;
+  const char* pattern1 = "yyyy-MM-dd hh:mm:ss";
   int32_t pattern1_len = strlen(pattern1);
   const char* out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern1,
                                              pattern1_len, &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58:22.000");
+  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58:22");
 
-  const char* pattern2 = "yyyy-MM-dd hh:mm:ss";
+  const char* pattern2 = "yyyy-MM-dd hh:mm";
   int32_t pattern2_len = strlen(pattern2);
   out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern2, pattern2_len,
                                  &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58:22");
+  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58");
 
-  const char* pattern3 = "yyyy-MM-dd hh:mm";
+  const char* pattern3 = "yyyy-MM-dd hh";
   int32_t pattern3_len = strlen(pattern3);
   out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern3, pattern3_len,
                                  &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58");
+  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06");
 
-  const char* pattern4 = "yyyy-MM-dd hh";
+  const char* pattern4 = "YYYY-MM-dd";
   int32_t pattern4_len = strlen(pattern4);
   out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern4, pattern4_len,
                                  &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2010-06-01 06");
+  EXPECT_EQ(std::string(out, out_len), "2010-06-01");
 
-  const char* pattern5 = "yyyy-MM-dd";
+  const char* pattern5 = "YYYY-dd-MM";
   int32_t pattern5_len = strlen(pattern5);
   out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern5, pattern5_len,
                                  &out_len);
-  EXPECT_EQ(std::string(out, out_len), "2010-06-01");
+  EXPECT_EQ(std::string(out, out_len), "2010-01-06");
 
-  context.Reset();
+  const char* pattern6 = "dd-M-yy hh:mm";
+  int32_t pattern6_len = strlen(pattern6);
+  out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern6, pattern6_len,
+                                 &out_len);
+  EXPECT_EQ(std::string(out, out_len), "01-Jun-10 06:58");
+
+  const char* pattern7 = "Mm-dd-YY hh:mm:ss";
+  int32_t pattern7_len = strlen(pattern7);
+  out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern7, pattern7_len,
+                                 &out_len);
+  EXPECT_EQ(std::string(out, out_len), "June-01-10 06:58:22");
+
+  const char* pattern8 = "hh:mm:ss dd-M-yyyy";
+  int32_t pattern8_len = strlen(pattern8);
+  out = from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern8, pattern8_len,
+                                 &out_len);
+  EXPECT_EQ(std::string(out, out_len), "06:58:22 01-Jun-2010");
 
   const char* invalid_pattern1 = "yyyy-MM-dd hh:mm:ss.ss";
   int32_t invalid_pattern1_len = strlen(invalid_pattern1);
@@ -928,18 +947,7 @@ TEST(TestTime, TestFromUnixtimeWithPattern) {
                                  invalid_pattern1_len, &out_len);
   std::string out_str = std::string(out, out_len);
   EXPECT_EQ(out_str, "");
-  EXPECT_EQ(context.get_error(), "Unsupported format length");
-
-  context.Reset();
-
-  const char* invalid_pattern2 = "mm";
-  int32_t invalid_pattern2_len = strlen(invalid_pattern2);
-  out = from_unixtime_int64_utf8(context_ptr, ts_from_string, invalid_pattern2,
-                                 invalid_pattern2_len, &out_len);
-  out_str = std::string(out, out_len);
-  EXPECT_EQ(out_str, "");
-  EXPECT_EQ(context.get_error(), "Invalid allowed pattern");
-
+  EXPECT_EQ(context.get_error(), "Pattern has invalid delimiter '.'");
   context.Reset();
 
   const char* invalid_pattern3 = "";
@@ -948,7 +956,8 @@ TEST(TestTime, TestFromUnixtimeWithPattern) {
                                  invalid_pattern3_len, &out_len);
   out_str = std::string(out, out_len);
   EXPECT_EQ(out_str, "");
-  EXPECT_EQ(context.get_error(), "Invalid allowed pattern size");
+  EXPECT_EQ(context.get_error(), "Invalid pattern, it must have at least 1 char");
+  context.Reset();
 }
 
 }  // namespace gandiva

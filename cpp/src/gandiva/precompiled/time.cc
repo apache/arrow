@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iomanip>
+#include <iostream>
 #include <regex>
 
 #include "./epoch_time_point.h"
+#include "./string_util.h"
 
 extern "C" {
 
@@ -845,46 +848,10 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 
 FORCE_INLINE
 const char* from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len) {
-  gdv_int64 year = extractYear_timestamp(in);
-  gdv_int64 month = extractMonth_timestamp(in);
-  gdv_int64 day = extractDay_timestamp(in);
-  gdv_int64 hour = extractHour_timestamp(in);
-  gdv_int64 minute = extractMinute_timestamp(in);
-  gdv_int64 second = extractSecond_timestamp(in);
+  const char* pattern = "yyyy-MM-dd hh:mm:ss";
+  const int length = strlen(pattern);
+  const char* ret = from_unixtime_int64_utf8(context, in, pattern, length, out_len);
 
-  static const int kTimeStampStringLen = 19;
-  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
-  char char_buffer[char_buffer_length];
-
-  // yyyy-MM-dd hh:mm:ss
-  int res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
-                     ":%02" PRId64,
-                     year, month, day, hour, minute, second);
-  if (res < 0) {
-    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
-    *out_len = 0;
-    return "";
-  }
-
-  *out_len = kTimeStampStringLen;
-
-  if (*out_len <= 0) {
-    if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
-    }
-    *out_len = 0;
-    return "";
-  }
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  memcpy(ret, char_buffer, *out_len);
   return ret;
 }
 
@@ -892,109 +859,95 @@ FORCE_INLINE
 const char* from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
                                      const char* pattern, gdv_int32 pattern_len,
                                      gdv_int32* out_len) {
-  gdv_int64 year = extractYear_timestamp(in);
-  gdv_int64 month = extractMonth_timestamp(in);
-  gdv_int64 day = extractDay_timestamp(in);
-  gdv_int64 hour = extractHour_timestamp(in);
-  gdv_int64 minute = extractMinute_timestamp(in);
-  gdv_int64 second = extractSecond_timestamp(in);
-  gdv_int64 millis = in % MILLIS_IN_SEC;
+  // Patter dictionary to translate a given pattern like yyyy-MM-dd to
+  // a pattern like %Y-%m-%d that the std::strftime can translate.
+  std::map<std::string, std::string> pattern_dict{
+      {"YYYY", "%Y"},  // converts 'YYYY' to full year, eg. 1970
+      {"YY", "%y"},    // converts 'YY' to final two-digits year, eg. 70
+      {"yyyy", "%Y"},  // converts 'YYYY' to full year, eg. 1970
+      {"yy", "%y"},    // converts 'YY' to final two-digits year, eg. 70
+      {"MM", "%m"},    // converts 'MM' to month digits, eg. 10
+      {"M", "%b"},     // converts 'M' to month abbreviation, eg. Oct
+      {"Mm", "%B"},    // converts 'Mm' to month abbreviation, eg. October
+      {"d", "%e"},  // converts 'd' to day of the month as a decimal number (range [1,31])
+      {"dd",
+       "%d"},  // converts 'dd' to day of the month as a decimal number (range [01,31])
+      {"h",
+       "%I"},  // converts 'h' hour as a decimal number, 12 hour clock (range [01-12])
+      {"hh",
+       "%H"},  // converts 'hh' to hour as a decimal number, 24 hour clock (range [00-23])
+      {"m", "%M"},   // converts 'm' to minute as a decimal number (range [00,59])
+      {"mm", "%M"},  // converts 'mm' minute as a decimal number (range [00,59])
+      {"s", "%S"},   // converts 's' to second as a decimal number (range [00,60])
+      {"ss", "%S"},  // converts 'ss' to second as a decimal number (range [00,60])
+  };
 
   if (pattern_len <= 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid allowed pattern size");
+    gdv_fn_context_set_error_msg(context,
+                                 "Invalid pattern, it must have at least 1 char");
     *out_len = 0;
     return "";
   }
 
-  static const int kTimeStampStringLen = pattern_len;
-  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
-  char char_buffer[char_buffer_length];
+  std::string pattern_str(pattern, pattern_len);
 
-  const char* regex_format =
-      "y{4}(-[M]{2})?+.*?(-[d]{2})?+.*?( [h]{2})?+.*?"
-      "(:[mm]{2})?+.*?(:[s]{2})?+.*?(.[s]{3})?+.*?";
-  bool match = std::regex_match(pattern, std::regex(regex_format));
-
-  if (!match) {
-    gdv_fn_context_set_error_msg(context, "Invalid allowed pattern");
+  if (pattern_str.find(".") != std::string::npos) {
+    gdv_fn_context_set_error_msg(context, "Pattern has invalid delimiter '.'");
     *out_len = 0;
     return "";
   }
 
-  // length from pattern
-  int res = 0;
+  std::string translated_pattern("");
 
-  switch (pattern_len) {
-    // yyyy
-    case 4:
-      res = snprintf(char_buffer, char_buffer_length, "%04" PRId64, year);
-      break;
-    // yyyy-MM
-    case 7:
-      res = snprintf(char_buffer, char_buffer_length, "%04" PRId64 "-%02" PRId64, year,
-                     month);
-      break;
-    // yyyy-MM-dd
-    case 10:
-      res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
-      break;
-    // yyyy-MM-dd hh
-    case 13:
-      res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64, year, month,
-                     day, hour);
-      break;
-    // yyyy-MM-dd hh:mm
-    case 16:
-      res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64,
-                     year, month, day, hour, minute);
-      break;
-    // yyyy-MM-dd hh:mm:ss
-    case 19:
-      res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
-                     ":%02" PRId64,
-                     year, month, day, hour, minute, second);
-      break;
-    // yyyy-MM-dd hh:mm:ss.sss
-    case 23:
-      res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
-                     ":%02" PRId64 ".%03" PRId64,
-                     year, month, day, hour, minute, second, millis);
-      break;
-    default:
-      gdv_fn_context_set_error_msg(context, "Unsupported format length");
-      *out_len = 0;
-      return "";
+  std::vector<std::string> date_time_vec = gandiva::StringUtil::explode(pattern_str, " ");
+
+  const char* delimiter1 = "-";
+  const char* delimiter2 = ":";
+
+  if (date_time_vec[0].find("-") == std::string::npos) {
+    delimiter1 = ":";
+    delimiter2 = "-";
   }
 
-  if (res < 0) {
-    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
-    *out_len = 0;
-    return "";
+  for (auto& item : gandiva::StringUtil::explode(date_time_vec[0], delimiter1)) {
+    auto map_element = pattern_dict.find(item);
+    translated_pattern += map_element->second + delimiter1;
   }
 
-  *out_len = res;
+  // remove the extra delimiter1
+  translated_pattern.pop_back();
 
-  if (*out_len <= 0) {
-    if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+  // check if it has the second part on the pattern
+  if (date_time_vec.size() > 1) {
+    translated_pattern += " ";
+    for (auto& item : gandiva::StringUtil::explode(date_time_vec[1], delimiter2)) {
+      auto map_element = pattern_dict.find(item);
+      translated_pattern += map_element->second + delimiter2;
     }
-    *out_len = 0;
-    return "";
+    // remove the extra delimiter2
+    translated_pattern.pop_back();
   }
+
+  time_t rawtime = in;
+
+  struct tm* ptm;
+  ptm = gmtime(&rawtime);
+
+  std::stringstream iss;
+  iss << std::put_time(ptm, translated_pattern.c_str());
+  std::string ret_str = iss.str();
+  size_t length = strlen(ret_str.c_str());
+  *out_len = length;
 
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
 
-  memcpy(ret, char_buffer, *out_len);
+  memcpy(ret, ret_str.c_str(), *out_len);
   return ret;
 }
 
