@@ -19,14 +19,10 @@ package org.apache.arrow.flight;
 
 import static java.nio.ByteBuffer.wrap;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.util.AutoCloseables.close;
-import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.CoreMatchers.notNullValue;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
