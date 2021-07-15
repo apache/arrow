@@ -959,6 +959,33 @@ test_that("log functions", {
   
   expect_dplyr_equal(
     input %>%
+      mutate(y = log(x, base = exp(1))) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = 2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = 10)) %>%
+      collect(),
+    df
+  )
+  
+  expect_error(
+    nse_funcs$log(Expression$scalar(x), base = 5),
+    "`base` values other than exp(1), 2 and 10 not supported in Arrow",
+    fixed = TRUE
+  )
+  
+  expect_dplyr_equal(
+    input %>%
       mutate(y = logb(x)) %>%
       collect(),
     df

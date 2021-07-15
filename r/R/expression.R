@@ -44,8 +44,6 @@
   "hour" = "hour",
   # second is defined in dplyr-functions.R
   "minute" = "minute",
-  "log" = "ln_checked",
-  "logb" = "ln_checked",
   "log10" = "log10_checked",
   "log2" = "log2_checked",
   "log1p" = "log1p_checked",

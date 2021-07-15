@@ -559,3 +559,23 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
   Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
 
 }
+
+nse_funcs$log <- function(x, base = exp(1)){
+  
+  if (base == exp(1)) {
+    return(Expression$create("ln_checked", x))
+  }
+  
+  if (base == 2) {
+    return(Expression$create("log2_checked", x))
+  }
+  
+  if (base == 10) {
+    return(Expression$create("log10_checked", x))
+  } 
+  
+  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow")
+  
+}
+
+nse_funcs$logb <- nse_funcs$log
