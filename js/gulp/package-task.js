@@ -47,9 +47,12 @@ const createMainPackageJson = (target, format) => (orig) => ({
     bin: orig.bin,
     name: npmPkgName,
     type: 'commonjs',
-    main: `${mainExport}.node`,
-    module: `${mainExport}.dom`,
-    browser: `${mainExport}.dom`,
+    main: `${mainExport}.node.js`,
+    module: `${mainExport}.node.mjs`,
+    browser: {
+        [`${mainExport}.node.js`]: `${mainExport}.dom.js`,
+        [`${mainExport}.node.mjs`]: `${mainExport}.dom.mjs`
+    },
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
@@ -87,9 +90,9 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             unpkg:    format === 'umd' ? `${mainExport}.js` : undefined,
             jsdelivr: format === 'umd' ? `${mainExport}.js` : undefined,
             // set "browser" if building scoped UMD target, otherwise "Arrow.dom"
-            browser:  format === 'umd' ? `${mainExport}.js` : `${mainExport}.dom`,
+            browser:  format === 'umd' ? `${mainExport}.js` : `${mainExport}.dom.js`,
             // set "main" to "Arrow" if building scoped UMD target, otherwise "Arrow.node"
-            main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node`,
+            main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node.js`,
             // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
             type:     format === 'esm' ? `module` : `commonjs`,
             // set "module" if building scoped ESM target
