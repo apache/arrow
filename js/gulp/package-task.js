@@ -53,15 +53,15 @@ const createMainPackageJson = (target, format) => (orig) => ({
         [`${mainExport}.node.js`]: `${mainExport}.dom.js`,
         [`${mainExport}.node.mjs`]: `${mainExport}.dom.mjs`
     },
+    exports: {
+        import: `./${mainExport}.node.mjs`,
+        require: `./${mainExport}.node.js`,
+    },
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
-    esm: { mode: `all`, sourceMap: true },
-    exports: {
-        import: `./${mainExport}.node.mjs`,
-        require: `./${mainExport}.node.js`,
-    }
+    esm: { mode: `all`, sourceMap: true }
 });
 
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
