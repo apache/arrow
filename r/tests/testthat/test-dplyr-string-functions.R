@@ -798,7 +798,6 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
-
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   # TODO: After new version of stringr with str_like has been released, update all
@@ -963,6 +962,16 @@ test_that("substr", {
       collect(),
     df
   )
+
+  expect_error(
+    nse_funcs$substr("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  expect_error(
+    nse_funcs$substr("Apache Arrow", 1, c(2, 3)),
+    "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
 })
 
 test_that("substring", {
@@ -974,7 +983,6 @@ test_that("substring", {
       collect(),
     df
   )
-
 })
 
 test_that("str_sub", {
@@ -1014,7 +1022,7 @@ test_that("str_sub", {
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = str_sub(x, -1, 3)) %>%
@@ -1050,4 +1058,13 @@ test_that("str_sub", {
     df
   )
 
+  expect_error(
+    nse_funcs$str_sub("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  expect_error(
+    nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
+    "`end` must be length 1 - other lengths are not supported in Arrow"
+  )
 })
