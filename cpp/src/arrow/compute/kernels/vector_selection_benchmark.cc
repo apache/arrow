@@ -214,8 +214,8 @@ struct FilterBenchmark {
     auto filter =
         rand.Boolean(num_rows, args.selected_proportion, args.filter_null_proportion);
 
-    int64_t output_length =
-        internal::GetFilterOutputSize(*filter->data(), FilterOptions::DROP);
+    int64_t output_length = internal::GetFilterOutputSize(
+        *filter->data(), FilterOptions::NullSelectionBehavior("drop"));
 
     // HACK: set FilterArgs.size to the number of selected data cells *
     // sizeof(double) for accurate memory processing performance
