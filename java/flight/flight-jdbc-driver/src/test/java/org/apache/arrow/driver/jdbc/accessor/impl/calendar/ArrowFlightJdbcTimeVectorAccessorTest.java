@@ -32,6 +32,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -39,6 +40,8 @@ import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.util.Text;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
@@ -102,7 +105,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampWithoutCalendar() throws Exception {
+  public void testShouldGetTimestampReturnValidTimestampWithoutCalendar() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Timestamp expectedTimestamp = getTimestampForVector(currentRow);
@@ -114,7 +117,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampWithCalendar() throws Exception {
+  public void testShouldGetTimestampReturnValidTimestampWithCalendar() throws Exception {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
@@ -131,7 +134,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampForNull() {
+  public void testShouldGetTimestampReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcTimeVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getTimestamp(null), CoreMatchers.equalTo(null));
@@ -139,7 +142,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimeWithoutCalendar() throws Exception {
+  public void testShouldGetTimeReturnValidTimeWithoutCalendar() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Timestamp expectedTimestamp = getTimestampForVector(currentRow);
@@ -151,7 +154,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimeWithCalendar() throws Exception {
+  public void testShouldGetTimeReturnValidTimeWithCalendar() throws Exception {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
@@ -168,7 +171,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void getTimeForNull() throws Exception {
+  public void testShouldGetTimeReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcTimeVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getTime(null), CoreMatchers.equalTo(null));
@@ -194,8 +197,29 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   public void testShouldGetObjectClass() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
-
           collector.checkThat(accessor.getObjectClass(), equalTo(Time.class));
         });
+  }
+
+  @Test
+  public void testShouldGetStringBeConsistentWithVarCharAccessor() throws Exception {
+    try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+      varCharVector.allocateNew(1);
+      ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
+
+      iterateOnAccessor(vector, accessorSupplier,
+          (accessor, currentRow) -> {
+            final String string = accessor.getString();
+            varCharVector.set(0, new Text(string));
+            varCharVector.setValueCount(1);
+
+            Time timeFromVarChar = varCharVectorAccessor.getTime(null);
+            Time time = accessor.getTime(null);
+
+            collector.checkThat(time, is(timeFromVarChar));
+            collector.checkThat(accessor.wasNull(), is(false));
+          });
+    }
   }
 }

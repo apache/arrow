@@ -34,9 +34,12 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.util.Text;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
@@ -138,7 +141,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampWithoutCalendar() throws Exception {
+  public void testShouldGetTimestampReturnValidTimestampWithoutCalendar() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Timestamp expectedTimestamp = getTimestampForVector(currentRow);
@@ -150,7 +153,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampWithCalendar() throws Exception {
+  public void testShouldGetTimestampReturnValidTimestampWithCalendar() throws Exception {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
@@ -170,7 +173,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimestampForNull() throws Exception {
+  public void testShouldGetTimestampReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcTimeStampVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getTimestamp(null), CoreMatchers.equalTo(null));
@@ -178,7 +181,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getDateWithoutCalendar() throws Exception {
+  public void testShouldGetDateReturnValidDateWithoutCalendar() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Timestamp expectedTimestamp = getTimestampForVector(currentRow);
@@ -190,7 +193,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getDateWithCalendar() throws Exception {
+  public void testShouldGetDateReturnValidDateWithCalendar() throws Exception {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
@@ -210,7 +213,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getDateForNull() throws Exception {
+  public void testShouldGetDateReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcTimeStampVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getDate(null), CoreMatchers.equalTo(null));
@@ -218,7 +221,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimeWithoutCalendar() throws Exception {
+  public void testShouldGetTimeReturnValidTimeWithoutCalendar() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Timestamp expectedTimestamp = getTimestampForVector(currentRow);
@@ -230,7 +233,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimeWithCalendar() throws Exception {
+  public void testShouldGetTimeReturnValidTimeWithCalendar() throws Exception {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
@@ -250,7 +253,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void getTimeForNull() throws Exception {
+  public void testShouldGetTimeReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcTimeStampVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
     collector.checkThat(accessor.getTime(null), CoreMatchers.equalTo(null));
@@ -279,5 +282,27 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
 
           collector.checkThat(accessor.getObjectClass(), equalTo(Timestamp.class));
         });
+  }
+
+  @Test
+  public void testShouldGetStringBeConsistentWithVarCharAccessor() throws Exception {
+    try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+      varCharVector.allocateNew(1);
+      ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
+
+      iterateOnAccessor(vector, accessorSupplier,
+          (accessor, currentRow) -> {
+            final String string = accessor.getString();
+            varCharVector.set(0, new Text(string));
+            varCharVector.setValueCount(1);
+
+            Timestamp timestampFromVarChar = varCharVectorAccessor.getTimestamp(null);
+            Timestamp timestamp = accessor.getTimestamp(null);
+
+            collector.checkThat(timestamp, is(timestampFromVarChar));
+            collector.checkThat(accessor.wasNull(), is(false));
+          });
+    }
   }
 }
