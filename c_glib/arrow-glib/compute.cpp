@@ -820,7 +820,7 @@ garrow_filter_options_set_property(GObject *object,
   switch (prop_id) {
   case PROP_NULL_SELECTION_BEHAVIOR:
     priv->options.null_selection_behavior =
-      static_cast<arrow::compute::FilterOptions::NullSelectionBehavior>(g_value_get_enum(value));
+      arrow::compute::FilterOptions::NullSelectionBehavior(g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -838,7 +838,7 @@ garrow_filter_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_NULL_SELECTION_BEHAVIOR:
-    g_value_set_enum(value, priv->options.null_selection_behavior);
+    g_value_set_enum(value, *priv->options.null_selection_behavior);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -964,7 +964,6 @@ garrow_take_options_new(void)
   return GARROW_TAKE_OPTIONS(take_options);
 }
 
-
 typedef struct GArrowArraySortOptionsPrivate_ {
   arrow::compute::ArraySortOptions options;
 } GArrowArraySortOptionsPrivate;
@@ -1017,8 +1016,7 @@ garrow_array_sort_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_ARRAY_SORT_OPTIONS_ORDER:
-    priv->options.order =
-      static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
+    priv->options.order = arrow::compute::SortOrder(g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1036,7 +1034,7 @@ garrow_array_sort_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_ARRAY_SORT_OPTIONS_ORDER:
-    g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->options.order));
+    g_value_set_enum(value, static_cast<GArrowSortOrder>(*priv->options.order));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1156,8 +1154,7 @@ garrow_sort_key_set_property(GObject *object,
     priv->sort_key.name = g_value_get_string(value);
     break;
   case PROP_SORT_KEY_ORDER:
-    priv->sort_key.order =
-      static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
+    priv->sort_key.order = arrow::compute::SortOrder(g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1178,7 +1175,7 @@ garrow_sort_key_get_property(GObject *object,
     g_value_set_string(value, priv->sort_key.name.c_str());
     break;
   case PROP_SORT_KEY_ORDER:
-    g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->sort_key.order));
+    g_value_set_enum(value, static_cast<GArrowSortOrder>(*priv->sort_key.order));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
