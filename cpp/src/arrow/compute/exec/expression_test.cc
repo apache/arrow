@@ -942,14 +942,14 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   ASSERT_OK_AND_ASSIGN(auto expr, field_ref("dict_str").Bind(*kBoringSchema));
   Datum dict_i32{
       DictionaryScalar::Make(MakeScalar<int32_t>(0), ArrayFromJSON(int32(), R"([3])"))};
-  // Unsupported cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
-  ASSERT_RAISES(NotImplemented, ReplaceFieldsWithKnownValues(
-                                    KnownFieldValues{{{"dict_str", dict_i32}}}, expr));
-  // Unsupported cast dictionary(int8(), utf8()) -> dictionary(int32(), utf8())
-  dict_str = Datum{
-      DictionaryScalar::Make(MakeScalar<int8_t>(0), ArrayFromJSON(utf8(), R"(["a"])"))};
-  ASSERT_RAISES(NotImplemented, ReplaceFieldsWithKnownValues(
-                                    KnownFieldValues{{{"dict_str", dict_str}}}, expr));
+  // cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
+  ExpectReplacesTo(field_ref("dict_str"), {{"dict_str", dict_i32}}, literal(dict_str));
+
+  // cast dictionary(int8(), utf8()) -> dictionary(int32(), utf8())
+  auto dict_int8_str = Datum{
+      DictionaryScalar::Make(MakeScalar<int8_t>(0), ArrayFromJSON(utf8(), R"(["3"])"))};
+  ExpectReplacesTo(field_ref("dict_str"), {{"dict_str", dict_int8_str}},
+                   literal(dict_str));
 }
 
 struct {
