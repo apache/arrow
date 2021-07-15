@@ -413,7 +413,7 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
   } else {
     double* out_buffer = output->template GetMutableValues<double>(1);
     for (int64_t i = 0; i < output->length; i++) {
-      out_buffer[i] = UnboxScalar<T>::Unbox(scalar);
+      out_buffer[i] = static_cast<double>(UnboxScalar<T>::Unbox(scalar));
     }
   }
   return Status::OK();

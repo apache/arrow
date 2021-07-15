@@ -312,7 +312,7 @@ Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
         called = true;
         return std::pair<CType, uint64_t>(UnboxScalar<T>::Unbox(scalar), 1);
       }
-      return std::pair<CType, uint64_t>(0, kCountEOF);
+      return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
     });
   }
   return Finalize<T>(ctx, out, []() { return std::pair<CType, uint64_t>(0, kCountEOF); });
