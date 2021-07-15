@@ -166,7 +166,7 @@ std::string Expression::ToString() const {
     return binary(std::move(op));
   }
 
-  if (auto options = GetProjectOptions(*call)) {
+  if (auto options = GetMakeStructOptions(*call)) {
     std::string out = "{";
     auto argument = call->arguments.begin();
     for (const auto& field_name : options->field_names) {
@@ -1122,7 +1122,8 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
 }
 
 Expression project(std::vector<Expression> values, std::vector<std::string> names) {
-  return call("project", std::move(values), compute::ProjectOptions{std::move(names)});
+  return call("make_struct", std::move(values),
+              compute::MakeStructOptions{std::move(names)});
 }
 
 Expression equal(Expression lhs, Expression rhs) {

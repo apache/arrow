@@ -324,13 +324,7 @@ class TestCaseWhenNumeric : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCaseWhenNumeric, NumericBasedTypes);
 
 Datum MakeStruct(const std::vector<Datum>& conds) {
-  ProjectOptions options;
-  options.field_names.resize(conds.size());
-  options.field_metadata.resize(conds.size());
-  for (const auto& datum : conds) {
-    options.field_nullability.push_back(datum.null_count() > 0);
-  }
-  EXPECT_OK_AND_ASSIGN(auto result, CallFunction("project", conds, &options));
+  EXPECT_OK_AND_ASSIGN(auto result, CallFunction("make_struct", conds));
   return result;
 }
 

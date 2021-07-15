@@ -220,9 +220,10 @@ inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
 
-inline const compute::ProjectOptions* GetProjectOptions(const Expression::Call& call) {
-  if (call.function_name != "project") return nullptr;
-  return checked_cast<const compute::ProjectOptions*>(call.options.get());
+inline const compute::MakeStructOptions* GetMakeStructOptions(
+    const Expression::Call& call) {
+  if (call.function_name != "make_struct") return nullptr;
+  return checked_cast<const compute::MakeStructOptions*>(call.options.get());
 }
 
 /// A helper for unboxing an Expression composed of associative function calls.

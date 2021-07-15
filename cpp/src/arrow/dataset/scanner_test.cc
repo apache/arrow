@@ -1362,7 +1362,8 @@ TEST(ScanNode, MinimalEndToEnd) {
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
   ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*dataset->schema()));
-  options->projection = call("project", {a_times_2}, compute::ProjectOptions{{"a * 2"}});
+  options->projection =
+      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
