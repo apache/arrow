@@ -96,7 +96,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
             type:     format === 'esm' ? `module` : `commonjs`,
             // set "module" if building scoped ESM target
-            module:   format === 'esm' ? `${mainExport}.dom` : undefined,
+            module:   format === 'esm' ? `${mainExport}.dom.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
