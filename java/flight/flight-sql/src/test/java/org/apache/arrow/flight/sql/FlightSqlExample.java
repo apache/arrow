@@ -346,17 +346,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return () -> iterator;
   }
 
-  private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
-    /*
-    TODO
-    final String catalog = tables.getString("TABLE_CAT");
-    final String schema = tables.getString("TABLE_SCHEMA");
-    final String table = tables.getString("TABLE_NAME");
-    final String table_type = tables.getString("TABLE_TYPE");
-    */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
