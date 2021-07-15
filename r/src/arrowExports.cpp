@@ -3223,16 +3223,16 @@ extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_l
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name);
-extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
+std::vector<std::string> field_names_in_expression(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_field_names_in_expression(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<std::string>::type name(name_sexp);
-	return cpp11::as_sexp(compute___expr__field_ref(name));
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(field_names_in_expression(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
-	Rf_error("Cannot call compute___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_field_names_in_expression(SEXP x_sexp){
+	Rf_error("Cannot call field_names_in_expression(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3248,6 +3248,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_compute___expr__get_field_ref_name(SEXP x_sexp){
 	Rf_error("Cannot call compute___expr__get_field_ref_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name);
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type name(name_sexp);
+	return cpp11::as_sexp(compute___expr__field_ref(name));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
+	Rf_error("Cannot call compute___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7248,8 +7263,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
-		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
+		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
 		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
+		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
 		{ "_arrow_compute___expr__scalar", (DL_FUNC) &_arrow_compute___expr__scalar, 1}, 
 		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
 		{ "_arrow_compute___expr__type", (DL_FUNC) &_arrow_compute___expr__type, 2}, 

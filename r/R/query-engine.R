@@ -24,8 +24,9 @@ ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
         if (isTRUE(filter)) {
           filter <- Expression$scalar(TRUE)
         }
-        # TODO: use FieldsInExpression to find all from dataset$selected_columns
-        colnames <- names(dataset$.data)
+        # Use FieldsInExpression to find all from dataset$selected_columns
+        colnames <- unique(unlist(map(dataset$selected_columns,
+          field_names_in_expression)))
         dataset <- dataset$.data
       } else {
         if (inherits(dataset, "ArrowTabular")) {

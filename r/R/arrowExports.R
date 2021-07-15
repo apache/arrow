@@ -828,12 +828,16 @@ compute___expr__call <- function(func_name, argument_list, options){
     .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
 
-compute___expr__field_ref <- function(name){
-    .Call(`_arrow_compute___expr__field_ref`, name)
+field_names_in_expression <- function(x){
+    .Call(`_arrow_field_names_in_expression`, x)
 }
 
 compute___expr__get_field_ref_name <- function(x){
     .Call(`_arrow_compute___expr__get_field_ref_name`, x)
+}
+
+compute___expr__field_ref <- function(name){
+    .Call(`_arrow_compute___expr__field_ref`, name)
 }
 
 compute___expr__scalar <- function(x){
