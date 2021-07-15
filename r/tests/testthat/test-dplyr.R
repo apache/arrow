@@ -1069,9 +1069,50 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
+        y = if_else(x > 0, 1, 0)
+      ) %>% collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(x > 0, x, 0)
+      ) %>% collect(),
+    df,
+    # Do we need to open a JIRA to implement this??
+    warn = TRUE
+  )
+
+  expect_error(
+    nse_funcs$if_else(x > 0, 1, FALSE),
+    'false must be a "numeric"'
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
         y = ifelse(x > 0, 1, 0)
       ) %>% collect(),
     df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = ifelse(x > 0, 1, FALSE)) %>%
+      collect(),
+    df,
+    warn = TRUE
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = ifelse(x > 0, x, 0)
+      ) %>% collect(),
+    df,
+    # Do we need to open a JIRA to implement this??
+    warn = TRUE
   )
 
 })
