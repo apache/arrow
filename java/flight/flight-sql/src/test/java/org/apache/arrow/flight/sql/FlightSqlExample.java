@@ -341,19 +341,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         .collect(toList());
   }
 
-  protected static ResultSet rotate(final ResultSet data, int until)
-      throws SQLException, IOException {
-    checkArgument(until >= 0);
-    IntStream.iterate(0, x -> x++).limit(until).forEach(iter -> {
-      try {
-        data.next();
-      } catch (SQLException e) {
-        throw new RuntimeException(e);
-      }
-    });
-    return data;
-  }
-
   protected static final Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
       throws SQLException, IOException {
     Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
