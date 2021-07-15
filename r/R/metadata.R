@@ -65,7 +65,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       # inside of a column in a dataframe.
 
       # However, if we are inside of a dataset collection, we cannot apply this
-      # row-level metadata, since the order of the rows is not gauranteed to be
+      # row-level metadata, since the order of the rows is not guaranteed to be
       # the same, so don't even try, but warn what's going on
       stack <- call_stack()
       in_dataset_collect <- any(map_lgl(stack, function(x) {
