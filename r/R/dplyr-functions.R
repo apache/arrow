@@ -284,7 +284,7 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   Expression$create(trim_fun, string)
 }
 
-nse_funcs$substr <- function(string, start, stop) {
+nse_funcs$substr <- function(x, start, stop) {
   assert_that(
     length(start) == 1,
     msg = "`start` must be length 1 - other lengths are not supported in Arrow"
@@ -309,12 +309,16 @@ nse_funcs$substr <- function(string, start, stop) {
 
   Expression$create(
     "utf8_slice_codeunits",
-    string,
+    x,
+    # we don't need to subtract 1 from `stop` as C++ counts exclusively 
+    # which effectively cancels out the difference in indexing
     options = list(start = start - 1L, stop = stop)
   )
 }
 
-nse_funcs$substring <- nse_funcs$substr
+nse_funcs$substring <- function(text, first, last){
+  nse_funcs$substr(x = text, start = first, stop = last)
+}
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
   assert_that(
@@ -334,7 +338,6 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     end <- 0
   }
 
-  
   if (start > 0) {
     start <- start - 1L
   }
