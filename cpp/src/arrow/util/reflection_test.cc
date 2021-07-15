@@ -19,9 +19,14 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/matchers.h"
 #include "arrow/util/enum.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
+
+using testing::ElementsAre;
+using testing::Eq;
+using testing::HasSubstr;
 
 namespace arrow {
 namespace internal {
@@ -226,16 +231,6 @@ TEST(Reflection, CompileTimeStringOps) {
   static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
   static_assert(CaseInsensitiveEquals("Ab ", "ab", 2), "");
   static_assert(CaseInsensitiveEquals(util::string_view{"Ab ", 2}, "ab"), "");
-
-  static_assert(CaseInsensitiveEquals(SkipWhitespace("  a"), "a"), "");
-  static_assert(CaseInsensitiveEquals(SkipWhitespace("a  b"), "a  b"), "");
-
-  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("  a"), "  a"), "");
-  static_assert(CaseInsensitiveEquals(SkipNonWhitespace("a  b"), "  b"), "");
-
-  static_assert(TokenSize("aba ddf") == 3, "");
-
-  static_assert(NextTokenStart("aba ddf dfas", 4) == 8, "");
 }
 
 /// \brief Enumeration of primary colors.
@@ -245,13 +240,15 @@ TEST(Reflection, CompileTimeStringOps) {
 /// - blue:  Hex value 0x0000ff
 struct Color : EnumType<Color> {
   using EnumType<Color>::EnumType;
-  static constexpr const char* kValues = "red green blue";
+  static constexpr EnumStrings<3> values() { return {"red", "green", "blue"}; }
+  static constexpr const char* name() { return "Color"; }
 };
 
 TEST(Reflection, EnumType) {
   static_assert(Color::size() == 3, "");
-  EXPECT_EQ(Color::value_strings(),
-            std::vector<util::string_view>({"red", "green", "blue"}));
+  EXPECT_THAT(Color::values(),
+              ElementsAre(util::string_view{"red"}, util::string_view{"green"},
+                          util::string_view{"blue"}));
 
   static_assert(Color("red").index == 0, "");
   static_assert(*Color("GREEN") == 1, "");
@@ -284,6 +281,17 @@ TEST(Reflection, EnumType) {
         break;
     }
   }
+
+  EXPECT_THAT(Color::Make(0), ResultWith(Eq(Color(0))));
+  EXPECT_THAT(Color::Make(-33), Raises(StatusCode::Invalid,
+                                       HasSubstr("index -33 for enum Color- index should "
+                                                 "be in range [0, 3)")));
+
+  EXPECT_THAT(Color::Make("red"), ResultWith(Eq(Color("red"))));
+  EXPECT_THAT(Color::Make("mahogany"),
+              Raises(StatusCode::Invalid,
+                     HasSubstr("string 'mahogany' for enum Color- string should "
+                               "be one of {'red', 'green', 'blue'}")));
 }
 
 }  // namespace internal
