@@ -429,14 +429,10 @@ void AddMinMaxKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
-    // array[T] -> scalar[struct<min: T, max: T>]
+    // any[T] -> scalar[struct<min: T, max: T>]
     auto out_ty = struct_({field("min", ty), field("max", ty)});
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
+    auto sig = KernelSignature::Make({InputType(ty)}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func, simd_level);
-
-    // scalar[InT] -> scalar[struct<min: T, max: T>]
-    sig = KernelSignature::Make({InputType::Scalar(ty)}, ValueDescr::Scalar(out_ty));
-    AddAggKernel(std::move(sig), init, func, SimdLevel::NONE);
   }
 }
 
