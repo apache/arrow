@@ -504,7 +504,6 @@ TEST_F(TestIfElseKernel, IfElseFSBinaryRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
-
 template <typename Type>
 class TestCaseWhenNumeric : public ::testing::Test {};
 
