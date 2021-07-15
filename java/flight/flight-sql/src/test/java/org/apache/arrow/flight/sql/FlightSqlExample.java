@@ -334,6 +334,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                   }
                 }).collect(toList())))
         .map(root -> {
+          List<FieldVector> vectors = root.getFieldVectors();
+          if (!includeSchema) {
+            return vectors;
+          }
           final VarCharVector vector =
               new VarCharVector("SCHEMA", new RootAllocator(Long.MAX_VALUE));
           final int valueCount = root.getRowCount();
@@ -342,7 +346,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                   index ->
                       vector.setSafe(index, new Text(getSchemaTables().getSchema().toJson())));
           vector.setValueCount(valueCount);
-          List<FieldVector> vectors = root.getFieldVectors();
           vectors.add(vector);
           return vectors;
         })
