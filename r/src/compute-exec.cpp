@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <iostream>
+
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
@@ -31,21 +33,12 @@ namespace compute = ::arrow::compute;
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
                                                                cpp11::list options);
 
-template <typename T>
-void AddKeepalive(compute::ExecPlan* plan, T keepalive) {
-  struct Callback {
-    void operator()(const arrow::Status&) && {}
-    T keepalive;
-  };
-  plan->finished().AddCallback(Callback{std::move(keepalive)});
-}
-
 // [[arrow::export]]
 std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
-  auto executor = use_threads ? arrow::internal::GetCpuThreadPool() : nullptr;
-  auto context = std::make_shared<compute::ExecContext>(gc_memory_pool(), executor);
-  auto plan = ValueOrStop(compute::ExecPlan::Make(context.get()));
-  AddKeepalive(plan.get(), std::move(context));
+  static compute::ExecContext threaded_context{gc_memory_pool(),
+                                               arrow::internal::GetCpuThreadPool()};
+  auto plan = ValueOrStop(
+      compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
   return plan;
 }
 
@@ -137,6 +130,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
+  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
 
   for (cpp11::list name_opts : options) {
     auto name = cpp11::as_cpp<std::string>(name_opts[0]);
@@ -144,8 +138,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
 
     aggregates.push_back(
         arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-
-    AddKeepalive(input->plan(), std::move(opts));
+    keep_alives.push_back(std::move(opts));
   }
 
   std::vector<arrow::FieldRef> targets;

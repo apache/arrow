@@ -28,7 +28,6 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("Can aggregate", {
-  withr::local_options(list(arrow.summarize = TRUE))
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int)),
