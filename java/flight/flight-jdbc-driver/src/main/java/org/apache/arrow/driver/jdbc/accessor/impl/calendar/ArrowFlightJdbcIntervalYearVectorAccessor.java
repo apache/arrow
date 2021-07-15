@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import java.time.Duration;
 import java.time.Period;
 import java.util.function.IntSupplier;
 

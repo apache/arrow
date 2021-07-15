@@ -68,7 +68,7 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void getObject() throws Exception {
+  public void testShouldGetObjectReturnValidPeriod() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Period result = (Period) accessor.getObject();
@@ -79,7 +79,7 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void getObjectPassingPeriodAsParameter() throws Exception {
+  public void testShouldGetObjectPassingPeriodClassAsParameterReturnValidPeriod() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Period result = accessor.getObject(Period.class);
@@ -90,7 +90,7 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void getObjectForNull() throws Exception {
+  public void testShouldGetObjectReturnNull() throws Exception {
     int valueCount = vector.getValueCount();
     for (int i = 0; i < valueCount; i++) {
       vector.setNull(i);
@@ -104,7 +104,7 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void getString() throws Exception {
+  public void testShouldGetStringReturnCorrectString() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           String expectedString = vector.getAsStringBuilder(currentRow).toString();
@@ -114,7 +114,7 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void getStringForNull() throws Exception {
+  public void testShouldGetStringReturnNull() throws Exception {
     int valueCount = vector.getValueCount();
     for (int i = 0; i < valueCount; i++) {
       vector.setNull(i);
@@ -130,10 +130,9 @@ public class ArrowFlightJdbcIntervalYearVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectClass() throws Exception {
+  public void testShouldGetObjectClassReturnPeriodClass() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
-
           collector.checkThat(accessor.getObjectClass(), equalTo(Period.class));
         });
   }
