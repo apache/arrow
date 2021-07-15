@@ -294,10 +294,12 @@ nse_funcs$substr <- function(string, start, stop) {
     msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 
+  # if start is 0 or lower, start from the first character of the string
   if (start <= 0) {
     start <- 1
   }
 
+  # if stop is lower than start, this is invalid, so set stop to 0 so an empty string is returned
   if (stop < start) {
     stop <- 0
   }
@@ -309,30 +311,7 @@ nse_funcs$substr <- function(string, start, stop) {
   )
 }
 
-nse_funcs$substring <- function(text, first, last = 1000000L) {
-  assert_that(
-    length(first) == 1,
-    msg = "`first` must be length 1 - other lengths are not supported in Arrow"
-  )
-  assert_that(
-    length(last) == 1,
-    msg = "`last` must be length 1 - other lengths are not supported in Arrow"
-  )
-
-  if (first <= 0) {
-    first <- 1
-  }
-
-  if (last < first) {
-    last <- 0
-  }
-
-  Expression$create(
-    "utf8_slice_codeunits",
-    text,
-    options = list(start = first - 1L, stop = last)
-  )
-}
+nse_funcs$substring <- nse_funcs$substr
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
   assert_that(
@@ -344,13 +323,18 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     msg = "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 
-  if (start == 0) start <- 1
+  if (end == -1) {
+    end <- .Machine$integer.max
+  }
 
-  if (end == -1) end <- .Machine$integer.max
+  if (end < start) {
+    end <- 0
+  }
 
-  if (end < start) end <- 0
-
-  if (start > 0) start <- start - 1L
+  # 
+  if (start > 0) {
+    start <- start - 1L
+  }
 
   Expression$create(
     "utf8_slice_codeunits",
@@ -469,8 +453,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     arrow_fun,
     string,
     options = list(
-      pattern =
-        opts$pattern,
+      pattern = opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
