@@ -294,12 +294,15 @@ nse_funcs$substr <- function(string, start, stop) {
     msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 
-  # if start is 0 or lower, start from the first character of the string
+  # substr treats values as if they're on a continous number line, so values 
+  # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics 
+  # this behavior
   if (start <= 0) {
     start <- 1
   }
 
-  # if stop is lower than start, this is invalid, so set stop to 0 so an empty string is returned
+  # if `stop` is lower than `start`, this is invalid, so set `stop` to
+  # 0 so that an empty string will be returned
   if (stop < start) {
     stop <- 0
   }
@@ -331,7 +334,7 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     end <- 0
   }
 
-  # 
+  
   if (start > 0) {
     start <- start - 1L
   }
