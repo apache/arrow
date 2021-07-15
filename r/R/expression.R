@@ -43,7 +43,15 @@
   "yday" = "day_of_year",
   "hour" = "hour",
   # second is defined in dplyr-functions.R
-  "minute" = "minute"
+  "minute" = "minute",
+  "log10" = "log10_checked",
+  "log2" = "log2_checked",
+  "log1p" = "log1p_checked",
+  "sin" = "sin_checked",
+  "cos" = "cos_checked",
+  "tan" = "tan_checked",
+  "asin" = "asin_checked",
+  "acos" = "acos_checked"
 )
 
 .binary_function_map <- list(

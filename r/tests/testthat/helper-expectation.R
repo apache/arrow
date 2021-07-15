@@ -123,7 +123,7 @@ expect_dplyr_equal <- function(expr,
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 
@@ -212,7 +212,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 
@@ -273,7 +273,7 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 
