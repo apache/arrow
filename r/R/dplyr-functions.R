@@ -302,7 +302,7 @@ nse_funcs$substr <- function(string, start, stop) {
   }
 
   # if `stop` is lower than `start`, this is invalid, so set `stop` to
-  # 0 so that an empty string will be returned
+  # 0 so that an empty string will be returned (consistent with base::substr())
   if (stop < start) {
     stop <- 0
   }
