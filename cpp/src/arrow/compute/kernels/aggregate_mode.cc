@@ -315,7 +315,9 @@ Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
       return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
     });
   }
-  return Finalize<T>(ctx, out, []() { return std::pair<CType, uint64_t>(0, kCountEOF); });
+  return Finalize<T>(ctx, out, []() {
+    return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
+  });
 }
 
 template <typename _, typename InType>
