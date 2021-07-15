@@ -47,11 +47,12 @@ def _mock_compose_calls(compose):
 @click.option('--dry-run/--execute', default=False,
               help="Display the docker-compose commands instead of executing "
                    "them.")
-@click.pass_obj
-def docker(obj, src, dry_run):
+@click.pass_context
+def docker(ctx, src, dry_run):
     """
     Interact with docker-compose based builds.
     """
+    ctx.ensure_object(dict)
 
     config_path = src.path / 'docker-compose.yml'
     if not config_path.exists():
@@ -65,7 +66,7 @@ def docker(obj, src, dry_run):
     compose = DockerCompose(config_path, params=os.environ)
     if dry_run:
         _mock_compose_calls(compose)
-    obj['compose'] = compose
+    ctx.obj['compose'] = compose
 
 
 @docker.command("check-config")
@@ -155,12 +156,18 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
               help="Whether to use cache when building only the (leaf) image "
                    "passed as the argument. To disable caching for both the "
                    "image and its ancestors use --no-cache option.")
+@click.option('--resource-limit', default=None,
+              help="A CPU/memory limit preset to mimic CI environments like "
+                   "GitHub Actions. Implies --using-docker-cli. Note that "
+                   "exporting ARCHERY_DOCKER_BIN=\"sudo docker\" is likely "
+                   "required, unless Docker is configured with cgroups v2 "
+                   "(else Docker will silently ignore the limits).")
 @click.option('--volume', '-v', multiple=True,
               help="Set volume within the container")
 @click.pass_obj
 def docker_run(obj, image, command, *, env, user, force_pull, force_build,
                build_only, using_docker_cli, using_docker_buildx, use_cache,
-               use_leaf_cache, volume):
+               use_leaf_cache, resource_limit, volume):
     """
     Execute docker-compose builds.
 
@@ -213,6 +220,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
             env=env,
             user=user,
             using_docker=using_docker_cli,
+            resource_limit=resource_limit,
             volumes=volume
         )
     except UndefinedImage as e:

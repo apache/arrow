@@ -62,6 +62,22 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 500M
   CCACHE_DIR: /ccache
 
+# CPU/memory limit presets to pass to Docker.
+#
+# Usage: archery docker run --resource-limit=github <image>
+#
+# Note that exporting ARCHERY_DOCKER_BIN="sudo docker" is likely required,
+# unless Docker is configured with cgroups v2 (else Docker will silently
+# ignore the limits).
+x-limit-presets:
+  # These values emulate GitHub Actions:
+  # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners
+  github:
+    # Note we use cpuset and not cpus since Ninja only detects and limits
+    # parallelism given the former
+    cpuset_cpus: [0, 1]
+    memory: 7g
+
 x-with-gpus:
   - ubuntu-cuda-cpp
   - ubuntu-cuda-python

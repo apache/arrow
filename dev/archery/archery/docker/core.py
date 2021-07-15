@@ -105,6 +105,7 @@ class ComposeConfig:
 
         services = config['services'].keys()
         self.hierarchy = dict(flatten(config.get('x-hierarchy', {})))
+        self.limit_presets = config.get('x-limit-presets', {})
         self.with_gpus = config.get('x-with-gpus', [])
         nodes = self.hierarchy.keys()
         errors = []
@@ -316,7 +317,7 @@ class DockerCompose(Command):
         _build(service, use_cache=use_cache and use_leaf_cache)
 
     def run(self, service_name, command=None, *, env=None, volumes=None,
-            user=None, using_docker=False):
+            user=None, using_docker=False, resource_limit=None):
         service = self.config.get(service_name)
 
         args = []
@@ -331,7 +332,7 @@ class DockerCompose(Command):
             for volume in volumes:
                 args.extend(['--volume', volume])
 
-        if using_docker or service['need_gpu']:
+        if using_docker or service['need_gpu'] or resource_limit:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
@@ -353,6 +354,19 @@ class DockerCompose(Command):
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
                 args.append('-it')
+
+            if resource_limit:
+                limits = self.config.limit_presets.get(resource_limit)
+                if not limits:
+                    raise ValueError(
+                        f"Unknown resource limit preset '{resource_limit}'")
+                cpuset = limits.get('cpuset_cpus', [])
+                if cpuset:
+                    args.append(f'--cpuset-cpus={",".join(map(str, cpuset))}')
+                memory = limits.get('memory')
+                if memory:
+                    args.append(f'--memory={memory}')
+                    args.append(f'--memory-swap={memory}')
 
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
