@@ -190,29 +190,6 @@ class EmailReport(Report):
         repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
 
-    def todayStr(self):
-        date = datetime.utcnow()
-        return "{}-{}-{}".format(date.year, date.month, date.day)
-
-    def tasksToDict(self, date, tasks):
-        jsonTasks = []
-        for task_name, task in tasks.items():
-            jsonTasks.append({
-                "build" : task_name,
-                "link" : self.url(task.branch),
-                "status" : task.status().combined_state.upper(),
-                "timestamp" : date})
-
-        return jsonTasks
-
-    def getJsonTasks(self):
-        tasks = self.tasksToDict(self.todayStr(), self.job.tasks.items())
-        jsonStr = json.dump(tasks)
-        #TODO remove the print
-        print(jsonStr)
-        return jsonStr
-
-
     def listing(self, tasks):
         return '\n'.join(
             sorted(
