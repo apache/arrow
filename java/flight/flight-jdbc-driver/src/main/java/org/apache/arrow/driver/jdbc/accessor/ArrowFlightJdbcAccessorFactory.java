@@ -84,16 +84,16 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcDecimalVectorAccessor(((DecimalVector) vector), getCurrentRow);
     } else if (vector instanceof Decimal256Vector) {
       return new ArrowFlightJdbcDecimal256VectorAccessor(((Decimal256Vector) vector), getCurrentRow);
-    } else if (vector instanceof VarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow);
-    } else if (vector instanceof LargeVarCharVector) {
-      return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow);
     } else if (vector instanceof VarBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof LargeVarBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((LargeVarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof FixedSizeBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((FixedSizeBinaryVector) vector, getCurrentRow);
+    } else if (vector instanceof VarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor((VarCharVector) vector, getCurrentRow);
+    } else if (vector instanceof LargeVarCharVector) {
+      return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow);
     } else if (vector instanceof DurationVector) {
       return new ArrowFlightJdbcDurationVectorAccessor(((DurationVector) vector), getCurrentRow);
     }
