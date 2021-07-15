@@ -2001,7 +2001,8 @@ TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
   this->AssertUnaryOp(sign, "[0]", ArrayFromJSON(int8(), "[0]"));
   this->AssertUnaryOp(sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
   this->AssertUnaryOp(sign, "[-1, -10, -127]", ArrayFromJSON(int8(), "[-1, -1, -1]"));
-  this->AssertUnaryOp(sign, MakeArray(min, max), ArrayFromJSON(int8(), "[-1, 1]"));
+  this->AssertUnaryOp(sign, this->MakeScalar(min), *arrow::MakeScalar(int8(), -1));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), *arrow::MakeScalar(int8(), 1));
 }
 
 TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
@@ -2020,7 +2021,8 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
   this->AssertUnaryOp(sign, "[1, null, 10]", ArrayFromJSON(int8(), "[1, null, 1]"));
   this->AssertUnaryOp(sign, "[0]", ArrayFromJSON(int8(), "[0]"));
   this->AssertUnaryOp(sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
-  this->AssertUnaryOp(sign, MakeArray(min, max), ArrayFromJSON(int8(), "[0, 1]"));
+  this->AssertUnaryOp(sign, this->MakeScalar(min), *arrow::MakeScalar(int8(), 0));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), *arrow::MakeScalar(int8(), 1));
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
@@ -2044,7 +2046,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, "[-1.3, -10.80, -12748.001]", "[-1, -1, -1]");
   this->AssertUnaryOp(sign, "[Inf, -Inf]", "[1, -1]");
   this->AssertUnaryOp(sign, "[NaN]", "[NaN]");
-  this->AssertUnaryOp(sign, MakeArray(min, max), "[-1, 1]");
+  this->AssertUnaryOp(sign, this->MakeScalar(min), this->MakeScalar(-1));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
 }
 }  // namespace compute
 }  // namespace arrow
