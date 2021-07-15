@@ -37,11 +37,16 @@ import java.util.function.Supplier;
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.Text;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -285,7 +290,20 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetStringBeConsistentWithVarCharAccessor() throws Exception {
+  public void testShouldGetStringBeConsistentWithVarCharAccessorWithoutCalendar() throws Exception {
+    assertGetStringIsConsistentWithVarCharAccessor(null);
+  }
+
+  @Test
+  public void testShouldGetStringBeConsistentWithVarCharAccessorWithCalendar() throws Exception {
+    // Ignore for TimeStamp vectors with TZ, as VarChar accessor won't consider their TZ
+    Assume.assumeTrue(vector instanceof TimeStampNanoVector || vector instanceof TimeStampMicroVector ||
+        vector instanceof TimeStampMilliVector || vector instanceof TimeStampSecVector);
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(AMERICA_VANCOUVER));
+    assertGetStringIsConsistentWithVarCharAccessor(calendar);
+  }
+
+  private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
     try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
@@ -297,8 +315,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
             varCharVector.set(0, new Text(string));
             varCharVector.setValueCount(1);
 
-            Timestamp timestampFromVarChar = varCharVectorAccessor.getTimestamp(null);
-            Timestamp timestamp = accessor.getTimestamp(null);
+            Timestamp timestampFromVarChar = varCharVectorAccessor.getTimestamp(calendar);
+            Timestamp timestamp = accessor.getTimestamp(calendar);
 
             collector.checkThat(timestamp, is(timestampFromVarChar));
             collector.checkThat(accessor.wasNull(), is(false));

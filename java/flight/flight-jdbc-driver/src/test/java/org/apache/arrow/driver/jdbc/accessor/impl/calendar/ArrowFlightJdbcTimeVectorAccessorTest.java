@@ -202,7 +202,17 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetStringBeConsistentWithVarCharAccessor() throws Exception {
+  public void testShouldGetStringBeConsistentWithVarCharAccessorWithoutCalendar() throws Exception {
+    assertGetStringIsConsistentWithVarCharAccessor(null);
+  }
+
+  @Test
+  public void testShouldGetStringBeConsistentWithVarCharAccessorWithCalendar() throws Exception {
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(AMERICA_VANCOUVER));
+    assertGetStringIsConsistentWithVarCharAccessor(calendar);
+  }
+
+  private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
     try (VarCharVector varCharVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
@@ -214,8 +224,8 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
             varCharVector.set(0, new Text(string));
             varCharVector.setValueCount(1);
 
-            Time timeFromVarChar = varCharVectorAccessor.getTime(null);
-            Time time = accessor.getTime(null);
+            Time timeFromVarChar = varCharVectorAccessor.getTime(calendar);
+            Time time = accessor.getTime(calendar);
 
             collector.checkThat(time, is(timeFromVarChar));
             collector.checkThat(accessor.wasNull(), is(false));
