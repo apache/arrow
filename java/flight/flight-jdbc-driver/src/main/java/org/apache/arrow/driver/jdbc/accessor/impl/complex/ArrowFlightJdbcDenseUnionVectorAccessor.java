@@ -35,6 +35,12 @@ public class ArrowFlightJdbcDenseUnionVectorAccessor extends ArrowFlightJdbcAcce
   private final ArrowFlightJdbcAccessor[] accessors;
   private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
 
+  /**
+   * Instantiate an accessor for a {@link DenseUnionVector}.
+   *
+   * @param vector             an instance of a DenseUnionVector.
+   * @param currentRowSupplier the supplier to track the rows.
+   */
   public ArrowFlightJdbcDenseUnionVectorAccessor(DenseUnionVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
     this.vector = vector;
