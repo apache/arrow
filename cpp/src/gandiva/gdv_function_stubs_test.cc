@@ -81,6 +81,64 @@ TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestGdvFnStubs, TestBase64Encode) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  auto value = gdv_fn_base64_encode_binary(ctx_ptr, "hello", 5, &out_len);
+  std::string out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "aGVsbG8=");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "test", 4, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "dGVzdA==");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "hive", 4, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "aGl2ZQ==");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "", 0, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestBase64Decode) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  auto value = gdv_fn_base64_decode_utf8(ctx_ptr, "aGVsbG8=", 8, &out_len);
+  std::string out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "hello");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "dGVzdA==", 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "test");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "aGl2ZQ==", 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "hive");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "", 0, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+}
+
 TEST(TestGdvFnStubs, TestCastINT) {
   gandiva::ExecutionContext ctx;
 

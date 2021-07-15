@@ -818,6 +818,76 @@ TEST_F(TestProjector, TestConcat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_concat, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestBase64) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::binary());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_base = field("base64", arrow::utf8());
+
+  // Build expression
+  auto base_expr = TreeExprBuilder::MakeExpression("base64", {field0}, field_base);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {base_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 =
+      MakeArrowArrayBinary({"hello", "", "test", "hive"}, {true, true, true, true});
+  // expected output
+  auto exp_base = MakeArrowArrayUtf8({"aGVsbG8=", "", "dGVzdA==", "aGl2ZQ=="},
+                                     {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_base, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestUnbase64) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_base = field("base64", arrow::binary());
+
+  // Build expression
+  auto base_expr = TreeExprBuilder::MakeExpression("unbase64", {field0}, field_base);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {base_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayUtf8({"aGVsbG8=", "", "dGVzdA==", "aGl2ZQ=="},
+                                   {true, true, true, true});
+  // expected output
+  auto exp_unbase =
+      MakeArrowArrayBinary({"hello", "", "test", "hive"}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_unbase, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestLeftString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
