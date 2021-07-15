@@ -68,7 +68,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void getObject() throws Exception {
+  public void testShouldGetObjectReturnValidDuration() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Duration result = (Duration) accessor.getObject();
@@ -79,7 +79,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void getObjectPassingDurationAsParameter() throws Exception {
+  public void testShouldGetObjectPassingDurationAsParameterReturnValidDuration() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           Duration result = accessor.getObject(Duration.class);
@@ -90,7 +90,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void getObjectForNull() throws Exception {
+  public void testShouldGetObjectReturnNull() throws Exception {
     int valueCount = vector.getValueCount();
     for (int i = 0; i < valueCount; i++) {
       vector.setNull(i);
@@ -104,7 +104,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void getString() throws Exception {
+  public void testShouldGetStringReturnCorrectString() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
           String expectedString = vector.getAsStringBuilder(currentRow).toString();
@@ -114,7 +114,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void getStringForNull() throws Exception {
+  public void testShouldGetStringReturnNull() throws Exception {
     int valueCount = vector.getValueCount();
     for (int i = 0; i < valueCount; i++) {
       vector.setNull(i);
@@ -130,7 +130,7 @@ public class ArrowFlightJdbcIntervalDayVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectClass() throws Exception {
+  public void testShouldGetObjectClassReturnDurationClass() throws Exception {
     iterateOnAccessor(vector, accessorSupplier,
         (accessor, currentRow) -> {
 
