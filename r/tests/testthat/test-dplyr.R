@@ -1069,24 +1069,25 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(x > 0, 1, 0)
+        y = if_else(x > 0, x, 0)
       ) %>% collect(),
     df
+  )
+
+  expect_error(
+    Table$create(df) %>%
+      mutate(
+        y = if_else(x > 0, 1, FALSE)
+      ) %>% collect(),
+    'NotImplemented: Function if_else has no kernel matching input types'
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(x > 0, x, 0)
+        y = if_else(x > 0, 1, NA_real_)
       ) %>% collect(),
-    df,
-    # Do we need to open a JIRA to implement this??
-    warn = TRUE
-  )
-
-  expect_error(
-    nse_funcs$if_else(x > 0, 1, FALSE),
-    'false must be a "numeric"'
+    df
   )
 
   expect_dplyr_equal(
@@ -1099,20 +1100,17 @@ test_that("if_else and ifelse", {
 
   expect_dplyr_equal(
     input %>%
-      mutate(y = ifelse(x > 0, 1, FALSE)) %>%
-      collect(),
-    df,
-    warn = TRUE
-  )
-
-  expect_dplyr_equal(
-    input %>%
       mutate(
         y = ifelse(x > 0, x, 0)
       ) %>% collect(),
-    df,
-    # Do we need to open a JIRA to implement this??
-    warn = TRUE
+    df
   )
 
+  skip("TODO: could? should? we support the autocasting in ifelse")
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = ifelse(x > 0, 1, FALSE)) %>%
+      collect(),
+    df
+  )
 })

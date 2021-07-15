@@ -657,6 +657,12 @@ nse_funcs$ifelse <- function(test, yes, no){
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
+  # We ought to assert that the types of the true and false conditions will result
+  # in the same types. We can't compare the objects themselves directly because
+  # they might be expressions (that will result in a type) or R objects that will
+  # need to be compared to see if they are compatible with arrow types.
+  # ARROW-13186 might make this easier with a more robust way.
+  # TODO: do this ^^^
   if (inherits(true, "character") || inherits(false, "character")) {
     stop("`true` and `false` character values not yet supported in Arrow")
   }
