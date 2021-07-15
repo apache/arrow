@@ -32,7 +32,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
       dplyr::summarise(to_duckdb(.data), ...)
   } else if (isTRUE(getOption("arrow.summarize", FALSE))) {
     # Try stuff, if successful return()
-    out <- do_arrow_summarize(.data, ...)
+    out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
     if (inherits(out, "try-error")) {
       return(abandon_ship(call, .data, format(out)))
     } else {
