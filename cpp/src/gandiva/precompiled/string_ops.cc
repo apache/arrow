@@ -243,6 +243,31 @@ UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
+// Returns a string of 'n' spaces.
+#define SPACE_STR(IN_TYPE)                                                              \
+  GANDIVA_EXPORT                                                                        \
+  const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
+    gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
+    if (n_times <= 0) {                                                                 \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, n_times));     \
+    if (ret == nullptr) {                                                               \
+      gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string"); \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    for (int i = 0; i < n_times; i++) {                                                 \
+      ret[i] = ' ';                                                                     \
+    }                                                                                   \
+    *out_len = n_times;                                                                 \
+    return ret;                                                                         \
+  }
+
+SPACE_STR(int32)
+SPACE_STR(int64)
+
 // Reverse a utf8 sequence
 FORCE_INLINE
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
@@ -1372,7 +1397,7 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
     valid_bytes_to_cpy += char_len;
   }
   // if invalid chars were not found, return the original string
-  if (out_byte_counter == 0) return text_in;
+  if (out_byte_counter == 0 && in_byte_counter == 0) return text_in;
   // if there are still valid bytes to copy, do it
   if (valid_bytes_to_cpy != 0) {
     memcpy(ret + out_byte_counter, text_in + in_byte_counter, valid_bytes_to_cpy);

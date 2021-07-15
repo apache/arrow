@@ -76,6 +76,8 @@ gdv_int32 hash32_buf(const gdv_uint8* buf, int len, gdv_int32 seed);
 gdv_int64 hash64(double val, gdv_int64 seed);
 gdv_int64 hash64_buf(const gdv_uint8* buf, int len, gdv_int64 seed);
 
+gdv_int32 timestampdiffMonth_timestamp_timestamp(gdv_timestamp, gdv_timestamp);
+
 gdv_int64 timestampaddSecond_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddMinute_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddHour_int32_timestamp(gdv_int32, gdv_timestamp);
@@ -155,6 +157,9 @@ gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision);
 gdv_int32 round_int32(gdv_int32);
 gdv_int64 round_int64(gdv_int64);
 gdv_int64 get_power_of_10(gdv_int32);
+
+const char* bin_int32(int64_t context, gdv_int32 value, int32_t* out_len);
+const char* bin_int64(int64_t context, gdv_int64 value, int32_t* out_len);
 
 gdv_float64 cbrt_int32(gdv_int32);
 gdv_float64 cbrt_int64(gdv_int64);
@@ -290,6 +295,8 @@ const char* concat_utf8_utf8_utf8_utf8(gdv_int64 context, const char* in1,
                                        gdv_int32 in3_len, bool in3_validity,
                                        const char* in4, gdv_int32 in4_len,
                                        bool in4_validity, gdv_int32* out_len);
+const char* space_int32(gdv_int64 ctx, gdv_int32 n, int32_t* out_len);
+const char* space_int64(gdv_int64 ctx, gdv_int64 n, int32_t* out_len);
 const char* concat_utf8_utf8_utf8_utf8_utf8(
     gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
     const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,

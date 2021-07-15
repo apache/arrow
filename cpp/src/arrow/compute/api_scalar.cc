@@ -466,6 +466,14 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
   return CallFunction("if_else", {cond, if_true, if_false}, ctx);
 }
 
+Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
+                       ExecContext* ctx) {
+  std::vector<Datum> args = {cond};
+  args.reserve(cases.size() + 1);
+  args.insert(args.end(), cases.begin(), cases.end());
+  return CallFunction("case_when", args, ctx);
+}
+
 // ----------------------------------------------------------------------
 // Temporal functions
 

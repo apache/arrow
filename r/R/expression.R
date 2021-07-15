@@ -33,6 +33,9 @@
   # str_pad is defined in dplyr-functions.R
   "stri_reverse" = "utf8_reverse",
   # str_trim is defined in dplyr-functions.R
+  # str_sub is defined in dplyr-functions.R
+  # substr is defined in dplyr-functions.R
+  # substring is defined in dplyr-functions.R
   "year" = "year",
   "isoyear" = "iso_year",
   "quarter" = "quarter",
@@ -43,7 +46,15 @@
   "yday" = "day_of_year",
   "hour" = "hour",
   # second is defined in dplyr-functions.R
-  "minute" = "minute"
+  "minute" = "minute",
+  "log10" = "log10_checked",
+  "log2" = "log2_checked",
+  "log1p" = "log1p_checked",
+  "sin" = "sin_checked",
+  "cos" = "cos_checked",
+  "tan" = "tan_checked",
+  "asin" = "asin_checked",
+  "acos" = "acos_checked"
 )
 
 .binary_function_map <- list(

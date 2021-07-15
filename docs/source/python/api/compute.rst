@@ -335,6 +335,7 @@ Structural Transforms
    :toctree: ../generated/
 
    binary_length
+   case_when
    fill_null
    if_else
    is_finite

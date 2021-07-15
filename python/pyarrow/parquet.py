@@ -27,6 +27,7 @@ import os
 import re
 import operator
 import urllib.parse
+import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -705,10 +706,16 @@ def _get_pandas_index_columns(keyvalues):
 
 class ParquetDatasetPiece:
     """
-    A single chunk of a potentially larger Parquet dataset to read.
+    DEPRECATED: A single chunk of a potentially larger Parquet dataset to read.
 
     The arguments will indicate to read either a single row group or all row
     groups, and whether to add partition keys to the resulting pyarrow.Table.
+
+    .. deprecated:: 5.0
+        Directly constructing a ``ParquetDatasetPiece`` is deprecated, as well
+        as accessing the pieces of a ``ParquetDataset`` object. Specify
+        ``use_legacy_dataset=False`` when constructing the ``ParquetDataset``
+        and use the ``ParquetDataset.fragments`` attribute instead.
 
     Parameters
     ----------
@@ -724,6 +731,23 @@ class ParquetDatasetPiece:
 
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
                  file_options=None, row_group=None, partition_keys=None):
+        warnings.warn(
+            "ParquetDatasetPiece is deprecated as of pyarrow 5.0.0 and will "
+            "be removed in a future version.",
+            DeprecationWarning, stacklevel=2)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+
+    @staticmethod
+    def _create(path, open_file_func=partial(open, mode='rb'),
+                file_options=None, row_group=None, partition_keys=None):
+        self = ParquetDatasetPiece.__new__(ParquetDatasetPiece)
+        self._init(
+            path, open_file_func, file_options, row_group, partition_keys)
+        return self
+
+    def _init(self, path, open_file_func, file_options, row_group,
+              partition_keys):
         self.path = _stringify_path(path)
         self.open_file_func = open_file_func
         self.row_group = row_group
@@ -1106,8 +1130,8 @@ class ParquetManifest:
 
     def _push_pieces(self, files, part_keys):
         self.pieces.extend([
-            ParquetDatasetPiece(path, partition_keys=part_keys,
-                                open_file_func=self.open_file_func)
+            ParquetDatasetPiece._create(path, partition_keys=part_keys,
+                                        open_file_func=self.open_file_func)
             for path in files
         ])
 
@@ -1151,6 +1175,12 @@ def _open_dataset_file(dataset, path, meta=None):
         common_metadata=dataset.common_metadata,
         buffer_size=dataset.buffer_size
     )
+
+
+_DEPR_MSG = (
+    "'{}' attribute is deprecated as of pyarrow 5.0.0 and will be removed "
+    "in a future version.{}"
+)
 
 
 _read_docstring_common = """\
@@ -1279,16 +1309,16 @@ pre_buffer : bool, default True
         self._metadata.memory_map = memory_map
         self._metadata.buffer_size = buffer_size
 
-        (self.pieces,
-         self.partitions,
+        (self._pieces,
+         self._partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
-             path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
+             path_or_paths, self._fs, metadata_nthreads=metadata_nthreads,
              open_file_func=partial(_open_dataset_file, self._metadata)
         )
 
         if self.common_metadata_path is not None:
-            with self.fs.open(self.common_metadata_path) as f:
+            with self._fs.open(self.common_metadata_path) as f:
                 self._metadata.common_metadata = read_metadata(
                     f,
                     memory_map=memory_map
@@ -1297,7 +1327,7 @@ pre_buffer : bool, default True
             self._metadata.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
-            with self.fs.open(self.metadata_path) as f:
+            with self._fs.open(self.metadata_path) as f:
                 self.metadata = read_metadata(f, memory_map=memory_map)
         else:
             self.metadata = metadata
@@ -1320,13 +1350,16 @@ pre_buffer : bool, default True
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
 
-        if self.fs.__class__ != other.fs.__class__:
+        if self._fs.__class__ != other._fs.__class__:
             return False
-        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+        for prop in ('paths', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
-                     'buffer_size', 'split_row_groups'):
+                     'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
+                return False
+        for prop in ('memory_map', 'buffer_size'):
+            if getattr(self._metadata, prop) != getattr(other._metadata, prop):
                 return False
 
         return True
@@ -1342,7 +1375,7 @@ pre_buffer : bool, default True
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
-                self.schema = self.pieces[0].get_metadata().schema
+                self.schema = self._pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
@@ -1350,13 +1383,13 @@ pre_buffer : bool, default True
         dataset_schema = self.schema.to_arrow_schema()
         # Exclude the partition columns from the schema, they are provided
         # by the path, not the DatasetPiece
-        if self.partitions is not None:
-            for partition_name in self.partitions.partition_names:
+        if self._partitions is not None:
+            for partition_name in self._partitions.partition_names:
                 if dataset_schema.get_field_index(partition_name) != -1:
                     field_idx = dataset_schema.get_field_index(partition_name)
                     dataset_schema = dataset_schema.remove(field_idx)
 
-        for piece in self.pieces:
+        for piece in self._pieces:
             file_metadata = piece.get_metadata()
             file_schema = file_metadata.schema.to_arrow_schema()
             if not dataset_schema.equals(file_schema, check_metadata=False):
@@ -1384,9 +1417,9 @@ pre_buffer : bool, default True
             Content of the file as a table (of columns).
         """
         tables = []
-        for piece in self.pieces:
+        for piece in self._pieces:
             table = piece.read(columns=columns, use_threads=use_threads,
-                               partitions=self.partitions,
+                               partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
 
@@ -1425,7 +1458,7 @@ pre_buffer : bool, default True
         return keyvalues.get(b'pandas', None)
 
     def _filter(self, filters):
-        accepts_filter = self.partitions.filter_accepts_partition
+        accepts_filter = self._partitions.filter_accepts_partition
 
         def one_filter_accepts(piece, filter):
             return all(accepts_filter(part_key, filter, level)
@@ -1435,17 +1468,65 @@ pre_buffer : bool, default True
             return any(all(one_filter_accepts(piece, f) for f in conjunction)
                        for conjunction in filters)
 
-        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
+        self._pieces = [p for p in self._pieces if all_filters_accept(p)]
 
-    fs = property(operator.attrgetter('_metadata.fs'))
-    memory_map = property(operator.attrgetter('_metadata.memory_map'))
-    read_dictionary = property(
-        operator.attrgetter('_metadata.read_dictionary')
+    @property
+    def pieces(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.pieces",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.fragments' attribute "
+                "instead."),
+            DeprecationWarning, stacklevel=2)
+        return self._pieces
+
+    @property
+    def partitions(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.partitions", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._partitions
+
+    @property
+    def memory_map(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.memory_map", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.memory_map
+
+    @property
+    def read_dictionary(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.read_dictionary
+
+    @property
+    def buffer_size(self):
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.buffer_size
+
+    _fs = property(
+        operator.attrgetter('_metadata.fs')
     )
+
+    @property
+    def fs(self):
+        warnings.warn(
+            _DEPR_MSG.format(
+                "ParquetDataset.fs",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.filesystem' attribute "
+                "instead."),
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.fs
+
     common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
-    buffer_size = property(operator.attrgetter('_metadata.buffer_size'))
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
@@ -1480,7 +1561,8 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
             if not fs.isfile(path):
                 raise OSError('Passed non-file path: {}'
                               .format(path))
-            piece = ParquetDatasetPiece(path, open_file_func=open_file_func)
+            piece = ParquetDatasetPiece._create(
+                path, open_file_func=open_file_func)
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path
@@ -1663,8 +1745,23 @@ class _ParquetDatasetV2:
 
     @property
     def pieces(self):
-        # TODO raise deprecation warning
+        warnings.warn(
+            _DEPR_MSG.format("ParquetDataset.pieces",
+                             " Use the '.fragments' attribute instead"),
+            DeprecationWarning, stacklevel=2)
         return list(self._dataset.get_fragments())
+
+    @property
+    def fragments(self):
+        return list(self._dataset.get_fragments())
+
+    @property
+    def files(self):
+        return self._dataset.files
+
+    @property
+    def filesystem(self):
+        return self._dataset.filesystem
 
 
 _read_table_docstring = """

@@ -103,7 +103,11 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
-      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {})};
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+
+      // binary representation of integer values
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int64, utf8)};
 
   return arithmetic_fn_registry_;
 }
