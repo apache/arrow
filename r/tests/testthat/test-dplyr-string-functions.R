@@ -975,6 +975,7 @@ test_that("substr", {
 })
 
 test_that("substring", {
+  # nse_funcs$substring just calls nse_funcs$substr, tested extensively above
   df <- tibble(x = "Apache Arrow")
 
   expect_dplyr_equal(
