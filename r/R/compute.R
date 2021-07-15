@@ -138,11 +138,12 @@ collect_arrays_from_dots <- function(dots) {
   # Given a list that may contain both Arrays and ChunkedArrays,
   # return a single ChunkedArray containing all of those chunks
   # (may return a regular Array if there is only one element in dots)
-  assert_that(all(map_lgl(dots, is.Array)))
+  # If there is only one element and it is a scalar, it returns the scalar
   if (length(dots) == 1) {
     return(dots[[1]])
   }
 
+  assert_that(all(map_lgl(dots, is.Array)))
   arrays <- unlist(lapply(dots, function(x) {
     if (inherits(x, "ChunkedArray")) {
       x$chunks
