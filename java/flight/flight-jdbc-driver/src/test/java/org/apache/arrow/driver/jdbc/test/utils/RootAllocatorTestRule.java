@@ -501,20 +501,6 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   }
 
   /**
-   * Create a DecimalVector to be used in the accessor tests.
-   *
-   * @return DecimalVector
-   */
-  public DecimalVector createDecimalVectorForNullTests() {
-    final DecimalVector decimalVector = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
-    decimalVector.allocateNew(1);
-    decimalVector.setNull(0);
-    decimalVector.setValueCount(1);
-
-    return decimalVector;
-  }
-
-  /**
    * Create a Decimal256Vector to be used in the accessor tests.
    *
    * @return Decimal256Vector
@@ -555,20 +541,6 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     }
 
     return result;
-  }
-
-  /**
-   * Create a Decimal256Vector to be used in the accessor tests.
-   *
-   * @return Decimal256Vector
-   */
-  public Decimal256Vector createDecimal256VectorForNullTests() {
-    final Decimal256Vector decimal256Vector = new Decimal256Vector("ID", this.getRootAllocator(), 39, 0);
-    decimal256Vector.allocateNew(1);
-    decimal256Vector.setNull(0);
-    decimal256Vector.setValueCount(1);
-
-    return decimal256Vector;
   }
 
   public BitVector createBitVector() {

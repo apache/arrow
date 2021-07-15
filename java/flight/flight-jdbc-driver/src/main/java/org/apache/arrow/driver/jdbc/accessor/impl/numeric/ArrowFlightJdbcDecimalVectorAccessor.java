@@ -22,18 +22,29 @@ import java.math.RoundingMode;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 
 /**
- * Accessor for the DecimalVector.
+ * Accessor for {@link DecimalVector} and {@link Decimal256Vector}.
  */
 public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  private DecimalVector vector;
+  private final Getter getter;
+
+  @FunctionalInterface
+  interface Getter {
+    BigDecimal getObject(int index);
+  }
 
   public ArrowFlightJdbcDecimalVectorAccessor(DecimalVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
-    this.vector = vector;
+    this.getter = vector::getObject;
+  }
+
+  public ArrowFlightJdbcDecimalVectorAccessor(Decimal256Vector vector, IntSupplier currentRowSupplier) {
+    super(currentRowSupplier);
+    this.getter = vector::getObject;
   }
 
   @Override
@@ -43,7 +54,7 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public BigDecimal getBigDecimal() {
-    final BigDecimal value = vector.getObject(getCurrentRow());
+    final BigDecimal value = getter.getObject(getCurrentRow());
     this.wasNull = value == null;
     return value;
   }
