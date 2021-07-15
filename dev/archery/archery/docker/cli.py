@@ -47,11 +47,12 @@ def _mock_compose_calls(compose):
 @click.option('--dry-run/--execute', default=False,
               help="Display the docker-compose commands instead of executing "
                    "them.")
-@click.pass_obj
-def docker(obj, src, dry_run):
+@click.pass_context
+def docker(ctx, src, dry_run):
     """
     Interact with docker-compose based builds.
     """
+    ctx.ensure_object(dict)
 
     config_path = src.path / 'docker-compose.yml'
     if not config_path.exists():
@@ -65,7 +66,7 @@ def docker(obj, src, dry_run):
     compose = DockerCompose(config_path, params=os.environ)
     if dry_run:
         _mock_compose_calls(compose)
-    obj['compose'] = compose
+    ctx.obj['compose'] = compose
 
 
 @docker.command('build')
@@ -208,7 +209,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
             command=command,
             env=env,
             user=user,
-            using_docker=using_docker_cli or bool(resource_limit),
+            using_docker=using_docker_cli,
             resource_limit=resource_limit,
             volumes=volume
         )

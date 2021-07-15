@@ -332,7 +332,7 @@ class DockerCompose(Command):
             for volume in volumes:
                 args.extend(['--volume', volume])
 
-        if using_docker or service['need_gpu']:
+        if using_docker or service['need_gpu'] or resource_limit:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])

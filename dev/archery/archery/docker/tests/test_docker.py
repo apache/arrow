@@ -128,6 +128,11 @@ x-hierarchy:
       - ubuntu-ruby
   - ubuntu-cuda
 
+x-limit-presets:
+  github:
+    cpuset_cpus: [0, 1]
+    memory: 7g
+
 services:
   conda-cpp:
     image: org/conda-cpp
@@ -446,6 +451,20 @@ def test_compose_run(arrow_compose_path):
     with assert_compose_calls(compose, expected_calls):
         volumes = ("/host/build:/build", "/host/ccache:/ccache:delegated")
         compose.run('conda-python', volumes=volumes)
+
+
+def test_compose_run_with_resource_limits(arrow_compose_path):
+    expected_calls = [
+        format_run([
+            "--cpuset-cpus=0,1",
+            "--memory=7g",
+            "--memory-swap=7g",
+            "org/conda-cpp"
+        ]),
+    ]
+    compose = DockerCompose(arrow_compose_path)
+    with assert_docker_calls(compose, expected_calls):
+        compose.run('conda-cpp', resource_limit="github")
 
 
 def test_compose_push(arrow_compose_path):
