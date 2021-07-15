@@ -452,23 +452,32 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 
   BatchesWithSchema basic_data;
   basic_data.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32())}, "[[5], [5], [5]]"),
-      ExecBatchFromJSON({int32()}, "[[5], [6], [7]]")};
-  basic_data.schema = schema({field("i32", int32())});
+      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(int32()),
+                         ValueDescr::Scalar(int32())},
+                        "[[5, 5, 5], [5, 5, 5], [5, 5, 5]]"),
+      ExecBatchFromJSON({int32(), int32(), int32()},
+                        "[[5, 5, 5], [6, 6, 6], [7, 7, 7]]")};
+  basic_data.schema =
+      schema({field("a", int32()), field("b", int32()), field("c", int32())});
 
   ASSERT_OK_AND_ASSIGN(auto source,
                        MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  ASSERT_OK_AND_ASSIGN(auto scalar_agg, MakeScalarAggregateNode(source, "scalar_agg",
-                                                                {{"count", nullptr}}));
+  ASSERT_OK_AND_ASSIGN(
+      auto scalar_agg,
+      MakeScalarAggregateNode(source, "scalar_agg",
+                              {{"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}}));
 
   auto sink_gen = MakeSinkNode(scalar_agg, "sink");
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray({
-                  ExecBatchFromJSON({ValueDescr::Scalar(int64())}, "[[6]]"),
-              }))));
+  ASSERT_THAT(
+      StartAndCollect(plan.get(), sink_gen),
+      Finishes(ResultWith(UnorderedElementsAreArray({
+          ExecBatchFromJSON({ValueDescr::Scalar(int64()), ValueDescr::Scalar(int64()),
+                             ValueDescr::Scalar(float64())},
+                            "[[6, 33, 5.5]]"),
+      }))));
 }
 
 }  // namespace compute
