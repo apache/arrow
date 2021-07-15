@@ -1989,7 +1989,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
   auto min = std::numeric_limits<CType>::min();
   auto max = std::numeric_limits<CType>::max();
 
-  // XXX TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
   // second parameter
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
@@ -2010,7 +2010,7 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
   auto min = std::numeric_limits<CType>::min();
   auto max = std::numeric_limits<CType>::max();
 
-  // XXX TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
   // second parameter
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
@@ -2032,7 +2032,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
 
   this->SetNansEqual(true);
 
-  // XXX TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
   // second parameter
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
