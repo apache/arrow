@@ -33,7 +33,7 @@
 
 ## CSV writing
 
-* `write_csv_arrow()` to use Arrow to write a data frame to a single CSV file
+* `write_csv_arrow()` to use Arrow to write a data.frame to a single CSV file
 * `write_dataset(format = "csv", ...)` to write a Dataset to CSVs, including with partitioning
 
 ## C interface
