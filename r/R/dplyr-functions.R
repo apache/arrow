@@ -311,7 +311,7 @@ nse_funcs$substr <- function(x, start, stop) {
     "utf8_slice_codeunits",
     x,
     # we don't need to subtract 1 from `stop` as C++ counts exclusively 
-    # which effectively cancels out the difference in indexing
+    # which effectively cancels out the difference in indexing between R & C++
     options = list(start = start - 1L, stop = stop)
   )
 }
@@ -330,14 +330,21 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     msg = "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 
+  # In stringr::str_sub, an `end` value of -1 means the end of the string, so
+  # set it to the maximum integer to match this behavior
   if (end == -1) {
     end <- .Machine$integer.max
   }
 
+  # An end value lower than a start value returns an empty string in 
+  # stringr::str_sub so set end to 0 here to match this behavior
   if (end < start) {
     end <- 0
   }
 
+  # subtract 1 from `start` because C++ is 0-based and R is 1-based
+  # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0 
+  # when `start` < 0, both str_sub and utf8_slice_codeunits count backwards from the end
   if (start > 0) {
     start <- start - 1L
   }
