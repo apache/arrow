@@ -513,6 +513,15 @@ Result<Datum> MinElementWise(
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Get the sign of a value. Array values can be of arbitrary length. If argument
+/// is null the result will be null.
+///
+/// \param[in] arg the value to extract sign from
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise sign function
+ARROW_EXPORT
+Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Compare a numeric array with a scalar.
 ///
 /// \param[in] left datum to compare, must be an Array

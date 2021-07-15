@@ -66,7 +66,7 @@ class TestUnaryArithmetic : public TestBase {
     return *arrow::MakeScalar(type_singleton(), value);
   }
 
-  // (Scalar)
+  // (Scalar, Scalar)
   void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
     auto arg = MakeScalar(argument);
     auto exp = MakeScalar(expected);
@@ -74,34 +74,42 @@ class TestUnaryArithmetic : public TestBase {
     AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
   }
 
-  // (Scalar)
+  // (Scalar, Scalar)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Scalar>& arg,
                      const std::shared_ptr<Scalar>& expected) {
     ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 
-  // (Array)
-  void AssertUnaryOp(UnaryFunction func, const std::string& argument,
-                     const std::string& expected) {
-    auto arg = ArrayFromJSON(type_singleton(), argument);
+  // (JSON, JSON)
+  void AssertUnaryOp(UnaryFunction func, const std::string& arg_json,
+                     const std::string& expected_json) {
+    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    auto expected = ArrayFromJSON(type_singleton(), expected_json);
     AssertUnaryOp(func, arg, expected);
   }
 
-  // (Array)
+  // (Array, JSON)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::string& expected_json) {
     const auto expected = ArrayFromJSON(type_singleton(), expected_json);
-    return AssertUnaryOp(func, arg, expected);
+    AssertUnaryOp(func, arg, expected);
   }
 
-  // (Array)
+  // (JSON, Array)
+  void AssertUnaryOp(UnaryFunction func, const std::string& arg_json,
+                     const std::shared_ptr<Array>& expected) {
+    auto arg = ArrayFromJSON(type_singleton(), arg_json);
+    AssertUnaryOp(func, arg, expected);
+  }
+
+  // (Array, Array)
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::shared_ptr<Array>& expected) {
-    ASSERT_OK_AND_ASSIGN(Datum actual, func(arg, options_, nullptr));
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
-    // Also check (Scalar) operations
+    // Also check (Scalar, Scalar) operations
     const int64_t length = expected->length();
     for (int64_t i = 0; i < length; ++i) {
       const auto expected_scalar = *expected->GetScalar(i);
@@ -1024,7 +1032,8 @@ TEST(TestBinaryArithmetic, AddWithImplicitCastsUint64EdgeCase) {
 }
 
 TEST(TestUnaryArithmetic, DispatchBest) {
-  for (std::string name : {"negate", "abs", "abs_checked"}) {
+  // All arithmetic
+  for (std::string name : {"negate", "abs", "abs_checked", "sign"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
                            uint64(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
@@ -1032,6 +1041,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
+  // Signed arithmetic
   for (std::string name : {"negate_checked"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
@@ -1039,7 +1049,8 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
-  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked"}) {
+  // Null input
+  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked", "sign"}) {
     CheckDispatchFails(name, {null()});
   }
 
@@ -1973,5 +1984,70 @@ TYPED_TEST(TestUnaryArithmeticSigned, Log) {
   this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
 }
 
+TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // second parameter
+  auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Sign(arg, ctx);
+  };
+
+  this->AssertUnaryOp(sign, "[]", ArrayFromJSON(int8(), "[]"));
+  this->AssertUnaryOp(sign, "[null]", ArrayFromJSON(int8(), "[null]"));
+  this->AssertUnaryOp(sign, "[1, null, -10]", ArrayFromJSON(int8(), "[1, null, -1]"));
+  this->AssertUnaryOp(sign, "[0]", ArrayFromJSON(int8(), "[0]"));
+  this->AssertUnaryOp(sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
+  this->AssertUnaryOp(sign, "[-1, -10, -127]", ArrayFromJSON(int8(), "[-1, -1, -1]"));
+  this->AssertUnaryOp(sign, this->MakeScalar(min), *arrow::MakeScalar(int8(), -1));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), *arrow::MakeScalar(int8(), 1));
+}
+
+TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // second parameter
+  auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Sign(arg, ctx);
+  };
+
+  this->AssertUnaryOp(sign, "[]", ArrayFromJSON(int8(), "[]"));
+  this->AssertUnaryOp(sign, "[null]", ArrayFromJSON(int8(), "[null]"));
+  this->AssertUnaryOp(sign, "[1, null, 10]", ArrayFromJSON(int8(), "[1, null, 1]"));
+  this->AssertUnaryOp(sign, "[0]", ArrayFromJSON(int8(), "[0]"));
+  this->AssertUnaryOp(sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
+  this->AssertUnaryOp(sign, this->MakeScalar(min), *arrow::MakeScalar(int8(), 0));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), *arrow::MakeScalar(int8(), 1));
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  this->SetNansEqual(true);
+
+  // N.B. TestUnaryArithmetic expects a function with ArithmeticOptions as its
+  // second parameter
+  auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Sign(arg, ctx);
+  };
+
+  this->AssertUnaryOp(sign, "[]", "[]");
+  this->AssertUnaryOp(sign, "[null]", "[null]");
+  this->AssertUnaryOp(sign, "[1.3, null, -10.80]", "[1, null, -1]");
+  this->AssertUnaryOp(sign, "[0.0, -0.0]", "[0, 0]");
+  this->AssertUnaryOp(sign, "[1.3, 10.80, 12748.001]", "[1, 1, 1]");
+  this->AssertUnaryOp(sign, "[-1.3, -10.80, -12748.001]", "[-1, -1, -1]");
+  this->AssertUnaryOp(sign, "[Inf, -Inf]", "[1, -1]");
+  this->AssertUnaryOp(sign, "[NaN]", "[NaN]");
+  this->AssertUnaryOp(sign, this->MakeScalar(min), this->MakeScalar(-1));
+  this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
+}
 }  // namespace compute
 }  // namespace arrow

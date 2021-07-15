@@ -20,8 +20,10 @@
 #include <limits>
 #include <utility>
 
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
@@ -459,6 +461,23 @@ struct PowerChecked {
   static enable_if_floating_point<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
+  }
+};
+
+struct Sign {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, Arg arg, Status*) {
+    return arg > 0;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status*) {
+    return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
 
@@ -1033,6 +1052,37 @@ void AddDecimalBinaryKernels(const std::string& name,
   DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
 }
 
+// Generate a kernel given an arithmetic functor
+template <template <typename...> class KernelGenerator, typename OutType, typename Op>
+ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return KernelGenerator<OutType, Int8Type, Op>::Exec;
+    case Type::UINT8:
+      return KernelGenerator<OutType, UInt8Type, Op>::Exec;
+    case Type::INT16:
+      return KernelGenerator<OutType, Int16Type, Op>::Exec;
+    case Type::UINT16:
+      return KernelGenerator<OutType, UInt16Type, Op>::Exec;
+    case Type::INT32:
+      return KernelGenerator<OutType, Int32Type, Op>::Exec;
+    case Type::UINT32:
+      return KernelGenerator<OutType, UInt32Type, Op>::Exec;
+    case Type::INT64:
+    case Type::TIMESTAMP:
+      return KernelGenerator<OutType, Int64Type, Op>::Exec;
+    case Type::UINT64:
+      return KernelGenerator<OutType, UInt64Type, Op>::Exec;
+    case Type::FLOAT:
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1138,6 +1188,21 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
+  }
+  return func;
+}
+
+// Like MakeUnaryArithmeticFunction, but for unary arithmetic ops with a fixed
+// output type for integral inputs.
+template <typename Op, typename IntOutType>
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
+    std::string name, const FunctionDoc* doc) {
+  auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
+    auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
   return func;
 }
@@ -1317,6 +1382,13 @@ const FunctionDoc pow_checked_doc{
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
+
+const FunctionDoc sign_doc{
+    "Get the signedness of the arguments element-wise",
+    ("Output is any of (-1,1) for nonzero inputs and 0 for zero input.\n"
+     "NaN values return NaN.  Integral values return signedness as Int8 and\n"
+     "floating-point values return it with the same type as the input values."),
+    {"x"}};
 
 const FunctionDoc bit_wise_not_doc{
     "Bit-wise negate the arguments element-wise", ("Null values return null."), {"x"}};
@@ -1578,6 +1650,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto sign =
+      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", &sign_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
   // Bitwise functions
