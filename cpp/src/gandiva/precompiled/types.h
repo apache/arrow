@@ -293,6 +293,8 @@ const char* concat_utf8_utf8_utf8_utf8(gdv_int64 context, const char* in1,
                                        gdv_int32 in3_len, bool in3_validity,
                                        const char* in4, gdv_int32 in4_len,
                                        bool in4_validity, gdv_int32* out_len);
+const char* space_int32(gdv_int64 ctx, gdv_int32 n, int32_t* out_len);
+const char* space_int64(gdv_int64 ctx, gdv_int64 n, int32_t* out_len);
 const char* concat_utf8_utf8_utf8_utf8_utf8(
     gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
     const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,

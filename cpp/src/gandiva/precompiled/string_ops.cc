@@ -243,6 +243,31 @@ UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
+// Returns a string of 'n' spaces.
+#define SPACE_STR(IN_TYPE)                                                              \
+  GANDIVA_EXPORT                                                                        \
+  const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
+    gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
+    if (n_times <= 0) {                                                                 \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, n_times));     \
+    if (ret == nullptr) {                                                               \
+      gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string"); \
+      *out_len = 0;                                                                     \
+      return "";                                                                        \
+    }                                                                                   \
+    for (int i = 0; i < n_times; i++) {                                                 \
+      ret[i] = ' ';                                                                     \
+    }                                                                                   \
+    *out_len = n_times;                                                                 \
+    return ret;                                                                         \
+  }
+
+SPACE_STR(int32)
+SPACE_STR(int64)
+
 // Reverse a utf8 sequence
 FORCE_INLINE
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
