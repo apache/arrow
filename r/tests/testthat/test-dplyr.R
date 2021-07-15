@@ -1099,7 +1099,7 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = ifelse(dbl > 5, TRUE, FALSE)
+        y = if_else(dbl > 5, TRUE, FALSE)
       ) %>% collect(),
     example_data
   )
@@ -1107,7 +1107,7 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = ifelse(chr %in% letters[1:3], 1L, 3L)
+        y = if_else(chr %in% letters[1:3], 1L, 3L)
       ) %>% collect(),
     example_data
   )
