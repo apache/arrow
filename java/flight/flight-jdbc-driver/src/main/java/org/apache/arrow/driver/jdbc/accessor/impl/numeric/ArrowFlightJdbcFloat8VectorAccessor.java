@@ -114,7 +114,7 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
 
   @Override
   public BigDecimal getBigDecimal(int scale) {
-    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.UNNECESSARY);
+    final BigDecimal value = BigDecimal.valueOf(this.getDouble()).setScale(scale, RoundingMode.HALF_UP);
     return this.wasNull ? null : value;
   }
 
