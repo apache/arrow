@@ -64,7 +64,6 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     byte float8TypeId = this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
     byte timestampMilliTypeId =
         this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.TIMESTAMPMILLI.getType()));
-//    byte intervalDayTypeId = this.vector.registerNewTypeId(Field.nullable("", Types.MinorType.INTERVALDAY.getType()));
 
     NullableBigIntHolder nullableBigIntHolder = new NullableBigIntHolder();
     nullableBigIntHolder.isSet = 1;
@@ -84,18 +83,11 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     this.vector.setTypeId(2, timestampMilliTypeId);
     this.vector.setSafe(2, nullableTimeStampMilliHolder);
 
-//    NullableIntervalDayHolder nullableIntervalDayHolder = new NullableIntervalDayHolder();
-//    nullableIntervalDayHolder.isSet = 1;
-//    nullableIntervalDayHolder.days = 7;
-//    nullableIntervalDayHolder.milliseconds = 100;
-//    this.vector.setTypeId(3, intervalDayTypeId);
-//    this.vector.setSafe(3, nullableIntervalDayHolder);
-
     nullableBigIntHolder.isSet = 0;
-    this.vector.setTypeId(4, bigIntTypeId);
-    this.vector.setSafe(4, nullableBigIntHolder);
+    this.vector.setTypeId(3, bigIntTypeId);
+    this.vector.setSafe(3, nullableBigIntHolder);
 
-    this.vector.setValueCount(6);
+    this.vector.setValueCount(5);
   }
 
   @After
@@ -110,8 +102,6 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
         Long.MAX_VALUE,
         Math.PI,
         new Timestamp(1625702400000L),
-        null,
-//        Duration.ofDays(7).plusMillis(100),
         null,
         null);
 

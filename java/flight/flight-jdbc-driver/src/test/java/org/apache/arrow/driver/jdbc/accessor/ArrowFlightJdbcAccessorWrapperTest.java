@@ -246,5 +246,4 @@ public class ArrowFlightJdbcAccessorWrapperTest {
     accessor.getBigDecimal(2);
     verify(innerAccessor).getBigDecimal(2);
   }
-
 }
