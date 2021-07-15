@@ -217,6 +217,22 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   EXPECT_EQ(std::string(g_str, g_in_out_len), "-ok--valid-");
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
+
+  std::string h("\xa0\xa1-valid");
+  auto h_in_out_len = static_cast<int>(h.length());
+  const char* h_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, h.data(), h_in_out_len, "", 0, &h_in_out_len);
+  EXPECT_EQ(std::string(h_str, h_in_out_len), "-valid");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  std::string i("\xa0\xa1-valid-\xa0\xa1-valid-\xa0\xa1");
+  auto i_in_out_len = static_cast<int>(i.length());
+  const char* i_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, i.data(), i_in_out_len, "", 0, &i_in_out_len);
+  EXPECT_EQ(std::string(i_str, i_in_out_len), "-valid--valid-");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
