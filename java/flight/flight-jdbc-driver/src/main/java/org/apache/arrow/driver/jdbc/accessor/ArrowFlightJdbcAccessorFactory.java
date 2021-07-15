@@ -22,11 +22,13 @@ import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat4VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcFloat8VectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
@@ -79,6 +81,8 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector, getCurrentRow);
     } else if (vector instanceof Float8Vector) {
       return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
+    } else if (vector instanceof BitVector) {
+      return new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
     } else if (vector instanceof DecimalVector) {
       return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
     } else if (vector instanceof Decimal256Vector) {
