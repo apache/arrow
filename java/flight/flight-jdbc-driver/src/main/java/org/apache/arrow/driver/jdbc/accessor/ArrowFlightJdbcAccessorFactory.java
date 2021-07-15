@@ -81,9 +81,9 @@ public class ArrowFlightJdbcAccessorFactory {
     } else if (vector instanceof Float8Vector) {
       return new ArrowFlightJdbcFloat8VectorAccessor((Float8Vector) vector, getCurrentRow);
     } else if (vector instanceof DecimalVector) {
-      return new ArrowFlightJdbcDecimalVectorAccessor(((DecimalVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
     } else if (vector instanceof Decimal256Vector) {
-      return new ArrowFlightJdbcDecimal256VectorAccessor(((Decimal256Vector) vector), getCurrentRow);
+      return new ArrowFlightJdbcDecimal256VectorAccessor((Decimal256Vector) vector, getCurrentRow);
     } else if (vector instanceof VarBinaryVector) {
       return new ArrowFlightJdbcBinaryVectorAccessor((VarBinaryVector) vector, getCurrentRow);
     } else if (vector instanceof LargeVarBinaryVector) {
@@ -95,7 +95,7 @@ public class ArrowFlightJdbcAccessorFactory {
     } else if (vector instanceof LargeVarCharVector) {
       return new ArrowFlightJdbcVarCharVectorAccessor((LargeVarCharVector) vector, getCurrentRow);
     } else if (vector instanceof DurationVector) {
-      return new ArrowFlightJdbcDurationVectorAccessor(((DurationVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
