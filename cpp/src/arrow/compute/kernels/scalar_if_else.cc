@@ -869,7 +869,7 @@ template <typename Type>
 Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const auto& conds_array = *batch.values[0].array();
   if (conds_array.GetNullCount() > 0) {
-    return Status::Invalid("cond struct must not have nulls");
+    return Status::Invalid("cond struct must not have top-level nulls");
   }
   ArrayData* output = out->mutable_array();
   const int64_t out_offset = output->offset;
