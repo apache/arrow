@@ -1384,8 +1384,10 @@ const FunctionDoc pow_checked_doc{
     {"base", "exponent"}};
 
 const FunctionDoc sign_doc{
-    "Get the sign value of the argument element-wise",
-    ("For nonzero inputs, output is any of (-1,1) and 0 for zero input."),
+    "Get the signedness of the arguments element-wise",
+    ("Output is any of (-1,1) for nonzero inputs and 0 for zero input.\n"
+     "NaN values return NaN.  Integral values return signedness as Int8 and\n"
+     "floating-point values return it with the same type as the input values."),
     {"x"}};
 
 const FunctionDoc bit_wise_not_doc{

@@ -262,39 +262,39 @@ then typically wraps around).  Most functions are also available in an
 overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
-+------------------+--------+----------------+----------------+-------+
-| Function name    | Arity  | Input types    | Output type    | Notes |
-+==================+========+================+================+=======+
-| abs              | Unary  | Numeric        | Numeric        |       |
-+------------------+--------+----------------+----------------+-------+
-| abs_checked      | Unary  | Numeric        | Numeric        |       |
-+------------------+--------+----------------+----------------+-------+
-| add              | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| add_checked      | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| divide           | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| divide_checked   | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| multiply         | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| multiply_checked | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| negate           | Unary  | Numeric        | Numeric        |       |
-+------------------+--------+----------------+----------------+-------+
-| negate_checked   | Unary  | Signed Numeric | Signed Numeric |       |
-+------------------+--------+----------------+----------------+-------+
-| power            | Binary | Numeric        | Numeric        |       |
-+------------------+--------+----------------+----------------+-------+
-| power_checked    | Binary | Numeric        | Numeric        |       |
-+------------------+--------+----------------+----------------+-------+
-| sign             | Unary  | Numeric        | Int8           | \(2)  |
-+------------------+--------+----------------+----------------+-------+
-| subtract         | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
-| subtract_checked | Binary | Numeric        | Numeric        | \(1)  |
-+------------------+--------+----------------+----------------+-------+
++------------------+--------+----------------+----------------------+-------+
+| Function name    | Arity  | Input types    | Output type          | Notes |
++==================+========+================+======================+=======+
+| abs              | Unary  | Numeric        | Numeric              |       |
++------------------+--------+----------------+----------------------+-------+
+| abs_checked      | Unary  | Numeric        | Numeric              |       |
++------------------+--------+----------------+----------------------+-------+
+| add              | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| add_checked      | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| divide           | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| divide_checked   | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| multiply         | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| multiply_checked | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| negate           | Unary  | Numeric        | Numeric              |       |
++------------------+--------+----------------+----------------------+-------+
+| negate_checked   | Unary  | Signed Numeric | Signed Numeric       |       |
++------------------+--------+----------------+----------------------+-------+
+| power            | Binary | Numeric        | Numeric              |       |
++------------------+--------+----------------+----------------------+-------+
+| power_checked    | Binary | Numeric        | Numeric              |       |
++------------------+--------+----------------+----------------------+-------+
+| sign             | Unary  | Numeric        | Int8/Float32/Float64 | \(2)  |
++------------------+--------+----------------+----------------------+-------+
+| subtract         | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
+| subtract_checked | Binary | Numeric        | Numeric              | \(1)  |
++------------------+--------+----------------+----------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -317,8 +317,9 @@ an ``Invalid`` :class:`Status` when overflow is detected.
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
-* \(2) Output is an integral representing the signedness of the input.
-  For nonzero inputs, output is any of (-1,1) and 0 for zero input.
+* \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.
+  NaN values return NaN.  Integral values return signedness as Int8 and
+  floating-point values return it with the same type as the input values.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~
