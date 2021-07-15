@@ -17,8 +17,12 @@
 
 const del = require('del');
 const gulp = require('gulp');
-const { Observable } = require('rxjs');
 const { targets } = require('./gulp/argv');
+const {
+    from: ObservableFrom,
+    bindNodeCallback: ObservableBindNodeCallback
+} = require('rxjs');
+const { flatMap } = require('rxjs/operators');
 const cleanTask = require('./gulp/clean-task');
 const compileTask = require('./gulp/compile-task');
 const packageTask = require('./gulp/package-task');
@@ -83,10 +87,9 @@ gulp.task(`compile`, gulpConcurrent(getTasks(`compile`)));
 gulp.task(`package`, gulpConcurrent(getTasks(`package`)));
 gulp.task(`default`,  gulp.series(`clean`, `build`, `test`));
 
-function gulpConcurrent(tasks) {
-    const numCPUs = Math.max(1, require('os').cpus().length * 0.75) | 0;
-    return () => Observable.from(tasks.map((task) => gulp.series(task)))
-        .flatMap((task) => Observable.bindNodeCallback(task)(), numCPUs);
+function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
+    return () => ObservableFrom(tasks.map((task) => gulp.series(task)))
+        .pipe(flatMap((task) => ObservableBindNodeCallback(task)(), numCPUs || 1));
 }
 
 function getTasks(name) {
