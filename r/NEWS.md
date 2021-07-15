@@ -51,6 +51,7 @@
 * Scalar inputs to `RecordBatch$create()` and `Table$create()` are recycled
 * `arrow_info()` includes details on the C++ build, such as compiler version
 * `match_arrow()` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
+* Row-level metadata is now restricted to reading/writing single parquet or feather files. Row-level metadata with datasets is ignored (with a warning) if the dataset contains row-level metadata. Writing a dataset with row-level metadata will also be ignored (with a warning). We are working on a more robust implementation to support row-level metadata (and other complex types) --- stay tuned. For working with {sf} objects, [{sfarrow}](https://CRAN.R-project.org/package=sfarrow) is helpful for serializing sf columns and sharing them with geopandas.
 
 # arrow 4.0.1
 
