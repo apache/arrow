@@ -652,10 +652,6 @@ nse_funcs$log <- function(x, base = exp(1)) {
 
 nse_funcs$logb <- nse_funcs$log
 
-nse_funcs$ifelse <- function(test, yes, no){
- Expression$create("if_else", test, yes, no)
-}
-
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   # We ought to assert that the types of the true and false conditions will result
   # in the same types. We can't compare the objects themselves directly because
