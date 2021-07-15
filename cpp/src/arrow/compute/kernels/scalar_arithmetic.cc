@@ -1808,10 +1808,12 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto floor = MakeUnaryArithmeticFunctionFloatingPoint<Floor>("floor", &floor_doc);
   DCHECK_OK(registry->AddFunction(std::move(floor)));
 
-  auto ceiling = MakeUnaryArithmeticFunctionFloatingPoint<Ceiling>("ceiling", &ceiling_doc);
+  auto ceiling =
+      MakeUnaryArithmeticFunctionFloatingPoint<Ceiling>("ceiling", &ceiling_doc);
   DCHECK_OK(registry->AddFunction(std::move(ceiling)));
 
-  auto truncate = MakeUnaryArithmeticFunctionFloatingPoint<Truncate>("truncate", &truncate_doc);
+  auto truncate =
+      MakeUnaryArithmeticFunctionFloatingPoint<Truncate>("truncate", &truncate_doc);
   DCHECK_OK(registry->AddFunction(std::move(truncate)));
 }
 
