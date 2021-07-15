@@ -37,3 +37,10 @@ The package includes Arrow methods for many base R functions that can
 be called directly on Arrow objects, as well as some tidyverse-flavored versions
 available inside \code{dplyr} verbs.
 }
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+list_compute_functions() 
+list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
+list_compute_functions(pattern = "^is", invert = TRUE)
+\dontshow{\}) # examplesIf}
+}
