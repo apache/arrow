@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
+import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -31,6 +32,9 @@ import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -62,14 +66,12 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         return null;
       };
 
-  final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcIntervalVectorAccessor> accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
-
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
         {(Supplier<ValueVector>) () -> {
-          IntervalDayVector vector = new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
+          FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
+          IntervalDayVector vector = new IntervalDayVector("", fieldType, rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -79,7 +81,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           return vector;
         }, "IntervalDayVector"},
         {(Supplier<ValueVector>) () -> {
-          IntervalYearVector vector = new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
+          FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
+          IntervalYearVector vector = new IntervalYearVector("", fieldType, rootAllocatorTestRule.getRootAllocator());
 
           int valueCount = 10;
           vector.setValueCount(valueCount);
@@ -106,23 +109,36 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectReturnValidObject() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
-        (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
+  public void testShouldGetObjectReturnValidDuration() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          Object result = accessor.getObject();
+
+          collector.checkThat(result, is(getExpectedObject(vector, currentRow)));
+          collector.checkThat(accessor.wasNull(), is(false));
+        });
   }
 
   @Test
-  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() throws Exception {
-    Class<?> objectClass = getExpectedObjectClassForVector(vector);
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(objectClass),
-        (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
+  public void testShouldGetObjectPassingDurationAsParameterReturnValidDuration() throws Exception {
+    Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          Object result = accessor.getObject(expectedObjectClass);
+
+          collector.checkThat(result, is(getExpectedObject(vector, currentRow)));
+          collector.checkThat(accessor.wasNull(), is(false));
+        });
   }
 
   @Test
   public void testShouldGetObjectReturnNull() throws Exception {
     setAllNullOnVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
-        (accessor, currentRow) -> equalTo(null));
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getObject(), equalTo(null));
+          collector.checkThat(accessor.wasNull(), is(true));
+        });
   }
 
   private String getStringOnVector(ValueVector vector, int index) {
@@ -136,22 +152,33 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @Test
   public void testShouldGetStringReturnCorrectString() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
-        (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          String expectedString = getStringOnVector(vector, currentRow);
+          collector.checkThat(accessor.getString(), is(expectedString));
+          collector.checkThat(accessor.wasNull(), is(false));
+        });
   }
 
   @Test
   public void testShouldGetStringReturnNull() throws Exception {
     setAllNullOnVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
-        (accessor, currentRow) -> equalTo(null));
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          String result = accessor.getString();
+
+          collector.checkThat(result, equalTo(null));
+          collector.checkThat(accessor.wasNull(), is(true));
+        });
   }
 
   @Test
-  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
+  public void testShouldGetObjectClassReturnDurationClass() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObjectClass,
-        (accessor, currentRow) -> equalTo(expectedObjectClass));
+    iterateOnAccessor(vector, accessorSupplier,
+        (accessor, currentRow) -> {
+          collector.checkThat(accessor.getObjectClass(), equalTo(expectedObjectClass));
+        });
   }
 
   private Class<?> getExpectedObjectClassForVector(ValueVector vector) {

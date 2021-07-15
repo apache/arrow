@@ -22,8 +22,7 @@ import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcIntervalDayVectorAccessor;
-import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcIntervalYearVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcIntervalVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
@@ -128,9 +127,9 @@ public class ArrowFlightJdbcAccessorFactory {
     } else if (vector instanceof DurationVector) {
       return new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow);
     } else if (vector instanceof IntervalDayVector) {
-      return new ArrowFlightJdbcIntervalDayVectorAccessor(((IntervalDayVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalDayVector) vector), getCurrentRow);
     } else if (vector instanceof IntervalYearVector) {
-      return new ArrowFlightJdbcIntervalYearVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
+      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
     }
 
     throw new UnsupportedOperationException();
