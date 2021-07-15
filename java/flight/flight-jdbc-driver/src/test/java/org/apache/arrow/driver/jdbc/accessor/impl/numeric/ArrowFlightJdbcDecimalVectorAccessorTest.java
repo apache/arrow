@@ -23,10 +23,15 @@ import static org.hamcrest.CoreMatchers.is;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.ValueVector;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
@@ -34,7 +39,10 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class ArrowFlightJdbcDecimalVectorAccessorTest {
 
   @ClassRule
@@ -43,16 +51,39 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
-  private DecimalVector vector;
-  private DecimalVector vectorWithNull;
+  private final Supplier<ValueVector> vectorSupplier;
+  private ValueVector vector;
+  private ValueVector vectorWithNull;
 
   private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDecimalVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
+      (vector, getCurrentRow) -> {
+        if (vector instanceof DecimalVector) {
+          return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
+        } else if (vector instanceof Decimal256Vector) {
+          return new ArrowFlightJdbcDecimalVectorAccessor((Decimal256Vector) vector, getCurrentRow);
+        }
+        return null;
+      };
+
+  @Parameterized.Parameters(name = "{1}")
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] {
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createDecimalVector(), "DecimalVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createDecimal256Vector(), "Decimal256Vector"},
+    });
+  }
+
+  public ArrowFlightJdbcDecimalVectorAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
+    this.vectorSupplier = vectorSupplier;
+  }
 
   @Before
   public void setup() {
-    this.vector = rootAllocatorTestRule.createDecimalVector();
-    this.vectorWithNull = rootAllocatorTestRule.createDecimalVectorForNullTests();
+    this.vector = vectorSupplier.get();
+
+    this.vectorWithNull = vectorSupplier.get();
+    this.vectorWithNull.clear();
+    this.vectorWithNull.setValueCount(5);
   }
 
   @After
