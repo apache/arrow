@@ -21,40 +21,41 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
+import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorWrapper;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 
 /**
  * Accessor for the Arrow type {@link DenseUnionVector}.
  */
-public class ArrowFlightJdbcDenseUnionVectorAccessor extends AbstractArrowFlightJdbcUnionVectorAccessor {
+public class ArrowFlightJdbcDenseUnionVectorAccessor extends ArrowFlightJdbcAccessorWrapper {
 
   private final DenseUnionVector vector;
+  private final ArrowFlightJdbcAccessor[] accessors;
+  private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
 
-  /**
-   * Instantiate an accessor for a {@link DenseUnionVector}.
-   *
-   * @param vector             an instance of a DenseUnionVector.
-   * @param currentRowSupplier the supplier to track the rows.
-   */
   public ArrowFlightJdbcDenseUnionVectorAccessor(DenseUnionVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
     this.vector = vector;
+    this.accessors = new ArrowFlightJdbcAccessor[128];
   }
 
-  @Override
-  protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
+  private ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
     return ArrowFlightJdbcAccessorFactory.createAccessor(vector, () -> this.vector.getOffset(this.getCurrentRow()));
   }
 
-  @Override
-  protected byte getCurrentTypeId() {
+  protected ArrowFlightJdbcAccessor getAccessor() {
     int index = getCurrentRow();
-    return this.vector.getTypeId(index);
-  }
+    byte typeId = this.vector.getTypeId(index);
+    ValueVector vector = this.vector.getVectorByType(typeId);
+    if (typeId < 0) {
+      return this.nullAccessor;
+    }
+    if (this.accessors[typeId] == null) {
+      this.accessors[typeId] = this.createAccessorForVector(vector);
+    }
 
-  @Override
-  protected ValueVector getVectorByTypeId(byte typeId) {
-    return this.vector.getVectorByType(typeId);
+    return this.accessors[typeId];
   }
 }
