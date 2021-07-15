@@ -121,7 +121,7 @@ class ConsoleReport(Report):
                                    asset))
 
 
-class json_report(report):
+class JsonReport(report):
 
     def __init__(self, job):
         super().__init__(job)
