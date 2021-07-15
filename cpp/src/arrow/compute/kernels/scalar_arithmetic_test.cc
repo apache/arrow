@@ -2028,25 +2028,23 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   auto min = std::numeric_limits<CType>::lowest();
   auto max = std::numeric_limits<CType>::max();
 
+  this->SetNansEqual(true);
+
   // XXX TestUnaryArithmetic expects a function with ArithmeticOptions as its
   // second parameter
   auto sign = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
     return Sign(arg, ctx);
   };
 
-  this->AssertUnaryOp(sign, "[]", ArrayFromJSON(int8(), "[]"));
-  this->AssertUnaryOp(sign, "[null]", ArrayFromJSON(int8(), "[null]"));
-  this->AssertUnaryOp(sign, "[1.3, null, -10.80]",
-                      ArrayFromJSON(int8(), "[1, null, -1]"));
-  this->AssertUnaryOp(sign, "[0.0, -0.0]", ArrayFromJSON(int8(), "[0, 0]"));
-  this->AssertUnaryOp(sign, "[1.3, 10.80, 12748.001]",
-                      ArrayFromJSON(int8(), "[1, 1, 1]"));
-  this->AssertUnaryOp(sign, "[-1.3, -10.80, -12748.001]",
-                      ArrayFromJSON(int8(), "[-1, -1, -1]"));
-  this->AssertUnaryOp(sign, "[Inf, -Inf]", ArrayFromJSON(int8(), "[1, -1]"));
-  this->AssertUnaryOp(sign, "[NaN]", ArrayFromJSON(int8(), "[1]"));
-  this->AssertUnaryOp(sign, MakeScalar(min), *arrow::MakeScalar(int8(), -1));
-  this->AssertUnaryOp(sign, MakeScalar(max), *arrow::MakeScalar(int8(), 1));
+  this->AssertUnaryOp(sign, "[]", "[]");
+  this->AssertUnaryOp(sign, "[null]", "[null]");
+  this->AssertUnaryOp(sign, "[1.3, null, -10.80]", "[1, null, -1]");
+  this->AssertUnaryOp(sign, "[0.0, -0.0]", "[0, 0]");
+  this->AssertUnaryOp(sign, "[1.3, 10.80, 12748.001]", "[1, 1, 1]");
+  this->AssertUnaryOp(sign, "[-1.3, -10.80, -12748.001]", "[-1, -1, -1]");
+  this->AssertUnaryOp(sign, "[Inf, -Inf]", "[1, -1]");
+  this->AssertUnaryOp(sign, "[NaN]", "[NaN]");
+  this->AssertUnaryOp(sign, MakeArray(min, max), "[-1, 1]");
 }
 }  // namespace compute
 }  // namespace arrow

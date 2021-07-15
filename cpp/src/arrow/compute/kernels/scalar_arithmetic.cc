@@ -465,22 +465,18 @@ struct PowerChecked {
 };
 
 struct Sign {
-  template <typename T, typename Arg,
-            enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
-  static constexpr T Call(KernelContext*, Arg arg, Status*) {
-    return (arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1);
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
   }
 
-  template <typename T, typename Arg,
-            enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
-  static constexpr T Call(KernelContext*, Arg arg, Status*) {
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, Arg arg, Status*) {
     return arg > 0;
   }
 
-  template <typename T, typename Arg,
-            enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
-                        bool> = true>
-  static constexpr T Call(KernelContext*, Arg arg, Status*) {
+  template <typename T, typename Arg>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
@@ -1058,7 +1054,7 @@ void AddDecimalBinaryKernels(const std::string& name,
 
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType, typename Op>
-ArrayKernelExec GenerateArithmeticWithFixedOutType(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<OutType, Int8Type, Op>::Exec;
@@ -1078,9 +1074,9 @@ ArrayKernelExec GenerateArithmeticWithFixedOutType(detail::GetTypeId get_id) {
     case Type::UINT64:
       return KernelGenerator<OutType, UInt64Type, Op>::Exec;
     case Type::FLOAT:
-      return KernelGenerator<OutType, FloatType, Op>::Exec;
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
     case Type::DOUBLE:
-      return KernelGenerator<OutType, DoubleType, Op>::Exec;
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -1197,14 +1193,15 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
 }
 
 // Like MakeUnaryArithmeticFunction, but for unary arithmetic ops with a fixed
-// output type.
-template <typename Op, typename OutType>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedOutType(
+// output type for integral inputs.
+template <typename Op, typename IntOutType>
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
     std::string name, const FunctionDoc* doc) {
-  auto out_ty = TypeTraits<OutType>::type_singleton();
+  auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = GenerateArithmeticWithFixedOutType<ScalarUnary, OutType, Op>(ty);
+    auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
+    auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
   return func;
@@ -1654,7 +1651,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto sign =
-      MakeUnaryArithmeticFunctionWithFixedOutType<Sign, Int8Type>("sign", &sign_doc);
+      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", &sign_doc);
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
