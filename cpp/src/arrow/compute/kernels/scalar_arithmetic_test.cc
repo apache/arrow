@@ -66,7 +66,7 @@ class TestUnaryArithmetic : public TestBase {
     return *arrow::MakeScalar(type_singleton(), value);
   }
 
-  // (Scalar, Scalar)
+  // (CScalar, CScalar)
   void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
     auto arg = MakeScalar(argument);
     auto exp = MakeScalar(expected);
