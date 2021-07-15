@@ -60,8 +60,8 @@ ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
       assert_is(expr, "Expression")
       ExecNode_Filter(self, expr)
     },
-    ScalarAggregate = function(options, targets, out_field_names) {
-      ExecNode_ScalarAggregate(self, options, targets, out_field_names)
+    ScalarAggregate = function(options, target_names, out_field_names) {
+      ExecNode_ScalarAggregate(self, options, target_names, out_field_names)
     }
   )
 )

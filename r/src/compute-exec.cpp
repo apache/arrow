@@ -78,7 +78,7 @@ std::shared_ptr<compute::ExecNode> ExecNodeOrStop(
 
 #include <arrow/dataset/scanner.h>
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::dataset::Dataset>& dataset,
@@ -132,6 +132,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
       input.get(), /*label=*/"project", std::move(expressions), std::move(names)));
 }
 
+// [[arrow::export]]
 std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> target_names, std::vector<std::string> out_field_names) {

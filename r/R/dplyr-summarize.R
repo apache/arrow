@@ -32,7 +32,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
       dplyr::summarise(to_duckdb(.data), ...)
   } else if (isTRUE(getOption("arrow.summarize", FALSE))) {
     # Try stuff, if successful return()
-    out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+    out <- do_arrow_summarize(.data, ...)
     if (inherits(out, "try-error")) {
       return(abandon_ship(call, .data, format(out)))
     } else {
@@ -63,7 +63,7 @@ do_arrow_summarize <- function(.data, ...) {
     list(
       fun = "sum",
       data = x,
-      options = list(na.rm = na.rm)
+      options = list(na.rm = na.rm, na.min_count = 0L)
     )
   }
   results <- list()
@@ -101,9 +101,9 @@ do_exec_plan <- function(.data) {
   project_node <- start_node$Project(.data$selected_columns)
 
   final_node <- project_node$ScalarAggregate(
-    options = .data$aggregates,
-    targets = names(.data),
-    out_field_names = names(.data$aggregates)
+    options = .data$aggregations,
+    target_names = names(.data),
+    out_field_names = names(.data$aggregations)
   )
   plan$Run(final_node)
 }
