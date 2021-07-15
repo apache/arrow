@@ -19,6 +19,9 @@ ARG base
 FROM ${base}
 ARG arch
 
+ARG tz="UTC"
+ENV TZ=${tz}
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran

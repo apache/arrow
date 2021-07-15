@@ -32,7 +32,7 @@ test_df <- tibble::tibble(date = test_date)
 # We can support this feature after ARROW-12980 is merged
 test_that("timezone aware timestamps are not supported", {
 
-  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Asia/Pyongyang")
+  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
 
   expect_error(

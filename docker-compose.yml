@@ -1011,6 +1011,7 @@ services:
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         gcc_version: ${GCC_VERSION}
+        tz: ${TZ}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1048,6 +1049,7 @@ services:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
+        tz: ${TZ}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1078,6 +1080,7 @@ services:
       args:
         base: wch1/r-debug:latest
         r_bin: RDsan
+        tz: ${TZ}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
@@ -1099,6 +1102,7 @@ services:
       args:
         base: wch1/r-debug:latest
         r_bin: RDvalgrind
+        tz: ${TZ}
     environment:
       <<: *ccache
       ARROW_R_DEV: ${ARROW_R_DEV}
@@ -1123,6 +1127,7 @@ services:
       args:
         base: rstudio/r-base:4.0-focal
         r_dev: ${ARROW_R_DEV}
+        tz: ${TZ}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "true"
