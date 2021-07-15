@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/compute/api.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -76,6 +76,12 @@ static void ValidateCompare(CompareOptions options, const char* lhs_str,
   auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
   ValidateCompare<ArrowType>(options, lhs, rhs, expected);
 }
+
+static_assert(!CompareOperator(""),
+              "Workaround for gcc compiler bug "
+              "(https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78022): an inherited "
+              "constexpr constructor which is used inside a template before anywhere "
+              "else isn't recognized (so use it first in this assertion instead).");
 
 template <typename T>
 static inline bool SlowCompare(CompareOperator op, const T& lhs, const T& rhs) {

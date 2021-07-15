@@ -38,10 +38,10 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   /// Configure the action taken when a slot of the selection mask is null.
   /// drop: the corresponding filtered value will be removed in the output.
   /// emit_null: the corresponding filtered value will be null in the output.
-  struct NullSelectionBehavior : ::arrow::internal::EnumType<NullSelectionBehavior> {
+  struct NullSelectionBehavior : EnumType<NullSelectionBehavior> {
     using EnumType::EnumType;
-    static constexpr const char* kName = "NullSelectionBehavior";
-    static constexpr const char* kValues = "drop emit_null";
+    static constexpr const char* name() { return "NullSelectionBehavior"; }
+    static constexpr EnumStrings<2> values() { return {"drop", "emit_null"}; }
   };
 
   explicit FilterOptions(
@@ -69,10 +69,10 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   /// Configure how null values will be encoded
   /// encode: the null value will be added to the dictionary with a proper index.
   /// mask: the null value will be masked in the indices array.
-  struct NullEncodingBehavior : ::arrow::internal::EnumType<NullEncodingBehavior> {
+  struct NullEncodingBehavior : EnumType<NullEncodingBehavior> {
     using EnumType::EnumType;
-    static constexpr const char* kName = "NullEncodingBehavior";
-    static constexpr const char* kValues = "encode mask";
+    static constexpr const char* name() { return "NullEncodingBehavior"; }
+    static constexpr EnumStrings<2> values() { return {"encode", "mask"}; }
   };
 
   explicit DictionaryEncodeOptions(
@@ -83,10 +83,10 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   NullEncodingBehavior null_encoding_behavior = NullEncodingBehavior("mask");
 };
 
-struct SortOrder : public ::arrow::internal::EnumType<SortOrder> {
+struct SortOrder : public EnumType<SortOrder> {
   using EnumType::EnumType;
-  static constexpr const char* kName = "SortOrder";
-  static constexpr const char* kValues = "ascending descending";
+  static constexpr const char* name() { return "SortOrder"; }
+  static constexpr EnumStrings<2> values() { return {"ascending", "descending"}; }
 };
 
 /// \brief One sort key for PartitionNthIndices (TODO) and SortIndices

@@ -61,10 +61,10 @@ class ARROW_EXPORT JoinOptions : public FunctionOptions {
   /// emit_null: a null in any input results in a null in the output.
   /// skip: nulls in inputs are skipped.
   /// replace: nulls in inputs are replaced with the replacement string.
-  struct NullHandlingBehavior : public ::arrow::internal::EnumType<NullHandlingBehavior> {
+  struct NullHandlingBehavior : public EnumType<NullHandlingBehavior> {
     using EnumType::EnumType;
-    static constexpr const char* kName = "NullHandlingBehavior";
-    static constexpr const char* kValues = "emit_null skip replace";
+    static constexpr EnumStrings<3> values() { return {"emit_null", "skip", "replace"}; }
+    static constexpr const char* name() { return "NullHandlingBehavior"; }
   };
   explicit JoinOptions(
       NullHandlingBehavior null_handling = NullHandlingBehavior("emit_null"),
@@ -220,11 +220,12 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
 /// - greater_equal
 /// - less
 /// - less_equal
-struct CompareOperator : public ::arrow::internal::EnumType<CompareOperator> {
+struct CompareOperator : public EnumType<CompareOperator> {
   using EnumType::EnumType;
-  static constexpr const char* kName = "CompareOperator";
-  static constexpr const char* kValues =
-      "equal not_equal greater greater_equal less less_equal";
+  static constexpr const char* name() { return "CompareOperator"; }
+  static constexpr EnumStrings<6> values() {
+    return {"equal", "not_equal", "greater", "greater_equal", "less", "less_equal"};
+  }
 };
 
 struct ARROW_EXPORT CompareOptions {

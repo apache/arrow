@@ -86,10 +86,12 @@ class ARROW_EXPORT VarianceOptions : public FunctionOptions {
 class ARROW_EXPORT QuantileOptions : public FunctionOptions {
  public:
   /// Interpolation method to use when quantile lies between two data points
-  struct Interpolation : ::arrow::internal::EnumType<Interpolation> {
+  struct Interpolation : EnumType<Interpolation> {
     using EnumType::EnumType;
-    static constexpr const char* kName = "Interpolation";
-    static constexpr const char* kValues = "linear lower higher nearest midpoint";
+    static constexpr const char* name() { return "Interpolation"; }
+    static constexpr EnumStrings<5> values() {
+      return {"linear", "lower", "higher", "nearest", "midpoint"};
+    }
   };
 
   explicit QuantileOptions(double q = 0.5,

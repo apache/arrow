@@ -44,8 +44,6 @@ using ::arrow::internal::checked_cast;
 namespace compute {
 namespace internal {
 
-using arrow::internal::is_reflection_enum;
-
 class GenericOptionsType : public FunctionOptionsType {
  public:
   Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
@@ -98,7 +96,7 @@ static inline std::string GenericToString(const TimeUnit::type value) {
 }
 
 template <typename Raw>
-static inline std::string GenericToString(::arrow::internal::EnumType<Raw> value) {
+static inline std::string GenericToString(EnumType<Raw> value) {
   return value.ToString();
 }
 
@@ -270,8 +268,7 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
 }
 
 template <typename Raw>
-static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
-    const ::arrow::internal::EnumType<Raw> value) {
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const EnumType<Raw> value) {
   return std::make_shared<Int32Scalar>(*value);
 }
 
@@ -385,11 +382,7 @@ static inline enable_if_same_result<T, TimeUnit::type> GenericFromScalar(
 template <typename T>
 static inline enable_if_t<is_reflection_enum<T>::value, Result<T>> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
-  const int32_t raw_value = checked_cast<const Int32Scalar&>(*value).value;
-  if (T val{raw_value}) {
-    return val;
-  }
-  return Status::Invalid("Invalid value ", raw_value, " for enum ", T::kName);
+  return T::Make(checked_cast<const Int32Scalar&>(*value).value);
 }
 
 template <typename T>

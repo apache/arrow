@@ -75,8 +75,6 @@ QuantileOptions::QuantileOptions(std::vector<double> q, Interpolation interpolat
       q{std::move(q)},
       interpolation{interpolation} {}
 constexpr char QuantileOptions::kTypeName[];
-constexpr const char* QuantileOptions::Interpolation::kName;
-constexpr const char* QuantileOptions::Interpolation::kValues;
 
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size)
     : FunctionOptions(internal::kTDigestOptionsType),

@@ -75,8 +75,6 @@ FilterOptions::FilterOptions(NullSelectionBehavior null_selection)
     : FunctionOptions(internal::kFilterOptionsType),
       null_selection_behavior(null_selection) {}
 constexpr char FilterOptions::kTypeName[];
-constexpr const char* FilterOptions::NullSelectionBehavior::kName;
-constexpr const char* FilterOptions::NullSelectionBehavior::kValues;
 
 TakeOptions::TakeOptions(bool boundscheck)
     : FunctionOptions(internal::kTakeOptionsType), boundscheck(boundscheck) {}
@@ -86,11 +84,6 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
     : FunctionOptions(internal::kDictionaryEncodeOptionsType),
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
-constexpr const char* DictionaryEncodeOptions::NullEncodingBehavior::kName;
-constexpr const char* DictionaryEncodeOptions::NullEncodingBehavior::kValues;
-
-constexpr const char* SortOrder::kName;
-constexpr const char* SortOrder::kValues;
 
 ArraySortOptions::ArraySortOptions(SortOrder order)
     : FunctionOptions(internal::kArraySortOptionsType), order(order) {}

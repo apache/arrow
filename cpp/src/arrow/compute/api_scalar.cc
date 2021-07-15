@@ -108,8 +108,6 @@ JoinOptions::JoinOptions(NullHandlingBehavior null_handling, std::string null_re
       null_handling(null_handling),
       null_replacement(std::move(null_replacement)) {}
 constexpr char JoinOptions::kTypeName[];
-constexpr const char* JoinOptions::NullHandlingBehavior::kName;
-constexpr const char* JoinOptions::NullHandlingBehavior::kValues;
 
 MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
     : FunctionOptions(internal::kMatchSubstringOptionsType),
