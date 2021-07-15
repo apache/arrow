@@ -61,7 +61,7 @@ struct SumImpl : public ScalarAggregator {
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const auto& data = batch[0].array();
-      this->count = data->length - data->GetNullCount();
+      this->count += data->length - data->GetNullCount();
       if (is_boolean_type<ArrowType>::value) {
         this->sum +=
             static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
@@ -71,9 +71,9 @@ struct SumImpl : public ScalarAggregator {
       }
     } else {
       const auto& data = *batch[0].scalar();
-      this->count = data.is_valid;
+      this->count += data.is_valid * batch.length;
       if (data.is_valid) {
-        this->sum += internal::UnboxScalar<ArrowType>::Unbox(data);
+        this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
       }
     }
     return Status::OK();
