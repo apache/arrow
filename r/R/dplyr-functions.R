@@ -294,8 +294,8 @@ nse_funcs$substr <- function(x, start, stop) {
     msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 
-  # substr treats values as if they're on a continous number line, so values 
-  # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics 
+  # substr treats values as if they're on a continous number line, so values
+  # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
   # this behavior
   if (start <= 0) {
     start <- 1
@@ -310,7 +310,7 @@ nse_funcs$substr <- function(x, start, stop) {
   Expression$create(
     "utf8_slice_codeunits",
     x,
-    # we don't need to subtract 1 from `stop` as C++ counts exclusively 
+    # we don't need to subtract 1 from `stop` as C++ counts exclusively
     # which effectively cancels out the difference in indexing between R & C++
     options = list(start = start - 1L, stop = stop)
   )
@@ -336,14 +336,14 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     end <- .Machine$integer.max
   }
 
-  # An end value lower than a start value returns an empty string in 
+  # An end value lower than a start value returns an empty string in
   # stringr::str_sub so set end to 0 here to match this behavior
   if (end < start) {
     end <- 0
   }
 
   # subtract 1 from `start` because C++ is 0-based and R is 1-based
-  # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0 
+  # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0
   # when `start` < 0, both str_sub and utf8_slice_codeunits count backwards from the end
   if (start > 0) {
     start <- start - 1L
@@ -634,20 +634,36 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 }
 
 nse_funcs$log <- function(x, base = exp(1)) {
-  
+
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
   }
-  
+
   if (base == 2) {
     return(Expression$create("log2_checked", x))
   }
-  
+
   if (base == 10) {
     return(Expression$create("log10_checked", x))
-  } 
+  }
   # ARROW-13345
   stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
 }
 
+
 nse_funcs$logb <- nse_funcs$log
+
+nse_funcs$ifelse <- function(test, yes, no){
+ Expression$create("if_else", test, yes, no)
+}
+
+nse_funcs$if_else <- function(condition, true, false, missing = NULL){
+
+  assert_is(false, class(true))
+
+  if (inherits(true, "character") || inherits(false, "character")) {
+    stop("`true` and `false` character values not yet supported in Arrow")
+  }
+
+  Expression$create("if_else", condition, true, false)
+}
