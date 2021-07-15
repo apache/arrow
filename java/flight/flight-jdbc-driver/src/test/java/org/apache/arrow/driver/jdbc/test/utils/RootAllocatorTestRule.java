@@ -432,25 +432,6 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     return result;
   }
 
-  public BitVector createBitVector() {
-    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
-    valueVector.allocateNew(2);
-    valueVector.setSafe(0, 0);
-    valueVector.setSafe(1, 1);
-    valueVector.setValueCount(2);
-
-    return valueVector;
-  }
-
-  public BitVector createBitVectorForNullTests() {
-    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
-    bitVector.allocateNew(2);
-    bitVector.setNull(0);
-    bitVector.setValueCount(1);
-
-    return bitVector;
-  }
-
   /**
    * Create a VarBinaryVector to be used in the accessor tests.
    *
@@ -577,6 +558,25 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     valueVector.setValueCount(2);
 
     return valueVector;
+  }
+
+  public BitVector createBitVector() {
+    BitVector valueVector = new BitVector("Value", this.getRootAllocator());
+    valueVector.allocateNew(2);
+    valueVector.setSafe(0, 0);
+    valueVector.setSafe(1, 1);
+    valueVector.setValueCount(2);
+
+    return valueVector;
+  }
+
+  public BitVector createBitVectorForNullTests() {
+    final BitVector bitVector = new BitVector("ID", this.getRootAllocator());
+    bitVector.allocateNew(2);
+    bitVector.setNull(0);
+    bitVector.setValueCount(1);
+
+    return bitVector;
   }
 
   public TimeNanoVector createTimeNanoVector() {
