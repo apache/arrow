@@ -23,9 +23,9 @@
 
 * There are now more than 250 compute functions available for use in `dplyr::filter()`, `mutate()`, etc. Additions in this release include:
 
-  * String operations: `strsplit()` and `str_split()`; `strptime()`; `paste()`, `paste0()`, and `str_c()`; `str_like()`; `str_pad()`; `stri_reverse()`
+  * String operations: `strsplit()` and `str_split()`; `strptime()`; `paste()`, `paste0()`, and `str_c()`; `substr()` and `str_sub()`; `str_like()`; `str_pad()`; `stri_reverse()`
   * Date/time operations: `lubridate` methods such as `year()`, `month()`, `wday()`, and so on
-  * `abs()`, `na.omit()` et al., `any()`/`all()`, `pmin()`/`pmax()`
+  * Math: `abs()`, `log()`, trigonometry (`sin()`, `cos()`, et al.), `pmin()`/`pmax()`
   * `is.*` functions are supported and can be used inside `relocate()`
 
 * The print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
@@ -47,6 +47,7 @@
 * Some Arrow array types now use ALTREP when converting to R. To disable this, set `options(arrow.use_altrep = FALSE)`
 * `is.na()` now evaluates to `TRUE` on `NaN` values in floating point number fields, for consistency with base R.
 * `is.nan()` now evaluates to `FALSE` on `NA` values in floating point number fields and `FALSE` on all values in non-floating point fields, for consistency with base R.
+* Additional methods for `Array`, `ChunkedArray`, `RecordBatch`, and `Table`: `na.omit()` and friends, `any()`/`all()`
 * Scalar inputs to `RecordBatch$create()` and `Table$create()` are recycled
 * `arrow_info()` includes details on the C++ build, such as compiler version
 * `match_arrow()` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
