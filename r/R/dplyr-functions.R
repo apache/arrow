@@ -573,7 +573,8 @@ nse_funcs$log <- function(x, base = exp(1)) {
   if (base == 10) {
     return(Expression$create("log10_checked", x))
   } 
-  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow")
+  # ARROW-13345
+  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
 }
 
 nse_funcs$logb <- nse_funcs$log
