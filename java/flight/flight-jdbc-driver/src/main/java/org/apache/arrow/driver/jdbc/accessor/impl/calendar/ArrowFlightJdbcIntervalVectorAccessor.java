@@ -22,6 +22,7 @@ import java.time.Period;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 
@@ -31,14 +32,6 @@ import org.apache.arrow.vector.IntervalYearVector;
 public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccessor {
 
   /**
-   * Functional interface used to unify Interval*Vector#getObject implementations.
-   */
-  @FunctionalInterface
-  interface ObjectGetter {
-    Object get(int index);
-  }
-
-  /**
    * Functional interface used to unify Interval*Vector#getAsStringBuilder implementations.
    */
   @FunctionalInterface
@@ -46,7 +39,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     StringBuilder get(int index);
   }
 
-  private final ObjectGetter objectGetter;
+  private final BaseFixedWidthVector vector;
   private final StringBuilderGetter stringBuilderGetter;
   private final Class<?> objectClass;
 
@@ -58,7 +51,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    */
   public ArrowFlightJdbcIntervalVectorAccessor(IntervalDayVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
-    this.objectGetter = vector::getObject;
+    this.vector = vector;
     this.stringBuilderGetter = vector::getAsStringBuilder;
     this.objectClass = Duration.class;
   }
@@ -71,14 +64,14 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
    */
   public ArrowFlightJdbcIntervalVectorAccessor(IntervalYearVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
-    this.objectGetter = vector::getObject;
+    this.vector = vector;
     this.stringBuilderGetter = vector::getAsStringBuilder;
     this.objectClass = Period.class;
   }
 
   @Override
   public Object getObject() {
-    Object object = objectGetter.get(getCurrentRow());
+    Object object = this.vector.getObject(getCurrentRow());
     this.wasNull = object == null;
 
     return object;
@@ -91,7 +84,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
 
   @Override
   public String getString() {
-    StringBuilder stringBuilder = stringBuilderGetter.get(getCurrentRow());
+    StringBuilder stringBuilder = this.stringBuilderGetter.get(getCurrentRow());
     if (this.wasNull = (stringBuilder == null)) {
       return null;
     }
