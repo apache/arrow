@@ -665,7 +665,7 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   # ARROW-13358 merges
   warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
   if (warn_types) {
-    warning("Factors are currently converted to chracters in if_else and ifelse", call. = FALSE)
+    warning("Factors are currently converted to characters in if_else and ifelse", call. = FALSE)
   }
 
   build_expr("if_else", condition, true, false)
