@@ -67,10 +67,13 @@ const createMainPackageJson = (target, format) => (orig) => ({
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     bin: undefined,
-    module: undefined,
     main: `${mainExport}.node.ts`,
+    module: `${mainExport}.node.ts`,
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
+    type: "module",
+    sideEffects: false,
+    esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/flatbuffers': '*',
         '@types/node': '*',
@@ -96,7 +99,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
             type:     format === 'esm' ? `module` : `commonjs`,
             // set "module" if building scoped ESM target
-            module:   format === 'esm' ? `${mainExport}.dom.js` : undefined,
+            module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
