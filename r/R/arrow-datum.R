@@ -58,7 +58,7 @@ is.na.ArrowDatum <- function(x) {
 #' @export
 is.nan.ArrowDatum <- function(x) {
   if (x$type_id() %in% TYPES_WITH_NAN) {
-    call_function("is_nan", x) & !call_function("is_null", x)
+    call_function("is_nan", x) & call_function("is_valid", x)
   } else {
     # This is just a hacky way to return an ArrowDatum identical to the input
     # in shape but with a Boolean value of false in every position.
