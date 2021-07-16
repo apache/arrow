@@ -97,11 +97,11 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      kResultNullIfNull, "extractDay_daytimeinterval"),
 
       NativeFunction("from_unixtime", {}, DataTypeVector{int64()}, utf8(),
-                     kResultNullInternal, "gdv_fn_from_unixtime_int64",
+                     kResultNullIfNull, "gdv_fn_from_unixtime_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("from_unixtime", {}, DataTypeVector{int64(), utf8()}, utf8(),
-                     kResultNullInternal, "gdv_fn_from_unixtime_int64_utf8",
+                     kResultNullIfNull, "gdv_fn_from_unixtime_int64_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),

@@ -770,18 +770,20 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len) {
+const char* gdv_fn_from_unixtime_int64(int64_t context, gdv_timestamp in,
+                                       int32_t* out_len) {
   const char* pattern = "yyyy-MM-dd hh:mm:ss";
   const int length = strlen(pattern);
-  const char* ret = gdv_fn_from_unixtime_int64_utf8(context, in, pattern, length, out_len);
+  const char* ret =
+      gdv_fn_from_unixtime_int64_utf8(context, in, pattern, length, out_len);
 
   return ret;
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
-                                     const char* pattern, gdv_int32 pattern_len,
-                                     gdv_int32* out_len) {
+const char* gdv_fn_from_unixtime_int64_utf8(int64_t context, gdv_timestamp in,
+                                            const char* pattern, int32_t pattern_len,
+                                            int32_t* out_len) {
   // Patter dictionary to translate a given pattern like yyyy-MM-dd to
   // a pattern like %Y-%m-%d that the std::strftime can translate.
   std::map<std::string, std::string> pattern_dict{
@@ -794,11 +796,11 @@ const char* gdv_fn_from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
       {"Mm", "%B"},    // converts 'Mm' to month abbreviation, eg. October
       {"d", "%e"},  // converts 'd' to day of the month as a decimal number (range [1,31])
       {"dd",
-               "%d"},  // converts 'dd' to day of the month as a decimal number (range [01,31])
+       "%d"},  // converts 'dd' to day of the month as a decimal number (range [01,31])
       {"h",
-               "%I"},  // converts 'h' hour as a decimal number, 12 hour clock (range [01-12])
+       "%I"},  // converts 'h' hour as a decimal number, 12 hour clock (range [01-12])
       {"hh",
-               "%H"},  // converts 'hh' to hour as a decimal number, 24 hour clock (range [00-23])
+       "%H"},  // converts 'hh' to hour as a decimal number, 24 hour clock (range [00-23])
       {"m", "%M"},   // converts 'm' to minute as a decimal number (range [00,59])
       {"mm", "%M"},  // converts 'mm' minute as a decimal number (range [00,59])
       {"s", "%S"},   // converts 's' to second as a decimal number (range [00,60])
@@ -1653,8 +1655,8 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_unixtime_int64_utf8",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_unixtime_int64_utf8));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_unixtime_int64_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_unixtime_int64_utf8));
 }
 }  // namespace gandiva

@@ -160,9 +160,10 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len);
+const char* gdv_fn_from_unixtime_int64(gdv_int64 context, gdv_timestamp in,
+                                       gdv_int32* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
-                                     const char* pattern, int32_t pattern_len,
-                                     gdv_int32* out_len);
+                                            const char* pattern, int32_t pattern_len,
+                                            gdv_int32* out_len);

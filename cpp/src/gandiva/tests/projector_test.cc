@@ -1353,4 +1353,51 @@ TEST_F(TestProjector, TestBinRepresentation) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestFromUnixTime) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto field1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_from_unixtime = field("from_unixtime", arrow::utf8());
+
+  // Build expression
+  auto from_unixtime_expr = TreeExprBuilder::MakeExpression(
+      "from_unixtime", {field0, field1}, field_from_unixtime);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {from_unixtime_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int64_t epoch_timestamp1 = 1107428640;  // 2005-02-03 11:04:00
+  int64_t epoch_timestamp2 = 1338975201;  // 2012-06-06 09:33:21
+  int64_t epoch_timestamp3 = 1543449599;  // 2018-11-28 23:59:59
+
+  std::string pattern1 = "yyyy-MM-dd hh:mm";
+  std::string pattern2 = "dd-M-yy";
+  std::string pattern3 = "hh:mm:ss dd-Mm-YYYY";
+
+  int num_records = 3;
+  auto array0 = MakeArrowArrayInt64(
+      {epoch_timestamp1, epoch_timestamp2, epoch_timestamp3}, {true, true, true});
+  auto array1 = MakeArrowArrayUtf8({pattern1, pattern2, pattern3}, {true, true, true});
+  // expected output
+  auto exp_from_unixtime = MakeArrowArrayUtf8(
+      {"2005-02-03 11:04", "06-Jun-12", "23:59:59 28-November-2018"}, {true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_from_unixtime, outputs.at(0));
+}
+
 }  // namespace gandiva
