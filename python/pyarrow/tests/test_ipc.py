@@ -330,25 +330,19 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 
 
 def test_compression_roundtrip():
-    # The ability to set a seed this way is not present on older versions of
-    # numpy (currently in our python 3.6 CI build).  Some inputs might just
-    # happen to compress the same between the two levels so using seeded
-    # random numbers is neccesary
-    if not hasattr(np.random, 'default_rng'):
-        pytest.skip('Requires newer version of numpy')
     sink = io.BytesIO()
-    rng = np.random.default_rng(seed=42)
-    values = rng.integers(0, 10, 100000)
+    values = np.random.randint(0, 10, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
 
-    options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=1)
+    options = pa.ipc.IpcWriteOptions(compression='zstd')
     with pa.ipc.RecordBatchFileWriter(
             sink, table.schema, options=options) as writer:
         writer.write_table(table)
     len1 = len(sink.getvalue())
 
     sink2 = io.BytesIO()
-    options = pa.ipc.IpcWriteOptions(compression='zstd', compression_level=5)
+    codec = pa.Codec('zstd', compression_level=5)
+    options = pa.ipc.IpcWriteOptions(compression=codec)
     with pa.ipc.RecordBatchFileWriter(
             sink2, table.schema, options=options) as writer:
         writer.write_table(table)
@@ -389,20 +383,6 @@ def test_write_options():
         assert options.compression == value
         options.compression = value.upper()
         assert options.compression == value
-
-    options.compression = 'zstd'
-    for compression_level in [-5, 0, 5]:
-        options.compression_level = compression_level
-        assert options.compression_level == compression_level
-
-    # Cannot set compression_level with lz4
-    with pytest.raises(pa.ArrowInvalid):
-        options.compression = 'lz4'
-
-    options.compression_level = None
-    options.compression = 'lz4'
-    assert options.compression == 'lz4'
-
     options.compression = None
     assert options.compression is None
 

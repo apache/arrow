@@ -399,6 +399,32 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
   }
 }
 
+TEST_P(CodecTest, MinMaxCompressionLevel) {
+  auto type = GetCompression();
+  ASSERT_OK_AND_ASSIGN(auto codec, Codec::Create(type));
+
+  if (Codec::SupportsCompressionLevel(type)) {
+    ASSERT_OK_AND_ASSIGN(auto min_level, Codec::MinimumCompressionLevel(type));
+    ASSERT_OK_AND_ASSIGN(auto max_level, Codec::MaximumCompressionLevel(type));
+    ASSERT_OK_AND_ASSIGN(auto default_level, Codec::DefaultCompressionLevel(type));
+    ASSERT_NE(min_level, Codec::UseDefaultCompressionLevel());
+    ASSERT_NE(max_level, Codec::UseDefaultCompressionLevel());
+    ASSERT_NE(default_level, Codec::UseDefaultCompressionLevel());
+    ASSERT_LT(min_level, max_level);
+    ASSERT_EQ(min_level, codec->minimum_compression_level());
+    ASSERT_EQ(max_level, codec->maximum_compression_level());
+    ASSERT_GE(default_level, min_level);
+    ASSERT_LE(default_level, max_level);
+  } else {
+    ASSERT_RAISES(Invalid, Codec::MinimumCompressionLevel(type));
+    ASSERT_RAISES(Invalid, Codec::MaximumCompressionLevel(type));
+    ASSERT_RAISES(Invalid, Codec::DefaultCompressionLevel(type));
+    ASSERT_EQ(codec->minimum_compression_level(), Codec::UseDefaultCompressionLevel());
+    ASSERT_EQ(codec->maximum_compression_level(), Codec::UseDefaultCompressionLevel());
+    ASSERT_EQ(codec->default_compression_level(), Codec::UseDefaultCompressionLevel());
+  }
+}
+
 TEST_P(CodecTest, OutputBufferIsSmall) {
   auto type = GetCompression();
   if (type != Compression::SNAPPY) {

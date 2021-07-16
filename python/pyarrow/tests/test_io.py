@@ -624,6 +624,89 @@ def test_compress_decompress(compression):
         pa.decompress(compressed_bytes, codec=compression)
 
 
+@pytest.mark.parametrize("compression", [
+    pytest.param(
+        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    ),
+    "brotli",
+    "gzip",
+    "lz4",
+    "zstd",
+    "snappy"
+])
+def test_compression_level(compression):
+    if not Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+
+    # These codecs do not support a compression level
+    no_level = ['snappy', 'lz4']
+    if compression in no_level:
+        assert not Codec.supports_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec(compression, 0)
+        with pytest.raises(ValueError):
+            Codec.minimum_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec.maximum_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec.default_compression_level(compression)
+        return
+
+    INPUT_SIZE = 10000
+    test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
+                 .astype(np.uint8)
+                 .tobytes())
+    test_buf = pa.py_buffer(test_data)
+
+    min_level = Codec.minimum_compression_level(compression)
+    max_level = Codec.maximum_compression_level(compression)
+    default_level = Codec.default_compression_level(compression)
+
+    assert min_level < max_level
+    assert default_level >= min_level
+    assert default_level <= max_level
+
+    for compression_level in range(min_level, max_level+1):
+        codec = Codec(compression, compression_level)
+        compressed_buf = codec.compress(test_buf)
+        compressed_bytes = codec.compress(test_data, asbytes=True)
+        assert isinstance(compressed_bytes, bytes)
+        decompressed_buf = codec.decompress(compressed_buf, INPUT_SIZE)
+        decompressed_bytes = codec.decompress(compressed_bytes, INPUT_SIZE,
+                                              asbytes=True)
+
+        assert isinstance(decompressed_bytes, bytes)
+
+        assert decompressed_buf.equals(test_buf)
+        assert decompressed_bytes == test_data
+
+        with pytest.raises(ValueError):
+            codec.decompress(compressed_bytes)
+
+    # The ability to set a seed this way is not present on older versions of
+    # numpy (currently in our python 3.6 CI build).  Some inputs might just
+    # happen to compress the same between the two levels so using seeded
+    # random numbers is neccesary to help get more reliable results
+    #
+    # The goal of this part is to ensure the compression_level is being
+    # passed down to the C++ layer, not to verify the compression algs
+    # themselves
+    if not hasattr(np.random, 'default_rng'):
+        pytest.skip('Requires newer version of numpy')
+    rng = np.random.default_rng(seed=42)
+    values = rng.integers(0, 100, 1000)
+    arr = pa.array(values)
+    hard_to_compress_buffer = arr.buffers()[1]
+
+    weak_codec = Codec(compression, min_level)
+    weakly_compressed_buf = weak_codec.compress(hard_to_compress_buffer)
+
+    strong_codec = Codec(compression, max_level)
+    strongly_compressed_buf = strong_codec.compress(hard_to_compress_buffer)
+
+    assert len(weakly_compressed_buf) > len(strongly_compressed_buf)
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 

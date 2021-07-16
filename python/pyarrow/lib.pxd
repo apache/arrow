@@ -38,7 +38,6 @@ cdef class _Weakrefable:
 cdef class IpcWriteOptions(_Weakrefable):
     cdef:
         CIpcWriteOptions c_options
-        object _compression_level
 
 
 cdef class Message(_Weakrefable):
@@ -500,7 +499,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
 cdef class Codec(_Weakrefable):
     cdef:
-        unique_ptr[CCodec] wrapped
+        shared_ptr[CCodec] wrapped
 
     cdef inline CCodec* unwrap(self) nogil
 

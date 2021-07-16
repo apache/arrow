@@ -86,6 +86,9 @@ class SnappyCodec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::SNAPPY; }
+  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
 };
 
 }  // namespace
