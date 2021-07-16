@@ -37,7 +37,6 @@ apt install -y libxml2-dev \
   coinor-libcgl-dev \
   coinor-symphony \
   libzmq3-dev \
-  # for sf \
   libudunits2-dev \
   libgdal-dev \
   libgeos-dev \
