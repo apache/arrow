@@ -75,9 +75,11 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
+# ARROW-13353: breathe >= 4.29.1 tries to parse template arguments,
+# but Sphinx can't parse constructs like `typename...`.
 RUN pip install \
         meson \
-        breathe \
+        breathe==4.29.0 \
         ipython \
         sphinx \
         pydata-sphinx-theme
