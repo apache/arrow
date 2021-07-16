@@ -1070,7 +1070,7 @@ TEST_F(TestProjector, TestCastFunction) {
 
   //  {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8}
   auto status = Projector::Make(
-      schema, {cast_expr_int4, cast_expr_int8},
+      schema, {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
