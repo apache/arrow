@@ -773,9 +773,9 @@ GANDIVA_EXPORT
 const char* gdv_fn_from_unixtime_int64(int64_t context, gdv_timestamp in,
                                        int32_t* out_len) {
   const char* pattern = "yyyy-MM-dd hh:mm:ss";
-  const int length = strlen(pattern);
+  const int pattern_len = 19;
   const char* ret =
-      gdv_fn_from_unixtime_int64_utf8(context, in, pattern, length, out_len);
+      gdv_fn_from_unixtime_int64_utf8(context, in, pattern, pattern_len, out_len);
 
   return ret;
 }
