@@ -50,6 +50,7 @@
   })
 }
 
+#' @importFrom rlang trace_back
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
     columns_metadata <- r_metadata$columns
@@ -60,9 +61,27 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         }
       }
     } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
-      x <- map2(x, columns_metadata, function(.x, .y) {
-        apply_arrow_r_metadata(.x, .y)
-      })
+      # If we have a list and "columns_metadata" this applies row-level metadata
+      # inside of a column in a dataframe.
+
+      # However, if we are inside of a dplyr collection (including all datasets),
+      # we cannot apply this row-level metadata, since the order of the rows is
+      # not guaranteed to be the same, so don't even try, but warn what's going on
+      trace <- trace_back()
+      in_dplyr_collect <- any(map_lgl(trace$calls, function(x) {
+        grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
+      }))
+      if (in_dplyr_collect) {
+        warning(
+          "Row-level metadata is not compatible with this operation and has ",
+          "been ignored",
+          call. = FALSE
+        )
+      } else {
+        x <- map2(x, columns_metadata, function(.x, .y) {
+          apply_arrow_r_metadata(.x, .y)
+        })
+      }
       x
     }
 
@@ -116,9 +135,23 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 
   columns <- NULL
   if (is.list(x) && !inherits(x, "POSIXlt")) {
-    # for list columns, we also keep attributes of each
-    # element in columns
-    columns <- map(x, arrow_attributes)
+    # However, if we are inside of a dplyr collection (including all datasets),
+    # we cannot apply this row-level metadata, since the order of the rows is
+    # not guaranteed to be the same, so don't even try, but warn what's going on
+    trace <- trace_back()
+    in_dataset_write <- any(map_lgl(trace$calls, function(x) {
+      grepl("write_dataset", x, fixed = TRUE)[[1]]
+    }))
+    if (in_dataset_write) {
+      warning(
+        "Row-level metadata is not compatible with datasets and will be discarded",
+        call. = FALSE
+      )
+    } else {
+      # for list columns, we also keep attributes of each
+      # element in columns
+      columns <- map(x, arrow_attributes)
+    }
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
