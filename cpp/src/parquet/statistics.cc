@@ -569,7 +569,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void UpdateArrowDictionary(const ::arrow::Array& indices,
-                             const ::arrow::Array& dictionary) {
+                             const ::arrow::Array& dictionary) override {
     IncrementNullCount(indices.null_count());
     IncrementNumValues(indices.length() - indices.null_count());
 

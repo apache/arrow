@@ -3819,17 +3819,17 @@ class TestArrowWriteDictionary : public ::testing::Test {
     for (char val = start; val <= end; val++) {
       int32_t index = static_cast<int32_t>(val - start);
       if (val - start >= num_nulls) {
-        indices_builder.Append(index);
+        ASSERT_OK(indices_builder.Append(index));
       } else {
-        indices_builder.AppendNull();
+        ASSERT_OK(indices_builder.AppendNull());
       }
-      dictionary_builder.Append(&val, 1);
+      ASSERT_OK(dictionary_builder.Append(&val, 1));
     }
 
     std::shared_ptr<::arrow::Array> dictionary;
     std::shared_ptr<::arrow::Array> indices;
-    dictionary_builder.Finish(&dictionary);
-    indices_builder.Finish(&indices);
+    ASSERT_OK(dictionary_builder.Finish(&dictionary));
+    ASSERT_OK(indices_builder.Finish(&indices));
 
     ASSERT_OK_AND_ASSIGN(auto test_column,
                          ::arrow::DictionaryArray::FromArrays(indices, dictionary));
