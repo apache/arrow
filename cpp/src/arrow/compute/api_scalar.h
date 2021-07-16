@@ -226,13 +226,13 @@ class ARROW_EXPORT CompareOptions : public FunctionOptions {
   enum CompareOperator op;
 };
 
-class ARROW_EXPORT ProjectOptions : public FunctionOptions {
+class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
  public:
-  ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                 std::vector<std::shared_ptr<const KeyValueMetadata>> m);
-  explicit ProjectOptions(std::vector<std::string> n);
-  ProjectOptions();
-  constexpr static char const kTypeName[] = "ProjectOptions";
+  MakeStructOptions(std::vector<std::string> n, std::vector<bool> r,
+                    std::vector<std::shared_ptr<const KeyValueMetadata>> m);
+  explicit MakeStructOptions(std::vector<std::string> n);
+  MakeStructOptions();
+  constexpr static char const kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;

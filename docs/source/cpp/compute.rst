@@ -926,7 +926,7 @@ Structural transforms
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
 * \(10) The output struct's field types are the types of its arguments. The
-  field names are specified using an instance of :struct:`ProjectOptions`.
+  field names are specified using an instance of :struct:`MakeStructOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.
 

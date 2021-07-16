@@ -154,10 +154,10 @@ static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("step", &SliceOptions::step));
 static auto kCompareOptionsType =
     GetFunctionOptionsType<CompareOptions>(DataMember("op", &CompareOptions::op));
-static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
-    DataMember("field_names", &ProjectOptions::field_names),
-    DataMember("field_nullability", &ProjectOptions::field_nullability),
-    DataMember("field_metadata", &ProjectOptions::field_metadata));
+static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
+    DataMember("field_names", &MakeStructOptions::field_names),
+    DataMember("field_nullability", &MakeStructOptions::field_nullability),
+    DataMember("field_metadata", &MakeStructOptions::field_metadata));
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
@@ -265,21 +265,22 @@ CompareOptions::CompareOptions(CompareOperator op)
 CompareOptions::CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
 constexpr char CompareOptions::kTypeName[];
 
-ProjectOptions::ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                               std::vector<std::shared_ptr<const KeyValueMetadata>> m)
-    : FunctionOptions(internal::kProjectOptionsType),
+MakeStructOptions::MakeStructOptions(
+    std::vector<std::string> n, std::vector<bool> r,
+    std::vector<std::shared_ptr<const KeyValueMetadata>> m)
+    : FunctionOptions(internal::kMakeStructOptionsType),
       field_names(std::move(n)),
       field_nullability(std::move(r)),
       field_metadata(std::move(m)) {}
 
-ProjectOptions::ProjectOptions(std::vector<std::string> n)
-    : FunctionOptions(internal::kProjectOptionsType),
+MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
+    : FunctionOptions(internal::kMakeStructOptionsType),
       field_names(std::move(n)),
       field_nullability(field_names.size(), true),
       field_metadata(field_names.size(), NULLPTR) {}
 
-ProjectOptions::ProjectOptions() : ProjectOptions(std::vector<std::string>()) {}
-constexpr char ProjectOptions::kTypeName[];
+MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
+constexpr char MakeStructOptions::kTypeName[];
 
 DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
     : FunctionOptions(internal::kDayOfWeekOptionsType),
@@ -304,7 +305,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCompareOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kProjectOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
 }
 }  // namespace internal

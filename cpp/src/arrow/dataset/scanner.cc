@@ -621,7 +621,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                         compute::MakeFilterNode(scan, "filter", scan_options_->filter));
 
   auto exprs = scan_options_->projection.call()->arguments;
-  auto names = checked_cast<const compute::ProjectOptions*>(
+  auto names = checked_cast<const compute::MakeStructOptions*>(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
   ARROW_ASSIGN_OR_RAISE(
