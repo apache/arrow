@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
 import datetime
 import io
 
@@ -298,9 +297,6 @@ def test_coerce_int96_timestamp_unit(unit):
 @pytest.mark.parametrize('pq_reader_method', ['ParquetFile', 'read_table'])
 def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
 
-    if sys.platform in ("win32", "cygwin"):
-        pytest.skip("Getting datetime.strftime() error on Windows")
-
     def get_table(pq_reader_method, filename, **kwargs):
         if pq_reader_method == "ParquetFile":
             return pq.ParquetFile(filename, **kwargs).read()
@@ -313,37 +309,24 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         datetime.datetime(2000, 1, 1),
         datetime.datetime(3000, 1, 1)
     ]
-    oob_dts_str = [
-        x.strftime("%Y-%m-%s %H:%M:%S.%f")
-        for x in oob_dts
-    ]
     df = pd.DataFrame({"a": oob_dts})
-    a_df = pa.Table.from_pandas(df)
+    table = pa.table(df)
 
     filename = tempdir / "test_round_trip_overflow.parquet"
-    pq.write_table(a_df, filename, use_deprecated_int96_timestamps=True,
+    pq.write_table(table, filename, use_deprecated_int96_timestamps=True,
                    version="1.0")
 
+    # with the default resolution of ns, we get wrong values for INT96
+    # that are out of bounds for nanosecond range
     tab_error = get_table(pq_reader_method, filename)
-    df_error = tab_error.to_pandas(timestamp_as_object=True)
-    out_error = [
-        x.strftime("%Y-%m-%s %H:%M:%S.%f")
-        for x in df_error["a"].tolist()
-    ]
+    assert tab_error["a"].to_pylist() != oob_dts
 
-    assert out_error != oob_dts_str
-
+    # avoid this overflow by specifying the resolution to use for INT96 values
     tab_correct = get_table(
-        pq_reader_method,
-        filename,
-        coerce_int96_timestamp_unit="s"
+        pq_reader_method, filename, coerce_int96_timestamp_unit="s"
     )
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
-    out_correct = [
-        x.strftime("%Y-%m-%s %H:%M:%S.%f")
-        for x in df_correct.a.tolist()
-    ]
-    assert out_correct == oob_dts_str
+    tm.assert_frame_equal(df, df_correct)
 
 
 def test_timestamp_restore_timezone():

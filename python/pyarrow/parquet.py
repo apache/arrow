@@ -214,7 +214,7 @@ class ParquetFile:
         Coalesce and issue file reads in parallel to improve performance on
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
-    coerce_int96_timestamp_unit: str, default None.
+    coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be infered as timestamps
@@ -1262,7 +1262,7 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
-coerce_int96_timestamp_unit: str, default None.
+coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be infered as timestamps
