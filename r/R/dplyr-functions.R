@@ -58,6 +58,8 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 }
 
 nse_funcs$is.na <- function(x) {
+  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
+  # use that to simplify the code here (ARROW-13367)
   if (is.double(x) || (inherits(x, "Expression") &&
       x$type_id() %in% TYPES_WITH_NAN)) {
     build_expr("is_nan", x) | build_expr("is_null", x)
@@ -69,6 +71,8 @@ nse_funcs$is.na <- function(x) {
 nse_funcs$is.nan <- function(x) {
   if (is.double(x) || (inherits(x, "Expression") &&
       x$type_id() %in% TYPES_WITH_NAN)) {
+    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+    # use that to simplify the code here (ARROW-13366)
     build_expr("is_nan", x) & build_expr("is_valid", x)
   } else {
     Expression$scalar(FALSE)
