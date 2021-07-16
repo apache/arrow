@@ -1112,33 +1112,42 @@ test_that("if_else and ifelse", {
     example_data
   )
 
-  # TODO: this should not warn / pull into R, once ARROW-12955 merges
   expect_dplyr_equal(
     input %>%
       mutate(
         y = if_else(int > 5, "one", "zero")
       ) %>% collect(),
-    example_data,
-    warn = TRUE
+    example_data
   )
 
-  # TODO: this should not warn / pull into R, once ARROW-12955 merges
   expect_dplyr_equal(
     input %>%
       mutate(
         y = if_else(int > 5, chr, chr)
       ) %>% collect(),
-    example_data,
-    warn = TRUE
+    example_data
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(int > 5, fct, factor("a"))
+        y = if_else(int > 5, chr, chr, missing = "MISSING")
       ) %>% collect(),
     example_data,
-    warn = TRUE
+    warning = TRUE
+  )
+
+  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
+  # supports factors in if(_)else
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, fct, factor("a"))
+      ) %>% collect() %>%
+      # This is a no-op on the Arrow side, but necesary to make the results equal
+      mutate(y = as.character(y)),
+    example_data,
+    warning = "Factors are currently converted to chracters in if_else and ifelse"
   )
 
   skip("TODO: could? should? we support the autocasting in ifelse")

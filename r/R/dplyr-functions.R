@@ -653,27 +653,19 @@ nse_funcs$log <- function(x, base = exp(1)) {
 nse_funcs$logb <- nse_funcs$log
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
-  # We ought to assert that the types of the true and false conditions will result
-  # in the same types. We can't compare the objects themselves directly because
-  # they might be expressions (that will result in a type) or R objects that will
-  # need to be compared to see if they are compatible with arrow types.
-  # ARROW-13186 might make this easier with a more robust way.
-  # TODO: do this ^^^
+  if (!is.null(missing)) {
+    arrow_not_supported("missing argument")
+  }
 
-  # if_else only supports boolean, numeric, or temporal types right now
-  # TODO: remove when ARROW-12955 merges
-  # If true/false are R types, we can use `is.*` directly
-  invalid_r_types <- is.character(true) || is.character(false) || is.list(true) ||
-    is.list(false) || is.factor(true) || is.factor(false)
+  # TODO: if_else doesn't yet support factors/dictionaries this can be removed when
+  # ARROW-13358 merges
+  warn_r_types <- is.factor(true) || is.factor(false)
   # However, if they are expressions, we need to use the functions from nse_funcs
-  invalid_expression_types_true <- inherits(true, "Expression") && (
-    nse_funcs$is.character(true) || nse_funcs$is.list(true) || nse_funcs$is.factor(true)
-  )
-  invalid_expression_types_false <- inherits(false, "Expression") && (
-    nse_funcs$is.character(false) || nse_funcs$is.list(false) || nse_funcs$is.factor(false)
-  )
-  if (invalid_r_types | invalid_expression_types_true | invalid_expression_types_false) {
-    stop("`true` and `false` character values not yet supported in Arrow", call. = FALSE)
+  warn_expression_types_true <- inherits(true, "Expression") &&  nse_funcs$is.factor(true)
+  warn_expression_types_false <- inherits(false, "Expression") && nse_funcs$is.factor(false)
+
+  if (warn_r_types | warn_expression_types_true | warn_expression_types_false) {
+    warning("Factors are currently converted to chracters in if_else and ifelse", call. = FALSE)
   }
 
   build_expr("if_else", condition, true, false)

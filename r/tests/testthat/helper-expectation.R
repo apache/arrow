@@ -91,7 +91,7 @@ expect_dplyr_equal <- function(expr,
 
   if (isTRUE(warning)) {
     # Special-case the simple warning:
-    warning <- "not supported in Arrow; pulling data into R"
+    warning <- "not supported (in|by) Arrow; pulling data into R"
   }
 
   skip_msg <- NULL
