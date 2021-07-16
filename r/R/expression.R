@@ -23,6 +23,7 @@
   "is.na" = "is_null",
   "is.nan" = "is_nan",
   "abs" = "abs_checked",
+  "sign" = "sign",
   # nchar is defined in dplyr-functions.R
   "tolower" = "utf8_lower",
   "toupper" = "utf8_upper",
