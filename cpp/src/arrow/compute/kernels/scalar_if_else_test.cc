@@ -65,9 +65,9 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
   ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
   auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
   ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
   auto cond = std::static_pointer_cast<BooleanArray>(concat);
-
   auto left = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto right = std::static_pointer_cast<ArrayType>(
@@ -275,10 +275,10 @@ TEST_F(TestIfElseKernel, IfElseBooleanRand) {
 }
 
 TEST_F(TestIfElseKernel, IfElseNull) {
-  CheckIfElseOutput(ArrayFromJSON(boolean(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"));
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, null, null, null]"),
+                           ArrayFromJSON(null(), "[null, null, null, null]"),
+                           ArrayFromJSON(null(), "[null, null, null, null]"),
+                           ArrayFromJSON(null(), "[null, null, null, null]"));
 }
 
 TEST_F(TestIfElseKernel, IfElseMultiType) {
@@ -316,6 +316,192 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
                     {boolean(), float64(), float64()});
 
   CheckDispatchBest(name, {null(), uint8(), int8()}, {boolean(), int16(), int16()});
+}
+
+template <typename Type>
+class TestIfElseBaseBinary : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestIfElseBaseBinary, BinaryTypes);
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinary) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", "l"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, "l"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                           ArrayFromJSON(type, R"([null, "ab", null, "l"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                           ArrayFromJSON(type, R"([null, "ab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                           ArrayFromJSON(type, R"([null, "ab", "abc", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                           ArrayFromJSON(type, R"([null, "ab", "abc", "l"])"));
+}
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+
+  //  this is to check the BitBlockCount::AllSet/ NoneSet code paths
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
+  auto left = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto right = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  typename TypeTraits<TypeParam>::BuilderType builder;
+
+  for (int64_t i = 0; i < len; ++i) {
+    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
+        (!cond->Value(i) && !right->IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
+
+    OffsetType offset;
+    const uint8_t* val;
+    if (cond->Value(i)) {
+      val = left->GetValue(i, &offset);
+    } else {
+      val = right->GetValue(i, &offset);
+    }
+    ASSERT_OK(builder.Append(val, offset));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+  CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+TEST_F(TestIfElseKernel, IfElseFSBinary) {
+  auto type = std::make_shared<FixedSizeBinaryType>(4);
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"([null, "abab", null, "llll"])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", null, "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"([null, "abab", null, null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", null])"),
+                           ArrayFromJSON(type, R"([null, "abab", "abca", null])"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                           ArrayFromJSON(type, R"(["aaaa", "abab", "abca", "abcd"])"),
+                           ArrayFromJSON(type, R"(["lmno", "lmnl", "lmlm", "llll"])"),
+                           ArrayFromJSON(type, R"([null, "abab", "abca", "llll"])"));
+
+  // should fails for non-equal byte_widths
+  auto type1 = std::make_shared<FixedSizeBinaryType>(5);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("FixedSizeBinaryType byte_widths should be equal"),
+      CallFunction("if_else", {ArrayFromJSON(boolean(), "[true]"),
+                               ArrayFromJSON(type, R"(["aaaa"])"),
+                               ArrayFromJSON(type1, R"(["aaaaa"])")}));
+}
+
+TEST_F(TestIfElseKernel, IfElseFSBinaryRand) {
+  auto type = std::make_shared<FixedSizeBinaryType>(5);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+
+  //  this is to check the BitBlockCount::AllSet/ NoneSet code paths
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
+  auto left = std::static_pointer_cast<FixedSizeBinaryArray>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto right = std::static_pointer_cast<FixedSizeBinaryArray>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  FixedSizeBinaryBuilder builder(type);
+
+  for (int64_t i = 0; i < len; ++i) {
+    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
+        (!cond->Value(i) && !right->IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
+
+    const uint8_t* val;
+    if (cond->Value(i)) {
+      val = left->GetValue(i);
+    } else {
+      val = right->GetValue(i);
+    }
+    ASSERT_OK(builder.Append(val));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+  CheckIfElseOutput(cond, left, right, expected_data);
 }
 
 template <typename Type>
