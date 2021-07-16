@@ -94,9 +94,10 @@ cdef class HadoopFileSystem(FileSystem):
 
         The following two calls are equivalent
 
-        * ``HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test&replication=1')`` # noqa: E501
-
-        * ``HadoopFileSystem('localhost', port=8020, user='test', replication=1)`` # noqa: E501
+        * ``HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test\
+&replication=1')``
+        * ``HadoopFileSystem('localhost', port=8020, user='test', \
+replication=1)``
 
         Parameters
         ----------

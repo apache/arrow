@@ -463,7 +463,7 @@ a table) then the rows returned will match the order of the files given.
 Iterative (out of core or streaming) reads
 ------------------------------------------
 
-The previous examples have demonstrated how to read the data into a table.  This is
+The previous examples have demonstrated how to read the data into a table using :func:`~Dataset.to_table`.  This is
 useful if the dataset is small or there is only a small amount of data that needs to
 be read.  The dataset API contains additional methods to read and process large amounts
 of data in a streaming fashion.
@@ -491,7 +491,7 @@ uses an object called a :class:`Scanner` to do this.  A Scanner is created for y
 automatically by the to_table and to_batches method of the dataset.  Any arguments
 you pass to these methods will be passed on to the Scanner constructor.
 
-One of those parameters is the `batch_size`.  This controls the maximum size of the
+One of those parameters is the ``batch_size``.  This controls the maximum size of the
 batches returned by the scanner.  Batches can still be smaller than the `batch_size`
 if the dataset consists of small files or those files themselves consist of small
 row groups.  For example, a parquet file with 10,000 rows per row group will yield
@@ -503,7 +503,7 @@ you may want to customize it if you are reading a large number of columns.
 Writing Datasets
 ----------------
 
-The dataset API also simplifies writing data to a dataset.  This can be useful when
+The dataset API also simplifies writing data to a dataset using :func:`write_dataset` .  This can be useful when
 you want to partition your data or you need to write a large amount of data.  A
 basic dataset write is similar to writing a table except that you specify a directory
 instead of a filename.
