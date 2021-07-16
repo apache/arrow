@@ -654,7 +654,11 @@ nse_funcs$logb <- nse_funcs$log
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   if (!is.null(missing)) {
-    arrow_not_supported("missing argument")
+    return(nse_funcs$if_else(
+      Expression$create("is_null", condition),
+      missing,
+      nse_funcs$if_else(condition, true, false)
+    ))
   }
 
   # TODO: if_else doesn't yet support factors/dictionaries this can be removed when

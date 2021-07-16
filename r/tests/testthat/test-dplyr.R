@@ -1158,8 +1158,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(int > 5, chr, chr, missing = "MISSING")
       ) %>% collect(),
-    example_data,
-    warning = TRUE
+    example_data
   )
 
   # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
@@ -1172,7 +1171,18 @@ test_that("if_else and ifelse", {
       # This is a no-op on the Arrow side, but necesary to make the results equal
       mutate(y = as.character(y)),
     example_data,
-    warning = "Factors are currently converted to chracters in if_else and ifelse"
+    warning = "Factors are currently converted to characters in if_else and ifelse"
+  )
+
+  skip("ARROW-12055 for better NaN support")
+  # currently NaNs are not NAs and so the missing argument is not correctly
+  # applied
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(dbl > 5, chr, chr, missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
   )
 
   skip("TODO: could? should? we support the autocasting in ifelse")
