@@ -39,3 +39,11 @@ The goal of SkyhookDM is to allow users to transparently grow and shrink their d
 </p>
 
 * **Read Path:** At the time of scanning, when the `Execute` method is called on a `ScanTask`, first the size of the target file is read via a `stat` system call and the `ScanOptions` containing the scan `Expression` and `Projection Schema` is serialized into a `ceph::bufferlist` along with the file size for sending it to the storage layer. Next, the `DirectObjectAccess` interface is invoked with the serialized `ScanOptions` to scan the file within the Ceph OSDs bypassing the filesystem layer. Inside the `DirectObjectAccess` layer, the file inode value is converted to the corresponding object ID in RADOS and then using the `librados` library, a CLS method call is invoked over the object. Inside the CLS method, first the `ScanOptions` is deserialized back into the `Expression` and `Schema` objects. Then the `RandomAccessObject` interface is intialized over the object to get a file-like instance which is plugged into the `ParquetFileFragment` API for scanning the object. The resultant Arrow `Table` is written into an LZ4 compressed Arrow IPC buffer and is sent back to the client. Finally, on the client, the buffer is decompressed and the resulting `RecordBatches` are returned.
+
+# Design Paradigm
+
+One of the most important aspects of our design is that it allows building in-storage data processing systems with minimal implementation effort. Our design allows extending the client and storage layers with widely-used data access libraries requiring minimal modifications. We achieve this by (1) creating a file system shim in the object storage layer so that access libraries embedded in the storage layer can continue to operate on files, (2) mapping client requests-to- be-offloaded directly to objects using file system striping metadata, and (3) mapping files to logically self-contained fragments by using standard file system striping.
+
+<p align="center">
+<img src="./images/design_paradigm.png" width="50%">
+</p>
