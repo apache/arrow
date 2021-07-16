@@ -22,8 +22,10 @@ import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorWrapper;
+import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.types.Types;
 
 /**
  * Accessor for the Arrow type {@link UnionVector}.
@@ -31,7 +33,13 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class ArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessorWrapper {
 
   private final UnionVector vector;
+
+  /**
+   * Array of accessors for each type contained in UnionVector.
+   * Index corresponds to UnionVector's typeIds, which are the ordinal values for {@link Types.MinorType}.
+   */
   private final ArrowFlightJdbcAccessor[] accessors;
+  private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
 
   /**
    * Instantiate an accessor for a {@link UnionVector}.
@@ -49,11 +57,24 @@ public class ArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessorW
     return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow);
   }
 
+  /**
+   * Returns an accessor for UnionVector child vector on current row.
+   *
+   * @return ArrowFlightJdbcAccessor for child vector on current row.
+   */
   protected ArrowFlightJdbcAccessor getAccessor() {
     int index = getCurrentRow();
+
+    // Get the typeId and child vector for the current row being accessed.
     int typeId = this.vector.getTypeValue(index);
     ValueVector vector = this.vector.getVectorByType(typeId);
 
+    if (typeId < 0) {
+      // typeId may be negative if the current row has no type defined.
+      return this.nullAccessor;
+    }
+
+    // Ensure there is an accessor for given typeId
     if (this.accessors[typeId] == null) {
       this.accessors[typeId] = this.createAccessorForVector(vector);
     }
