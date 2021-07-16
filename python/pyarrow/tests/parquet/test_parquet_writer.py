@@ -38,6 +38,7 @@ except ImportError:
 
 pytestmark = pytest.mark.parquet
 
+
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_parquet_incremental_file_build(tempdir, use_legacy_dataset):

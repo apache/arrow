@@ -56,7 +56,7 @@ def version(request):
 @pytest.fixture(scope="module", params=[None, "uncompressed", "lz4", "zstd"])
 def compression(request):
     if request.param in ['lz4', 'zstd'] and not pa.Codec.is_available(
-                                                        request.param):
+            request.param):
         pytest.skip(f'{request.param} is not available')
     yield request.param
 
