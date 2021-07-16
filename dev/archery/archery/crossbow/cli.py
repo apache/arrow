@@ -20,7 +20,7 @@ from pathlib import Path
 import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import EmailReport, ConsoleReport
+from .reports import JsonReport, EmailReport, ConsoleReport
 from ..utils.source import ArrowSources
 
 
@@ -235,16 +235,18 @@ def latest_prefix(obj, prefix, fetch):
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def save_report_data(obj, job_name):
+def save_report_data(obj, job_name, fetch):
     """
     Just print there the state of the job
     """
     output = obj['output']
-    
+
     queue = obj['queue']
     print(dir(queue))
-    
+
     if fetch:
         queue.fetch()
 

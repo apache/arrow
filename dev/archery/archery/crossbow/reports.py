@@ -25,6 +25,8 @@ from datetime import datetime
 import json
 
 # TODO(kszucs): use archery.report.JinjaReport instead
+
+
 class Report:
 
     def __init__(self, job):
@@ -32,6 +34,7 @@ class Report:
 
     def show(self):
         raise NotImplementedError()
+
 
 class ConsoleReport(Report):
     """Report the status of a Job to the console using click"""
@@ -138,10 +141,10 @@ class JsonReport(Report):
         json_tasks = []
         for task_name, task in tasks.items():
             json_tasks.append({
-                "build" : task_name,
-                "link" : self.url(task.branch),
-                "status" : task.status().combined_state.upper(),
-                "timestamp" : date})
+                "build": task_name,
+                "link": self.url(task.branch),
+                "status": task.status().combined_state.upper(),
+                "timestamp": date})
 
         return json_tasks
 
@@ -149,7 +152,7 @@ class JsonReport(Report):
         tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
         json_str = json.dump(tasks)
         return json_str
-     
+
 
 class EmailReport(Report):
 
