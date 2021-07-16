@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/compute/api.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -565,6 +566,27 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
 
     SetMinMaxPair(comparator_->GetMinMax(values));
+  }
+
+  void UpdateArrowDictionary(const ::arrow::Array& indices,
+                             const ::arrow::Array& dictionary) {
+    IncrementNullCount(indices.null_count());
+    IncrementNumValues(indices.length() - indices.null_count());
+
+    if (indices.null_count() == indices.length()) {
+      return;
+    }
+
+    ::arrow::compute::ExecContext ctx(pool_);
+    PARQUET_ASSIGN_OR_THROW(auto referenced_indices,
+                            ::arrow::compute::Unique(indices, &ctx));
+    PARQUET_ASSIGN_OR_THROW(
+        auto referenced_dictionary,
+        ::arrow::compute::Take(dictionary, referenced_indices,
+                               ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                               &ctx));
+
+    SetMinMaxPair(comparator_->GetMinMax(*referenced_dictionary.make_array()));
   }
 
   const T& min() const override { return min_; }

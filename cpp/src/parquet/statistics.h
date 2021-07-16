@@ -291,6 +291,9 @@ class TypedStatistics : public Statistics {
   /// arrow::BinaryArray
   virtual void Update(const ::arrow::Array& values) = 0;
 
+  virtual void UpdateArrowDictionary(const ::arrow::Array& indices,
+                                     const ::arrow::Array& dictionary) = 0;
+
   /// \brief Set min and max values to particular values
   virtual void SetMinMax(const T& min, const T& max) = 0;
 };

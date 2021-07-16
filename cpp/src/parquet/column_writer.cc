@@ -1490,7 +1490,8 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // TODO(wesm): If some dictionary values are unobserved, then the
     // statistics will be inaccurate. Do we care enough to fix it?
     if (page_statistics_ != nullptr) {
-      PARQUET_CATCH_NOT_OK(page_statistics_->Update(*dictionary));
+      PARQUET_CATCH_NOT_OK(
+          page_statistics_->UpdateArrowDictionary(*indices, *dictionary));
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {
