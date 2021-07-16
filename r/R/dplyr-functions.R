@@ -699,5 +699,5 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
 # Although base R ifelse allows `yes` and `no` to be different classes
 #
 nse_funcs$ifelse <- function(test, yes, no){
- nse_funcs$if_else(condition = test, true = yes, false = no)
+  nse_funcs$if_else(condition = test, true = yes, false = no)
 }
