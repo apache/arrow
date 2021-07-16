@@ -654,7 +654,11 @@ nse_funcs$logb <- nse_funcs$log
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   if (!is.null(missing)) {
-    arrow_not_supported("missing argument")
+    return(nse_funcs$if_else(
+      Expression$create("is_null", condition),
+      missing,
+      nse_funcs$if_else(condition, true, false)
+    ))
   }
 
   # TODO: if_else doesn't yet support factors/dictionaries this can be removed when
@@ -665,7 +669,7 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   warn_expression_types_false <- inherits(false, "Expression") && nse_funcs$is.factor(false)
 
   if (warn_r_types | warn_expression_types_true | warn_expression_types_false) {
-    warning("Factors are currently converted to chracters in if_else and ifelse", call. = FALSE)
+    warning("Factors are currently converted to characters in if_else and ifelse", call. = FALSE)
   }
 
   build_expr("if_else", condition, true, false)

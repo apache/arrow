@@ -91,6 +91,7 @@ expect_dplyr_equal <- function(expr,
 
   if (isTRUE(warning)) {
     # Special-case the simple warning:
+    # TODO: ARROW-13362 pick one of in or by and use it everywhere
     warning <- "not supported (in|by) Arrow; pulling data into R"
   }
 
