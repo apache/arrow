@@ -126,9 +126,6 @@ class ConsoleReport(Report):
 
 class JsonReport(Report):
 
-    def __init__(self, job):
-        super().__init__(job)
-
     def url(self, query):
         repo_url = self.job.queue.remote_url.strip('.git')
         return '{}/branches/all?query={}'.format(repo_url, query)
