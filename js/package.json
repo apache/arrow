@@ -1,7 +1,6 @@
 {
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
-  "main": "./index",
   "bin": {
     "arrow2csv": "bin/arrow2csv.js"
   },
