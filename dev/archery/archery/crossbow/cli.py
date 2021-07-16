@@ -18,6 +18,7 @@
 from pathlib import Path
 
 import click
+import tempfile
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import JsonReport, EmailReport, ConsoleReport
@@ -252,8 +253,10 @@ def save_report_data(obj, job_name, fetch):
 
     job = queue.get(job_name)
     report = JsonReport(job=job)
-
-    report.show(output)
+    
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        temp.write(report.show(output))
+        temp.flush()
 
 
 @crossbow.command()

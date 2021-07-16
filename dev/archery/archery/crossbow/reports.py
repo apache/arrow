@@ -149,19 +149,6 @@ class JsonReport(Report):
         tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
         json_str = json.dump(tasks)
         return json_str
-    
-    # todo: store get_json_tasks(self) somewhere
-    
-    def create_commit(self, files='stored file from todo', message='NIGHTLY-BUILDS-TEST'):
-        commit, _ = self.repo.resolve_refish("NIGHTLY-BUILDS-TEST")
-        parents = [commit.id]
-        tree_id = self.create_tree(files)
-
-        author = committer = self.signature
-        commit_id = self.repo.create_commit('NIGHTLY-BUILDS-REFERENCE', author, committer,
-                                            message, tree_id, parents)
-        return self.repo[commit_id]
-
 
 class EmailReport(Report):
 
