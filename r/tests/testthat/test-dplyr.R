@@ -67,7 +67,7 @@ chr: string
 See $.data for the source Arrow object',
   fixed = TRUE
   )
-  
+
 })
 
 test_that("summarize", {
@@ -821,7 +821,7 @@ test_that("type checks on expressions", {
       collect(),
     tbl
   )
-  
+
   # the code in the expectation below depends on RE2
   skip_if_not_available("re2")
 
@@ -939,72 +939,82 @@ test_that("abs()", {
 
   expect_dplyr_equal(
     input %>%
-      transmute(
-        abs = abs(x)
-      ) %>% collect(),
+      transmute(abs = abs(x)) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("sign()", {
+  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(sign = sign(x)) %>%
+      collect(),
     df
   )
 })
 
 test_that("log functions", {
-  
+
   df <- tibble(x = c(1:10, NA, NA))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x, base = exp(1))) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x, base = 2)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log(x, base = 10)) %>%
       collect(),
     df
   )
-  
+
   expect_error(
     nse_funcs$log(Expression$scalar(x), base = 5),
     "`base` values other than exp(1), 2 and 10 not supported in Arrow",
     fixed = TRUE
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = logb(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log1p(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log2(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = log10(x)) %>%
@@ -1013,39 +1023,39 @@ test_that("log functions", {
   )
 
 })
-  
+
 test_that("trig functions", {
-  
+
   df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = sin(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = cos(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = tan(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = asin(x)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(y = acos(x)) %>%
