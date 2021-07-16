@@ -83,9 +83,9 @@ simpler representation based on the rounding strategy.
 .. autosummary::
    :toctree: ../generated/
 
-   ceiling
+   ceil
    floor
-   truncate
+   trunc
 
 Logarithmic Functions
 ---------------------

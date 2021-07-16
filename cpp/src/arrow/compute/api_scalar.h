@@ -487,32 +487,34 @@ ARROW_EXPORT
 Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
-/// \brief Round down to the nearest integer. Array values can be of arbitrary
-/// length. If argument is null the result will be null.
+/// \brief Round to the nearest integer less than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
 ///
-/// \param[in] arg the value round
+/// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
 /// \return the rounded value
 ARROW_EXPORT
 Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
 
-/// \brief Round up to the nearest integer. Array values can be of arbitrary
-/// length. If argument is null the result will be null.
+/// \brief Round to the nearest integer greater than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
 ///
-/// \param[in] arg the value round
+/// \param[in] arg the value to round
 /// \param[in] ctx the function execution context, optional
 /// \return the rounded value
 ARROW_EXPORT
-Result<Datum> Ceiling(const Datum& arg, ExecContext* ctx = NULLPTR);
+Result<Datum> Ceil(const Datum& arg, ExecContext* ctx = NULLPTR);
 
-/// \brief Get the integral part of a value. Array values can be of arbitrary
-/// length. If argument is null the result will be null.
+/// \brief Get the integral part without fractional digits. Array values can be
+/// of arbitrary length. If argument is null the result will be null.
 ///
 /// \param[in] arg the value to truncate
 /// \param[in] ctx the function execution context, optional
 /// \return the truncated value
 ARROW_EXPORT
-Result<Datum> Truncate(const Datum& arg, ExecContext* ctx = NULLPTR);
+Result<Datum> Trunc(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.

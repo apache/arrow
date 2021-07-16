@@ -824,14 +824,14 @@ struct Floor {
   }
 };
 
-struct Ceiling {
+struct Ceil {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
     return std::ceil(arg);
   }
 };
 
-struct Truncate {
+struct Trunc {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
     return std::trunc(arg);
@@ -1590,21 +1590,21 @@ const FunctionDoc log1p_checked_doc{
     {"x"}};
 
 const FunctionDoc floor_doc{
-    "Calculate the greatest integer in magnitude less than or equal to the "
-    "argument element-wise",
-    "",
+    "Round down to the nearest integer",
+    ("Calculate the nearest integer less than or equal in magnitude to the "
+     "argument element-wise"),
     {"x"}};
 
-const FunctionDoc ceiling_doc{
-    "Calculate the least integer in magnitude greater than or equal to the "
-    "argument element-wise",
-    "",
+const FunctionDoc ceil_doc{
+    "Round up to the nearest integer",
+    ("Calculate the nearest integer greater than or equal in magnitude to the "
+     "argument element-wise"),
     {"x"}};
 
-const FunctionDoc truncate_doc{
-    "Calculate the nearest integer not greater in magnitude than to the "
-    "argument element-wise",
-    "",
+const FunctionDoc trunc_doc{
+    "Get the integral part without fractional digits",
+    ("Calculate the nearest integer not greater in magnitude than to the "
+     "argument element-wise."),
     {"x"}};
 }  // namespace
 
@@ -1811,13 +1811,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto floor = MakeUnaryArithmeticFunctionFloatingPoint<Floor>("floor", &floor_doc);
   DCHECK_OK(registry->AddFunction(std::move(floor)));
 
-  auto ceiling =
-      MakeUnaryArithmeticFunctionFloatingPoint<Ceiling>("ceiling", &ceiling_doc);
-  DCHECK_OK(registry->AddFunction(std::move(ceiling)));
+  auto ceil = MakeUnaryArithmeticFunctionFloatingPoint<Ceil>("ceil", &ceil_doc);
+  DCHECK_OK(registry->AddFunction(std::move(ceil)));
 
-  auto truncate =
-      MakeUnaryArithmeticFunctionFloatingPoint<Truncate>("truncate", &truncate_doc);
-  DCHECK_OK(registry->AddFunction(std::move(truncate)));
+  auto trunc = MakeUnaryArithmeticFunctionFloatingPoint<Trunc>("trunc", &trunc_doc);
+  DCHECK_OK(registry->AddFunction(std::move(trunc)));
 }
 
 }  // namespace internal

@@ -359,9 +359,9 @@ simpler representation based on the rounding strategy.
 +==================+========+================+=================+=======+
 | floor            | Unary  | Numeric        | Float32/Float64 |       |
 +------------------+--------+----------------+-----------------+-------+
-| ceiling          | Unary  | Numeric        | Float32/Float64 |       |
+| ceil             | Unary  | Numeric        | Float32/Float64 |       |
 +------------------+--------+----------------+-----------------+-------+
-| truncate         | Unary  | Numeric        | Float32/Float64 |       |
+| trunc            | Unary  | Numeric        | Float32/Float64 |       |
 +------------------+--------+----------------+-----------------+-------+
 
 Logarithmic functions
