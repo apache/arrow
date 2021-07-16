@@ -19,8 +19,13 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/compute/api.h>
+
 #include <cpp11/altrep.hpp>
 #if defined(HAS_ALTREP)
+
+// defined in array_to_vector.cpp
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 
 #if R_VERSION < R_Version(3, 6, 0)
 
@@ -83,6 +88,9 @@ void UseSentinel(const std::shared_ptr<Array>& array) {
 template <int sexp_type>
 struct AltrepVector {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
+  using scalar_type =
+      typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
+
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
@@ -150,6 +158,36 @@ struct AltrepVector {
 
   static int No_NA(SEXP vec) { return Get(vec)->null_count() == 0; }
 
+  static SEXP Min(SEXP x, Rboolean narm) { return MinMax(x, narm, "min", R_PosInf); }
+
+  static SEXP Max(SEXP x, Rboolean narm) { return MinMax(x, narm, "max", R_NegInf); }
+
+  static SEXP MinMax(SEXP x, Rboolean narm, const std::string& field, double inf) {
+    const auto& array = Get(x);
+    bool na_rm = narm == TRUE;
+
+    auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
+        arrow::compute::ScalarAggregateOptions::Defaults());
+    options->min_count = 0;
+    options->skip_nulls = na_rm;
+
+    if (!na_rm) {
+      options->min_count = array->length();
+    } else if (array->null_count() == array->length()) {
+      return Rf_ScalarReal(inf);
+    }
+
+    // call the minmax function and extract the value for max
+    const auto& minmax =
+        ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
+    const auto& minmax_scalar =
+        internal::checked_cast<const StructScalar&>(*minmax.scalar());
+
+    const auto& result_scalar = internal::checked_cast<const scalar_type&>(
+        *ValueOrStop(minmax_scalar.field(field)));
+    return cpp11::as_sexp(result_scalar.value);
+  }
+
   static void Init(R_altrep_class_t class_t, DllInfo* dll) {
     // altrep
     R_set_altrep_Length_method(class_t, AltrepVector::Length);
@@ -169,24 +207,13 @@ struct AltrepVectorDouble {
   static SEXP Sum(SEXP x, Rboolean narm) {
     const auto& array = Base::Get(x);
 
-    if (narm == FALSE && array->null_count()) {
+    bool na_rm = narm == TRUE;
+    if (!na_rm && array->null_count()) {
       return Rf_ScalarReal(NA_REAL);
     }
 
     // TODO: instead of returning NULL, use arrow::compute() something
     //      to calculate the sum of `array`
-    return NULL;
-  }
-
-  static SEXP Min(SEXP x, Rboolean narm) {
-    const auto& array = Base::Get(x);
-
-    if (narm == FALSE && array->null_count()) {
-      return Rf_ScalarReal(NA_REAL);
-    }
-
-    // TODO: instead of returning NULL, use arrow::compute() something
-    //      to calculate the min of `array`
     return NULL;
   }
 
@@ -209,8 +236,8 @@ struct AltrepVectorDouble {
     R_set_altreal_No_NA_method(class_t, AltrepVector<REALSXP>::No_NA);
 
     R_set_altreal_Sum_method(class_t, Sum);
-    R_set_altreal_Min_method(class_t, Min);
-    R_set_altreal_Max_method(class_t, Max);
+    R_set_altreal_Min_method(class_t, Base::Min);
+    R_set_altreal_Max_method(class_t, Base::Max);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
@@ -234,18 +261,6 @@ struct AltrepVectorInt32 {
     return NULL;
   }
 
-  static SEXP Min(SEXP x, Rboolean narm) {
-    const auto& array = Base::Get(x);
-
-    if (narm == FALSE && array->null_count()) {
-      return Rf_ScalarInteger(NA_INTEGER);
-    }
-
-    // TODO: instead of returning NULL, use arrow::compute() something
-    //      to calculate the min of `array`
-    return NULL;
-  }
-
   static SEXP Max(SEXP x, Rboolean narm) {
     const auto& array = Base::Get(x);
 
@@ -263,8 +278,8 @@ struct AltrepVectorInt32 {
     R_set_altinteger_No_NA_method(class_t, AltrepVector<INTSXP>::No_NA);
 
     R_set_altinteger_Sum_method(class_t, Sum);
-    R_set_altinteger_Min_method(class_t, Min);
-    R_set_altinteger_Max_method(class_t, Max);
+    R_set_altinteger_Min_method(class_t, Base::Min);
+    R_set_altinteger_Max_method(class_t, Base::Max);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
