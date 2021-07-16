@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.sql;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
@@ -24,7 +25,6 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
@@ -57,8 +57,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import javax.annotation.Nullable;
 
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
@@ -80,7 +81,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
@@ -90,7 +90,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -124,7 +123,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ProtocolStringList;
 
@@ -316,142 +314,111 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
    *
    * @param data     data to listen to.
    * @param listener the listener.
-   * @throws SQLException an exception.
-   * @throws IOException  an exception.
    */
-  protected static void makeListen(final Iterable<VectorSchemaRoot> data, final ServerStreamListener listener)
-      throws SQLException, IOException {
-    data.forEach(root -> {
-      listener.start(root);
-      listener.putNext();
-    });
+  protected static void makeListen(final ServerStreamListener listener, final Iterable<VectorSchemaRoot> data) {
+    makeListen(listener, stream(data.spliterator(), false).toArray(VectorSchemaRoot[]::new));
   }
 
-  protected static final Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
+  /**
+   * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
+   *
+   * @param data     data to listen to.
+   * @param listener the listener.
+   */
+  protected static void makeListen(final ServerStreamListener listener, final VectorSchemaRoot... data) {
+    for (final VectorSchemaRoot datum : data) {
+      listener.start(datum);
+      listener.putNext();
+    }
+  }
+
+  protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
       throws SQLException, IOException {
     Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
     return () -> iterator;
   }
 
-  protected Iterable<VectorSchemaRoot> getTablesRoot(DatabaseMetaData databaseMetaData,
-                                                     final boolean includeSchema, String catalog,
-                                                     String schemaFilterPattern, String tableFilterPattern)
+  protected Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                                     final boolean includeSchema,
+                                                     final @Nullable String catalog,
+                                                     final @Nullable String schemaFilterPattern,
+                                                     final @Nullable String tableFilterPattern,
+                                                     final @Nullable String... tableTypes)
       throws SQLException, IOException {
 
     final ResultSet data =
-        databaseMetaData.getTables(catalog, schemaFilterPattern, tableFilterPattern, null);
+        checkNotNull(
+            databaseMetaData,
+            format("%s cannot be null!", databaseMetaData.getClass().getName()))
+            .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
 
-    RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
-    catalogNameVector.allocateNew();
-    VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
-    schemaNameVector.allocateNew();
-    VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
-    tableNameVector.allocateNew();
-    VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
-    tableTypeVector.allocateNew();
+    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
+    final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
+    final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
+    final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
+
+    final List<FieldVector> vectors =
+        Arrays.asList(catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector);
+    vectors.forEach(FieldVector::allocateNew);
 
     int rows = 0;
 
-    while (data.next()) {
-      catalogNameVector.setSafe(rows, new Text(data.getString("catalogName")));
-      schemaNameVector.setSafe(rows, new Text(data.getString("schemaName")));
-      tableNameVector.setSafe(rows, new Text(data.getString("tableName")));
-      tableTypeVector.setSafe(rows, new Text(data.getString("tableType")));
-      rows++;
+    for (; data.next(); rows++) {
+      catalogNameVector.setSafe(rows, new Text(data.getString("TABLE_CAT")));
+      schemaNameVector.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
+      tableNameVector.setSafe(rows, new Text(data.getString("TABLE_NAME")));
+      tableTypeVector.setSafe(rows, new Text(data.getString("TABLE_TYPE")));
     }
 
-    VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
+    for (final FieldVector vector : vectors) {
+      vector.setValueCount(rows);
+    }
 
     if (includeSchema) {
       final ResultSet columnsData =
           databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
       Map<String, List<Field>> tableToFields = new HashMap<>();
 
-      while(columnsData.next()) {
-        String tableName = columnsData.getString("TABLE_NAME");
-        List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
-
-        Field field = new Field();
+      while (columnsData.next()) {
+        final String tableName = columnsData.getString("TABLE_NAME");
+        final String fieldName = columnsData.getString("COLUMN_NAME");
+        final int dataType = columnsData.getInt("DATA_TYPE");
+        final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
+        final int precision = 0;
+        final int scale = 0;
+        final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+        final Field field =
+            new Field(
+                fieldName,
+                new FieldType(
+                    isNullable,
+                    getArrowTypeFromJdbcType(dataType, precision, scale), null),
+                null);
         fields.add(field);
       }
 
-      VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
+      final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
       tableSchemaVector.allocateNew(rows);
 
-      for (int i = 0; i < rows; i++) {
-        String tableName = tableNameVector.getObject(i).toString();
-        Schema schema = new Schema(tableToFields.get(tableName));
-        tableSchemaVector.setSafe(i, schema.toByteArray());
+      for (int index = 0; index < rows; index++) {
+        final String tableName = tableNameVector.getObject(index).toString();
+        final Schema schema = new Schema(tableToFields.get(tableName));
+        tableSchemaVector.setSafe(index, schema.toByteArray());
       }
 
-      root.addVector(4, tableSchemaVector);
+      tableSchemaVector.setValueCount(rows);
+      vectors.add(tableSchemaVector);
     }
 
-    return root;
-
-
-
-    return stream(getVectorsFromData(data).spliterator(), false)
-        .map(VectorSchemaRoot::getFieldVectors)
-        .peek(vectors -> {
-          // TODO Halt if not includeSchema
-          final Map<String, FieldVector> metaDataMap = new HashMap<>();
-
-          final List<FieldVector> filteredInnerVectors =
-              vectors.stream().peek(vector -> {
-                final String name = vector.getName();
-                switch (name) {
-                  case "COLUMN_NAME":
-                  case "DATA_TYPE":
-                  case "NULLABLE":
-                    metaDataMap.put(name, vector);
-                }
-              }).collect(Collectors.toList());
-
-          final VarCharVector columnNames = (VarCharVector) metaDataMap.get("COLUMN_NAME");
-          final IntVector dataTypes = (IntVector) metaDataMap.get("DATA_TYPE");
-          final IntVector areNullable = (IntVector) metaDataMap.get("NULLABLE");
-
-          final int valueCount = metaDataMap.get("COLUMN_NAME").getValueCount();
-          final VarCharVector schemaVector =
-              new VarCharVector("OPTIONAL_SCHEMA", new RootAllocator(Long.MAX_VALUE));
-          for (int elementIndex = 0; elementIndex < valueCount; elementIndex++) {
-            schemaVector.setSafe(
-                elementIndex,
-                new Text(new Schema(ImmutableList.of(
-                    new Field(
-                        columnNames.getObject(elementIndex).toString(),
-                        new FieldType(
-                            areNullable.getObject(elementIndex) == 1,
-                            getArrowTypeFromJdbcType(dataTypes.getObject(elementIndex), 0, 0),
-                            null),
-                        null))).toJson()));
-          }
-          schemaVector.setValueCount(valueCount);
-          vectors.add(schemaVector);
-        }).peek(vectors -> {
-          vectors.removeIf(vector -> {
-            final String name = vector.getName();
-            switch (name) {
-              case "TABLE_CAT":
-              case "TABLE_SCHEM":
-              case "TABLE_NAME":
-              case "TABLE_TYPE":
-              case "OPTIONAL_SCHEMA":
-                return false;
-              default:
-                return true;
-            }
-          });
-        }).map(VectorSchemaRoot::new).collect(toList());
+    return singletonList(new VectorSchemaRoot(vectors));
   }
 
   @Override
   public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
                                          ServerStreamListener listener) {
     try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command)) {
-      makeListen(getVectorsFromData(resultSet), listener);
+      makeListen(listener, getVectorsFromData(resultSet));
     } catch (SQLException | IOException | ExecutionException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -659,32 +626,41 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs request, final CallContext context,
                                           final FlightDescriptor descriptor) {
+    /*
     final Schema schema = getSchemaCatalogs().getSchema();
     final List<FlightEndpoint> endpoints =
         singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+     */
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+    /* TODO
     try {
       final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
-      makeListen(getVectorsFromData(catalogs), listener);
+      makeListen(listener, getVectorsFromData(catalogs));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
       listener.completed();
     }
+     */
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaSchemas().getSchema();
+     /* TODO
+     final Schema schema = getSchemaSchemas().getSchema();
     final List<FlightEndpoint> endpoints =
         singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+      */
+    throw Status.UNAVAILABLE.asRuntimeException();
   }
 
   @Override
@@ -717,9 +693,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     try {
       final Connection connection = DriverManager.getConnection(DATABASE_URI);
-      DatabaseMetaData databaseMetaData = connection.getMetaData();
-      makeListen(getTablesRoot(databaseMetaData, command.getIncludeSchema(), catalog,
-          schemaFilterPattern, tableFilterPattern), listener);
+      final DatabaseMetaData databaseMetaData = connection.getMetaData();
+      makeListen(
+          listener,
+          getTablesRoot(
+              databaseMetaData,
+              command.getIncludeSchema(),
+              catalog, schemaFilterPattern, tableFilterPattern, tableTypes));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -730,6 +710,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public FlightInfo getFlightInfoTableTypes(final CallContext context, final FlightDescriptor descriptor) {
+    /* TODO
     try {
       final Schema schema = getSchemaTableTypes().getSchema();
       final List<FlightEndpoint> endpoints =
@@ -740,19 +721,24 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       LOGGER.error(format("Failed to getFlightInfoTableTypes: <%s>.", e.getMessage()), e);
       throw new RuntimeException(e);
     }
+     */
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
+    /* TODO
     try {
       final ResultSet tableTypes = dataSource.getConnection().getMetaData().getTableTypes();
-      makeListen(getVectorsFromData(tableTypes), listener);
+      makeListen(listener, getVectorsFromData(tableTypes));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
       listener.completed();
     }
+     */
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
