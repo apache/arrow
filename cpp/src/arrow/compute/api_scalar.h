@@ -1013,7 +1013,7 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \brief Strftime
 ///
 /// \param[in] values input to print time string from
-/// \param[in] options for setting time format and timezone
+/// \param[in] options for setting time format
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///

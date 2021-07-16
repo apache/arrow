@@ -461,7 +461,8 @@ struct Strftime {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
-      return Status::Invalid("Timezone naive timestamp can not be reliably printed.");
+      return Status::Invalid(
+          "Timestamps without a time zone cannot be reliably printed.");
     }
     const arrow_vendored::date::time_zone* tz =
         arrow_vendored::date::locate_zone(timezone);
@@ -480,7 +481,7 @@ struct Strftime {
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
-      return Status::Invalid("Timezone naive timestamp can not be reliably printed.");
+      return Status::Invalid("Timestamp without a time zone cannot be reliably printed.");
     }
     const arrow_vendored::date::time_zone* tz =
         arrow_vendored::date::locate_zone(timezone);

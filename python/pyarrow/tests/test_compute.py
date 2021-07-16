@@ -1419,8 +1419,8 @@ def test_strftime():
     for unit in ["s", "ms", "us", "ns"]:
         tsa = pa.array(ts, type=pa.timestamp(unit))
         for fmt in formats:
-            with pytest.raises(pa.ArrowInvalid, match="Timezone naive "
-                                                      "timestamp can not be "
+            with pytest.raises(pa.ArrowInvalid, match="Timestamp without a "
+                                                      "time zone cannot be "
                                                       "reliably printed."):
                 pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
 
