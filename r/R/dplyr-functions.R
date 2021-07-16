@@ -69,7 +69,7 @@ nse_funcs$is.na <- function(x) {
 nse_funcs$is.nan <- function(x) {
   if (is.double(x) || (inherits(x, "Expression") &&
       x$type_id() %in% TYPES_WITH_NAN)) {
-    build_expr("is_nan", x) & !build_expr("is_null", x)
+    build_expr("is_nan", x) & build_expr("is_valid", x)
   } else {
     Expression$scalar(FALSE)
   }
