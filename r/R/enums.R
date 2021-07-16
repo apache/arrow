@@ -81,6 +81,8 @@ Type <- enum("Type::type",
   LARGE_LIST = 36L
 )
 
+TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
+
 #' @rdname enums
 #' @export
 StatusCode <- enum("StatusCode",

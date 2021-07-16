@@ -26,6 +26,8 @@
 * Added bindings for the remainder of C data interface: Type, Field, and RecordBatchReader (from the experimental C stream interface). These also have `reticulate::py_to_r()` and `r_to_py()` methods. Along with the addition of the `Scanner$ToRecordBatchReader()` method, you can now build up a Dataset query in R and pass the resulting stream of batches to another tool in process.
 * `match_arrow()` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
 * `transmute()` now errors if passed arguments `.keep`, `.before`, or `.after`, for consistency with the behavior of `dplyr` on `data.frame`s.
+* `is.na()` now evaluates to `TRUE` on `NaN` values in floating point number fields, for consistency with base R.
+* `is.nan()` now evaluates to `FALSE` on `NA` values in floating point number fields, for consistency with base R.
 
 # arrow 4.0.1
 

@@ -57,6 +57,24 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
+nse_funcs$is.na <- function(x) {
+  if (is.double(x) || (inherits(x, "Expression") &&
+      x$type_id() %in% TYPES_WITH_NAN)) {
+    build_expr("is_nan", x) | build_expr("is_null", x)
+  } else {
+    build_expr("is_null", x)
+  }
+}
+
+nse_funcs$is.nan <- function(x) {
+  if (is.double(x) || (inherits(x, "Expression") &&
+      x$type_id() %in% TYPES_WITH_NAN)) {
+    build_expr("is_nan", x) & !build_expr("is_null", x)
+  } else {
+    Expression$scalar(FALSE)
+  }
+}
+
 nse_funcs$is <- function(object, class2) {
   if (is.string(class2)) {
     switch(class2,

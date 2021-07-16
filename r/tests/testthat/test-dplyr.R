@@ -524,11 +524,22 @@ test_that("is.finite(), is.infinite(), is.nan()", {
       ) %>% collect(),
     df
   )
-  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  # is.nan() evaluates to FALSE on NA_real_ (ARROW-12850)
   expect_dplyr_equal(
     input %>%
       transmute(
         is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
+test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
+  df <- tibble(x = c(1.1, 2.2, NA_real_, 4.4, NaN, 6.6, 7.7))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_na = is.na(x)
       ) %>% collect(),
     df
   )

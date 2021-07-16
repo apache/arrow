@@ -47,10 +47,25 @@ is.infinite.ArrowDatum <- function(x) {
 }
 
 #' @export
-is.na.ArrowDatum <- function(x) call_function("is_null", x)
+is.na.ArrowDatum <- function(x) {
+  if (x$type_id() %in% TYPES_WITH_NAN) {
+    call_function("is_nan", x) | call_function("is_null", x)
+  } else {
+    call_function("is_null", x)
+  }
+}
 
 #' @export
-is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
+is.nan.ArrowDatum <- function(x) {
+  if (x$type_id() %in% TYPES_WITH_NAN) {
+    call_function("is_nan", x) & !call_function("is_null", x)
+  } else {
+    # This is just a hacky way to return an ArrowDatum identical to the input
+    # in shape but with a Boolean value of false in every position.
+    # TODO: implement this more efficiently and elegantly if possible
+    call_function("is_valid", x) & call_function("is_null", x)
+  }
+}
 
 #' @export
 as.vector.ArrowDatum <- function(x, mode) {
