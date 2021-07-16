@@ -47,13 +47,15 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.flight.CallStatus;
@@ -86,6 +88,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
@@ -118,6 +121,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ProtocolStringList;
 
@@ -327,40 +331,61 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   protected Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
-                                                     boolean includeSchema)
+                                                     final boolean includeSchema)
       throws SQLException, IOException {
     return stream(getVectorsFromData(data).spliterator(), false)
-        .map(root ->
-            new VectorSchemaRoot(
-                root.getFieldVectors().stream().filter(vector -> {
-                  switch (vector.getName()) {
-                    case "TABLE_CAT":
-                    case "TABLE_SCHEM":
-                    case "TABLE_NAME":
-                    case "TABLE_TYPE":
-                      return true;
-                    default:
-                      return false;
-                  }
-                }).collect(toList())))
-        .map(root -> {
-          List<FieldVector> vectors = root.getFieldVectors();
-          if (!includeSchema) {
-            return vectors;
+        .map(VectorSchemaRoot::getFieldVectors)
+        .peek(vectors -> {
+          // TODO Halt if not includeSchema
+          final Map<String, FieldVector> metaDataMap = new HashMap<>();
+
+          final List<FieldVector> filteredInnerVectors =
+              vectors.stream().peek(vector -> {
+                final String name = vector.getName();
+                switch (name) {
+                  case "COLUMN_NAME":
+                  case "DATA_TYPE":
+                  case "NULLABLE":
+                    metaDataMap.put(name, vector);
+                }
+              }).collect(Collectors.toList());
+
+          final VarCharVector columnNames = (VarCharVector) metaDataMap.get("COLUMN_NAME");
+          final IntVector dataTypes = (IntVector) metaDataMap.get("DATA_TYPE");
+          final IntVector areNullable = (IntVector) metaDataMap.get("NULLABLE");
+
+          final int valueCount = metaDataMap.get("COLUMN_NAME").getValueCount();
+          final VarCharVector schemaVector =
+              new VarCharVector("OPTIONAL_SCHEMA", new RootAllocator(Long.MAX_VALUE));
+          for (int elementIndex = 0; elementIndex < valueCount; elementIndex++) {
+            schemaVector.setSafe(
+                elementIndex,
+                new Text(new Schema(ImmutableList.of(
+                    new Field(
+                        columnNames.getObject(elementIndex).toString(),
+                        new FieldType(
+                            areNullable.getObject(elementIndex) == 1,
+                            getArrowTypeFromJdbcType(dataTypes.getObject(elementIndex), 0, 0),
+                            null),
+                        null))).toJson()));
           }
-          final VarCharVector vector =
-              new VarCharVector("SCHEMA", new RootAllocator(Long.MAX_VALUE));
-          final int valueCount = root.getRowCount();
-          IntStream.range(0, valueCount)
-              .forEachOrdered(
-                  index ->
-                      vector.setSafe(index, new Text(getSchemaTables().getSchema().toJson())));
-          vector.setValueCount(valueCount);
-          vectors.add(vector);
-          return vectors;
-        })
-        .map(VectorSchemaRoot::new)
-        .collect(toList());
+          schemaVector.setValueCount(valueCount);
+          vectors.add(schemaVector);
+        }).peek(vectors -> {
+          vectors.removeIf(vector -> {
+            final String name = vector.getName();
+            switch (name) {
+              case "TABLE_CAT":
+              case "TABLE_SCHEM":
+              case "TABLE_NAME":
+              case "TABLE_TYPE":
+              case "OPTIONAL_SCHEMA":
+                return false;
+              default:
+                return true;
+            }
+          });
+        }).map(VectorSchemaRoot::new).collect(toList());
   }
 
   @Override
@@ -633,9 +658,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     try {
       final Connection connection = DriverManager.getConnection(DATABASE_URI);
-      final ResultSet resultSet = connection.getMetaData()
-          .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
-      makeListen(getTablesRoot(resultSet, command.getIncludeSchema()), listener);
+      final ResultSet tableMetaData =
+          connection.getMetaData().getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
+      makeListen(getTablesRoot(tableMetaData, command.getIncludeSchema()), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
