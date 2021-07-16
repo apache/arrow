@@ -1590,17 +1590,20 @@ const FunctionDoc log1p_checked_doc{
     {"x"}};
 
 const FunctionDoc floor_doc{
-    "Calculate the greatest integer less than or equal to the argument element-wise",
+    "Calculate the greatest integer in magnitude less than or equal to the "
+    "argument element-wise",
     "",
     {"x"}};
 
 const FunctionDoc ceiling_doc{
-    "Calculate the least integer greater than or equal to the argument element-wise",
+    "Calculate the least integer in magnitude greater than or equal to the "
+    "argument element-wise",
     "",
     {"x"}};
 
 const FunctionDoc truncate_doc{
-    "Calculate the nearest integer not greater than to the argument element-wise",
+    "Calculate the nearest integer not greater in magnitude than to the "
+    "argument element-wise",
     "",
     {"x"}};
 }  // namespace
