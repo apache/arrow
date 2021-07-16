@@ -16,7 +16,6 @@
 # under the License.
 
 # cython: profile = False
-# cython: embedsignature = True
 # cython: nonecheck = True
 # distutils: language = c++
 
