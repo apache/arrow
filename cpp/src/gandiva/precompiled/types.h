@@ -273,11 +273,6 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
-const char* from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len);
-const char* from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
-                                     const char* pattern, int32_t pattern_len,
-                                     gdv_int32* out_len);
-
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
 const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,

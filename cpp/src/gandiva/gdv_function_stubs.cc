@@ -17,8 +17,10 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
+#include <gandiva/precompiled/string_util.h>
 #include <utf8proc.h>
 
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -765,6 +767,111 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_from_unixtime_int64(gdv_int64 context, gdv_timestamp in, gdv_int32* out_len) {
+  const char* pattern = "yyyy-MM-dd hh:mm:ss";
+  const int length = strlen(pattern);
+  const char* ret = gdv_fn_from_unixtime_int64_utf8(context, in, pattern, length, out_len);
+
+  return ret;
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_from_unixtime_int64_utf8(gdv_int64 context, gdv_timestamp in,
+                                     const char* pattern, gdv_int32 pattern_len,
+                                     gdv_int32* out_len) {
+  // Patter dictionary to translate a given pattern like yyyy-MM-dd to
+  // a pattern like %Y-%m-%d that the std::strftime can translate.
+  std::map<std::string, std::string> pattern_dict{
+      {"YYYY", "%Y"},  // converts 'YYYY' to full year, eg. 1970
+      {"YY", "%y"},    // converts 'YY' to final two-digits year, eg. 70
+      {"yyyy", "%Y"},  // converts 'YYYY' to full year, eg. 1970
+      {"yy", "%y"},    // converts 'YY' to final two-digits year, eg. 70
+      {"MM", "%m"},    // converts 'MM' to month digits, eg. 10
+      {"M", "%b"},     // converts 'M' to month abbreviation, eg. Oct
+      {"Mm", "%B"},    // converts 'Mm' to month abbreviation, eg. October
+      {"d", "%e"},  // converts 'd' to day of the month as a decimal number (range [1,31])
+      {"dd",
+               "%d"},  // converts 'dd' to day of the month as a decimal number (range [01,31])
+      {"h",
+               "%I"},  // converts 'h' hour as a decimal number, 12 hour clock (range [01-12])
+      {"hh",
+               "%H"},  // converts 'hh' to hour as a decimal number, 24 hour clock (range [00-23])
+      {"m", "%M"},   // converts 'm' to minute as a decimal number (range [00,59])
+      {"mm", "%M"},  // converts 'mm' minute as a decimal number (range [00,59])
+      {"s", "%S"},   // converts 's' to second as a decimal number (range [00,60])
+      {"ss", "%S"},  // converts 'ss' to second as a decimal number (range [00,60])
+  };
+
+  if (pattern_len <= 0) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Invalid pattern, it must have at least 1 char");
+    *out_len = 0;
+    return "";
+  }
+
+  std::string pattern_str(pattern, pattern_len);
+
+  if (pattern_str.find(".") != std::string::npos) {
+    gdv_fn_context_set_error_msg(context, "Pattern has invalid delimiter '.'");
+    *out_len = 0;
+    return "";
+  }
+
+  std::string translated_pattern("");
+
+  std::vector<std::string> date_time_vec = gandiva::StringUtil::explode(pattern_str, " ");
+
+  const char* delimiter1 = "-";
+  const char* delimiter2 = ":";
+
+  if (date_time_vec[0].find("-") == std::string::npos) {
+    delimiter1 = ":";
+    delimiter2 = "-";
+  }
+
+  for (auto& item : gandiva::StringUtil::explode(date_time_vec[0], delimiter1)) {
+    auto map_element = pattern_dict.find(item);
+    translated_pattern += map_element->second + delimiter1;
+  }
+
+  // remove the extra delimiter1
+  translated_pattern.pop_back();
+
+  // check if it has the second part on the pattern
+  if (date_time_vec.size() > 1) {
+    translated_pattern += " ";
+    for (auto& item : gandiva::StringUtil::explode(date_time_vec[1], delimiter2)) {
+      auto map_element = pattern_dict.find(item);
+      translated_pattern += map_element->second + delimiter2;
+    }
+    // remove the extra delimiter2
+    translated_pattern.pop_back();
+  }
+
+  time_t rawtime = in;
+
+  struct tm* ptm;
+  ptm = gmtime(&rawtime);
+
+  std::stringstream iss;
+  iss << std::put_time(ptm, translated_pattern.c_str());
+  std::string ret_str = iss.str();
+  size_t length = strlen(ret_str.c_str());
+  *out_len = length;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, ret_str.c_str(), *out_len);
+  return ret;
 }
 
 namespace gandiva {
@@ -1525,5 +1632,29 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_from_unixtime_int64
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // epoch timestamp
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_from_unixtime_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_from_unixtime_int64));
+
+  // gdv_fn_from_unixtime_int64_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // epoch timestamp
+      types->i8_ptr_type(),  // const char* pattern
+      types->i32_type(),     // pattern_length
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_from_unixtime_int64_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_from_unixtime_int64_utf8));
 }
 }  // namespace gandiva
