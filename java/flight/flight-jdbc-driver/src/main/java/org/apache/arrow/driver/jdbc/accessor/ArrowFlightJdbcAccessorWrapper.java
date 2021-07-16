@@ -35,10 +35,8 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
 
-import org.apache.arrow.vector.complex.DenseUnionVector;
-
 /**
- * Accessor for the Arrow type {@link DenseUnionVector}.
+ * Abstract accessor wrapper, used for complex types accessors to leverage other types accessors.
  */
 public abstract class ArrowFlightJdbcAccessorWrapper extends ArrowFlightJdbcAccessor {
 
