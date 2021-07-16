@@ -1093,7 +1093,7 @@ struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
     const auto& scalar = checked_cast<const FixedSizeBinaryScalar&>(values);
     // Scalar may have null value buffer
     if (!scalar.value) {
-      std::memset(next, 0xFF, width * length);
+      std::memset(next, 0x00, width * length);
     } else {
       DCHECK_EQ(scalar.value->size(), width);
       for (int i = 0; i < length; i++) {
