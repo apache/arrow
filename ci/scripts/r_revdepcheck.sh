@@ -30,7 +30,7 @@ apt install -y libxml2-dev \
   libfontconfig1-dev \
   libcairo2-dev \
   libglpk-dev \
-  libmariadb-dev \
+  libmysqlclient-dev \
   unixodbc-dev \
   libpq-dev \
   coinor-libsymphony-dev \
