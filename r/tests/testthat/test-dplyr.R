@@ -1182,12 +1182,20 @@ test_that("if_else and ifelse", {
       # This is a no-op on the Arrow side, but necesary to make the results equal
       mutate(y = as.character(y)),
     example_data,
-    warning = "Factors are currently converted to characters in if_else and ifelse"
+    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
   )
 
-  skip("ARROW-12055 for better NaN support")
-  # currently NaNs are not NAs and so the missing argument is not correctly
-  # applied
+  # detecting NA and NaN works just fine
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(is.na(dbl), chr, chr, missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
+  )
+
+  # However, currently comparisons with NaNs return false and not NaNs or NAs
+  skip("ARROW-13364")
   expect_dplyr_equal(
     input %>%
       mutate(

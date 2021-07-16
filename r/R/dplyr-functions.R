@@ -676,7 +676,7 @@ nse_funcs$logb <- nse_funcs$log
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   if (!is.null(missing)) {
     return(nse_funcs$if_else(
-      Expression$create("is_null", condition),
+      is.na(condition),
       missing,
       nse_funcs$if_else(condition, true, false)
     ))
@@ -686,7 +686,7 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   # TODO: remove this after ARROW-13358 is merged
   warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
   if (warn_types) {
-    warning("Factors are currently converted to characters in if_else and ifelse", call. = FALSE)
+    warning("Dictionaries (in R: factors) are currently converted to strings (characters) in if_else and ifelse", call. = FALSE)
   }
 
   build_expr("if_else", condition, true, false)
