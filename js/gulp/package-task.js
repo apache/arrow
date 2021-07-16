@@ -53,23 +53,34 @@ const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
     bin: orig.bin,
     name: npmPkgName,
-    main: `${mainExport}.node`,
-    browser: `${mainExport}.dom`,
-    module: `${mainExport}.dom.mjs`,
+    type: 'commonjs',
+    main: `${mainExport}.node.js`,
+    module: `${mainExport}.node.mjs`,
+    browser: {
+        [`${mainExport}.node.js`]: `${mainExport}.dom.js`,
+        [`${mainExport}.node.mjs`]: `${mainExport}.dom.mjs`
+    },
+    exports: {
+        import: `./${mainExport}.node.mjs`,
+        require: `./${mainExport}.node.js`,
+    },
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
-    esm: { mode: `all`, sourceMap: true },
+    esm: { mode: `all`, sourceMap: true }
 });
 
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     bin: undefined,
-    module: undefined,
     main: `${mainExport}.node.ts`,
+    module: `${mainExport}.node.ts`,
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
+    type: "module",
+    sideEffects: false,
+    esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/flatbuffers': '*',
         '@types/node': '*',
@@ -91,11 +102,11 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "browser" if building scoped UMD target, otherwise "Arrow.dom"
             browser:  format === 'umd' ? `${mainExport}.js` : `${mainExport}.dom.js`,
             // set "main" to "Arrow" if building scoped UMD target, otherwise "Arrow.node"
-            main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node`,
+            main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node.js`,
             // set "type" to `module` or `commonjs` (https://nodejs.org/api/packages.html#packages_type)
             type:     format === 'esm' ? `module` : `commonjs`,
-            // set "module" (for https://www.npmjs.com/package/@pika/pack) if building scoped ESM target
-            module:   format === 'esm' ? `${mainExport}.dom.js` : undefined,
+            // set "module" if building scoped ESM target
+            module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target

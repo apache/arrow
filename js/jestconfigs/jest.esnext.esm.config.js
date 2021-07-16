@@ -27,7 +27,6 @@ module.exports = {
   },
   moduleNameMapper: {
     "^apache-arrow(.*)": "<rootDir>/targets/esnext/esm$1",
-    tslib: "tslib/tslib.es6.js",
-    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+    tslib: "tslib/tslib.es6.js"
   },
 };
