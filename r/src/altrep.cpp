@@ -225,9 +225,9 @@ struct AltrepVectorDouble {
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altreal_class("array_dbl_vector", "arrow", dll);
-    AltrepVector<REALSXP>::Init(class_t, dll);
+    Base::Init(class_t, dll);
 
-    R_set_altreal_No_NA_method(class_t, AltrepVector<REALSXP>::No_NA);
+    R_set_altreal_No_NA_method(class_t, Base::No_NA);
 
     R_set_altreal_Sum_method(class_t, Base::Sum);
     R_set_altreal_Min_method(class_t, Base::Min);
@@ -235,7 +235,7 @@ struct AltrepVectorDouble {
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
-    return AltrepVector<REALSXP>::Make(class_t, array, tasks);
+    return Base::Make(class_t, array, tasks);
   }
 };
 
@@ -245,8 +245,8 @@ struct AltrepVectorInt32 {
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altinteger_class("array_int_vector", "arrow", dll);
-    AltrepVector<INTSXP>::Init(class_t, dll);
-    R_set_altinteger_No_NA_method(class_t, AltrepVector<INTSXP>::No_NA);
+    Base::Init(class_t, dll);
+    R_set_altinteger_No_NA_method(class_t, Base::No_NA);
 
     R_set_altinteger_Sum_method(class_t, Base::Sum);
     R_set_altinteger_Min_method(class_t, Base::Min);
@@ -254,7 +254,7 @@ struct AltrepVectorInt32 {
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
-    return AltrepVector<INTSXP>::Make(class_t, array, tasks);
+    return Base::Make(class_t, array, tasks);
   }
 };
 
