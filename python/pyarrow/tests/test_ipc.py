@@ -331,9 +331,6 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 
 @pytest.mark.zstd
 def test_compression_roundtrip():
-    if not pa.Codec.is_available('zstd'):
-        pytest.skip("{} support is not built".format('zstd'))
-
     sink = io.BytesIO()
     values = np.random.randint(0, 10, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
