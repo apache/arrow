@@ -36,7 +36,12 @@ apt install -y libxml2-dev \
   coinor-libsymphony-dev \
   coinor-libcgl-dev \
   coinor-symphony \
-  libzmq3-dev
+  libzmq3-dev \
+  # for sf \
+  libudunits2-dev \
+  libgdal-dev \
+  libgeos-dev \
+  libproj-dev
 
 pushd ${source_dir}
 
