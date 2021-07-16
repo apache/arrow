@@ -785,8 +785,12 @@ public class TestFlightSql {
               }
             } else if (fieldVector instanceof IntVector) {
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object data = fieldVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+                try {
+                  results.get(rowIndex).add(String.valueOf(((IntVector) fieldVector).get(rowIndex)));
+                } catch (IllegalStateException e) {
+                  System.out.println(("Failed at index " + rowIndex));
+                  throw e;
+                }
               }
             } else if (fieldVector instanceof VarBinaryVector) {
               final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
