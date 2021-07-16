@@ -1666,7 +1666,7 @@ cdef class Codec(_Weakrefable):
         If invalid compression value is passed.
     """
 
-    def __init__(self, str compression not None, compression_level = None):
+    def __init__(self, str compression not None, compression_level=None):
         cdef CCompressionType typ = _ensure_compression(compression)
         if compression_level is not None:
             self.wrapped = shared_ptr[CCodec](move(GetResultValue(

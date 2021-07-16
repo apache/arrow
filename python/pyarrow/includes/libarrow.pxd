@@ -2359,10 +2359,13 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 
         @staticmethod
         c_bool SupportsCompressionLevel(CCompressionType codec)
+
         @staticmethod
         CResult[int] MinimumCompressionLevel(CCompressionType codec)
+
         @staticmethod
         CResult[int] MaximumCompressionLevel(CCompressionType codec)
+
         @staticmethod
         CResult[int] DefaultCompressionLevel(CCompressionType codec)
 

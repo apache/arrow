@@ -166,7 +166,8 @@ cdef class IpcWriteOptions(_Weakrefable):
         elif isinstance(value, Codec):
             self.c_options.codec = (<Codec>value).wrapped
         else:
-            raise Exception("Property `compression` must be None, str, or pyarrow.io.Codec")
+            raise Exception(
+                "Property `compression` must be None, str, or pyarrow.Codec")
 
     @property
     def use_threads(self):
