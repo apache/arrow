@@ -1092,11 +1092,14 @@ struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
     uint8_t* next = raw_out_values + (width * out_offset);
     const auto& scalar = checked_cast<const FixedSizeBinaryScalar&>(values);
     // Scalar may have null value buffer
-    if (!scalar.value) return;
-    DCHECK_EQ(scalar.value->size(), width);
-    for (int i = 0; i < length; i++) {
-      std::memcpy(next, scalar.value->data(), width);
-      next += width;
+    if (!scalar.value) {
+      std::memset(next, 0xFF, width * length);
+    } else {
+      DCHECK_EQ(scalar.value->size(), width);
+      for (int i = 0; i < length; i++) {
+        std::memcpy(next, scalar.value->data(), width);
+        next += width;
+      }
     }
   }
   static void CopyArray(const DataType& type, const uint8_t* in_values,
