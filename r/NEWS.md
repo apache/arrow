@@ -27,7 +27,7 @@
 * `match_arrow()` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
 * `transmute()` now errors if passed arguments `.keep`, `.before`, or `.after`, for consistency with the behavior of `dplyr` on `data.frame`s.
 * `is.na()` now evaluates to `TRUE` on `NaN` values in floating point number fields, for consistency with base R.
-* `is.nan()` now evaluates to `FALSE` on `NA` values in floating point number fields, for consistency with base R.
+* `is.nan()` now evaluates to `FALSE` on `NA` values in floating point number fields and `FALSE` on all values in non-floating point fields, for consistency with base R.
 
 # arrow 4.0.1
 
