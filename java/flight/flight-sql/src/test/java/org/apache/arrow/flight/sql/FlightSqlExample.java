@@ -47,7 +47,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -123,6 +122,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ProtocolStringList;
 
@@ -359,7 +359,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
 
     final List<FieldVector> vectors =
-        Arrays.asList(catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector);
+        new ArrayList<>(
+            ImmutableList.of(
+                catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
     vectors.forEach(FieldVector::allocateNew);
 
     int rows = 0;
