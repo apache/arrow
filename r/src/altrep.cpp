@@ -87,7 +87,7 @@ void UseSentinel(const std::shared_ptr<Array>& array) {
 
 template <int sexp_type>
 struct AltrepVector {
-  using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
+  using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
   using scalar_type =
       typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
