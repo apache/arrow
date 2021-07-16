@@ -147,35 +147,38 @@ nse_funcs$as.numeric <- function(x) {
 
 # is.* type functions
 nse_funcs$is.character <- function(x) {
-  is.character(x) || x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
+  is.character(x) || (inherits(x, "Expression") &&
+    x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
 }
 nse_funcs$is.numeric <- function(x) {
-  is.numeric(x) || x$type_id() %in% Type[c(
+  is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
     "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
     "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
     "DECIMAL", "DECIMAL256"
-  )]
+  )])
 }
 nse_funcs$is.double <- function(x) {
-  is.double(x) || x$type_id() == Type["DOUBLE"]
+  is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
 }
 nse_funcs$is.integer <- function(x) {
-  is.integer(x) || x$type_id() %in% Type[c(
+  is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
     "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
     "UINT64", "INT64"
-  )]
+  )])
 }
 nse_funcs$is.integer64 <- function(x) {
-  is.integer64(x) || x$type_id() == Type["INT64"]
+  is.integer64(x) || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
 }
 nse_funcs$is.logical <- function(x) {
-  is.logical(x) || x$type_id() == Type["BOOL"]
+  is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
 }
 nse_funcs$is.factor <- function(x) {
-  is.factor(x) || x$type_id() == Type["DICTIONARY"]
+  is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
 }
 nse_funcs$is.list <- function(x) {
-  is.list(x) || x$type_id() %in% Type[c("LIST", "FIXED_SIZE_LIST", "LARGE_LIST")]
+  is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+    "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
+  )])
 }
 
 # rlang::is_* type functions
