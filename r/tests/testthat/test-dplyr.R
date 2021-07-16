@@ -835,6 +835,31 @@ test_that("type checks on expressions", {
   )
 })
 
+test_that("type checks on R scalar literals", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character("foo"),
+        int_is_chr = is.character(42L),
+        int_is_int = is.integer(42L),
+        chr_is_int = is.integer("foo"),
+        dbl_is_num = is.numeric(3.14159),
+        int_is_num = is.numeric(42L),
+        chr_is_num = is.numeric("foo"),
+        dbl_is_dbl = is.double(3.14159),
+        chr_is_dbl = is.double("foo"),
+        lgl_is_lgl = is.logical(TRUE),
+        chr_is_lgl = is.logical("foo"),
+        fct_is_fct = is.factor(factor("foo", levels = c("foo", "bar", "baz"))),
+        chr_is_fct = is.factor("foo"),
+        lst_is_lst = is.list(list(c(a = "foo", b = "bar"))),
+        chr_is_lst = is.list("foo")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
