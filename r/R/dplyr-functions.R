@@ -659,12 +659,8 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
 
   # TODO: if_else doesn't yet support factors/dictionaries this can be removed when
   # ARROW-13358 merges
-  warn_r_types <- is.factor(true) || is.factor(false)
-  # However, if they are expressions, we need to use the functions from nse_funcs
-  warn_expression_types_true <- inherits(true, "Expression") &&  nse_funcs$is.factor(true)
-  warn_expression_types_false <- inherits(false, "Expression") && nse_funcs$is.factor(false)
-
-  if (warn_r_types | warn_expression_types_true | warn_expression_types_false) {
+  warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
+  if (warn_types) {
     warning("Factors are currently converted to chracters in if_else and ifelse", call. = FALSE)
   }
 
