@@ -566,7 +566,7 @@ Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
 Status CastImpl(const StructScalar& from, StringScalar* to) {
   std::stringstream ss;
   ss << '{';
-  for (size_t i = 0; i < from.value.size(); i++) {
+  for (int i = 0; static_cast<size_t>(i) < from.value.size(); i++) {
     if (i > 0) ss << ", ";
     ss << from.type->field(i)->name() << ':' << from.type->field(i)->type()->ToString()
        << " = " << from.value[i]->ToString();
