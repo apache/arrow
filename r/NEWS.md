@@ -25,7 +25,7 @@
 
   * String operations: `strsplit()` and `str_split()`; `strptime()`; `paste()`, `paste0()`, and `str_c()`; `substr()` and `str_sub()`; `str_like()`; `str_pad()`; `stri_reverse()`
   * Date/time operations: `lubridate` methods such as `year()`, `month()`, `wday()`, and so on
-  * Math: `abs()`, `log()`, trigonometry (`sin()`, `cos()`, et al.), `pmin()`/`pmax()`
+  * Math: `log()`, trigonometry (`sin()`, `cos()`, et al.), `abs()`, `sign()`, `pmin()`/`pmax()`
   * `is.*` functions are supported and can be used inside `relocate()`
 
 * The print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
