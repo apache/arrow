@@ -991,6 +991,13 @@ TEST(TestBinaryArithmetic, DispatchBest) {
                         {float64(), float64()});
     }
   }
+
+  CheckDispatchBest("atan2", {int32(), float64()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), uint8()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {int32(), null()}, {float64(), float64()});
+  CheckDispatchBest("atan2", {float32(), float64()}, {float64(), float64()});
+  // Integer always promotes to double
+  CheckDispatchBest("atan2", {float32(), int8()}, {float64(), float64()});
 }
 
 TEST(TestBinaryArithmetic, AddWithImplicitCasts) {
