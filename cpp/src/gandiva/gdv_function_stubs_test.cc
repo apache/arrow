@@ -648,55 +648,55 @@ TEST(TestGdvFnStubs, TestFromUnixtimeWithPattern) {
   // "2010-06-01 06:58:22" in seconds from epoch are:
   gdv_timestamp ts_from_string = 1275375502;
   const char* pattern1 = "yyyy-MM-dd hh:mm:ss";
-  int32_t pattern1_len = strlen(pattern1);
+  int32_t pattern1_len = 19;
   const char* out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern1,
                                                     pattern1_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58:22");
 
   const char* pattern2 = "yyyy-MM-dd hh:mm";
-  int32_t pattern2_len = strlen(pattern2);
+  int32_t pattern2_len = 16;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern2,
                                         pattern2_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-06-01 06:58");
 
   const char* pattern3 = "yyyy-MM-dd hh";
-  int32_t pattern3_len = strlen(pattern3);
+  int32_t pattern3_len = 13;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern3,
                                         pattern3_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-06-01 06");
 
   const char* pattern4 = "YYYY-MM-dd";
-  int32_t pattern4_len = strlen(pattern4);
+  int32_t pattern4_len = 10;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern4,
                                         pattern4_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-06-01");
 
   const char* pattern5 = "YYYY-dd-MM";
-  int32_t pattern5_len = strlen(pattern5);
+  int32_t pattern5_len = 10;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern5,
                                         pattern5_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "2010-01-06");
 
   const char* pattern6 = "dd-M-yy hh:mm";
-  int32_t pattern6_len = strlen(pattern6);
+  int32_t pattern6_len = 13;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern6,
                                         pattern6_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "01-Jun-10 06:58");
 
   const char* pattern7 = "Mm-dd-YY hh:mm:ss";
-  int32_t pattern7_len = strlen(pattern7);
+  int32_t pattern7_len = 17;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern7,
                                         pattern7_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "June-01-10 06:58:22");
 
   const char* pattern8 = "hh:mm:ss dd-M-yyyy";
-  int32_t pattern8_len = strlen(pattern8);
+  int32_t pattern8_len = 18;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, pattern8,
                                         pattern8_len, &out_len);
   EXPECT_EQ(std::string(out, out_len), "06:58:22 01-Jun-2010");
 
   const char* invalid_pattern1 = "yyyy-MM-dd hh:mm:ss.ss";
-  int32_t invalid_pattern1_len = strlen(invalid_pattern1);
+  int32_t invalid_pattern1_len = 22;
   out = gdv_fn_from_unixtime_int64_utf8(context_ptr, ts_from_string, invalid_pattern1,
                                         invalid_pattern1_len, &out_len);
   std::string out_str = std::string(out, out_len);
