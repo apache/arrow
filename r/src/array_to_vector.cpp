@@ -76,8 +76,10 @@ class Converter {
       if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
         switch (array->type()->id()) {
           case arrow::Type::DOUBLE:
-            if (array->null_count() == 0 || array->data().use_count() == 1 &&
-                array->data()->buffers[1].use_count() == 1 && array->data()->buffers[1]->is_mutable()) {
+            if (array->null_count() == 0 ||
+                array->data().use_count() == 1 &&
+                    array->data()->buffers[1].use_count() == 1 &&
+                    array->data()->buffers[1]->is_mutable()) {
               return arrow::r::MakeAltrepVectorDouble(array, tasks);
             } else {
               break;
