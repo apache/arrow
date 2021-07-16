@@ -1373,15 +1373,15 @@ def _check_datetime_components(timestamps, timezone=None):
 
     if Version(pd.__version__) < Version("1.1.0"):
         # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("Int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("Int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("Int64")
+        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
+        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
+        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
     else:
         # Casting is required because pandas isocalendar returns int32
         # while arrow isocalendar returns int64.
-        iso_year = ts.dt.isocalendar()["year"].astype("Int64")
-        iso_week = ts.dt.isocalendar()["week"].astype("Int64")
-        iso_day = ts.dt.isocalendar()["day"].astype("Int64")
+        iso_year = ts.dt.isocalendar()["year"].astype("int64")
+        iso_week = ts.dt.isocalendar()["week"].astype("int64")
+        iso_day = ts.dt.isocalendar()["day"].astype("int64")
 
     iso_calendar = pa.StructArray.from_arrays(
         [iso_year, iso_week, iso_day],
