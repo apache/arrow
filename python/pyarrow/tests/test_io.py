@@ -1266,6 +1266,7 @@ def check_compressed_input(data, fn, compression):
         assert buf.to_pybytes() == data
 
 
+@pytest.mark.gzip
 def test_compressed_input_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_input_test.gz")
@@ -1292,6 +1293,7 @@ def check_compressed_concatenated(data, fn, compression):
         assert got == data
 
 
+@pytest.mark.gzip
 def test_compressed_concatenated_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_input_test2.gz")
@@ -1302,6 +1304,7 @@ def test_compressed_concatenated_gzip(tmpdir):
     check_compressed_concatenated(data, fn, "gzip")
 
 
+@pytest.mark.gzip
 def test_compressed_input_invalid():
     data = b"foo" * 10
     raw = pa.BufferReader(data)
@@ -1329,6 +1332,7 @@ def make_compressed_output(data, fn, compression):
         f.write(raw.getvalue())
 
 
+@pytest.mark.gzip
 def test_compressed_output_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_output_test.gz")
@@ -1516,6 +1520,7 @@ def test_transcoding_decoding_error(src_encoding, dest_encoding):
 # ----------------------------------------------------------------------
 # High-level API
 
+@pytest.mark.gzip
 def test_input_stream_buffer():
     data = b"some test data\n" * 10 + b"eof\n"
     for arg in [pa.py_buffer(data), memoryview(data)]:
@@ -1561,6 +1566,7 @@ def test_input_stream_file_path(tmpdir):
     assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1607,6 +1613,7 @@ def test_input_stream_file_path_buffered(tmpdir):
         pa.input_stream(file_path, buffer_size='million')
 
 
+@pytest.mark.gzip
 def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1622,6 +1629,7 @@ def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_python_file(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     bio = BytesIO(data)
@@ -1645,6 +1653,7 @@ def test_input_stream_python_file(tmpdir):
         assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_native_file():
     data = b"some test data\n" * 10 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1723,6 +1732,7 @@ def test_output_stream_file_path(tmpdir):
     check_data(pathlib.Path(str(file_path)), data)
 
 
+@pytest.mark.gzip
 def test_output_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     file_path = tmpdir / 'output_stream.gz'
@@ -1773,6 +1783,7 @@ def test_output_stream_file_path_buffered(tmpdir):
     assert result == data
 
 
+@pytest.mark.gzip
 def test_output_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
     file_path = tmpdir / 'output_stream_compressed_and_buffered.gz'
@@ -1812,6 +1823,7 @@ def test_output_stream_destructor(tmpdir):
     assert check_data(file_path, data, buffer_size=1024) == data
 
 
+@pytest.mark.gzip
 def test_output_stream_python_file(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
 

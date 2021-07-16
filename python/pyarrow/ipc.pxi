@@ -166,7 +166,7 @@ cdef class IpcWriteOptions(_Weakrefable):
         elif isinstance(value, Codec):
             self.c_options.codec = (<Codec>value).wrapped
         else:
-            raise Exception(
+            raise TypeError(
                 "Property `compression` must be None, str, or pyarrow.Codec")
 
     @property

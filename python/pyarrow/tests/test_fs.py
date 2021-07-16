@@ -855,6 +855,7 @@ def identity(v):
     return v
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'compressor'),
     [
@@ -892,6 +893,7 @@ def test_open_input_file(fs, pathfn):
     assert result == data[read_from:]
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'decompressor'),
     [
@@ -913,6 +915,7 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         assert f.read(len(data)) == data
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'compressor', 'decompressor'),
     [

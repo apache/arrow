@@ -329,7 +329,11 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
         reader.read_next_batch()
 
 
+@pytest.mark.zstd
 def test_compression_roundtrip():
+    if not pa.Codec.is_available('zstd'):
+        pytest.skip("{} support is not built".format('zstd'))
+
     sink = io.BytesIO()
     values = np.random.randint(0, 10, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
@@ -379,28 +383,33 @@ def test_write_options():
 
     assert options.compression is None
     for value in ['lz4', 'zstd']:
-        options.compression = value
-        assert options.compression == value
-        options.compression = value.upper()
-        assert options.compression == value
+        if pa.Codec.is_available(value):
+            options.compression = value
+            assert options.compression == value
+            options.compression = value.upper()
+            assert options.compression == value
     options.compression = None
     assert options.compression is None
+
+    with pytest.raises(TypeError):
+        options.compression = 0
 
     assert options.use_threads is True
     options.use_threads = False
     assert options.use_threads is False
 
-    options = pa.ipc.IpcWriteOptions(
-        metadata_version=pa.ipc.MetadataVersion.V4,
-        allow_64bit=True,
-        use_legacy_format=True,
-        compression='lz4',
-        use_threads=False)
-    assert options.metadata_version == pa.ipc.MetadataVersion.V4
-    assert options.allow_64bit is True
-    assert options.use_legacy_format is True
-    assert options.compression == 'lz4'
-    assert options.use_threads is False
+    if pa.Codec.is_available('lz4'):
+        options = pa.ipc.IpcWriteOptions(
+            metadata_version=pa.ipc.MetadataVersion.V4,
+            allow_64bit=True,
+            use_legacy_format=True,
+            compression='lz4',
+            use_threads=False)
+        assert options.metadata_version == pa.ipc.MetadataVersion.V4
+        assert options.allow_64bit is True
+        assert options.use_legacy_format is True
+        assert options.compression == 'lz4'
+        assert options.use_threads is False
 
 
 def test_write_options_legacy_exclusive(stream_fixture):
@@ -594,6 +603,7 @@ def test_message_serialize_read_message(example_messages):
         pa.ipc.read_message(reader)
 
 
+@pytest.mark.gzip
 def test_message_read_from_compressed(example_messages):
     # Part of ARROW-5910
     _, messages = example_messages
