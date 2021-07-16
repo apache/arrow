@@ -348,6 +348,22 @@ Bit-wise functions
   out of bounds for the data type.  However, an overflow when shifting the
   first input is not error (truncated bits are silently discarded).
 
+Rounding functions
+~~~~~~~~~~~~~~~~~~
+
+Rounding functions convert a numeric input into an approximate value with a
+simpler representation based on the rounding strategy.
+
++------------------+--------+----------------+-----------------+-------+
+| Function name    | Arity  | Input types    | Output type     | Notes |
++==================+========+================+=================+=======+
+| floor            | Unary  | Numeric        | Float32/Float64 |       |
++------------------+--------+----------------+-----------------+-------+
+| ceiling          | Unary  | Numeric        | Float32/Float64 |       |
++------------------+--------+----------------+-----------------+-------+
+| truncate         | Unary  | Numeric        | Float32/Float64 |       |
++------------------+--------+----------------+-----------------+-------+
+
 Logarithmic functions
 ~~~~~~~~~~~~~~~~~~~~~
 

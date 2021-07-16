@@ -1067,7 +1067,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     CheckDispatchFails(name, {null()});
   }
 
-  // Signed-only types
+  // Signed types
   for (std::string name : {"negate_checked"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
@@ -1075,7 +1075,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
-  // Float-only types (with _checked variant)
+  // Float types (with _checked variant)
   for (std::string name :
        {"ln", "log2", "log10", "log1p", "sin", "cos", "tan", "asin", "acos"}) {
     for (std::string suffix : {"", "_checked"}) {
@@ -1087,7 +1087,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
-  // Float-only types
+  // Float types
   for (std::string name : {"atan", "sign", "floor", "ceiling", "truncate"}) {
     for (const auto& ty : {float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
