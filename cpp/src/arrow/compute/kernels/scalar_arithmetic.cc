@@ -817,6 +817,27 @@ struct Log1pChecked {
   }
 };
 
+struct Floor {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return std::floor(arg);
+  }
+};
+
+struct Ceil {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return std::ceil(arg);
+  }
+};
+
+struct Trunc {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return std::trunc(arg);
+  }
+};
+
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
@@ -1391,16 +1412,16 @@ const FunctionDoc sign_doc{
     {"x"}};
 
 const FunctionDoc bit_wise_not_doc{
-    "Bit-wise negate the arguments element-wise", ("Null values return null."), {"x"}};
+    "Bit-wise negate the arguments element-wise", "Null values return null.", {"x"}};
 
 const FunctionDoc bit_wise_and_doc{
-    "Bit-wise AND the arguments element-wise", ("Null values return null."), {"x", "y"}};
+    "Bit-wise AND the arguments element-wise", "Null values return null.", {"x", "y"}};
 
 const FunctionDoc bit_wise_or_doc{
-    "Bit-wise OR the arguments element-wise", ("Null values return null."), {"x", "y"}};
+    "Bit-wise OR the arguments element-wise", "Null values return null.", {"x", "y"}};
 
 const FunctionDoc bit_wise_xor_doc{
-    "Bit-wise XOR the arguments element-wise", ("Null values return null."), {"x", "y"}};
+    "Bit-wise XOR the arguments element-wise", "Null values return null.", {"x", "y"}};
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
@@ -1506,12 +1527,12 @@ const FunctionDoc acos_checked_doc{
     {"x"}};
 
 const FunctionDoc atan_doc{"Compute the principal value of the inverse tangent",
-                           ("Integer arguments return double values."),
+                           "Integer arguments return double values.",
                            {"x"}};
 
 const FunctionDoc atan2_doc{
     "Compute the inverse tangent using argument signs to determine the quadrant",
-    ("Integer arguments return double values."),
+    "Integer arguments return double values.",
     {"y", "x"}};
 
 const FunctionDoc ln_doc{
@@ -1567,6 +1588,24 @@ const FunctionDoc log1p_checked_doc{
      "Use function \"log1p\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
+
+const FunctionDoc floor_doc{
+    "Round down to the nearest integer",
+    ("Calculate the nearest integer less than or equal in magnitude to the "
+     "argument element-wise"),
+    {"x"}};
+
+const FunctionDoc ceil_doc{
+    "Round up to the nearest integer",
+    ("Calculate the nearest integer greater than or equal in magnitude to the "
+     "argument element-wise"),
+    {"x"}};
+
+const FunctionDoc trunc_doc{
+    "Get the integral part without fractional digits",
+    ("Calculate the nearest integer not greater in magnitude than to the "
+     "argument element-wise."),
+    {"x"}};
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -1592,7 +1631,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
-  // subtract
   auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
   AddDecimalBinaryKernels<Subtract>("subtract", &subtract);
 
@@ -1767,6 +1805,17 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto log1p_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log1pChecked>(
       "log1p_checked", &log1p_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p_checked)));
+
+  // ----------------------------------------------------------------------
+  // Rounding functions
+  auto floor = MakeUnaryArithmeticFunctionFloatingPoint<Floor>("floor", &floor_doc);
+  DCHECK_OK(registry->AddFunction(std::move(floor)));
+
+  auto ceil = MakeUnaryArithmeticFunctionFloatingPoint<Ceil>("ceil", &ceil_doc);
+  DCHECK_OK(registry->AddFunction(std::move(ceil)));
+
+  auto trunc = MakeUnaryArithmeticFunctionFloatingPoint<Trunc>("trunc", &trunc_doc);
+  DCHECK_OK(registry->AddFunction(std::move(trunc)));
 }
 
 }  // namespace internal
