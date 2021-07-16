@@ -682,8 +682,8 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
     ))
   }
 
-  # TODO: if_else doesn't yet support factors/dictionaries this can be removed when
-  # ARROW-13358 merges
+  # if_else doesn't yet support factors/dictionaries
+  # TODO: remove this after ARROW-13358 is merged
   warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
   if (warn_types) {
     warning("Factors are currently converted to characters in if_else and ifelse", call. = FALSE)
