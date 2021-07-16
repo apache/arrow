@@ -37,6 +37,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
@@ -46,6 +47,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -89,6 +91,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
@@ -330,9 +333,65 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return () -> iterator;
   }
 
-  protected Iterable<VectorSchemaRoot> getTablesRoot(final ResultSet data,
-                                                     final boolean includeSchema)
+  protected Iterable<VectorSchemaRoot> getTablesRoot(DatabaseMetaData databaseMetaData,
+                                                     final boolean includeSchema, String catalog,
+                                                     String schemaFilterPattern, String tableFilterPattern)
       throws SQLException, IOException {
+
+    final ResultSet data =
+        databaseMetaData.getTables(catalog, schemaFilterPattern, tableFilterPattern, null);
+
+    RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
+    catalogNameVector.allocateNew();
+    VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
+    schemaNameVector.allocateNew();
+    VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
+    tableNameVector.allocateNew();
+    VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
+    tableTypeVector.allocateNew();
+
+    int rows = 0;
+
+    while (data.next()) {
+      catalogNameVector.setSafe(rows, new Text(data.getString("catalogName")));
+      schemaNameVector.setSafe(rows, new Text(data.getString("schemaName")));
+      tableNameVector.setSafe(rows, new Text(data.getString("tableName")));
+      tableTypeVector.setSafe(rows, new Text(data.getString("tableType")));
+      rows++;
+    }
+
+    VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
+
+    if (includeSchema) {
+      final ResultSet columnsData =
+          databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
+      Map<String, List<Field>> tableToFields = new HashMap<>();
+
+      while(columnsData.next()) {
+        String tableName = columnsData.getString("TABLE_NAME");
+        List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+
+        Field field = new Field();
+        fields.add(field);
+      }
+
+      VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
+      tableSchemaVector.allocateNew(rows);
+
+      for (int i = 0; i < rows; i++) {
+        String tableName = tableNameVector.getObject(i).toString();
+        Schema schema = new Schema(tableToFields.get(tableName));
+        tableSchemaVector.setSafe(i, schema.toByteArray());
+      }
+
+      root.addVector(4, tableSchemaVector);
+    }
+
+    return root;
+
+
+
     return stream(getVectorsFromData(data).spliterator(), false)
         .map(VectorSchemaRoot::getFieldVectors)
         .peek(vectors -> {
@@ -658,9 +717,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     try {
       final Connection connection = DriverManager.getConnection(DATABASE_URI);
-      final ResultSet tableMetaData =
-          connection.getMetaData().getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
-      makeListen(getTablesRoot(tableMetaData, command.getIncludeSchema()), listener);
+      DatabaseMetaData databaseMetaData = connection.getMetaData();
+      makeListen(getTablesRoot(databaseMetaData, command.getIncludeSchema(), catalog,
+          schemaFilterPattern, tableFilterPattern), listener);
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
