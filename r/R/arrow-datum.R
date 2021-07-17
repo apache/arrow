@@ -64,10 +64,7 @@ is.nan.ArrowDatum <- function(x) {
     # use that to simplify the code here (ARROW-13366)
     call_function("is_nan", x) & call_function("is_valid", x)
   } else {
-    # This is just a hacky way to return an ArrowDatum identical to the input
-    # in shape but with a Boolean value of false in every position.
-    # TODO: implement this more efficiently and elegantly if possible
-    call_function("is_valid", x) & call_function("is_null", x)
+    Scalar$create(FALSE)$as_array(length(x))
   }
 }
 
