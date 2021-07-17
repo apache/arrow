@@ -4,6 +4,7 @@ Version: 4.0.1.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
+    person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut")),
     person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
