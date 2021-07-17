@@ -1316,9 +1316,13 @@ test_that("case_when()", {
   skip("case_when does not yet support with variable-width types (ARROW-13222)")
   expect_dplyr_equal(
     input %>%
-      transmute(
-        cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))
-      ) %>%
+      transmute(cw = case_when(lgl ~ "abc")) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) %>%
       collect(),
     tbl
   )
