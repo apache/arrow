@@ -3796,94 +3796,60 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
 }
 
-// ----------------------------------------------------------------------
-// Tests for directly writing DictionaryArray
-class TestArrowWriteDictionary : public ::testing::Test {
- public:
-  void SetUp() override {
-    properties_ = default_arrow_writer_properties();
-    serialized_data_ = AllocateBuffer();
-  }
+TEST(TestArrowWriteDictionary, Statistics) {
+  std::vector<std::shared_ptr<::arrow::Array>> test_dictionaries = {
+      ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a"])"),
+      ArrayFromJSON(::arrow::binary(), R"(["d", "c", "b", "a"])"),
+      ArrayFromJSON(::arrow::large_utf8(), R"(["a", "b", "c"])")};
+  std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
+      ArrayFromJSON(::arrow::int32(), R"([0, null, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([0, 1, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([null, null])")};
+  // Pairs of (valid, null)
+  std::vector<std::vector<int64_t>> expected_counts = {{2, 1}, {3, 0}, {0, 2}};
+  // Pairs of (min, max)
+  std::vector<std::vector<std::string>> expected_min_max_ = {
+      {"a", "b"}, {"a", "d"}, {"", ""}};
 
-  // Generates a range of single character strings from start to end (inclusive)
-  // Nulls will be inserted starting at index 0.  If there are any null
-  // values then start will not be the true min.  However, the dictionary
-  // array will always contain all the values even if they aren't all used.
-  void GenerateRange(int num_nulls, char start, char end) {
-    int num_values = end - start + 1;
-    DCHECK_LT(num_nulls, num_values);
+  for (std::size_t case_index = 0; case_index < test_dictionaries.size(); case_index++) {
+    SCOPED_TRACE(test_dictionaries[case_index]->type()->ToString());
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<::arrow::Array> dict_encoded,
+                         ::arrow::DictionaryArray::FromArrays(
+                             test_indices[case_index], test_dictionaries[case_index]));
+    std::shared_ptr<::arrow::Schema> schema =
+        ::arrow::schema({::arrow::field("values", dict_encoded->type())});
+    std::shared_ptr<::arrow::Table> table = ::arrow::Table::Make(schema, {dict_encoded});
 
-    ::arrow::StringBuilder dictionary_builder;
-    ::arrow::Int32Builder indices_builder;
-
-    for (char val = start; val <= end; val++) {
-      int32_t index = static_cast<int32_t>(val - start);
-      if (val - start >= num_nulls) {
-        ASSERT_OK(indices_builder.Append(index));
-      } else {
-        ASSERT_OK(indices_builder.AppendNull());
-      }
-      ASSERT_OK(dictionary_builder.Append(&val, 1));
-    }
-
-    std::shared_ptr<::arrow::Array> dictionary;
-    std::shared_ptr<::arrow::Array> indices;
-    ASSERT_OK(dictionary_builder.Finish(&dictionary));
-    ASSERT_OK(indices_builder.Finish(&indices));
-
-    ASSERT_OK_AND_ASSIGN(auto test_column,
-                         ::arrow::DictionaryArray::FromArrays(indices, dictionary));
-
-    auto schema = ::arrow::schema({::arrow::field("values", test_column->type())});
-    auto batch = ::arrow::RecordBatch::Make(schema, num_values, {test_column});
-    ASSERT_OK_AND_ASSIGN(test_data_, ::arrow::Table::FromRecordBatches({batch}));
-  }
-
-  void WriteToBuffer() {
-    auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data_);
-    auto writer_properties = default_writer_properties();
+    std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+    auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+    std::shared_ptr<WriterProperties> writer_properties = default_writer_properties();
     std::unique_ptr<FileWriter> writer;
-    ASSERT_OK(FileWriter::Open(*test_data_->schema(), ::arrow::default_memory_pool(),
-                               out_stream, writer_properties,
-                               default_arrow_writer_properties(), &writer));
-    ASSERT_OK(writer->WriteTable(*test_data_, std::numeric_limits<int64_t>::max()));
+    ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                               writer_properties, default_arrow_writer_properties(),
+                               &writer));
+    ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
     ASSERT_OK(writer->Close());
+    ASSERT_OK(out_stream->Close());
+
+    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+    std::unique_ptr<ParquetFileReader> parquet_reader =
+        ParquetFileReader::Open(std::move(buffer_reader));
+    std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+
+    ASSERT_EQ(metadata->num_row_groups(), 1);
+    ASSERT_EQ(metadata->RowGroup(0)->num_columns(), 1);
+    std::shared_ptr<Statistics> stats =
+        metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+
+    std::vector<int64_t> case_expected_counts = expected_counts[case_index];
+    EXPECT_EQ(stats->num_values(), case_expected_counts[0]);
+    EXPECT_EQ(stats->null_count(), case_expected_counts[1]);
+
+    std::vector<std::string> case_expected_min_max = expected_min_max_[case_index];
+    EXPECT_EQ(stats->EncodeMin(), case_expected_min_max[0]);
+    EXPECT_EQ(stats->EncodeMax(), case_expected_min_max[1]);
   }
-
-  std::shared_ptr<FileMetaData> LoadWrittenMetadata() {
-    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data_);
-    auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
-    return parquet_reader->metadata();
-  }
-
-  void CheckNullCount() {
-    GenerateRange(5, 'a', 'z');
-    WriteToBuffer();
-    auto metadata = LoadWrittenMetadata();
-    auto stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
-    ASSERT_TRUE(stats->HasNullCount());
-    ASSERT_EQ(stats->null_count(), 5);
-    ASSERT_EQ(stats->num_values(), 21);
-  }
-
-  void CheckMinMax() {
-    GenerateRange(5, 'a', 'z');
-    WriteToBuffer();
-    auto metadata = LoadWrittenMetadata();
-    auto stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
-    ASSERT_TRUE(stats->HasMinMax());
-    ASSERT_EQ(stats->EncodeMin(), "f");
-    ASSERT_EQ(stats->EncodeMax(), "z");
-  }
-
- protected:
-  std::shared_ptr<ArrowWriterProperties> properties_;
-  std::shared_ptr<::arrow::Table> test_data_;
-  std::shared_ptr<::arrow::ResizableBuffer> serialized_data_;
-};
-
-TEST_F(TestArrowWriteDictionary, NullCount) { this->CheckNullCount(); }
-TEST_F(TestArrowWriteDictionary, MinMax) { this->CheckMinMax(); }
+}
 
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray

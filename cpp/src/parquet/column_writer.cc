@@ -1487,11 +1487,25 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
       return WriteDense();
     }
 
-    // TODO(wesm): If some dictionary values are unobserved, then the
-    // statistics will be inaccurate. Do we care enough to fix it?
     if (page_statistics_ != nullptr) {
-      PARQUET_CATCH_NOT_OK(
-          page_statistics_->UpdateArrowDictionary(*indices, *dictionary));
+      // TODO(PARQUET-2068) This approach makes two copies.  First, a copy of the indices
+      // array to a (hopefully smaller) referenced indices array.  Second, a copy of the
+      // values array to a (probably not smaller) referenced values array.
+      //
+      // Once the MinMax kernel supports all data types we should use that kernel instead
+      // as it does not make any copies.
+      ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
+      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
+                              ::arrow::compute::Unique(*indices, &exec_ctx));
+      PARQUET_ASSIGN_OR_THROW(
+          ::arrow::Datum referenced_dictionary,
+          ::arrow::compute::Take(dictionary, referenced_indices,
+                                 ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                 &exec_ctx));
+      page_statistics_->IncrementNullCount(indices->null_count());
+      page_statistics_->IncrementNumValues(indices->length() - indices->null_count());
+      page_statistics_->Update(*referenced_dictionary.make_array(),
+                               /*update_counts=*/false);
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {

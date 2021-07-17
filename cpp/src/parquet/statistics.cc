@@ -25,7 +25,6 @@
 #include <utility>
 
 #include "arrow/array.h"
-#include "arrow/compute/api.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -515,6 +514,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
 
+  void IncrementNullCount(int64_t n) override {
+    statistics_.null_count += n;
+    has_null_count_ = true;
+  }
+
+  void IncrementNumValues(int64_t n) override { num_values_ += n; }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
@@ -557,36 +563,17 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
                     int64_t num_not_null, int64_t num_null) override;
 
-  void Update(const ::arrow::Array& values) override {
-    IncrementNullCount(values.null_count());
-    IncrementNumValues(values.length() - values.null_count());
+  void Update(const ::arrow::Array& values, bool update_counts) override {
+    if (update_counts) {
+      IncrementNullCount(values.null_count());
+      IncrementNumValues(values.length() - values.null_count());
+    }
 
     if (values.null_count() == values.length()) {
       return;
     }
 
     SetMinMaxPair(comparator_->GetMinMax(values));
-  }
-
-  void UpdateArrowDictionary(const ::arrow::Array& indices,
-                             const ::arrow::Array& dictionary) override {
-    IncrementNullCount(indices.null_count());
-    IncrementNumValues(indices.length() - indices.null_count());
-
-    if (indices.null_count() == indices.length()) {
-      return;
-    }
-
-    ::arrow::compute::ExecContext ctx(pool_);
-    PARQUET_ASSIGN_OR_THROW(auto referenced_indices,
-                            ::arrow::compute::Unique(indices, &ctx));
-    PARQUET_ASSIGN_OR_THROW(
-        auto referenced_dictionary,
-        ::arrow::compute::Take(dictionary, referenced_indices,
-                               ::arrow::compute::TakeOptions(/*boundscheck=*/false),
-                               &ctx));
-
-    SetMinMaxPair(comparator_->GetMinMax(*referenced_dictionary.make_array()));
   }
 
   const T& min() const override { return min_; }
@@ -642,13 +629,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void PlainDecode(const std::string& src, T* dst) const;
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
-
-  void IncrementNullCount(int64_t n) {
-    statistics_.null_count += n;
-    has_null_count_ = true;
-  }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
 
   void IncrementDistinctCount(int64_t n) {
     statistics_.distinct_count += n;
