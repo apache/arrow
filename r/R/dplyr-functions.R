@@ -680,7 +680,7 @@ nse_funcs$logb <- nse_funcs$log
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   if (!is.null(missing)) {
     return(nse_funcs$if_else(
-      is.na(condition),
+      nse_funcs$is.na(condition),
       missing,
       nse_funcs$if_else(condition, true, false)
     ))
