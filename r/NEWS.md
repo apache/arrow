@@ -26,7 +26,7 @@
   * String operations: `strsplit()` and `str_split()`; `strptime()`; `paste()`, `paste0()`, and `str_c()`; `substr()` and `str_sub()`; `str_like()`; `str_pad()`; `stri_reverse()`
   * Date/time operations: `lubridate` methods such as `year()`, `month()`, `wday()`, and so on
   * Math: `log()`, trigonometry (`sin()`, `cos()`, et al.), `abs()`, `sign()`, `pmin()`/`pmax()`
-  * Conditional: `ifelse()` and `if_else()`; `case_when()`
+  * Conditional: `ifelse()` and `if_else()` (fixed-precision decimal numbers do not yet work and factors/dictionaries are converted to character strings); `case_when()` (currently works with numeric data types but not character strings, factors/dictionaries, or lists/structs)
   * `is.*` functions are supported and can be used inside `relocate()`
 
 * The print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
