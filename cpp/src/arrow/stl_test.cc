@@ -464,7 +464,6 @@ TEST(TestTupleVectorFromTable, ListType) {
   using tuple_type = std::tuple<std::vector<int64_t>>;
 
   compute::ExecContext ctx;
-  ctx.set_use_threads(false);
   compute::CastOptions cast_options;
   auto expected_schema =
       std::shared_ptr<Schema>(new Schema({field("column1", list(int64()), false)}));
