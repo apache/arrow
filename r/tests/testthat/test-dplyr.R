@@ -1304,11 +1304,20 @@ test_that("case_when()", {
     )
   )
   expect_error(
-    # non-logical Arrow expression on left side of formula
+    # non-logical Arrow column reference on left side of formula
     expect_warning(
       tbl %>%
         Table$create() %>%
         transmute(cw = case_when(int ~ FALSE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical Arrow expression on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
       "case_when"
     )
   )
