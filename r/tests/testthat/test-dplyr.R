@@ -1092,12 +1092,15 @@ test_that("trig functions", {
 })
 
 test_that("if_else and ifelse", {
+  tbl <- example_data
+  tbl$another_chr <- tail(letters, 10)
+
   expect_dplyr_equal(
     input %>%
       mutate(
         y = if_else(int > 5, 1, 0)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
@@ -1105,11 +1108,11 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(int > 5, int, 0L)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_error(
-    Table$create(example_data) %>%
+    Table$create(tbl) %>%
       mutate(
         y = if_else(int > 5, 1, FALSE)
       ) %>% collect(),
@@ -1121,7 +1124,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(int > 5, 1, NA_real_)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
@@ -1129,7 +1132,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = ifelse(int > 5, 1, 0)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
@@ -1137,7 +1140,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(dbl > 5, TRUE, FALSE)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
@@ -1145,7 +1148,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(chr %in% letters[1:3], 1L, 3L)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
@@ -1153,23 +1156,23 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(int > 5, "one", "zero")
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(int > 5, chr, chr)
+        y = if_else(int > 5, chr, another_chr)
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(int > 5, chr, chr, missing = "MISSING")
+        y = if_else(int > 5, "true", chr, missing = "MISSING")
       ) %>% collect(),
-    example_data
+    tbl
   )
 
   # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
@@ -1181,7 +1184,7 @@ test_that("if_else and ifelse", {
       ) %>% collect() %>%
       # This is a no-op on the Arrow side, but necesary to make the results equal
       mutate(y = as.character(y)),
-    example_data,
+    tbl,
     warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
   )
 
@@ -1189,7 +1192,7 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(is.na(dbl), chr, chr, missing = "MISSING")
+        y = if_else(is.na(dbl), chr, "false", missing = "MISSING")
       ) %>% collect(),
     example_data_for_sorting
   )
@@ -1199,7 +1202,7 @@ test_that("if_else and ifelse", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        y = if_else(dbl > 5, chr, chr, missing = "MISSING")
+        y = if_else(dbl > 5, chr, another_chr, missing = "MISSING")
       ) %>% collect(),
     example_data_for_sorting
   )
@@ -1209,6 +1212,6 @@ test_that("if_else and ifelse", {
     input %>%
       mutate(y = ifelse(int > 5, 1, FALSE)) %>%
       collect(),
-    example_data
+    tbl
   )
 })
