@@ -721,17 +721,6 @@ nse_funcs$case_when <- function(...) {
     if (!nse_funcs$is.logical(query[[i]])) {
       abort("Left side of each formula in case_when() must be a logical expression")
     }
-    # TODO: remove these checks after the case_when kernel supports variable-width
-    # types (ARROW-13222)
-    has_bad_r_type <- inherits(value[[i]], c("character", "raw", "list", "factor"))
-    has_bad_arrow_type <- inherits(value[[i]], "Expression") &&
-      value[[i]]$type_id() %in% Type[c(
-      "STRING", "BINARY", "LIST", "MAP", "STRUCT", "SPARSE_UNION",
-      "DENSE_UNION", "DICTIONARY", "EXTENSION", "FIXED_SIZE_LIST",
-      "LARGE_STRING", "LARGE_BINARY", "LARGE_LIST")]
-    if (has_bad_r_type || has_bad_arrow_type) {
-      arrow_not_supported("case_when() with variable-width data types")
-    }
   }
   build_expr(
     "case_when",
