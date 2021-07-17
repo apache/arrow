@@ -218,11 +218,9 @@ enum CompareOperator : int8_t {
   LESS_EQUAL,
 };
 
-class ARROW_EXPORT CompareOptions : public FunctionOptions {
- public:
-  explicit CompareOptions(CompareOperator op);
-  CompareOptions();
-  constexpr static char const kTypeName[] = "CompareOptions";
+struct ARROW_EXPORT CompareOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+  CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
   enum CompareOperator op;
 };
 
@@ -564,6 +562,7 @@ Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
 ARROW_EXPORT
 Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
                       ExecContext* ctx = NULLPTR);

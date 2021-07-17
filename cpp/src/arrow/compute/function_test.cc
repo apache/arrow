@@ -83,8 +83,6 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new TrimOptions("abc"));
   options.emplace_back(new SliceOptions(/*start=*/1));
   options.emplace_back(new SliceOptions(/*start=*/1, /*stop=*/-5, /*step=*/-2));
-  options.emplace_back(new CompareOptions(CompareOperator::EQUAL));
-  options.emplace_back(new CompareOptions(CompareOperator::LESS));
   // N.B. we never actually use field_nullability or field_metadata in Arrow
   options.emplace_back(new MakeStructOptions({"col1"}, {true}, {}));
   options.emplace_back(new MakeStructOptions({"col1"}, {false}, {}));

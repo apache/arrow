@@ -380,8 +380,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
     CType c_fifty = 50;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection,
-                           Compare(array, Datum(fifty), CompareOptions(op)));
+      ASSERT_OK_AND_ASSIGN(
+          Datum selection,
+          CallFunction(CompareOperatorToFunctionName(op), {array, Datum(fifty)}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(array, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
@@ -403,7 +404,8 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
     auto rhs = checked_pointer_cast<ArrayType>(
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection, Compare(lhs, rhs, CompareOptions(op)));
+      ASSERT_OK_AND_ASSIGN(Datum selection,
+                           CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(lhs, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
@@ -428,9 +430,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     auto hundred = std::make_shared<ScalarType>(c_hundred);
     ASSERT_OK_AND_ASSIGN(Datum greater_than_fifty,
-                         Compare(array, Datum(fifty), CompareOptions(GREATER)));
+                         CallFunction("greater", {array, Datum(fifty)}));
     ASSERT_OK_AND_ASSIGN(Datum less_than_hundred,
-                         Compare(array, Datum(hundred), CompareOptions(LESS)));
+                         CallFunction("less", {array, Datum(hundred)}));
     ASSERT_OK_AND_ASSIGN(Datum selection, And(greater_than_fifty, less_than_hundred));
     ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(array, selection));
     auto filtered_array = filtered.make_array();
