@@ -524,11 +524,22 @@ test_that("is.finite(), is.infinite(), is.nan()", {
       ) %>% collect(),
     df
   )
-  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  # is.nan() evaluates to FALSE on NA_real_ (ARROW-12850)
   expect_dplyr_equal(
     input %>%
       transmute(
         is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
+test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
+  df <- tibble(x = c(1.1, 2.2, NA_real_, 4.4, NaN, 6.6, 7.7))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_na = is.na(x)
       ) %>% collect(),
     df
   )
@@ -835,6 +846,31 @@ test_that("type checks on expressions", {
   )
 })
 
+test_that("type checks on R scalar literals", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character("foo"),
+        int_is_chr = is.character(42L),
+        int_is_int = is.integer(42L),
+        chr_is_int = is.integer("foo"),
+        dbl_is_num = is.numeric(3.14159),
+        int_is_num = is.numeric(42L),
+        chr_is_num = is.numeric("foo"),
+        dbl_is_dbl = is.double(3.14159),
+        chr_is_dbl = is.double("foo"),
+        lgl_is_lgl = is.logical(TRUE),
+        chr_is_lgl = is.logical("foo"),
+        fct_is_fct = is.factor(factor("foo", levels = c("foo", "bar", "baz"))),
+        chr_is_fct = is.factor("foo"),
+        lst_is_lst = is.list(list(c(a = "foo", b = "bar"))),
+        chr_is_lst = is.list("foo")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
@@ -1063,4 +1099,129 @@ test_that("trig functions", {
     df
   )
 
+})
+
+test_that("if_else and ifelse", {
+  tbl <- example_data
+  tbl$another_chr <- tail(letters, 10)
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, 1, 0)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, int, 0L)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_error(
+    Table$create(tbl) %>%
+      mutate(
+        y = if_else(int > 5, 1, FALSE)
+      ) %>% collect(),
+    'NotImplemented: Function if_else has no kernel matching input types'
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, 1, NA_real_)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = ifelse(int > 5, 1, 0)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(dbl > 5, TRUE, FALSE)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(chr %in% letters[1:3], 1L, 3L)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, "one", "zero")
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, chr, another_chr)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, "true", chr, missing = "MISSING")
+      ) %>% collect(),
+    tbl
+  )
+
+  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
+  # supports factors in if(_)else
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, fct, factor("a"))
+      ) %>% collect() %>%
+      # This is a no-op on the Arrow side, but necesary to make the results equal
+      mutate(y = as.character(y)),
+    tbl,
+    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
+  )
+
+  # detecting NA and NaN works just fine
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(is.na(dbl), chr, "false", missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
+  )
+
+  # However, currently comparisons with NaNs return false and not NaNs or NAs
+  skip("ARROW-13364")
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(dbl > 5, chr, another_chr, missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
+  )
+
+  skip("TODO: could? should? we support the autocasting in ifelse")
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = ifelse(int > 5, 1, FALSE)) %>%
+      collect(),
+    tbl
+  )
 })

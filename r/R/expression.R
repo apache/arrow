@@ -20,8 +20,8 @@
 .unary_function_map <- list(
   "!" = "invert",
   "as.factor" = "dictionary_encode",
-  "is.na" = "is_null",
-  "is.nan" = "is_nan",
+  # is.na is defined in dplyr-functions.R
+  # is.nan is defined in dplyr-functions.R
   "abs" = "abs_checked",
   "sign" = "sign",
   # nchar is defined in dplyr-functions.R
@@ -207,4 +207,12 @@ Ops.Expression <- function(e1, e2) {
 }
 
 #' @export
-is.na.Expression <- function(x) Expression$create("is_null", x)
+is.na.Expression <- function(x) {
+  if (!is.null(x$schema) && x$type_id() %in% TYPES_WITH_NAN) {
+    # TODO: if an option is added to the is_null kernel to treat NaN as NA,
+    # use that to simplify the code here (ARROW-13367)
+    Expression$create("is_nan", x) | build_expr("is_null", x)
+  } else {
+    Expression$create("is_null", x)
+  }
+}
