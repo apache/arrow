@@ -112,7 +112,7 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetTablesResult() throws Exception {
+  public void testGetTablesResultNoSchema() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
@@ -149,294 +149,7 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetTablesResultWithSchema() throws Exception {
-    try (final FlightStream stream =
-             sqlClient.getStream(
-                 sqlClient.getTables(null, null, null, null, true)
-                     .getEndpoints().get(0).getTicket())) {
-      final List<List<String>> results = getResults(stream);
-      final List<List<String>> expectedResults = ImmutableList.of(
-          // catalog_name | schema_name | table_name | table_type | table_schema
-          // catalog_name | schema_name | table_name | table_type | table_schema
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSALIASES",
-              "SYSTEM TABLE",
-              new Schema(ImmutableList.of(
-                  new Field(
-                      "ALIASID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "ALIAS",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "SCHEMAID",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "JAVACLASSNAME",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "ALIASTYPE",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "NAMESPACE",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "SYSTEMALIAS",
-                      new FieldType(false, MinorType.BIT.getType(), null),
-                      null),
-                  new Field(
-                      "ALIASINFO",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "SPECIFICNAME",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null))).toJson()),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSCHECKS",
-              "SYSTEM TABLE",
-              new Schema(ImmutableList.of(
-                  new Field(
-                      "CONSTRAINTID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "CHECKDEFINITION",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "REFERENCEDCOLUMNS",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null))).toJson()),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSCOLPERMS",
-              "SYSTEM TABLE",
-              new Schema(ImmutableList.of(
-                  new Field(
-                      "COLPERMSID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "GRANTEE",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "GRANTOR",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "TABLEID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "TYPE",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNS",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null))).toJson()),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSCOLUMNS",
-              "SYSTEM TABLE",
-              new Schema(ImmutableList.of(
-                  new Field(
-                      "REFERENCEID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNNAME",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNNUMBER",
-                      new FieldType(false, MinorType.INT.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNDATATYPE",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNDEFAULT",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "COLUMNDEFAULTID",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "AUTOINCREMENTVALUE",
-                      new FieldType(false, MinorType.BIGINT.getType(), null),
-                      null),
-                  new Field(
-                      "AUTOINCREMENTSTART",
-                      new FieldType(true, MinorType.BIGINT.getType(), null),
-                      null),
-                  new Field(
-                      "AUTOINCREMENTINC",
-                      new FieldType(true, MinorType.BIGINT.getType(), null),
-                      null),
-                  new Field(
-                      "AUTOINCREMENTCYCLE",
-                      new FieldType(true, MinorType.BIT.getType(), null),
-                      null))).toJson()),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSCONGLOMERATES",
-              "SYSTEM TABLE",
-              new Schema(ImmutableList.of(
-                  new Field(
-                      "SCHEMAID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "TABLEID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "CONGLOMERATENUMBER",
-                      new FieldType(false, MinorType.BIGINT.getType(), null),
-                      null),
-                  new Field(
-                      "CONGLOMERATENAME",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "ISINDEX",
-                      new FieldType(false, MinorType.BIT.getType(), null),
-                      null),
-                  new Field(
-                      "DESCRIPTOR",
-                      new FieldType(true, MinorType.VARCHAR.getType(), null),
-                      null),
-                  new Field(
-                      "ISCONSTRAINT",
-                      new FieldType(true, MinorType.BIT.getType(), null),
-                      null),
-                  new Field(
-                      "ISCONSTRAINT",
-                      new FieldType(true, MinorType.BIT.getType(), null),
-                      null),
-                  new Field(
-                      "CONGLOMERATEID",
-                      new FieldType(false, MinorType.VARCHAR.getType(), null),
-                      null))).toJson()),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSCONSTRAINTS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSDEPENDS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSFILES",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSFOREIGNKEYS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSKEYS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSPERMS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSROLES",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSROUTINEPERMS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSSCHEMAS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSSEQUENCES",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSSTATEMENTS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSSTATISTICS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSTABLEPERMS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSTABLES",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSTRIGGERS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSUSERS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYS",
-              "SYSVIEWS",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "SYSIBM",
-              "SYSDUMMY1",
-              "SYSTEM TABLE"),
-          asList(
-              "" /* TODO No catalog yet */,
-              "APP",
-              "INTTABLE",
-              "TABLE"));
-      collector.checkThat(results, is(expectedResults));
-    }
-  }
-
-  @Test
-  public void testGetTablesResultFiltered() throws Exception {
+  public void testGetTablesResultFilteredNoSchema() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), false)
@@ -464,11 +177,8 @@ public class TestFlightSql {
               "INTTABLE",
               "TABLE",
               new Schema(asList(
-                  Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-                  Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-                  Field.nullable("table_name", MinorType.VARCHAR.getType()),
-                  Field.nullable("table_type", MinorType.VARCHAR.getType()),
-                  Field.nullable("table_schema", MinorType.VARBINARY.getType()))).toJson()));
+                  Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
+                  Field.nullable("VALUE", MinorType.INT.getType()))).toJson()));
       collector.checkThat(results, is(expectedResults));
     }
   }
@@ -512,7 +222,7 @@ public class TestFlightSql {
 
   @Test
   @Ignore // TODO
-  public void testGetCatalogsSchema() throws Exception {
+  public void testGetCatalogsSchema() {
     /*
     final FlightInfo info = sqlClient.getCatalogs();
     final Schema infoSchema = info.getSchema();
@@ -524,7 +234,7 @@ public class TestFlightSql {
 
   @Test
   @Ignore // TODO
-  public void testGetCatalogs() throws Exception {
+  public void testGetCatalogs() {
     /*
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
@@ -548,7 +258,7 @@ public class TestFlightSql {
 
   @Test
   @Ignore // TODO
-  public void testGetTableTypesResult() throws Exception {
+  public void testGetTableTypesResult() {
     /*
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
@@ -573,7 +283,7 @@ public class TestFlightSql {
 
   @Test
   @Ignore // TODO
-  public void testGetSchemasResult() throws Exception {
+  public void testGetSchemasResult() {
     /*
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
