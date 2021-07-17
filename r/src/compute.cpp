@@ -243,7 +243,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "make_struct") {
     using Options = arrow::compute::MakeStructOptions;
-    // TODO: accept `field_nullability` and `field_metadata` options
+    // TODO (ARROW-13371): accept `field_nullability` and `field_metadata` options
     return std::make_shared<Options>(
         cpp11::as_cpp<std::vector<std::string>>(options["field_names"]));
   }
