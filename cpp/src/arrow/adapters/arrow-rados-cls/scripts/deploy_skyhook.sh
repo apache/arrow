@@ -19,32 +19,57 @@
 
 set -eu
 
-if [[ $# -lt 2 ]] ; then
-    echo "./deploy_skyhook.sh [nodes] [skyhook-branch] [deploy cls libs] [build python bindings]"
+if [[ $# -lt 1 ]] ; then
+    echo "./deploy_skyhook.sh [nodes] [branch] [deploy CLS libs] [build python] [build java] [nproc]"
     exit 1
 fi
 
 NODES=$1
-BRANCH=$2
+BRANCH=${2:-arrow-master}
 DEPLOY_CLS_LIBS=${3:-true}
 BUILD_PYTHON_BINDINGS=${4:-true}
+BUILD_JAVA_BINDINGS=${5:-false}
+NPROC=${6:-4}
 
 IFS=',' read -ra NODE_LIST <<< "$NODES"; unset IFS
 
 apt update 
-apt install -y python3 python3-pip python3-venv python3-numpy cmake libradospp-dev rados-objclass-dev
+apt install -y python3 \
+               python3-pip \
+               python3-venv \
+               python3-numpy \
+               cmake \
+               libradospp-dev \
+               rados-objclass-dev \
+               llvm
 
 if [ ! -d "/tmp/arrow" ]; then
   git clone https://github.com/uccross/arrow /tmp/arrow
 fi
 
 cd /tmp/arrow
+git submodule update --init --recursive
 git checkout $BRANCH
 mkdir -p cpp/release
 cd cpp/release
 
-cmake -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON ..
-make -j4 install
+cmake -DARROW_CLS=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_BUILD_EXAMPLES=ON \
+  -DPARQUET_BUILD_EXAMPLES=ON \
+  -DARROW_PYTHON=ON \
+  -DARROW_ORC=ON \
+  -DARROW_JAVA=ON \
+  -DARROW_JNI=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_CSV=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_ZSTD=ON \
+  ..
+
+make -j${NPROC} install
 
 if [[ "${BUILD_PYTHON_BINDINGS}" == "true" ]]; then
   export WORKDIR=${WORKDIR:-$HOME}
@@ -75,6 +100,13 @@ if [[ "${DEPLOY_CLS_LIBS}" == "true" ]]; then
     scp libparquet* $node:/usr/lib/
     ssh $node systemctl restart ceph-osd.target
   done
+fi
+
+if [[ "${BUILD_JAVA_BINDINGS}" == "true" ]]; then
+    apt install -y default-jdk maven
+    cd /tmp/arrow/java
+    mvn clean install
+    mvn clean install -P arrow-jni -pl format,memory,vector -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release -Dmaven.test.skip=true -Dcheckstyle.skip -Dos.detected.name=linux -Dos.detected.arch=x86_64 -Dos.detected.classifier=linux-x86_64
 fi
 
 export LD_LIBRARY_PATH=/usr/local/lib

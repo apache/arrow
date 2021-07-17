@@ -37,7 +37,7 @@ where mon1, mon2, osd1, etc. are the internal hostnames of the nodes.
 3. Build and install the SkyhookDM CLS plugins and PyArrow (with Rados Parquet extensions):
 
 ```bash
-./deploy_skyhook.sh osd1,osd2,osd3 arrow-master true true
+./deploy_skyhook.sh osd1,osd2,osd3
 ```
 This will build the CLS plugins as shared libraries and deploy them to the OSD nodes.
 
