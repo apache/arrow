@@ -240,7 +240,7 @@ gdv_int64 round_int64(gdv_int64 num) { return num; }
       return 0;                                                                     \
     }                                                                               \
     gdv_int64 factorial = 1;                                                        \
-    for(gdv_int64 i = 1; i <= value; ++i) {                                         \
+    for (gdv_int64 i = 1; i <= value; ++i) {                                         \
       factorial *= i;                                                               \
     }                                                                               \
     return factorial;                                                               \
