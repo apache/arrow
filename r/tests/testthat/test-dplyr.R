@@ -1225,3 +1225,122 @@ test_that("if_else and ifelse", {
     tbl
   )
 })
+
+test_that("case_when()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      filter(case_when(
+        dbl + int - 1.1 == dbl2 ~ TRUE,
+        NA ~ NA,
+        TRUE ~ FALSE
+      ) & !is.na(dbl2)) %>%
+      collect(),
+    tbl
+  )
+
+  # dplyr::case_when() errors if values on right side of formulas do not have
+  # exactly the same type, but the Arrow case_when kernel allows compatible types
+  expect_equal(
+    tbl %>%
+      mutate(i64 = as.integer64(1e10)) %>%
+      Table$create() %>%
+      transmute(cw = case_when(
+        is.na(fct) ~ int,
+        is.na(chr) ~ dbl,
+        TRUE ~ i64
+      )) %>%
+      collect(),
+    tbl %>%
+      transmute(
+        cw = ifelse(is.na(fct), int, ifelse(is.na(chr), dbl, 1e10))
+      )
+  )
+
+  # expected errors (which are caught by abandon_ship() and changed to warnings)
+  # TODO: Find a way to test these directly without abandon_ship() interfering
+  expect_error(
+    # no cases
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when()),
+      "case_when"
+    )
+  )
+  expect_error(
+    # argument not a formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(TRUE ~ FALSE, TRUE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical R scalar on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(0L ~ FALSE, TRUE ~ FALSE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical Arrow column reference on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(int ~ FALSE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical Arrow expression on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
+      "case_when"
+    )
+  )
+
+  skip("case_when does not yet support with variable-width types (ARROW-13222)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ "abc")) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = paste0(case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct), "!")
+      ) %>%
+      collect(),
+    tbl
+  )
+})

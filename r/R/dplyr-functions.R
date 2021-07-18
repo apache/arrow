@@ -698,6 +698,39 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
 
 # Although base R ifelse allows `yes` and `no` to be different classes
 #
-nse_funcs$ifelse <- function(test, yes, no){
+nse_funcs$ifelse <- function(test, yes, no) {
   nse_funcs$if_else(condition = test, true = yes, false = no)
+}
+
+nse_funcs$case_when <- function(...) {
+  formulas <- list2(...)
+  n <- length(formulas)
+  if (n == 0) {
+    abort("No cases provided in case_when()")
+  }
+  query <- vector("list", n)
+  value <- vector("list", n)
+  mask <- caller_env()
+  for (i in seq_len(n)) {
+    f <- formulas[[i]]
+    if (!inherits(f, "formula")) {
+      abort("Each argument to case_when() must be a two-sided formula")
+    }
+    query[[i]] <- arrow_eval(f[[2]], mask)
+    value[[i]] <- arrow_eval(f[[3]], mask)
+    if (!nse_funcs$is.logical(query[[i]])) {
+      abort("Left side of each formula in case_when() must be a logical expression")
+    }
+  }
+  build_expr(
+    "case_when",
+    args = c(
+      build_expr(
+        "make_struct",
+        args = query,
+        options = list(field_names = as.character(seq_along(query)))
+      ),
+      value
+    )
+  )
 }
