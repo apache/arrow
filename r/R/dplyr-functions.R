@@ -646,6 +646,11 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
 
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime

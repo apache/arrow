@@ -27,10 +27,14 @@
 
   # arithmetic functions
   "abs" = "abs_checked",
+  "ceiling" = "ceil",
+  "floor" = "floor",
   "log10" = "log10_checked",
   "log1p" = "log1p_checked",
   "log2" = "log2_checked",
   "sign" = "sign",
+  # trunc is defined in dplyr-functions.R
+
   # trigonometric functions
   "acos" = "acos_checked",
   "asin" = "asin_checked",
