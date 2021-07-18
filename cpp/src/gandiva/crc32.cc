@@ -32,8 +32,8 @@ int64_t GetCrc32(const char* input, int32_t input_len) {
   result.process_bytes(input, input_len);
   return result.checksum();
 }
-} // namespace internal
-} // namespace gandiva
+}  // namespace internal
+}  // namespace gandiva
 
 extern "C" {
 int64_t crc32(const char* input, int32_t input_len) {

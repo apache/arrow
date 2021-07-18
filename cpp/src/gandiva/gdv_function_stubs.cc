@@ -207,7 +207,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 
 #define CRC_FUNCTION(TYPE)                                                          \
   GANDIVA_EXPORT                                                                    \
-  int64_t gdv_fn_crc_32_##TYPE(int64_t ctx, const char *input, int32_t input_len) { \
+  int64_t gdv_fn_crc_32_##TYPE(int64_t ctx, const char* input, int32_t input_len) { \
     if (input_len < 0) {                                                            \
       gdv_fn_context_set_error_msg(ctx, "Input length can't be negative");          \
       return 0;                                                                     \
