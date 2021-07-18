@@ -27,16 +27,16 @@
 namespace gandiva {
 namespace internal {
 // Get CRC32 for a given input chars
-int64_t GetCrc32(const char *input, int32_t input_len) {
+int64_t GetCrc32(const char* input, int32_t input_len) {
   boost::crc_32_type result;
   result.process_bytes(input, input_len);
   return result.checksum();
 }
-}
-}
+} // namespace internal
+} // namespace gandiva
 
 extern "C" {
-int64_t crc32(const char *input, int32_t input_len) {
+int64_t crc32(const char* input, int32_t input_len) {
   return gandiva::internal::GetCrc32(input, input_len);
 }
 

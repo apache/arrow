@@ -19,10 +19,8 @@
 
 #include <cstdint>
 
-/// Stub functions to deal with extra large decimals that can be accessed from LLVM-IR
-/// code.
+/// Wrapper functions to deal with CRC32
 extern "C" {
 
 int64_t crc32(const char* input, int32_t input_len);
-
 }
