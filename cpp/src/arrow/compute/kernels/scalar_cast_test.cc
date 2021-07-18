@@ -1930,29 +1930,23 @@ TEST(Cast, DictTypeToAnotherDict) {
   check_cast(dictionary(int32(), utf8()), dictionary(int8(), utf8()),
              R"(["a", "b", "a", null])");
 
+  // check float types (NOTE: ArrayFromJSON doesnt work for float value dictionary types)
+  auto arr_int8_int16 =
+      ArrayFromJSON(dictionary(int8(), int16()), "[1, 2, 3, 1, null, 3]");
+  auto arr_float64 = ArrayFromJSON(float64(), "[1, 2, 3, 1, null, 3]");
+  ASSERT_OK_AND_ASSIGN(auto arr_int32_float64, DictionaryEncode(arr_float64));
+  CheckCast(arr_int8_int16, arr_int32_float64.make_array(), CastOptions::Safe());
+
   auto arr = ArrayFromJSON(dictionary(int32(), int32()), "[1, 1000]");
-  // check unsafe values
+  // check casting unsafe values (checking for unsafe indices is unnecessary, because it
+  // would create an invalid index array which results in a ValidateOutput failure)
   ASSERT_OK_AND_ASSIGN(auto casted,
                        Cast(arr, dictionary(int8(), int8()), CastOptions::Unsafe()));
   ValidateOutput(casted);
-  // check safe values
+
+  // check safe casting values
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Integer value 1000 not in range"),
-      Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
-
-  // check unsafe indices
-  random::RandomArrayGenerator rand(/*seed=*/0);
-  int64_t len = 1000;
-  auto val_arr = rand.ArrayOf(int32(), len, /*null_probability=*/0.01);
-  ASSERT_OK_AND_ASSIGN(auto arr2, DictionaryEncode(val_arr));
-  // check unsafe indices. Cannot validate this array because ValidateOutput throws an
-  // out of bounds error
-  ASSERT_OK_AND_ASSIGN(auto casted2, Cast(arr2.make_array(), dictionary(int8(), int8()),
-                                          CastOptions::Unsafe()));
-
-  // check safe indices
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("not in range"),
       Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
 }
 
