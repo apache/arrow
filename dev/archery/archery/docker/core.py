@@ -245,7 +245,7 @@ class DockerCompose(Command):
             _pull(service)
 
     def build(self, service_name, use_cache=True, use_leaf_cache=True,
-              using_docker=False, using_buildx=False):
+              using_docker=False, using_buildx=False, pull_parents=True):
         def _build(service, use_cache):
             if 'build' not in service:
                 # nothing to do
@@ -253,7 +253,7 @@ class DockerCompose(Command):
 
             args = []
             cache_from = list(service.get('build', {}).get('cache_from', []))
-            if use_cache:
+            if pull_parents:
                 for image in cache_from:
                     if image not in self.pull_memory:
                         try:
@@ -262,7 +262,8 @@ class DockerCompose(Command):
                             print(e)
                         finally:
                             self.pull_memory.add(image)
-            else:
+
+            if not use_cache:
                 args.append('--no-cache')
 
             # turn on inline build cache, this is a docker buildx feature
