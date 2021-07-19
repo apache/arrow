@@ -2054,7 +2054,7 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
 
   auto ty = this->type_singleton();
-  for (const auto interpolation : this->interpolations_) {
+  for (const auto& interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
     auto expected_ty = (interpolation == QuantileOptions::Interpolation("linear") ||
                         interpolation == QuantileOptions::Interpolation("midpoint"))
@@ -2100,7 +2100,7 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
 
   auto ty = this->type_singleton();
-  for (const auto interpolation : this->interpolations_) {
+  for (const auto& interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
     auto expected_ty = (interpolation == QuantileOptions::Interpolation("linear") ||
                         interpolation == QuantileOptions::Interpolation("midpoint"))
