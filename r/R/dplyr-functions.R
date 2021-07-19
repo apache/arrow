@@ -646,6 +646,11 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
 
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
@@ -658,7 +663,7 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
   Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
 }
 
-nse_funcs$log <- function(x, base = exp(1)) {
+nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
 
   if (base == exp(1)) {
     return(Expression$create("ln_checked", x))
@@ -674,8 +679,6 @@ nse_funcs$log <- function(x, base = exp(1)) {
   # ARROW-13345
   stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
 }
-
-nse_funcs$logb <- nse_funcs$log
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   if (!is.null(missing)) {

@@ -992,6 +992,21 @@ test_that("sign()", {
   )
 })
 
+test_that("ceiling(), floor(), trunc()", {
+  df <- tibble(x = c(-1, -0.55, -0.5, -0.1, 0, 0.1, 0.5, 0.55, 1, NA, NaN))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        c = ceiling(x),
+        f = floor(x),
+        t = trunc(x)
+      ) %>%
+      collect(),
+    df
+  )
+})
+
 test_that("log functions", {
 
   df <- tibble(x = c(1:10, NA, NA))

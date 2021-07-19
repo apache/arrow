@@ -18,47 +18,70 @@
 #' @include arrowExports.R
 
 .unary_function_map <- list(
-  "!" = "invert",
-  "as.factor" = "dictionary_encode",
-  # is.na is defined in dplyr-functions.R
-  # is.nan is defined in dplyr-functions.R
+  # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
+  # *directly* to an Arrow C++ compute kernel, and does not require any
+  # non-default options to be specified. More complex R function mappings are
+  # defined in dplyr-functions.R.
+
+  # functions are arranged alphabetically by name within categories
+
+  # arithmetic functions
   "abs" = "abs_checked",
+  "ceiling" = "ceil",
+  "floor" = "floor",
+  "log10" = "log10_checked",
+  "log1p" = "log1p_checked",
+  "log2" = "log2_checked",
   "sign" = "sign",
+  # trunc is defined in dplyr-functions.R
+
+  # trigonometric functions
+  "acos" = "acos_checked",
+  "asin" = "asin_checked",
+  "cos" = "cos_checked",
+  "sin" = "sin_checked",
+  "tan" = "tan_checked",
+
+  # logical functions
+  "!" = "invert",
+
+  # string functions
   # nchar is defined in dplyr-functions.R
-  "tolower" = "utf8_lower",
-  "toupper" = "utf8_upper",
-  # stringr spellings of those
   "str_length" = "utf8_length",
+  # str_pad is defined in dplyr-functions.R
+  # str_sub is defined in dplyr-functions.R
   "str_to_lower" = "utf8_lower",
   "str_to_upper" = "utf8_upper",
-  # str_pad is defined in dplyr-functions.R
-  "stri_reverse" = "utf8_reverse",
   # str_trim is defined in dplyr-functions.R
-  # str_sub is defined in dplyr-functions.R
+  "stri_reverse" = "utf8_reverse",
   # substr is defined in dplyr-functions.R
   # substring is defined in dplyr-functions.R
-  "year" = "year",
-  "isoyear" = "iso_year",
-  "quarter" = "quarter",
-  "month" = "month",
-  "isoweek" = "iso_week",
+  "tolower" = "utf8_lower",
+  "toupper" = "utf8_upper",
+
+  # date and time functions
   "day" = "day",
+  "hour" = "hour",
+  "isoweek" = "iso_week",
+  "isoyear" = "iso_year",
+  "minute" = "minute",
+  "month" = "month",
+  "quarter" = "quarter",
+  # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
   "yday" = "day_of_year",
-  "hour" = "hour",
-  # second is defined in dplyr-functions.R
-  "minute" = "minute",
-  "log10" = "log10_checked",
-  "log2" = "log2_checked",
-  "log1p" = "log1p_checked",
-  "sin" = "sin_checked",
-  "cos" = "cos_checked",
-  "tan" = "tan_checked",
-  "asin" = "asin_checked",
-  "acos" = "acos_checked"
+  "year" = "year",
+
+  # type conversion functions
+  "as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
+  # NOTE: Each of the R functions/operators mapped here takes exactly *two*
+  # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
+  # non-default options, but some are modified by build_expr(). More complex R
+  # function/operator mappings are defined in dplyr-functions.R.
+
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
