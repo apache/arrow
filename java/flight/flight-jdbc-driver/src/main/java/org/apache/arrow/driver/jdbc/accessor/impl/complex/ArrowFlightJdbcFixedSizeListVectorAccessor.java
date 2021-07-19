@@ -26,7 +26,7 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor extends AbstractArrowFli
     int count = vector.getListSize();
 
     FieldVector dataVector = vector.getDataVector();
-    return new ArrayImpl(dataVector, start, count);
+    return new ArrowFlightJdbcArray(dataVector, start, count);
   }
 
   @Override

@@ -55,7 +55,11 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
+import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -737,6 +741,48 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     valueVector.setInitialCapacity(MAX_VALUE);
 
     UnionListWriter writer = valueVector.getWriter();
+
+    IntStream range = IntStream.range(0, MAX_VALUE);
+
+    range.forEach(row -> {
+      writer.startList();
+      writer.setPosition(row);
+      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+      writer.setValueCount(5);
+      writer.endList();
+    });
+
+    valueVector.setValueCount(MAX_VALUE);
+
+    return valueVector;
+  }
+
+  public LargeListVector createLargeListVector() {
+    LargeListVector valueVector = LargeListVector.empty("", this.getRootAllocator());
+    valueVector.setInitialCapacity(MAX_VALUE);
+
+    UnionLargeListWriter writer = valueVector.getWriter();
+
+    IntStream range = IntStream.range(0, MAX_VALUE);
+
+    range.forEach(row -> {
+      writer.startList();
+      writer.setPosition(row);
+      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+      writer.setValueCount(5);
+      writer.endList();
+    });
+
+    valueVector.setValueCount(MAX_VALUE);
+
+    return valueVector;
+  }
+
+  public FixedSizeListVector createFixedSizeListVector() {
+    FixedSizeListVector valueVector = FixedSizeListVector.empty("", 5, this.getRootAllocator());
+    valueVector.setInitialCapacity(MAX_VALUE);
+
+    UnionFixedSizeListWriter writer = valueVector.getWriter();
 
     IntStream range = IntStream.range(0, MAX_VALUE);
 

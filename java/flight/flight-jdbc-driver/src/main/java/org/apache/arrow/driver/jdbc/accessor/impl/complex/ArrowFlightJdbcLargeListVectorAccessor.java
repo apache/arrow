@@ -27,7 +27,7 @@ public class ArrowFlightJdbcLargeListVectorAccessor extends AbstractArrowFlightJ
     FieldVector dataVector = vector.getDataVector();
 
     long count = end - start;
-    return new ArrayImpl(dataVector, start, count);
+    return new ArrowFlightJdbcArray(dataVector, start, count);
   }
 
   @Override
