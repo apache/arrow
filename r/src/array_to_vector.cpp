@@ -72,22 +72,13 @@ class Converter {
       // using altrep if
       // - the arrow.use_altrep is set to TRUE or unset
       // - the array has at least one element
-      // - either it has no nulls or the data is mutable
       if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
         switch (array->type()->id()) {
           case arrow::Type::DOUBLE:
-            if (CanAltrep(array)) {
-              return arrow::r::MakeAltrepVectorDouble(array, tasks);
-            } else {
-              break;
-            }
+            return arrow::r::MakeAltrepArray<REALSXP>(array, tasks);
 
           case arrow::Type::INT32:
-            if (CanAltrep(array)) {
-              return arrow::r::MakeAltrepVectorInt32(array, tasks);
-            } else {
-              break;
-            }
+            return arrow::r::MakeAltrepArray<INTSXP>(array, tasks);
 
           default:
             break;

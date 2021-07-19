@@ -108,11 +108,15 @@ test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   expect_true(is_altrep(df_batch$dbl))
 })
 
-test_that("altrep min/max/sum identical to R versions for double", {
-  expect_altrep_rountrip <- function(x, fn, ...) {
-    expect_identical(fn(x, ...), fn(Array$create(x)$as_vector(), ...))
-  }
+expect_altrep_rountrip <- function(x, fn, ...) {
+  alt <- Array$create(x)$as_vector()
 
+  expect_true(is_altrep(alt))
+  expect_identical(fn(x, ...), fn(alt, ...))
+  expect_true(is_altrep(alt))
+}
+
+test_that("altrep min/max/sum identical to R versions for double", {
   x <- c(1, 2, 3)
   expect_altrep_rountrip(x, min, na.rm = TRUE)
   expect_altrep_rountrip(x, max, na.rm = TRUE)
@@ -142,10 +146,6 @@ test_that("altrep min/max/sum identical to R versions for double", {
 })
 
 test_that("altrep min/max/sum identical to R versions for int", {
-  expect_altrep_rountrip <- function(x, fn, ...) {
-    expect_identical(fn(x, ...), fn(Array$create(x)$as_vector(), ...))
-  }
-
   x <- c(1L, 2L, 3L)
   expect_altrep_rountrip(x, min, na.rm = TRUE)
   expect_altrep_rountrip(x, max, na.rm = TRUE)
