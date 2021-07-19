@@ -19,10 +19,10 @@ package org.apache.arrow.driver.jdbc.test.utils;
 
 import static org.hamcrest.CoreMatchers.is;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.ValueVector;
@@ -72,17 +72,6 @@ public class AccessorTestUtils {
     }
   }
 
-  public static <T extends ArrowFlightJdbcAccessor> List<Object> accessorToObjectList(
-      ValueVector vector, AccessorSupplier<T> accessorSupplier)
-      throws Exception {
-    List<Object> result = new ArrayList<>();
-    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
-      result.add(accessor.getObject());
-    });
-
-    return result;
-  }
-
   public interface MatcherGetter<T extends ArrowFlightJdbcAccessor, R> {
     Matcher<R> get(T accessor, int currentRow);
   }
@@ -97,7 +86,8 @@ public class AccessorTestUtils {
       this.accessorSupplier = accessorSupplier;
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, MatcherGetter<T, R> matcherGetter) {
+    public void iterate(ValueVector vector, AccessorConsumer<T> accessorConsumer)
+        throws Exception {
       int valueCount = vector.getValueCount();
       if (valueCount == 0) {
         throw new IllegalArgumentException("Vector is empty");
@@ -107,12 +97,43 @@ public class AccessorTestUtils {
       T accessor = accessorSupplier.supply(vector, cursor::getCurrentRow);
 
       while (cursor.hasNext()) {
-        R object = getter.apply(accessor);
-
-        collector.checkThat(object, matcherGetter.get(accessor, cursor.getCurrentRow()));
-        collector.checkThat(accessor.wasNull(), is(object == null));
+        accessorConsumer.accept(accessor, cursor.getCurrentRow());
         cursor.next();
       }
+    }
+
+    public void iterate(ValueVector vector, Consumer<T> accessorConsumer) throws Exception {
+      iterate(vector, (accessor, currentRow) -> accessorConsumer.accept(accessor));
+    }
+
+    public void iterate(ValueVector vector, Runnable accessorConsumer) throws Exception {
+      iterate(vector, (accessor, currentRow) -> accessorConsumer.run());
+    }
+
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, MatcherGetter<T, R> matcherGetter)
+        throws Exception {
+      iterate(vector, (accessor, currentRow) -> {
+        R object = getter.apply(accessor);
+        boolean wasNull = accessor.wasNull();
+
+        collector.checkThat(object, matcherGetter.get(accessor, currentRow));
+        collector.checkThat(wasNull, is(accessor.getObject() == null));
+      });
+    }
+
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Function<T, Matcher<R>> matcherGetter)
+        throws Exception {
+      assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.apply(accessor));
+    }
+
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Supplier<Matcher<R>> matcherGetter)
+        throws Exception {
+      assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.get());
+    }
+
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Matcher<R> matcher)
+        throws Exception {
+      assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcher);
     }
   }
 }

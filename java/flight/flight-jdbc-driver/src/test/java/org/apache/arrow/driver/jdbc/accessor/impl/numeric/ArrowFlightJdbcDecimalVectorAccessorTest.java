@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -55,7 +54,7 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
   private ValueVector vector;
   private ValueVector vectorWithNull;
 
-  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDecimalVectorAccessor> accessorSupplier =
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDecimalVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> {
         if (vector instanceof DecimalVector) {
           return new ArrowFlightJdbcDecimalVectorAccessor((DecimalVector) vector, getCurrentRow);
@@ -64,6 +63,9 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
         }
         return null;
       };
+
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDecimalVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
@@ -94,326 +96,199 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
 
   @Test
   public void testShouldGetBigDecimalFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-
-          collector.checkThat(result, CoreMatchers.notNullValue());
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getBigDecimal,
+        (accessor, currentRow) -> CoreMatchers.notNullValue());
   }
 
   @Test
   public void testShouldGetDoubleMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final double secondResult = accessor.getDouble();
-
-          collector.checkThat(secondResult, equalTo(result.doubleValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getDouble,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().doubleValue()));
   }
 
   @Test
   public void testShouldGetFloatMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final float secondResult = accessor.getFloat();
-
-          collector.checkThat(secondResult, equalTo(result.floatValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getFloat,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().floatValue()));
   }
 
   @Test
   public void testShouldGetLongMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final long secondResult = accessor.getLong();
-
-          collector.checkThat(secondResult, equalTo(result.longValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getLong,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().longValue()));
   }
 
   @Test
   public void testShouldGetIntMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final int secondResult = accessor.getInt();
-
-          collector.checkThat(secondResult, equalTo(result.intValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getInt,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().intValue()));
   }
 
   @Test
   public void testShouldGetShortMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final short secondResult = accessor.getShort();
-
-          collector.checkThat(secondResult, equalTo(result.shortValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getShort,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().shortValue()));
   }
 
   @Test
   public void testShouldGetByteMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final byte secondResult = accessor.getByte();
-
-          collector.checkThat(secondResult, equalTo(result.byteValue()));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getByte,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().byteValue()));
   }
 
   @Test
   public void testShouldGetStringMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final String secondResult = accessor.getString();
-
-          collector.checkThat(secondResult, equalTo(String.valueOf(result)));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getString,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().toString()));
   }
 
   @Test
   public void testShouldGetBooleanMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final boolean secondResult = accessor.getBoolean();
-
-          collector.checkThat(secondResult, equalTo(!result.equals(BigDecimal.ZERO)));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getBoolean,
+        (accessor, currentRow) -> equalTo(!accessor.getBigDecimal().equals(BigDecimal.ZERO)));
   }
 
   @Test
   public void testShouldGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getBigDecimal();
-          final Object secondResult = accessor.getObject();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getObject,
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal()));
   }
 
   @Test
   public void testShouldConvertToIntegerViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final int result = accessor.getObject(Integer.class);
-          final int secondResult = accessor.getInt();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Integer.class),
+        (accessor, currentRow) -> equalTo(accessor.getInt()));
   }
 
   @Test
   public void testShouldConvertToShortViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final short result = accessor.getObject(Short.class);
-          final short secondResult = accessor.getShort();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Short.class),
+        (accessor, currentRow) -> equalTo(accessor.getShort()));
   }
 
   @Test
   public void testShouldConvertToByteViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final byte result = accessor.getObject(Byte.class);
-          final byte secondResult = accessor.getByte();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Byte.class),
+        (accessor, currentRow) -> equalTo(accessor.getByte()));
   }
 
   @Test
   public void testShouldConvertToLongViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final long result = accessor.getObject(Long.class);
-          final long secondResult = accessor.getLong();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Long.class),
+        (accessor, currentRow) -> equalTo(accessor.getLong()));
   }
 
   @Test
   public void testShouldConvertToFloatViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final float result = accessor.getObject(Float.class);
-          final float secondResult = accessor.getFloat();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Float.class),
+        (accessor, currentRow) -> equalTo(accessor.getFloat()));
   }
 
   @Test
   public void testShouldConvertToDoubleViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final double result = accessor.getObject(Double.class);
-          final double secondResult = accessor.getDouble();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Double.class),
+        (accessor, currentRow) -> equalTo(accessor.getDouble()));
   }
 
   @Test
   public void testShouldConvertToBigDecimalViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getObject(BigDecimal.class);
-          final BigDecimal secondResult = accessor.getBigDecimal();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(BigDecimal.class),
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal()));
   }
 
   @Test
-  public void testShouldConvertToBigDecimalWithScaleViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final BigDecimal result = accessor.getObject(BigDecimal.class);
-          final BigDecimal secondResult = accessor.getBigDecimal(2);
-
-          collector.checkThat(secondResult, equalTo(result.setScale(2, RoundingMode.UNNECESSARY)));
-        });
+  public void testShouldConvertToBigDecimalWithScaleViaGetBigDecimalMethodFromDecimalVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getBigDecimal(2),
+        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().setScale(2, RoundingMode.HALF_UP)));
   }
 
   @Test
   public void testShouldConvertToBooleanViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final Boolean result = accessor.getObject(Boolean.class);
-          final Boolean secondResult = accessor.getBoolean();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Boolean.class),
+        (accessor, currentRow) -> equalTo(accessor.getBoolean()));
   }
 
   @Test
   public void testShouldConvertToStringViaGetObjectMethodFromDecimalVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final String result = accessor.getObject(String.class);
-          final String secondResult = accessor.getString();
-
-          collector.checkThat(secondResult, equalTo(result));
-        });
-  }
-
-  @Test
-  public void testShouldGetBigDecimalMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getBigDecimal(), CoreMatchers.nullValue());
-        });
-  }
-
-  @Test
-  public void testShouldGetObjectMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getObject(), CoreMatchers.nullValue());
-        });
-  }
-
-  @Test
-  public void testShouldGetBytesMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getBytes(), CoreMatchers.nullValue());
-        });
-  }
-
-  @Test
-  public void testShouldGetStringMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getString(), CoreMatchers.nullValue());
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(String.class),
+        (accessor, currentRow) -> equalTo(accessor.getString()));
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-
-          collector.checkThat(accessor.getObjectClass(), equalTo(BigDecimal.class));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getObjectClass,
+        (accessor, currentRow) -> equalTo(BigDecimal.class));
   }
 
+  @Test
+  public void testShouldGetBigDecimalMethodFromDecimalVectorWithNull() throws Exception {
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getBigDecimal,
+        (accessor, currentRow) -> CoreMatchers.nullValue());
+  }
+
+  @Test
+  public void testShouldGetObjectMethodFromDecimalVectorWithNull() throws Exception {
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getObject,
+        (accessor, currentRow) -> CoreMatchers.nullValue());
+  }
+
+  @Test
+  public void testShouldGetBytesMethodFromDecimalVectorWithNull() throws Exception {
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getBytes,
+        (accessor, currentRow) -> CoreMatchers.nullValue());
+  }
+
+  @Test
+  public void testShouldGetStringMethodFromDecimalVectorWithNull() throws Exception {
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getString,
+        (accessor, currentRow) -> CoreMatchers.nullValue());
+  }
 
   @Test
   public void testShouldGetByteMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getByte(), is((byte) 0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getByte,
+        (accessor, currentRow) -> is((byte) 0));
   }
 
   @Test
   public void testShouldGetShortMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getShort(), is((short) 0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getShort,
+        (accessor, currentRow) -> is((short) 0));
   }
 
   @Test
   public void testShouldGetIntMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getInt(), is(0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getInt,
+        (accessor, currentRow) -> is(0));
   }
 
   @Test
   public void testShouldGetLongMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getLong(), is((long) 0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getLong,
+        (accessor, currentRow) -> is((long) 0));
   }
 
   @Test
   public void testShouldGetFloatMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getFloat(), is((float) 0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getFloat,
+        (accessor, currentRow) -> is(0.0f));
   }
 
   @Test
   public void testShouldGetDoubleMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getDouble(), is((double) 0));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getDouble,
+        (accessor, currentRow) -> is(0.0D));
   }
 
   @Test
   public void testShouldGetBooleanMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getBoolean(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, ArrowFlightJdbcDecimalVectorAccessor::getBoolean,
+        (accessor, currentRow) -> is(false));
   }
 
   @Test
   public void testShouldGetBigDecimalWithScaleMethodFromDecimalVectorWithNull() throws Exception {
-    iterateOnAccessor(vectorWithNull, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getBigDecimal(2), CoreMatchers.nullValue());
-        });
+    accessorIterator.assertAccessorGetter(vectorWithNull, accessor -> accessor.getBigDecimal(2),
+        (accessor, currentRow) -> CoreMatchers.nullValue());
   }
 }
