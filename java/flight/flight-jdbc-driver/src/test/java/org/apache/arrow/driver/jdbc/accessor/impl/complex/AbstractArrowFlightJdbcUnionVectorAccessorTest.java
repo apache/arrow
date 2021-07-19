@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.accessor;
+package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -24,7 +24,11 @@ import static org.mockito.Mockito.when;
 import java.util.Calendar;
 import java.util.Map;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcUnionVectorAccessor;
+import org.apache.arrow.vector.NullVector;
+import org.apache.arrow.vector.ValueVector;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,16 +37,27 @@ import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-public class ArrowFlightJdbcAccessorWrapperTest {
+public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
-  private static class ArrowFlightJdbcAccessorWrapperMock extends ArrowFlightJdbcAccessorWrapper {
-    protected ArrowFlightJdbcAccessorWrapperMock() {
+  private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
+      extends AbstractArrowFlightJdbcUnionVectorAccessor {
+    protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
       super(() -> 0);
     }
 
     @Override
-    protected ArrowFlightJdbcAccessor getAccessor() {
+    protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
       return new ArrowFlightJdbcNullVectorAccessor();
+    }
+
+    @Override
+    protected byte getCurrentTypeId() {
+      return 0;
+    }
+
+    @Override
+    protected ValueVector getVectorByTypeId(byte typeId) {
+      return new NullVector();
     }
   }
 
@@ -50,7 +65,7 @@ public class ArrowFlightJdbcAccessorWrapperTest {
   ArrowFlightJdbcAccessor innerAccessor;
 
   @Spy
-  ArrowFlightJdbcAccessorWrapperMock accessor;
+  AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
 
   @Before
   public void setup() {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.accessor;
+package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -35,16 +35,57 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
 
-/**
- * Abstract accessor wrapper, used for complex types accessors to leverage other types accessors.
- */
-public abstract class ArrowFlightJdbcAccessorWrapper extends ArrowFlightJdbcAccessor {
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.UnionVector;
 
-  protected ArrowFlightJdbcAccessorWrapper(IntSupplier currentRowSupplier) {
+/**
+ * Base accessor for {@link UnionVector} and {@link DenseUnionVector}.
+ */
+public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFlightJdbcAccessor {
+
+  /**
+   * Array of accessors for each type contained in UnionVector.
+   * Index corresponds to UnionVector and DenseUnionVector typeIds which are both limited to 128.
+   */
+  private final ArrowFlightJdbcAccessor[] accessors = new ArrowFlightJdbcAccessor[128];
+
+  private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
+
+  protected AbstractArrowFlightJdbcUnionVectorAccessor(IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
   }
 
-  protected abstract ArrowFlightJdbcAccessor getAccessor();
+  protected abstract ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector);
+
+  protected abstract byte getCurrentTypeId();
+
+  protected abstract ValueVector getVectorByTypeId(byte typeId);
+
+  /**
+   * Returns an accessor for UnionVector child vector on current row.
+   *
+   * @return ArrowFlightJdbcAccessor for child vector on current row.
+   */
+  protected ArrowFlightJdbcAccessor getAccessor() {
+    // Get the typeId and child vector for the current row being accessed.
+    byte typeId = this.getCurrentTypeId();
+    ValueVector vector = this.getVectorByTypeId(typeId);
+
+    if (typeId < 0) {
+      // typeId may be negative if the current row has no type defined.
+      return this.nullAccessor;
+    }
+
+    // Ensure there is an accessor for given typeId
+    if (this.accessors[typeId] == null) {
+      this.accessors[typeId] = this.createAccessorForVector(vector);
+    }
+
+    return this.accessors[typeId];
+  }
 
   @Override
   public Class<?> getObjectClass() {
