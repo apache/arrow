@@ -698,9 +698,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    /* TODO
     try {
-      final ResultSet tableTypes = dataSource.getConnection().getMetaData().getTableTypes();
+      final Connection connection = dataSource.getConnection();
+      final ResultSet tableTypes = connection.getMetaData().getTableTypes();
       makeListen(listener, getVectorsFromData(tableTypes));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
@@ -708,8 +708,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     } finally {
       listener.completed();
     }
-     */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override

@@ -52,7 +52,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -255,15 +254,19 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO
-  public void testGetTableTypesResult() {
-    /*
+  public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      List<List<String>> catalogs = getResults(stream);
-      collector.checkThat(catalogs, is(allOf(notNullValue(), not(emptyList()))));
+      final List<List<String>> catalogs = getResults(stream);
+      final List<List<String>> expectedCatalogs = ImmutableList.of(
+          // catalog_name
+          singletonList("SYNONYM"),
+          singletonList("SYSTEM TABLE"),
+          singletonList("TABLE"),
+          singletonList("VIEW")
+      );
+      collector.checkThat(catalogs, is(expectedCatalogs));
     }
-    */
   }
 
   @Test
@@ -281,8 +284,8 @@ public class TestFlightSql {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
       final List<List<String>> schemas = getResults(stream);
-      final List<List<String>> expected_schemas = ImmutableList.of(
-          // catalog | schema
+      final List<List<String>> expectedSchemas = ImmutableList.of(
+          // catalog_name | schema_name
           asList(null /* TODO Add catalog. */, "APP"),
           asList(null /* TODO Add catalog. */, "NULLID"),
           asList(null /* TODO Add catalog. */, "SQLJ"),
@@ -294,7 +297,7 @@ public class TestFlightSql {
           asList(null /* TODO Add catalog. */, "SYSIBM"),
           asList(null /* TODO Add catalog. */, "SYSPROC"),
           asList(null /* TODO Add catalog. */, "SYSSTAT"));
-      collector.checkThat(schemas, is(expected_schemas));
+      collector.checkThat(schemas, is(expectedSchemas));
     }
   }
 
