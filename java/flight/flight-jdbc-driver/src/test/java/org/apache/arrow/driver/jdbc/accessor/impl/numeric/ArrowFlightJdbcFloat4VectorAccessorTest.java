@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.math.BigDecimal;
@@ -194,72 +193,6 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
       }
       collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
     });
-  }
-
-  @Test
-  public void testShouldConvertToIntegerViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Integer.class),
-        accessor -> is(accessor.getInt()));
-  }
-
-  @Test
-  public void testShouldConvertToShortViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Short.class),
-        accessor -> is(accessor.getShort()));
-  }
-
-  @Test
-  public void testShouldConvertToByteViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Byte.class),
-        accessor -> is(accessor.getByte()));
-  }
-
-  @Test
-  public void testShouldConvertToLongViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Long.class),
-        accessor -> is(accessor.getLong()));
-  }
-
-  @Test
-  public void testShouldConvertToFloatViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Float.class),
-        accessor -> is(accessor.getFloat()));
-  }
-
-  @Test
-  public void testShouldConvertToDoubleViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Double.class),
-        accessor -> is(accessor.getDouble()));
-  }
-
-  @Test
-  public void testShouldConvertToBigDecimalViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      if (Double.isInfinite(accessor.getFloat())) {
-        // BigDecimal does not support Infinities
-        return;
-      }
-
-      final BigDecimal result = accessor.getObject(BigDecimal.class);
-      final BigDecimal secondResult = accessor.getBigDecimal();
-
-      collector.checkThat(result, instanceOf(BigDecimal.class));
-      collector.checkThat(secondResult, equalTo(result));
-
-      collector.checkThat(result, CoreMatchers.notNullValue());
-    });
-  }
-
-  @Test
-  public void testShouldConvertToBooleanViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Boolean.class),
-        accessor -> is(accessor.getBoolean()));
-  }
-
-  @Test
-  public void testShouldConvertToStringViaGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(String.class),
-        accessor -> is(accessor.getString()));
   }
 
   @Test

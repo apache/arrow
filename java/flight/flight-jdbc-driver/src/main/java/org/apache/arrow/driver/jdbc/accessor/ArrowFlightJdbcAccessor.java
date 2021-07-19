@@ -248,6 +248,8 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
       return type.cast(getString());
     } else if (type == byte[].class) {
       return type.cast(getBytes());
+    } else if (type == Object.class) {
+      return type.cast(getObject());
     } else if (type == getObjectClass()) {
       return type.cast(getObject());
     }
