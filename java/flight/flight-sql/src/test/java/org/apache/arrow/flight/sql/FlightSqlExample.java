@@ -247,6 +247,14 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     }
   }
 
+  /**
+   * Turns the provided {@link ResultSet} into an {@link Iterator<VectorSchemaRoot>}.
+   *
+   * @param data the data to convert
+   * @return an {@link Iterator<VectorSchemaRoot>} representation of the provided data.
+   * @throws SQLException if an error occurs while querying the {@link ResultSet}.
+   * @throws IOException  if an I/O error occurs.
+   */
   protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
       throws SQLException, IOException {
     Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
