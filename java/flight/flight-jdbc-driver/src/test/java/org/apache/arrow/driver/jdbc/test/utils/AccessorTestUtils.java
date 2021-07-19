@@ -19,6 +19,8 @@ package org.apache.arrow.driver.jdbc.test.utils;
 
 import static org.hamcrest.CoreMatchers.is;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -94,8 +96,11 @@ public class AccessorTestUtils {
       iterate(vector, (accessor, currentRow) -> accessorConsumer.accept(accessor));
     }
 
-    public void iterate(ValueVector vector, Runnable accessorConsumer) throws Exception {
-      iterate(vector, (accessor, currentRow) -> accessorConsumer.run());
+    public List<Object> toList(ValueVector vector) throws Exception {
+      List<Object> result = new ArrayList<>();
+      iterate(vector, (accessor, currentRow) -> result.add(accessor.getObject()));
+
+      return result;
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, MatcherGetter<T, R> matcherGetter)

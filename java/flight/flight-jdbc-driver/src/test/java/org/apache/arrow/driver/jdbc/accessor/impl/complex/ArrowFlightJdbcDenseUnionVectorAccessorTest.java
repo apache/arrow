@@ -17,8 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.accessorToObjectList;
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -53,6 +51,9 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDenseUnionVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> new ArrowFlightJdbcDenseUnionVectorAccessor((DenseUnionVector) vector, getCurrentRow);
+
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() throws Exception {
@@ -97,7 +98,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   @Test
   public void getObject() throws Exception {
-    List<Object> result = accessorToObjectList(vector, accessorSupplier);
+    List<Object> result = accessorIterator.toList(vector);
     List<Object> expected = Arrays.asList(
         Long.MAX_VALUE,
         Math.PI,
@@ -113,10 +114,6 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getObject(), equalTo(null));
-          collector.checkThat(accessor.wasNull(), is(true));
-        });
+    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
   }
 }
