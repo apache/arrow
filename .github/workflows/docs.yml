@@ -1,0 +1,41 @@
+name: Documentation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v1
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs/requirements.txt
+          pip install pyarrow pandas
+
+      - name: Build docs
+        shell: bash -l {0}
+        run: |
+          $CONDA/bin/conda install -c conda-forge --file=ci/conda_env_sphinx.txt
+          pushd cpp/apidoc
+          $CONDA/bin/doxygen
+          popd
+          pushd docs
+          make html
+          popd
+
+      - name: Deploy to netlify
+        uses: netlify/actions/cli@master
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        with:
+          args: deploy --dir=docs/_build/html --prod

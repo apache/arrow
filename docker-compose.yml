@@ -1410,6 +1410,8 @@ services:
       <<: *ccache
       ARROW_CUDA: "ON"
       ARROW_GLIB_GTK_DOC: "true"
+      ARROW_CLS: "ON"
+      ARROW_RADOS: "ON"
     volumes: *ubuntu-volumes
     command: &docs-command >
       /bin/bash -c "
