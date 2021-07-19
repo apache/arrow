@@ -22,9 +22,14 @@ import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateO
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.junit.After;
 import org.junit.Before;
@@ -32,7 +37,10 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class ArrowFlightJdbcListAccessorTest {
 
   @ClassRule
@@ -41,14 +49,37 @@ public class ArrowFlightJdbcListAccessorTest {
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
-  private ListVector vector;
+  private final Supplier<ValueVector> vectorSupplier;
+  private ValueVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<AbstractArrowFlightJdbcListVectorAccessor> accessorSupplier =
-      (vector, getCurrentRow) -> new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
+      (vector, getCurrentRow) -> {
+        if (vector instanceof ListVector) {
+          return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
+        } else if (vector instanceof LargeListVector) {
+          return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow);
+        } else if (vector instanceof FixedSizeListVector) {
+          return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector, getCurrentRow);
+        }
+        return null;
+      };
+
+  @Parameterized.Parameters(name = "{1}")
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] {
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createListVector(), "ListVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeListVector(), "LargeListVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeListVector(), "FixedSizeListVector"},
+    });
+  }
+
+  public ArrowFlightJdbcListAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
+    this.vectorSupplier = vectorSupplier;
+  }
 
   @Before
   public void setup() {
-    this.vector = rootAllocatorTestRule.createListVector();
+    this.vector = this.vectorSupplier.get();
   }
 
   @After
@@ -92,8 +123,6 @@ public class ArrowFlightJdbcListAccessorTest {
             }
             System.out.println("\nend list " + currentRow);
             System.out.println(array.toString());
-
-            array.free();
           }
         })
     );
