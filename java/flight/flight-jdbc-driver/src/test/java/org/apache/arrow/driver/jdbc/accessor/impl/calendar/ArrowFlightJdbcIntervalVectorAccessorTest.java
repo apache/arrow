@@ -106,20 +106,20 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectReturnValidObject() {
+  public void testShouldGetObjectReturnValidObject() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
   @Test
-  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() {
+  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() throws Exception {
     Class<?> objectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(objectClass),
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
   @Test
-  public void testShouldGetObjectReturnNull() {
+  public void testShouldGetObjectReturnNull() throws Exception {
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> equalTo(null));
@@ -135,20 +135,20 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetStringReturnCorrectString() {
+  public void testShouldGetStringReturnCorrectString() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
   }
 
   @Test
-  public void testShouldGetStringReturnNull() {
+  public void testShouldGetStringReturnNull() throws Exception {
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> equalTo(null));
   }
 
   @Test
-  public void testShouldGetObjectClassReturnCorrectClass() {
+  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcIntervalVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(expectedObjectClass));
