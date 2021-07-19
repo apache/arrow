@@ -67,9 +67,12 @@ nse_funcs$coalesce <- function(...) {
   # use that to simplify the code here (ARROW-13389)
   args <- list2(...)
   # if *all* the values are NaN, we should return NaN, not NA, so don't replace
-  # NaN in the final argument with NA
+  # NaN with NA in the final (or only) argument
   attr(args[[length(args)]], "last") <- TRUE
   args <- lapply(args, function(arg) {
+    last_arg <- is.null(attr(arg, "last"))
+    attr(arg, "last") <- NULL
+
     if (!inherits(arg, "Expression")) {
       arg <- Expression$scalar(arg)
     }
@@ -80,7 +83,7 @@ nse_funcs$coalesce <- function(...) {
       warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
     }
 
-    if (is.null(attr(arg, "last")) && arg$type_id() %in% TYPES_WITH_NAN) {
+    if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
       # store the NA_real_ in Arrow's smallest float type to avoid casting
       # smaller float types to larger float types
       NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
@@ -88,7 +91,6 @@ nse_funcs$coalesce <- function(...) {
       #Expression$create("replace_with_mask", arg, Expression$create("is_nan", arg), NA_expr)
       Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
     } else {
-      attr(arg, "last") <- NULL
       arg
     }
   })

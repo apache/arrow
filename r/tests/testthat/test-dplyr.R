@@ -1423,8 +1423,16 @@ test_that("coalesce()", {
   # NaNs stay NaN and are not converted to NA in the results
   # (testing this requires expect_identical())
   expect_identical(
-    df %>% mutate(cwx = coalesce(w, x)),
-    df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect()
+    df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect(),
+    df %>% mutate(cwx = coalesce(w, x))
+  )
+  expect_identical(
+    df %>% Table$create() %>% transmute(cw = coalesce(w)) %>% collect(),
+    df %>% transmute(cw = coalesce(w))
+  )
+  expect_identical(
+    df %>% Table$create() %>% transmute(cn = coalesce(NaN)) %>% collect(),
+    df %>% transmute(cn = coalesce(NaN))
   )
   # singles stay single
   expect_equal(
