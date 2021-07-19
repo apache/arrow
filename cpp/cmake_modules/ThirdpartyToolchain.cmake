@@ -2088,7 +2088,8 @@ macro(build_zstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
-  resolve_dependency(zstd PC_PACKAGE_NAMES libzstd)
+  # ZSTD_minCLevel was added in v1.3.6, required by ARROW-13091
+  resolve_dependency(zstd PC_PACKAGE_NAMES libzstd REQUIRED_VERSION 1.3.6)
 
   if(TARGET zstd::libzstd)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
