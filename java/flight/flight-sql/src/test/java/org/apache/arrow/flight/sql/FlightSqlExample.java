@@ -261,12 +261,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                                      final @Nullable String... tableTypes)
       throws SQLException, IOException {
 
-    final ResultSet data =
-        checkNotNull(
-            databaseMetaData,
-            format("%s cannot be null!", databaseMetaData.getClass().getName()))
-            .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes);
-
     final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
@@ -281,48 +275,56 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
     int rows = 0;
 
-    for (; data.next(); rows++) {
-      catalogNameVector.setSafe(rows, new Text(data.getString("TABLE_CAT")));
-      schemaNameVector.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
-      tableNameVector.setSafe(rows, new Text(data.getString("TABLE_NAME")));
-      tableTypeVector.setSafe(rows, new Text(data.getString("TABLE_TYPE")));
-    }
+    try (final ResultSet data =
+             checkNotNull(
+                 databaseMetaData,
+                 format("%s cannot be null!", databaseMetaData.getClass().getName()))
+                 .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
 
-    for (final FieldVector vector : vectors) {
-      vector.setValueCount(rows);
+      for (; data.next(); rows++) {
+        catalogNameVector.setSafe(rows, new Text(data.getString("TABLE_CAT")));
+        schemaNameVector.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
+        tableNameVector.setSafe(rows, new Text(data.getString("TABLE_NAME")));
+        tableTypeVector.setSafe(rows, new Text(data.getString("TABLE_TYPE")));
+      }
+
+      for (final FieldVector vector : vectors) {
+        vector.setValueCount(rows);
+      }
     }
 
     if (includeSchema) {
-      final ResultSet columnsData =
-          databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
-      final Map<String, List<Field>> tableToFields = new HashMap<>();
-
-      while (columnsData.next()) {
-        final String tableName = columnsData.getString("TABLE_NAME");
-        final String fieldName = columnsData.getString("COLUMN_NAME");
-        final int dataType = columnsData.getInt("DATA_TYPE");
-        final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
-        final int precision = columnsData.getInt("NUM_PREC_RADIX");
-        final int scale = columnsData.getInt("DECIMAL_DIGITS");
-        final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
-        final Field field =
-            new Field(
-                fieldName,
-                new FieldType(
-                    isNullable,
-                    getArrowTypeFromJdbcType(dataType, precision, scale),
-                    null),
-                null);
-        fields.add(field);
-      }
-
       final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
       tableSchemaVector.allocateNew(rows);
 
-      for (int index = 0; index < rows; index++) {
-        final String tableName = tableNameVector.getObject(index).toString();
-        final Schema schema = new Schema(tableToFields.get(tableName));
-        tableSchemaVector.setSafe(index, schema.toByteArray());
+      try (final ResultSet columnsData =
+               databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null)) {
+        final Map<String, List<Field>> tableToFields = new HashMap<>();
+
+        while (columnsData.next()) {
+          final String tableName = columnsData.getString("TABLE_NAME");
+          final String fieldName = columnsData.getString("COLUMN_NAME");
+          final int dataType = columnsData.getInt("DATA_TYPE");
+          final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
+          final int precision = columnsData.getInt("NUM_PREC_RADIX");
+          final int scale = columnsData.getInt("DECIMAL_DIGITS");
+          final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+          final Field field =
+              new Field(
+                  fieldName,
+                  new FieldType(
+                      isNullable,
+                      getArrowTypeFromJdbcType(dataType, precision, scale),
+                      null),
+                  null);
+          fields.add(field);
+        }
+
+        for (int index = 0; index < rows; index++) {
+          final String tableName = tableNameVector.getObject(index).toString();
+          final Schema schema = new Schema(tableToFields.get(tableName));
+          tableSchemaVector.setSafe(index, schema.toByteArray());
+        }
       }
 
       tableSchemaVector.setValueCount(rows);
@@ -598,8 +600,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final String[] tableTypes =
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
-    try {
-      final Connection connection = DriverManager.getConnection(DATABASE_URI);
+    try (final Connection connection = DriverManager.getConnection(DATABASE_URI)) {
       final DatabaseMetaData databaseMetaData = connection.getMetaData();
       makeListen(
           listener,
