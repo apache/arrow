@@ -76,21 +76,19 @@ class Converter {
       if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
         switch (array->type()->id()) {
           case arrow::Type::DOUBLE:
-            if (array->null_count() == 0 ||
-                array->data().use_count() == 1 &&
-                    array->data()->buffers[1].use_count() == 1 &&
-                    array->data()->buffers[1]->is_mutable()) {
+            if (CanAltrep(array)) {
               return arrow::r::MakeAltrepVectorDouble(array, tasks);
             } else {
               break;
             }
 
           case arrow::Type::INT32:
-            if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
+            if (CanAltrep(array)) {
               return arrow::r::MakeAltrepVectorInt32(array, tasks);
             } else {
               break;
             }
+
           default:
             break;
         }
@@ -148,6 +146,16 @@ class Converter {
 
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
+
+ private:
+  bool CanAltrep(const std::shared_ptr<Array>& array) {
+    if (array->null_count() == 0) {
+      return true;
+    }
+
+    return array->data().use_count() == 1 && array->data()->buffers[1].use_count() == 1 &&
+           array->data()->buffers[1]->is_mutable();
+  }
 };
 
 template <typename SetNonNull, typename SetNull>
