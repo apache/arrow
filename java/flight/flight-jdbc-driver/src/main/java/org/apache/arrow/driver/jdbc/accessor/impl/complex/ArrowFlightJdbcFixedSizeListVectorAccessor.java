@@ -1,6 +1,5 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
-import java.sql.Array;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.vector.FieldVector;
@@ -16,17 +15,18 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor extends AbstractArrowFli
   }
 
   @Override
-  public Array getArray() {
-    int index = getCurrentRow();
-    if (this.wasNull = vector.isNull(index)) {
-      return null;
-    }
+  protected long getStart(int index) {
+    return (long) vector.getListSize() * index;
+  }
 
-    int start = vector.getListSize() * index;
-    int count = vector.getListSize();
+  @Override
+  protected long getEnd(int index) {
+    return (long) vector.getListSize() * (index + 1);
+  }
 
-    FieldVector dataVector = vector.getDataVector();
-    return new ArrowFlightJdbcArray(dataVector, start, count);
+  @Override
+  protected FieldVector getDataVector() {
+    return vector.getDataVector();
   }
 
   @Override
