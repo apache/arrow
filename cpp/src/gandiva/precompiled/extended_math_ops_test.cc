@@ -20,7 +20,9 @@
 #endif
 
 #include <gtest/gtest.h>
+
 #include <cmath>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -78,14 +80,14 @@ TEST(TestExtendedMathOps, TestPower) {
 TEST(TestExtendedMathOps, TestLogWithBase) {
   gandiva::ExecutionContext context;
   gdv_float64 out =
-      log_int32_int32(reinterpret_cast<gdv_int64>(&context), 1 /*base*/, 10 /*value*/);
+      log_int32_int32(reinterpret_cast<void*>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
   EXPECT_EQ(context.has_error(), true);
   EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
       << context.get_error();
 
   gandiva::ExecutionContext context1;
-  out = log_int32_int32(reinterpret_cast<gdv_int64>(&context), 2 /*base*/, 64 /*value*/);
+  out = log_int32_int32(reinterpret_cast<void*>(&context), 2 /*base*/, 64 /*value*/);
   VerifyFuzzyEquals(out, 6);
   EXPECT_EQ(context1.has_error(), false);
 }
@@ -274,76 +276,76 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
 }
 
 TEST(TestExtendedMathOps, TestBinRepresentation) {
-  gandiva::ExecutionContext ctx;
-  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gandiva::ExecutionContext context;
+  void* context_ptr = reinterpret_cast<void*>(&context);
   gdv_int32 out_len = 0;
 
-  const char* out_str = bin_int32(ctx_ptr, 7, &out_len);
+  const char* out_str = bin_int32(context_ptr, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "111");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, 0, &out_len);
+  out_str = bin_int32(context_ptr, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, 28550, &out_len);
+  out_str = bin_int32(context_ptr, 28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, -28550, &out_len);
+  out_str = bin_int32(context_ptr, -28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "11111111111111111001000001111010");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, 58117, &out_len);
+  out_str = bin_int32(context_ptr, 58117, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, -58117, &out_len);
+  out_str = bin_int32(context_ptr, -58117, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "11111111111111110001110011111011");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, INT32_MAX, &out_len);
+  out_str = bin_int32(context_ptr, INT32_MAX, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1111111111111111111111111111111");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int32(ctx_ptr, INT32_MIN, &out_len);
+  out_str = bin_int32(context_ptr, INT32_MIN, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "10000000000000000000000000000000");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, 7, &out_len);
+  out_str = bin_int64(context_ptr, 7, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "111");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, 0, &out_len);
+  out_str = bin_int64(context_ptr, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, 28550, &out_len);
+  out_str = bin_int64(context_ptr, 28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, -28550, &out_len);
+  out_str = bin_int64(context_ptr, -28550, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
             "1111111111111111111111111111111111111111111111111001000001111010");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, 58117, &out_len);
+  out_str = bin_int64(context_ptr, 58117, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, -58117, &out_len);
+  out_str = bin_int64(context_ptr, -58117, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
             "1111111111111111111111111111111111111111111111110001110011111011");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, INT64_MAX, &out_len);
+  out_str = bin_int64(context_ptr, INT64_MAX, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
             "111111111111111111111111111111111111111111111111111111111111111");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 
-  out_str = bin_int64(ctx_ptr, INT64_MIN, &out_len);
+  out_str = bin_int64(context_ptr, INT64_MIN, &out_len);
   EXPECT_EQ(std::string(out_str, out_len),
             "1000000000000000000000000000000000000000000000000000000000000000");
-  EXPECT_FALSE(ctx.has_error());
+  EXPECT_FALSE(context.has_error());
 }
 }  // namespace gandiva

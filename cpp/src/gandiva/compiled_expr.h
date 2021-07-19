@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+
 #include "gandiva/llvm_includes.h"
 #include "gandiva/selection_vector.h"
 #include "gandiva/value_validity_pair.h"
@@ -25,7 +26,7 @@
 namespace gandiva {
 
 using EvalFunc = int (*)(uint8_t** buffers, int64_t* offsets, uint8_t** local_bitmaps,
-                         const uint8_t* selection_buffer, int64_t execution_ctx_ptr,
+                         const uint8_t* selection_buffer, void* execution_ctx_ptr,
                          int64_t record_count);
 
 /// \brief Tracks the compiled state for one expression.

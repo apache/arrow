@@ -126,7 +126,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetBufferOffsetArray(),
                  eval_batch->GetLocalBitMapArray(), selection_buffer,
-                 (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
+                 (void*)eval_batch->GetExecutionContext(), num_output_rows);
 
     // check for execution errors
     ARROW_RETURN_IF(
@@ -201,7 +201,7 @@ llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, in
 // The C-code equivalent is :
 // ------------------------------
 // int expr_0(int64_t *addrs, int64_t *local_bitmaps,
-//            int64_t execution_context_ptr, int64_t nrecords) {
+//            void* execution_context_ptr, int64_t nrecords) {
 //   int *outVec = (int *) addrs[5];
 //   int *c0Vec = (int *) addrs[1];
 //   int *c1Vec = (int *) addrs[3];
@@ -216,7 +216,7 @@ llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, in
 // IR Code
 // --------
 //
-// define i32 @expr_0(i64* %args, i64* %local_bitmaps, i64 %execution_context_ptr, , i64
+// define i32 @expr_0(i64* %args, i64* %local_bitmaps, i8* %execution_context_ptr, , i64
 // %nrecords) { entry:
 //   %outmemAddr = getelementptr i64, i64* %args, i32 5
 //   %outmem = load i64, i64* %outmemAddr
@@ -266,8 +266,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     case SelectionVector::MODE_UINT64:
       arguments.push_back(types()->i64_ptr_type());
   }
-  arguments.push_back(types()->i64_type());  // ctx_ptr
-  arguments.push_back(types()->i64_type());  // nrec
+  arguments.push_back(types()->void_ptr_type());  // ctx_ptr
+  arguments.push_back(types()->i64_type());       // nrec
   llvm::FunctionType* prototype =
       llvm::FunctionType::get(types()->i32_type(), arguments, false /*isVarArg*/);
 
@@ -1005,9 +1005,8 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
 
   const InExprDex<Type>& dex_instance = dynamic_cast<const InExprDex<Type>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+  llvm::Constant* holder_ptr = types->void_ptr_constant(dex_instance.in_holder().get());
+  params.push_back(holder_ptr);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {
@@ -1046,9 +1045,8 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+  llvm::Constant* holder_ptr = types->void_ptr_constant(dex_instance.in_holder().get());
+  params.push_back(holder_ptr);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {
@@ -1239,7 +1237,7 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
 
   // if the function has holder, add the holder pointer.
   if (holder != nullptr) {
-    auto ptr = types->i64_constant((int64_t)holder);
+    auto ptr = types->void_ptr_constant(holder);
     params.push_back(ptr);
   }
 

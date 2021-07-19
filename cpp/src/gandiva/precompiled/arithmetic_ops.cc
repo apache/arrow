@@ -18,6 +18,7 @@
 extern "C" {
 
 #include <math.h>
+
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -81,7 +82,7 @@ MOD_OP(mod, int64, int64, int64)
 
 #undef MOD_OP
 
-gdv_float64 mod_float64_float64(int64_t context, gdv_float64 x, gdv_float64 y) {
+gdv_float64 mod_float64_float64(void* context, gdv_float64 x, gdv_float64 y) {
   if (y == 0.0) {
     char const* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
@@ -208,30 +209,30 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
 #undef IS_DISTINCT_FROM
 #undef IS_NOT_DISTINCT_FROM
 
-#define DIVIDE(TYPE)                                                                     \
-  FORCE_INLINE                                                                           \
-  gdv_##TYPE divide_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
-    if (in2 == 0) {                                                                      \
-      char const* err_msg = "divide by zero error";                                      \
-      gdv_fn_context_set_error_msg(context, err_msg);                                    \
-      return 0;                                                                          \
-    }                                                                                    \
-    return static_cast<gdv_##TYPE>(in1 / in2);                                           \
+#define DIVIDE(TYPE)                                                                 \
+  FORCE_INLINE                                                                       \
+  gdv_##TYPE divide_##TYPE##_##TYPE(void* context, gdv_##TYPE in1, gdv_##TYPE in2) { \
+    if (in2 == 0) {                                                                  \
+      char const* err_msg = "divide by zero error";                                  \
+      gdv_fn_context_set_error_msg(context, err_msg);                                \
+      return 0;                                                                      \
+    }                                                                                \
+    return static_cast<gdv_##TYPE>(in1 / in2);                                       \
   }
 
 NUMERIC_FUNCTION(DIVIDE)
 
 #undef DIVIDE
 
-#define DIV(TYPE)                                                                     \
-  FORCE_INLINE                                                                        \
-  gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
-    if (in2 == 0) {                                                                   \
-      char const* err_msg = "divide by zero error";                                   \
-      gdv_fn_context_set_error_msg(context, err_msg);                                 \
-      return 0;                                                                       \
-    }                                                                                 \
-    return static_cast<gdv_##TYPE>(in1 / in2);                                        \
+#define DIV(TYPE)                                                                 \
+  FORCE_INLINE                                                                    \
+  gdv_##TYPE div_##TYPE##_##TYPE(void* context, gdv_##TYPE in1, gdv_##TYPE in2) { \
+    if (in2 == 0) {                                                               \
+      char const* err_msg = "divide by zero error";                               \
+      gdv_fn_context_set_error_msg(context, err_msg);                             \
+      return 0;                                                                   \
+    }                                                                             \
+    return static_cast<gdv_##TYPE>(in1 / in2);                                    \
   }
 
 DIV(int32)
@@ -239,15 +240,15 @@ DIV(int64)
 
 #undef DIV
 
-#define DIV_FLOAT(TYPE)                                                               \
-  FORCE_INLINE                                                                        \
-  gdv_##TYPE div_##TYPE##_##TYPE(gdv_int64 context, gdv_##TYPE in1, gdv_##TYPE in2) { \
-    if (in2 == 0) {                                                                   \
-      char const* err_msg = "divide by zero error";                                   \
-      gdv_fn_context_set_error_msg(context, err_msg);                                 \
-      return 0;                                                                       \
-    }                                                                                 \
-    return static_cast<gdv_##TYPE>(::trunc(in1 / in2));                               \
+#define DIV_FLOAT(TYPE)                                                           \
+  FORCE_INLINE                                                                    \
+  gdv_##TYPE div_##TYPE##_##TYPE(void* context, gdv_##TYPE in1, gdv_##TYPE in2) { \
+    if (in2 == 0) {                                                               \
+      char const* err_msg = "divide by zero error";                               \
+      gdv_fn_context_set_error_msg(context, err_msg);                             \
+      return 0;                                                                   \
+    }                                                                             \
+    return static_cast<gdv_##TYPE>(::trunc(in1 / in2));                           \
   }
 
 DIV_FLOAT(float32)

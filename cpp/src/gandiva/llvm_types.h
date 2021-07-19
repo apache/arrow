@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <vector>
 
@@ -57,6 +58,8 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::PointerType* ptr_type(llvm::Type* type) { return type->getPointerTo(); }
 
+  llvm::PointerType* void_ptr_type() { return ptr_type(void_type()); }
+
   llvm::PointerType* i8_ptr_type() { return ptr_type(i8_type()); }
 
   llvm::PointerType* i32_ptr_type() { return ptr_type(i32_type()); }
@@ -89,6 +92,11 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::Constant* double_constant(double val) {
     return llvm::ConstantFP::get(double_type(), val);
+  }
+
+  llvm::Constant* void_ptr_constant(void* val) {
+    auto ptr_int = int_constant<uintptr_t>(reinterpret_cast<uintptr_t>(val));
+    return llvm::ConstantExpr::getIntToPtr(ptr_int, void_ptr_type());
   }
 
   llvm::Constant* NullConstant(llvm::Type* type) {

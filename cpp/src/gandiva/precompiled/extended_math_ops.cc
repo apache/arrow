@@ -28,6 +28,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "./types.h"
 
 // Expand the inner fn for types that support extended math.
@@ -78,7 +79,7 @@ ENUMERIC_TYPES_UNARY(LOG, float64)
 ENUMERIC_TYPES_UNARY(LOG10, float64)
 
 FORCE_INLINE
-void set_error_for_logbase(int64_t execution_context, double base) {
+void set_error_for_logbase(void* execution_context, double base) {
   char const* prefix = "divide by zero error with log of base";
   int size = static_cast<int>(strlen(prefix)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
@@ -90,11 +91,11 @@ void set_error_for_logbase(int64_t execution_context, double base) {
 // log with base
 #define LOG_WITH_BASE(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                  \
   FORCE_INLINE                                                                       \
-  gdv_##OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(gdv_int64 context, gdv_##IN_TYPE1 base, \
+  gdv_##OUT_TYPE log_##IN_TYPE1##_##IN_TYPE2(void* context_ptr, gdv_##IN_TYPE1 base, \
                                              gdv_##IN_TYPE2 value) {                 \
     gdv_##OUT_TYPE log_of_base = LOGL(base);                                         \
     if (log_of_base == 0) {                                                          \
-      set_error_for_logbase(context, static_cast<gdv_float64>(base));                \
+      set_error_for_logbase(context_ptr, static_cast<gdv_float64>(base));            \
       return 0;                                                                      \
     }                                                                                \
     return LOGL(value) / LOGL(base);                                                 \
@@ -368,38 +369,38 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
 }
 
 // returns the binary representation of a given integer (e.g. 928 -> 1110100000)
-#define BIN_INTEGER(IN_TYPE)                                                          \
-  FORCE_INLINE                                                                        \
-  const char* bin_##IN_TYPE(int64_t context, gdv_##IN_TYPE value, int32_t* out_len) { \
-    *out_len = 0;                                                                     \
-    int32_t len = 8 * sizeof(value);                                                  \
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));   \
-    if (ret == nullptr) {                                                             \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
-      return "";                                                                      \
-    }                                                                                 \
-    /* handle case when value is zero */                                              \
-    if (value == 0) {                                                                 \
-      *out_len = 1;                                                                   \
-      ret[0] = '0';                                                                   \
-      return ret;                                                                     \
-    }                                                                                 \
-    /* generate binary representation iteratively */                                  \
-    gdv_u##IN_TYPE i;                                                                 \
-    int8_t count = 0;                                                                 \
-    bool first = false; /* flag for not printing left zeros in positive numbers */    \
-    for (i = static_cast<gdv_u##IN_TYPE>(1) << (len - 1); i > 0; i = i / 2) {         \
-      if ((value & i) != 0) {                                                         \
-        ret[count] = '1';                                                             \
-        if (!first) first = true;                                                     \
-      } else {                                                                        \
-        if (!first) continue;                                                         \
-        ret[count] = '0';                                                             \
-      }                                                                               \
-      count += 1;                                                                     \
-    }                                                                                 \
-    *out_len = count;                                                                 \
-    return ret;                                                                       \
+#define BIN_INTEGER(IN_TYPE)                                                             \
+  FORCE_INLINE                                                                           \
+  const char* bin_##IN_TYPE(void* context_ptr, gdv_##IN_TYPE value, int32_t* out_len) {  \
+    *out_len = 0;                                                                        \
+    int32_t len = 8 * sizeof(value);                                                     \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context_ptr, len));  \
+    if (ret == nullptr) {                                                                \
+      gdv_fn_context_set_error_msg(context_ptr, "Could not allocate memory for output"); \
+      return "";                                                                         \
+    }                                                                                    \
+    /* handle case when value is zero */                                                 \
+    if (value == 0) {                                                                    \
+      *out_len = 1;                                                                      \
+      ret[0] = '0';                                                                      \
+      return ret;                                                                        \
+    }                                                                                    \
+    /* generate binary representation iteratively */                                     \
+    gdv_u##IN_TYPE i;                                                                    \
+    int8_t count = 0;                                                                    \
+    bool first = false; /* flag for not printing left zeros in positive numbers */       \
+    for (i = static_cast<gdv_u##IN_TYPE>(1) << (len - 1); i > 0; i = i / 2) {            \
+      if ((value & i) != 0) {                                                            \
+        ret[count] = '1';                                                                \
+        if (!first) first = true;                                                        \
+      } else {                                                                           \
+        if (!first) continue;                                                            \
+        ret[count] = '0';                                                                \
+      }                                                                                  \
+      count += 1;                                                                        \
+    }                                                                                    \
+    *out_len = count;                                                                    \
+    return ret;                                                                          \
   }
 
 BIN_INTEGER(int32)

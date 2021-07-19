@@ -18,10 +18,9 @@
 // This file is also used in the pre-compiled unit tests, which do include
 // llvm/engine/..
 #ifndef GANDIVA_UNIT_TEST
+#include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/gdv_function_stubs.h"
-
-#include "gandiva/engine.h"
 
 namespace gandiva {
 
@@ -30,23 +29,23 @@ void ExportedContextFunctions::AddMappings(Engine* engine) const {
   auto types = engine->types();
 
   // gdv_fn_context_set_error_msg
-  args = {types->i64_type(),      // int64_t context_ptr
-          types->i8_ptr_type()};  // char const* err_msg
+  args = {types->void_ptr_type(),  // void* context_ptr
+          types->i8_ptr_type()};   // char const* err_msg
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types->void_type(),
                                   args,
                                   reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
 
   // gdv_fn_context_arena_malloc
-  args = {types->i64_type(),   // int64_t context_ptr
-          types->i32_type()};  // int32_t size
+  args = {types->void_ptr_type(),  // void* context_ptr
+          types->i32_type()};      // int32_t size
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_arena_malloc", types->i8_ptr_type(),
                                   args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_malloc));
 
   // gdv_fn_context_arena_reset
-  args = {types->i64_type()};  // int64_t context_ptr
+  args = {types->void_ptr_type()};  // void* context_ptr
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_arena_reset", types->void_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_reset));
@@ -59,17 +58,17 @@ void ExportedContextFunctions::AddMappings(Engine* engine) const {
 
 extern "C" {
 
-void gdv_fn_context_set_error_msg(int64_t context_ptr, char const* err_msg) {
+void gdv_fn_context_set_error_msg(void* context_ptr, char const* err_msg) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   context->set_error_msg(err_msg);
 }
 
-uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t size) {
+uint8_t* gdv_fn_context_arena_malloc(void* context_ptr, int32_t size) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   return context->arena()->Allocate(size);
 }
 
-void gdv_fn_context_arena_reset(int64_t context_ptr) {
+void gdv_fn_context_arena_reset(void* context_ptr) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   return context->arena()->Reset();
 }

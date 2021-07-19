@@ -347,7 +347,7 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
   return result;
 }
 
-BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
+BasicDecimal128 Divide(void* context, const BasicDecimalScalar128& x,
                        const BasicDecimalScalar128& y, int32_t out_precision,
                        int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
@@ -392,7 +392,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
   return result;
 }
 
-BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
+BasicDecimal128 Mod(void* context, const BasicDecimalScalar128& x,
                     const BasicDecimalScalar128& y, int32_t out_precision,
                     int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {

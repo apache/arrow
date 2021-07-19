@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/precompiled/decimal_ops.h"
+
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <limits>
 #include <memory>
@@ -26,7 +29,6 @@
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/execution_context.h"
-#include "gandiva/precompiled/decimal_ops.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -118,7 +120,7 @@ void TestDecimalSql::Verify(DecimalTypeUtil::Op op, const DecimalScalar128& x,
   auto t1 = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto t2 = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   bool overflow = false;
-  int64_t context = 0;
+  void* context = nullptr;
 
   Decimal128TypePtr out_type;
   ARROW_EXPECT_OK(DecimalTypeUtil::GetResultType(op, {t1, t2}, &out_type));
@@ -451,24 +453,24 @@ TEST_F(TestDecimalSql, DivideByZero) {
   context.Reset();
   result_precision = 38;
   result_scale = 19;
-  decimalops::Divide(reinterpret_cast<gdv_int64>(&context),
-                     DecimalScalar128{"201", 20, 3}, DecimalScalar128{"0", 20, 2},
-                     result_precision, result_scale, &overflow);
+  decimalops::Divide(reinterpret_cast<void*>(&context), DecimalScalar128{"201", 20, 3},
+                     DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
+                     &overflow);
   EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   // divide-by-nonzero should not cause an error.
   context.Reset();
-  decimalops::Divide(reinterpret_cast<gdv_int64>(&context),
-                     DecimalScalar128{"201", 20, 3}, DecimalScalar128{"1", 20, 2},
-                     result_precision, result_scale, &overflow);
+  decimalops::Divide(reinterpret_cast<void*>(&context), DecimalScalar128{"201", 20, 3},
+                     DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
+                     &overflow);
   EXPECT_FALSE(context.has_error());
 
   // mod-by-zero should cause an error.
   context.Reset();
   result_precision = 20;
   result_scale = 3;
-  decimalops::Mod(reinterpret_cast<gdv_int64>(&context), DecimalScalar128{"201", 20, 3},
+  decimalops::Mod(reinterpret_cast<void*>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"0", 20, 2}, result_precision, result_scale,
                   &overflow);
   EXPECT_TRUE(context.has_error());
@@ -476,7 +478,7 @@ TEST_F(TestDecimalSql, DivideByZero) {
 
   // mod-by-nonzero should not cause an error.
   context.Reset();
-  decimalops::Mod(reinterpret_cast<gdv_int64>(&context), DecimalScalar128{"201", 20, 3},
+  decimalops::Mod(reinterpret_cast<void*>(&context), DecimalScalar128{"201", 20, 3},
                   DecimalScalar128{"1", 20, 2}, result_precision, result_scale,
                   &overflow);
   EXPECT_FALSE(context.has_error());

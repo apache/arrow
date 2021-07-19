@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+
 #include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
@@ -41,12 +42,12 @@ arrow::BasicDecimal128 Multiply(const BasicDecimalScalar128& x,
                                 int32_t out_scale, bool* overflow);
 
 /// Divide 'x' by 'y', and return the result.
-arrow::BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
+arrow::BasicDecimal128 Divide(void* context, const BasicDecimalScalar128& x,
                               const BasicDecimalScalar128& y, int32_t out_precision,
                               int32_t out_scale, bool* overflow);
 
 /// Divide 'x' by 'y', and return the remainder.
-arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
+arrow::BasicDecimal128 Mod(void* context, const BasicDecimalScalar128& x,
                            const BasicDecimalScalar128& y, int32_t out_precision,
                            int32_t out_scale, bool* overflow);
 

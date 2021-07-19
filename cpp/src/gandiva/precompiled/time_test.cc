@@ -26,7 +26,7 @@ namespace gandiva {
 
 TEST(TestTime, TestCastDate) {
   ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  void* context_ptr = reinterpret_cast<void*>(&context);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1", 9), -65836800000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
@@ -59,7 +59,7 @@ TEST(TestTime, TestCastDate) {
 
 TEST(TestTime, TestCastTimestamp) {
   ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  void* context_ptr = reinterpret_cast<void*>(&context);
 
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1967-12-1", 9), -65836800000);
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
@@ -138,7 +138,7 @@ TEST(TestTime, TestCastTimestamp) {
 
 TEST(TestTime, TestCastTimestampWithTZ) {
   ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  void* context_ptr = reinterpret_cast<void*>(&context);
 
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
             969727530920);
@@ -150,7 +150,7 @@ TEST(TestTime, TestCastTimestampWithTZ) {
 
 TEST(TestTime, TestCastTimestampErrors) {
   ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  void* context_ptr = reinterpret_cast<void*>(&context);
 
   // error cases
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
@@ -706,7 +706,7 @@ TEST(TestTime, TestMonthsBetween) {
 
 TEST(TestTime, castVarcharTimestamp) {
   ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  void* context_ptr = reinterpret_cast<void*>(&context);
   gdv_int32 out_len;
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
@@ -887,7 +887,7 @@ TEST(TestTime, TestCastIntYearInterval) {
 
 TEST(TestTime, TestCastNullableInterval) {
   ExecutionContext context;
-  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  auto context_ptr = reinterpret_cast<void*>(&context);
   // Test castNULLABLEINTERVALDAY for int and bigint
   EXPECT_EQ(castNULLABLEINTERVALDAY_int32(1), 1);
   EXPECT_EQ(castNULLABLEINTERVALDAY_int32(12), 12);

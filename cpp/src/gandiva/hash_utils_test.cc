@@ -15,16 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/hash_utils.h"
+
 #include <gtest/gtest.h>
+
 #include <unordered_set>
 
 #include "gandiva/execution_context.h"
-#include "gandiva/hash_utils.h"
 
 TEST(TestShaHashUtils, TestSha1Numeric) {
   gandiva::ExecutionContext ctx;
 
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  auto ctx_ptr = reinterpret_cast<void*>(&ctx);
 
   std::vector<uint64_t> values_to_be_hashed;
 
@@ -59,7 +61,7 @@ TEST(TestShaHashUtils, TestSha1Numeric) {
 TEST(TestShaHashUtils, TestSha256Numeric) {
   gandiva::ExecutionContext ctx;
 
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  auto ctx_ptr = reinterpret_cast<void*>(&ctx);
 
   std::vector<uint64_t> values_to_be_hashed;
 
@@ -94,7 +96,7 @@ TEST(TestShaHashUtils, TestSha256Numeric) {
 TEST(TestShaHashUtils, TestSha1Varlen) {
   gandiva::ExecutionContext ctx;
 
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  auto ctx_ptr = reinterpret_cast<void*>(&ctx);
 
   std::string first_string =
       "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], "
@@ -129,7 +131,7 @@ TEST(TestShaHashUtils, TestSha1Varlen) {
 TEST(TestShaHashUtils, TestSha256Varlen) {
   gandiva::ExecutionContext ctx;
 
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  auto ctx_ptr = reinterpret_cast<void*>(&ctx);
 
   std::string first_string =
       "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], "

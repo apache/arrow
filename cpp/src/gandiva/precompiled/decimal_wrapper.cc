@@ -52,7 +52,7 @@ void multiply_decimal128_decimal128(int64_t x_high, uint64_t x_low, int32_t x_pr
 }
 
 FORCE_INLINE
-void divide_decimal128_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+void divide_decimal128_decimal128(void* context, int64_t x_high, uint64_t x_low,
                                   int32_t x_precision, int32_t x_scale, int64_t y_high,
                                   uint64_t y_low, int32_t y_precision, int32_t y_scale,
                                   int32_t out_precision, int32_t out_scale,
@@ -69,7 +69,7 @@ void divide_decimal128_decimal128(int64_t context, int64_t x_high, uint64_t x_lo
 }
 
 FORCE_INLINE
-void mod_decimal128_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+void mod_decimal128_decimal128(void* context, int64_t x_high, uint64_t x_low,
                                int32_t x_precision, int32_t x_scale, int64_t y_high,
                                uint64_t y_low, int32_t y_precision, int32_t y_scale,
                                int32_t out_precision, int32_t out_scale,
@@ -395,7 +395,7 @@ gdv_boolean is_distinct_from_decimal128_decimal128(int64_t x_high, uint64_t x_lo
 }
 
 FORCE_INLINE
-void castDECIMAL_utf8(int64_t context, const char* in, int32_t in_length,
+void castDECIMAL_utf8(void* context, const char* in, int32_t in_length,
                       int32_t out_precision, int32_t out_scale, int64_t* out_high,
                       uint64_t* out_low) {
   int64_t dec_high_from_str;
@@ -418,7 +418,7 @@ void castDECIMAL_utf8(int64_t context, const char* in, int32_t in_length,
 }
 
 FORCE_INLINE
-char* castVARCHAR_decimal128_int64(int64_t context, int64_t x_high, uint64_t x_low,
+char* castVARCHAR_decimal128_int64(void* context, int64_t x_high, uint64_t x_low,
                                    int32_t x_precision, int32_t x_scale,
                                    int64_t out_len_param, int32_t* out_length) {
   int32_t full_dec_str_len;

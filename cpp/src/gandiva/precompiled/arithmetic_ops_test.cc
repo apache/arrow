@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "../execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -40,62 +41,59 @@ TEST(TestArithmeticOps, TestMod) {
 
   const double acceptable_abs_error = 0.00000000001;  // 1e-10
 
-  EXPECT_DOUBLE_EQ(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 2.5, 0.0),
-                   0.0);
+  EXPECT_DOUBLE_EQ(mod_float64_float64(reinterpret_cast<void*>(&context), 2.5, 0.0), 0.0);
   EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   context.Reset();
-  EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 2.5, 1.2), 0.1,
+  EXPECT_NEAR(mod_float64_float64(reinterpret_cast<void*>(&context), 2.5, 1.2), 0.1,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
 
   context.Reset();
-  EXPECT_DOUBLE_EQ(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 2.5, 2.5),
-                   0.0);
+  EXPECT_DOUBLE_EQ(mod_float64_float64(reinterpret_cast<void*>(&context), 2.5, 2.5), 0.0);
   EXPECT_FALSE(context.has_error());
 
   context.Reset();
-  EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 9.2, 3.7), 1.8,
+  EXPECT_NEAR(mod_float64_float64(reinterpret_cast<void*>(&context), 9.2, 3.7), 1.8,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
 }
 
 TEST(TestArithmeticOps, TestDivide) {
   gandiva::ExecutionContext context;
-  EXPECT_EQ(divide_int64_int64(reinterpret_cast<gdv_int64>(&context), 10, 0), 0);
+  EXPECT_EQ(divide_int64_int64(reinterpret_cast<void*>(&context), 10, 0), 0);
   EXPECT_EQ(context.has_error(), true);
   EXPECT_EQ(context.get_error(), "divide by zero error");
 
   context.Reset();
-  EXPECT_EQ(divide_int64_int64(reinterpret_cast<gdv_int64>(&context), 10, 2), 5);
+  EXPECT_EQ(divide_int64_int64(reinterpret_cast<void*>(&context), 10, 2), 5);
   EXPECT_EQ(context.has_error(), false);
 }
 
 TEST(TestArithmeticOps, TestDiv) {
   gandiva::ExecutionContext context;
-  EXPECT_EQ(div_int64_int64(reinterpret_cast<gdv_int64>(&context), 101, 0), 0);
+  EXPECT_EQ(div_int64_int64(reinterpret_cast<void*>(&context), 101, 0), 0);
   EXPECT_EQ(context.has_error(), true);
   EXPECT_EQ(context.get_error(), "divide by zero error");
   context.Reset();
 
-  EXPECT_EQ(div_int64_int64(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
+  EXPECT_EQ(div_int64_int64(reinterpret_cast<void*>(&context), 101, 111), 0);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
 
-  EXPECT_EQ(div_float64_float64(reinterpret_cast<gdv_int64>(&context), 1010.1010, 2.1),
+  EXPECT_EQ(div_float64_float64(reinterpret_cast<void*>(&context), 1010.1010, 2.1),
             481.0);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
 
-  EXPECT_EQ(
-      div_float64_float64(reinterpret_cast<gdv_int64>(&context), 1010.1010, 0.00000),
-      0.0);
+  EXPECT_EQ(div_float64_float64(reinterpret_cast<void*>(&context), 1010.1010, 0.00000),
+            0.0);
   EXPECT_EQ(context.has_error(), true);
   EXPECT_EQ(context.get_error(), "divide by zero error");
   context.Reset();
 
-  EXPECT_EQ(div_float32_float32(reinterpret_cast<gdv_int64>(&context), 1010.1010f, 2.1f),
+  EXPECT_EQ(div_float32_float32(reinterpret_cast<void*>(&context), 1010.1010f, 2.1f),
             481.0f);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();

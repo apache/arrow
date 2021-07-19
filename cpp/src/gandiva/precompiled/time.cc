@@ -556,7 +556,7 @@ DATE_TYPES(MONTHS_BETWEEN)
 
 FORCE_INLINE
 void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
-                        int64_t execution_context) {
+                        void* execution_context) {
   int size = length + static_cast<int>(strlen(msg)) + 1;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, "%s%s", msg, input);
@@ -564,7 +564,7 @@ void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
   free(error);
 }
 
-gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
+gdv_date64 castDATE_utf8(void* context_ptr, const char* input, gdv_int32 length) {
   using arrow_vendored::date::day;
   using arrow_vendored::date::month;
   using arrow_vendored::date::sys_days;
@@ -595,7 +595,7 @@ gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
   }
   const char* msg = "Not a valid date value ";
   if (dateIndex != 3) {
-    set_error_for_date(length, input, msg, context);
+    set_error_for_date(length, input, msg, context_ptr);
     return 0;
   }
 
@@ -614,7 +614,7 @@ gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
                         month(dateFields[TimeFields::kMonth]) /
                         day(dateFields[TimeFields::kDay]);
   if (!date.ok()) {
-    set_error_for_date(length, input, msg, context);
+    set_error_for_date(length, input, msg, context_ptr);
     return 0;
   }
   return std::chrono::time_point_cast<std::chrono::milliseconds>(sys_days(date))
@@ -628,7 +628,7 @@ gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
  * Optional fields are time, displacement and zone.
  * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
  */
-gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 length) {
+gdv_timestamp castTIMESTAMP_utf8(void* context_ptr, const char* input, gdv_int32 length) {
   using arrow_vendored::date::day;
   using arrow_vendored::date::month;
   using arrow_vendored::date::sys_days;
@@ -703,7 +703,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   if (sub_seconds_len > 0) {
     if (sub_seconds_len > 3) {
       const char* msg = "Invalid millis for timestamp value ";
-      set_error_for_date(length, input, msg, context);
+      set_error_for_date(length, input, msg, context_ptr);
       return 0;
     }
     while (sub_seconds_len < 3) {
@@ -719,7 +719,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
                                 &ret_time);
     if (err) {
       const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
-      set_error_for_date(length, input, msg, context);
+      set_error_for_date(length, input, msg, context_ptr);
       return 0;
     }
     return ret_time;
@@ -730,14 +730,14 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
                         day(ts_fields[TimeFields::kDay]);
   if (!date.ok()) {
     const char* msg = "Not a valid day for timestamp value ";
-    set_error_for_date(length, input, msg, context);
+    set_error_for_date(length, input, msg, context_ptr);
     return 0;
   }
 
   if (!is_valid_time(ts_fields[TimeFields::kHours], ts_fields[TimeFields::kMinutes],
                      ts_fields[TimeFields::kSeconds])) {
     const char* msg = "Not a valid time for timestamp value ";
-    set_error_for_date(length, input, msg, context);
+    set_error_for_date(length, input, msg, context_ptr);
     return 0;
   }
 
@@ -775,7 +775,7 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
   return static_cast<int32_t>(millis_since_midnight);
 }
 
-const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
+const char* castVARCHAR_timestamp_int64(void* context_ptr, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
   gdv_int64 year = extractYear_timestamp(in);
   gdv_int64 month = extractMonth_timestamp(in);
@@ -795,7 +795,7 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                      ":%02" PRId64 ".%03" PRId64,
                      year, month, day, hour, minute, second, millis);
   if (res < 0) {
-    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    gdv_fn_context_set_error_msg(context_ptr, "Could not format the timestamp");
     return "";
   }
 
@@ -806,15 +806,17 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
 
   if (*out_len <= 0) {
     if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+      gdv_fn_context_set_error_msg(context_ptr,
+                                   "Length of output string cannot be negative");
     }
     *out_len = 0;
     return "";
   }
 
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context_ptr, *out_len));
   if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context_ptr,
+                                 "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
@@ -878,14 +880,14 @@ CAST_INT_YEAR_INTERVAL(castINT, int32)
 CAST_NULLABLE_INTERVAL_DAY(int32)
 CAST_NULLABLE_INTERVAL_DAY(int64)
 
-#define CAST_NULLABLE_INTERVAL_YEAR(TYPE)                                              \
-  FORCE_INLINE                                                                         \
-  gdv_month_interval castNULLABLEINTERVALYEAR_##TYPE(int64_t context, gdv_##TYPE in) { \
-    gdv_month_interval value = static_cast<gdv_month_interval>(in);                    \
-    if (value != in) {                                                                 \
-      gdv_fn_context_set_error_msg(context, "Integer overflow");                       \
-    }                                                                                  \
-    return value;                                                                      \
+#define CAST_NULLABLE_INTERVAL_YEAR(TYPE)                                                \
+  FORCE_INLINE                                                                           \
+  gdv_month_interval castNULLABLEINTERVALYEAR_##TYPE(void* context_ptr, gdv_##TYPE in) { \
+    gdv_month_interval value = static_cast<gdv_month_interval>(in);                      \
+    if (value != in) {                                                                   \
+      gdv_fn_context_set_error_msg(context_ptr, "Integer overflow");                     \
+    }                                                                                    \
+    return value;                                                                        \
   }
 
 CAST_NULLABLE_INTERVAL_YEAR(int32)
