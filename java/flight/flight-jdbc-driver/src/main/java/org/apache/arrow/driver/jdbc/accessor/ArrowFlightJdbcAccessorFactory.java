@@ -27,6 +27,7 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcInterv
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcDenseUnionVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcStructVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
@@ -65,6 +66,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /**
@@ -136,6 +138,8 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalDayVector) vector), getCurrentRow);
     } else if (vector instanceof IntervalYearVector) {
       return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
+    } else if (vector instanceof StructVector) {
+      return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow);
     } else if (vector instanceof UnionVector) {
       return new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector, getCurrentRow);
     } else if (vector instanceof DenseUnionVector) {

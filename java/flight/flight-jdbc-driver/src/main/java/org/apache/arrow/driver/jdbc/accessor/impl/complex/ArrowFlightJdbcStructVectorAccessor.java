@@ -17,15 +17,11 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
-import java.sql.Struct;
-import java.util.List;
 import java.util.Map;
 import java.util.function.IntSupplier;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.complex.StructVector;
-import org.apache.calcite.avatica.util.StructImpl;
 
 /**
  * Accessor for the Arrow type {@link StructVector}.
@@ -50,22 +46,5 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
     this.wasNull = object == null;
 
     return object;
-  }
-
-  @Override
-  public Struct getStruct() {
-    int currentRow = getCurrentRow();
-
-    this.wasNull = vector.isNull(currentRow);
-    if (this.wasNull) {
-      return null;
-    }
-
-    List<Object> attributes = vector.getChildrenFromFields()
-        .stream()
-        .map(vector -> vector.getObject(currentRow))
-        .collect(Collectors.toList());
-
-    return new StructImpl(attributes);
   }
 }
