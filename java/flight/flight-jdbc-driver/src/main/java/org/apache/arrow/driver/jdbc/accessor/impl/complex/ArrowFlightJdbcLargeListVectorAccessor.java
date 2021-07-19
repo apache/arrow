@@ -18,6 +18,10 @@ public class ArrowFlightJdbcLargeListVectorAccessor extends AbstractArrowFlightJ
   @Override
   public Array getArray() {
     int index = getCurrentRow();
+    if (this.wasNull = vector.isNull(index)) {
+      return null;
+    }
+
     long start = vector.getOffsetBuffer().getLong((long) index * 8L);
     long end = vector.getOffsetBuffer().getLong(((long) index + 1L) * 8L);
     FieldVector dataVector = vector.getDataVector();

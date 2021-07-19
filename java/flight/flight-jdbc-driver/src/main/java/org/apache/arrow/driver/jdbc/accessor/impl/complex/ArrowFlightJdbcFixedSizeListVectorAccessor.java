@@ -18,6 +18,10 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor extends AbstractArrowFli
   @Override
   public Array getArray() {
     int index = getCurrentRow();
+    if (this.wasNull = vector.isNull(index)) {
+      return null;
+    }
+
     int start = vector.getListSize() * index;
     int count = vector.getListSize();
 
