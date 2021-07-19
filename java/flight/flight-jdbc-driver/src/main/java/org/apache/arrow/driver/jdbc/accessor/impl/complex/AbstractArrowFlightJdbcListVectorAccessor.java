@@ -45,16 +45,6 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
   }
 
   @Override
-  public boolean wasNull() {
-    return super.wasNull();
-  }
-
-  @Override
-  public String getString() {
-    return super.getString();
-  }
-
-  @Override
   public abstract Array getArray();
 
   static class ArrayImpl implements Array {
