@@ -391,11 +391,12 @@ namespace {
 class BlockParsingOperator {
  public:
   BlockParsingOperator(io::IOContext io_context, ParseOptions parse_options,
-                       int num_csv_cols, bool count_rows)
+                       int num_csv_cols, int64_t first_row)
       : io_context_(io_context),
         parse_options_(parse_options),
         num_csv_cols_(num_csv_cols),
-        count_rows_(count_rows) {}
+        count_rows_(first_row >= 0),
+        num_rows_seen_(first_row) {}
 
   Result<ParsedBlock> operator()(const CSVBlock& block) {
     constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
@@ -437,7 +438,7 @@ class BlockParsingOperator {
   ParseOptions parse_options_;
   int num_csv_cols_;
   bool count_rows_;
-  int num_rows_seen_ = 0;
+  int64_t num_rows_seen_;
 };
 
 // A function object that takes in parsed batch of CSV data and decodes it to an arrow
@@ -886,7 +887,7 @@ class StreamingReaderImpl : public ReaderMixin,
     bytes_decoded_->fetch_add(header_bytes_consumed);
 
     auto parser_op =
-        BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, count_rows_);
+        BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, num_rows_seen_);
     ARROW_ASSIGN_OR_RAISE(
         auto decoder_op,
         BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
@@ -1133,9 +1134,9 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
   RETURN_NOT_OK(read_options.Validate());
   RETURN_NOT_OK(convert_options.Validate());
   std::shared_ptr<StreamingReaderImpl> reader;
-  reader = std::make_shared<StreamingReaderImpl>(io_context, input, read_options,
-                                                 parse_options, convert_options,
-                                                 /*count_rows=*/true);
+  reader = std::make_shared<StreamingReaderImpl>(
+      io_context, input, read_options, parse_options, convert_options,
+      /*count_rows=*/!read_options.use_threads || cpu_executor->GetCapacity() == 1);
   return reader->Init(cpu_executor).Then([reader] {
     return std::dynamic_pointer_cast<StreamingReader>(reader);
   });
