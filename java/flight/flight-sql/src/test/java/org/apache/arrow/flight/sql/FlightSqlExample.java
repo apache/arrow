@@ -261,7 +261,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return () -> iterator;
   }
 
-  protected Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
+  private Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
                                                      final boolean includeSchema,
                                                      final @Nullable String catalog,
                                                      final @Nullable String schemaFilterPattern,
