@@ -302,8 +302,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         final String fieldName = columnsData.getString("COLUMN_NAME");
         final int dataType = columnsData.getInt("DATA_TYPE");
         final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
-        Integer precision = isNull(precision = (Integer) columnsData.getObject("NUM_PREC_RADIX")) ? 0 : precision;
-        Integer scale = isNull(scale = (Integer) columnsData.getObject("DECIMAL_DIGITS")) ? 0 : scale;
+        final int precision = columnsData.getInt("NUM_PREC_RADIX");
+        final int scale = columnsData.getInt("DECIMAL_DIGITS");
         final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
         final Field field =
             new Field(
