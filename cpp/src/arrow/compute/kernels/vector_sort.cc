@@ -499,34 +499,18 @@ class ArrayCountSorter<BooleanType> {
   ArrayCountSorter() = default;
 
   // Returns where null starts.
-  uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
-                 const BooleanArray& values, int64_t offset,
-                 const ArraySortOptions& options) {
-    // 32bit counter performs much better than 64bit one
-    if (values.length() < (1LL << 32)) {
-      return SortInternal<uint32_t>(indices_begin, indices_end, values, offset, options);
-    } else {
-      return SortInternal<uint64_t>(indices_begin, indices_end, values, offset, options);
-    }
-  }
-
- private:
-  // Returns where null starts.
-  //
   // `offset` is used when this is called on a chunk of a chunked array
-  template <typename CounterType>
-  uint64_t* SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
-                         const BooleanArray& values, int64_t offset,
-                         const ArraySortOptions& options) {
+  static uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
+                        const BooleanArray& values, int64_t offset,
+                        const ArraySortOptions& options) {
     // first slot reserved for prefix sum
-    std::array<CounterType, 3> counts{0, 0, 0};
+    std::array<int64_t, 3> counts{0, 0, 0};
 
-    CounterType ones = static_cast<CounterType>(values.true_count()),
-                nulls = static_cast<CounterType>(values.null_count());
+    int64_t ones = values.true_count(), nulls = values.null_count();
 
     if (options.order == SortOrder::Ascending) {
-      counts[1] = static_cast<CounterType>(values.length()) - ones - nulls;  // 0's
-      counts[2] = static_cast<CounterType>(values.length()) - nulls;         // 0's + 1's
+      counts[1] = values.length() - ones - nulls;  // 0's
+      counts[2] = values.length() - nulls;         // 0's + 1's
       auto null_position = counts[2];
       auto nulls_begin = indices_begin + null_position;
       int64_t index = offset;
@@ -535,8 +519,8 @@ class ArrayCountSorter<BooleanType> {
           [&]() { indices_begin[null_position++] = index++; });
       return nulls_begin;
     } else {
-      counts[0] = static_cast<CounterType>(values.length()) - nulls;  // 0's + 1's
-      counts[1] = ones;                                               // 1's
+      counts[0] = values.length() - nulls;  // 0's + 1's
+      counts[1] = ones;                     // 1's
       auto null_position = counts[0];
       auto nulls_begin = indices_begin + null_position;
       int64_t index = offset;
