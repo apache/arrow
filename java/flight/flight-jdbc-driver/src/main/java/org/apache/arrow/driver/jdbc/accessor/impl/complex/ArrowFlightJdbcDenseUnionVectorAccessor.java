@@ -21,24 +21,15 @@ import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
-import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorWrapper;
-import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 
 /**
  * Accessor for the Arrow type {@link DenseUnionVector}.
  */
-public class ArrowFlightJdbcDenseUnionVectorAccessor extends ArrowFlightJdbcAccessorWrapper {
+public class ArrowFlightJdbcDenseUnionVectorAccessor extends AbstractArrowFlightJdbcUnionVectorAccessor {
 
   private final DenseUnionVector vector;
-
-  /**
-   * Array of accessors for each type contained in DenseUnionVector.
-   * Index corresponds to DenseUnionVector's typeIds.
-   */
-  private final ArrowFlightJdbcAccessor[] accessors;
-  private final ArrowFlightJdbcNullVectorAccessor nullAccessor = new ArrowFlightJdbcNullVectorAccessor();
 
   /**
    * Instantiate an accessor for a {@link DenseUnionVector}.
@@ -49,35 +40,21 @@ public class ArrowFlightJdbcDenseUnionVectorAccessor extends ArrowFlightJdbcAcce
   public ArrowFlightJdbcDenseUnionVectorAccessor(DenseUnionVector vector, IntSupplier currentRowSupplier) {
     super(currentRowSupplier);
     this.vector = vector;
-    this.accessors = new ArrowFlightJdbcAccessor[128]; // DenseUnionVector supports up to 128 types.
   }
 
-  private ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
+  @Override
+  protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
     return ArrowFlightJdbcAccessorFactory.createAccessor(vector, () -> this.vector.getOffset(this.getCurrentRow()));
   }
 
-  /**
-   * Returns an accessor for DenseUnionVector child vector on current row.
-   *
-   * @return ArrowFlightJdbcAccessor for child vector on current row.
-   */
-  protected ArrowFlightJdbcAccessor getAccessor() {
+  @Override
+  protected byte getCurrentTypeId() {
     int index = getCurrentRow();
+    return this.vector.getTypeId(index);
+  }
 
-    // Get the typeId and child vector for the current row being accessed.
-    byte typeId = this.vector.getTypeId(index);
-    ValueVector vector = this.vector.getVectorByType(typeId);
-
-    if (typeId < 0) {
-      // typeId may be negative if the current row has no type defined.
-      return this.nullAccessor;
-    }
-
-    // Ensure there is an accessor for given typeId
-    if (this.accessors[typeId] == null) {
-      this.accessors[typeId] = this.createAccessorForVector(vector);
-    }
-
-    return this.accessors[typeId];
+  @Override
+  protected ValueVector getVectorByTypeId(byte typeId) {
+    return this.vector.getVectorByType(typeId);
   }
 }
