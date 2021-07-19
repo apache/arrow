@@ -32,6 +32,9 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
 
   private final Getter getter;
 
+  /**
+   * Functional interface used to unify Decimal*Vector#getObject implementations.
+   */
   @FunctionalInterface
   interface Getter {
     BigDecimal getObject(int index);
