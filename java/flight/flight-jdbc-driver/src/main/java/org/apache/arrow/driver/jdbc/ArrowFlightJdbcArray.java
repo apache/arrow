@@ -23,13 +23,12 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Map;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightResultSet;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
-import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -57,20 +56,18 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public String getBaseTypeName() {
-    final ArrowType arrowType = this.dataVector.getField().getType();
-    return SqlTypes.getSqlTypeNameFromArrowType(arrowType);
+  public String getBaseTypeName() throws SQLException {
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public int getBaseType() {
-    final ArrowType arrowType = this.dataVector.getField().getType();
-    return SqlTypes.getSqlTypeIdFromArrowType(arrowType);
+  public int getBaseType() throws SQLException {
+    throw new SQLFeatureNotSupportedException();
   }
 
   @Override
-  public Object getArray() throws SQLException {
-    return getArray(null);
+  public Object getArray() {
+    return getArrayNoBoundCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
@@ -78,13 +75,13 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-
-    return getArrayNoBoundCheck(this.dataVector, this.startOffset, this.valuesCount);
+    return this.getArray();
   }
 
   @Override
-  public Object getArray(long index, int count) throws SQLException {
-    return getArray(index, count, null);
+  public Object getArray(long index, int count) {
+    checkBoundaries(index, count);
+    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   private void checkBoundaries(long index, int count) {
@@ -107,14 +104,12 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-
-    checkBoundaries(index, count);
-    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return this.getArray(index, count);
   }
 
   @Override
   public ResultSet getResultSet() throws SQLException {
-    return this.getResultSet(null);
+    return getResultSetNoBoundariesCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
@@ -122,13 +117,14 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-
-    return getResultSetNoBoundariesCheck(this.dataVector, this.startOffset, this.valuesCount);
+    return this.getResultSet();
   }
 
   @Override
   public ResultSet getResultSet(long index, int count) throws SQLException {
-    return getResultSet(index, count, null);
+    checkBoundaries(index, count);
+    return getResultSetNoBoundariesCheck(this.dataVector,
+        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start, long count)
@@ -138,7 +134,7 @@ public class ArrowFlightJdbcArray implements Array {
     FieldVector vectorSlice = (FieldVector) transferPair.getTo();
 
     VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(vectorSlice);
-    return ArrowFlightJdbcVectorSchemaRootResultSet.fromVectorSchemaRoot(vectorSchemaRoot);
+    return ArrowFlightResultSet.fromVectorSchemaRoot(vectorSchemaRoot);
   }
 
   @Override
@@ -146,10 +142,7 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-
-    checkBoundaries(index, count);
-    return getResultSetNoBoundariesCheck(this.dataVector,
-        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return this.getResultSet(index, count);
   }
 
   @Override

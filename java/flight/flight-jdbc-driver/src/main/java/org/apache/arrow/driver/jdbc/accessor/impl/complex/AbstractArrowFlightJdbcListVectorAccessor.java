@@ -21,6 +21,7 @@ import java.sql.Array;
 import java.util.List;
 import java.util.function.IntSupplier;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcArray;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
