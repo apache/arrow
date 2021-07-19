@@ -62,11 +62,15 @@ class GANDIVA_EXPORT LLVMTypes {
 
   llvm::PointerType* i8_ptr_type() { return ptr_type(i8_type()); }
 
+  llvm::PointerType* i16_ptr_type() { return ptr_type(i16_type()); }
+
   llvm::PointerType* i32_ptr_type() { return ptr_type(i32_type()); }
 
   llvm::PointerType* i64_ptr_type() { return ptr_type(i64_type()); }
 
   llvm::PointerType* i128_ptr_type() { return ptr_type(i128_type()); }
+
+  llvm::PointerType* i8_ptr_ptr_type() { return ptr_type(ptr_type(i8_type())); }
 
   template <typename ctype, size_t N = (sizeof(ctype) * CHAR_BIT)>
   llvm::Constant* int_constant(ctype val) {

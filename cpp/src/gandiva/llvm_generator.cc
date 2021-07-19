@@ -152,7 +152,7 @@ llvm::Value* LLVMGenerator::GetValidityReference(llvm::Value* arg_addrs, int idx
                                                  FieldPtr field) {
   const std::string& name = field->name();
   llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
-  return ir_builder()->CreateIntToPtr(load, types()->i64_ptr_type(), name + "_varray");
+  return ir_builder()->CreateBitCast(load, types()->i64_ptr_type(), name + "_varray");
 }
 
 /// Get reference to data array at specified index in the args list.
@@ -160,7 +160,7 @@ llvm::Value* LLVMGenerator::GetDataBufferPtrReference(llvm::Value* arg_addrs, in
                                                       FieldPtr field) {
   const std::string& name = field->name();
   llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
-  return ir_builder()->CreateIntToPtr(load, types()->i8_ptr_type(), name + "_buf_ptr");
+  return ir_builder()->CreateBitCast(load, types()->i8_ptr_type(), name + "_buf_ptr");
 }
 
 /// Get reference to data array at specified index in the args list.
@@ -171,10 +171,10 @@ llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, int idx,
   llvm::Type* base_type = types()->DataVecType(field->type());
   llvm::Value* ret;
   if (base_type->isPointerTy()) {
-    ret = ir_builder()->CreateIntToPtr(load, base_type, name + "_darray");
+    ret = ir_builder()->CreateBitCast(load, base_type, name + "_darray");
   } else {
     llvm::Type* pointer_type = types()->ptr_type(base_type);
-    ret = ir_builder()->CreateIntToPtr(load, pointer_type, name + "_darray");
+    ret = ir_builder()->CreateBitCast(load, pointer_type, name + "_darray");
   }
   return ret;
 }
@@ -184,14 +184,12 @@ llvm::Value* LLVMGenerator::GetOffsetsReference(llvm::Value* arg_addrs, int idx,
                                                 FieldPtr field) {
   const std::string& name = field->name();
   llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
-  return ir_builder()->CreateIntToPtr(load, types()->i32_ptr_type(), name + "_oarray");
+  return ir_builder()->CreateBitCast(load, types()->i32_ptr_type(), name + "_oarray");
 }
 
 /// Get reference to local bitmap array at specified index in the args list.
 llvm::Value* LLVMGenerator::GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx) {
-  llvm::Value* load = LoadVectorAtIndex(arg_bitmaps, idx, "");
-  return ir_builder()->CreateIntToPtr(load, types()->i64_ptr_type(),
-                                      std::to_string(idx) + "_lbmap");
+  return LoadVectorAtIndex(arg_bitmaps, idx, std::to_string(idx) + "_lbmap");
 }
 
 /// \brief Generate code for one expression.
@@ -249,16 +247,16 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
                                        SelectionVector::Mode selection_vector_mode) {
   llvm::IRBuilder<>* builder = ir_builder();
   // Create fn prototype :
-  //   int expr_1 (long **addrs, long *offsets, long **bitmaps,
-  //               long *context_ptr, long nrec)
+  //   int expr_1 (uint8_t** addrs, int64_t* offsets, uint8_t** bitmaps,
+  //               const uint8_t* selection_buffer void *context_ptr, int64_t nrec)
   std::vector<llvm::Type*> arguments;
-  arguments.push_back(types()->i64_ptr_type());  // addrs
-  arguments.push_back(types()->i64_ptr_type());  // offsets
-  arguments.push_back(types()->i64_ptr_type());  // bitmaps
+  arguments.push_back(types()->i8_ptr_ptr_type());  // addrs
+  arguments.push_back(types()->i64_ptr_type());     // offsets
+  arguments.push_back(types()->i8_ptr_ptr_type());  // bitmaps
   switch (selection_vector_mode) {
     case SelectionVector::MODE_NONE:
     case SelectionVector::MODE_UINT16:
-      arguments.push_back(types()->ptr_type(types()->i16_type()));
+      arguments.push_back(types()->i16_ptr_type());
       break;
     case SelectionVector::MODE_UINT32:
       arguments.push_back(types()->i32_ptr_type());
