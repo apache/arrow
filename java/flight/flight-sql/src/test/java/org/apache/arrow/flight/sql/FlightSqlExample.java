@@ -225,7 +225,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   /**
-   * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
+   * Make the provided {@link ServerStreamListener} listen to the provided {@link VectorSchemaRoot}s.
    *
    * @param listener the listener.
    * @param data     data to listen to.
@@ -235,7 +235,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   /**
-   * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
+   * Make the provided {@link ServerStreamListener} listen to the provided {@link VectorSchemaRoot}s.
    *
    * @param listener the listener.
    * @param data     data to listen to.
@@ -251,8 +251,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
    * Turns the provided {@link ResultSet} into an {@link Iterator<VectorSchemaRoot>}.
    *
    * @param data the data to convert
-   * @return an {@link Iterator<VectorSchemaRoot>} representation of the provided data.
-   * @throws SQLException if an error occurs while querying the {@link ResultSet}.
+   * @return an {@code Iterator<VectorSchemaRoot>} representation of the provided data.
+   * @throws SQLException if an error occurs while querying the {@code ResultSet}.
    * @throws IOException  if an I/O error occurs.
    */
   protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
