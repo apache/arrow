@@ -677,8 +677,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::BINARY: {
       const std::string& str = arrow::util::get<std::string>(dex.holder());
 
-      llvm::Constant* str_int_cast = types->i64_constant((int64_t)str.c_str());
-      value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
+      value = types->i8_ptr_constant((int8_t*)str.c_str());
       len = types->i32_constant(static_cast<int32_t>(str.length()));
       break;
     }
@@ -1383,12 +1382,10 @@ void LLVMGenerator::AddTrace(const std::string& msg, llvm::Value* value) {
 
   // cast this to an llvm pointer.
   const char* str = trace_strings_.back().c_str();
-  llvm::Constant* str_int_cast = types()->i64_constant((int64_t)str);
-  llvm::Constant* str_ptr_cast =
-      llvm::ConstantExpr::getIntToPtr(str_int_cast, types()->i8_ptr_type());
+  llvm::Constant* str_ptr = types()->i8_ptr_constant((int8_t*)str);
 
   std::vector<llvm::Value*> args;
-  args.push_back(str_ptr_cast);
+  args.push_back(str_ptr);
   if (value != nullptr) {
     args.push_back(value);
   }

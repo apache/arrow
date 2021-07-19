@@ -99,6 +99,11 @@ class GANDIVA_EXPORT LLVMTypes {
     return llvm::ConstantExpr::getIntToPtr(ptr_int, void_ptr_type());
   }
 
+  llvm::Constant* i8_ptr_constant(int8_t* val) {
+    auto ptr_int = int_constant<uintptr_t>(reinterpret_cast<uintptr_t>(val));
+    return llvm::ConstantExpr::getIntToPtr(ptr_int, i8_ptr_type());
+  }
+
   llvm::Constant* NullConstant(llvm::Type* type) {
     if (type->isIntegerTy()) {
       return llvm::ConstantInt::get(type, 0);
