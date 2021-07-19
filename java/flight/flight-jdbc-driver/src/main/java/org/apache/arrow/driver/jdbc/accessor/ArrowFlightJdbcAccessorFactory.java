@@ -27,6 +27,9 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcInterv
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcDenseUnionVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcFixedSizeListVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcLargeListVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcListVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcStructVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
@@ -66,6 +69,9 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
@@ -140,6 +146,12 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
     } else if (vector instanceof StructVector) {
       return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow);
+    } else if (vector instanceof ListVector) {
+      return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
+    } else if (vector instanceof LargeListVector) {
+      return new ArrowFlightJdbcLargeListVectorAccessor((LargeListVector) vector, getCurrentRow);
+    } else if (vector instanceof FixedSizeListVector) {
+      return new ArrowFlightJdbcFixedSizeListVectorAccessor((FixedSizeListVector) vector, getCurrentRow);
     } else if (vector instanceof UnionVector) {
       return new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector, getCurrentRow);
     } else if (vector instanceof DenseUnionVector) {

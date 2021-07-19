@@ -1,31 +1,11 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
-import java.util.List;
+import java.sql.Array;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 
-/**
- * Accessor for the Arrow type {@link LargeListVector}.
- */
 public class ArrowFlightJdbcLargeListVectorAccessor extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final LargeListVector vector;
@@ -36,25 +16,18 @@ public class ArrowFlightJdbcLargeListVectorAccessor extends AbstractArrowFlightJ
   }
 
   @Override
-  protected long getStartOffset(int index) {
-    return vector.getOffsetBuffer().getLong((long) index * LargeListVector.OFFSET_WIDTH);
-  }
+  public Array getArray() {
+    int index = getCurrentRow();
+    long start = vector.getOffsetBuffer().getLong((long) index * 8L);
+    long end = vector.getOffsetBuffer().getLong(((long) index + 1L) * 8L);
+    FieldVector dataVector = vector.getDataVector();
 
-  @Override
-  protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer().getLong((long) (index + 1) * LargeListVector.OFFSET_WIDTH);
-  }
-
-  @Override
-  protected FieldVector getDataVector() {
-    return vector.getDataVector();
+    long count = end - start;
+    return new ArrayImpl(dataVector, start, count);
   }
 
   @Override
   public Object getObject() {
-    List<?> object = vector.getObject(getCurrentRow());
-    this.wasNull = object == null;
-
-    return object;
+    return vector.getObject(getCurrentRow());
   }
 }

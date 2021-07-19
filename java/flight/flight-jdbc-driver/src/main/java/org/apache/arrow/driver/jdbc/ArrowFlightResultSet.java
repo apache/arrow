@@ -60,7 +60,7 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
    * @param vectorSchemaRoot root from which the ResultSet will access.
    * @return a ResultSet which accesses the given VectorSchemaRoot
    */
-  static ArrowFlightResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot) throws SQLException {
+  public static ArrowFlightResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot) throws SQLException {
     // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
 
     final String sql = "MOCKED";
