@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.sql.Array;
@@ -13,16 +30,28 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * Implementation of {@link Array} using an underlying {@link FieldVector}.
+ *
+ * @see AbstractArrowFlightJdbcListVectorAccessor
+ */
 public class ArrowFlightJdbcArray implements Array {
 
   private final FieldVector dataVector;
-  private final long start;
-  private final long count;
+  private final long startOffset;
+  private final long valuesCount;
 
-  public ArrowFlightJdbcArray(FieldVector dataVector, long start, long count) {
+  /**
+   * Instantiate an {@link Array} backed up by given {@link FieldVector}, limited by a start offset and values count.
+   *
+   * @param dataVector  underlying FieldVector, containing the Array items.
+   * @param startOffset offset from FieldVector pointing to this Array's first value.
+   * @param valuesCount how many items this Array contains.
+   */
+  public ArrowFlightJdbcArray(FieldVector dataVector, long startOffset, long valuesCount) {
     this.dataVector = dataVector;
-    this.start = start;
-    this.count = count;
+    this.startOffset = startOffset;
+    this.valuesCount = valuesCount;
   }
 
   @Override
@@ -36,8 +65,8 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public Object getArray() throws SQLException {
-    return getArrayNoBoundCheck(this.dataVector, this.start, this.count);
+  public Object getArray() {
+    return getArrayNoBoundCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
@@ -49,13 +78,13 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public Object getArray(long index, int count) throws SQLException {
+  public Object getArray(long index, int count) {
     checkBoundaries(index, count);
-    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.start + index), count);
+    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   private void checkBoundaries(long index, int count) {
-    if (index < 0 || index + count > this.start + this.count) {
+    if (index < 0 || index + count > this.startOffset + this.valuesCount) {
       throw new ArrayIndexOutOfBoundsException();
     }
   }
@@ -79,7 +108,7 @@ public class ArrowFlightJdbcArray implements Array {
 
   @Override
   public ResultSet getResultSet() throws SQLException {
-    return getResultSetNoBoundariesCheck(this.dataVector, this.start, this.count);
+    return getResultSetNoBoundariesCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
@@ -93,8 +122,8 @@ public class ArrowFlightJdbcArray implements Array {
   @Override
   public ResultSet getResultSet(long index, int count) throws SQLException {
     checkBoundaries(index, count);
-    return getResultSetNoBoundariesCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.start + index),
-        count);
+    return getResultSetNoBoundariesCheck(this.dataVector,
+        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start, long count)
@@ -116,7 +145,7 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public void free() throws SQLException {
+  public void free() {
 
   }
 }
