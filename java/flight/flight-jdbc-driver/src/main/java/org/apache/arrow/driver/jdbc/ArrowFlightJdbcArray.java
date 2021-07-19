@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.accessor.impl.complex;
+package org.apache.arrow.driver.jdbc;
 
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -24,6 +24,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Map;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightResultSet;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
