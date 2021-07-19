@@ -243,7 +243,6 @@ def save_report_data(obj, job_name, fetch):
     """
     Just print there the state of the job
     """
-    output = obj['output']
 
     queue = obj['queue']
     print(dir(queue))
@@ -253,7 +252,7 @@ def save_report_data(obj, job_name, fetch):
 
     job = queue.get(job_name)
     report = JsonReport(job=job)
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as temp:
         temp.write(report.get_json_tasks())
 

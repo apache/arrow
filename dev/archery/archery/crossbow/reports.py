@@ -150,6 +150,7 @@ class JsonReport(Report):
         json_str = json.dumps(tasks)
         return json_str
 
+
 class EmailReport(Report):
 
     HEADER = textwrap.dedent("""
