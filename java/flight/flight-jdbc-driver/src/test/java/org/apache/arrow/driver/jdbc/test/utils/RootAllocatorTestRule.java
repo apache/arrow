@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.test.utils;
 import java.math.BigDecimal;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -54,6 +55,8 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -480,6 +483,84 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     return valueVector;
   }
 
+  /**
+   * Create a UInt8Vector to be used in the accessor tests.
+   *
+   * @return UInt8Vector
+   */
+  public DecimalVector createDecimalVector() {
+
+    BigDecimal[] bigDecimalValues = new BigDecimal[] {
+        new BigDecimal(0),
+        new BigDecimal(1),
+        new BigDecimal(-1),
+        new BigDecimal(Byte.MIN_VALUE),
+        new BigDecimal(Byte.MAX_VALUE),
+        new BigDecimal(-Short.MAX_VALUE),
+        new BigDecimal(Short.MIN_VALUE),
+        new BigDecimal(Integer.MIN_VALUE),
+        new BigDecimal(Integer.MAX_VALUE),
+        new BigDecimal(Long.MIN_VALUE),
+        new BigDecimal(-Long.MAX_VALUE),
+        new BigDecimal("170141183460469231731687303715884105727")
+    };
+
+    DecimalVector result = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
+    result.setValueCount(MAX_VALUE);
+    for (int i = 0; i < MAX_VALUE; i++) {
+      if (i < bigDecimalValues.length) {
+        result.setSafe(i, bigDecimalValues[i]);
+      } else {
+        result.setSafe(i, random.nextLong());
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Create a UInt8Vector to be used in the accessor tests.
+   *
+   * @return UInt8Vector
+   */
+  public Decimal256Vector createDecimal256Vector() {
+
+    BigDecimal[] bigDecimalValues = new BigDecimal[] {
+        new BigDecimal(0),
+        new BigDecimal(1),
+        new BigDecimal(-1),
+        new BigDecimal(Byte.MIN_VALUE),
+        new BigDecimal(Byte.MAX_VALUE),
+        new BigDecimal(-Short.MAX_VALUE),
+        new BigDecimal(Short.MIN_VALUE),
+        new BigDecimal(Integer.MIN_VALUE),
+        new BigDecimal(Integer.MAX_VALUE),
+        new BigDecimal(Long.MIN_VALUE),
+        new BigDecimal(-Long.MAX_VALUE),
+        new BigDecimal("170141183460469231731687303715884105727"),
+        new BigDecimal("17014118346046923173168234157303715884105727"),
+        new BigDecimal("1701411834604692317316823415265417303715884105727"),
+        new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
+        new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
+        new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
+        new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
+        new BigDecimal("57896044618658097711785492504343953926634992332820282019728792003956564819967"),
+        new BigDecimal("-56896044618658097711785492504343953926634992332820282019728792003956564819967")
+    };
+
+    Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
+    result.setValueCount(MAX_VALUE);
+    for (int i = 0; i < MAX_VALUE; i++) {
+      if (i < bigDecimalValues.length) {
+        result.setSafe(i, bigDecimalValues[i]);
+      } else {
+        result.setSafe(i, random.nextLong());
+      }
+    }
+
+    return result;
+  }
+
   public TimeStampNanoVector createTimeStampNanoVector() {
     TimeStampNanoVector valueVector = new TimeStampNanoVector("", this.getRootAllocator());
     valueVector.allocateNew(2);
@@ -651,82 +732,24 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
     return valueVector;
   }
 
-  /**
-   * Create a DecimalVector to be used in the accessor tests.
-   *
-   * @return DecimalVector
-   */
-  public DecimalVector createDecimalVector() {
+  public ListVector createListVector() {
+    ListVector valueVector = ListVector.empty("", this.getRootAllocator());
+    valueVector.setInitialCapacity(MAX_VALUE);
 
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727")
-    };
+    UnionListWriter writer = valueVector.getWriter();
 
-    DecimalVector result = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
-    result.setValueCount(MAX_VALUE);
-    for (int i = 0; i < MAX_VALUE; i++) {
-      if (i < bigDecimalValues.length) {
-        result.setSafe(i, bigDecimalValues[i]);
-      } else {
-        result.setSafe(i, random.nextLong());
-      }
-    }
+    IntStream range = IntStream.range(0, MAX_VALUE);
 
-    return result;
+    range.forEach(row -> {
+      writer.startList();
+      writer.setPosition(row);
+      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+      writer.setValueCount(5);
+      writer.endList();
+    });
+
+    valueVector.setValueCount(MAX_VALUE);
+
+    return valueVector;
   }
-
-  /**
-   * Create a Decimal256Vector to be used in the accessor tests.
-   *
-   * @return Decimal256Vector
-   */
-  public Decimal256Vector createDecimal256Vector() {
-
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727"),
-        new BigDecimal("17014118346046923173168234157303715884105727"),
-        new BigDecimal("1701411834604692317316823415265417303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
-        new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
-        new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
-        new BigDecimal("57896044618658097711785492504343953926634992332820282019728792003956564819967"),
-        new BigDecimal("-56896044618658097711785492504343953926634992332820282019728792003956564819967")
-    };
-
-    Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
-    result.setValueCount(MAX_VALUE);
-    for (int i = 0; i < MAX_VALUE; i++) {
-      if (i < bigDecimalValues.length) {
-        result.setSafe(i, bigDecimalValues[i]);
-      } else {
-        result.setSafe(i, random.nextLong());
-      }
-    }
-
-    return result;
-  }
-
 }
