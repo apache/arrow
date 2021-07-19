@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.binary;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.io.InputStream;
@@ -56,7 +55,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   private ValueVector vector;
   private final Supplier<ValueVector> vectorSupplier;
 
-  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBinaryVectorAccessor> accessorSupplier =
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBinaryVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> {
         if (vector instanceof VarBinaryVector) {
           return new ArrowFlightJdbcBinaryVectorAccessor(((VarBinaryVector) vector), getCurrentRow);
@@ -67,6 +66,9 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         }
         return null;
       };
+
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBinaryVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
@@ -93,12 +95,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetStringReturnExpectedString() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          String expected = new String(accessor.getBytes(), StandardCharsets.UTF_8);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(accessor.getString(), is(expected));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString,
+        (accessor) -> is(new String(accessor.getBytes(), StandardCharsets.UTF_8)));
   }
 
   @Test
@@ -106,21 +104,22 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getString(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    accessorIterator
+        .assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString, CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetBytesReturnExpectedByteArray() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getBytes,
         (accessor, currentRow) -> {
           if (vector instanceof VarBinaryVector) {
-            collector.checkThat(accessor.getBytes(), is(((VarBinaryVector) vector).get(currentRow)));
+            return is(((VarBinaryVector) vector).get(currentRow));
           } else if (vector instanceof LargeVarBinaryVector) {
-            collector.checkThat(accessor.getBytes(), is(((LargeVarBinaryVector) vector).get(currentRow)));
+            return is(((LargeVarBinaryVector) vector).get(currentRow));
+          } else if (vector instanceof FixedSizeBinaryVector) {
+            return is(((FixedSizeBinaryVector) vector).get(currentRow));
           }
-          collector.checkThat(accessor.wasNull(), is(false));
+          return null;
         });
   }
 
@@ -136,15 +135,12 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectReturnAsGetBytes() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getObject(), is(accessor.getBytes()));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getObject,
+        (accessor) -> is(accessor.getBytes()));
   }
 
   @Test
-  public void testShouldGetObjectReturnNull() throws Exception {
+  public void testShouldGetObjectReturnNull() {
     vector.reset();
     vector.setValueCount(5);
 
@@ -155,13 +151,12 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetAsciiStreamReturnCorrectInputStream() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          InputStream inputStream = accessor.getAsciiStream();
-          String actualString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
-        });
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      InputStream inputStream = accessor.getAsciiStream();
+      String actualString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
   @Test
@@ -176,13 +171,12 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetBinaryStreamReturnCurrentInputStream() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          InputStream inputStream = accessor.getBinaryStream();
-          String actualString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
-        });
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      InputStream inputStream = accessor.getBinaryStream();
+      String actualString = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
   @Test
@@ -197,13 +191,12 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetCharacterStreamReturnCorrectReader() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          Reader characterStream = accessor.getCharacterStream();
-          String actualString = IOUtils.toString(characterStream);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
-        });
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      Reader characterStream = accessor.getCharacterStream();
+      String actualString = IOUtils.toString(characterStream);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
   @Test
