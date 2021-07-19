@@ -2056,8 +2056,8 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   auto ty = this->type_singleton();
   for (const auto interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
-    auto expected_ty = (interpolation == QuantileOptions::LINEAR ||
-                        interpolation == QuantileOptions::MIDPOINT)
+    auto expected_ty = (interpolation == QuantileOptions::Interpolation("linear") ||
+                        interpolation == QuantileOptions::Interpolation("midpoint"))
                            ? float64()
                            : ty;
     EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
@@ -2102,8 +2102,8 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   auto ty = this->type_singleton();
   for (const auto interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
-    auto expected_ty = (interpolation == QuantileOptions::LINEAR ||
-                        interpolation == QuantileOptions::MIDPOINT)
+    auto expected_ty = (interpolation == QuantileOptions::Interpolation("linear") ||
+                        interpolation == QuantileOptions::Interpolation("midpoint"))
                            ? float64()
                            : ty;
     EXPECT_THAT(Quantile(*MakeScalar(ty, 1), options),
