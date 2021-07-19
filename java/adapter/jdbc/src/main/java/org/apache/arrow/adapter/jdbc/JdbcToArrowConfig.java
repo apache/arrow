@@ -56,7 +56,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  */
 public final class JdbcToArrowConfig {
 
-  public static final BiFunction<JdbcFieldInfo, Calendar, ArrowType> DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER =
+  private static final BiFunction<JdbcFieldInfo, Calendar, ArrowType> DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER =
       (fieldInfo, calendar) -> {
         switch (fieldInfo.getJdbcType()) {
           case Types.BOOLEAN:
@@ -218,7 +218,16 @@ public final class JdbcToArrowConfig {
 
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
-        jdbcFieldInfo -> DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER.apply(jdbcFieldInfo, calendar);
+        jdbcFieldInfo -> getDefaultJdbcToArrowTypeConverter().apply(jdbcFieldInfo, calendar);
+  }
+
+  /**
+   * Gets the default JDBC-type-to-Arrow-type converter.
+   *
+   * @return the default converter.
+   */
+  public static BiFunction<JdbcFieldInfo, Calendar, ArrowType> getDefaultJdbcToArrowTypeConverter() {
+    return DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER;
   }
 
   /**
