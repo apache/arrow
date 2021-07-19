@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor.getTimeUnitForVector;
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -80,6 +79,9 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
         return null;
       };
 
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcTimeVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
@@ -106,14 +108,8 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
   @Test
   public void testShouldGetTimestampReturnValidTimestampWithoutCalendar() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          Timestamp expectedTimestamp = getTimestampForVector(currentRow);
-          final Timestamp result = accessor.getTimestamp(null);
-
-          collector.checkThat(result, is(expectedTimestamp));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getTimestamp(null),
+        (accessor, currentRow) -> is(getTimestampForVector(currentRow)));
   }
 
   @Test
@@ -121,16 +117,15 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
-          final Timestamp result = accessor.getTimestamp(calendar);
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
+      final Timestamp result = accessor.getTimestamp(calendar);
 
-          long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
+      long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-          collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+      collector.checkThat(accessor.wasNull(), is(false));
+    });
   }
 
   @Test
@@ -143,14 +138,10 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
   @Test
   public void testShouldGetTimeReturnValidTimeWithoutCalendar() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          Timestamp expectedTimestamp = getTimestampForVector(currentRow);
-          final Time result = accessor.getTime(null);
-
-          collector.checkThat(result, is(new Time(expectedTimestamp.getTime())));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getTime(null), (accessor, currentRow) -> {
+      Timestamp expectedTimestamp = getTimestampForVector(currentRow);
+      return is(new Time(expectedTimestamp.getTime()));
+    });
   }
 
   @Test
@@ -158,16 +149,15 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final Time resultWithoutCalendar = accessor.getTime(null);
-          final Time result = accessor.getTime(calendar);
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      final Time resultWithoutCalendar = accessor.getTime(null);
+      final Time result = accessor.getTime(calendar);
 
-          long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
+      long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-          collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+      collector.checkThat(accessor.wasNull(), is(false));
+    });
   }
 
   @Test
@@ -195,10 +185,8 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getObjectClass(), equalTo(Time.class));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcTimeVectorAccessor::getObjectClass,
+        equalTo(Time.class));
   }
 
   @Test
@@ -218,18 +206,17 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
           new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0);
 
-      iterateOnAccessor(vector, accessorSupplier,
-          (accessor, currentRow) -> {
-            final String string = accessor.getString();
-            varCharVector.set(0, new Text(string));
-            varCharVector.setValueCount(1);
+      accessorIterator.iterate(vector, (accessor, currentRow) -> {
+        final String string = accessor.getString();
+        varCharVector.set(0, new Text(string));
+        varCharVector.setValueCount(1);
 
-            Time timeFromVarChar = varCharVectorAccessor.getTime(calendar);
-            Time time = accessor.getTime(calendar);
+        Time timeFromVarChar = varCharVectorAccessor.getTime(calendar);
+        Time time = accessor.getTime(calendar);
 
-            collector.checkThat(time, is(timeFromVarChar));
-            collector.checkThat(accessor.wasNull(), is(false));
-          });
+        collector.checkThat(time, is(timeFromVarChar));
+        collector.checkThat(accessor.wasNull(), is(false));
+      });
     }
   }
 }

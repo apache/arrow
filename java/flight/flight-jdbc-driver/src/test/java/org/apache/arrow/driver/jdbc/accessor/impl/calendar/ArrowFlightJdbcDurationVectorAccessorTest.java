@@ -17,12 +17,12 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.time.Duration;
 
+import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.DurationVector;
@@ -49,6 +49,9 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDurationVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> new ArrowFlightJdbcDurationVectorAccessor((DurationVector) vector, getCurrentRow);
 
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDurationVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+
   @Before
   public void setup() {
     FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
@@ -68,26 +71,9 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
 
   @Test
   public void getObject() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          Duration result = (Duration) accessor.getObject();
-
-          collector.checkThat(result, is(Duration.ofDays(currentRow + 1)));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDurationVectorAccessor::getObject,
+        (accessor, currentRow) -> is(Duration.ofDays(currentRow + 1)));
   }
-
-  @Test
-  public void getObjectPassingDurationAsParameter() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          Duration result = accessor.getObject(Duration.class);
-
-          collector.checkThat(result, is(Duration.ofDays(currentRow + 1)));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
-  }
-
 
   @Test
   public void getObjectForNull() throws Exception {
@@ -96,20 +82,14 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
       vector.setNull(i);
     }
 
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getObject(), equalTo(null));
-          collector.checkThat(accessor.wasNull(), is(true));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDurationVectorAccessor::getObject,
+        (accessor, currentRow) -> equalTo(null));
   }
 
   @Test
   public void getString() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          collector.checkThat(accessor.getString(), is(Duration.ofDays(currentRow + 1).toString()));
-          collector.checkThat(accessor.wasNull(), is(false));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcAccessor::getString,
+        (accessor, currentRow) -> is(Duration.ofDays(currentRow + 1).toString()));
   }
 
   @Test
@@ -119,21 +99,13 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
       vector.setNull(i);
     }
 
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          String result = accessor.getString();
-
-          collector.checkThat(result, equalTo(null));
-          collector.checkThat(accessor.wasNull(), is(true));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcAccessor::getString,
+        (accessor, currentRow) -> equalTo(null));
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-
-          collector.checkThat(accessor.getObjectClass(), equalTo(Duration.class));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcAccessor::getObjectClass,
+        (accessor, currentRow) -> equalTo(Duration.class));
   }
 }

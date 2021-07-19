@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.util.Arrays;
@@ -35,7 +34,6 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
-import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -58,7 +56,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
   private BaseIntVector vector;
   private final Supplier<BaseIntVector> vectorSupplier;
 
-  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> {
         if (vector instanceof UInt1Vector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow);
@@ -79,6 +77,9 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
         }
         throw new UnsupportedOperationException();
       };
+
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
@@ -110,49 +111,25 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
 
   @Test
   public void testShouldConvertToByteMethodFromBaseIntVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final long result = accessor.getLong();
-          final byte secondResult = accessor.getByte();
-
-          collector.checkThat(secondResult, equalTo((byte) result));
-
-          collector.checkThat(result, CoreMatchers.notNullValue());
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getByte,
+        (accessor, currentRow) -> equalTo((byte) accessor.getLong()));
   }
 
   @Test
   public void testShouldConvertToShortMethodFromBaseIntVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final long result = accessor.getLong();
-          final short secondResult = accessor.getShort();
-
-          collector.checkThat(secondResult, equalTo((short) result));
-
-          collector.checkThat(result, CoreMatchers.notNullValue());
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getShort,
+        (accessor, currentRow) -> equalTo((short) accessor.getLong()));
   }
 
   @Test
   public void testShouldConvertToIntegerMethodFromBaseIntVector() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-          final long result = accessor.getLong();
-          final int secondResult = accessor.getInt();
-
-          collector.checkThat(secondResult, equalTo((int) result));
-
-          collector.checkThat(result, CoreMatchers.notNullValue());
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getInt,
+        (accessor, currentRow) -> equalTo((int) accessor.getLong()));
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-
-          collector.checkThat(accessor.getObjectClass(), equalTo(Long.class));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass,
+        equalTo(Long.class));
   }
 }

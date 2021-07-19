@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -45,12 +44,14 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;
 
-  private AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
+  private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor> accessorSupplier =
       (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector, getCurrentRow);
+
+  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() {
-
     this.arrayToAssert = new boolean[] {false, true};
     this.vector = rootAllocatorTestRule.createBitVector();
     this.vectorWithNull = rootAllocatorTestRule.createBitVectorForNullTests();
@@ -64,11 +65,8 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   private <T> void iterate(Function<ArrowFlightJdbcBitVectorAccessor, T> function, T result, T resultIfFalse,
                            BitVector vector) throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        ((accessor, currentRow) -> {
-          final T value = function.apply(accessor);
-          collector.checkThat(value, is(arrayToAssert[currentRow] ? result : resultIfFalse));
-        })
+    accessorIterator.assertAccessorGetter(vector, function,
+        ((accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse))
     );
   }
 
@@ -160,10 +158,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier,
-        (accessor, currentRow) -> {
-
-          collector.checkThat(accessor.getObjectClass(), equalTo(Long.class));
-        });
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBitVectorAccessor::getObjectClass,
+        equalTo(Long.class));
   }
 }
