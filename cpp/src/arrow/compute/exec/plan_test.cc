@@ -424,7 +424,7 @@ TEST(ExecPlanExecution, SourceProjectSink) {
 
 namespace {
 
-BatchesWithSchema MakeGroupableBatches() {
+BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
   BatchesWithSchema out;
 
   out.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
@@ -443,6 +443,13 @@ BatchesWithSchema MakeGroupableBatches() {
                    [-8, "alfa"]
                  ])")};
 
+  int num_batches = out.batches.size();
+  for (int repeat = 1; repeat < multiplicity; ++repeat) {
+    for (int i = 0; i < num_batches; ++i) {
+      out.batches.push_back(out.batches[i]);
+    }
+  }
+
   out.schema = schema({field("i32", int32()), field("str", utf8())});
 
   return out;
@@ -450,60 +457,83 @@ BatchesWithSchema MakeGroupableBatches() {
 }  // namespace
 
 TEST(ExecPlanExecution, SourceGroupedSum) {
-  auto input = MakeGroupableBatches();
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", input,
-                                          /*parallel=*/false, /*slow=*/false));
-  ASSERT_OK_AND_ASSIGN(
-      auto gby, MakeGroupByNode(source, "gby", /*keys=*/{"str"}, /*targets=*/{"i32"},
-                                {{"hash_sum", nullptr}}));
-  auto sink_gen = MakeSinkNode(gby, "sink");
+    auto input = MakeGroupableBatches(/*multiplicity=*/use_threads ? 100 : 1);
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
-                  {int64(), utf8()}, R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+    ExecNode* source;
+    if (use_threads) {
+      source = MakeParallelTestSourceNode(plan.get(), "source", input.schema,
+                                          input.batches, /*use_threads=*/true);
+    } else {
+      ASSERT_OK_AND_ASSIGN(source,
+                           MakeTestSourceNode(plan.get(), "source", input,
+                                              /*parallel=*/false, /*slow=*/false));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto gby, MakeGroupByNode(source, "gby", /*keys=*/{"str"}, /*targets=*/{"i32"},
+                                  {{"hash_sum", nullptr}}));
+    auto sink_gen = MakeSinkNode(gby, "sink");
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+                    {int64(), utf8()},
+                    use_threads ? R"([[800, "alfa"], [1000, "beta"], [400, "gama"]])"
+                                : R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
+  }
 }
 
 TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
-  auto input = MakeGroupableBatches();
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    int batch_multiplicity = use_threads ? 100 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
 
-  ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", input,
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-                                          /*parallel=*/false, /*slow=*/false));
+    ExecNode* source;
+    if (use_threads) {
+      source = MakeParallelTestSourceNode(plan.get(), "source", input.schema,
+                                          input.batches, /*use_threads=*/true);
+    } else {
+      ASSERT_OK_AND_ASSIGN(source,
+                           MakeTestSourceNode(plan.get(), "source", input,
+                                              /*parallel=*/false, /*slow=*/false));
+    }
 
-  ASSERT_OK_AND_ASSIGN(
-      auto filter,
-      MakeFilterNode(source, "filter", greater_equal(field_ref("i32"), literal(0))));
+    ASSERT_OK_AND_ASSIGN(
+        auto filter,
+        MakeFilterNode(source, "filter", greater_equal(field_ref("i32"), literal(0))));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto projection,
-      MakeProjectNode(filter, "project",
-                      {
-                          field_ref("str"),
-                          call("multiply", {field_ref("i32"), literal(2)}),
-                      }));
+    ASSERT_OK_AND_ASSIGN(
+        auto projection,
+        MakeProjectNode(filter, "project",
+                        {
+                            field_ref("str"),
+                            call("multiply", {field_ref("i32"), literal(2)}),
+                        }));
 
-  ASSERT_OK_AND_ASSIGN(auto gby, MakeGroupByNode(projection, "gby", /*keys=*/{"str"},
-                                                 /*targets=*/{"multiply(i32, 2)"},
-                                                 {{"hash_sum", nullptr}}));
+    ASSERT_OK_AND_ASSIGN(auto gby, MakeGroupByNode(projection, "gby", /*keys=*/{"str"},
+                                                   /*targets=*/{"multiply(i32, 2)"},
+                                                   {{"hash_sum", nullptr}}));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto having,
-      MakeFilterNode(gby, "having", greater(field_ref("hash_sum"), literal(10))));
+    ASSERT_OK_AND_ASSIGN(
+        auto having,
+        MakeFilterNode(gby, "having",
+                       greater(field_ref("hash_sum"), literal(10 * batch_multiplicity))));
 
-  auto sink_gen = MakeSinkNode(having, "sink");
+    auto sink_gen = MakeSinkNode(having, "sink");
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(
-                  UnorderedElementsAreArray({ExecBatchFromJSON({int64(), utf8()}, R"([
-                      [36, "alfa"],
-                      [20, "beta"]
-                  ])")}))));
+    ASSERT_THAT(
+        StartAndCollect(plan.get(), sink_gen),
+        Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+            {int64(), utf8()}, use_threads ? R"([[3600, "alfa"], [2000, "beta"]])"
+                                           : R"([[36, "alfa"], [20, "beta"]])")}))));
+  }
 }
 
 TEST(ExecPlanExecution, SourceScalarAggSink) {

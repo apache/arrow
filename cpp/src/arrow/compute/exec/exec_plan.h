@@ -242,6 +242,10 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          std::shared_ptr<Schema> output_schema,
                          std::function<Future<util::optional<ExecBatch>>()>);
 
+ExecNode* MakeParallelTestSourceNode(ExecPlan* plan, std::string label,
+                                     std::shared_ptr<Schema> schema,
+                                     std::vector<ExecBatch> batches, bool use_threads);
+
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
 /// Emitted batches will not be ordered.
@@ -290,6 +294,11 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> keys,
                                   std::vector<std::string> agg_srcs,
                                   std::vector<internal::Aggregate> aggs);
+
+Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                   const std::vector<Datum>& keys,
+                                   const std::vector<internal::Aggregate>& aggregates,
+                                   bool use_threads, ExecContext* ctx);
 
 }  // namespace compute
 }  // namespace arrow

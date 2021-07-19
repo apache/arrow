@@ -22,10 +22,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -35,6 +37,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -336,6 +341,88 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          AsyncGenerator<util::optional<ExecBatch>> generator) {
   return plan->EmplaceNode<SourceNode>(plan, std::move(label), std::move(output_schema),
                                        std::move(generator));
+}
+
+struct ParallelTestSourceNode : ExecNode {
+  ParallelTestSourceNode(ExecPlan* plan, std::string label,
+                         std::shared_ptr<Schema> schema, std::vector<ExecBatch> batches,
+                         bool use_threads)
+      : ExecNode(plan, std::move(label), {}, {}, std::move(schema),
+                 /*num_outputs=*/1),
+        batches_(std::move(batches)),
+        use_threads_(use_threads) {}
+
+  const char* kind_name() override { return "ParallelTestSourceNode"; }
+
+  [[noreturn]] static void NoInputs() {
+    DCHECK(false) << "no inputs; this should never be called";
+    std::abort();
+  }
+  [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
+  [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
+  [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
+
+  Status StartProducing() override {
+    DCHECK(!stop_requested_) << "Restarted ParllelTestSourceNode";
+
+    auto task_group = use_threads_ ? arrow::internal::TaskGroup::MakeThreaded(
+                                         arrow::internal::GetCpuThreadPool())
+                                   : arrow::internal::TaskGroup::MakeSerial();
+
+    for (size_t i = 0; i < batches_.size(); ++i) {
+      task_group->Append([this, i] {
+        std::unique_lock<std::mutex> lock(mutex_);
+        int seq = batch_count_++;
+        if (stop_requested_) {
+          return Status::OK();
+        }
+        lock.unlock();
+
+        outputs_[0]->InputReceived(this, seq, batches_[seq]);
+
+        if (seq + 1 == static_cast<int>(batches_.size())) {
+          outputs_[0]->InputFinished(this, seq + 1);
+        }
+
+        return Status::OK();
+      });
+    }
+
+    RETURN_NOT_OK(task_group->Finish());
+
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    DCHECK_EQ(output, outputs_[0]);
+    StopProducing();
+  }
+
+  void StopProducing() override {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stop_requested_ = true;
+  }
+
+  Future<> finished() override { return finished_; }
+
+ private:
+  Future<> finished_ = Future<>::MakeFinished();
+  std::mutex mutex_;
+  bool stop_requested_{false};
+  int batch_count_{0};
+  std::vector<ExecBatch> batches_;
+  bool use_threads_;
+};
+
+ExecNode* MakeParallelTestSourceNode(ExecPlan* plan, std::string label,
+                                     std::shared_ptr<Schema> schema,
+                                     std::vector<ExecBatch> batches, bool use_threads) {
+  return plan->EmplaceNode<ParallelTestSourceNode>(
+      plan, std::move(label), std::move(schema), std::move(batches), use_threads);
 }
 
 struct FilterNode : ExecNode {
@@ -1063,9 +1150,9 @@ struct GroupByNode : ExecNode {
     }
 
     // Slice arrays
-    int64_t batch_start = n * output_batch_size_;
-    int64_t batch_length =
-        std::min(output_batch_size_, static_cast<int>(num_out_groups_ - batch_start));
+    int64_t batch_size = output_batch_size();
+    int64_t batch_start = n * batch_size;
+    int64_t batch_length = std::min(batch_size, num_out_groups_ - batch_start);
     std::vector<Datum> output_slices(out_data_.size());
     for (size_t out_field_id = 0; out_field_id < out_data_.size(); ++out_field_id) {
       output_slices[out_field_id] =
@@ -1077,8 +1164,7 @@ struct GroupByNode : ExecNode {
 
     uint32_t num_output_batches_processed =
         1 + num_output_batches_processed_.fetch_add(1);
-    if (static_cast<uint64_t>(num_output_batches_processed) * output_batch_size_ >=
-        num_out_groups_) {
+    if (num_output_batches_processed * batch_size >= num_out_groups_) {
       finished_.MarkFinished();
     }
 
@@ -1094,8 +1180,8 @@ struct GroupByNode : ExecNode {
     RETURN_NOT_OK(Merge());
     RETURN_NOT_OK(Finalize());
 
-    int num_result_batches =
-        (num_out_groups_ + output_batch_size_ - 1) / output_batch_size_;
+    int batch_size = output_batch_size();
+    int num_result_batches = (num_out_groups_ + batch_size - 1) / batch_size;
     outputs_[0]->InputFinished(this, num_result_batches);
 
     auto executor = arrow::internal::GetCpuThreadPool();
@@ -1182,9 +1268,16 @@ struct GroupByNode : ExecNode {
   Future<> finished() override { return finished_; }
 
  private:
+  int output_batch_size() const {
+    int result = static_cast<int>(ctx_->exec_chunksize());
+    if (result < 0) {
+      result = 32 * 1024;
+    }
+    return result;
+  }
+
   ExecContext* ctx_;
   Future<> finished_ = Future<>::MakeFinished();
-  int output_batch_size_{32 * 1024};
 
   std::atomic<int> num_input_batches_processed_;
   std::atomic<int> num_input_batches_total_;
@@ -1268,6 +1361,81 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
       input, std::move(label), schema(std::move(output_fields)), ctx,
       std::move(key_field_ids), std::move(agg_src_field_ids), std::move(aggs),
       std::move(agg_kernels));
+}
+
+Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                   const std::vector<Datum>& keys,
+                                   const std::vector<internal::Aggregate>& aggregates,
+                                   bool use_threads, ExecContext* ctx) {
+  using arrow::compute::detail::ExecBatchIterator;
+
+  FieldVector scan_fields(arguments.size() + keys.size());
+  std::vector<std::string> keys_str(keys.size());
+  std::vector<std::string> arguments_str(arguments.size());
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    arguments_str[i] = std::string("agg_") + std::to_string(i);
+    scan_fields[i] = field(arguments_str[i], arguments[i].type());
+  }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    keys_str[i] = std::string("key_") + std::to_string(i);
+    scan_fields[arguments.size() + i] = field(keys_str[i], keys[i].type());
+  }
+
+  std::vector<ExecBatch> scan_batches;
+  std::vector<Datum> inputs;
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    inputs.push_back(arguments[i]);
+  }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    inputs.push_back(keys[i]);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
+                        ExecBatchIterator::Make(inputs, ctx->exec_chunksize()));
+  ExecBatch batch;
+  while (batch_iterator->Next(&batch)) {
+    if (batch.length == 0) continue;
+    scan_batches.push_back(batch);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
+  ExecNode* source;
+  source = MakeParallelTestSourceNode(plan.get(), "source", schema(scan_fields),
+                                      scan_batches, use_threads);
+  ARROW_ASSIGN_OR_RAISE(
+      auto gby, MakeGroupByNode(source, "gby", keys_str, arguments_str, aggregates));
+  auto sink_gen = MakeSinkNode(gby, "sink");
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(sink_gen);
+
+  auto start_and_collect =
+      AllComplete({plan->finished(), Future<>(collected_fut)})
+          .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+            ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+            return ::arrow::internal::MapVector(
+                [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+                std::move(collected));
+          });
+
+  std::vector<ExecBatch> output_batches =
+      std::move(start_and_collect.MoveResult().MoveValueUnsafe());
+
+  ArrayDataVector out_data(arguments.size() + keys.size());
+  for (size_t i = 0; i < arguments.size() + keys.size(); ++i) {
+    std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      arrays[j] = output_batches[j].values[i].make_array();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_array, Concatenate(arrays));
+    out_data[i] = concatenated_array->data();
+  }
+
+  int64_t length = out_data[0]->length;
+  return ArrayData::Make(struct_(gby->output_schema()->fields()), length,
+                         {/*null_bitmap=*/nullptr}, std::move(out_data),
+                         /*null_count=*/0);
 }
 
 }  // namespace compute
