@@ -48,11 +48,12 @@ Status MismatchingColumns(const InvalidRow& row) {
     ellipse = " ...";
   }
   if (row.number < 0) {
-    return ParseError("Expected ", row.expected_columns, " columns, got ",
-                      row.actual_columns, ": ", row_string, ellipse);
+    return ParseError("Row offset ", row.offset, ": Expected ", row.expected_columns,
+                      " columns, got ", row.actual_columns, ": ", row_string, ellipse);
   }
-  return ParseError("Row #", row.number, ": Expected ", row.expected_columns,
-                    " columns, got ", row.actual_columns, ": ", row_string, ellipse);
+  return ParseError("Row #", row.number, ", offset ", row.offset, ": Expected ",
+                    row.expected_columns, " columns, got ", row.actual_columns, ": ",
+                    row_string, ellipse);
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
@@ -100,6 +101,52 @@ class PresizedDataWriter {
   int64_t saved_parsed_size_;
 };
 
+/// \brief Utility class for writing one type of data into a buffer
+/// \tparam Type of the value stored in this buffer
+template <typename Type>
+class ResettableBuilder {
+ public:
+  explicit ResettableBuilder(MemoryPool* pool, int64_t capacity)
+      : size_(0), capacity_(capacity), mark_(-1) {
+    buffer_ = *AllocateResizableBuffer(capacity_ * sizeof(Type), pool);
+    typed_buffer_ = reinterpret_cast<Type*>(buffer_->mutable_data());
+  }
+
+  inline void Append(Type value) {
+    if (ARROW_PREDICT_FALSE(size_ == capacity_)) {
+      capacity_ *= 2;
+      ARROW_CHECK_OK(buffer_->Resize(capacity_ * sizeof(Type)));
+      typed_buffer_ = reinterpret_cast<Type*>(buffer_->mutable_data());
+    }
+    AppendUnsafe(value);
+  }
+
+  inline void AppendUnsafe(Type value) {
+    DCHECK_LT(size_, capacity_);
+    typed_buffer_[size_++] = value;
+  }
+
+  inline std::shared_ptr<Buffer> Finish() {
+    ARROW_CHECK_OK(buffer_->Resize(size_ * sizeof(Type)));
+    typed_buffer_ = nullptr;
+    return std::move(buffer_);
+  }
+
+  inline void Mark() { mark_ = size_; }
+
+  inline void Reset() { size_ = mark_; }
+
+  int64_t size() const { return size_; }
+  int64_t capacity() const { return capacity_; }
+
+ private:
+  std::shared_ptr<ResizableBuffer> buffer_;
+  Type* typed_buffer_;
+  int64_t size_;
+  int64_t capacity_;
+  int64_t mark_;
+};
+
 template <typename Derived>
 class ValueDescWriter {
  public:
@@ -111,10 +158,17 @@ class ValueDescWriter {
         {static_cast<uint32_t>(parsed_writer.size()) & 0x7fffffffU, false});
   }
 
-  void BeginLine() { saved_values_size_ = values_size_; }
+  void BeginLine(uint32_t offset) {
+    values_buffer_.Mark();
+    row_offsets_buffer_.Mark();
+    row_offsets_buffer_.Append(offset);
+  }
 
   // Rollback the state that was saved in BeginLine()
-  void RollbackLine() { values_size_ = saved_values_size_; }
+  void RollbackLine() {
+    values_buffer_.Reset();
+    row_offsets_buffer_.Reset();
+  }
 
   void StartField(bool quoted) { quoted_ = quoted; }
 
@@ -124,25 +178,20 @@ class ValueDescWriter {
         {static_cast<uint32_t>(parsed_writer->size()) & 0x7fffffffU, quoted_});
   }
 
-  void Finish(std::shared_ptr<Buffer>* out_values) {
-    ARROW_CHECK_OK(values_buffer_->Resize(values_size_ * sizeof(*values_)));
-    *out_values = values_buffer_;
+  void Finish(std::shared_ptr<Buffer>* out_values,
+              std::shared_ptr<Buffer>* out_row_offsets) {
+    *out_values = values_buffer_.Finish();
+    *out_row_offsets = row_offsets_buffer_.Finish();
   }
 
  protected:
-  ValueDescWriter(MemoryPool* pool, int64_t values_capacity)
-      : values_size_(0), values_capacity_(values_capacity) {
-    values_buffer_ = *AllocateResizableBuffer(values_capacity_ * sizeof(*values_), pool);
-    values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
-  }
+  ValueDescWriter(MemoryPool* pool, int64_t values_capacity, int32_t rows_offset_capacity)
+      : values_buffer_(pool, values_capacity),
+        row_offsets_buffer_(pool, rows_offset_capacity) {}
 
-  std::shared_ptr<ResizableBuffer> values_buffer_;
-  ParsedValueDesc* values_;
-  int64_t values_size_;
-  int64_t values_capacity_;
+  ResettableBuilder<ParsedValueDesc> values_buffer_;
+  ResettableBuilder<uint32_t> row_offsets_buffer_;
   bool quoted_;
-  // Checkpointing, for when an incomplete line is encountered at end of block
-  int64_t saved_values_size_;
 };
 
 // A helper class handling a growable buffer for values offsets.  This class is
@@ -150,17 +199,11 @@ class ValueDescWriter {
 // efficiently presize the target area for a given number of rows.
 class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter> {
  public:
-  explicit ResizableValueDescWriter(MemoryPool* pool)
-      : ValueDescWriter(pool, /*values_capacity=*/256) {}
+  explicit ResizableValueDescWriter(MemoryPool* pool, int32_t max_num_rows)
+      : ValueDescWriter(pool, /*values_capacity=*/256,
+                        /*row_offsets_capacity=*/std::min(max_num_rows, 256)) {}
 
-  void PushValue(ParsedValueDesc v) {
-    if (ARROW_PREDICT_FALSE(values_size_ == values_capacity_)) {
-      values_capacity_ = values_capacity_ * 2;
-      ARROW_CHECK_OK(values_buffer_->Resize(values_capacity_ * sizeof(*values_)));
-      values_ = reinterpret_cast<ParsedValueDesc*>(values_buffer_->mutable_data());
-    }
-    values_[values_size_++] = v;
-  }
+  void PushValue(ParsedValueDesc v) { values_buffer_.Append(v); }
 };
 
 // A helper class allocating the buffer for values offsets and writing into it
@@ -170,12 +213,10 @@ class ResizableValueDescWriter : public ValueDescWriter<ResizableValueDescWriter
 class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> {
  public:
   PresizedValueDescWriter(MemoryPool* pool, int32_t num_rows, int32_t num_cols)
-      : ValueDescWriter(pool, /*values_capacity=*/1 + num_rows * num_cols) {}
+      : ValueDescWriter(pool, /*values_capacity=*/1 + num_rows * num_cols,
+                        /*row_offsets_capacity=*/num_rows) {}
 
-  void PushValue(ParsedValueDesc v) {
-    DCHECK_LT(values_size_, values_capacity_);
-    values_[values_size_++] = v;
-  }
+  void PushValue(ParsedValueDesc v) { values_buffer_.AppendUnsafe(v); }
 };
 
 }  // namespace
@@ -183,12 +224,14 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
 class BlockParserImpl {
  public:
   BlockParserImpl(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                  int64_t first_row, int32_t max_num_rows)
+                  int64_t first_row, int64_t first_row_offset, int32_t max_num_rows)
       : pool_(pool),
         options_(options),
         first_row_(first_row),
+        first_row_offset_(first_row_offset),
+        row_offset_(first_row_offset),
         max_num_rows_(max_num_rows),
-        batch_(num_cols) {}
+        batch_(num_cols, first_row_offset) {}
 
   const DataBatch& parsed_batch() const { return batch_; }
 
@@ -210,7 +253,7 @@ class BlockParserImpl {
         batch_.num_rows_ + batch_.num_skipped_rows();
     InvalidRow row{batch_.num_cols_, num_cols,
                    first_row_ < 0 ? -1 : first_row_ + batch_row_including_skipped,
-                   util::string_view(start, end - start)};
+                   row_offset_, util::string_view(start, end - start)};
 
     if (options_.invalid_row_handler &&
         options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
@@ -223,6 +266,7 @@ class BlockParserImpl {
       // Record the logical row number (not including skipped) since that
       // is what we are going to look for later.
       batch_.skipped_rows_.push_back(batch_.num_rows_);
+      row_offset_ += data - start;
       *out_data = data;
       return Status::OK();
     }
@@ -242,7 +286,7 @@ class BlockParserImpl {
 
     auto FinishField = [&]() { values_writer->FinishField(parsed_writer); };
 
-    values_writer->BeginLine();
+    values_writer->BeginLine(static_cast<uint32_t>(row_offset_ - first_row_offset_));
     parsed_writer->BeginLine();
 
     // The parsing state machine
@@ -357,6 +401,7 @@ class BlockParserImpl {
       }
     }
     ++batch_.num_rows_;
+    row_offset_ += data - start;
     *out_data = data;
     return Status::OK();
 
@@ -383,6 +428,7 @@ class BlockParserImpl {
       }
       ++batch_.num_rows_;
     }
+    row_offset_ += data - start;
     *out_data = data;
     return Status::OK();
   }
@@ -407,11 +453,13 @@ class BlockParserImpl {
     }
     // Append new buffers and update size
     std::shared_ptr<Buffer> values_buffer;
-    values_writer->Finish(&values_buffer);
+    std::shared_ptr<Buffer> row_offsets_buffer;
+    values_writer->Finish(&values_buffer, &row_offsets_buffer);
     if (values_buffer->size() > 0) {
       values_size_ +=
           static_cast<int32_t>(values_buffer->size() / sizeof(ParsedValueDesc) - 1);
       batch_.values_buffers_.push_back(std::move(values_buffer));
+      batch_.row_offsets_buffers_.push_back(std::move(row_offsets_buffer));
     }
     *out_data = data;
     return Status::OK();
@@ -420,7 +468,7 @@ class BlockParserImpl {
   template <typename SpecializedOptions>
   Status ParseSpecialized(const std::vector<util::string_view>& views, bool is_final,
                           uint32_t* out_size) {
-    batch_ = DataBatch{batch_.num_cols_};
+    batch_ = DataBatch{batch_.num_cols_, batch_.offset_};
     values_size_ = 0;
 
     size_t total_view_length = 0;
@@ -443,7 +491,7 @@ class BlockParserImpl {
         // Can't presize values when the number of columns is not known, first parse
         // a single line
         const int32_t rows_in_chunk = 1;
-        ResizableValueDescWriter values_writer(pool_);
+        ResizableValueDescWriter values_writer(pool_, max_num_rows_);
         values_writer.Start(parsed_writer);
 
         RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
@@ -536,6 +584,10 @@ class BlockParserImpl {
   MemoryPool* pool_;
   const ParseOptions options_;
   const int64_t first_row_;
+  // Offset of first row in block
+  const int64_t first_row_offset_;
+  // Current row offset
+  int64_t row_offset_;
   // The maximum number of rows to parse from a block
   int32_t max_num_rows_;
 
@@ -546,12 +598,13 @@ class BlockParserImpl {
 };
 
 BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int64_t first_row,
-                         int32_t max_num_rows)
-    : BlockParser(default_memory_pool(), options, num_cols, first_row, max_num_rows) {}
+                         int64_t offset, int32_t max_num_rows)
+    : BlockParser(default_memory_pool(), options, num_cols, first_row, offset,
+                  max_num_rows) {}
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                         int64_t first_row, int32_t max_num_rows)
-    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, first_row,
+                         int64_t first_row, int64_t offset, int32_t max_num_rows)
+    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, first_row, offset,
                                 max_num_rows)) {}
 
 BlockParser::~BlockParser() {}

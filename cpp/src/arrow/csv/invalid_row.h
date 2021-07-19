@@ -35,6 +35,8 @@ struct InvalidRow {
   /// This number is one-based and also accounts for non-data rows (such as
   /// CSV header rows).
   int64_t number;
+  /// \brief The byte offset in the csv data where this row starts
+  int64_t offset;
   /// \brief View of the entire row. Memory will be freed after callback returns
   const util::string_view text;
 };

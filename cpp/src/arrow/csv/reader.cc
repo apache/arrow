@@ -155,7 +155,7 @@ struct CSVBlock {
 
 template <>
 struct IterationTraits<csv::CSVBlock> {
-  static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, 0, {}}; }
+  static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, -1, {}}; }
   static bool IsEnd(const csv::CSVBlock& val) { return val.block_index < 0; }
 };
 
@@ -391,17 +391,20 @@ namespace {
 class BlockParsingOperator {
  public:
   BlockParsingOperator(io::IOContext io_context, ParseOptions parse_options,
-                       int num_csv_cols, int64_t first_row)
+                       int num_csv_cols, int64_t first_row, int64_t offset)
       : io_context_(io_context),
         parse_options_(parse_options),
         num_csv_cols_(num_csv_cols),
         count_rows_(first_row >= 0),
-        num_rows_seen_(first_row) {}
+        num_rows_seen_(first_row),
+        next_block_offset_(offset) {}
 
   Result<ParsedBlock> operator()(const CSVBlock& block) {
     constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    auto parser = std::make_shared<BlockParser>(
-        io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
+    next_block_offset_ += block.bytes_skipped;
+    auto parser =
+        std::make_shared<BlockParser>(io_context_.pool(), parse_options_, num_csv_cols_,
+                                      num_rows_seen_, next_block_offset_, max_num_rows);
 
     std::shared_ptr<Buffer> straddling;
     std::vector<util::string_view> views;
@@ -428,6 +431,7 @@ class BlockParsingOperator {
     if (count_rows_) {
       num_rows_seen_ += parser->total_num_rows();
     }
+    next_block_offset_ += static_cast<int64_t>(parsed_size);
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
@@ -439,6 +443,7 @@ class BlockParsingOperator {
   int num_csv_cols_;
   bool count_rows_;
   int64_t num_rows_seen_;
+  int64_t next_block_offset_;
 };
 
 // A function object that takes in parsed batch of CSV data and decodes it to an arrow
@@ -554,6 +559,7 @@ class ReaderMixin {
         convert_options_(convert_options),
         count_rows_(count_rows),
         num_rows_seen_(count_rows_ ? 1 : -1),
+        parser_offset_(0),
         input_(std::move(input)) {}
 
  protected:
@@ -578,12 +584,13 @@ class ReaderMixin {
       if (count_rows_) {
         num_rows_seen_ += num_skipped_rows;
       }
+      parser_offset_ += data - buf->data();
     }
 
     if (read_options_.column_names.empty()) {
       // Parse one row (either to read column names or to know the number of columns)
       BlockParser parser(io_context_.pool(), parse_options_, num_csv_cols_,
-                         num_rows_seen_, 1);
+                         num_rows_seen_, parser_offset_, 1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(
           util::string_view(reinterpret_cast<const char*>(data), data_end - data),
@@ -612,6 +619,7 @@ class ReaderMixin {
         if (count_rows_) {
           ++num_rows_seen_;
         }
+        parser_offset_ += parsed_size;
       }
     } else {
       column_names_ = read_options_.column_names;
@@ -710,10 +718,11 @@ class ReaderMixin {
   Result<ParseResult> Parse(const std::shared_ptr<Buffer>& partial,
                             const std::shared_ptr<Buffer>& completion,
                             const std::shared_ptr<Buffer>& block, int64_t block_index,
-                            bool is_final) {
+                            bool is_final, int64_t offset) {
     static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    auto parser = std::make_shared<BlockParser>(
-        io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
+    auto parser =
+        std::make_shared<BlockParser>(io_context_.pool(), parse_options_, num_csv_cols_,
+                                      num_rows_seen_, offset, max_num_rows);
 
     std::shared_ptr<Buffer> straddling;
     std::vector<util::string_view> views;
@@ -742,6 +751,23 @@ class ReaderMixin {
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
   }
 
+  /// \brief add the `size()` of all buffers in `block` to `parser_offset_`
+  /// \return the parser offset which should be used by the caller
+  int64_t UpdateParserOffset(const CSVBlock& block) {
+    parser_offset_ += block.bytes_skipped;
+    auto block_offset = parser_offset_;
+    if (block.partial) {
+      parser_offset_ += block.partial->size();
+    }
+    if (block.completion) {
+      parser_offset_ += block.completion->size();
+    }
+    if (block.buffer) {
+      parser_offset_ += block.buffer->size();
+    }
+    return block_offset;
+  }
+
   io::IOContext io_context_;
   ReadOptions read_options_;
   ParseOptions parse_options_;
@@ -753,6 +779,8 @@ class ReaderMixin {
   bool count_rows_;
   // Number of rows seen in the csv. Not used if count_rows is false
   int64_t num_rows_seen_;
+  // The offset in the stream where the next parse call will start
+  int64_t parser_offset_;
   // Column names in the CSV file
   std::vector<std::string> column_names_;
   ConversionSchema conversion_schema_;
@@ -799,9 +827,9 @@ class BaseTableReader : public ReaderMixin, public csv::TableReader {
   Result<int64_t> ParseAndInsert(const std::shared_ptr<Buffer>& partial,
                                  const std::shared_ptr<Buffer>& completion,
                                  const std::shared_ptr<Buffer>& block,
-                                 int64_t block_index, bool is_final) {
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          Parse(partial, completion, block, block_index, is_final));
+                                 int64_t block_index, bool is_final, int64_t offset) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, Parse(partial, completion, block, block_index, is_final, offset));
     RETURN_NOT_OK(ProcessData(result.parser, block_index));
     return result.parsed_bytes;
   }
@@ -895,8 +923,8 @@ class StreamingReaderImpl : public ReaderMixin,
                           ProcessHeader(first_buffer, &after_header));
     bytes_decoded_->fetch_add(header_bytes_consumed);
 
-    auto parser_op =
-        BlockParsingOperator(io_context_, parse_options_, num_csv_cols_, num_rows_seen_);
+    auto parser_op = BlockParsingOperator(io_context_, parse_options_, num_csv_cols_,
+                                          num_rows_seen_, parser_offset_);
     ARROW_ASSIGN_OR_RAISE(
         auto decoder_op,
         BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
@@ -1009,11 +1037,13 @@ class SerialTableReader : public BaseTableReader {
         // EOF
         break;
       }
+      parser_offset_ += maybe_block.bytes_skipped;
       ARROW_ASSIGN_OR_RAISE(
           int64_t parsed_bytes,
           ParseAndInsert(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
-                         maybe_block.block_index, maybe_block.is_final));
+                         maybe_block.block_index, maybe_block.is_final, parser_offset_));
       RETURN_NOT_OK(maybe_block.consume_bytes(parsed_bytes));
+      parser_offset_ += parsed_bytes;
     }
     // Finish conversion, create schema and table
     RETURN_NOT_OK(task_group_->Finish());
@@ -1083,13 +1113,14 @@ class AsyncThreadedTableReader
         // we can be assured maybe_block has a value.
         DCHECK_GE(maybe_block.block_index, 0);
         DCHECK(!maybe_block.consume_bytes);
+        auto current_offset = self->UpdateParserOffset(maybe_block);
 
         // Launch parse task
-        self->task_group_->Append([self, maybe_block] {
+        self->task_group_->Append([self, maybe_block, current_offset] {
           return self
               ->ParseAndInsert(maybe_block.partial, maybe_block.completion,
                                maybe_block.buffer, maybe_block.block_index,
-                               maybe_block.is_final)
+                               maybe_block.is_final, current_offset)
               .status();
         });
         return Status::OK();
@@ -1213,13 +1244,15 @@ class CSVRowCounter : public ReaderMixin,
     // IterationEnd.
     std::function<Result<util::optional<int64_t>>(const CSVBlock&)> count_cb =
         [self](const CSVBlock& maybe_block) -> Result<util::optional<int64_t>> {
-      ARROW_ASSIGN_OR_RAISE(
-          auto parser,
-          self->Parse(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
-                      maybe_block.block_index, maybe_block.is_final));
+      self->parser_offset_ += maybe_block.bytes_skipped;
+      ARROW_ASSIGN_OR_RAISE(auto parser,
+                            self->Parse(maybe_block.partial, maybe_block.completion,
+                                        maybe_block.buffer, maybe_block.block_index,
+                                        maybe_block.is_final, self->parser_offset_));
       RETURN_NOT_OK(maybe_block.consume_bytes(parser.parsed_bytes));
       int32_t total_row_count = parser.parser->total_num_rows();
       self->row_count_ += total_row_count;
+      self->parser_offset_ += parser.parsed_bytes;
       return total_row_count;
     };
     auto count_gen = MakeMappedGenerator(block_generator_, std::move(count_cb));

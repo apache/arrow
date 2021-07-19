@@ -15,16 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/csv/parser.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include "arrow/csv/options.h"
-#include "arrow/csv/parser.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -296,7 +297,7 @@ TEST(BlockParser, Newlines) {
 
 TEST(BlockParser, MaxNumRows) {
   auto csv = MakeCSVData({"a\n", "b\n", "c\n", "d\n"});
-  BlockParser parser(ParseOptions::Defaults(), -1, 0, 3 /* max_num_rows */);
+  BlockParser parser(ParseOptions::Defaults(), -1, 0, 0, 3 /* max_num_rows */);
 
   AssertParsePartial(parser, csv, 6);
   AssertColumnsEq(parser, {{"a", "b", "c"}});
@@ -542,7 +543,9 @@ TEST(BlockParser, MismatchingNumColumns) {
     Status st = Parse(parser, csv, &out_size);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        testing::HasSubstr("CSV parse error: Row #1: Expected 2 columns, got 1: c"), st);
+        testing::HasSubstr(
+            "CSV parse error: Row #1, offset 4: Expected 2 columns, got 1: c"),
+        st);
   }
   {
     BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 0 /* first_row */);
@@ -550,15 +553,19 @@ TEST(BlockParser, MismatchingNumColumns) {
     Status st = Parse(parser, csv, &out_size);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        testing::HasSubstr("CSV parse error: Row #0: Expected 2 columns, got 1: a"), st);
+        testing::HasSubstr(
+            "CSV parse error: Row #0, offset 0: Expected 2 columns, got 1: a"),
+        st);
   }
   {
-    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 50 /* first_row */);
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 50 /* first_row */, 187
+                       /*offset*/);
     auto csv = MakeCSVData({"a,b,c\n"});
     Status st = Parse(parser, csv, &out_size);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        testing::HasSubstr("CSV parse error: Row #50: Expected 2 columns, got 3: a,b,c"),
+        testing::HasSubstr(
+            "CSV parse error: Row #50, offset 187: Expected 2 columns, got 3: a,b,c"),
         st);
   }
   // No row number
@@ -567,7 +574,9 @@ TEST(BlockParser, MismatchingNumColumns) {
     auto csv = MakeCSVData({"a\n"});
     Status st = Parse(parser, csv, &out_size);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, testing::HasSubstr("CSV parse error: Expected 2 columns, got 1: a"), st);
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row offset 0: Expected 2 columns, got 1: a"),
+        st);
   }
 }
 
@@ -742,44 +751,44 @@ TEST(BlockParser, QuotedEscape) {
   }
 }
 
-TEST(BlockParser, RowNumberAppendedToError) {
+TEST(BlockParser, RowNumberAndOffsetAppendedToError) {
   auto options = ParseOptions::Defaults();
   auto csv = "a,b,c\nd,e,f\ng,h,i\n";
   {
-    BlockParser parser(options, -1, 0);
+    BlockParser parser(options, /*num_cols=*/-1, /*first_row=*/0);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
     auto status = parser.VisitColumn(
         0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
           return ++row == 2 ? Status::Invalid("Bad value") : Status::OK();
         });
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #1: Bad value"),
-                                    status);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Row #1, offset 6: Bad value"), status);
   }
 
   {
-    BlockParser parser(options, -1, 100);
+    BlockParser parser(options, /*num_cols=*/-1, /*first_row=*/100, /*offset=*/5000);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
     auto status = parser.VisitColumn(
         0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
           return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
         });
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #102: Bad value"),
-                                    status);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Row #102, offset 5012: Bad value"), status);
   }
 
-  // No first row specified should not append row information
+  // No first row specified should not append row information but should have offset
   {
-    BlockParser parser(options, -1, -1);
+    BlockParser parser(options, /*num_cols=*/-1, /*first_row=*/-1, /*offset=*/5000);
     ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
     int row = 0;
     auto status = parser.VisitColumn(
         0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
           return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
         });
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::Not(testing::HasSubstr("Row")),
-                                    status);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Row offset 5012: Bad value"), status);
   }
 
   // Error message is correct even with skipped parsed rows
@@ -796,8 +805,8 @@ TEST(BlockParser, RowNumberAppendedToError) {
           return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
         });
 
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #6: Bad value"),
-                                    status);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Row #6, offset 18: Bad value"), status);
   }
 }
 

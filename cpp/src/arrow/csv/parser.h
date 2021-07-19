@@ -55,7 +55,8 @@ struct ParsedValueDesc {
 
 class ARROW_EXPORT DataBatch {
  public:
-  explicit DataBatch(int32_t num_cols) : num_cols_(num_cols) {}
+  explicit DataBatch(int32_t num_cols, int64_t offset)
+      : num_cols_(num_cols), offset_(offset) {}
 
   /// \brief Return the number of parsed rows (not skipped)
   int32_t num_rows() const { return num_rows_; }
@@ -82,7 +83,8 @@ class ARROW_EXPORT DataBatch {
         auto quoted = values[pos + 1].quoted;
         Status status = visit(parsed_ + start, stop - start, quoted);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
-          return DecorateWithRowNumber(std::move(status), first_row, batch_row);
+          return DecorateWithRowNumber(std::move(status), first_row, batch_row, buf_index,
+                                       pos);
         }
       }
     }
@@ -108,16 +110,22 @@ class ARROW_EXPORT DataBatch {
   }
 
  protected:
-  Status DecorateWithRowNumber(Status&& status, int64_t first_row,
-                               int32_t batch_row) const {
+  Status DecorateWithRowNumber(Status&& status, int64_t first_row, int32_t batch_row,
+                               size_t buf_index, int32_t pos) const {
+    const auto& row_offsets_buffer = row_offsets_buffers_[buf_index];
+    const auto offsets = reinterpret_cast<const uint32_t*>(row_offsets_buffer->data());
+    int64_t row_offset = offset_ + offsets[pos / num_cols_];
+
     if (first_row >= 0) {
       // `skipped_rows_` is in ascending order by construction, so use bisection
       // to find out how many rows were skipped before `batch_row`.
       const auto skips_before =
           std::upper_bound(skipped_rows_.begin(), skipped_rows_.end(), batch_row) -
           skipped_rows_.begin();
-      status = status.WithMessage("Row #", batch_row + skips_before + first_row, ": ",
-                                  status.message());
+      status = status.WithMessage("Row #", batch_row + skips_before + first_row,
+                                  ", offset ", row_offset, ": ", status.message());
+    } else {
+      status = status.WithMessage("Row offset ", row_offset, ": ", status.message());
     }
     // Use return_if so that when extra context is enabled it will be added
     ARROW_RETURN_IF_(true, std::move(status), ARROW_STRINGIFY(status));
@@ -127,11 +135,14 @@ class ARROW_EXPORT DataBatch {
   int32_t num_rows_ = 0;
   // The number of columns
   int32_t num_cols_ = 0;
+  // The offset in the csv where this batch starts
+  int64_t offset_;
 
   // XXX should we ensure the parsed buffer is padded with 8 or 16 excess zero bytes?
   // It may help with null parsing...
   std::vector<std::shared_ptr<Buffer>> values_buffers_;
   std::shared_ptr<Buffer> parsed_buffer_;
+  std::vector<std::shared_ptr<Buffer>> row_offsets_buffers_;
   const uint8_t* parsed_ = NULLPTR;
   int32_t parsed_size_ = 0;
 
@@ -160,9 +171,10 @@ constexpr int32_t kMaxParserNumRows = 100000;
 class ARROW_EXPORT BlockParser {
  public:
   explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
-                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
-  explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
-                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
+                       int64_t first_row = -1, int64_t offset = 0,
+                       int32_t max_num_rows = kMaxParserNumRows);
+  explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
+                       int64_t first_row, int64_t offset, int32_t max_num_rows);
   ~BlockParser();
 
   /// \brief Parse a block of data

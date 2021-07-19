@@ -497,11 +497,11 @@ class BaseTestCSV(abc.ABC):
 
     def test_row_number_offset_in_errors(self):
         # Row numbers are only correctly counted in serial reads
-        def format_msg(msg_format, row, *args):
+        def format_msg(msg_format, row, csv, *args):
             if self.use_threads:
-                row_info = ""
+                row_info = "Row offset {}: ".format(len(csv))
             else:
-                row_info = "Row #{}: ".format(row)
+                row_info = "Row #{}, offset {}: ".format(row, len(csv))
             return msg_format.format(row_info, *args)
 
         csv, _ = make_random_csv(4, 100, write_names=True)
@@ -513,7 +513,7 @@ class BaseTestCSV(abc.ABC):
 
         # Test without skip_rows and column names in the csv
         csv_bad_columns = csv + b"1,2\r\n"
-        message_columns = format_msg("{}Expected 4 columns, got 2", 102)
+        message_columns = format_msg("{}Expected 4 columns, got 2", 102, csv)
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
             self.read_bytes(csv_bad_columns,
                             read_options=read_options,
@@ -532,7 +532,7 @@ class BaseTestCSV(abc.ABC):
         long_row = (b"this is a long row" * 15) + b",3\r\n"
         csv_bad_columns_long = csv + long_row
         message_long = format_msg("{}Expected 4 columns, got 2: {} ...", 102,
-                                  long_row[0:96].decode("utf-8"))
+                                  csv, long_row[0:96].decode("utf-8"))
         with pytest.raises(pa.ArrowInvalid, match=message_long):
             self.read_bytes(csv_bad_columns_long,
                             read_options=read_options,
@@ -562,7 +562,7 @@ class BaseTestCSV(abc.ABC):
         csv, _ = make_random_csv(4, 100, write_names=False)
         read_options.column_names = ["a", "b", "c", "d"]
         csv_bad_columns = csv + b"1,2\r\n"
-        message_columns = format_msg("{}Expected 4 columns, got 2", 101)
+        message_columns = format_msg("{}Expected 4 columns, got 2", 101, csv)
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
             self.read_bytes(csv_bad_columns,
                             read_options=read_options,
@@ -570,7 +570,7 @@ class BaseTestCSV(abc.ABC):
 
         csv_bad_columns_long = csv + long_row
         message_long = format_msg("{}Expected 4 columns, got 2: {} ...", 101,
-                                  long_row[0:96].decode("utf-8"))
+                                  csv, long_row[0:96].decode("utf-8"))
         with pytest.raises(pa.ArrowInvalid, match=message_long):
             self.read_bytes(csv_bad_columns_long,
                             read_options=read_options,
@@ -580,7 +580,7 @@ class BaseTestCSV(abc.ABC):
         message_value = format_msg(
             "In CSV column #0: {}"
             "CSV conversion error to int32: invalid value 'a'",
-            101)
+            101, csv)
         message_value = message_value.format(len(csv))
         with pytest.raises(pa.ArrowInvalid, match=message_value):
             self.read_bytes(csv_bad_type,
