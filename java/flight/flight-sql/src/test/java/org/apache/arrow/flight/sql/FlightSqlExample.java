@@ -43,8 +43,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -55,6 +55,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import javax.annotation.Nullable;
+
+import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -87,18 +91,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.DateUnit;
-import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
-import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
-import org.apache.arrow.vector.types.pojo.ArrowType.Date;
-import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
-import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.apache.arrow.vector.types.pojo.ArrowType.Null;
-import org.apache.arrow.vector.types.pojo.ArrowType.Time;
-import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -135,16 +128,8 @@ import io.grpc.Status;
 public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
-  private static final int BIT_WIDTH_8 = 8;
-  private static final int BIT_WIDTH_16 = 16;
-  private static final int BIT_WIDTH_32 = 32;
-  private static final int BIT_WIDTH_64 = 64;
-  private static final boolean IS_SIGNED_TRUE = true;
-  private static final int BATCH_ROW_SIZE = 1000;
-  @SuppressWarnings("unused") // TODO Verify whether this is needed.
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
-
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
   private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
 
@@ -226,78 +211,11 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return !exception.isPresent();
   }
 
-  /**
-   * Converts {@link Types} values returned from JDBC Apis to Arrow types.
-   *
-   * @param jdbcDataType {@link Types} value.
-   * @param precision    Precision of the type.
-   * @param scale        Scale of the type.
-   * @return The Arrow equivalent type.
-   */
-  static ArrowType getArrowTypeFromJdbcType(int jdbcDataType, int precision, int scale) {
-    switch (jdbcDataType) {
-      case Types.BIT:
-      case Types.BOOLEAN:
-        return Bool.INSTANCE;
-      case Types.TINYINT:
-        // sint8
-        return new Int(BIT_WIDTH_8, IS_SIGNED_TRUE);
-      case Types.SMALLINT:
-        // sint16
-        return new Int(BIT_WIDTH_16, IS_SIGNED_TRUE);
-      case Types.INTEGER:
-        // sint32
-        return new Int(BIT_WIDTH_32, IS_SIGNED_TRUE);
-      case Types.BIGINT:
-        // sint64
-        return new Int(BIT_WIDTH_64, IS_SIGNED_TRUE);
-      case Types.FLOAT:
-      case Types.REAL:
-        return new FloatingPoint(FloatingPointPrecision.SINGLE);
-      case Types.DOUBLE:
-        return new FloatingPoint(FloatingPointPrecision.DOUBLE);
-      case Types.NUMERIC:
-      case Types.DECIMAL:
-        return new Decimal(precision, scale);
-      case Types.DATE:
-        return new Date(DateUnit.DAY);
-      case Types.TIME:
-        // millis as int32
-        return new Time(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, BIT_WIDTH_32);
-      case Types.TIMESTAMP:
-        return new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, null);
-      case Types.BINARY:
-      case Types.VARBINARY:
-      case Types.LONGVARBINARY:
-        return Binary.INSTANCE;
-      case Types.NULL:
-        return Null.INSTANCE;
-
-      case Types.CHAR:
-      case Types.VARCHAR:
-      case Types.LONGVARCHAR:
-      case Types.CLOB:
-      case Types.NCHAR:
-      case Types.NVARCHAR:
-      case Types.LONGNVARCHAR:
-      case Types.NCLOB:
-
-      case Types.OTHER:
-      case Types.JAVA_OBJECT:
-      case Types.DISTINCT:
-      case Types.STRUCT:
-      case Types.ARRAY:
-      case Types.BLOB:
-      case Types.REF:
-      case Types.DATALINK:
-      case Types.ROWID:
-      case Types.SQLXML:
-      case Types.REF_CURSOR:
-      case Types.TIME_WITH_TIMEZONE:
-      case Types.TIMESTAMP_WITH_TIMEZONE:
-      default:
-        return ArrowType.Utf8.INSTANCE;
-    }
+  private static ArrowType getArrowTypeFromJdbcType(int jdbcDataType, int precision, int scale) {
+    final ArrowType type =
+        JdbcToArrowConfig.DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER.apply(new JdbcFieldInfo(jdbcDataType, precision, scale),
+            Calendar.getInstance());
+    return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
   /**
@@ -489,6 +407,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new Schema(resultSetFields);
   }
 
+  @Deprecated // TODO Maybe replace with `FlightSqlProducer#getSchema`
   private Schema buildSchema(ParameterMetaData parameterMetaData) throws SQLException {
     final List<Field> parameterFields = new ArrayList<>();
 
