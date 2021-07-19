@@ -140,10 +140,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
 
   public FlightSqlExample(final Location location) {
+    // TODO Constructor should not be doing work.
     Preconditions.checkState(
         removeDerbyDatabaseIfExists() && populateDerbyDatabase(),
         "Failed to reset Derby database!");
-
     final ConnectionFactory connectionFactory =
         new DriverManagerConnectionFactory(DATABASE_URI, new Properties());
     final PoolableConnectionFactory poolableConnectionFactory =
