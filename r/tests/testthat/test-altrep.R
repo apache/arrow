@@ -172,4 +172,8 @@ test_that("altrep min/max/sum identical to R versions for int", {
   expect_altrep_rountrip(x, min)
   expect_altrep_rountrip(x, max)
   expect_altrep_rountrip(x, sum)
+
+  # sum(x) is INT_MIN -> convert to double.
+  x <- as.integer(c(-2^31 + 1L, -1L))
+  expect_altrep_rountrip(x, sum)
 })
