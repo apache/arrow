@@ -76,8 +76,8 @@ COPY ci/scripts/install_minio.sh \
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 ENV ARROW_BUILD_TESTS=ON \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
@@ -100,4 +100,5 @@ ENV ARROW_BUILD_TESTS=ON \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED
+    Protobuf_SOURCE=BUNDLED \
+    zstd_SOURCE=BUNDLED
