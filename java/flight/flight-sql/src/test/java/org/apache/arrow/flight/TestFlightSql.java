@@ -60,6 +60,8 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
@@ -67,6 +69,7 @@ import org.hamcrest.Matcher;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -459,6 +462,35 @@ public class TestFlightSql {
           singletonList("VIEW")
       );
       collector.checkThat(tableTypes, is(expectedTableTypes));
+    }
+  }
+
+  @Test
+  public void testGetSqlInfoSchema() {
+    final FlightInfo info = sqlClient.getSqlInfo();
+    final Schema infoSchema = info.getSchema();
+    final List<Field> children = ImmutableList.of(
+        Field.nullable("string_value", MinorType.VARCHAR.getType()),
+        Field.nullable("int_value", MinorType.INT.getType()),
+        Field.nullable("bigint_value", MinorType.BIGINT.getType()),
+        Field.nullable("int32_bitmask", MinorType.INT.getType()));
+    List<Field> fields = ImmutableList.of(
+        Field.nullable("info_name", MinorType.VARCHAR.getType()),
+        new Field("value",
+            // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+            new FieldType(false, new ArrowType.Union(UnionMode.Dense, new int[0]), /*dictionary=*/null),
+            children));
+    final Schema expectedSchema = new Schema(fields);
+    collector.checkThat(infoSchema, is(expectedSchema));
+  }
+
+  @Test
+  @Ignore // TODO Implement this.
+  public void testGetSqlInfoResults() throws Exception {
+    try (FlightStream stream = sqlClient.getStream(sqlClient.getSqlInfo().getEndpoints().get(0).getTicket())) {
+      final List<List<String>> sqlInfo = getResults(stream);
+      // TODO Elaborate.
+      collector.checkThat(sqlInfo, is(notNullValue()));
     }
   }
 
