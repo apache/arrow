@@ -1043,24 +1043,11 @@ TEST_F(TestTableSortIndices, Boolean) {
   });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
-  std::shared_ptr<Table> table;
-  table = TableFromJSON(schema, {R"([{"a": true,    "b": null},
-                                       {"a": false,   "b": null},
-                                       {"a": true,    "b": true},
-                                       {"a": false,   "b": true},
-                                       {"a": true,    "b": false},
-                                       {"a": null,    "b": false},
-                                       {"a": false,   "b": null},
-                                       {"a": null,    "b": true}
-                                       ])"});
-
-  AssertSortIndices(table, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
-
-  table = TableFromJSON(schema, {R"([{"a": true,    "b": null},
+  auto table = TableFromJSON(schema, {R"([{"a": true,    "b": null},
                                        {"a": false,   "b": null},
                                        {"a": true,    "b": true},
                                        {"a": false,   "b": true}])",
-                                 R"([{"a": true,    "b": false},
+                                      R"([{"a": true,    "b": false},
                                        {"a": null,    "b": false},
                                        {"a": false,   "b": null},
                                        {"a": null,    "b": true}
