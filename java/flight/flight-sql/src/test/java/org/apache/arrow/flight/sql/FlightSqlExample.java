@@ -310,6 +310,37 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                          final @Nullable String schemaFilterPattern,
                                          final @Nullable String tableFilterPattern,
                                          final @Nullable String... tableTypes)
+  private static VectorSchemaRoot getSchemasRoot(final ResultSet data) throws SQLException {
+    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
+    final VarCharVector schemas = new VarCharVector("schema_name", allocator);
+    final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
+    vectors.forEach(FieldVector::allocateNew);
+    int rows = 0;
+
+    for (; data.next(); rows++) {
+      final String catalog = data.getString("TABLE_CATALOG");
+      if (isNull(catalog)) {
+        catalogs.setNull(rows);
+      } else {
+        catalogs.setSafe(rows, new Text(catalog));
+      }
+      schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
+    }
+
+    for (FieldVector vector : vectors) {
+      vector.setValueCount(rows);
+    }
+
+    return new VectorSchemaRoot(vectors);
+  }
+
+  protected Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                                     final boolean includeSchema,
+                                                     final @Nullable String catalog,
+                                                     final @Nullable String schemaFilterPattern,
+                                                     final @Nullable String tableFilterPattern,
+                                                     final @Nullable String... tableTypes)
       throws SQLException, IOException {
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", checkNotNull(allocator));
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
