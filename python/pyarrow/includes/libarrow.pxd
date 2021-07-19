@@ -2353,6 +2353,23 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
 
         @staticmethod
+        CResult[unique_ptr[CCodec]] CreateWithLevel" Create"(
+            CCompressionType codec,
+            int compression_level)
+
+        @staticmethod
+        c_bool SupportsCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] MinimumCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] MaximumCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] DefaultCompressionLevel(CCompressionType codec)
+
+        @staticmethod
         c_bool IsAvailable(CCompressionType codec)
 
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
@@ -2362,6 +2379,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
         c_string name() const
+        int compression_level() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

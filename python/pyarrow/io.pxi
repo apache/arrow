@@ -1625,6 +1625,40 @@ cdef class Codec(_Weakrefable):
         Type of compression codec to initialize, valid values are: 'gzip',
         'bz2', 'brotli', 'lz4' (or 'lz4_frame'), 'lz4_raw', 'zstd' and
         'snappy'.
+    compression_level: int, None
+        Optional parameter specifying how aggressively to compress.  The
+        possible ranges and effect of this parameter depend on the specific
+        codec chosen.  Higher values compress more but typically use more
+        resources (CPU/RAM).  Some codecs support negative values.
+
+        gzip
+            The compression_level maps to the memlevel parameter of
+            deflateInit2.  Higher levels use more RAM but are faster
+            and should have higher compression ratios.
+
+        bz2
+            The compression level maps to the blockSize100k parameter of
+            the BZ2_bzCompressInit function.  Higher levels use more RAM
+            but are faster and should have higher compression ratios.
+
+        brotli
+            The compression level maps to the BROTLI_PARAM_QUALITY
+            parameter.  Higher values are slower and should have higher
+            compression ratios.
+
+        lz4/lz4_frame/lz4_raw
+            The compression level parameter is not supported and must
+            be None
+
+        zstd
+            The compression level maps to the compressionLevel parameter
+            of ZSTD_initCStream.  Negative values are supported.  Higher
+            values are slower and should have higher compression ratios.
+
+        snappy
+            The compression level parameter is not supported and must
+            be None
+
 
     Raises
     ------
@@ -1632,9 +1666,14 @@ cdef class Codec(_Weakrefable):
         If invalid compression value is passed.
     """
 
-    def __init__(self, str compression not None):
+    def __init__(self, str compression not None, compression_level=None):
         cdef CCompressionType typ = _ensure_compression(compression)
-        self.wrapped = move(GetResultValue(CCodec.Create(typ)))
+        if compression_level is not None:
+            self.wrapped = shared_ptr[CCodec](move(GetResultValue(
+                CCodec.CreateWithLevel(typ, compression_level))))
+        else:
+            self.wrapped = shared_ptr[CCodec](move(GetResultValue(
+                CCodec.Create(typ))))
 
     cdef inline CCodec* unwrap(self) nogil:
         return self.wrapped.get()
@@ -1680,9 +1719,49 @@ cdef class Codec(_Weakrefable):
         cdef CCompressionType typ = _ensure_compression(compression)
         return CCodec.IsAvailable(typ)
 
+    @staticmethod
+    def supports_compression_level(str compression not None):
+        """
+        Returns true if the compression level parameter is supported
+        for the given codec.
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return CCodec.SupportsCompressionLevel(typ)
+
+    @staticmethod
+    def default_compression_level(str compression not None):
+        """
+        Returns the compression level that Arrow will use for the codec if
+        None is specified.
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return GetResultValue(CCodec.DefaultCompressionLevel(typ))
+
+    @staticmethod
+    def minimum_compression_level(str compression not None):
+        """
+        Returns the smallest valid value for the compression level
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return GetResultValue(CCodec.MinimumCompressionLevel(typ))
+
+    @staticmethod
+    def maximum_compression_level(str compression not None):
+        """
+        Returns the largest valid value for the compression level
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return GetResultValue(CCodec.MaximumCompressionLevel(typ))
+
     @property
     def name(self):
+        """Returns the name of the codec"""
         return frombytes(self.unwrap().name())
+
+    @property
+    def compression_level(self):
+        """Returns the compression level parameter of the codec"""
+        return frombytes(self.unwrap().compression_level())
 
     def compress(self, object buf, asbytes=False, memory_pool=None):
         """

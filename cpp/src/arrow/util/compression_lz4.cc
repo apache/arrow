@@ -300,6 +300,9 @@ class Lz4FrameCodec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::LZ4_FRAME; }
+  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
 
  protected:
   const LZ4F_preferences_t prefs_;
@@ -350,6 +353,9 @@ class Lz4Codec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::LZ4; }
+  int minimum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int maximum_compression_level() const override { return kUseDefaultCompressionLevel; }
+  int default_compression_level() const override { return kUseDefaultCompressionLevel; }
 };
 
 // ----------------------------------------------------------------------

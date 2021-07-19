@@ -52,6 +52,9 @@ constexpr int GZIP_CODEC = 16;
 // Determine if this is libz or gzip from header.
 constexpr int DETECT_CODEC = 32;
 
+constexpr int kGZipMinCompressionLevel = 1;
+constexpr int kGZipMaxCompressionLevel = 9;
+
 int CompressionWindowBitsForFormat(GZipFormat::type format) {
   int window_bits = WINDOW_BITS;
   switch (format) {
@@ -468,6 +471,9 @@ class GZipCodec : public Codec {
   Compression::type compression_type() const override { return Compression::GZIP; }
 
   int compression_level() const override { return compression_level_; }
+  int minimum_compression_level() const override { return kGZipMinCompressionLevel; }
+  int maximum_compression_level() const override { return kGZipMaxCompressionLevel; }
+  int default_compression_level() const override { return kGZipDefaultCompressionLevel; }
 
  private:
   // zlib is stateful and the z_stream state variable must be initialized

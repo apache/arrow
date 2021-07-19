@@ -624,6 +624,89 @@ def test_compress_decompress(compression):
         pa.decompress(compressed_bytes, codec=compression)
 
 
+@pytest.mark.parametrize("compression", [
+    pytest.param(
+        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    ),
+    "brotli",
+    "gzip",
+    "lz4",
+    "zstd",
+    "snappy"
+])
+def test_compression_level(compression):
+    if not Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+
+    # These codecs do not support a compression level
+    no_level = ['snappy', 'lz4']
+    if compression in no_level:
+        assert not Codec.supports_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec(compression, 0)
+        with pytest.raises(ValueError):
+            Codec.minimum_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec.maximum_compression_level(compression)
+        with pytest.raises(ValueError):
+            Codec.default_compression_level(compression)
+        return
+
+    INPUT_SIZE = 10000
+    test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
+                 .astype(np.uint8)
+                 .tobytes())
+    test_buf = pa.py_buffer(test_data)
+
+    min_level = Codec.minimum_compression_level(compression)
+    max_level = Codec.maximum_compression_level(compression)
+    default_level = Codec.default_compression_level(compression)
+
+    assert min_level < max_level
+    assert default_level >= min_level
+    assert default_level <= max_level
+
+    for compression_level in range(min_level, max_level+1):
+        codec = Codec(compression, compression_level)
+        compressed_buf = codec.compress(test_buf)
+        compressed_bytes = codec.compress(test_data, asbytes=True)
+        assert isinstance(compressed_bytes, bytes)
+        decompressed_buf = codec.decompress(compressed_buf, INPUT_SIZE)
+        decompressed_bytes = codec.decompress(compressed_bytes, INPUT_SIZE,
+                                              asbytes=True)
+
+        assert isinstance(decompressed_bytes, bytes)
+
+        assert decompressed_buf.equals(test_buf)
+        assert decompressed_bytes == test_data
+
+        with pytest.raises(ValueError):
+            codec.decompress(compressed_bytes)
+
+    # The ability to set a seed this way is not present on older versions of
+    # numpy (currently in our python 3.6 CI build).  Some inputs might just
+    # happen to compress the same between the two levels so using seeded
+    # random numbers is neccesary to help get more reliable results
+    #
+    # The goal of this part is to ensure the compression_level is being
+    # passed down to the C++ layer, not to verify the compression algs
+    # themselves
+    if not hasattr(np.random, 'default_rng'):
+        pytest.skip('Requires newer version of numpy')
+    rng = np.random.default_rng(seed=42)
+    values = rng.integers(0, 100, 1000)
+    arr = pa.array(values)
+    hard_to_compress_buffer = arr.buffers()[1]
+
+    weak_codec = Codec(compression, min_level)
+    weakly_compressed_buf = weak_codec.compress(hard_to_compress_buffer)
+
+    strong_codec = Codec(compression, max_level)
+    strongly_compressed_buf = strong_codec.compress(hard_to_compress_buffer)
+
+    assert len(weakly_compressed_buf) > len(strongly_compressed_buf)
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
@@ -1183,6 +1266,7 @@ def check_compressed_input(data, fn, compression):
         assert buf.to_pybytes() == data
 
 
+@pytest.mark.gzip
 def test_compressed_input_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_input_test.gz")
@@ -1209,6 +1293,7 @@ def check_compressed_concatenated(data, fn, compression):
         assert got == data
 
 
+@pytest.mark.gzip
 def test_compressed_concatenated_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_input_test2.gz")
@@ -1219,6 +1304,7 @@ def test_compressed_concatenated_gzip(tmpdir):
     check_compressed_concatenated(data, fn, "gzip")
 
 
+@pytest.mark.gzip
 def test_compressed_input_invalid():
     data = b"foo" * 10
     raw = pa.BufferReader(data)
@@ -1246,6 +1332,7 @@ def make_compressed_output(data, fn, compression):
         f.write(raw.getvalue())
 
 
+@pytest.mark.gzip
 def test_compressed_output_gzip(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     fn = str(tmpdir / "compressed_output_test.gz")
@@ -1433,6 +1520,7 @@ def test_transcoding_decoding_error(src_encoding, dest_encoding):
 # ----------------------------------------------------------------------
 # High-level API
 
+@pytest.mark.gzip
 def test_input_stream_buffer():
     data = b"some test data\n" * 10 + b"eof\n"
     for arg in [pa.py_buffer(data), memoryview(data)]:
@@ -1478,6 +1566,7 @@ def test_input_stream_file_path(tmpdir):
     assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1524,6 +1613,7 @@ def test_input_stream_file_path_buffered(tmpdir):
         pa.input_stream(file_path, buffer_size='million')
 
 
+@pytest.mark.gzip
 def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1539,6 +1629,7 @@ def test_input_stream_file_path_compressed_and_buffered(tmpdir):
     assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_python_file(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     bio = BytesIO(data)
@@ -1562,6 +1653,7 @@ def test_input_stream_python_file(tmpdir):
         assert stream.read() == data
 
 
+@pytest.mark.gzip
 def test_input_stream_native_file():
     data = b"some test data\n" * 10 + b"eof\n"
     gz_data = gzip.compress(data)
@@ -1640,6 +1732,7 @@ def test_output_stream_file_path(tmpdir):
     check_data(pathlib.Path(str(file_path)), data)
 
 
+@pytest.mark.gzip
 def test_output_stream_file_path_compressed(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
     file_path = tmpdir / 'output_stream.gz'
@@ -1690,6 +1783,7 @@ def test_output_stream_file_path_buffered(tmpdir):
     assert result == data
 
 
+@pytest.mark.gzip
 def test_output_stream_file_path_compressed_and_buffered(tmpdir):
     data = b"some test data\n" * 100 + b"eof\n"
     file_path = tmpdir / 'output_stream_compressed_and_buffered.gz'
@@ -1729,6 +1823,7 @@ def test_output_stream_destructor(tmpdir):
     assert check_data(file_path, data, buffer_size=1024) == data
 
 
+@pytest.mark.gzip
 def test_output_stream_python_file(tmpdir):
     data = b"some test data\n" * 10 + b"eof\n"
 
