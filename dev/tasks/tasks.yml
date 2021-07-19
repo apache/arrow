@@ -355,9 +355,9 @@ tasks:
                                                    ("10.13", "high-sierra", "ON")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
-  wheel-osx-{{ macos_codename }}-{{ python_tag }}:
+  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
     ci: github
-    template: python-wheels/github.osx.yml
+    template: python-wheels/github.osx.amd64.yml
     params:
       vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}
@@ -370,7 +370,7 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-  wheel-windows-{{ python_tag }}:
+  wheel-windows-{{ python_tag }}-amd64:
     ci: github
     template: python-wheels/github.windows.yml
     params:
@@ -379,6 +379,30 @@ tasks:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
 {% endfor %}
+
+{############################## Wheel OSX M1 #################################}
+
+  wheel-macos-big-sur-cp39-arm64:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: arm64
+      vcpkg_version: "2021.04.30"
+      python_version: "3.9"
+      macos_deployment_target: "11.0"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_arm64.whl
+
+  wheel-macos-big-sur-cp39-universal2:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: universal2
+      vcpkg_version: "2021.04.30"
+      python_version: "3.9"
+      macos_deployment_target: "11.0"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_universal2.whl
 
 {############################ Python sdist ####################################}
 

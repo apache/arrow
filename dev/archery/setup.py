@@ -34,6 +34,8 @@ extras = {
     'release': [jinja_req, 'jira', 'semver', 'gitpython'],
     'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'ruamel.yaml',
                  'setuptools_scm'],
+    'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
+                        'setuptools_scm'],
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
