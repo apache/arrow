@@ -57,7 +57,7 @@ pip install \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
   -r ${source_dir}/python/requirements-wheel-build.txt
-pip install delocate
+pip install "delocate>=0.9"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -155,7 +155,7 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^@rpath/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
