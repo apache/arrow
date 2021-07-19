@@ -121,7 +121,8 @@ public class AccessorTestUtils {
       });
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter, Function<T, Matcher<R>> matcherGetter)
+    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter,
+                                         Function<T, Matcher<R>> matcherGetter)
         throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.apply(accessor));
     }

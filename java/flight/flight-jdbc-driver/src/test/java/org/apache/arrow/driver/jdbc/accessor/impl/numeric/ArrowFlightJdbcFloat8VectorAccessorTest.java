@@ -148,60 +148,6 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
   }
 
   @Test
-  public void testShouldConvertToIntegerViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Integer.class),
-        accessor -> equalTo(accessor.getInt()));
-  }
-
-  @Test
-  public void testShouldConvertToShortViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Short.class),
-        accessor -> equalTo(accessor.getShort()));
-  }
-
-  @Test
-  public void testShouldConvertToByteViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Byte.class),
-        accessor -> equalTo(accessor.getByte()));
-  }
-
-  @Test
-  public void testShouldConvertToLongViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Long.class),
-        accessor -> equalTo(accessor.getLong()));
-  }
-
-  @Test
-  public void testShouldConvertToFloatViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Float.class),
-        accessor -> equalTo(accessor.getFloat()));
-  }
-
-  @Test
-  public void testShouldConvertToDoubleViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Double.class),
-        accessor -> equalTo(accessor.getDouble()));
-  }
-
-  @Test
-  public void testShouldConvertToBigDecimalViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Float.class),
-        accessor -> equalTo(accessor.getFloat()));
-  }
-
-  @Test
-  public void testShouldConvertToBooleanViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Boolean.class),
-        accessor -> equalTo(accessor.getBoolean()));
-  }
-
-  @Test
-  public void testShouldConvertToStringViaGetObjectMethodFromFloat8Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(String.class),
-        accessor -> equalTo(accessor.getString()));
-  }
-
-  @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator
         .assertAccessorGetter(vector, ArrowFlightJdbcFloat8VectorAccessor::getObjectClass, equalTo(Double.class));
