@@ -153,8 +153,12 @@ struct AltrepVector {
     const auto& array = Get(x);
     bool na_rm = narm == TRUE;
     auto n = array->length();
-    if ((na_rm || n == 0) && array->null_count() == n) {
+    auto null_count = array->null_count();
+    if ((na_rm || n == 0) && null_count == n) {
       return Rf_ScalarReal(inf);
+    }
+    if (!na_rm && null_count > 0) {
+      return cpp11::as_sexp(cpp11::na<data_type>());
     }
 
     auto options = Options(array, na_rm);
@@ -172,13 +176,29 @@ struct AltrepVector {
   static SEXP Sum(SEXP x, Rboolean narm) {
     const auto& array = Get(x);
     bool na_rm = narm == TRUE;
+    auto null_count = array->null_count();
 
+    if (!na_rm && null_count > 0) {
+      return cpp11::as_sexp(cpp11::na<data_type>());
+    }
     auto options = Options(array, na_rm);
 
     const auto& sum =
         ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
-    return cpp11::as_sexp(
-        internal::checked_cast<const scalar_type&>(*sum.scalar()).value);
+
+    if (sexp_type == INTSXP) {
+      // When calling the "sum" function on an int32 array, we get an Int64 scalar
+      // in case of overflow, make it a double like R
+      int64_t value = internal::checked_cast<const Int64Scalar&>(*sum.scalar()).value;
+      if (value < INT32_MIN || value > INT32_MAX) {
+        return Rf_ScalarReal(static_cast<double>(value));
+      } else {
+        return Rf_ScalarInteger(static_cast<int>(value));
+      }
+    } else {
+      return Rf_ScalarReal(
+          internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
+    }
   }
 
   static std::shared_ptr<arrow::compute::ScalarAggregateOptions> Options(
@@ -187,10 +207,6 @@ struct AltrepVector {
         arrow::compute::ScalarAggregateOptions::Defaults());
     options->min_count = 0;
     options->skip_nulls = na_rm;
-
-    if (!na_rm) {
-      options->min_count = array->length();
-    }
     return options;
   }
 
