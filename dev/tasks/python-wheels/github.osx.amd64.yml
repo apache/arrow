@@ -19,9 +19,9 @@
 {{ macros.github_header() }}
 
 env:
+  ARROW_S3: {{ arrow_s3 }}
   CC: "clang"
   CXX: "clang++"
-  ARROW_S3: {{ arrow_s3 }}
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
