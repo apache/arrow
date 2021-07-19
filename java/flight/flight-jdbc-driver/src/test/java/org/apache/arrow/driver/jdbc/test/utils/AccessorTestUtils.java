@@ -60,18 +60,6 @@ public class AccessorTestUtils {
     void accept(T accessor, int currentRow) throws Exception;
   }
 
-  public static <T extends ArrowFlightJdbcAccessor> void iterateOnAccessor(
-      ValueVector vector, AccessorSupplier<T> accessorSupplier, AccessorConsumer<T> accessorConsumer)
-      throws Exception {
-    Cursor cursor = new Cursor(vector.getValueCount());
-    T accessor = accessorSupplier.supply(vector, cursor::getCurrentRow);
-
-    while (cursor.hasNext()) {
-      accessorConsumer.accept(accessor, cursor.getCurrentRow());
-      cursor.next();
-    }
-  }
-
   public interface MatcherGetter<T extends ArrowFlightJdbcAccessor, R> {
     Matcher<R> get(T accessor, int currentRow);
   }
