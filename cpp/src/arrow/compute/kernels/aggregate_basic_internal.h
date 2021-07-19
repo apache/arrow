@@ -67,7 +67,8 @@ struct SumImpl : public ScalarAggregator {
             static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
       } else {
         this->sum +=
-            arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
+            arrow::compute::detail::SumArray<CType, typename SumType::c_type, SimdLevel>(
+                *data);
       }
     } else {
       const auto& data = *batch[0].scalar();
