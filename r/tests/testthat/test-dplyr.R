@@ -1359,3 +1359,100 @@ test_that("case_when()", {
     tbl
   )
 })
+
+test_that("coalesce()", {
+  # character
+  df <- tibble(
+    w = c(NA_character_, NA_character_, NA_character_),
+    x = c(NA_character_, NA_character_, "c"),
+    y = c(NA_character_, "b", "c"),
+    z = c("a", "b", "c")
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # integer
+  df <- tibble(
+    w = c(NA_integer_, NA_integer_, NA_integer_),
+    x = c(NA_integer_, NA_integer_, 3L),
+    y = c(NA_integer_, 2L, 3L),
+    z = 1:3
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # double with NaN
+  df <- tibble(
+    w = c(NA_real_, NA_real_, NA_real_),
+    x = c(NA_real_, NaN, 3.3),
+    y = c(NA_real_, 2.2, 3.3),
+    z = c(1.1, 2.2, 3.3)
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+  # singles stay single
+  expect_equal(
+    (df %>%
+      Table$create(schema = schema(
+        w = float32(),
+        x = float32(),
+        y = float32(),
+        z = float32()
+      )) %>%
+      transmute(c = coalesce(w, x, y, z)) %>%
+      compute()
+    )$schema[[1]]$type,
+    float32()
+  )
+  # with R literal values
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        c1 = coalesce(4.4),
+        c2 = coalesce(NA_real_),
+        c3 = coalesce(NaN),
+        c4 = coalesce(w, x, y, 5.5),
+        c5 = coalesce(w, x, y, NA_real_),
+        c6 = coalesce(w, x, y, NaN)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # no arguments
+  expect_error(
+    nse_funcs$coalesce(),
+    "At least one argument must be supplied to coalesce()",
+    fixed = TRUE
+  )
+})
