@@ -604,15 +604,27 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final Schema schema = getSchemaSqlInfo().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final List<String> info = command.getInfoList();
+    try (final Connection connection = dataSource.getConnection();
+         // FIXME Double-check this. Probably incorrect.
+         final ResultSet properties = connection.getMetaData().getClientInfoProperties()) {
+      // TODO Logic here.
+      throw Status.UNIMPLEMENTED.asRuntimeException();
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
