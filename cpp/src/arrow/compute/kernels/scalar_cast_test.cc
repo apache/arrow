@@ -1927,16 +1927,10 @@ TEST(Cast, DictTypeToAnotherDict) {
              "[1, 2, 3, 1, null, 3]");
   check_cast(dictionary(int8(), int16()), dictionary(int32(), int64()),
              "[1, 2, 3, 1, null, 3]");
+  check_cast(dictionary(int8(), int16()), dictionary(int32(), float64()),
+             "[1, 2, 3, 1, null, 3]");
   check_cast(dictionary(int32(), utf8()), dictionary(int8(), utf8()),
              R"(["a", "b", "a", null])");
-
-  // check float types
-  // TODO(ARROW-13381): ArrayFromJSON doesnt work for float value dictionary types
-  auto arr_int8_int16 =
-      ArrayFromJSON(dictionary(int8(), int16()), "[1, 2, 3, 1, null, 3]");
-  auto arr_float64 = ArrayFromJSON(float64(), "[1, 2, 3, 1, null, 3]");
-  ASSERT_OK_AND_ASSIGN(auto arr_int32_float64, DictionaryEncode(arr_float64));
-  CheckCast(arr_int8_int16, arr_int32_float64.make_array(), CastOptions::Safe());
 
   auto arr = ArrayFromJSON(dictionary(int32(), int32()), "[1, 1000]");
   // check casting unsafe values (checking for unsafe indices is unnecessary, because it
