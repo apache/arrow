@@ -1930,7 +1930,8 @@ TEST(Cast, DictTypeToAnotherDict) {
   check_cast(dictionary(int32(), utf8()), dictionary(int8(), utf8()),
              R"(["a", "b", "a", null])");
 
-  // check float types (TODO: ARROW-13381 ArrayFromJSON doesnt work for float value dictionary types)
+  // check float types
+  // TODO(ARROW-13381): ArrayFromJSON doesnt work for float value dictionary types
   auto arr_int8_int16 =
       ArrayFromJSON(dictionary(int8(), int16()), "[1, 2, 3, 1, null, 3]");
   auto arr_float64 = ArrayFromJSON(float64(), "[1, 2, 3, 1, null, 3]");
