@@ -33,7 +33,7 @@
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
 #' * `use_async`: logical: should the async scanner (performs better on
-#'    high-latency/highly parallel filesystems like S3) be used? Default `FALSE`
+#'    high-latency/highly parallel filesystems like S3) be used? Default `TRUE`
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -76,7 +76,7 @@ Scanner$create <- function(dataset,
                            fragment_scan_options = NULL,
                            ...) {
   if (is.null(use_async)) {
-    use_async = getOption("arrow.use_async", FALSE)
+    use_async = getOption("arrow.use_async", TRUE)
   }
 
   if (inherits(dataset, "arrow_dplyr_query")) {

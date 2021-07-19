@@ -115,7 +115,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// If true then an asycnhronous implementation of the scanner will be used.
   /// This implementation is newer and generally performs better.  However, it
   /// makes extensive use of threading and is still considered experimental
-  bool use_async = false;
+  bool use_async = true;
 
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;

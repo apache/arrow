@@ -690,7 +690,7 @@ def _ensure_write_partitioning(scheme):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None, file_visitor=None):
+                  use_async=True, max_partitions=None, file_visitor=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -725,7 +725,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
-    use_async : bool, default False
+    use_async : bool, default True
         If enabled, an async scanner will be used that should offer
         better performance with high-latency/highly-parallel filesystems
         (e.g. S3)

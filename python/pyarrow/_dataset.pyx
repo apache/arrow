@@ -402,7 +402,7 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
+        use_async : bool, default True
             If enabled, an async scanner will be used that should offer
             better performance with high-latency/highly-parallel filesystems
             (e.g. S3)
@@ -2789,7 +2789,7 @@ _DEFAULT_BATCH_SIZE = 2**20
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
-                            bint use_threads=True, bint use_async=False,
+                            bint use_threads=True, bint use_async=True,
                             MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
@@ -2866,7 +2866,7 @@ cdef class Scanner(_Weakrefable):
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
-    use_async : bool, default False
+    use_async : bool, default True
         If enabled, an async scanner will be used that should offer
         better performance with high-latency/highly-parallel filesystems
         (e.g. S3)
@@ -2897,7 +2897,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, bint use_async=False,
+                     bint use_threads=True, bint use_async=True,
                      MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2918,7 +2918,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, bint use_async=False,
+                      bint use_threads=True, bint use_async=True,
                       MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2942,7 +2942,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_batches(source, Schema schema=None, bint use_threads=True,
-                     bint use_async=False,
+                     bint use_async=True,
                      MemoryPool memory_pool=None, object columns=None,
                      Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
