@@ -21,7 +21,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -152,66 +151,6 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
   public void testShouldGetObjectMethodFromDecimalVector() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcDecimalVectorAccessor::getObject,
         (accessor, currentRow) -> equalTo(accessor.getBigDecimal()));
-  }
-
-  @Test
-  public void testShouldConvertToIntegerViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Integer.class),
-        (accessor, currentRow) -> equalTo(accessor.getInt()));
-  }
-
-  @Test
-  public void testShouldConvertToShortViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Short.class),
-        (accessor, currentRow) -> equalTo(accessor.getShort()));
-  }
-
-  @Test
-  public void testShouldConvertToByteViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Byte.class),
-        (accessor, currentRow) -> equalTo(accessor.getByte()));
-  }
-
-  @Test
-  public void testShouldConvertToLongViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Long.class),
-        (accessor, currentRow) -> equalTo(accessor.getLong()));
-  }
-
-  @Test
-  public void testShouldConvertToFloatViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Float.class),
-        (accessor, currentRow) -> equalTo(accessor.getFloat()));
-  }
-
-  @Test
-  public void testShouldConvertToDoubleViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Double.class),
-        (accessor, currentRow) -> equalTo(accessor.getDouble()));
-  }
-
-  @Test
-  public void testShouldConvertToBigDecimalViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(BigDecimal.class),
-        (accessor, currentRow) -> equalTo(accessor.getBigDecimal()));
-  }
-
-  @Test
-  public void testShouldConvertToBigDecimalWithScaleViaGetBigDecimalMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getBigDecimal(2),
-        (accessor, currentRow) -> equalTo(accessor.getBigDecimal().setScale(2, RoundingMode.HALF_UP)));
-  }
-
-  @Test
-  public void testShouldConvertToBooleanViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Boolean.class),
-        (accessor, currentRow) -> equalTo(accessor.getBoolean()));
-  }
-
-  @Test
-  public void testShouldConvertToStringViaGetObjectMethodFromDecimalVector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(String.class),
-        (accessor, currentRow) -> equalTo(accessor.getString()));
   }
 
   @Test
