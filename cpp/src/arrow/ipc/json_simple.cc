@@ -785,6 +785,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::UINT16, IntegerConverter, UInt16Type)
     PARAM_CONVERTER_CASE(Type::UINT32, IntegerConverter, UInt32Type)
     PARAM_CONVERTER_CASE(Type::UINT64, IntegerConverter, UInt64Type)
+    PARAM_CONVERTER_CASE(Type::FLOAT, FloatConverter, FloatType)
+    PARAM_CONVERTER_CASE(Type::DOUBLE, FloatConverter, DoubleType)
     PARAM_CONVERTER_CASE(Type::STRING, StringConverter, StringType)
     PARAM_CONVERTER_CASE(Type::BINARY, StringConverter, BinaryType)
     PARAM_CONVERTER_CASE(Type::LARGE_STRING, StringConverter, LargeStringType)
