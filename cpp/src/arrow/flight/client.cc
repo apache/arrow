@@ -688,11 +688,12 @@ class GrpcStreamWriter : public FlightStreamWriter {
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     FlightPayload payload{};
     payload.app_metadata = app_metadata;
-    if (!internal::WritePayload(payload, writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, writer_->stream().get());
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write metadata to stream"));
     }
-    return Status::OK();
+    return status;
   }
 
   Status WriteWithMetadata(const RecordBatch& batch,
@@ -808,11 +809,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
       }
     }
 
-    if (!internal::WritePayload(payload, writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, writer_->stream().get());
+    if (status.IsIOError()) {
       return writer_->Finish(MakeFlightError(FlightStatusCode::Internal,
                                              "Could not write record batch to stream"));
     }
-    return Status::OK();
+    return status;
   }
 
   Status Close() override {
@@ -850,10 +852,12 @@ Status GrpcStreamWriter<ProtoReadT, FlightReadT>::Open(
     // calls Begin() to send data, we'll send a redundant descriptor.
     FlightPayload payload{};
     RETURN_NOT_OK(internal::ToPayload(descriptor, &payload.descriptor));
-    if (!internal::WritePayload(payload, instance->writer_->stream().get())) {
+    auto status = internal::WritePayload(payload, instance->writer_->stream().get());
+    if (status.IsIOError()) {
       return writer->Finish(MakeFlightError(FlightStatusCode::Internal,
                                             "Could not write descriptor to stream"));
     }
+    RETURN_NOT_OK(status);
   }
   *out = std::move(instance);
   return Status::OK();

@@ -115,7 +115,7 @@ public class JdbcToArrowUtils {
    * <ul>
    *  <li>{@link Constants#SQL_CATALOG_NAME_KEY} representing {@link ResultSetMetaData#getCatalogName(int)}</li>
    *  <li>{@link Constants#SQL_TABLE_NAME_KEY} representing {@link ResultSetMetaData#getTableName(int)}</li>
-   *  <li>{@link Constants#SQL_COLUMN_NAME_KEY} representing {@link ResultSetMetaData#getColumnName(int)}</li>
+   *  <li>{@link Constants#SQL_COLUMN_NAME_KEY} representing {@link ResultSetMetaData#getColumnLabel(int)}</li>
    *  <li>{@link Constants#SQL_TYPE_KEY} representing {@link ResultSetMetaData#getColumnTypeName(int)}</li>
    * </ul>
    * </p>
@@ -139,7 +139,7 @@ public class JdbcToArrowUtils {
     List<Field> fields = new ArrayList<>();
     int columnCount = rsmd.getColumnCount();
     for (int i = 1; i <= columnCount; i++) {
-      final String columnName = rsmd.getColumnName(i);
+      final String columnName = rsmd.getColumnLabel(i);
 
       final Map<String, String> metadata;
       if (config.shouldIncludeMetadata()) {
@@ -196,7 +196,7 @@ public class JdbcToArrowUtils {
 
     JdbcFieldInfo fieldInfo = config.getArraySubTypeByColumnIndex(arrayColumn);
     if (fieldInfo == null) {
-      fieldInfo = config.getArraySubTypeByColumnName(rsmd.getColumnName(arrayColumn));
+      fieldInfo = config.getArraySubTypeByColumnName(rsmd.getColumnLabel(arrayColumn));
     }
     return fieldInfo;
   }
@@ -246,7 +246,7 @@ public class JdbcToArrowUtils {
 
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {
-      FieldVector vector = root.getVector(rsmd.getColumnName(i));
+      FieldVector vector = root.getVector(rsmd.getColumnLabel(i));
       consumers[i - 1] = getConsumer(vector.getField().getType(), i, isColumnNullable(rs, i), vector, config);
     }
 

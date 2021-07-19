@@ -81,6 +81,8 @@ cdef extern from "arrow/compute/exec/expression.h" \
         CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
             const CExpression& partition_expression)
 
+ctypedef CStatus cb_writer_finish_internal(CFileWriter*)
+ctypedef void cb_writer_finish(dict, CFileWriter*)
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
@@ -223,6 +225,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CFileFormat]& format() const
         c_string type_name() const
 
+    cdef cppclass CFileWriter \
+            "arrow::dataset::FileWriter":
+        const shared_ptr[CFileFormat]& format() const
+        const shared_ptr[CSchema]& schema() const
+        const shared_ptr[CFileWriteOptions]& options() const
+        const CFileLocator& destination() const
+
+    cdef cppclass CParquetFileWriter \
+            "arrow::dataset::ParquetFileWriter"(CFileWriter):
+        const shared_ptr[FileWriter]& parquet_writer() const
+
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         shared_ptr[CFragmentScanOptions] default_fragment_scan_options
         c_string type_name() const
@@ -263,6 +276,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CPartitioning] partitioning
         int max_partitions
         c_string basename_template
+        function[cb_writer_finish_internal] writer_pre_finish
+        function[cb_writer_finish_internal] writer_post_finish
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

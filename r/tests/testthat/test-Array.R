@@ -279,9 +279,9 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(
     no_tz = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Asia/Pyongyang") + 1:10
+    yes_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas") + 1:10
   )
-  if (!identical(Sys.timezone(), "Asia/Pyongyang")) {
+  if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
     expect_false(any(df$no_tz == df$yes_tz))
   }
@@ -315,6 +315,23 @@ test_that("support for NaN (ARROW-3615)", {
   y <- Array$create(x)
   expect_true(y$IsValid(2))
   expect_equal(y$null_count, 1L)
+})
+
+test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
+  x <- c(1.0, NA, NaN, -1.0)
+  expect_vector_equal(is.nan(input), x)
+})
+
+test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
+  x <- c(1L, 2L, 3L)
+  y <- c("foo", "bar")
+  expect_vector_equal(is.nan(input), x)
+  expect_vector_equal(is.nan(input), y)
+})
+
+test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
+  x <- c(1, NA, NaN, -1)
+  expect_vector_equal(is.na(input), x)
 })
 
 test_that("integer types casts (ARROW-3741)", {

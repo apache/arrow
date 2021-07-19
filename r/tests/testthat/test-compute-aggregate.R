@@ -65,7 +65,6 @@ test_that("sum dots", {
 })
 
 test_that("sum.Scalar", {
-  skip("No sum method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
   expect_identical(as.numeric(s), as.numeric(sum(s)))
 })
@@ -104,9 +103,8 @@ test_that("mean.ChunkedArray", {
 })
 
 test_that("mean.Scalar", {
-  skip("No mean method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
-  expect_identical(as.vector(s), mean(s))
+  expect_equal(s, mean(s))
 })
 
 test_that("Bad input handling of call_function", {
@@ -394,12 +392,14 @@ test_that("any.Array and any.ChunkedArray", {
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(any(input > 5), data)
+  expect_vector_equal(any(input > 5, na.rm = TRUE), data)
   expect_vector_equal(any(input < 1), data)
   expect_vector_equal(any(input < 1, na.rm = TRUE), data)
 
   data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
 
   expect_vector_equal(any(input), data_logical)
+  expect_vector_equal(any(input, na.rm = FALSE), data_logical)
   expect_vector_equal(any(input, na.rm = TRUE), data_logical)
 
 })
@@ -409,6 +409,8 @@ test_that("all.Array and all.ChunkedArray", {
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(all(input > 5), data)
+  expect_vector_equal(all(input > 5, na.rm = TRUE), data)
+
   expect_vector_equal(all(input < 11), data)
   expect_vector_equal(all(input < 11, na.rm = TRUE), data)
 

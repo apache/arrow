@@ -96,9 +96,11 @@ cdef class IpcWriteOptions(_Weakrefable):
         If true, allow field lengths that don't fit in a signed 32-bit int.
     use_legacy_format : bool, default False
         Whether to use the pre-Arrow 0.15 IPC format.
-    compression: str or None
-        If not None, compression codec to use for record batch buffers.
-        May only be "lz4", "zstd" or None.
+    compression: str, Codec, or None
+        compression codec to use for record batch buffers.
+        If None then batch buffers will be uncompressed.
+        Must be "lz4", "zstd" or None.
+        To specify a compression_level use `pyarrow.Codec`
     use_threads: bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
@@ -158,9 +160,14 @@ cdef class IpcWriteOptions(_Weakrefable):
     def compression(self, value):
         if value is None:
             self.c_options.codec.reset()
-        else:
+        elif isinstance(value, str):
             self.c_options.codec = shared_ptr[CCodec](GetResultValue(
                 CCodec.Create(_ensure_compression(value))).release())
+        elif isinstance(value, Codec):
+            self.c_options.codec = (<Codec>value).wrapped
+        else:
+            raise TypeError(
+                "Property `compression` must be None, str, or pyarrow.Codec")
 
     @property
     def use_threads(self):

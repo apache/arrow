@@ -132,6 +132,27 @@ class ARROW_EXPORT Codec {
   /// \brief Return true if indicated codec supports setting a compression level
   static bool SupportsCompressionLevel(Compression::type codec);
 
+  /// \brief Return the smallest supported compression level for the codec
+  /// Note: This function creates a temporary Codec instance
+  static Result<int> MinimumCompressionLevel(Compression::type codec);
+
+  /// \brief Return the largest supported compression level for the codec
+  /// Note: This function creates a temporary Codec instance
+  static Result<int> MaximumCompressionLevel(Compression::type codec);
+
+  /// \brief Return the default compression level
+  /// Note: This function creates a temporary Codec instance
+  static Result<int> DefaultCompressionLevel(Compression::type codec);
+
+  /// \brief Return the smallest supported compression level
+  virtual int minimum_compression_level() const = 0;
+
+  /// \brief Return the largest supported compression level
+  virtual int maximum_compression_level() const = 0;
+
+  /// \brief Return the default compression level
+  virtual int default_compression_level() const = 0;
+
   /// \brief One-shot decompression function
   ///
   /// output_buffer_len must be correct and therefore be obtained in advance.

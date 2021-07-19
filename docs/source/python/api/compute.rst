@@ -39,7 +39,7 @@ Aggregations
 Arithmetic Functions
 --------------------
 
-By default these functions do not detect overflow. Each function is also
+By default these functions do not detect overflow. Most functions are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
@@ -54,14 +54,15 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    multiply
    multiply_checked
-   subtract
-   subtract_checked
    power
    power_checked
    shift_left
    shift_left_checked
    shift_right
    shift_right_checked
+   sign
+   subtract
+   subtract_checked
 
 Bit-wise operations do not offer (or need) a checked variant.
 
@@ -72,6 +73,19 @@ Bit-wise operations do not offer (or need) a checked variant.
    bit_wise_not
    bit_wise_or
    bit_wise_xor
+
+Rounding Functions
+------------------
+
+Rounding functions convert a numeric input into an approximate value with a
+simpler representation based on the rounding strategy.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ceil
+   floor
+   trunc
 
 Logarithmic Functions
 ---------------------
@@ -292,6 +306,14 @@ Conversions
    cast
    strptime
 
+Replacements
+------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   replace_with_mask
+
 Selections
 ----------
 
@@ -327,6 +349,8 @@ Structural Transforms
    :toctree: ../generated/
 
    binary_length
+   case_when
+   coalesce
    fill_null
    if_else
    is_finite

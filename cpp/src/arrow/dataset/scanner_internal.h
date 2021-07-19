@@ -225,7 +225,7 @@ inline Status SetProjection(ScanOptions* options, const compute::Expression& pro
 
 inline Status SetProjection(ScanOptions* options, std::vector<compute::Expression> exprs,
                             std::vector<std::string> names) {
-  compute::ProjectOptions project_options{std::move(names)};
+  compute::MakeStructOptions project_options{std::move(names)};
 
   for (size_t i = 0; i < exprs.size(); ++i) {
     if (auto ref = exprs[i].field_ref()) {
@@ -239,7 +239,7 @@ inline Status SetProjection(ScanOptions* options, std::vector<compute::Expressio
   }
 
   return SetProjection(options,
-                       call("project", std::move(exprs), std::move(project_options)));
+                       call("make_struct", std::move(exprs), std::move(project_options)));
 }
 
 inline Status SetProjection(ScanOptions* options, std::vector<std::string> names) {

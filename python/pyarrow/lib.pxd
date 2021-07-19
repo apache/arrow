@@ -499,7 +499,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
 cdef class Codec(_Weakrefable):
     cdef:
-        unique_ptr[CCodec] wrapped
+        shared_ptr[CCodec] wrapped
 
     cdef inline CCodec* unwrap(self) nogil
 

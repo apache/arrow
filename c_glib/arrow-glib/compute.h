@@ -147,42 +147,6 @@ garrow_take_options_new(void);
 
 
 /**
- * GArrowCompareOperator:
- * @GARROW_COMPARE_EQUAL: Equal operator.
- * @GARROW_COMPARE_NOT_EQUAL: Not equal operator.
- * @GARROW_COMPARE_GREATER: Greater operator.
- * @GARROW_COMPARE_GREATER_EQUAL: Greater equal operator.
- * @GARROW_COMPARE_LESS: Less operator.
- * @GARROW_COMPARE_LESS_EQUAL: Less equal operator.
- *
- * They are corresponding to `arrow::compute::CompareOperator` values.
- */
-typedef enum {
-  GARROW_COMPARE_EQUAL,
-  GARROW_COMPARE_NOT_EQUAL,
-  GARROW_COMPARE_GREATER,
-  GARROW_COMPARE_GREATER_EQUAL,
-  GARROW_COMPARE_LESS,
-  GARROW_COMPARE_LESS_EQUAL
-} GArrowCompareOperator;
-
-#define GARROW_TYPE_COMPARE_OPTIONS (garrow_compare_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCompareOptions,
-                         garrow_compare_options,
-                         GARROW,
-                         COMPARE_OPTIONS,
-                         GObject)
-struct _GArrowCompareOptionsClass
-{
-  GObjectClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_0_14
-GArrowCompareOptions *
-garrow_compare_options_new(void);
-
-
-/**
  * GArrowSortOrder:
  * @GARROW_SORT_ORDER_ASCENDING: Sort in ascending order.
  * @GARROW_SORT_ORDER_DESCENDING: Sort in descending order.
@@ -375,66 +339,6 @@ garrow_record_batch_take(GArrowRecordBatch *record_batch,
                          GArrowArray *indices,
                          GArrowTakeOptions *options,
                          GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_int8_array_compare(GArrowInt8Array *array,
-                          gint8 value,
-                          GArrowCompareOptions *options,
-                          GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_uint8_array_compare(GArrowUInt8Array *array,
-                           guint8 value,
-                           GArrowCompareOptions *options,
-                           GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_int16_array_compare(GArrowInt16Array *array,
-                           gint16 value,
-                           GArrowCompareOptions *options,
-                           GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_uint16_array_compare(GArrowUInt16Array *array,
-                            guint16 value,
-                            GArrowCompareOptions *options,
-                            GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_int32_array_compare(GArrowInt32Array *array,
-                           gint32 value,
-                           GArrowCompareOptions *options,
-                           GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_uint32_array_compare(GArrowUInt32Array *array,
-                            guint32 value,
-                            GArrowCompareOptions *options,
-                            GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_int64_array_compare(GArrowInt64Array *array,
-                           gint64 value,
-                           GArrowCompareOptions *options,
-                           GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_uint64_array_compare(GArrowUInt64Array *array,
-                            guint64 value,
-                            GArrowCompareOptions *options,
-                            GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_float_array_compare(GArrowFloatArray *array,
-                           gfloat value,
-                           GArrowCompareOptions *options,
-                           GError **error);
-GARROW_AVAILABLE_IN_0_14
-GArrowBooleanArray *
-garrow_double_array_compare(GArrowDoubleArray *array,
-                            gdouble value,
-                            GArrowCompareOptions *options,
-                            GError **error);
 GARROW_AVAILABLE_IN_0_15
 GArrowArray *
 garrow_array_filter(GArrowArray *array,

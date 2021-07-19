@@ -20,7 +20,8 @@ import {
     // generateDictionaryTables
 } from '../../../data/tables';
 
-import { AsyncIterable } from 'ix';
+import { from, as } from 'ix/asynciterable';
+import { tap, flatMap } from 'ix/asynciterable/operators';
 
 import {
     Table,
@@ -232,9 +233,9 @@ import {
         it(`should write a stream of tables to the same output stream`, async () => {
 
             const tables = [] as Table[];
-            const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
+            const stream: ReadableStream<any> = from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
+                .pipe(tap({ async next(table: Table) { tables.push(table); await sleep(1); } }))
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
@@ -250,11 +251,11 @@ import {
         it(`should write a stream of record batches to the same output stream`, async () => {
 
             const tables = [] as Table[];
-            const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
+            const stream = from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
+                .pipe(tap({ async next(table: Table) { tables.push(table); await sleep(1); } }))
                 // flatMap from Table -> RecordBatches[]
-                .flatMap((table) => AsyncIterable.as(table.chunks))
+                .pipe(flatMap((table) => as(table.chunks)))
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
 
             for await (const reader of RecordBatchReader.readAll(stream)) {

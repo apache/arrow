@@ -2718,6 +2718,9 @@ def test_feather_format(tempdir, dataset_reader):
 
 
 def _create_parquet_dataset_simple(root_path):
+    """
+    Creates a simple (flat files, no nested partitioning) Parquet dataset
+    """
     import pyarrow.parquet as pq
 
     metadata_collector = []
@@ -2747,6 +2750,58 @@ def test_parquet_dataset_factory(tempdir):
     assert len(dataset.files) == 4
     result = dataset.to_table()
     assert result.num_rows == 40
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas  # write_to_dataset currently requires pandas
+@pytest.mark.parametrize('use_legacy_dataset', [False, True])
+def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
+    # Simple test to ensure we can roundtrip dataset to
+    # _metadata/common_metadata and back.  A more complex test
+    # using partitioning will have to wait for ARROW-13269.  The
+    # above test (test_parquet_dataset_factory) will not work
+    # when legacy is False as there is no "append" equivalent in
+    # the new dataset until ARROW-12358
+    import pyarrow.parquet as pq
+    root_path = tempdir / "test_parquet_dataset"
+    table = pa.table({'f1': [0] * 10, 'f2': np.random.randn(10)})
+    metadata_collector = []
+    pq.write_to_dataset(
+        table, str(root_path), metadata_collector=metadata_collector,
+        use_legacy_dataset=use_legacy_dataset
+    )
+    metadata_path = str(root_path / '_metadata')
+    # write _metadata file
+    pq.write_metadata(
+        table.schema, metadata_path,
+        metadata_collector=metadata_collector
+    )
+    dataset = ds.parquet_dataset(metadata_path)
+    assert dataset.schema.equals(table.schema)
+    result = dataset.to_table()
+    assert result.num_rows == 10
+
+
+def test_parquet_dataset_factory_order(tempdir):
+    # The order of the fragments in the dataset should match the order of the
+    # row groups in the _metadata file.
+    import pyarrow.parquet as pq
+    metadatas = []
+    # Create a dataset where f1 is incrementing from 0 to 100 spread across
+    # 10 files.  Put the row groups in the correct order in _metadata
+    for i in range(10):
+        table = pa.table(
+            {'f1': list(range(i*10, (i+1)*10))})
+        table_path = tempdir / f'{i}.parquet'
+        pq.write_table(table, table_path, metadata_collector=metadatas)
+        metadatas[-1].set_file_path(f'{i}.parquet')
+    metadata_path = str(tempdir / '_metadata')
+    pq.write_metadata(table.schema, metadata_path, metadatas)
+    dataset = ds.parquet_dataset(metadata_path)
+    # Ensure the table contains values from 0-100 in the right order
+    scanned_table = dataset.to_table()
+    scanned_col = scanned_table.column('f1').to_pylist()
+    assert scanned_col == list(range(0, 100))
 
 
 @pytest.mark.parquet
@@ -3197,10 +3252,29 @@ def test_write_dataset_use_threads(tempdir):
         pa.schema([("part", pa.string())]), flavor="hive")
 
     target1 = tempdir / 'partitioned1'
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+
     ds.write_dataset(
         dataset, target1, format="feather", partitioning=partitioning,
-        use_threads=True
+        use_threads=True, file_visitor=file_visitor
     )
+
+    # Since it is a multi-threaded write there is no way to know which
+    # directory gets part-0 and which gets part-1
+    expected_paths_a = {
+        target1 / 'part=a' / 'part-0.feather',
+        target1 / 'part=b' / 'part-1.feather'
+    }
+    expected_paths_b = {
+        target1 / 'part=a' / 'part-1.feather',
+        target1 / 'part=b' / 'part-0.feather'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set in [expected_paths_a, expected_paths_b]
+
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
         dataset, target2, format="feather", partitioning=partitioning,
@@ -3232,19 +3306,28 @@ def test_write_table(tempdir):
 
     # with partitioning
     base_dir = tempdir / 'partitioned'
-    partitioning = ds.partitioning(
-        pa.schema([("part", pa.string())]), flavor="hive")
-    ds.write_dataset(table, base_dir, format="feather",
-                     basename_template='dat_{i}.arrow',
-                     partitioning=partitioning)
-    file_paths = list(base_dir.rglob("*"))
     expected_paths = [
         base_dir / "part=a", base_dir / "part=a" / "dat_0.arrow",
         base_dir / "part=b", base_dir / "part=b" / "dat_1.arrow"
     ]
+
+    visited_paths = []
+
+    def file_visitor(written_file):
+        visited_paths.append(written_file.path)
+
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    ds.write_dataset(table, base_dir, format="feather",
+                     basename_template='dat_{i}.arrow',
+                     partitioning=partitioning, file_visitor=file_visitor)
+    file_paths = list(base_dir.rglob("*"))
     assert set(file_paths) == set(expected_paths)
     result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
     assert result.to_table().equals(table)
+    assert len(visited_paths) == 2
+    for visited_path in visited_paths:
+        assert pathlib.Path(visited_path) in expected_paths
 
 
 def test_write_table_multiple_fragments(tempdir):
@@ -3415,6 +3498,69 @@ def test_write_dataset_csv(tempdir):
     ds.write_dataset(table, base_dir, format=format, file_options=opts)
     result = ds.dataset(base_dir, format=format).to_table()
     assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_write_dataset_parquet_file_visitor(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    visitor_called = False
+
+    def file_visitor(written_file):
+        nonlocal visitor_called
+        if (written_file.metadata is not None and
+                written_file.metadata.num_columns == 3):
+            visitor_called = True
+
+    base_dir = tempdir / 'parquet_dataset'
+    ds.write_dataset(table, base_dir, format="parquet",
+                     file_visitor=file_visitor)
+
+    assert visitor_called
+
+
+def test_partition_dataset_parquet_file_visitor(tempdir):
+    f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
+    f2_vals = [item*10 for chunk in range(4) for item in [chunk] * 10]
+    table = pa.table({'f1': f1_vals, 'f2': f2_vals,
+                      'part': np.repeat(['a', 'b'], 20)})
+
+    root_path = tempdir / 'partitioned'
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+
+    paths_written = []
+
+    sample_metadata = None
+
+    def file_visitor(written_file):
+        nonlocal sample_metadata
+        if written_file.metadata:
+            sample_metadata = written_file.metadata
+        paths_written.append(written_file.path)
+
+    ds.write_dataset(
+        table, root_path, format="parquet", partitioning=partitioning,
+        use_threads=True, file_visitor=file_visitor
+    )
+
+    # Since it is a multi-threaded write there is no way to know which
+    # directory gets part-0 and which gets part-1
+    expected_paths_a = {
+        root_path / 'part=a' / 'part-0.parquet',
+        root_path / 'part=b' / 'part-1.parquet'
+    }
+    expected_paths_b = {
+        root_path / 'part=a' / 'part-1.parquet',
+        root_path / 'part=b' / 'part-0.parquet'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set in [expected_paths_a, expected_paths_b]
+    assert sample_metadata is not None
+    assert sample_metadata.num_columns == 2
 
 
 @pytest.mark.parquet

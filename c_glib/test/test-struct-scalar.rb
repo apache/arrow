@@ -46,7 +46,7 @@ class TestStructScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal("{score:int8 = -29, enabled:bool = true}", @scalar.to_s)
   end
 
   def test_value

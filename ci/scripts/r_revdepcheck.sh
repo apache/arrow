@@ -30,13 +30,17 @@ apt install -y libxml2-dev \
   libfontconfig1-dev \
   libcairo2-dev \
   libglpk-dev \
-  libmariadb-dev \
+  libmysqlclient-dev \
   unixodbc-dev \
   libpq-dev \
   coinor-libsymphony-dev \
   coinor-libcgl-dev \
   coinor-symphony \
-  libzmq3-dev
+  libzmq3-dev \
+  libudunits2-dev \
+  libgdal-dev \
+  libgeos-dev \
+  libproj-dev
 
 pushd ${source_dir}
 

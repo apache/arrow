@@ -97,7 +97,7 @@ test_that("Table with metadata roundtrip", {
 })
 
 test_that("DataType roundtrip", {
-  r <- timestamp("ms", timezone = "Asia/Pyongyang")
+  r <- timestamp("ms", timezone = "Pacific/Marquesas")
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.DataType")
   expect_equal(reticulate::py_to_r(py), r)

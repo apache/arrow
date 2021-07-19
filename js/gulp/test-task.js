@@ -28,7 +28,7 @@ const readFile = promisify(require('fs').readFile);
 const asyncDone = promisify(require('async-done'));
 const exec = promisify(require('child_process').exec);
 const parseXML = promisify(require('xml2js').parseString);
-const { targetAndModuleCombinations } = require('./util');
+const { targetAndModuleCombinations, npmPkgName } = require('./util');
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
 
@@ -53,7 +53,7 @@ const testOptions = {
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
     const args = [...execArgv];
-    if (format === 'esm' || target === 'ts' || target === 'src') {
+    if (format === 'esm' || target === 'ts' || target === 'src' || target === npmPkgName) {
         args.unshift(`--experimental-vm-modules`);
     }
     if (argv.coverage) {

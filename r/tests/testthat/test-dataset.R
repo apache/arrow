@@ -21,12 +21,6 @@ context("Dataset")
 
 library(dplyr)
 
-make_temp_dir <- function() {
-  path <- tempfile()
-  dir.create(path)
-  normalizePath(path, winslash = "/")
-}
-
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()

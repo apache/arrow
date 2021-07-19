@@ -22,7 +22,7 @@ NULL
 # This environment is an internal cache for things including data mask functions
 # We'll populate it at package load time.
 .cache <- NULL
-init_env <- function () {
+init_env <- function() {
   .cache <<- new.env(hash = TRUE)
 }
 init_env()
@@ -55,6 +55,28 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   opts <- cast_options(safe, ...)
   opts$to_type <- as_type(target_type)
   Expression$create("cast", x, options = opts)
+}
+
+nse_funcs$is.na <- function(x) {
+  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
+  # use that to simplify the code here (ARROW-13367)
+  if (is.double(x) || (inherits(x, "Expression") &&
+      x$type_id() %in% TYPES_WITH_NAN)) {
+    build_expr("is_nan", x) | build_expr("is_null", x)
+  } else {
+    build_expr("is_null", x)
+  }
+}
+
+nse_funcs$is.nan <- function(x) {
+  if (is.double(x) || (inherits(x, "Expression") &&
+      x$type_id() %in% TYPES_WITH_NAN)) {
+    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
+    # use that to simplify the code here (ARROW-13366)
+    build_expr("is_nan", x) & build_expr("is_valid", x)
+  } else {
+    Expression$scalar(FALSE)
+  }
 }
 
 nse_funcs$is <- function(object, class2) {
@@ -147,31 +169,38 @@ nse_funcs$as.numeric <- function(x) {
 
 # is.* type functions
 nse_funcs$is.character <- function(x) {
-  x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
+  is.character(x) || (inherits(x, "Expression") &&
+    x$type_id() %in% Type[c("STRING", "LARGE_STRING")])
 }
 nse_funcs$is.numeric <- function(x) {
-  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
-                          "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-                          "DECIMAL", "DECIMAL256")]
+  is.numeric(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+    "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+    "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+    "DECIMAL", "DECIMAL256"
+  )])
 }
 nse_funcs$is.double <- function(x) {
-  x$type_id() == Type["DOUBLE"]
+  is.double(x) || (inherits(x, "Expression") && x$type_id() == Type["DOUBLE"])
 }
 nse_funcs$is.integer <- function(x) {
-  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
-                          "UINT64", "INT64")]
+  is.integer(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+    "UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+    "UINT64", "INT64"
+  )])
 }
 nse_funcs$is.integer64 <- function(x) {
-  x$type_id() == Type["INT64"]
+  is.integer64(x) || (inherits(x, "Expression") && x$type_id() == Type["INT64"])
 }
 nse_funcs$is.logical <- function(x) {
-  x$type_id() == Type["BOOL"]
+  is.logical(x) || (inherits(x, "Expression") && x$type_id() == Type["BOOL"])
 }
 nse_funcs$is.factor <- function(x) {
-  x$type_id() == Type["DICTIONARY"]
+  is.factor(x) || (inherits(x, "Expression") && x$type_id() == Type["DICTIONARY"])
 }
 nse_funcs$is.list <- function(x) {
-  x$type_id() %in% Type[c("LIST", "FIXED_SIZE_LIST", "LARGE_LIST")]
+  is.list(x) || (inherits(x, "Expression") && x$type_id() %in% Type[c(
+    "LIST", "FIXED_SIZE_LIST", "LARGE_LIST"
+  )])
 }
 
 # rlang::is_* type functions
@@ -278,6 +307,78 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
     both = "utf8_trim_whitespace"
   )
   Expression$create(trim_fun, string)
+}
+
+nse_funcs$substr <- function(x, start, stop) {
+  assert_that(
+    length(start) == 1,
+    msg = "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+  assert_that(
+    length(stop) == 1,
+    msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  # substr treats values as if they're on a continous number line, so values
+  # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
+  # this behavior
+  if (start <= 0) {
+    start <- 1
+  }
+
+  # if `stop` is lower than `start`, this is invalid, so set `stop` to
+  # 0 so that an empty string will be returned (consistent with base::substr())
+  if (stop < start) {
+    stop <- 0
+  }
+
+  Expression$create(
+    "utf8_slice_codeunits",
+    x,
+    # we don't need to subtract 1 from `stop` as C++ counts exclusively
+    # which effectively cancels out the difference in indexing between R & C++
+    options = list(start = start - 1L, stop = stop)
+  )
+}
+
+nse_funcs$substring <- function(text, first, last){
+  nse_funcs$substr(x = text, start = first, stop = last)
+}
+
+nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
+  assert_that(
+    length(start) == 1,
+    msg = "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+  assert_that(
+    length(end) == 1,
+    msg = "`end` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  # In stringr::str_sub, an `end` value of -1 means the end of the string, so
+  # set it to the maximum integer to match this behavior
+  if (end == -1) {
+    end <- .Machine$integer.max
+  }
+
+  # An end value lower than a start value returns an empty string in
+  # stringr::str_sub so set end to 0 here to match this behavior
+  if (end < start) {
+    end <- 0
+  }
+
+  # subtract 1 from `start` because C++ is 0-based and R is 1-based
+  # str_sub treats a `start` value of 0 or 1 as the same thing so don't subtract 1 when `start` == 0
+  # when `start` < 0, both str_sub and utf8_slice_codeunits count backwards from the end
+  if (start > 0) {
+    start <- start - 1L
+  }
+
+  Expression$create(
+    "utf8_slice_codeunits",
+    string,
+    options = list(start = start, stop = end)
+  )
 }
 
 nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
@@ -390,8 +491,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     arrow_fun,
     string,
     options = list(
-      pattern =
-      opts$pattern,
+      pattern = opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
@@ -415,19 +515,18 @@ nse_funcs$pmax <- function(..., na.rm = FALSE) {
 }
 
 nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
-  
   assert_that(is_integerish(width))
   side <- match.arg(side)
   assert_that(is.string(pad))
-  
+
   if (side == "left") {
-    pad_func = "utf8_lpad"
+    pad_func <- "utf8_lpad"
   } else if (side == "right") {
-    pad_func = "utf8_rpad"
+    pad_func <- "utf8_rpad"
   } else if (side == "both") {
-    pad_func = "utf8_center"
+    pad_func <- "utf8_center"
   }
-  
+
   Expression$create(
     pad_func,
     string,
@@ -547,6 +646,11 @@ nse_funcs$second <- function(x) {
   Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
 }
 
+nse_funcs$trunc <- function(x, ...) {
+  # accepts and ignores ... for consistency with base::trunc()
+  build_expr("trunc", x)
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
 
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
@@ -557,5 +661,79 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
   }
 
   Expression$create("day_of_week", x, options = list(one_based_numbering = TRUE, week_start = week_start))
+}
 
+nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
+
+  if (base == exp(1)) {
+    return(Expression$create("ln_checked", x))
+  }
+
+  if (base == 2) {
+    return(Expression$create("log2_checked", x))
+  }
+
+  if (base == 10) {
+    return(Expression$create("log10_checked", x))
+  }
+  # ARROW-13345
+  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
+}
+
+nse_funcs$if_else <- function(condition, true, false, missing = NULL){
+  if (!is.null(missing)) {
+    return(nse_funcs$if_else(
+      nse_funcs$is.na(condition),
+      missing,
+      nse_funcs$if_else(condition, true, false)
+    ))
+  }
+
+  # if_else doesn't yet support factors/dictionaries
+  # TODO: remove this after ARROW-13358 is merged
+  warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
+  if (warn_types) {
+    warning("Dictionaries (in R: factors) are currently converted to strings (characters) in if_else and ifelse", call. = FALSE)
+  }
+
+  build_expr("if_else", condition, true, false)
+}
+
+# Although base R ifelse allows `yes` and `no` to be different classes
+#
+nse_funcs$ifelse <- function(test, yes, no) {
+  nse_funcs$if_else(condition = test, true = yes, false = no)
+}
+
+nse_funcs$case_when <- function(...) {
+  formulas <- list2(...)
+  n <- length(formulas)
+  if (n == 0) {
+    abort("No cases provided in case_when()")
+  }
+  query <- vector("list", n)
+  value <- vector("list", n)
+  mask <- caller_env()
+  for (i in seq_len(n)) {
+    f <- formulas[[i]]
+    if (!inherits(f, "formula")) {
+      abort("Each argument to case_when() must be a two-sided formula")
+    }
+    query[[i]] <- arrow_eval(f[[2]], mask)
+    value[[i]] <- arrow_eval(f[[3]], mask)
+    if (!nse_funcs$is.logical(query[[i]])) {
+      abort("Left side of each formula in case_when() must be a logical expression")
+    }
+  }
+  build_expr(
+    "case_when",
+    args = c(
+      build_expr(
+        "make_struct",
+        args = query,
+        options = list(field_names = as.character(seq_along(query)))
+      ),
+      value
+    )
+  )
 }

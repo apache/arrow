@@ -119,7 +119,7 @@ def test_option_class_equality():
         pc.MatchSubstringOptions("pattern"),
         pc.PadOptions(5, " "),
         pc.PartitionNthOptions(1),
-        pc.ProjectOptions([b"field", b"names"]),
+        pc.MakeStructOptions(["field", "names"]),
         pc.DayOfWeekOptions(False, 0),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
         pc.ReplaceSubstringOptions("a", "b"),
@@ -548,30 +548,40 @@ def test_min_max():
 
 def test_any():
     # ARROW-1846
+
+    options = pc.ScalarAggregateOptions(skip_nulls=False)
     a = pa.array([False, None, True])
     assert pc.any(a).as_py() is True
+    assert pc.any(a, options=options).as_py() is True
 
     a = pa.array([False, None, False])
     assert pc.any(a).as_py() is False
+    assert pc.any(a, options=options).as_py() is None
 
 
 def test_all():
     # ARROW-10301
 
+    options = pc.ScalarAggregateOptions(skip_nulls=False)
     a = pa.array([], type='bool')
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is True
 
     a = pa.array([False, True])
     assert pc.all(a).as_py() is False
+    assert pc.all(a, options=options).as_py() is False
 
     a = pa.array([True, None])
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is None
 
     a = pa.chunked_array([[True], [True, None]])
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is None
 
     a = pa.chunked_array([[True], [False]])
     assert pc.all(a).as_py() is False
+    assert pc.all(a, options=options).as_py() is False
 
 
 def test_is_valid():
@@ -1363,15 +1373,15 @@ def _check_datetime_components(timestamps, timezone=None):
 
     if Version(pd.__version__) < Version("1.1.0"):
         # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("Int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("Int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("Int64")
+        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
+        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
+        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
     else:
         # Casting is required because pandas isocalendar returns int32
         # while arrow isocalendar returns int64.
-        iso_year = ts.dt.isocalendar()["year"].astype("Int64")
-        iso_week = ts.dt.isocalendar()["week"].astype("Int64")
-        iso_day = ts.dt.isocalendar()["day"].astype("Int64")
+        iso_year = ts.dt.isocalendar()["year"].astype("int64")
+        iso_week = ts.dt.isocalendar()["week"].astype("int64")
+        iso_day = ts.dt.isocalendar()["day"].astype("int64")
 
     iso_calendar = pa.StructArray.from_arrays(
         [iso_year, iso_week, iso_day],
@@ -1635,3 +1645,29 @@ def test_min_max_element_wise():
     assert result == pa.array([2, 3, None])
     result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([1, 2, None])
+
+
+def test_make_struct():
+    assert pc.make_struct(1, 'a').as_py() == {'0': 1, '1': 'a'}
+
+    assert pc.make_struct(1, 'a', field_names=['i', 's']).as_py() == {
+        'i': 1, 's': 'a'}
+
+    assert pc.make_struct([1, 2, 3],
+                          "a b c".split()) == pa.StructArray.from_arrays([
+                              [1, 2, 3],
+                              "a b c".split()], names='0 1'.split())
+
+    with pytest.raises(ValueError, match="Array arguments must all "
+                                         "be the same length"):
+        pc.make_struct([1, 2, 3, 4], "a b c".split())
+
+    with pytest.raises(ValueError, match="0 arguments but 2 field names"):
+        pc.make_struct(field_names=['one', 'two'])
+
+
+def test_case_when():
+    assert pc.case_when(pc.make_struct([True, False, None],
+                                       [False, True, None]),
+                        [1, 2, 3],
+                        [11, 12, 13]) == pa.array([1, 12, None])

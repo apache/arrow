@@ -138,8 +138,8 @@ def test_parquet_metadata_lifetime(tempdir):
     # ARROW-6642 - ensure that chained access keeps parent objects alive
     table = pa.table({'a': [1, 2, 3]})
     pq.write_table(table, tempdir / 'test_metadata_segfault.parquet')
-    dataset = pq.ParquetDataset(tempdir / 'test_metadata_segfault.parquet')
-    dataset.pieces[0].get_metadata().row_group(0).column(0).statistics
+    parquet_file = pq.ParquetFile(tempdir / 'test_metadata_segfault.parquet')
+    parquet_file.metadata.row_group(0).column(0).statistics
 
 
 @pytest.mark.pandas

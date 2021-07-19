@@ -21,6 +21,7 @@
 #include <sstream>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
@@ -124,6 +125,20 @@ std::string FlightDescriptor::ToString() const {
   }
   ss << ">";
   return ss.str();
+}
+
+Status FlightPayload::Validate() const {
+  static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
+  if (descriptor && descriptor->size() > kInt32Max) {
+    return Status::CapacityError("Descriptor size overflow (>= 2**31)");
+  }
+  if (app_metadata && app_metadata->size() > kInt32Max) {
+    return Status::CapacityError("app_metadata size overflow (>= 2**31)");
+  }
+  if (ipc_message.body_length > kInt32Max) {
+    return Status::Invalid("Cannot send record batches exceeding 2GiB yet");
+  }
+  return Status::OK();
 }
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,

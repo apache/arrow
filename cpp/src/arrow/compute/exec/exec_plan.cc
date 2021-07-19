@@ -737,7 +737,7 @@ struct ScalarAggregateNode : ExecNode {
   Status MaybeFinish(std::unique_lock<std::mutex>* lock) {
     if (num_received_ != num_total_) return Status::OK();
 
-    if (finished_.is_finished()) return Status::OK();
+    if (states_.empty()) return Status::OK();
 
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
@@ -748,6 +748,7 @@ struct ScalarAggregateNode : ExecNode {
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
+    states_.clear();
     lock->unlock();
 
     outputs_[0]->InputReceived(this, 0, batch);
@@ -761,7 +762,7 @@ struct ScalarAggregateNode : ExecNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
   std::unordered_map<std::thread::id, size_t> thread_indices_;
   std::mutex mutex_;
-  int num_received_ = 0, num_total_;
+  int num_received_ = 0, num_total_ = -1;
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,

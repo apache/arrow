@@ -16,7 +16,6 @@
 # under the License.
 
 # cython: language_level = 3
-# cython: embedsignature = True
 
 import collections
 import contextlib

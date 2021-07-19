@@ -60,20 +60,22 @@ struct SumImpl : public ScalarAggregator {
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    if (batch[0].is_scalar() && batch[0].scalar()->is_valid) {
-      using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-      this->count += batch.length;
-      this->sum += static_cast<typename SumType::c_type>(
-          batch[0].scalar_as<ScalarType>().value * batch.length);
-      return Status::OK();
-    }
-    const auto& data = batch[0].array();
-    this->count += data->length - data->GetNullCount();
-    if (is_boolean_type<ArrowType>::value) {
-      this->sum += static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+    if (batch[0].is_array()) {
+      const auto& data = batch[0].array();
+      this->count += data->length - data->GetNullCount();
+      if (is_boolean_type<ArrowType>::value) {
+        this->sum +=
+            static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+      } else {
+        this->sum +=
+            arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
+      }
     } else {
-      this->sum +=
-          arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
+      const auto& data = *batch[0].scalar();
+      this->count += data.is_valid * batch.length;
+      if (data.is_valid) {
+        this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
+      }
     }
     return Status::OK();
   }
@@ -235,9 +237,29 @@ struct MinMaxImpl : public ScalarAggregator {
       : out_type(std::move(out_type)), options(std::move(options)) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    StateType local;
+    if (batch[0].is_array()) {
+      return ConsumeArray(ArrayType(batch[0].array()));
+    }
+    return ConsumeScalar(*batch[0].scalar());
+  }
 
-    ArrayType arr(batch[0].array());
+  Status ConsumeScalar(const Scalar& scalar) {
+    StateType local;
+    local.has_nulls = !scalar.is_valid;
+    local.has_values = scalar.is_valid;
+
+    if (local.has_nulls && !options.skip_nulls) {
+      this->state = local;
+      return Status::OK();
+    }
+
+    local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
+    this->state = local;
+    return Status::OK();
+  }
+
+  Status ConsumeArray(const ArrayType& arr) {
+    StateType local;
 
     const auto null_count = arr.null_count();
     local.has_nulls = null_count > 0;
@@ -351,6 +373,9 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
   using MinMaxImpl<BooleanType, SimdLevel>::options;
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (ARROW_PREDICT_FALSE(batch[0].is_scalar())) {
+      return ConsumeScalar(checked_cast<const BooleanScalar&>(*batch[0].scalar()));
+    }
     StateType local;
     ArrayType arr(batch[0].array());
 
@@ -367,6 +392,25 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     const auto true_count = arr.true_count();
     const auto false_count = valid_count - true_count;
+    local.max = true_count > 0;
+    local.min = false_count == 0;
+
+    this->state = local;
+    return Status::OK();
+  }
+
+  Status ConsumeScalar(const BooleanScalar& scalar) {
+    StateType local;
+
+    local.has_nulls = !scalar.is_valid;
+    local.has_values = scalar.is_valid;
+    if (local.has_nulls && !options.skip_nulls) {
+      this->state = local;
+      return Status::OK();
+    }
+
+    const int true_count = scalar.is_valid && scalar.value;
+    const int false_count = scalar.is_valid && !scalar.value;
     local.max = true_count > 0;
     local.min = false_count == 0;
 

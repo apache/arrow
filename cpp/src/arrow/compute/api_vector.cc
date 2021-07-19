@@ -162,6 +162,11 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
+Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
+                              const Datum& replacements, ExecContext* ctx) {
+  return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
+}
+
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
                                            ExecContext* ctx) {
   ArraySortOptions options(order);

@@ -91,7 +91,8 @@ expect_dplyr_equal <- function(expr,
 
   if (isTRUE(warning)) {
     # Special-case the simple warning:
-    warning <- "not supported in Arrow; pulling data into R"
+    # TODO: ARROW-13362 pick one of in or by and use it everywhere
+    warning <- "not supported (in|by) Arrow; pulling data into R"
   }
 
   skip_msg <- NULL
@@ -123,7 +124,7 @@ expect_dplyr_equal <- function(expr,
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 
@@ -212,7 +213,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 
@@ -273,7 +274,7 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   }
 
   if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
+    skip(paste(skip_msg, collapse = "\n"))
   }
 }
 

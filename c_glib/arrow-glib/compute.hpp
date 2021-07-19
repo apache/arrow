@@ -59,9 +59,6 @@ garrow_filter_options_get_raw(GArrowFilterOptions *filter_options);
 arrow::compute::TakeOptions *
 garrow_take_options_get_raw(GArrowTakeOptions *take_options);
 
-arrow::compute::CompareOptions *
-garrow_compare_options_get_raw(GArrowCompareOptions *compare_options);
-
 arrow::compute::ArraySortOptions *
 garrow_array_sort_options_get_raw(GArrowArraySortOptions *array_sort_options);
 

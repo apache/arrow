@@ -366,8 +366,10 @@ class ARROW_EXPORT OutputType {
 
 /// \brief Holds the input types and output type of the kernel.
 ///
-/// VarArgs functions should pass a single input type to be used to validate
-/// the input types of a function invocation.
+/// VarArgs functions with minimum N arguments should pass up to N input types to be
+/// used to validate the input types of a function invocation. The first N-1 types
+/// will be matched against the first N-1 arguments, and the last type will be
+/// matched against the remaining arguments.
 class ARROW_EXPORT KernelSignature {
  public:
   KernelSignature(std::vector<InputType> in_types, OutputType out_type,

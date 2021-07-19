@@ -690,7 +690,7 @@ def _ensure_write_partitioning(scheme):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None):
+                  use_async=False, max_partitions=None, file_visitor=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -731,6 +731,25 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         (e.g. S3)
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
+    file_visitor : Function
+        If set, this function will be called with a WrittenFile instance
+        for each file created during the call.  This object will have both
+        a path attribute and a metadata attribute.
+
+        The path attribute will be a string containing the path to
+        the created file.
+
+        The metadata attribute will be the parquet metadata of the file.
+        This metadata will have the file path attribute set and can be used
+        to build a _metadata file.  The metadata attribute will be None if
+        the format is not parquet.
+
+        Example visitor which simple collects the filenames created::
+
+            visited_paths = []
+
+            def file_visitor(written_file):
+                visited_paths.append(written_file.path)
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -784,5 +803,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions
+        file_options, max_partitions, file_visitor
     )

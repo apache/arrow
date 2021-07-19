@@ -16,7 +16,8 @@
 // under the License.
 
 import '../../jest-extensions';
-import { AsyncIterable } from 'ix';
+import { from, fromDOMStream, toArray } from 'ix/asynciterable';
+import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
 import { validateVector } from './utils';
 import * as generate from '../../generate-test-data';
 import { Type, DataType, Chunked, util, Builder, UnionVector } from 'apache-arrow';
@@ -243,11 +244,10 @@ async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {
 
-    const stream = AsyncIterable
-        .from(values).toDOMStream()
+    const stream = from(values).toDOMStream()
         .pipeThrough(Builder.throughDOM(options));
 
-    const chunks = await AsyncIterable.fromDOMStream(stream).toArray();
+    const chunks = await fromDOMStream(stream).pipe(toArray);
 
     return Chunked.concat(...chunks);
 }
@@ -258,12 +258,11 @@ async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TVa
         options.nullValues =  [...options.nullValues, undefined] as TNull[];
     }
 
-    const stream = AsyncIterable
-        .from(fillNA(values, [undefined]))
+    const stream = from(fillNA(values, [undefined]))
         .toNodeStream({ objectMode: true })
         .pipe(Builder.throughNode(options));
 
-    const chunks: any[] = await AsyncIterable.fromNodeStream(stream, options.highWaterMark).toArray();
+    const chunks: any[] = await fromNodeStream(stream, options.highWaterMark).pipe(toArray);
 
     return Chunked.concat(...chunks);
 }
