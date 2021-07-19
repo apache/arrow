@@ -61,20 +61,28 @@ nse_funcs$coalesce <- function(...) {
   if (missing(..1)) {
     abort("At least one argument must be supplied to coalesce()")
   }
+
+  # treat NaN like NA for consistency with dplyr::coalesce()
   # TODO: if an option is added to the coalesce kernel to treat NaN as NA,
   # use that to simplify the code here (ARROW-13389)
-  args <- lapply(list2(...), function(arg) {
+  args <- list2(...)
+  # if *all* the values are NaN, we should return NaN, not NA, so don't replace
+  # NaN in the final argument with NA
+  attr(args[-1][[1]], "last") <- TRUE
+  args <- lapply(args, function(arg) {
     if (!inherits(arg, "Expression")) {
       arg <- Expression$scalar(arg)
     }
-    if (arg$type_id() %in% TYPES_WITH_NAN) {
-      # replace NaN with NA, using Arrow's smallest float type to avoid casting
+
+    if (is.null(attr(arg, "last")) && arg$type_id() %in% TYPES_WITH_NAN) {
+      # store the NA_real_ in Arrow's smallest float type to avoid casting
       # smaller float types to larger float types
       NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
       # TODO: Figure out why this doesn't work:
       #Expression$create("replace_with_mask", arg, Expression$create("is_nan", arg), NA_expr)
       Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
     } else {
+      attr(arg, "last") <- NULL
       arg
     }
   })

@@ -1401,9 +1401,9 @@ test_that("coalesce()", {
     df
   )
 
-  # double with NaN
+  # double with NaNs
   df <- tibble(
-    w = c(NA_real_, NA_real_, NA_real_),
+    w = c(NA_real_, NaN, NA_real_),
     x = c(NA_real_, NaN, 3.3),
     y = c(NA_real_, 2.2, 3.3),
     z = c(1.1, 2.2, 3.3)
@@ -1419,6 +1419,12 @@ test_that("coalesce()", {
       ) %>%
       collect(),
     df
+  )
+  # NaNs stay NaN and are not converted to NA in the results
+  # (testing this requires expect_identical())
+  expect_identical(
+    df %>% mutate(cwx = coalesce(w, x)),
+    df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect()
   )
   # singles stay single
   expect_equal(
