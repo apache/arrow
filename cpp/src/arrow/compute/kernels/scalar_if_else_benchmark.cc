@@ -227,6 +227,61 @@ static void CaseWhenBench64Contiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<UInt64Type>(state);
 }
 
+template <typename Type>
+static void CoalesceBench(benchmark::State& state) {
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  std::vector<Datum> arguments;
+  for (int i = 0; i < 4; i++) {
+    arguments.emplace_back(
+        rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
+  }
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("coalesce", arguments));
+  }
+
+  state.SetBytesProcessed(state.iterations() * arguments.size() * (len - offset) *
+                          sizeof(CType));
+}
+
+template <typename Type>
+static void CoalesceNonNullBench(benchmark::State& state) {
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  std::vector<Datum> arguments;
+  arguments.emplace_back(
+      rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
+  arguments.emplace_back(rand.ArrayOf(type, len, /*null_probability=*/0)->Slice(offset));
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("coalesce", arguments));
+  }
+
+  state.SetBytesProcessed(state.iterations() * arguments.size() * (len - offset) *
+                          sizeof(CType));
+}
+
+static void CoalesceBench64(benchmark::State& state) {
+  return CoalesceBench<Int64Type>(state);
+}
+
+static void CoalesceNonNullBench64(benchmark::State& state) {
+  return CoalesceBench<Int64Type>(state);
+}
+
 BENCHMARK(IfElseBench32)->Args({elems, 0});
 BENCHMARK(IfElseBench64)->Args({elems, 0});
 
@@ -250,6 +305,12 @@ BENCHMARK(CaseWhenBench64)->Args({elems, 99});
 
 BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 99});
+
+BENCHMARK(CoalesceBench64)->Args({elems, 0});
+BENCHMARK(CoalesceBench64)->Args({elems, 99});
+
+BENCHMARK(CoalesceNonNullBench64)->Args({elems, 0});
+BENCHMARK(CoalesceNonNullBench64)->Args({elems, 99});
 
 }  // namespace compute
 }  // namespace arrow

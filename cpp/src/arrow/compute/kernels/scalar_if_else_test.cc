@@ -853,5 +853,192 @@ TEST(TestCaseWhen, DispatchBest) {
                                            ArrayFromJSON(int64(), "[]"),
                                            ArrayFromJSON(utf8(), "[]")}));
 }
+
+template <typename Type>
+class TestCoalesceNumeric : public ::testing::Test {};
+template <typename Type>
+class TestCoalesceBinary : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestCoalesceNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestCoalesceBinary, BinaryTypes);
+
+TYPED_TEST(TestCoalesceNumeric, FixedSize) {
+  auto type = default_type_instance<TypeParam>();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "20");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, 10, 11, 12]");
+  auto values2 = ArrayFromJSON(type, "[13, 14, 15, 16]");
+  auto values3 = ArrayFromJSON(type, "[17, 18, 19, null]");
+  // N.B. all-scalar cases are checked in CheckScalar
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[20, 20, 20, 20]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1}, ArrayFromJSON(type, "[20, 10, 11, 12]"));
+  CheckScalar("coalesce", {values1, values2}, ArrayFromJSON(type, "[13, 10, 11, 12]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[13, 10, 11, 12]"));
+  CheckScalar("coalesce", {scalar1, values1}, ArrayFromJSON(type, "[20, 20, 20, 20]"));
+}
+
+TYPED_TEST(TestCoalesceBinary, Basics) {
+  auto type = default_type_instance<TypeParam>();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"("a")");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 = ArrayFromJSON(type, R"([null, "bc", "def", "ghij"])");
+  auto values2 = ArrayFromJSON(type, R"(["klmno", "p", "qr", "stu"])");
+  auto values3 = ArrayFromJSON(type, R"(["vwxy", "zabc", "d", null])");
+  // N.B. all-scalar cases are checked in CheckScalar
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, R"(["a", "a", "a", "a"])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, R"(["a", "bc", "def", "ghij"])"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, R"(["klmno", "bc", "def", "ghij"])"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, R"(["klmno", "bc", "def", "ghij"])"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, R"(["a", "a", "a", "a"])"));
+}
+
+TEST(TestCoalesce, Null) {
+  auto type = null();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar_null}, values_null);
+}
+
+TEST(TestCoalesce, Boolean) {
+  auto type = boolean();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "false");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, true, false, true]");
+  auto values2 = ArrayFromJSON(type, "[true, false, true, false]");
+  auto values3 = ArrayFromJSON(type, "[false, true, false, null]");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[false, false, false, false]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, "[false, true, false, true]"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, "[true, true, false, true]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[true, true, false, true]"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, "[false, false, false, false]"));
+}
+
+TEST(TestCoalesce, DayTimeInterval) {
+  auto type = day_time_interval();
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, "[1, 2]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, "[null, [3, 4], [5, 6], [7, 8]]");
+  auto values2 = ArrayFromJSON(type, "[[9, 10], [11, 12], [13, 14], [15, 16]]");
+  auto values3 = ArrayFromJSON(type, "[[17, 18], [19, 20], [21, 22], null]");
+  // N.B. all-scalar cases are checked in CheckScalar
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, "[[1, 2], [1, 2], [1, 2], [1, 2]]"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, "[[1, 2], [3, 4], [5, 6], [7, 8]]"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, "[[9, 10], [3, 4], [5, 6], [7, 8]]"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, "[[9, 10], [3, 4], [5, 6], [7, 8]]"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, "[[1, 2], [1, 2], [1, 2], [1, 2]]"));
+}
+
+TEST(TestCoalesce, Decimal) {
+  for (const auto& type :
+       std::vector<std::shared_ptr<DataType>>{decimal128(3, 2), decimal256(3, 2)}) {
+    auto scalar_null = ScalarFromJSON(type, "null");
+    auto scalar1 = ScalarFromJSON(type, R"("1.23")");
+    auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+    auto values1 = ArrayFromJSON(type, R"([null, "4.56", "7.89", "1.34"])");
+    auto values2 = ArrayFromJSON(type, R"(["1.45", "2.34", "3.45", "4.56"])");
+    auto values3 = ArrayFromJSON(type, R"(["5.67", "6.78", "7.91", null])");
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1},
+                ArrayFromJSON(type, R"(["1.23", "1.23", "1.23", "1.23"])"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar("coalesce", {values1, scalar1},
+                ArrayFromJSON(type, R"(["1.23", "4.56", "7.89", "1.34"])"));
+    CheckScalar("coalesce", {values1, values2},
+                ArrayFromJSON(type, R"(["1.45", "4.56", "7.89", "1.34"])"));
+    CheckScalar("coalesce", {values1, values2, values3},
+                ArrayFromJSON(type, R"(["1.45", "4.56", "7.89", "1.34"])"));
+    CheckScalar("coalesce", {scalar1, values1},
+                ArrayFromJSON(type, R"(["1.23", "1.23", "1.23", "1.23"])"));
+  }
+}
+
+TEST(TestCoalesce, FixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"("abc")");
+  auto values_null = ArrayFromJSON(type, R"([null, null, null, null])");
+  auto values1 = ArrayFromJSON(type, R"([null, "def", "ghi", "jkl"])");
+  auto values2 = ArrayFromJSON(type, R"(["mno", "pqr", "stu", "vwx"])");
+  auto values3 = ArrayFromJSON(type, R"(["yza", "bcd", "efg", null])");
+  CheckScalar("coalesce", {values_null}, values_null);
+  CheckScalar("coalesce", {values_null, scalar1},
+              ArrayFromJSON(type, R"(["abc", "abc", "abc", "abc"])"));
+  CheckScalar("coalesce", {values_null, values1}, values1);
+  CheckScalar("coalesce", {values_null, values2}, values2);
+  CheckScalar("coalesce", {values1, values_null}, values1);
+  CheckScalar("coalesce", {values2, values_null}, values2);
+  CheckScalar("coalesce", {scalar_null, values1}, values1);
+  CheckScalar("coalesce", {values1, scalar_null}, values1);
+  CheckScalar("coalesce", {values2, values1, values_null}, values2);
+  CheckScalar("coalesce", {values1, scalar1},
+              ArrayFromJSON(type, R"(["abc", "def", "ghi", "jkl"])"));
+  CheckScalar("coalesce", {values1, values2},
+              ArrayFromJSON(type, R"(["mno", "def", "ghi", "jkl"])"));
+  CheckScalar("coalesce", {values1, values2, values3},
+              ArrayFromJSON(type, R"(["mno", "def", "ghi", "jkl"])"));
+  CheckScalar("coalesce", {scalar1, values1},
+              ArrayFromJSON(type, R"(["abc", "abc", "abc", "abc"])"));
+}
+
 }  // namespace compute
 }  // namespace arrow
