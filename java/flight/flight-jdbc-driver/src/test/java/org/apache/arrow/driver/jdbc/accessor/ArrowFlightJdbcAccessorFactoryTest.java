@@ -25,6 +25,8 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurati
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcIntervalVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcDenseUnionVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcDecimalVectorAccessor;
@@ -38,6 +40,8 @@ import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -302,6 +306,24 @@ public class ArrowFlightJdbcAccessorFactoryTest {
       ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcIntervalVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForUnionVector() {
+    try (ValueVector valueVector = new UnionVector("", rootAllocatorTestRule.getRootAllocator(), null, null)) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcUnionVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForDenseUnionVector() {
+    try (ValueVector valueVector = new DenseUnionVector("", rootAllocatorTestRule.getRootAllocator(), null, null)) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcDenseUnionVectorAccessor);
     }
   }
 }
