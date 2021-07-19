@@ -190,7 +190,7 @@ struct AltrepVector {
       // When calling the "sum" function on an int32 array, we get an Int64 scalar
       // in case of overflow, make it a double like R
       int64_t value = internal::checked_cast<const Int64Scalar&>(*sum.scalar()).value;
-      if (value < INT32_MIN || value > INT32_MAX) {
+      if (value <= INT32_MIN || value > INT32_MAX) {
         return Rf_ScalarReal(static_cast<double>(value));
       } else {
         return Rf_ScalarInteger(static_cast<int>(value));
