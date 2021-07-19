@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
+import java.util.List;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.vector.FieldVector;
@@ -51,6 +52,9 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor extends AbstractArrowFli
 
   @Override
   public Object getObject() {
-    return vector.getObject(getCurrentRow());
+    List<?> object = vector.getObject(getCurrentRow());
+    this.wasNull = object == null;
+
+    return object;
   }
 }

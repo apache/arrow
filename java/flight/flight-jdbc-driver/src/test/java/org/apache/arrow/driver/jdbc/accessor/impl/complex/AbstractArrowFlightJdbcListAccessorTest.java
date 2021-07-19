@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
-import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
 import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.sql.Array;
@@ -33,6 +32,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -93,21 +93,31 @@ public class AbstractArrowFlightJdbcListAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectClassReturnCorrectClass() {
+  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
     accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(List.class));
   }
 
   @Test
-  public void testShouldGetObjectReturnValidList() {
+  public void testShouldGetObjectReturnValidList() throws Exception {
     accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObject,
         (accessor, currentRow) -> equalTo(
             Arrays.asList(0, (currentRow), (currentRow) * 2, (currentRow) * 3, (currentRow) * 4)));
   }
 
   @Test
+  public void testShouldGetObjectReturnNull() throws Exception {
+    vector.clear();
+    vector.allocateNewSafe();
+    vector.setValueCount(5);
+
+    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObject,
+        (accessor, currentRow) -> CoreMatchers.nullValue());
+  }
+
+  @Test
   public void testShouldGetArrayReturnValidArray() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
       Array array = accessor.getArray();
       assert array != null;
 
@@ -119,8 +129,18 @@ public class AbstractArrowFlightJdbcListAccessorTest {
   }
 
   @Test
+  public void testShouldGetArrayReturnNull() throws Exception {
+    vector.clear();
+    vector.allocateNewSafe();
+    vector.setValueCount(5);
+
+    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getArray,
+        CoreMatchers.nullValue());
+  }
+
+  @Test
   public void testShouldGetArrayReturnValidArrayPassingOffsets() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
       Array array = accessor.getArray();
       assert array != null;
 
@@ -133,36 +153,19 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
   @Test
   public void testShouldGetArrayGetResultSetReturnValidResultSet() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier, (
-        (accessor, currentRow) -> {
-          Array array = accessor.getArray();
-          assert array != null;
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      Array array = accessor.getArray();
+      assert array != null;
 
-          try (ResultSet rs = array.getResultSet()) {
-            int count = 0;
-            while (rs.next()) {
-              final int value = rs.getInt(1);
-              collector.checkThat(value, equalTo(currentRow * count));
-              count++;
-            }
-            collector.checkThat(count, equalTo(5));
-          }
-        })
-    );
-  }
-
-  @Test
-  public void testArray() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier, (
-        (accessor, currentRow) -> {
-          Array array = accessor.getArray();
-          final Object[] array2 = (Object[]) array.getArray(1, 4);
-          System.out.println(Arrays.asList(array2));
-        })
-    );
-  }
-
-  @Test
-  public void test2() throws Exception {
+      try (ResultSet rs = array.getResultSet()) {
+        int count = 0;
+        while (rs.next()) {
+          final int value = rs.getInt(1);
+          collector.checkThat(value, equalTo(currentRow * count));
+          count++;
+        }
+        collector.checkThat(count, equalTo(5));
+      }
+    });
   }
 }
