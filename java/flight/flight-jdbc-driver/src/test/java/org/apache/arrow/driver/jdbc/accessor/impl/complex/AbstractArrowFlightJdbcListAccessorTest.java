@@ -18,11 +18,13 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils.iterateOnAccessor;
+import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Supplier;
 
 import org.apache.arrow.driver.jdbc.test.utils.AccessorTestUtils;
@@ -41,7 +43,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class ArrowFlightJdbcListAccessorTest {
+public class AbstractArrowFlightJdbcListAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
@@ -64,6 +66,9 @@ public class ArrowFlightJdbcListAccessorTest {
         return null;
       };
 
+  final AccessorTestUtils.AccessorIterator<AbstractArrowFlightJdbcListVectorAccessor> accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][] {
@@ -73,7 +78,7 @@ public class ArrowFlightJdbcListAccessorTest {
     });
   }
 
-  public ArrowFlightJdbcListAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
+  public AbstractArrowFlightJdbcListAccessorTest(Supplier<ValueVector> vectorSupplier, String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -88,15 +93,63 @@ public class ArrowFlightJdbcListAccessorTest {
   }
 
   @Test
-  public void test() throws Exception {
+  public void testShouldGetObjectClassReturnCorrectClass() {
+    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObjectClass,
+        (accessor, currentRow) -> equalTo(List.class));
+  }
+
+  @Test
+  public void testShouldGetObjectReturnValidList() {
+    accessorIterator.assertAccessorGetter(vector, AbstractArrowFlightJdbcListVectorAccessor::getObject,
+        (accessor, currentRow) -> equalTo(
+            Arrays.asList(0, (currentRow), (currentRow) * 2, (currentRow) * 3, (currentRow) * 4)));
+  }
+
+  @Test
+  public void testShouldGetArrayReturnValidArray() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
+      Array array = accessor.getArray();
+      assert array != null;
+
+      Object[] arrayObject = (Object[]) array.getArray();
+
+      collector.checkThat(arrayObject, equalTo(
+          new Object[] {0, currentRow, (currentRow) * 2, (currentRow) * 3, (currentRow) * 4}));
+    });
+  }
+
+  @Test
+  public void testShouldGetArrayReturnValidArrayPassingOffsets() throws Exception {
+    iterateOnAccessor(vector, accessorSupplier, (accessor, currentRow) -> {
+      Array array = accessor.getArray();
+      assert array != null;
+
+      Object[] arrayObject = (Object[]) array.getArray(1, 3);
+
+      collector.checkThat(arrayObject, equalTo(
+          new Object[] {currentRow, (currentRow) * 2, (currentRow) * 3}));
+    });
+  }
+
+  @Test
+  public void testShouldGetArrayGetResultSetReturnValidResultSet() throws Exception {
     iterateOnAccessor(vector, accessorSupplier, (
         (accessor, currentRow) -> {
-          final Object array = accessor.getObject();
-          System.out.println(array.toString());
+          Array array = accessor.getArray();
+          assert array != null;
+
+          try (ResultSet rs = array.getResultSet()) {
+            int count = 0;
+            while (rs.next()) {
+              final int value = rs.getInt(1);
+              collector.checkThat(value, equalTo(currentRow * count));
+              count++;
+            }
+            collector.checkThat(count, equalTo(5));
+          }
         })
     );
   }
-
 
   @Test
   public void testArray() throws Exception {
@@ -111,20 +164,5 @@ public class ArrowFlightJdbcListAccessorTest {
 
   @Test
   public void test2() throws Exception {
-    iterateOnAccessor(vector, accessorSupplier, (
-        (accessor, currentRow) -> {
-          Array array = accessor.getArray();
-          try (ResultSet rs = array.getResultSet()) {
-            System.out.println("start list " + currentRow);
-            while (rs.next()) {
-              final int value = rs.getInt(1);
-              System.out.print(value);
-              System.out.print(", ");
-            }
-            System.out.println("\nend list " + currentRow);
-            System.out.println(array.toString());
-          }
-        })
-    );
   }
 }
