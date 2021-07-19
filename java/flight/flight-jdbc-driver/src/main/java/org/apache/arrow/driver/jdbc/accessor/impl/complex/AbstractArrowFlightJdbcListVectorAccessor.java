@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
+import org.apache.arrow.vector.FieldVector;
 
 public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFlightJdbcAccessor {
 
@@ -34,7 +35,25 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
     return List.class;
   }
 
+  protected abstract long getStart(int index);
+
+  protected abstract long getEnd(int index);
+
+  protected abstract FieldVector getDataVector();
+
   @Override
-  public abstract Array getArray();
+  public final Array getArray() {
+    int index = getCurrentRow();
+    FieldVector dataVector = getDataVector();
+    if (this.wasNull = dataVector.isNull(index)) {
+      return null;
+    }
+
+    long start = getStart(index);
+    long end = getEnd(index);
+
+    long count = end - start;
+    return new ArrowFlightJdbcArray(dataVector, start, count);
+  }
 }
 
