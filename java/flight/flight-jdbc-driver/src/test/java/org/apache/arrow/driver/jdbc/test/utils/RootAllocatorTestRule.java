@@ -340,7 +340,7 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    *
    * @return UInt2Vector
    */
-  public UInt2Vector createUInt2VectorVector() {
+  public UInt2Vector createUInt2Vector() {
 
     int[] uInt2VectorValues = new int[] {
         0,
