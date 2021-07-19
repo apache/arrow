@@ -68,7 +68,7 @@ nse_funcs$coalesce <- function(...) {
   args <- list2(...)
   # if *all* the values are NaN, we should return NaN, not NA, so don't replace
   # NaN in the final argument with NA
-  attr(args[-1][[1]], "last") <- TRUE
+  attr(args[[length(args)]], "last") <- TRUE
   args <- lapply(args, function(arg) {
     if (!inherits(arg, "Expression")) {
       arg <- Expression$scalar(arg)
