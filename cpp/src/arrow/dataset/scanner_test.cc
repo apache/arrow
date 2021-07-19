@@ -1452,7 +1452,8 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  options->projection = call("project", {a_times_2}, compute::ProjectOptions{{"a * 2"}});
+  options->projection =
+      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
@@ -1532,7 +1533,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
   compute::Expression b = field_ref("b");
   options->projection =
-      call("project", {a_times_2, b}, compute::ProjectOptions{{"a * 2", "b"}});
+      call("make_struct", {a_times_2, b}, compute::MakeStructOptions{{"a * 2", "b"}});
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
