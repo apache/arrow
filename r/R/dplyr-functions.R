@@ -74,6 +74,12 @@ nse_funcs$coalesce <- function(...) {
       arg <- Expression$scalar(arg)
     }
 
+    # coalesce doesn't yet support factors/dictionaries
+    # TODO: remove this after ARROW-13390 is merged
+    if (nse_funcs$is.factor(arg)) {
+      warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
+    }
+
     if (is.null(attr(arg, "last")) && arg$type_id() %in% TYPES_WITH_NAN) {
       # store the NA_real_ in Arrow's smallest float type to avoid casting
       # smaller float types to larger float types

@@ -1207,7 +1207,7 @@ test_that("if_else and ifelse", {
       mutate(
         y = if_else(int > 5, fct, factor("a"))
       ) %>% collect() %>%
-      # This is a no-op on the Arrow side, but necesary to make the results equal
+      # This is a no-op on the Arrow side, but necessary to make the results equal
       mutate(y = as.character(y)),
     tbl,
     warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
@@ -1453,6 +1453,23 @@ test_that("coalesce()", {
       ) %>%
       collect(),
     df
+  )
+
+  # factors
+  # TODO: remove the mutate + warning after ARROW-13390 is merged and Arrow
+  # supports factors in coalesce
+  df <- tibble(
+    x = factor("a", levels = c("a", "z")),
+    y = factor("b", levels = c("a", "b", "c"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(c = coalesce(x, y)) %>%
+      collect() %>%
+      # This is a no-op on the Arrow side, but necessary to make the results equal
+      mutate(c = as.character(c)),
+    df,
+    warning = "Dictionaries .* are currently converted to strings .* in coalesce"
   )
 
   # no arguments
