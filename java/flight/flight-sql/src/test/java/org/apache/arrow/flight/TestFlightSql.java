@@ -22,7 +22,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.util.AutoCloseables.close;
-import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -285,7 +284,20 @@ public class TestFlightSql {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
       final List<List<String>> schemas = getResults(stream);
-      collector.checkThat(schemas, is(allOf(notNullValue(), not(emptyList()))));
+      final List<List<String>> expected_schemas = ImmutableList.of(
+          // catalog | schema
+          asList(null /* TODO Add catalog. */, "APP"),
+          asList(null /* TODO Add catalog. */, "NULLID"),
+          asList(null /* TODO Add catalog. */, "SQLJ"),
+          asList(null /* TODO Add catalog. */, "SYS"),
+          asList(null /* TODO Add catalog. */, "SYSCAT"),
+          asList(null /* TODO Add catalog. */, "SYSCS_DIAG"),
+          asList(null /* TODO Add catalog. */, "SYSCS_UTIL"),
+          asList(null /* TODO Add catalog. */, "SYSFUN"),
+          asList(null /* TODO Add catalog. */, "SYSIBM"),
+          asList(null /* TODO Add catalog. */, "SYSPROC"),
+          asList(null /* TODO Add catalog. */, "SYSSTAT"));
+      collector.checkThat(schemas, is(expected_schemas));
     }
   }
 
