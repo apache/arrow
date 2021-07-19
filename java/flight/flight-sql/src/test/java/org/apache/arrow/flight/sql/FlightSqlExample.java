@@ -227,8 +227,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   /**
    * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
    *
-   * @param data     data to listen to.
    * @param listener the listener.
+   * @param data     data to listen to.
    */
   protected static void makeListen(final ServerStreamListener listener, final Iterable<VectorSchemaRoot> data) {
     makeListen(listener, stream(data.spliterator(), false).toArray(VectorSchemaRoot[]::new));
@@ -237,8 +237,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   /**
    * Make the provided {@link ServerStreamListener} listen to the provided {@link ResultSet}.
    *
-   * @param data     data to listen to.
    * @param listener the listener.
+   * @param data     data to listen to.
    */
   protected static void makeListen(final ServerStreamListener listener, final VectorSchemaRoot... data) {
     for (final VectorSchemaRoot datum : data) {
@@ -391,8 +391,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
-  // TODO Maybe replace with `FlightSqlProducer#getSchema`
-  @Deprecated
   private Schema buildSchema(ResultSetMetaData resultSetMetaData) throws SQLException {
     final List<Field> resultSetFields = new ArrayList<>();
 
@@ -419,7 +417,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new Schema(resultSetFields);
   }
 
-  @Deprecated // TODO Maybe replace with `FlightSqlProducer#getSchema`
   private Schema buildSchema(ParameterMetaData parameterMetaData) throws SQLException {
     final List<Field> parameterFields = new ArrayList<>();
 
