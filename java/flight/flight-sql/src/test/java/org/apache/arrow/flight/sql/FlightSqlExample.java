@@ -248,7 +248,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   /**
-   * Turns the provided {@link ResultSet} into an {@link Iterator<VectorSchemaRoot>}.
+   * Turns the provided {@link ResultSet} into an {@link Iterator} of {@link VectorSchemaRoot}s.
    *
    * @param data the data to convert
    * @return an {@code Iterator<VectorSchemaRoot>} representation of the provided data.
