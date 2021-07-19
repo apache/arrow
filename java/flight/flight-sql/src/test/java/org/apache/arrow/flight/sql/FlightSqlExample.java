@@ -653,14 +653,34 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
     try {
       final Connection connection = dataSource.getConnection();
-      final ResultSet catalogs = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
-      makeListen(listener, getVectorsFromData(catalogs));
-    } catch (SQLException | IOException e) {
+      final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
+      makeListen(listener, getSchemasRoot(schemas));
+    } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamSchemas: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
       listener.completed();
     }
+  }
+
+  private static VectorSchemaRoot getRootSchemas(final ResultSet data) throws SQLException {
+    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
+    final VarCharVector schemas = new VarCharVector("schema_name", allocator);
+    final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
+    vectors.forEach(FieldVector::allocateNew);
+    int rows = 0;
+
+    for (; data.next(); rows++) {
+      catalogs.setSafe(rows, new Text(data.getString("TABLE_CAT")));
+      schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
+    }
+
+    for (FieldVector vector : vectors) {
+      vector.setValueCount(rows);
+    }
+
+    return null;
   }
 
   @Override
