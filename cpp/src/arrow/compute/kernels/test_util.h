@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
@@ -56,6 +57,13 @@ std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
     ArrayFromVector<Type, T>(type, values, &result);
   }
   return result;
+}
+
+inline std::string CompareOperatorToFunctionName(CompareOperator op) {
+  static std::string function_names[] = {
+      "equal", "not_equal", "greater", "greater_equal", "less", "less_equal",
+  };
+  return function_names[op];
 }
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,

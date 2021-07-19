@@ -46,7 +46,8 @@ using util::string_view;
 template <typename ArrowType>
 static void ValidateCompare(CompareOptions options, const Datum& lhs, const Datum& rhs,
                             const Datum& expected) {
-  ASSERT_OK_AND_ASSIGN(Datum result, Compare(lhs, rhs, options));
+  ASSERT_OK_AND_ASSIGN(
+      Datum result, CallFunction(CompareOperatorToFunctionName(options.op), {lhs, rhs}));
   AssertArraysEqual(*expected.make_array(), *result.make_array(),
                     /*verbose=*/true);
 }
@@ -430,7 +431,8 @@ TEST(TestCompareTimestamps, Basics) {
     auto lhs = ArrayFromJSON(type, example1_json);
     auto rhs = ArrayFromJSON(type, example2_json);
     auto expected = ArrayFromJSON(boolean(), expected_json);
-    ASSERT_OK_AND_ASSIGN(Datum result, Compare(lhs, rhs, CompareOptions(op)));
+    ASSERT_OK_AND_ASSIGN(Datum result,
+                         CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
     AssertArraysEqual(*expected, *result.make_array(), /*verbose=*/true);
   };
 
