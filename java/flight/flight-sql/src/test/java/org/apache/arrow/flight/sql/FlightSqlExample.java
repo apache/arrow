@@ -275,7 +275,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
   }
 
-  private static void saveToVector(final Integer data, final IntVector vector, final int index) {
+  private static void saveToVector(final @Nullable Integer data, final IntVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
@@ -590,7 +590,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    /* TODO
     try {
       final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
       makeListen(listener, getVectorsFromData(catalogs));
@@ -600,25 +599,32 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     } finally {
       listener.completed();
     }
-     */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    /* TODO
     final Schema schema = getSchemaSchemas().getSchema();
-    return getFlightInfoForSchema(request, descriptor, schema);
-    */
-    throw Status.UNAVAILABLE.asRuntimeException();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final String catalog = emptyToNull(command.getCatalog());
+    final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
+    try {
+      final Connection connection = dataSource.getConnection();
+      final ResultSet catalogs = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
+      makeListen(listener, getVectorsFromData(catalogs));
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamSchemas: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
@@ -691,8 +697,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys request, final CallContext context,
                                              final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaPrimaryKeys().getSchema();
-    return getFlightInfoForSchema(request, descriptor, schema);
+    // TODO - build example implementation
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override

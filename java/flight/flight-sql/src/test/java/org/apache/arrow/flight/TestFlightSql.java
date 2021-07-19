@@ -18,9 +18,11 @@
 package org.apache.arrow.flight;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.util.AutoCloseables.close;
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -207,6 +209,7 @@ public class TestFlightSql {
                      .execute()
                      .getEndpoints()
                      .get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
 
       final List<List<String>> result = getResults(stream);
       final List<List<String>> expected = asList(
@@ -234,15 +237,13 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO
-  public void testGetCatalogs() {
-    /*
+  public void testGetCatalogs() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
       List<List<String>> catalogs = getResults(stream);
+      // TODO Add catalogs if possible.
       collector.checkThat(catalogs, is(emptyList()));
     }
-    */
   }
 
   @Test
@@ -270,28 +271,22 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO
   public void testGetSchemasSchema() {
-    /*
     final FlightInfo info = sqlClient.getSchemas(null, null);
     final Schema infoSchema = info.getSchema();
     final Schema expectedSchema = new Schema(asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType())));
     collector.checkThat(infoSchema, is(expectedSchema));
-    */
   }
 
   @Test
-  @Ignore // TODO
-  public void testGetSchemasResult() {
-    /*
+  public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
       final List<List<String>> schemas = getResults(stream);
       collector.checkThat(schemas, is(allOf(notNullValue(), not(emptyList()))));
     }
-    */
   }
 
   @Test
