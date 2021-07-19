@@ -66,8 +66,8 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public Object getArray() {
-    return getArrayNoBoundCheck(this.dataVector, this.startOffset, this.valuesCount);
+  public Object getArray() throws SQLException {
+    return getArray(null);
   }
 
   @Override
@@ -75,13 +75,13 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-    return this.getArray();
+
+    return getArrayNoBoundCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
-  public Object getArray(long index, int count) {
-    checkBoundaries(index, count);
-    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+  public Object getArray(long index, int count) throws SQLException {
+    return getArray(index, count, null);
   }
 
   private void checkBoundaries(long index, int count) {
@@ -104,12 +104,14 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-    return this.getArray(index, count);
+
+    checkBoundaries(index, count);
+    return getArrayNoBoundCheck(this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   @Override
   public ResultSet getResultSet() throws SQLException {
-    return getResultSetNoBoundariesCheck(this.dataVector, this.startOffset, this.valuesCount);
+    return this.getResultSet(null);
   }
 
   @Override
@@ -117,14 +119,13 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-    return this.getResultSet();
+
+    return getResultSetNoBoundariesCheck(this.dataVector, this.startOffset, this.valuesCount);
   }
 
   @Override
   public ResultSet getResultSet(long index, int count) throws SQLException {
-    checkBoundaries(index, count);
-    return getResultSetNoBoundariesCheck(this.dataVector,
-        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return getResultSet(index, count, null);
   }
 
   private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start, long count)
@@ -142,7 +143,10 @@ public class ArrowFlightJdbcArray implements Array {
     if (map != null) {
       throw new SQLFeatureNotSupportedException();
     }
-    return this.getResultSet(index, count);
+
+    checkBoundaries(index, count);
+    return getResultSetNoBoundariesCheck(this.dataVector,
+        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   @Override
