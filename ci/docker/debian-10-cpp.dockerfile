@@ -60,7 +60,6 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
-        libzstd-dev \
         llvm-${llvm}-dev \
         make \
         ninja-build \
