@@ -57,6 +57,14 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
+nse_funcs$coalesce <- function(...) {
+  if (missing(..1)) {
+    abort("At least one argument must be supplied to coalesce()")
+  }
+  args <- list2(...)
+  build_expr("coalesce", args = args)
+}
+
 nse_funcs$is.na <- function(x) {
   # TODO: if an option is added to the is_null kernel to treat NaN as NA,
   # use that to simplify the code here (ARROW-13367)
