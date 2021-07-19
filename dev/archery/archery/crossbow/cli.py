@@ -255,8 +255,7 @@ def save_report_data(obj, job_name, fetch):
     report = JsonReport(job=job)
     
     with tempfile.NamedTemporaryFile(delete=False) as temp:
-        temp.write(report.show(output))
-        temp.flush()
+        temp.write(report.get_json_tasks())
 
 
 @crossbow.command()
