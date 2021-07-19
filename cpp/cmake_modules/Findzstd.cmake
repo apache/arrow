@@ -41,7 +41,7 @@ else()
       "${CMAKE_STATIC_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${ZSTD_STATIC_LIB_SUFFIX}")
 endif()
 
-# First, find via if specified ZTD_ROOT
+# First, find via if specified ZSTD_ROOT
 if(ZSTD_ROOT)
   message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
   find_library(ZSTD_LIB
