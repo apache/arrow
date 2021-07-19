@@ -23,6 +23,7 @@ import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
+import static java.util.Objects.isNull;
 import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.StreamSupport.stream;
@@ -380,22 +381,23 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     if (includeSchema) {
       final ResultSet columnsData =
           databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null);
-      Map<String, List<Field>> tableToFields = new HashMap<>();
+      final Map<String, List<Field>> tableToFields = new HashMap<>();
 
       while (columnsData.next()) {
         final String tableName = columnsData.getString("TABLE_NAME");
         final String fieldName = columnsData.getString("COLUMN_NAME");
         final int dataType = columnsData.getInt("DATA_TYPE");
         final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
-        final int precision = 0;
-        final int scale = 0;
+        Integer precision = isNull(precision = (Integer) columnsData.getObject("NUM_PREC_RADIX")) ? 0 : precision;
+        Integer scale = isNull(scale = (Integer) columnsData.getObject("DECIMAL_DIGITS")) ? 0 : scale;
         final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
         final Field field =
             new Field(
                 fieldName,
                 new FieldType(
                     isNullable,
-                    getArrowTypeFromJdbcType(dataType, precision, scale), null),
+                    getArrowTypeFromJdbcType(dataType, precision, scale),
+                    null),
                 null);
         fields.add(field);
       }
