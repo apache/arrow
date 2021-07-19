@@ -86,6 +86,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
@@ -686,7 +687,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public FlightInfo getFlightInfoTableTypes(final CallContext context, final FlightDescriptor descriptor) {
-    /* TODO
     try {
       final Schema schema = getSchemaTableTypes().getSchema();
       return getFlightInfoForSchema(request, descriptor, schema);
@@ -694,8 +694,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       LOGGER.error(format("Failed to getFlightInfoTableTypes: <%s>.", e.getMessage()), e);
       throw new RuntimeException(e);
     }
-     */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
