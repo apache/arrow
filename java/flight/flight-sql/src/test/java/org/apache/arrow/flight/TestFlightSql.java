@@ -225,15 +225,12 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO
   public void testGetCatalogsSchema() {
-    /*
     final FlightInfo info = sqlClient.getCatalogs();
     final Schema infoSchema = info.getSchema();
     final Schema expectedInfoSchema =
         new Schema(singletonList(Field.nullable("catalog_name", MinorType.VARCHAR.getType())));
     collector.checkThat(infoSchema, is(expectedInfoSchema));
-   */
   }
 
   @Test
