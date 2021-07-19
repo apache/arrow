@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import static java.nio.ByteBuffer.wrap;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
@@ -27,6 +26,7 @@ import static org.hamcrest.CoreMatchers.is;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.Reader;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -321,7 +321,7 @@ public class TestFlightSql {
             } else if (fieldVector instanceof VarBinaryVector) {
               final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                results.get(rowIndex).add(Schema.deserialize(wrap(varbinaryVector.get(rowIndex))).toJson());
+                results.get(rowIndex).add(Schema.deserialize(ByteBuffer.wrap(varbinaryVector.get(rowIndex))).toJson());
               }
             } else {
               throw new UnsupportedOperationException("Not yet implemented");
