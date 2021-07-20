@@ -431,9 +431,8 @@ struct WriteState {
 };
 
 Status WriteNextBatch(WriteState* state, const std::shared_ptr<Fragment>& fragment,
-                      std::shared_ptr<RecordBatch> batch) {
+                      const std::shared_ptr<RecordBatch>& batch) {
   ARROW_ASSIGN_OR_RAISE(auto groups, state->write_options.partitioning->Partition(batch));
-  batch.reset();  // drop to hopefully conserve memory
 
   if (groups.batches.size() > static_cast<size_t>(state->write_options.max_partitions)) {
     return Status::Invalid("Fragment would be written into ", groups.batches.size(),
@@ -479,68 +478,26 @@ Status WriteNextBatch(WriteState* state, const std::shared_ptr<Fragment>& fragme
   return Status::OK();
 }
 
-Status WriteInternal(const ScanOptions& scan_options, WriteState* state,
-                     ScanTaskVector scan_tasks) {
-  // Store a mapping from partitions (represened by their formatted partition expressions)
-  // to a WriteQueue which flushes batches into that partition's output file. In principle
-  // any thread could produce a batch for any partition, so each task alternates between
-  // pushing batches and flushing them to disk.
-  auto task_group = scan_options.TaskGroup();
-
-  for (const auto& scan_task : scan_tasks) {
-    task_group->Append([&, scan_task] {
-      std::function<Status(std::shared_ptr<RecordBatch>)> visitor =
-          [&](std::shared_ptr<RecordBatch> batch) {
-            return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
-          };
-      return internal::RunSynchronously<Future<>>(
-          [&](internal::Executor* executor) {
-            return scan_task->SafeVisit(executor, visitor);
-          },
-          /*use_threads=*/false);
-    });
-  }
-  return task_group->Finish();
-}
-
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
   RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
 
-  // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
-  //
-  // - Fragment iteration. Keeping this lazy would allow us to start partitioning/writing
-  //   any fragments we have before waiting for discovery to complete. This isn't
-  //   currently implemented for FileSystemDataset anyway: ARROW-8613
-  //
-  // - ScanTask iteration. Keeping this lazy would save some unnecessary blocking when
-  //   writing Fragments which produce scan tasks slowly. No Fragments do this.
-  //
-  // NB: neither of these will have any impact whatsoever on the common case of writing
-  //     an in-memory table to disk.
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-
-  // TODO(ARROW-11782/ARROW-12288) Remove calls to Scan()
-  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
-  ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-
   WriteState state(write_options);
-  RETURN_NOT_OK(WriteInternal(*scanner->options(), &state, std::move(scan_tasks)));
+
+  RETURN_NOT_OK(internal::RunSynchronously<Future<>>(
+      [&](internal::Executor* executor) -> Future<> {
+        ARROW_ASSIGN_OR_RAISE(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
+
+        batch_gen = MakeTransferredGenerator(std::move(batch_gen), executor);
+
+        return VisitAsyncGenerator(
+            std::move(batch_gen), [&](const EnumeratedRecordBatch& e) {
+              return WriteNextBatch(&state, e.fragment.value, e.record_batch.value);
+            });
+      },
+      /*use_threads=*/false));
 
   auto task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : state.queues) {
