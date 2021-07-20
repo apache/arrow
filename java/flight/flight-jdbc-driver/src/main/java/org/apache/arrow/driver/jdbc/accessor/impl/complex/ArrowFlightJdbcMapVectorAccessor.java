@@ -21,14 +21,10 @@ import java.util.Map;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 
-/**
- * Accessor for the Arrow type {@link MapVector}.
- */
 public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final MapVector vector;
@@ -46,13 +42,11 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
   @Override
   public Object getObject() {
     int index = getCurrentRow();
-
-    this.wasNull = vector.isNull(index);
-    if (this.wasNull) {
+    if (this.wasNull = vector.isNull(index)) {
       return null;
     }
 
-    Map<Object, Object> result = new JsonStringHashMap<>();
+    JsonStringHashMap<Object, Object> result = new JsonStringHashMap<>();
     UnionMapReader reader = vector.getReader();
 
     reader.setPosition(index);
@@ -68,12 +62,12 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
 
   @Override
   protected long getStartOffset(int index) {
-    return vector.getOffsetBuffer().getInt((long) index * BaseRepeatedValueVector.OFFSET_WIDTH);
+    return vector.getOffsetBuffer().getInt(index * 4L);
   }
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer().getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
+    return vector.getOffsetBuffer().getInt((index + 1) * 4L);
   }
 
   @Override
