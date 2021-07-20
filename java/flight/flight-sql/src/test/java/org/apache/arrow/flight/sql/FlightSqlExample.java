@@ -318,7 +318,33 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     defaultConsumer.accept(data, vector);
   }
 
+  private static VectorSchemaRoot getSchemasRoot(final ResultSet data) throws SQLException {
+    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
+    final VarCharVector schemas = new VarCharVector("schema_name", allocator);
+    final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
+    vectors.forEach(FieldVector::allocateNew);
+    int rows = 0;
+
+    for (; data.next(); rows++) {
+      final String catalog = data.getString("TABLE_CATALOG");
+      if (isNull(catalog)) {
+        catalogs.setNull(rows);
+      } else {
+        catalogs.setSafe(rows, new Text(catalog));
+      }
+      schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
+    }
+
+    for (final FieldVector vector : vectors) {
+      vector.setValueCount(rows);
+    }
+
+    return new VectorSchemaRoot(vectors);
+  }
+
   private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                         final BufferAllocator allocator,
                                          final boolean includeSchema,
                                          final @Nullable String catalog,
                                          final @Nullable String schemaFilterPattern,
@@ -604,27 +630,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaSqlInfo().getSchema();
-    final List<FlightEndpoint> endpoints =
-        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
-    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final List<String> info = command.getInfoList();
-    try (final Connection connection = dataSource.getConnection();
-         // FIXME Double-check this. Probably incorrect.
-         final ResultSet properties = connection.getMetaData().getClientInfoProperties()) {
-      // TODO Logic here.
-      throw Status.UNIMPLEMENTED.asRuntimeException();
-    } catch (SQLException e) {
-      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
-      listener.error(e);
-    } finally {
-      listener.completed();
-    }
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
@@ -638,9 +650,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    try {
-      final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
-      makeListen(getVectorsFromData(catalogs), listener);
+    try (final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(catalogs, allocator));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -746,10 +758,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    try {
-      final Connection connection = dataSource.getConnection();
-      final ResultSet tableTypes = connection.getMetaData().getTableTypes();
-      makeListen(listener, getVectorsFromData(tableTypes));
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet tableTypes = connection.getMetaData().getTableTypes();
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(tableTypes, allocator));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
