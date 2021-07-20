@@ -26,6 +26,9 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcInterv
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcDenseUnionVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcFixedSizeListVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcLargeListVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcListVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcStructVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
@@ -335,6 +338,33 @@ public class ArrowFlightJdbcAccessorFactoryTest {
       ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcStructVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForListVector() {
+    try (ValueVector valueVector = rootAllocatorTestRule.createListVector()) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcListVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForLargeListVector() {
+    try (ValueVector valueVector = rootAllocatorTestRule.createLargeListVector()) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcLargeListVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForFixedSizeListVector() {
+    try (ValueVector valueVector = rootAllocatorTestRule.createFixedSizeListVector()) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcFixedSizeListVectorAccessor);
     }
   }
 }
