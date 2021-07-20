@@ -63,8 +63,8 @@ nse_funcs$coalesce <- function(...) {
     abort("At least one argument must be supplied to coalesce()")
   }
 
-  # Treat NaN like NA for consistency with dplyr::coalesce():
-  # if *all* the values are NaN, we should return NaN, not NA, so don't replace
+  # Treat NaN like NA for consistency with dplyr::coalesce(), but if *all*
+  # the values are NaN, we should return NaN, not NA, so don't replace
   # NaN with NA in the final (or only) argument
   # TODO: if an option is added to the coalesce kernel to treat NaN as NA,
   # use that to simplify the code here (ARROW-13389)
