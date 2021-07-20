@@ -3129,6 +3129,28 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
     assert actual == expected
 
 
+def _check_files_unordered(actual, expected):
+    # specific basenames may be written to the expected partitions
+    # in differing order
+
+    # assert all expected basenames were written somewhere
+    assert set(a.name for a in actual) == set(e.name for e in expected)
+
+    actual_parent_to_count = {}
+    expected_parent_to_count = {}
+
+    for paths, parent_to_count in zip([actual, actual_parent_to_count],
+                                      [expected, expected_parent_to_count]):
+        for p in paths:
+            if p.parent in parent_to_count:
+                parent_to_count[p.parent] += 1
+            else:
+                parent_to_count[p.parent] = 1
+
+    # assert that each directory received the expected number of files
+    assert actual_parent_to_count == expected_parent_to_count
+
+
 def _check_dataset_roundtrip(dataset, base_dir, expected_files,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
@@ -3137,8 +3159,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
                      partitioning=partitioning, use_threads=False)
 
     # check that all files are present
-    file_paths = list(base_dir_path.rglob("*"))
-    assert set(file_paths) == set(expected_files)
+    _check_files_unordered(base_dir_path.rglob("*"), expected_files)
 
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
@@ -3389,10 +3410,10 @@ def test_write_iterable(tempdir):
 
 
 def test_write_scanner(tempdir, dataset_reader):
-    if dataset_reader.use_async:
+    if not dataset_reader.use_async:
         pytest.skip(
             ('ARROW-12803: Write dataset with scanner does not'
-             ' support async scan'))
+             ' support sync scan'))
 
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
