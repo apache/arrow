@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.nullValue;
 
+import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,6 +105,29 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
     vector.setNull(0);
     vector.setNull(1);
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
+        (accessor, currentRow) -> nullValue());
+  }
+
+  @Test
+  public void testShouldGetStructReturnValidStruct() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      Struct struct = accessor.getStruct();
+      assert struct != null;
+
+      Object[] expected = new Object[] {
+          100 * (currentRow + 1),
+          100.05 * (currentRow + 1)
+      };
+
+      collector.checkThat(struct.getAttributes(), equalTo(expected));
+    });
+  }
+
+  @Test
+  public void testShouldGetStructReturnNull() throws Exception {
+    vector.setNull(0);
+    vector.setNull(1);
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getStruct,
         (accessor, currentRow) -> nullValue());
   }
 }
