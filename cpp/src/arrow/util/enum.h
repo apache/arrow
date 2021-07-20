@@ -89,11 +89,16 @@ struct EnumTypeTag {};
 ///       static constexpr const char* name() { return "Color"; }
 ///     };
 ///
-/// Ensure the doccomment includes a description of each enum value.
-///
 /// Values of enumerations declared in this way can be constructed from their string
 /// representations at compile time, and can be converted to their string representation
 /// for easier debugging/logging/...
+///
+/// Ensure the doccomment includes a description of each enum value, formatted like so
+/// (this way doxygen can render a `<ul/>` of the values):
+///
+///     - `red`:   Hex value 0xff0000
+///     - `green`: Hex value 0x00ff00
+///     - `blue`:  Hex value 0x0000ff
 template <typename Raw>
 struct EnumType : EnumTypeTag {
   constexpr EnumType() = default;

@@ -36,8 +36,8 @@ class ExecContext;
 class ARROW_EXPORT FilterOptions : public FunctionOptions {
  public:
   /// Configure the action taken when a slot of the selection mask is null.
-  /// drop: the corresponding filtered value will be removed in the output.
-  /// emit_null: the corresponding filtered value will be null in the output.
+  /// - `drop`: the corresponding filtered value will be removed in the output.
+  /// - `emit_null`: the corresponding filtered value will be null in the output.
   struct NullSelectionBehavior : EnumType<NullSelectionBehavior> {
     using EnumType::EnumType;
     static constexpr const char* name() { return "NullSelectionBehavior"; }
@@ -67,8 +67,8 @@ class ARROW_EXPORT TakeOptions : public FunctionOptions {
 class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
  public:
   /// Configure how null values will be encoded
-  /// encode: the null value will be added to the dictionary with a proper index.
-  /// mask: the null value will be masked in the indices array.
+  /// - `encode`: the null value will be added to the dictionary with a proper index.
+  /// - `mask`: the null value will be masked in the indices array.
   struct NullEncodingBehavior : EnumType<NullEncodingBehavior> {
     using EnumType::EnumType;
     static constexpr const char* name() { return "NullEncodingBehavior"; }
@@ -83,6 +83,9 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   NullEncodingBehavior null_encoding_behavior = NullEncodingBehavior("mask");
 };
 
+/// Configure the order for sorting
+/// - `ascending`: values will precede greater values.
+/// - `descending`: values will precede lesser values.
 struct SortOrder : public EnumType<SortOrder> {
   using EnumType::EnumType;
   static constexpr const char* name() { return "SortOrder"; }

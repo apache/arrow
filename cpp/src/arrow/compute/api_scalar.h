@@ -58,9 +58,9 @@ class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
 class ARROW_EXPORT JoinOptions : public FunctionOptions {
  public:
   /// How to handle null values. (A null separator always results in a null output.)
-  /// emit_null: a null in any input results in a null in the output.
-  /// skip: nulls in inputs are skipped.
-  /// replace: nulls in inputs are replaced with the replacement string.
+  /// - `emit_null`: a null in any input results in a null in the output.
+  /// - `skip`: nulls in inputs are skipped.
+  /// - `replace`: nulls in inputs are replaced with the replacement string.
   struct NullHandlingBehavior : public EnumType<NullHandlingBehavior> {
     using EnumType::EnumType;
     static constexpr EnumStrings<3> values() { return {"emit_null", "skip", "replace"}; }
@@ -214,12 +214,12 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
 /// A choice of comparison operator.
 ///
 /// Valid operators:
-/// - equal
-/// - not_equal
-/// - greater
-/// - greater_equal
-/// - less
-/// - less_equal
+/// - `equal`
+/// - `not_equal`
+/// - `greater`
+/// - `greater_equal`
+/// - `less`
+/// - `less_equal`
 struct CompareOperator : public EnumType<CompareOperator> {
   using EnumType::EnumType;
   static constexpr const char* name() { return "CompareOperator"; }

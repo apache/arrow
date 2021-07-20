@@ -208,9 +208,9 @@ TEST(Reflection, CompileTimeStringOps) {
 
 /// \brief Enumeration of primary colors.
 ///
-/// - red:   Hex value 0xff0000
-/// - green: Hex value 0x00ff00
-/// - blue:  Hex value 0x0000ff
+/// - `red`:   Hex value 0xff0000
+/// - `green`: Hex value 0x00ff00
+/// - `blue`:  Hex value 0x0000ff
 struct Color : EnumType<Color> {
   using EnumType<Color>::EnumType;
   static constexpr EnumStrings<3> values() { return {"red", "green", "blue"}; }
