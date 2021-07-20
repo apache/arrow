@@ -87,8 +87,6 @@ nse_funcs$coalesce <- function(...) {
       # store the NA_real_ in Arrow's smallest float type to avoid casting
       # smaller float types to larger float types
       NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
-      # TODO: Figure out why this doesn't work:
-      #Expression$create("replace_with_mask", arg, Expression$create("is_nan", arg), NA_expr)
       Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
     } else {
       arg
