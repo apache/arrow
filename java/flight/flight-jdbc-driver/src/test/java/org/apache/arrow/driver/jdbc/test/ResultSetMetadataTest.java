@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -161,7 +162,6 @@ public class ResultSetMetadataTest {
 
   /**
    * Test if {@link ResultSetMetaData#getColumnType(int)}returns the correct values.
-   * TODO This test will need a refactor after the conversion type is finalized
    *
    * @throws SQLException in case of error.
    */
@@ -171,9 +171,9 @@ public class ResultSetMetadataTest {
     final int secondColumn = metadata.getColumnType(2);
     final int thirdColumn = metadata.getColumnType(3);
 
-    collector.checkThat(firstColumn, equalTo(1));
-    collector.checkThat(secondColumn, equalTo(1));
-    collector.checkThat(thirdColumn, equalTo(1));
+    collector.checkThat(firstColumn, equalTo(Types.BIGINT));
+    collector.checkThat(secondColumn, equalTo(Types.VARCHAR));
+    collector.checkThat(thirdColumn, equalTo(Types.FLOAT));
   }
 
 
