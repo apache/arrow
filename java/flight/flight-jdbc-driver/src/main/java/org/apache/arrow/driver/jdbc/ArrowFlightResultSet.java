@@ -20,87 +20,175 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaResultSet;
+import org.apache.calcite.avatica.AvaticaResultSetMetaData;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.ColumnMetaData;
+import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.Frame;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.QueryState;
+import org.apache.calcite.avatica.proto.Common;
 
 /**
  * The {@link ResultSet} implementation for Arrow Flight.
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
+  VectorSchemaRoot vectorSchemaRoot;
+
   ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
-      final Signature signature,
-      final ResultSetMetaData resultSetMetaData,
-      final TimeZone timeZone, final Frame firstFrame) throws SQLException {
+                       final Signature signature,
+                       final ResultSetMetaData resultSetMetaData,
+                       final TimeZone timeZone, final Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
+  }
+
+  static ArrowFlightResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot) throws SQLException {
+    // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
+
+    final String sql = "MOCKED";
+    TimeZone timeZone = TimeZone.getDefault();
+    QueryState state = new QueryState(sql);
+
+    Meta.Signature signature = ArrowFlightMetaImpl.newSignature(sql);
+
+    AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, sql, signature);
+    ArrowFlightResultSet resultSet = new ArrowFlightResultSet(null, state, signature, resultSetMetaData,
+        timeZone, null);
+
+    resultSet.execute(vectorSchemaRoot);
+    return resultSet;
   }
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-
     try {
+      VectorSchemaRoot vectorSchemaRoot = (((ArrowFlightConnection) statement
+          .getConnection())
+          .getClient()
+          .runQuery(signature.sql));
 
-      VectorSchemaRoot root = (((ArrowFlightConnection) statement
-              .getConnection())
-              .getClient()
-              .runQuery(signature.sql));
-
-      final List<Field> fields = root.getSchema().getFields();
-
-      List<ColumnMetaData> metadata =
-              Stream.iterate(0, Math::incrementExact).limit(fields.size())
-                .map(index -> {
-                  Field field = fields.get(index);
-                  ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
-
-                  // TODO Revisit this later -- unfinished.
-                  return new ColumnMetaData(
-                          index,
-                          false,
-                          false,
-                          false,
-                          false,
-                          0,
-                          false,
-                          1,
-                          field.getName(),
-                          field.getName(),
-                          field.getName(),
-                          0,
-                          0,
-                          "TABLE-HERE",
-                          "CATALOG-HERE",
-                          new ColumnMetaData.AvaticaType(
-                                  1 /* String-only for now */,
-                                  fieldTypeId.name(),
-                                  ColumnMetaData.Rep.STRING),
-                          false,
-                          false,
-                          false,
-                          "teste"
-                  );
-                }).collect(Collectors.toList());
-
-      signature.columns.addAll(metadata);
-
-      execute2(new ArrowFlightJdbcCursor(root),
-              this.signature.columns);
+      execute(vectorSchemaRoot);
     } catch (Exception e) {
       throw new SQLException(e);
     }
 
     return this;
   }
+
+  private void execute(VectorSchemaRoot vectorSchemaRoot) {
+    final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
+    List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
+    signature.columns.addAll(columns);
+
+    this.vectorSchemaRoot = vectorSchemaRoot;
+    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+  }
+
+  @Override
+  public void close() {
+    if (this.statement != null) {
+      // An ArrowFlightResultSet will have a null statement when it is created by
+      // ArrowFlightResultSet#fromVectorSchemaRoot. In this case it must skip calling AvaticaResultSet#close,
+      // as it expects that statement is not null
+      super.close();
+    }
+
+    this.vectorSchemaRoot.close();
+  }
+
+  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(List<Field> fields) {
+    return Stream.iterate(0, Math::incrementExact).limit(fields.size())
+        .map(index -> {
+          Field field = fields.get(index);
+          ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
+
+          Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder();
+          builder.setOrdinal(index);
+          builder.setColumnName(field.getName());
+
+          builder.setType(Common.AvaticaType.newBuilder()
+              .setId(getSqlTypeId(field.getType()))
+              .setName(fieldTypeId.name())
+              .build());
+
+          return ColumnMetaData.fromProto(builder.build());
+        }).collect(Collectors.toList());
+  }
+
+  private static int getSqlTypeId(ArrowType arrowType) {
+    final ArrowType.ArrowTypeID typeID = arrowType.getTypeID();
+    switch (typeID) {
+      case Int:
+        final int bitWidth = ((ArrowType.Int) arrowType).getBitWidth();
+        switch (bitWidth) {
+          case 8:
+            return Types.TINYINT;
+          case 16:
+            return Types.SMALLINT;
+          case 32:
+            return Types.INTEGER;
+          case 64:
+            return Types.BIGINT;
+        }
+        break;
+      case Binary:
+        return Types.VARBINARY;
+      case FixedSizeBinary:
+        return Types.BINARY;
+      case LargeBinary:
+        return Types.LONGVARBINARY;
+      case Date:
+        return Types.DATE;
+      case Time:
+        return Types.TIME;
+      case Timestamp:
+        return Types.TIMESTAMP;
+      case Bool:
+        return Types.BOOLEAN;
+      case Decimal:
+        return Types.DECIMAL;
+      case FloatingPoint:
+        final FloatingPointPrecision floatingPointPrecision = ((ArrowType.FloatingPoint) arrowType).getPrecision();
+        switch (floatingPointPrecision) {
+          case DOUBLE:
+            return Types.DOUBLE;
+          case SINGLE:
+            return Types.FLOAT;
+        }
+        break;
+      case Utf8:
+        return Types.VARCHAR;
+      case LargeUtf8:
+        return Types.LONGVARCHAR;
+      case List:
+      case FixedSizeList:
+      case LargeList:
+        return Types.ARRAY;
+      case Struct:
+        return Types.STRUCT;
+      case Duration:
+      case Interval:
+      case Map:
+      case Union:
+        return Types.JAVA_OBJECT;
+      case NONE:
+      case Null:
+        return Types.NULL;
+    }
+
+    throw new IllegalArgumentException("Unsupported ArrowType " + arrowType);
+  }
+
 }
