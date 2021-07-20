@@ -1632,6 +1632,47 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       "gdv_fn_unix_timestamp_utf8_utf8_int32", types->i64_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_unix_timestamp_utf8_utf8_int32));
 
+  // gdv_fn_from_unixtime_utf8
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i64_type(),                   // int64_t data
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc("gdv_fn_from_unixtime_utf8",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_from_unixtime_utf8));
+
+  // gdv_fn_from_unixtime_utf8_utf8
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i64_type(),                   // int64_t data
+          types->i1_type(),                    // bool in1_validity
+          types->i8_ptr_type(),                // const char* pattern
+          types->i32_type(),                   // int pattern_len
+          types->i1_type(),                    // bool in2_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_unixtime_utf8_utf8", types->i64_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_unixtime_utf8_utf8));
+
+  // gdv_fn_from_unixtime_utf8_utf8_int32
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i64_type(),                   // int64_t data
+          types->i1_type(),                    // bool in1_validity
+          types->i8_ptr_type(),                // const char* pattern
+          types->i32_type(),                   // int pattern_len
+          types->i1_type(),                    // bool in2_validity
+          types->i32_type(),                   // int32_t suppress_errors
+          types->i1_type(),                    // bool in3_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_unixtime_utf8_utf8_int32", types->i64_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_unixtime_utf8_utf8_int32));
+
   // gdv_fn_in_expr_lookup_int32
   args = {types->i64_type(),  // int64_t in holder ptr
           types->i32_type(),  // int32 value

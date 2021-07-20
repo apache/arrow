@@ -27,7 +27,7 @@
 
 namespace gandiva {
 
-// Block of tests to test the holder for TO_TIME functions
+// Block of tests to test the holder for From Date functions
 class TestFromDateHolder : public ::testing::Test {
  protected:
   ExecutionContext execution_context_;

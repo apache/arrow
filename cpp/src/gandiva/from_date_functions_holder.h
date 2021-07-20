@@ -43,11 +43,13 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
   virtual const char* operator()(ExecutionContext* context, int64_t in_data,
                                  bool in_valid, bool* out_valid) {
     *out_valid = false;
+
+    bool pattern_begins_empty = pattern_.empty();
     if (!in_valid) {
       return 0;
     }
 
-    if (pattern_.empty()) {
+    if (pattern_begins_empty) {
       pattern_ = "%Y-%m-%d %H:%M:%S";
     }
 
@@ -61,6 +63,10 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
     iss << std::put_time(ptm, pattern_.c_str());
     std::string ret_str = iss.str();
     size_t length = strlen(ret_str.c_str());
+
+    if (pattern_begins_empty) {
+      length = 20;
+    }
 
     char* ret = new char[length];
 
