@@ -58,16 +58,16 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 }
 
 nse_funcs$coalesce <- function(...) {
-  if (missing(..1)) {
+  args <- list2(...)
+  if (length(args) < 1) {
     abort("At least one argument must be supplied to coalesce()")
   }
 
-  # treat NaN like NA for consistency with dplyr::coalesce()
-  # TODO: if an option is added to the coalesce kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13389)
-  args <- list2(...)
+  # Treat NaN like NA for consistency with dplyr::coalesce():
   # if *all* the values are NaN, we should return NaN, not NA, so don't replace
   # NaN with NA in the final (or only) argument
+  # TODO: if an option is added to the coalesce kernel to treat NaN as NA,
+  # use that to simplify the code here (ARROW-13389)
   attr(args[[length(args)]], "last") <- TRUE
   args <- lapply(args, function(arg) {
     last_arg <- is.null(attr(arg, "last"))
