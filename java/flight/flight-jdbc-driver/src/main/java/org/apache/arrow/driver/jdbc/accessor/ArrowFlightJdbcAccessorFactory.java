@@ -31,6 +31,7 @@ import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcFixedSi
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcLargeListVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcListVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcStructVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcMapVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
@@ -73,6 +74,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /**
@@ -146,6 +148,8 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow);
     } else if (vector instanceof StructVector) {
       return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow);
+    } else if (vector instanceof MapVector) {
+      return new ArrowFlightJdbcMapVectorAccessor((MapVector) vector, getCurrentRow);
     } else if (vector instanceof ListVector) {
       return new ArrowFlightJdbcListVectorAccessor((ListVector) vector, getCurrentRow);
     } else if (vector instanceof LargeListVector) {
