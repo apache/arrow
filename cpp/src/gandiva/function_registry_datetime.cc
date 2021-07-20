@@ -141,6 +141,24 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
 
+      NativeFunction("from_unixtime", {}, DataTypeVector{utf8()}, timestamp(),
+                     kResultNullInternal, "gdv_fn_from_unixtime_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("from_unixtime", {}, DataTypeVector{utf8(), utf8()}, timestamp(),
+                     kResultNullInternal, "ggdv_fn_from_unixtime_utf8_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction(
+          "from_unixtime", {}, DataTypeVector{utf8(), utf8(), int32()}, timestamp(),
+          kResultNullInternal, "gdv_fn_from_unixtime_utf8_utf8_int32",
+          NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
+              NativeFunction::kCanReturnErrors),
+
       NativeFunction("castTIMESTAMP", {}, DataTypeVector{date64()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_date64"),
 

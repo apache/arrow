@@ -35,6 +35,7 @@
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
+#include "gandiva/from_date_functions_holder.h"
 #include "gandiva/hash_utils.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/interval_holder.h"
@@ -242,6 +243,39 @@ int64_t gdv_fn_unix_timestamp_utf8_utf8_int32(int64_t context_ptr, int64_t holde
   gandiva::UnixTimestampHolder* holder =
       reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+const char* gdv_fn_from_unixtime_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                      int64_t data, bool in1_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::FromUnixtimeHolder* holder =
+      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  return (*holder)(context, data, in1_validity, out_valid);
+}
+
+const char* gdv_fn_from_unixtime_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                           int64_t data, bool in1_validity,
+                                           const char* pattern, int pattern_len,
+                                           bool in2_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::FromUnixtimeHolder* holder =
+      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  return (*holder)(context, data, in1_validity, out_valid);
+}
+
+const char* gdv_fn_from_unixtime_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                                 int64_t data, bool in1_validity,
+                                                 const char* pattern, int pattern_len,
+                                                 bool in2_validity,
+                                                 int32_t suppress_errors,
+                                                 bool in3_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::FromUnixtimeHolder* holder =
+      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  return (*holder)(context, data, in1_validity, out_valid);
 }
 
 bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity) {
