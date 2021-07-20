@@ -303,13 +303,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     defaultConsumer.accept(data, vector);
   }
 
-  private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
-                                         final BufferAllocator allocator,
-                                         final boolean includeSchema,
-                                         final @Nullable String catalog,
-                                         final @Nullable String schemaFilterPattern,
-                                         final @Nullable String tableFilterPattern,
-                                         final @Nullable String... tableTypes)
   private static VectorSchemaRoot getSchemasRoot(final ResultSet data) throws SQLException {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
@@ -335,12 +328,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new VectorSchemaRoot(vectors);
   }
 
-  protected Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
-                                                     final boolean includeSchema,
-                                                     final @Nullable String catalog,
-                                                     final @Nullable String schemaFilterPattern,
-                                                     final @Nullable String tableFilterPattern,
-                                                     final @Nullable String... tableTypes)
+  private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                         final BufferAllocator allocator,
+                                         final boolean includeSchema,
+                                         final @Nullable String catalog,
+                                         final @Nullable String schemaFilterPattern,
+                                         final @Nullable String tableFilterPattern,
+                                         final @Nullable String... tableTypes)
       throws SQLException, IOException {
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", checkNotNull(allocator));
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
@@ -600,27 +594,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaSqlInfo().getSchema();
-    final List<FlightEndpoint> endpoints =
-        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
-    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final List<String> info = command.getInfoList();
-    try (final Connection connection = dataSource.getConnection();
-         // FIXME Double-check this. Probably incorrect.
-         final ResultSet properties = connection.getMetaData().getClientInfoProperties()) {
-      // TODO Logic here.
-      throw Status.UNIMPLEMENTED.asRuntimeException();
-    } catch (SQLException e) {
-      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
-      listener.error(e);
-    } finally {
-      listener.completed();
-    }
+    throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
   @Override
@@ -634,9 +614,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    try {
-      final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
-      makeListen(listener, getVectorsFromData(catalogs));
+    try (final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(catalogs, allocator));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -720,10 +700,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    try {
-      final Connection connection = dataSource.getConnection();
-      final ResultSet tableTypes = connection.getMetaData().getTableTypes();
-      makeListen(listener, getVectorsFromData(tableTypes));
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet tableTypes = connection.getMetaData().getTableTypes();
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(tableTypes, allocator));
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
