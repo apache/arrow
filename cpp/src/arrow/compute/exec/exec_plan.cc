@@ -829,130 +829,6 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
       std::move(states));
 }
 
-template <typename T>
-constexpr int clz(T value) {
-  return value == 0 ? sizeof(T) * 8 : clz(value >> 1) - 1;
-}
-
-static_assert(clz(0) == 32, "");
-static_assert(clz(1) == 31, "");
-static_assert(clz(2) == 30, "");
-static_assert(clz(3) == 30, "");
-static_assert(clz(4) == 29, "");
-static_assert(clz(7) == 29, "");
-static_assert(clz(8) == 28, "");
-static_assert(clz(unsigned(-1)) == 0, "");
-static_assert(clz(unsigned(-1) >> 1) == 1, "");
-
-constexpr int vid(int id) { return 32 - clz(unsigned(id)); }
-
-constexpr int size(int vid) { return 1 << vid; }
-
-static_assert(vid(0) == 0, "");
-static_assert(size(vid(0)) == 1, "");
-
-static_assert(vid(1) == 1, "");
-static_assert(size(vid(1)) == 2, "");
-
-static_assert(vid(2) == 2, "");
-static_assert(vid(3) == 2, "");
-static_assert(size(vid(2)) == 4, "");
-
-static_assert(vid(4) == 3, "");
-static_assert(vid(5) == 3, "");
-static_assert(vid(6) == 3, "");
-static_assert(vid(7) == 3, "");
-static_assert(size(vid(4)) == 8, "");
-
-// ...
-
-static_assert(vid(1 << 14) == 15, "");
-// ...
-static_assert(vid((1 << 15) - 1) == 15, "");
-static_assert(size(vid(1 << 14)) == 1 << 15, "");
-
-template <typename T>
-class SharedSequenceOfObjects {
- public:
-  explicit SharedSequenceOfObjects(int log_max_objects = 16) {
-    objects_.resize(log_max_objects);
-  }
-
-  T* get(int id) {
-    int vid = vector_id(id);
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    DCHECK_LT(static_cast<size_t>(vid), objects_.size());
-
-    while (vid >= num_created_vectors_) {
-      objects_[num_created_vectors_].resize(static_cast<size_t>(1)
-                                            << num_created_vectors_);
-      ++num_created_vectors_;
-    }
-    return &objects_[vid][id];
-  }
-
- private:
-  static int vector_id(int id) {
-    return 32 - CountLeadingZeros(static_cast<uint32_t>(id));
-  }
-
-  int num_created_vectors_ = 0;
-  std::vector<std::vector<T>> objects_;
-  std::mutex mutex_;
-};
-
-class SmallUniqueIdAssignment {
- public:
-  SmallUniqueIdAssignment() = default;
-
-  int Get() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (stack_.empty()) {
-      return num_ids_++;
-    } else {
-      int last = stack_.back();
-      stack_.pop_back();
-      return last;
-    }
-  }
-
-  void Return(int id) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    stack_.push_back(id);
-  }
-
-  int num_ids() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return num_ids_;
-  }
-
- private:
-  std::vector<int> stack_;
-  int num_ids_ = 0;
-  mutable std::mutex mutex_;
-};
-
-class SmallUniqueIdHolder {
- public:
-  SmallUniqueIdHolder() = delete;
-  SmallUniqueIdHolder(const SmallUniqueIdHolder&) = delete;
-  SmallUniqueIdHolder(SmallUniqueIdHolder&&) = delete;
-
-  explicit SmallUniqueIdHolder(SmallUniqueIdAssignment* id_mgr) {
-    id_mgr_ = id_mgr;
-    id_ = id_mgr->Get();
-  }
-
-  ~SmallUniqueIdHolder() { id_mgr_->Return(id_); }
-
-  int get() const { return id_; }
-
- private:
-  SmallUniqueIdAssignment* id_mgr_;
-  int id_;
-};
-
 namespace internal {
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<internal::Aggregate>& aggregates,
@@ -993,6 +869,14 @@ struct GroupByNode : ExecNode {
   struct ThreadLocalState;
 
  public:
+  ThreadLocalState* GetLocalState() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    auto it =
+        thread_indices_.emplace(std::this_thread::get_id(), thread_indices_.size()).first;
+    auto thread_index = it->second;
+    return &local_states_[thread_index];
+  }
+
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
     auto input_schema = inputs_[0]->output_schema();
@@ -1030,9 +914,7 @@ struct GroupByNode : ExecNode {
   }
 
   Status ProcessInputBatch(const ExecBatch& batch) {
-    SmallUniqueIdHolder id_holder(&local_state_id_assignment_);
-    int id = id_holder.get();
-    ThreadLocalState* state = local_states_.get(id);
+    ThreadLocalState* state = GetLocalState();
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     // Create a batch with key columns
@@ -1062,10 +944,9 @@ struct GroupByNode : ExecNode {
   }
 
   Status Merge() {
-    int num_local_states = local_state_id_assignment_.num_ids();
-    ThreadLocalState* state0 = local_states_.get(0);
-    for (int i = 1; i < num_local_states; ++i) {
-      ThreadLocalState* state = local_states_.get(i);
+    ThreadLocalState* state0 = &local_states_[0];
+    for (size_t i = 1; i < local_states_.size(); ++i) {
+      ThreadLocalState* state = &local_states_[i];
       DCHECK(state);
       DCHECK(state->grouper);
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
@@ -1090,7 +971,7 @@ struct GroupByNode : ExecNode {
     out_data_.resize(agg_kernels_.size() + key_field_ids_.size());
     auto it = out_data_.begin();
 
-    ThreadLocalState* state = local_states_.get(0);
+    ThreadLocalState* state = &local_states_[0];
     num_out_groups_ = state->grouper->num_groups();
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
@@ -1221,6 +1102,8 @@ struct GroupByNode : ExecNode {
 
   Status StartProducing() override {
     finished_ = Future<>::Make();
+    auto executor = plan_->exec_context()->executor();
+    local_states_.resize(executor ? executor->GetCapacity() : 1);
     return Status::OK();
   }
 
@@ -1251,6 +1134,7 @@ struct GroupByNode : ExecNode {
   ExecContext* ctx_;
   Future<> finished_ = Future<>::MakeFinished();
 
+  std::mutex mutex_;
   std::atomic<int> num_input_batches_processed_;
   std::atomic<int> num_input_batches_total_;
   std::atomic<uint32_t> num_output_batches_processed_;
@@ -1264,8 +1148,8 @@ struct GroupByNode : ExecNode {
     std::unique_ptr<internal::Grouper> grouper;
     std::vector<std::unique_ptr<KernelState>> agg_states;
   };
-  SharedSequenceOfObjects<ThreadLocalState> local_states_;
-  SmallUniqueIdAssignment local_state_id_assignment_;
+  std::vector<ThreadLocalState> local_states_;
+  std::unordered_map<std::thread::id, size_t> thread_indices_;
   uint32_t num_out_groups_{0};
   ArrayDataVector out_data_;
   std::atomic<bool> output_started_;
