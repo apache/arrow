@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.sql;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
@@ -52,7 +55,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -277,19 +281,67 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return () -> iterator;
   }
 
-  private Result getTableResult(final ResultSet tables, boolean includeSchema) throws SQLException {
-    /*
-    TODO
-    final String catalog = tables.getString("TABLE_CAT");
-    final String schema = tables.getString("TABLE_SCHEMA");
-    final String table = tables.getString("TABLE_NAME");
-    final String table_type = tables.getString("TABLE_TYPE");
-    */
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+  private static void saveToVector(final @Nullable String data, final VarCharVector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
   }
 
-  private Schema buildSchema(String catalog, String schema, String table) throws SQLException {
-    final List<Field> fields = new ArrayList<>();
+  private static void saveToVector(final @Nullable byte[] data, final VarBinaryVector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
+  private static void preconditionCheckSaveToVector(final FieldVector vector, final int index) {
+    checkNotNull(vector);
+    checkState(index >= 0, "Index must be a positive number!");
+  }
+
+  private static <T, V extends FieldVector> void vectorConsumer(final T data, final V vector,
+                                                                final Consumer<V> consumerIfNullable,
+                                                                final BiConsumer<T, V> defaultConsumer) {
+    if (isNull(data)) {
+      consumerIfNullable.accept(vector);
+      return;
+    }
+    defaultConsumer.accept(data, vector);
+  }
+
+  private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                         final boolean includeSchema,
+                                         final @Nullable String catalog,
+                                         final @Nullable String schemaFilterPattern,
+                                         final @Nullable String tableFilterPattern,
+                                         final @Nullable String... tableTypes)
+      throws SQLException, IOException {
+
+    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
+    final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
+    final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
+    final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
+
+    final List<FieldVector> vectors =
+        new ArrayList<>(
+            ImmutableList.of(
+                catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
+    vectors.forEach(FieldVector::allocateNew);
+
+    int rows = 0;
+
+    try (final ResultSet data =
+             checkNotNull(
+                 databaseMetaData,
+                 format("%s cannot be null!", databaseMetaData.getClass().getName()))
+                 .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
+
+      for (; data.next(); rows++) {
+        saveToVector(emptyToNull(data.getString("TABLE_CAT")), catalogNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_SCHEM")), schemaNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_NAME")), tableNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_TYPE")), tableTypeVector, rows);
+      }
 
     try (final Connection connection = dataSource.getConnection();
          final ResultSet columns = connection.getMetaData().getColumns(
@@ -298,24 +350,46 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
              table,
              null);) {
 
-      while (columns.next()) {
-        final String columnName = columns.getString("COLUMN_NAME");
-        final int jdbcDataType = columns.getInt("DATA_TYPE");
-        @SuppressWarnings("unused") // TODO Investigate why this might be here.
-        final String jdbcDataTypeName = columns.getString("TYPE_NAME");
-        final String jdbcIsNullable = columns.getString("IS_NULLABLE");
-        final boolean arrowIsNullable = "YES".equals(jdbcIsNullable);
+    if (includeSchema) {
+      final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
+      tableSchemaVector.allocateNew(rows);
 
-        final int precision = columns.getInt("DECIMAL_DIGITS");
-        final int scale = columns.getInt("COLUMN_SIZE");
-        final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
+      try (final ResultSet columnsData =
+               databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null)) {
+        final Map<String, List<Field>> tableToFields = new HashMap<>();
+
+        while (columnsData.next()) {
+          final String tableName = columnsData.getString("TABLE_NAME");
+          final String fieldName = columnsData.getString("COLUMN_NAME");
+          final int dataType = columnsData.getInt("DATA_TYPE");
+          final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
+          final int precision = columnsData.getInt("NUM_PREC_RADIX");
+          final int scale = columnsData.getInt("DECIMAL_DIGITS");
+          final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+          final Field field =
+              new Field(
+                  fieldName,
+                  new FieldType(
+                      isNullable,
+                      getArrowTypeFromJdbcType(dataType, precision, scale),
+                      null),
+                  null);
+          fields.add(field);
+        }
+
+        for (int index = 0; index < rows; index++) {
+          final String tableName = tableNameVector.getObject(index).toString();
+          final Schema schema = new Schema(tableToFields.get(tableName));
+          saveToVector(schema.toByteArray(), tableSchemaVector, index);
+        }
+      }
 
         final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
         fields.add(new Field(columnName, fieldType, null));
       }
     }
 
-    return new Schema(fields);
+    return new VectorSchemaRoot(vectors);
   }
 
   @Override
