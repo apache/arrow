@@ -44,7 +44,7 @@ TEST(TestArithmeticOps, TestPmod) {
   EXPECT_EQ(pmod_int64_int64(ctx, 3, -4), -1);
   EXPECT_EQ(pmod_int64_int64(ctx, 4, -3), -2);
 
-  EXPECT_EQ(pmod_int64_int64(ctx, 3, 0),0);
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, 0), 0);
   EXPECT_TRUE(context.has_error());
   EXPECT_EQ(context.get_error(), "divide by zero error");
   context.Reset();
