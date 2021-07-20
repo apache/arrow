@@ -30,8 +30,9 @@ tsv_dir <- make_temp_dir()
 skip_if_multithreading_disabled <- function() {
   is_32bit <- .Machine$sizeof.pointer < 8
   is_old_r <- getRversion() < "4.0.0"
-  if (is_32bit && is_old_r) {
-    skip_on_os("windows", message = "Multithreading does not work properly on this system")
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+  if (is_32bit && is_old_r && is_windows) {
+    skip("Multithreading does not work properly on this system")
   }
 }
 
