@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.sql;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
@@ -57,6 +58,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -261,12 +264,39 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return () -> iterator;
   }
 
-  private Iterable<VectorSchemaRoot> getTablesRoot(final DatabaseMetaData databaseMetaData,
-                                                     final boolean includeSchema,
-                                                     final @Nullable String catalog,
-                                                     final @Nullable String schemaFilterPattern,
-                                                     final @Nullable String tableFilterPattern,
-                                                     final @Nullable String... tableTypes)
+  private static void saveToVector(final @Nullable String data, final VarCharVector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
+  }
+
+  private static void saveToVector(final @Nullable byte[] data, final VarBinaryVector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
+  private static void preconditionCheckSaveToVector(final FieldVector vector, final int index) {
+    checkNotNull(vector);
+    checkState(index >= 0, "Index must be a positive number!");
+  }
+
+  private static <T, V extends FieldVector> void vectorConsumer(final T data, final V vector,
+                                                                final Consumer<V> consumerIfNullable,
+                                                                final BiConsumer<T, V> defaultConsumer) {
+    if (isNull(data)) {
+      consumerIfNullable.accept(vector);
+      return;
+    }
+    defaultConsumer.accept(data, vector);
+  }
+
+  private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                         final boolean includeSchema,
+                                         final @Nullable String catalog,
+                                         final @Nullable String schemaFilterPattern,
+                                         final @Nullable String tableFilterPattern,
+                                         final @Nullable String... tableTypes)
       throws SQLException, IOException {
 
     final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -290,10 +320,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                  .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
 
       for (; data.next(); rows++) {
-        catalogNameVector.setSafe(rows, new Text(data.getString("TABLE_CAT")));
-        schemaNameVector.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
-        tableNameVector.setSafe(rows, new Text(data.getString("TABLE_NAME")));
-        tableTypeVector.setSafe(rows, new Text(data.getString("TABLE_TYPE")));
+        saveToVector(emptyToNull(data.getString("TABLE_CAT")), catalogNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_SCHEM")), schemaNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_NAME")), tableNameVector, rows);
+        saveToVector(emptyToNull(data.getString("TABLE_TYPE")), tableTypeVector, rows);
       }
 
       for (final FieldVector vector : vectors) {
@@ -331,7 +361,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         for (int index = 0; index < rows; index++) {
           final String tableName = tableNameVector.getObject(index).toString();
           final Schema schema = new Schema(tableToFields.get(tableName));
-          tableSchemaVector.setSafe(index, schema.toByteArray());
+          saveToVector(schema.toByteArray(), tableSchemaVector, index);
         }
       }
 
@@ -339,7 +369,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       vectors.add(tableSchemaVector);
     }
 
-    return singletonList(new VectorSchemaRoot(vectors));
+    return new VectorSchemaRoot(vectors);
   }
 
   @Override

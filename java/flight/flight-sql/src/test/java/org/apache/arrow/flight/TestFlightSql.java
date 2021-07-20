@@ -45,6 +45,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -119,30 +120,30 @@ public class TestFlightSql {
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
-          asList("" /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
-          asList("" /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+          asList(null /* TODO No catalog yet */, "SYS", "SYSALIASES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSCHECKS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSCOLPERMS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSCOLUMNS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSCONGLOMERATES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSCONSTRAINTS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSDEPENDS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSFILES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSFOREIGNKEYS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSKEYS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSPERMS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSROLES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSROUTINEPERMS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSSCHEMAS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSSEQUENCES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSSTATEMENTS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSSTATISTICS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSTABLEPERMS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSTABLES", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSTRIGGERS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
       collector.checkThat(results, is(expectedResults));
     }
   }
@@ -156,7 +157,7 @@ public class TestFlightSql {
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
-          asList("" /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
+          asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
       collector.checkThat(results, is(expectedResults));
     }
   }
@@ -171,7 +172,7 @@ public class TestFlightSql {
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
           asList(
-              "" /* TODO No catalog yet */,
+              null /* TODO No catalog yet */,
               "APP",
               "INTTABLE",
               "TABLE",
@@ -306,8 +307,8 @@ public class TestFlightSql {
             if (fieldVector instanceof VarCharVector) {
               final VarCharVector varcharVector = (VarCharVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object obj = varcharVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(obj) ? null : obj.toString());
+                final Text data = varcharVector.getObject(rowIndex);
+                results.get(rowIndex).add(isNull(data) ? null : data.toString());
               }
             } else if (fieldVector instanceof IntVector) {
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
@@ -316,7 +317,10 @@ public class TestFlightSql {
             } else if (fieldVector instanceof VarBinaryVector) {
               final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                results.get(rowIndex).add(Schema.deserialize(ByteBuffer.wrap(varbinaryVector.get(rowIndex))).toJson());
+                final byte[] data = varbinaryVector.getObject(rowIndex);
+                final String output =
+                    isNull(data) ? null : Schema.deserialize(ByteBuffer.wrap(data)).toJson();
+                results.get(rowIndex).add(output);
               }
             } else {
               throw new UnsupportedOperationException("Not yet implemented");
