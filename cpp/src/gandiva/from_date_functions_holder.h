@@ -62,11 +62,7 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
     std::stringstream iss;
     iss << std::put_time(ptm, pattern_.c_str());
     std::string ret_str = iss.str();
-    size_t length = strlen(ret_str.c_str());
-
-    if (pattern_begins_empty) {
-      length = 20;
-    }
+    size_t length = strlen(ret_str.c_str()) + 1;
 
     char* ret = new char[length];
 
