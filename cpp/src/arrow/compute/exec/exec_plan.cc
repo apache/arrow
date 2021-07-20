@@ -947,8 +947,10 @@ struct GroupByNode : ExecNode {
     ThreadLocalState* state0 = &local_states_[0];
     for (size_t i = 1; i < local_states_.size(); ++i) {
       ThreadLocalState* state = &local_states_[i];
-      DCHECK(state);
-      DCHECK(state->grouper);
+      if (!state->grouper) {
+        continue;
+      }
+
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
       ARROW_ASSIGN_OR_RAISE(Datum transposition, state0->grouper->Consume(other_keys));
       state->grouper.reset();

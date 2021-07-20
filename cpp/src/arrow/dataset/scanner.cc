@@ -829,12 +829,11 @@ Result<int64_t> AsyncScanner::CountRows() {
       compute::MakeSinkNode(sum_selection, "sink");
 
   RETURN_NOT_OK(plan->StartProducing());
-
   auto maybe_slow_count = sink_gen().result();
+  plan->finished().Wait();
+
   ARROW_ASSIGN_OR_RAISE(auto slow_count, maybe_slow_count);
   total += slow_count->values[0].scalar_as<UInt64Scalar>().value;
-
-  plan->finished().Wait();
 
   return total.load();
 }
