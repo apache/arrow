@@ -41,7 +41,7 @@ public class AccessorTestUtils {
       this.limit = limit;
     }
 
-    void next() {
+    public void next() {
       currentRow++;
     }
 
