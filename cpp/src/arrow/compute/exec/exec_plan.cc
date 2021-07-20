@@ -343,88 +343,6 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                                        std::move(generator));
 }
 
-struct ParallelTestSourceNode : ExecNode {
-  ParallelTestSourceNode(ExecPlan* plan, std::string label,
-                         std::shared_ptr<Schema> schema, std::vector<ExecBatch> batches,
-                         bool use_threads)
-      : ExecNode(plan, std::move(label), {}, {}, std::move(schema),
-                 /*num_outputs=*/1),
-        batches_(std::move(batches)),
-        use_threads_(use_threads) {}
-
-  const char* kind_name() override { return "ParallelTestSourceNode"; }
-
-  [[noreturn]] static void NoInputs() {
-    DCHECK(false) << "no inputs; this should never be called";
-    std::abort();
-  }
-  [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
-  [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
-  [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
-
-  Status StartProducing() override {
-    DCHECK(!stop_requested_) << "Restarted ParllelTestSourceNode";
-
-    auto task_group = use_threads_ ? arrow::internal::TaskGroup::MakeThreaded(
-                                         arrow::internal::GetCpuThreadPool())
-                                   : arrow::internal::TaskGroup::MakeSerial();
-
-    for (size_t i = 0; i < batches_.size(); ++i) {
-      task_group->Append([this, i] {
-        std::unique_lock<std::mutex> lock(mutex_);
-        int seq = batch_count_++;
-        if (stop_requested_) {
-          return Status::OK();
-        }
-        lock.unlock();
-
-        outputs_[0]->InputReceived(this, seq, batches_[seq]);
-
-        if (seq + 1 == static_cast<int>(batches_.size())) {
-          outputs_[0]->InputFinished(this, seq + 1);
-        }
-
-        return Status::OK();
-      });
-    }
-
-    RETURN_NOT_OK(task_group->Finish());
-
-    return Status::OK();
-  }
-
-  void PauseProducing(ExecNode* output) override {}
-
-  void ResumeProducing(ExecNode* output) override {}
-
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    stop_requested_ = true;
-  }
-
-  Future<> finished() override { return finished_; }
-
- private:
-  Future<> finished_ = Future<>::MakeFinished();
-  std::mutex mutex_;
-  bool stop_requested_{false};
-  int batch_count_{0};
-  std::vector<ExecBatch> batches_;
-  bool use_threads_;
-};
-
-ExecNode* MakeParallelTestSourceNode(ExecPlan* plan, std::string label,
-                                     std::shared_ptr<Schema> schema,
-                                     std::vector<ExecBatch> batches, bool use_threads) {
-  return plan->EmplaceNode<ParallelTestSourceNode>(
-      plan, std::move(label), std::move(schema), std::move(batches), use_threads);
-}
-
 struct FilterNode : ExecNode {
   FilterNode(ExecNode* input, std::string label, Expression filter)
       : ExecNode(input->plan(), std::move(label), {input}, {"target"},
@@ -1383,11 +1301,11 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
 
   std::vector<ExecBatch> scan_batches;
   std::vector<Datum> inputs;
-  for (size_t i = 0; i < arguments.size(); ++i) {
-    inputs.push_back(arguments[i]);
+  for (const auto& argument : arguments) {
+    inputs.push_back(argument);
   }
-  for (size_t i = 0; i < keys.size(); ++i) {
-    inputs.push_back(keys[i]);
+  for (const auto& key : keys) {
+    inputs.push_back(key);
   }
   ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
                         ExecBatchIterator::Make(inputs, ctx->exec_chunksize()));
@@ -1398,9 +1316,12 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
-  ExecNode* source;
-  source = MakeParallelTestSourceNode(plan.get(), "source", schema(scan_fields),
-                                      scan_batches, use_threads);
+  auto source = MakeSourceNode(
+      plan.get(), "source", schema(std::move(scan_fields)),
+      MakeVectorGenerator(arrow::internal::MapVector(
+          [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+          std::move(scan_batches))));
+
   ARROW_ASSIGN_OR_RAISE(
       auto gby, MakeGroupByNode(source, "gby", keys_str, arguments_str, aggregates));
   auto sink_gen = MakeSinkNode(gby, "sink");
@@ -1420,7 +1341,7 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
           });
 
   std::vector<ExecBatch> output_batches =
-      std::move(start_and_collect.MoveResult().MoveValueUnsafe());
+      start_and_collect.MoveResult().MoveValueUnsafe();
 
   ArrayDataVector out_data(arguments.size() + keys.size());
   for (size_t i = 0; i < arguments.size() + keys.size(); ++i) {

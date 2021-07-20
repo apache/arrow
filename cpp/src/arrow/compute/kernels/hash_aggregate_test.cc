@@ -50,6 +50,7 @@
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 using testing::HasSubstr;
 
@@ -125,10 +126,12 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
-ExecContext* small_chunksize_context() {
-  static ExecContext ctx;
+ExecContext* small_chunksize_context(bool use_threads = false) {
+  static ExecContext ctx,
+      ctx_with_threads{default_memory_pool(), arrow::internal::GetCpuThreadPool()};
   ctx.set_exec_chunksize(2);
-  return &ctx;
+  ctx_with_threads.set_exec_chunksize(2);
+  return use_threads ? &ctx_with_threads : &ctx;
 }
 
 Result<Datum> GroupByTest(
@@ -136,8 +139,8 @@ Result<Datum> GroupByTest(
     const std::vector<::arrow::compute::internal::Aggregate>& aggregates,
     bool use_threads, bool use_exec_plan) {
   if (use_exec_plan) {
-    return ::arrow::compute::GroupByUsingExecPlan(arguments, keys, aggregates,
-                                                  use_threads, small_chunksize_context());
+    return GroupByUsingExecPlan(arguments, keys, aggregates, use_threads,
+                                small_chunksize_context(use_threads));
   } else {
     return internal::GroupBy(arguments, keys, aggregates, use_threads,
                              default_exec_context());
@@ -555,7 +558,7 @@ void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
 }  // namespace
 
 TEST(GroupBy, CountOnly) {
-  for (bool use_exec_plan : {false, true})
+  for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -599,10 +602,11 @@ TEST(GroupBy, CountOnly) {
                         aggregated_and_grouped,
                         /*verbose=*/true);
     }
+  }
 }
 
 TEST(GroupBy, SumOnly) {
-  for (bool use_exec_plan : {false, true})
+  for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -646,10 +650,11 @@ TEST(GroupBy, SumOnly) {
                         aggregated_and_grouped,
                         /*verbose=*/true);
     }
+  }
 }
 
 TEST(GroupBy, MinMaxOnly) {
-  for (bool use_exec_plan : {false, true})
+  for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -697,6 +702,7 @@ TEST(GroupBy, MinMaxOnly) {
           aggregated_and_grouped,
           /*verbose=*/true);
     }
+  }
 }
 
 TEST(GroupBy, CountAndSum) {

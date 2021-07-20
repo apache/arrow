@@ -242,10 +242,6 @@ ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          std::shared_ptr<Schema> output_schema,
                          std::function<Future<util::optional<ExecBatch>>()>);
 
-ExecNode* MakeParallelTestSourceNode(ExecPlan* plan, std::string label,
-                                     std::shared_ptr<Schema> schema,
-                                     std::vector<ExecBatch> batches, bool use_threads);
-
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
 /// Emitted batches will not be ordered.
