@@ -733,6 +733,10 @@ struct ScalarAggregateNode : ExecNode {
 
   void StopProducing() override {
     inputs_[0]->StopProducing(this);
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (finished_.is_finished()) return;
+    states_.clear();
+    lock.unlock();
     finished_.MarkFinished();
   }
 
@@ -826,22 +830,64 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
 }
 
 template <typename T>
+constexpr int clz(T value) {
+  return value == 0 ? sizeof(T) * 8 : clz(value >> 1) - 1;
+}
+
+static_assert(clz(0) == 32, "");
+static_assert(clz(1) == 31, "");
+static_assert(clz(2) == 30, "");
+static_assert(clz(3) == 30, "");
+static_assert(clz(4) == 29, "");
+static_assert(clz(7) == 29, "");
+static_assert(clz(8) == 28, "");
+static_assert(clz(unsigned(-1)) == 0, "");
+static_assert(clz(unsigned(-1) >> 1) == 1, "");
+
+constexpr int vid(int id) { return 32 - clz(unsigned(id)); }
+
+constexpr int size(int vid) { return 1 << vid; }
+
+static_assert(vid(0) == 0, "");
+static_assert(size(vid(0)) == 1, "");
+
+static_assert(vid(1) == 1, "");
+static_assert(size(vid(1)) == 2, "");
+
+static_assert(vid(2) == 2, "");
+static_assert(vid(3) == 2, "");
+static_assert(size(vid(2)) == 4, "");
+
+static_assert(vid(4) == 3, "");
+static_assert(vid(5) == 3, "");
+static_assert(vid(6) == 3, "");
+static_assert(vid(7) == 3, "");
+static_assert(size(vid(4)) == 8, "");
+
+// ...
+
+static_assert(vid(1 << 14) == 15, "");
+// ...
+static_assert(vid((1 << 15) - 1) == 15, "");
+static_assert(size(vid(1 << 14)) == 1 << 15, "");
+
+template <typename T>
 class SharedSequenceOfObjects {
  public:
   explicit SharedSequenceOfObjects(int log_max_objects = 16) {
     objects_.resize(log_max_objects);
-    num_created_vectors_ = 0;
   }
+
   T* get(int id) {
     int vid = vector_id(id);
-    ARROW_DCHECK(static_cast<size_t>(vid) < objects_.size());
-    if (vid >= num_created_vectors_) {
-      std::lock_guard<std::mutex> lock(mutex_);
-      while (vid >= num_created_vectors_) {
-        objects_[num_created_vectors_].resize(static_cast<size_t>(1)
-                                              << num_created_vectors_);
-        ++num_created_vectors_;
-      }
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    DCHECK_LT(static_cast<size_t>(vid), objects_.size());
+
+    while (vid >= num_created_vectors_) {
+      objects_[num_created_vectors_].resize(static_cast<size_t>(1)
+                                            << num_created_vectors_);
+      ++num_created_vectors_;
     }
     return &objects_[vid][id];
   }
@@ -851,14 +897,15 @@ class SharedSequenceOfObjects {
     return 32 - CountLeadingZeros(static_cast<uint32_t>(id));
   }
 
-  int num_created_vectors_;
+  int num_created_vectors_ = 0;
   std::vector<std::vector<T>> objects_;
   std::mutex mutex_;
 };
 
 class SmallUniqueIdAssignment {
  public:
-  SmallUniqueIdAssignment() { num_ids_ = 0; }
+  SmallUniqueIdAssignment() = default;
+
   int Get() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (stack_.empty()) {
@@ -869,28 +916,36 @@ class SmallUniqueIdAssignment {
       return last;
     }
   }
+
   void Return(int id) {
     std::lock_guard<std::mutex> lock(mutex_);
     stack_.push_back(id);
   }
-  int num_ids() const { return num_ids_; }
+
+  int num_ids() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return num_ids_;
+  }
 
  private:
   std::vector<int> stack_;
-  int num_ids_;
-  std::mutex mutex_;
+  int num_ids_ = 0;
+  mutable std::mutex mutex_;
 };
 
 class SmallUniqueIdHolder {
  public:
   SmallUniqueIdHolder() = delete;
   SmallUniqueIdHolder(const SmallUniqueIdHolder&) = delete;
-  SmallUniqueIdHolder(const SmallUniqueIdHolder&&) = delete;
+  SmallUniqueIdHolder(SmallUniqueIdHolder&&) = delete;
+
   explicit SmallUniqueIdHolder(SmallUniqueIdAssignment* id_mgr) {
     id_mgr_ = id_mgr;
     id_ = id_mgr->Get();
   }
+
   ~SmallUniqueIdHolder() { id_mgr_->Return(id_); }
+
   int get() const { return id_; }
 
  private:
@@ -961,16 +1016,15 @@ struct GroupByNode : ExecNode {
         agg_src_descrs[i] =
             ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
       }
-      for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(
-            state->agg_states,
-            internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
 
-        ARROW_ASSIGN_OR_RAISE(
-            FieldVector agg_result_fields,
-            internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states, ctx_,
-                                     agg_src_descrs));
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          state->agg_states,
+          internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+
+      ARROW_ASSIGN_OR_RAISE(
+          FieldVector agg_result_fields,
+          internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states, ctx_,
+                                   agg_src_descrs));
     }
     return Status::OK();
   }
@@ -1012,15 +1066,15 @@ struct GroupByNode : ExecNode {
     ThreadLocalState* state0 = local_states_.get(0);
     for (int i = 1; i < num_local_states; ++i) {
       ThreadLocalState* state = local_states_.get(i);
-      ARROW_DCHECK(state);
-      ARROW_DCHECK(state->grouper);
+      DCHECK(state);
+      DCHECK(state->grouper);
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
       ARROW_ASSIGN_OR_RAISE(Datum transposition, state0->grouper->Consume(other_keys));
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
         KernelContext batch_ctx{ctx_};
-        ARROW_DCHECK(state0->agg_states[i]);
+        DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
 
         RETURN_NOT_OK(agg_kernels_[i]->resize(&batch_ctx, state0->grouper->num_groups()));
@@ -1060,7 +1114,7 @@ struct GroupByNode : ExecNode {
   }
 
   Status OutputNthBatch(int n) {
-    ARROW_DCHECK(output_started_.load());
+    DCHECK(output_started_.load());
 
     // Check finished flag
     if (finished_.is_finished()) {
@@ -1127,7 +1181,7 @@ struct GroupByNode : ExecNode {
       return;
     }
 
-    ARROW_DCHECK(num_input_batches_processed_.load() != num_input_batches_total_.load());
+    DCHECK_NE(num_input_batches_processed_.load(), num_input_batches_total_.load());
 
     Status status = ProcessInputBatch(batch);
     if (!status.ok()) {

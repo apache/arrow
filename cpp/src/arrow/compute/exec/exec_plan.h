@@ -291,6 +291,7 @@ Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
                                   std::vector<std::string> agg_srcs,
                                   std::vector<internal::Aggregate> aggs);
 
+ARROW_EXPORT
 Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
                                    const std::vector<internal::Aggregate>& aggregates,
