@@ -500,9 +500,9 @@ class ArrayCountSorter<BooleanType> {
 
   // Returns where null starts.
   // `offset` is used when this is called on a chunk of a chunked array
-  static uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
-                        const BooleanArray& values, int64_t offset,
-                        const ArraySortOptions& options) {
+  uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
+                 const BooleanArray& values, int64_t offset,
+                 const ArraySortOptions& options) {
     // first slot reserved for prefix sum
     std::array<int64_t, 3> counts{0, 0, 0};
 
