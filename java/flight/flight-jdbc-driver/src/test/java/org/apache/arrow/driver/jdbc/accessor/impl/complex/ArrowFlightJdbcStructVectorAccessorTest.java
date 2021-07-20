@@ -82,13 +82,13 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectClassReturnMapClass() {
+  public void testShouldGetObjectClassReturnMapClass() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(Map.class));
   }
 
   @Test
-  public void testShouldGetObjectReturnValidMap() {
+  public void testShouldGetObjectReturnValidMap() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
         (accessor, currentRow) -> {
           Map<String, Object> expected = new HashMap<>();
@@ -100,7 +100,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectReturnNull() {
+  public void testShouldGetObjectReturnNull() throws Exception {
     vector.setNull(0);
     vector.setNull(1);
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
