@@ -1524,12 +1524,26 @@ def test_cast_string_to_number_roundtrip():
 
 
 def test_cast_dictionary():
-    arr = pa.DictionaryArray.from_arrays(
-        pa.array([0, 1, None], type=pa.int32()),
-        pa.array(["foo", "bar"]))
-    assert arr.cast(pa.string()).equals(pa.array(["foo", "bar", None]))
+    # cast to the value type
+    arr = pa.array(
+        ["foo", "bar", None],
+        type=pa.dictionary(pa.int64(), pa.string())
+    )
+    expected = pa.array(["foo", "bar", None])
+    assert arr.type == pa.dictionary(pa.int64(), pa.string())
+    assert arr.cast(pa.string()) == expected
+
+    # cast to a different key type
+    for key_type in [pa.int8(), pa.int16(), pa.int32()]:
+        typ = pa.dictionary(key_type, pa.string())
+        expected = pa.array(
+            ["foo", "bar", None],
+            type=pa.dictionary(key_type, pa.string())
+        )
+        assert arr.cast(typ) == expected
+
+    # shouldn't crash (ARROW-7077)
     with pytest.raises(pa.ArrowInvalid):
-        # Shouldn't crash (ARROW-7077)
         arr.cast(pa.int32())
 
 
