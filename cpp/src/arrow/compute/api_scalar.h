@@ -181,12 +181,15 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
  public:
+  explicit StrftimeOptions(std::string format, std::string locale);
   explicit StrftimeOptions(std::string format);
   StrftimeOptions();
   constexpr static char const kTypeName[] = "StrftimeOptions";
 
   /// The desired format string.
   std::string format;
+  /// The desired output locale.
+  std::locale loc;
 };
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {

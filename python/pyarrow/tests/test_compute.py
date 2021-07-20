@@ -1416,6 +1416,13 @@ def test_strftime():
         expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
         assert result.equals(expected)
 
+        # Test setting locale
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        assert result.equals(expected)
+
     for unit in ["s", "ms", "us", "ns"]:
         tsa = pa.array(ts, type=pa.timestamp(unit))
         for fmt in formats:

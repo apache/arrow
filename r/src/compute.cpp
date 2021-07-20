@@ -298,11 +298,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strftime") {
     using Options = arrow::compute::StrftimeOptions;
-    auto out = std::make_shared<Options>(Options());
+    std::string format = "%Y-%m-%dT%H:%M:%SZ";
+    std::string locale = "C";
     if (!Rf_isNull(options["format"])) {
-      out->format = cpp11::as_cpp<std::string>(options["format"]);
+      format = cpp11::as_cpp<std::string>(options["format"]);
     }
-    return out;
+    if (!Rf_isNull(options["locale"])) {
+      locale = cpp11::as_cpp<std::string>(options["locale"]);
+    }
+    return std::make_shared<Options>(Options(format, locale));
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {

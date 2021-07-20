@@ -414,6 +414,43 @@ TEST_F(ScalarTemporalTest, Strftime) {
   ASSERT_RAISES(Invalid, Strftime(naive_times, options_default));
   ASSERT_RAISES(Invalid, Strftime(naive_times, options));
 }
+
+TEST_F(ScalarTemporalTest, StrftimeWithLocale) {
+  auto options_default = StrftimeOptions();
+  auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z", "C");
+  auto options_locale_specific = StrftimeOptions("%a", "C");
+
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  const char* milliseconds = R"(["1970-01-01T00:00:59.123", null])";
+  const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
+
+  const char* default_seconds = R"(["1970-01-01T00:00:59Z", null])";
+  const char* string_seconds = R"(["1970-01-01T00:00:59+0000", null])";
+  const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
+  const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
+  const char* string_nanoseconds = R"(["1969-12-31T14:00:59.123456789-1000", null])";
+
+  const char* string_locale_specific = R"(["Wed", null])";
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   default_seconds, &options_default);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   string_seconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "GMT"), milliseconds, utf8(),
+                   string_milliseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_nanoseconds, &options);
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_locale_specific, &options_locale_specific);
+
+  auto naive_times = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+  ASSERT_RAISES(Invalid, Strftime(naive_times, options_default));
+  ASSERT_RAISES(Invalid, Strftime(naive_times, options));
+}
 #endif
 }  // namespace compute
 }  // namespace arrow

@@ -449,11 +449,11 @@ struct Nanosecond {
 // Convert timestamps to a string representation with an arbitrary format
 
 template <typename Duration>
-inline std::string get_timestamp(int64_t arg, const time_zone* tz,
-                                 const std::string* format) {
+inline std::string get_timestamp(int64_t arg, const std::locale* locale,
+                                 const time_zone* tz, const std::string* format) {
   auto zt =
       arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-  return arrow_vendored::date::format(*format, zt);
+  return arrow_vendored::date::format(*locale, *format, zt);
 }
 
 template <typename Duration>
@@ -470,8 +470,8 @@ struct Strftime {
 
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      *checked_cast<StringScalar*>(out) =
-          StringScalar(get_timestamp<Duration>(in_val, tz, &options.format));
+      *checked_cast<StringScalar*>(out) = StringScalar(
+          get_timestamp<Duration>(in_val, &options.loc, tz, &options.format));
     } else {
       out->is_valid = false;
     }
@@ -491,12 +491,13 @@ struct Strftime {
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), utf8(), &array_builder));
     StringBuilder* string_builder = checked_cast<StringBuilder*>(array_builder.get());
     auto expected_string_size = static_cast<int64_t>(
-        ceil(get_timestamp<Duration>(0, tz, &options.format).size() * 1.1));
+        ceil(get_timestamp<Duration>(0, &options.loc, tz, &options.format).size() * 1.1));
     RETURN_NOT_OK(string_builder->Reserve(in.length * expected_string_size));
 
     auto visit_null = [&]() { return string_builder->AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      return string_builder->Append(get_timestamp<Duration>(arg, tz, &options.format));
+      return string_builder->Append(
+          get_timestamp<Duration>(arg, &options.loc, tz, &options.format));
     };
     RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
