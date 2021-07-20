@@ -62,18 +62,18 @@ configuration file to run the requested build (like ``.travis.yml``,
 Scheduler
 ~~~~~~~~~
 
-`Crossbow.py`_ handles version generation, task rendering and
+Crossbow handles version generation, task rendering and
 submission. The tasks are defined in ``tasks.yml``.
 
 Install
 -------
 
-   The following guide depends on GitHub, but theoretically any git
-   server can be used.
+The following guide depends on GitHub, but theoretically any git
+server can be used.
 
 1. `Create the queue repository`_
 
-2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines_` and `CircleCI`_
+2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
    integrations on for the newly created queue repository.
 
    -  turn off Travis’ `auto cancellation`_ feature on branches
@@ -100,9 +100,7 @@ Install
 
       export CROSSBOW_GITHUB_TOKEN=<token>
 
-   ..
-
-      or pass as an argument to the CLI script ``--github-token``
+   or pass as an argument to the CLI script ``--github-token``
 
 6. Export the previously created GitHub token on both CI services:
 
@@ -164,10 +162,8 @@ The script does the following:
       git checkout ARROW-<ticket number>
       archery crossbow submit --dry-run conda-linux conda-osx
 
-   ..
-
-      Note that the arrow branch must be pushed beforehand, because the
-      script will clone the selected branch.
+   Note that the arrow branch must be pushed beforehand, because the
+   script will clone the selected branch.
 
 3. Reads and renders the required build configurations with the
    parameters substituted.

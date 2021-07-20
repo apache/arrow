@@ -38,6 +38,7 @@ Inter-Process Communication
    ipc.read_tensor
    ipc.write_tensor
    ipc.get_tensor_size
+   ipc.IpcWriteOptions
    ipc.Message
    ipc.MessageReader
    ipc.RecordBatchFileReader

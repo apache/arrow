@@ -93,9 +93,11 @@ cdef class HadoopFileSystem(FileSystem):
         Instantiate HadoopFileSystem object from an URI string.
 
         The following two calls are equivalent
-        * HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test'
-                                    '&replication=1')
-        * HadoopFileSystem('localhost', port=8020, user='test', replication=1)
+
+        * ``HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test\
+&replication=1')``
+        * ``HadoopFileSystem('localhost', port=8020, user='test', \
+replication=1)``
 
         Parameters
         ----------

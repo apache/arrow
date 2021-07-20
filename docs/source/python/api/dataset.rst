@@ -38,6 +38,7 @@ Factory functions
    partitioning
    field
    scalar
+   write_dataset
 
 Classes
 -------
