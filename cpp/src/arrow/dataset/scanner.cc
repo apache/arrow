@@ -784,7 +784,11 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
 
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+
+  auto cpu_executor = scan_options_->use_threads ? internal::GetCpuThreadPool() : nullptr;
+  compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   // Drop projection since we only need to count rows
   auto options = std::make_shared<ScanOptions>(*scan_options_);
   RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
