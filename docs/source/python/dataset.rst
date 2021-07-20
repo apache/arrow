@@ -526,8 +526,9 @@ directory.
 .. warning::
 
     If you run the example again it will replace the existing part-0.parquet file.
-    Appending files to an existing dataset is not currently supported by this API and
-    the output directory should be empty for predictable results.
+    Appending files to an existing dataset requires specifying a new
+    ``basename_template`` for each call to ``ds.write_dataset``
+    to avoid overwrite.
 
 Writing partitioned data
 ~~~~~~~~~~~~~~~~~~~~~~~~
