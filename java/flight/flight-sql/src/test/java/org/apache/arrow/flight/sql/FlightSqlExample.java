@@ -328,7 +328,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
       schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
     }
 
-    for (FieldVector vector : vectors) {
+    for (final FieldVector vector : vectors) {
       vector.setValueCount(rows);
     }
 
@@ -659,9 +659,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                final ServerStreamListener listener) {
     final String catalog = emptyToNull(command.getCatalog());
     final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
-    try {
-      final Connection connection = dataSource.getConnection();
-      final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern)) {
       makeListen(listener, getSchemasRoot(schemas));
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamSchemas: <%s>.", e.getMessage()), e);
@@ -669,26 +668,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     } finally {
       listener.completed();
     }
-  }
-
-  private static VectorSchemaRoot getRootSchemas(final ResultSet data) throws SQLException {
-    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
-    final VarCharVector schemas = new VarCharVector("schema_name", allocator);
-    final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
-    vectors.forEach(FieldVector::allocateNew);
-    int rows = 0;
-
-    for (; data.next(); rows++) {
-      catalogs.setSafe(rows, new Text(data.getString("TABLE_CAT")));
-      schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
-    }
-
-    for (FieldVector vector : vectors) {
-      vector.setValueCount(rows);
-    }
-
-    return null;
   }
 
   @Override
