@@ -119,7 +119,7 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
           builder.setColumnName(field.getName());
 
           builder.setType(Common.AvaticaType.newBuilder()
-              .setId(getSqlTypeId(field.getType()))
+              .setId(getSqlTypeIdFromArrowType(field.getType()))
               .setName(fieldTypeId.name())
               .build());
 
@@ -127,7 +127,14 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
         }).collect(Collectors.toList());
   }
 
-  private static int getSqlTypeId(ArrowType arrowType) {
+  /**
+   * Convert given {@link ArrowType} to its corresponding SQL type.
+   *
+   * @param arrowType type to convert from
+   * @return corresponding SQL type.
+   * @see java.sql.Types
+   */
+  public static int getSqlTypeIdFromArrowType(ArrowType arrowType) {
     final ArrowType.ArrowTypeID typeID = arrowType.getTypeID();
     switch (typeID) {
       case Int:
@@ -141,6 +148,8 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
             return Types.INTEGER;
           case 64:
             return Types.BIGINT;
+          default:
+            break;
         }
         break;
       case Binary:
@@ -149,6 +158,10 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
         return Types.BINARY;
       case LargeBinary:
         return Types.LONGVARBINARY;
+      case Utf8:
+        return Types.VARCHAR;
+      case LargeUtf8:
+        return Types.LONGVARCHAR;
       case Date:
         return Types.DATE;
       case Time:
@@ -166,12 +179,10 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
             return Types.DOUBLE;
           case SINGLE:
             return Types.FLOAT;
+          default:
+            break;
         }
         break;
-      case Utf8:
-        return Types.VARCHAR;
-      case LargeUtf8:
-        return Types.LONGVARCHAR;
       case List:
       case FixedSizeList:
       case LargeList:
@@ -186,6 +197,8 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
       case NONE:
       case Null:
         return Types.NULL;
+      default:
+        break;
     }
 
     throw new IllegalArgumentException("Unsupported ArrowType " + arrowType);
