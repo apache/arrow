@@ -44,6 +44,9 @@ class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
     return true;
   }
+  // optional: support for serialization
+  // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
+  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer& buffer) const override;
 };
 
 cp::FunctionOptionsType* GetExampleFunctionOptionsType() {
@@ -87,8 +90,8 @@ int main(int argc, char** argv) {
 
   std::cout << maybe_result->make_array()->ToString() << std::endl;
 
-  // Expression serialization does not work natively both because it's not implemented and
-  // because out-of-tree function options can't derive from GenericOptionsType
+  // Expression serialization will raise NotImplemented if an expression includes FunctionOptions
+  // for which serialization is not supported.
   auto expr = cp::call(name, {}, options);
   auto maybe_serialized = cp::Serialize(expr);
   std::cerr << maybe_serialized.status().ToString() << std::endl;
