@@ -47,11 +47,12 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -388,17 +389,17 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   public SchemaResult getSchemaSqlInfo() {
 
-    final List<Field> children = ImmutableList.of(
+    final List<Field> children = Arrays.asList(
         Field.nullable("string_value", MinorType.VARCHAR.getType()),
         Field.nullable("int_value", MinorType.INT.getType()),
         Field.nullable("bigint_value", MinorType.BIGINT.getType()),
         Field.nullable("int32_bitmask", MinorType.INT.getType()));
 
-    List<Field> fields = ImmutableList.of(
+    List<Field> fields = Arrays.asList(
         Field.nullable("info_name", MinorType.VARCHAR.getType()),
         new Field("value",
             // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-            new FieldType(false, MinorType.DENSEUNION.getType(), /*dictionary=*/null),
+            new FieldType(false, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
             children));
 
     return new SchemaResult(new Schema(fields));
