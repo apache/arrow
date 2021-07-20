@@ -84,7 +84,7 @@ nse_funcs$coalesce <- function(...) {
     }
 
     if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
-      # store the NA_real_ in Arrow's smallest float type to avoid casting
+      # store the NA_real_ in the same type as arg to avoid avoid casting
       # smaller float types to larger float types
       NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
       Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
