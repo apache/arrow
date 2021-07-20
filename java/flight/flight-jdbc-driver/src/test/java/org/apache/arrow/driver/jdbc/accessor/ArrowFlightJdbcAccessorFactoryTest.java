@@ -26,6 +26,7 @@ import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcInterv
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcDenseUnionVectorAccessor;
+import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcStructVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.ArrowFlightJdbcUnionVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBaseIntVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbcBitVectorAccessor;
@@ -41,6 +42,7 @@ import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -324,6 +326,15 @@ public class ArrowFlightJdbcAccessorFactoryTest {
       ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDenseUnionVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForStructVector() {
+    try (ValueVector valueVector = StructVector.empty("", rootAllocatorTestRule.getRootAllocator())) {
+      ArrowFlightJdbcAccessor accessor = ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW);
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcStructVectorAccessor);
     }
   }
 }
