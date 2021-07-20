@@ -322,8 +322,6 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
   ASSERT_EQ(length, result->length());
 }
 
-TEST_F(TestArray, TestCopy) {}
-
 TEST_F(TestArray, TestMakeArrayOfNull) {
   std::shared_ptr<DataType> types[] = {
       // clang-format off
@@ -356,6 +354,10 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), length);
+      for (int64_t i = 0; i < length; ++i) {
+        ASSERT_TRUE(array->IsNull(i));
+        ASSERT_FALSE(array->IsValid(i));
+      }
     }
   }
 }
