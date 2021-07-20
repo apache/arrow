@@ -43,6 +43,7 @@ Suggests:
     decor,
     distro,
     dplyr,
+    duckdb (>= 0.2.7),
     hms,
     knitr,
     lubridate,
@@ -93,6 +94,8 @@ Collate:
     'record-batch.R'
     'table.R'
     'dplyr.R'
+    'python.R'
+    'duckdb.R'
     'feather.R'
     'field.R'
     'filesystem.R'
@@ -104,7 +107,6 @@ Collate:
     'message.R'
     'metadata.R'
     'parquet.R'
-    'python.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'

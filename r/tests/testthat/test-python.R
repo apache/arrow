@@ -133,6 +133,7 @@ test_that("RecordBatchReader to python", {
   )
 })
 
+
 test_that("RecordBatchReader from python", {
   tab <- Table$create(example_data)
   scan <- Scanner$create(tab)
@@ -142,4 +143,24 @@ test_that("RecordBatchReader from python", {
   rt_table <- back_to_r$read_table()
   expect_r6_class(rt_table, "Table")
   expect_identical(as.data.frame(rt_table), example_data)
+})
+
+test_that("RecordBatchReader to python", {
+  library(dplyr)
+
+  ds <- InMemoryDataset$create(example_data)
+  ds_py <- ds %>%
+    select(int, lgl) %>%
+    filter(int > 6) %>%
+    alchemize(to = "python")
+
+  rb_reader <- ds_py %>%
+    alchemize(to = "arrow")
+
+  expect_identical(
+    as.data.frame(rb_reader$read_table()),
+    example_data %>%
+      select(int, lgl) %>%
+      filter(int > 6)
+  )
 })
