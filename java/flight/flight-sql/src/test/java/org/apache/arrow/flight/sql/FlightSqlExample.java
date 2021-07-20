@@ -91,6 +91,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -253,14 +254,15 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   /**
    * Turns the provided {@link ResultSet} into an {@link Iterator} of {@link VectorSchemaRoot}s.
    *
-   * @param data the data to convert
+   * @param data      the data to convert.
+   * @param allocator the bufer allocator.
    * @return an {@code Iterator<VectorSchemaRoot>} representation of the provided data.
    * @throws SQLException if an error occurs while querying the {@code ResultSet}.
    * @throws IOException  if an I/O error occurs.
    */
-  protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data)
+  protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data, final BufferAllocator allocator)
       throws SQLException, IOException {
-    Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
+    final Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, allocator);
     return () -> iterator;
   }
 
@@ -292,15 +294,14 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                         final BufferAllocator allocator,
                                          final boolean includeSchema,
                                          final @Nullable String catalog,
                                          final @Nullable String schemaFilterPattern,
                                          final @Nullable String tableFilterPattern,
                                          final @Nullable String... tableTypes)
       throws SQLException, IOException {
-
-    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
+    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", checkNotNull(allocator));
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
     final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
     final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
@@ -373,10 +374,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   @Override
-  public void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context, Ticket ticket,
-                                         ServerStreamListener listener) {
-    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command)) {
-      makeListen(listener, getVectorsFromData(resultSet));
+  public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
+                                         final Ticket ticket,
+                                         final ServerStreamListener listener) {
+    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(resultSet, allocator));
     } catch (SQLException | IOException | ExecutionException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -638,12 +641,14 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final String[] tableTypes =
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
-    try (final Connection connection = DriverManager.getConnection(DATABASE_URI)) {
+    try (final Connection connection = DriverManager.getConnection(DATABASE_URI);
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       final DatabaseMetaData databaseMetaData = connection.getMetaData();
       makeListen(
           listener,
           getTablesRoot(
               databaseMetaData,
+              allocator,
               command.getIncludeSchema(),
               catalog, schemaFilterPattern, tableFilterPattern, tableTypes));
     } catch (SQLException | IOException e) {
