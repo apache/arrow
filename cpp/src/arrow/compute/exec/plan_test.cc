@@ -443,8 +443,9 @@ BatchesWithSchema MakeGroupableBatches(int multiplicity = 1) {
                    [-8, "alfa"]
                  ])")};
 
+  size_t batch_count = out.batches.size();
   for (int repeat = 1; repeat < multiplicity; ++repeat) {
-    for (size_t i = 0; i < out.batches.size(); ++i) {
+    for (size_t i = 0; i < batch_count; ++i) {
       out.batches.push_back(out.batches[i]);
     }
   }
