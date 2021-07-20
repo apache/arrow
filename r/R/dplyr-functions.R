@@ -57,6 +57,44 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
+nse_funcs$coalesce <- function(...) {
+  args <- list2(...)
+  if (length(args) < 1) {
+    abort("At least one argument must be supplied to coalesce()")
+  }
+
+  # Treat NaN like NA for consistency with dplyr::coalesce(), but if *all*
+  # the values are NaN, we should return NaN, not NA, so don't replace
+  # NaN with NA in the final (or only) argument
+  # TODO: if an option is added to the coalesce kernel to treat NaN as NA,
+  # use that to simplify the code here (ARROW-13389)
+  attr(args[[length(args)]], "last") <- TRUE
+  args <- lapply(args, function(arg) {
+    last_arg <- is.null(attr(arg, "last"))
+    attr(arg, "last") <- NULL
+
+    if (!inherits(arg, "Expression")) {
+      arg <- Expression$scalar(arg)
+    }
+
+    # coalesce doesn't yet support factors/dictionaries
+    # TODO: remove this after ARROW-13390 is merged
+    if (nse_funcs$is.factor(arg)) {
+      warning("Dictionaries (in R: factors) are currently converted to strings (characters) in coalesce", call. = FALSE)
+    }
+
+    if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
+      # store the NA_real_ in the same type as arg to avoid avoid casting
+      # smaller float types to larger float types
+      NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
+      Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
+    } else {
+      arg
+    }
+  })
+  Expression$create("coalesce", args = args)
+}
+
 nse_funcs$is.na <- function(x) {
   # TODO: if an option is added to the is_null kernel to treat NaN as NA,
   # use that to simplify the code here (ARROW-13367)
