@@ -236,10 +236,7 @@ public class TestFlightSql {
   public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      /*
-       No schema, empty list.
-       collector.checkThat(stream.getSchema(), is(getGetCatalogsSchema()));
-       */
+      collector.checkThat(stream.getSchema(), is(getGetCatalogsSchema()));
       List<List<String>> catalogs = getResults(stream);
       collector.checkThat(catalogs, is(emptyList()));
     }
