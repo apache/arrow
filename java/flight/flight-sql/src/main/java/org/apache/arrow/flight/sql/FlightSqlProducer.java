@@ -76,7 +76,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
   private static final Schema GET_TABLE_TYPES_SCHEMA =
       new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  private static final Schema GET_SCHEMAS_SCHEMA = new Schema(Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+  private static final Schema GET_SCHEMAS_SCHEMA = new Schema(
+      Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
       Field.nullable("schema_name", MinorType.VARCHAR.getType())));
 
   /**
