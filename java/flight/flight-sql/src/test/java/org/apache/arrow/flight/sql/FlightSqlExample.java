@@ -455,8 +455,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
-                                         final Ticket ticket,
-                                         final ServerStreamListener listener) {
+                                         final Ticket ticket, final ServerStreamListener listener) {
     try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       makeListen(listener, getVectorsFromData(resultSet, allocator));
@@ -494,9 +493,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                                    final FlightDescriptor descriptor) {
     try {
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
-      final Schema schema = buildSchema(resultSet.getMetaData());
-
-      return getFlightInfoForSchema(command, descriptor, schema);
+      return getFlightInfoForSchema(command, descriptor, buildSchema(resultSet.getMetaData()));
     } catch (ExecutionException | SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
@@ -734,14 +731,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   @Override
-  public FlightInfo getFlightInfoTableTypes(final CallContext context, final FlightDescriptor descriptor) {
-    try {
-      final Schema schema = getSchemaTableTypes().getSchema();
-      return getFlightInfoForSchema(request, descriptor, schema);
-    } catch (InvalidProtocolBufferException e) {
-      LOGGER.error(format("Failed to getFlightInfoTableTypes: <%s>.", e.getMessage()), e);
-      throw new RuntimeException(e);
-    }
+  public FlightInfo getFlightInfoTableTypes(final CommandGetTableTypes request, final CallContext context,
+                                            final FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, getSchemaTableTypes().getSchema());
   }
 
   @Override
@@ -761,8 +753,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys request, final CallContext context,
                                              final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    return getFlightInfoForSchema(request, descriptor, getSchemaPrimaryKeys().getSchema());
   }
 
   @Override
@@ -834,8 +825,10 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
 
-  private <T extends Message> FlightInfo getFlightInfoForSchema(T request, FlightDescriptor descriptor, Schema schema) {
+  private <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
+                                                                final Schema schema) {
     final Ticket ticket = new Ticket(pack(request).toByteArray());
+    // TODO Support multiple endpoints.
     final List<FlightEndpoint> endpoints = singletonList(new FlightEndpoint(ticket, location));
 
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
