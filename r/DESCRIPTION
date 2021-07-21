@@ -40,6 +40,7 @@ Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.1.1.9001
 VignetteBuilder: knitr
 Suggests:
+    DBI,
     decor,
     distro,
     dplyr,

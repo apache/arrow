@@ -167,8 +167,9 @@ test_that("alchemize_to_duckdb passing a connection", {
   expect_identical(dim(result), c(9L, 5L))
   expect_identical(result$char, new_df[new_df$int != 4, ]$char)
 
-
   dbDisconnect(con_separate, shutdown = TRUE)
 })
+
+# TODO: test Tables
 
 dbDisconnect(con, shutdown = TRUE)
