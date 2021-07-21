@@ -503,32 +503,28 @@ class ArrayCountSorter<BooleanType> {
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
                  const BooleanArray& values, int64_t offset,
                  const ArraySortOptions& options) {
-    // first slot reserved for prefix sum
-    std::array<int64_t, 3> counts{0, 0, 0};
+    std::array<int64_t, 2> counts{0, 0};
 
-    int64_t ones = values.true_count(), nulls = values.null_count();
+    const int64_t nulls = values.null_count();
+    const int64_t ones = values.true_count();
+    const int64_t zeros = values.length() - ones - nulls;
+
+    int64_t null_position = values.length() - nulls;
+    int64_t index = offset;
+    const auto nulls_begin = indices_begin + null_position;
 
     if (options.order == SortOrder::Ascending) {
-      counts[1] = values.length() - ones - nulls;  // 0's
-      counts[2] = values.length() - nulls;         // 0's + 1's
-      auto null_position = counts[2];
-      auto nulls_begin = indices_begin + null_position;
-      int64_t index = offset;
+      counts[1] = zeros;
       VisitRawValuesInline(
           values, [&](bool v) { indices_begin[counts[v]++] = index++; },
           [&]() { indices_begin[null_position++] = index++; });
-      return nulls_begin;
     } else {
-      counts[0] = values.length() - nulls;  // 0's + 1's
-      counts[1] = ones;                     // 1's
-      auto null_position = counts[0];
-      auto nulls_begin = indices_begin + null_position;
-      int64_t index = offset;
+      counts[0] = ones;
       VisitRawValuesInline(
-          values, [&](bool v) { indices_begin[counts[v + 1]++] = index++; },
+          values, [&](bool v) { indices_begin[counts[v]++] = index++; },
           [&]() { indices_begin[null_position++] = index++; });
-      return nulls_begin;
     }
+    return nulls_begin;
   }
 };
 
