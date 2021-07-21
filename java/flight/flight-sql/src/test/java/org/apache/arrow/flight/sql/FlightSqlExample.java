@@ -753,7 +753,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
       makeListen(listener, singletonList(new VectorSchemaRoot(vectors)));
     } catch (SQLException e) {
-      e.printStackTrace();
+      listener.error(e);
     } finally {
       listener.completed();
     }
