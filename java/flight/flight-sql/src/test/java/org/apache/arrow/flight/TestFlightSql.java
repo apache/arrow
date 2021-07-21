@@ -65,7 +65,6 @@ import org.hamcrest.Matcher;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -78,7 +77,7 @@ import com.google.common.collect.ImmutableList;
 public class TestFlightSql {
 
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
-      new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
+      new Field("ID", new FieldType(true, MinorType.INT.getType(), null), null),
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
       Field.nullable("VALUE", MinorType.INT.getType()),
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
@@ -265,7 +264,6 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO(jcralmeida) Broken!
   public void testSimplePreparedStatementSchema() throws Exception {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
       final Schema actualSchema = preparedStatement.getResultSetSchema();
@@ -277,7 +275,6 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore // TODO(jcralmeida) Broken!
   public void testSimplePreparedStatementResults() throws Exception {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
          final FlightStream stream = sqlClient.getStream(
