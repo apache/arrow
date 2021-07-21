@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Types;
 import java.util.HashMap;
 
 import org.apache.arrow.driver.jdbc.test.utils.RootAllocatorTestRule;
@@ -50,16 +51,16 @@ public class ArrowFlightJdbcArrayTest {
     this.dataVector.close();
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
-  public void testShouldGetBaseTypeNameNotBeSupported() throws SQLException {
+  @Test
+  public void testShouldGetBaseTypeNameReturnCorrectTypeName() {
     ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
-    arrowFlightJdbcArray.getBaseTypeName();
+    Assert.assertEquals("INTEGER", arrowFlightJdbcArray.getBaseTypeName());
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
-  public void testShouldGetBaseTypeNotBeSupported() throws SQLException {
+  @Test
+  public void testShouldGetBaseTypeReturnCorrectType() {
     ArrowFlightJdbcArray arrowFlightJdbcArray = new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
-    arrowFlightJdbcArray.getBaseType();
+    Assert.assertEquals(Types.INTEGER, arrowFlightJdbcArray.getBaseType());
   }
 
   @Test

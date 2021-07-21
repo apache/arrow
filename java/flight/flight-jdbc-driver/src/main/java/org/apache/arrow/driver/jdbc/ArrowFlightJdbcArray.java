@@ -23,12 +23,13 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Map;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightResultSet;
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
+import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -56,13 +57,15 @@ public class ArrowFlightJdbcArray implements Array {
   }
 
   @Override
-  public String getBaseTypeName() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+  public String getBaseTypeName() {
+    final ArrowType arrowType = this.dataVector.getField().getType();
+    return SqlTypes.getSqlTypeNameFromArrowType(arrowType);
   }
 
   @Override
-  public int getBaseType() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+  public int getBaseType() {
+    final ArrowType arrowType = this.dataVector.getField().getType();
+    return SqlTypes.getSqlTypeIdFromArrowType(arrowType);
   }
 
   @Override
