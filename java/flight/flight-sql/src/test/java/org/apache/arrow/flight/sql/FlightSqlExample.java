@@ -343,6 +343,17 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new VectorSchemaRoot(vectors);
   }
 
+  private static VectorSchemaRoot getTableTypesRoot(final ResultSet data, final BufferAllocator allocator)
+      throws SQLException {
+    final VarCharVector dataVector = new VarCharVector("table_type", allocator);
+    int rows = 0;
+    for (; data.next(); rows++) {
+      saveToVector(data.getString("TABLE_TYPE"), dataVector, rows);
+    }
+    dataVector.setValueCount(rows);
+    return new VectorSchemaRoot(singletonList(dataVector));
+  }
+
   private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
                                          final BufferAllocator allocator,
                                          final boolean includeSchema,
@@ -761,8 +772,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     try (final Connection connection = dataSource.getConnection();
          final ResultSet tableTypes = connection.getMetaData().getTableTypes();
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getVectorsFromData(tableTypes, allocator));
-    } catch (SQLException | IOException e) {
+      makeListen(listener, getTableTypesRoot(tableTypes, allocator));
+    } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
