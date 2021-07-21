@@ -1413,6 +1413,148 @@ struct CaseWhenFunctor<NullType> {
   }
 };
 
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecScalar(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
+    Datum result;
+    for (size_t i = 0; i < batch.values.size() - 1; i++) {
+      if (i < conds.value.size()) {
+        const Scalar& cond = *conds.value[i];
+        if (cond.is_valid && internal::UnboxScalar<BooleanType>::Unbox(cond)) {
+          result = batch[i + 1];
+          break;
+        }
+      } else {
+        // ELSE clause
+        result = batch[i + 1];
+        break;
+      }
+    }
+    if (out->is_scalar()) {
+      *out = result.is_scalar() ? result.scalar() : MakeNullScalar(out->type());
+      return Status::OK();
+    }
+    ArrayData* output = out->mutable_array();
+    if (!result.is_value()) {
+      // All conditions false, no 'else' argument
+      ARROW_ASSIGN_OR_RAISE(
+          auto array, MakeArrayOfNull(output->type, batch.length, ctx->memory_pool()));
+      *output = *array->data();
+    } else if (result.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto array,
+          MakeArrayFromScalar(*result.scalar(), batch.length, ctx->memory_pool()));
+      *output = *array->data();
+    } else {
+      // Copy offsets/data
+      const ArrayData& source = *result.array();
+      output->length = source.length;
+      output->SetNullCount(source.null_count);
+      if (source.MayHaveNulls()) {
+        ARROW_ASSIGN_OR_RAISE(
+            output->buffers[0],
+            arrow::internal::CopyBitmap(ctx->memory_pool(), source.buffers[0]->data(),
+                                        source.offset, source.length));
+      }
+      ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                            ctx->Allocate(sizeof(offset_type) * (source.length + 1)));
+      const offset_type* in_offsets = source.GetValues<offset_type>(1);
+      offset_type* out_offsets = output->GetMutableValues<offset_type>(1);
+      std::transform(in_offsets, in_offsets + source.length + 1, out_offsets,
+                     [&](offset_type offset) { return offset - in_offsets[0]; });
+      auto data_length = out_offsets[output->length] - out_offsets[0];
+      ARROW_ASSIGN_OR_RAISE(output->buffers[2], ctx->Allocate(data_length));
+      std::memcpy(output->buffers[2]->mutable_data(),
+                  source.buffers[2]->data() + in_offsets[0], data_length);
+    }
+    return Status::OK();
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& conds_array = *batch.values[0].array();
+    if (conds_array.GetNullCount() > 0) {
+      return Status::Invalid("cond struct must not have top-level nulls");
+    }
+    ArrayData* output = out->mutable_array();
+    const bool have_else_arg =
+        static_cast<size_t>(conds_array.type->num_fields()) < (batch.values.size() - 1);
+    BuilderType builder(batch[0].type(), ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(batch.length));
+    int64_t reservation = 0;
+    for (size_t arg = 1; arg < batch.values.size(); arg++) {
+      auto source = batch.values[arg];
+      if (source.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*source.scalar());
+        if (!scalar.value) continue;
+        reservation = std::max<int64_t>(reservation, batch.length * scalar.value->size());
+      } else {
+        const auto& array = *source.array();
+        const auto& offsets = array.GetValues<offset_type>(1);
+        reservation = std::max<int64_t>(reservation, offsets[array.length] - offsets[0]);
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(reservation));
+
+    for (int64_t row = 0; row < batch.length; row++) {
+      int64_t selected = have_else_arg ? batch.values.size() - 1 : -1;
+      for (int64_t arg = 0; static_cast<size_t>(arg) < conds_array.child_data.size();
+           arg++) {
+        const ArrayData& cond_array = *conds_array.child_data[arg];
+        if ((!cond_array.buffers[0] ||
+             BitUtil::GetBit(cond_array.buffers[0]->data(),
+                             conds_array.offset + cond_array.offset + row)) &&
+            BitUtil::GetBit(cond_array.buffers[1]->data(),
+                            conds_array.offset + cond_array.offset + row)) {
+          selected = arg + 1;
+          break;
+        }
+      }
+      if (selected < 0) {
+        RETURN_NOT_OK(builder.AppendNull());
+        continue;
+      }
+      const Datum& source = batch.values[selected];
+      if (source.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*source.scalar());
+        if (!scalar.is_valid) {
+          RETURN_NOT_OK(builder.AppendNull());
+        } else {
+          RETURN_NOT_OK(builder.Append(scalar.value->data(), scalar.value->size()));
+        }
+      } else {
+        const auto& array = *source.array();
+        if (!array.buffers[0] ||
+            BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+          const offset_type* offsets = array.GetValues<offset_type>(1);
+          RETURN_NOT_OK(builder.Append(array.buffers[2]->data() + offsets[row],
+                                       offsets[row + 1] - offsets[row]));
+        } else {
+          RETURN_NOT_OK(builder.AppendNull());
+        }
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
+    *output = *temp_output->data();
+    // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
+    output->type = batch[1].type();
+    return Status::OK();
+  }
+};
+
 struct CoalesceFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1841,9 +1983,15 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                             OutputType(LastType),
                             /*is_varargs=*/true),
       exec);
-  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::PREALLOCATE;
-  kernel.can_write_into_slices = is_fixed_width(get_id.id);
+  if (is_fixed_width(get_id.id)) {
+    kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::PREALLOCATE;
+    kernel.can_write_into_slices = true;
+  } else {
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.can_write_into_slices = false;
+  }
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
 }
 
@@ -1851,6 +1999,14 @@ void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar
                                  const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
+    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+  }
+}
+
+void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                              const std::vector<std::shared_ptr<DataType>>& types) {
+  for (auto&& type : types) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec));
   }
 }
@@ -1957,6 +2113,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<Decimal128Type>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<Decimal256Type>::Exec);
+    AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
