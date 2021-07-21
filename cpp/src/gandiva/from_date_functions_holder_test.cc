@@ -182,7 +182,6 @@ TEST_F(TestFromDateHolder, TestFromUtcTimestampInt64) {
       from_utc_timestamp(&execution_context_, date, "Etc/GMT+1", true, &out_valid);
   EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
             "1969-12-31 22:59:59");
-
 }
 
 TEST_F(TestFromDateHolder, TestFromUtcTimestampFloat32) {

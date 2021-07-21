@@ -162,32 +162,62 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullInternal, "gdv_fn_from_utc_timestamp_utf8",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{int32(), utf8()}, utf8(),
                      kResultNullInternal, "gdv_fn_from_utc_timestamp_int32",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{int64(), utf8()}, utf8(),
                      kResultNullInternal, "gdv_fn_from_utc_timestamp_int64",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{float32(), utf8()}, utf8(),
                      kResultNullInternal, "gdv_fn_from_utc_timestamp_float32",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("from_utc_timestamp", {}, DataTypeVector{float64(), utf8()}, utf8(),
                      kResultNullInternal, "gdv_fn_from_utc_timestamp_float64",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_to_utc_timestamp_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{int32(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_to_utc_timestamp_int32",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{int64(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_to_utc_timestamp_int64",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{float32(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_to_utc_timestamp_float32",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_utc_timestamp", {}, DataTypeVector{float64(), utf8()}, utf8(),
+                     kResultNullInternal, "gdv_fn_to_utc_timestamp_float64",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("castTIMESTAMP", {}, DataTypeVector{date64()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_date64"),

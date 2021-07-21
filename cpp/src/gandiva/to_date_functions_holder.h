@@ -296,4 +296,412 @@ class GANDIVA_EXPORT UnixTimestampHolder
                                                             holder);
   }
 };
+
+/// Super class for function holder for ToUtcDate
+template <typename HOLDER_TYPE>
+class GANDIVA_EXPORT ToUtcFunctionsHolder : public FunctionHolder {
+ public:
+  ~ToUtcFunctionsHolder() override = default;
+
+  virtual const char* operator()(ExecutionContext* context, int64_t in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
+    *out_valid = false;
+
+    if (!in_valid) {
+      return "";
+    }
+
+    std::chrono::duration<long> seconds(in_data / 1000);
+
+    arrow_vendored::date::zoned_seconds zoned{
+        tz, arrow_vendored::date::local_seconds{seconds}};
+    auto to_utc = arrow_vendored::date::make_zoned("Etc/GMT0", zoned,
+                                                   arrow_vendored::date::choose::latest);
+
+    std::stringstream iss;
+    iss << format(pattern_, to_utc);
+    std::string ret_str = iss.str();
+    ret_str = ret_str.substr(0, ret_str.find('.'));
+
+    size_t length = 20;
+
+    char* ret = new char[length];
+
+    memcpy(ret, ret_str.c_str(), length);
+
+    return ret;
+  }
+
+ protected:
+  ToUtcFunctionsHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors){};
+
+  std::string pattern_ = "%Y-%m-%d %H:%M:%S";  // date format string
+
+  int32_t suppress_errors_;  // should throw exception on runtime errors
+
+  // utility function to explode a string
+  std::vector<std::string> explode(std::string str, std::string delimiter) {
+    std::vector<std::string> vector;
+    size_t last = 0;
+    size_t next = 0;
+    while ((next = str.find(delimiter, last)) != std::string::npos) {
+      vector.push_back(str.substr(last, next - last));
+      last = next + 1;
+    }
+    // get last item
+    vector.push_back(str.substr(last));
+
+    return vector;
+  }
+
+  void return_error(ExecutionContext* context, const char* data, int data_len) {
+    if (suppress_errors_ == 1) {
+      return;
+    }
+
+    std::string err_msg =
+        "Error parsing value " + std::string(data, data_len) + " for given format.";
+    context->set_error_msg(err_msg.c_str());
+  }
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<HOLDER_TYPE>* holder,
+                     const std::string& function_name) {
+    if (node.children().size() != 2 && node.children().size() != 3) {
+      return Status::Invalid(function_name +
+                             " function requires two or three parameters");
+    }
+
+    auto literal_pattern = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+    if (literal_pattern == NULLPTR) {
+      return Status::Invalid(function_name +
+                             " function requires a literal as the second parameter");
+    }
+
+    auto literal_type = literal_pattern->return_type()->id();
+    if (literal_type != arrow::Type::STRING && literal_type != arrow::Type::BINARY) {
+      return Status::Invalid(
+          function_name + " function requires a string literal as the second parameter");
+    }
+    auto pattern = arrow::util::get<std::string>(literal_pattern->holder());
+
+    int suppress_errors = 0;
+    if (node.children().size() == 3) {
+      auto literal_suppress_errors =
+          dynamic_cast<LiteralNode*>(node.children().at(2).get());
+      if (literal_suppress_errors == NULLPTR) {
+        return Status::Invalid("The (optional) third parameter to " + function_name +
+                               " function needs to be an integer "
+                               "literal to indicate whether to suppress the error");
+      }
+
+      literal_type = literal_suppress_errors->return_type()->id();
+      if (literal_type != arrow::Type::INT32) {
+        return Status::Invalid("The (optional) third parameter to " + function_name +
+                               " function needs to be an integer "
+                               "literal to indicate whether to suppress the error");
+      }
+      suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
+    }
+
+    return Make(suppress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors, std::shared_ptr<HOLDER_TYPE>* holder) {
+    auto lholder = std::shared_ptr<HOLDER_TYPE>(new HOLDER_TYPE(suppress_errors));
+    *holder = lholder;
+    return Status::OK();
+  }
+};
+
+/// Function Holder for 'to_utc_timestamp' from utf8
+class GANDIVA_EXPORT ToUtcTimestampUtf8Holder
+    : public gandiva::ToUtcFunctionsHolder<ToUtcTimestampUtf8Holder> {
+ public:
+  virtual const char* operator()(ExecutionContext* context, const char* timestamp,
+                                 int32_t timestamp_len, const char* tz, bool in_valid,
+                                 bool* out_valid) {
+    *out_valid = false;
+
+    if (!in_valid) {
+      return "";
+    }
+
+    int64_t millis_timestamp;
+    if (!arrow::internal::ParseTimestampArrowVendored(
+            timestamp, timestamp_len, pattern_.c_str(),
+            /*allow_trailing_chars=*/true, /*ignore_time_in_day=*/false,
+            ::arrow::TimeUnit::MILLI, &millis_timestamp)) {
+      return_error(context, timestamp, timestamp_len);
+      return "";
+    }
+
+    std::chrono::duration<long> seconds(millis_timestamp / 1000);
+
+    arrow_vendored::date::zoned_seconds zoned{
+        tz, arrow_vendored::date::local_seconds{seconds}};
+    auto to_utc = arrow_vendored::date::make_zoned("Etc/GMT0", zoned,
+                                                   arrow_vendored::date::choose::latest);
+
+    std::stringstream iss;
+    iss << format(pattern_, to_utc);
+    std::string ret_str = iss.str();
+    ret_str = ret_str.substr(0, ret_str.find('.'));
+
+    size_t length = 20;
+
+    char* ret = new char[length];
+
+    memcpy(ret, ret_str.c_str(), length);
+
+    return ret;
+  };
+  ~ToUtcTimestampUtf8Holder() override = default;
+
+  ToUtcTimestampUtf8Holder(int32_t suppress_errors)
+      : ToUtcFunctionsHolder<ToUtcTimestampUtf8Holder>(suppress_errors) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<ToUtcTimestampUtf8Holder>* holder) {
+    const std::string function_name("to_utc_timestamp");
+
+    if (node.children().empty()) {
+      return Status::Invalid("to_utc_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      return ToUtcFunctionsHolder<ToUtcTimestampUtf8Holder>::Make(node, holder,
+                                                                  function_name);
+    }
+
+    const int32_t not_supress_errors = 0;
+    return Make(not_supress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors,
+                     std::shared_ptr<ToUtcTimestampUtf8Holder>* holder) {
+    return ToUtcFunctionsHolder<ToUtcTimestampUtf8Holder>::Make(suppress_errors, holder);
+  }
+};
+
+/// Function Holder for 'to_utc_timestamp' from int32
+class GANDIVA_EXPORT ToUtcTimestampInt32Holder
+    : public gandiva::ToUtcFunctionsHolder<ToUtcTimestampInt32Holder> {
+ public:
+  virtual const char* operator()(ExecutionContext* context, int32_t in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
+    *out_valid = false;
+
+    if (!in_valid) {
+      return "";
+    }
+
+    // int32 needs to be treated as seconds or it will overflow
+    std::chrono::duration<long> seconds(in_data);
+
+    arrow_vendored::date::zoned_seconds zoned{
+        tz, arrow_vendored::date::local_seconds{seconds}};
+    auto to_utc = arrow_vendored::date::make_zoned("Etc/GMT0", zoned,
+                                                   arrow_vendored::date::choose::latest);
+
+    std::stringstream iss;
+    iss << format(pattern_, to_utc);
+    std::string ret_str = iss.str();
+    ret_str = ret_str.substr(0, ret_str.find('.'));
+
+    size_t length = 20;
+
+    char* ret = new char[length];
+
+    memcpy(ret, ret_str.c_str(), length);
+
+    return ret;
+  };
+  ~ToUtcTimestampInt32Holder() override = default;
+
+  ToUtcTimestampInt32Holder(int32_t suppress_errors)
+      : ToUtcFunctionsHolder<ToUtcTimestampInt32Holder>(suppress_errors) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<ToUtcTimestampInt32Holder>* holder) {
+    const std::string function_name("to_utc_timestamp");
+
+    if (node.children().empty()) {
+      return Status::Invalid("to_utc_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      return ToUtcFunctionsHolder<ToUtcTimestampInt32Holder>::Make(node, holder,
+                                                                   function_name);
+    }
+
+    const int32_t not_supress_errors = 0;
+    return Make(not_supress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors,
+                     std::shared_ptr<ToUtcTimestampInt32Holder>* holder) {
+    return ToUtcFunctionsHolder<ToUtcTimestampInt32Holder>::Make(suppress_errors, holder);
+  }
+};
+
+/// Function Holder for 'to_utc_timestamp' from int64
+class GANDIVA_EXPORT ToUtcTimestampInt64Holder
+    : public gandiva::ToUtcFunctionsHolder<ToUtcTimestampInt64Holder> {
+ public:
+  ~ToUtcTimestampInt64Holder() override = default;
+
+  ToUtcTimestampInt64Holder(int32_t suppress_errors)
+      : ToUtcFunctionsHolder<ToUtcTimestampInt64Holder>(suppress_errors) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<ToUtcTimestampInt64Holder>* holder) {
+    const std::string function_name("to_utc_timestamp");
+
+    if (node.children().empty()) {
+      return Status::Invalid("to_utc_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      return ToUtcFunctionsHolder<ToUtcTimestampInt64Holder>::Make(node, holder,
+                                                                   function_name);
+    }
+
+    const int32_t not_supress_errors = 0;
+    return Make(not_supress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors,
+                     std::shared_ptr<ToUtcTimestampInt64Holder>* holder) {
+    return ToUtcFunctionsHolder<ToUtcTimestampInt64Holder>::Make(suppress_errors, holder);
+  }
+};
+
+/// Function Holder for Hive 'to_utc_timestamp' from float32
+class GANDIVA_EXPORT ToUtcTimestampFloat32Holder
+    : public gandiva::ToUtcFunctionsHolder<ToUtcTimestampFloat32Holder> {
+ public:
+  virtual const char* operator()(ExecutionContext* context, float in_data, const char* tz,
+                                 bool in_valid, bool* out_valid) {
+    *out_valid = false;
+
+    if (!in_valid) {
+      return "";
+    }
+
+    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::duration<float>(in_data));
+
+    arrow_vendored::date::zoned_seconds zoned{
+        tz, arrow_vendored::date::local_seconds{seconds}};
+    auto to_utc = arrow_vendored::date::make_zoned("Etc/GMT0", zoned,
+                                                   arrow_vendored::date::choose::latest);
+
+    std::stringstream iss;
+    iss << format(pattern_, to_utc);
+    std::string ret_str = iss.str();
+    ret_str = ret_str.substr(0, ret_str.find('.'));
+
+    size_t length = 20;
+
+    char* ret = new char[length];
+
+    memcpy(ret, ret_str.c_str(), length);
+
+    return ret;
+  };
+  ~ToUtcTimestampFloat32Holder() override = default;
+
+  ToUtcTimestampFloat32Holder(int32_t suppress_errors)
+      : ToUtcFunctionsHolder<ToUtcTimestampFloat32Holder>(suppress_errors) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<ToUtcTimestampFloat32Holder>* holder) {
+    const std::string function_name("to_utc_timestamp");
+
+    if (node.children().empty()) {
+      return Status::Invalid("to_utc_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      return ToUtcFunctionsHolder<ToUtcTimestampFloat32Holder>::Make(node, holder,
+                                                                     function_name);
+    }
+
+    const int32_t not_supress_errors = 0;
+    return Make(not_supress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors,
+                     std::shared_ptr<ToUtcTimestampFloat32Holder>* holder) {
+    return ToUtcFunctionsHolder<ToUtcTimestampFloat32Holder>::Make(suppress_errors,
+                                                                   holder);
+  }
+};
+
+/// Function Holder for 'to_utc_timestamp' from float64
+class GANDIVA_EXPORT ToUtcTimestampFloat64Holder
+    : public gandiva::ToUtcFunctionsHolder<ToUtcTimestampFloat64Holder> {
+ public:
+  virtual const char* operator()(ExecutionContext* context, double in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
+    *out_valid = false;
+
+    if (!in_valid) {
+      return "";
+    }
+
+    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::duration<double>(in_data));
+
+    arrow_vendored::date::zoned_seconds zoned{
+        tz, arrow_vendored::date::local_seconds{seconds}};
+    auto to_utc = arrow_vendored::date::make_zoned("Etc/GMT0", zoned,
+                                                   arrow_vendored::date::choose::latest);
+
+    std::stringstream iss;
+    iss << format(pattern_, to_utc);
+    std::string ret_str = iss.str();
+    ret_str = ret_str.substr(0, ret_str.find('.'));
+
+    size_t length = 20;
+
+    char* ret = new char[length];
+
+    memcpy(ret, ret_str.c_str(), length);
+
+    return ret;
+  };
+  ~ToUtcTimestampFloat64Holder() override = default;
+
+  ToUtcTimestampFloat64Holder(int32_t suppress_errors)
+      : ToUtcFunctionsHolder<ToUtcTimestampFloat64Holder>(suppress_errors) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<ToUtcTimestampFloat64Holder>* holder) {
+    const std::string function_name("to_utc_timestamp");
+
+    if (node.children().empty()) {
+      return Status::Invalid("to_utc_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      return ToUtcFunctionsHolder<ToUtcTimestampFloat64Holder>::Make(node, holder,
+                                                                     function_name);
+    }
+
+    const int32_t not_supress_errors = 0;
+    return Make(not_supress_errors, holder);
+  }
+
+  static Status Make(int32_t suppress_errors,
+                     std::shared_ptr<ToUtcTimestampFloat64Holder>* holder) {
+    return ToUtcFunctionsHolder<ToUtcTimestampFloat64Holder>::Make(suppress_errors,
+                                                                   holder);
+  }
+};
 }  // namespace gandiva

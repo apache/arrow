@@ -161,7 +161,7 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
   }
 };
 
-/// Function Holder for Hive 'from_unixtime'
+/// Function Holder for 'from_unixtime'
 class GANDIVA_EXPORT FromUnixtimeHolder
     : public gandiva::FromDateFunctionsHolder<FromUnixtimeHolder> {
  public:
@@ -204,8 +204,8 @@ class GANDIVA_EXPORT FromUtcFunctionsHolder : public FunctionHolder {
  public:
   ~FromUtcFunctionsHolder() override = default;
 
-  virtual const char* operator()(ExecutionContext* context, int64_t in_data, const char* tz,
-                                 bool in_valid, bool* out_valid) {
+  virtual const char* operator()(ExecutionContext* context, int64_t in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
     *out_valid = false;
 
     if (!in_valid) {
@@ -231,8 +231,7 @@ class GANDIVA_EXPORT FromUtcFunctionsHolder : public FunctionHolder {
   }
 
  protected:
-  FromUtcFunctionsHolder(int32_t suppress_errors)
-      : suppress_errors_(suppress_errors){};
+  FromUtcFunctionsHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors){};
 
   std::string pattern_ = "%Y-%m-%d %H:%M:%S";  // date format string
 
@@ -305,21 +304,20 @@ class GANDIVA_EXPORT FromUtcFunctionsHolder : public FunctionHolder {
     return Make(suppress_errors, holder);
   }
 
-  static Status Make(int32_t suppress_errors,
-                     std::shared_ptr<HOLDER_TYPE>* holder) {
-    auto lholder = std::shared_ptr<HOLDER_TYPE>(
-        new HOLDER_TYPE(suppress_errors));
+  static Status Make(int32_t suppress_errors, std::shared_ptr<HOLDER_TYPE>* holder) {
+    auto lholder = std::shared_ptr<HOLDER_TYPE>(new HOLDER_TYPE(suppress_errors));
     *holder = lholder;
     return Status::OK();
   }
 };
 
-/// Function Holder for Hive 'from_utc_timestamp' from utf8
+/// Function Holder for 'from_utc_timestamp' from utf8
 class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
     : public gandiva::FromUtcFunctionsHolder<FromUtcTimestampUtf8Holder> {
  public:
   virtual const char* operator()(ExecutionContext* context, const char* timestamp,
-                                 int32_t timestamp_len, const char* tz, bool in_valid, bool* out_valid) {
+                                 int32_t timestamp_len, const char* tz, bool in_valid,
+                                 bool* out_valid) {
     *out_valid = false;
 
     if (!in_valid) {
@@ -328,9 +326,9 @@ class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
 
     int64_t millis_timestamp;
     if (!arrow::internal::ParseTimestampArrowVendored(
-        timestamp, timestamp_len, pattern_.c_str(),
-        /*allow_trailing_chars=*/true, /*ignore_time_in_day=*/false,
-        ::arrow::TimeUnit::MILLI, &millis_timestamp)) {
+            timestamp, timestamp_len, pattern_.c_str(),
+            /*allow_trailing_chars=*/true, /*ignore_time_in_day=*/false,
+            ::arrow::TimeUnit::MILLI, &millis_timestamp)) {
       return_error(context, timestamp, timestamp_len);
       return "";
     }
@@ -362,13 +360,14 @@ class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
     const std::string function_name("from_utc_timestamp");
 
     if (node.children().empty()) {
-      return Status::Invalid("from_utc_timestamp function requires at least one parameter");
+      return Status::Invalid(
+          "from_utc_timestamp function requires at least one parameter");
     }
 
     if (node.children().size() > 1) {
       // It means that the function called was
       return FromUtcFunctionsHolder<FromUtcTimestampUtf8Holder>::Make(node, holder,
-                                                                       function_name);
+                                                                      function_name);
     }
 
     const int32_t not_supress_errors = 0;
@@ -378,15 +377,16 @@ class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
   static Status Make(int32_t suppress_errors,
                      std::shared_ptr<FromUtcTimestampUtf8Holder>* holder) {
     return FromUtcFunctionsHolder<FromUtcTimestampUtf8Holder>::Make(suppress_errors,
-                                                                     holder);
+                                                                    holder);
   }
 };
 
-/// Function Holder for Hive 'from_utc_timestamp' from int32
+/// Function Holder for 'from_utc_timestamp' from int32
 class GANDIVA_EXPORT FromUtcTimestampInt32Holder
     : public gandiva::FromUtcFunctionsHolder<FromUtcTimestampInt32Holder> {
  public:
-  virtual const char* operator()(ExecutionContext* context, int32_t in_data, const char* tz, bool in_valid, bool* out_valid) {
+  virtual const char* operator()(ExecutionContext* context, int32_t in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
     *out_valid = false;
 
     if (!in_valid) {
@@ -421,13 +421,14 @@ class GANDIVA_EXPORT FromUtcTimestampInt32Holder
     const std::string function_name("from_utc_timestamp");
 
     if (node.children().empty()) {
-      return Status::Invalid("from_utc_timestamp function requires at least one parameter");
+      return Status::Invalid(
+          "from_utc_timestamp function requires at least one parameter");
     }
 
     if (node.children().size() > 1) {
       // It means that the function called was
       return FromUtcFunctionsHolder<FromUtcTimestampInt32Holder>::Make(node, holder,
-                                                                         function_name);
+                                                                       function_name);
     }
 
     const int32_t not_supress_errors = 0;
@@ -437,11 +438,11 @@ class GANDIVA_EXPORT FromUtcTimestampInt32Holder
   static Status Make(int32_t suppress_errors,
                      std::shared_ptr<FromUtcTimestampInt32Holder>* holder) {
     return FromUtcFunctionsHolder<FromUtcTimestampInt32Holder>::Make(suppress_errors,
-                                                                       holder);
+                                                                     holder);
   }
 };
 
-/// Function Holder for Hive 'from_utc_timestamp' from int64
+/// Function Holder for 'from_utc_timestamp' from int64
 class GANDIVA_EXPORT FromUtcTimestampInt64Holder
     : public gandiva::FromUtcFunctionsHolder<FromUtcTimestampInt64Holder> {
  public:
@@ -455,7 +456,8 @@ class GANDIVA_EXPORT FromUtcTimestampInt64Holder
     const std::string function_name("from_utc_timestamp");
 
     if (node.children().empty()) {
-      return Status::Invalid("from_utc_timestamp function requires at least one parameter");
+      return Status::Invalid(
+          "from_utc_timestamp function requires at least one parameter");
     }
 
     if (node.children().size() > 1) {
@@ -475,18 +477,20 @@ class GANDIVA_EXPORT FromUtcTimestampInt64Holder
   }
 };
 
-/// Function Holder for Hive 'from_utc_timestamp' from float32
+/// Function Holder for 'from_utc_timestamp' from float32
 class GANDIVA_EXPORT FromUtcTimestampFloat32Holder
     : public gandiva::FromUtcFunctionsHolder<FromUtcTimestampFloat32Holder> {
  public:
-  virtual const char* operator()(ExecutionContext* context, float in_data, const char* tz, bool in_valid, bool* out_valid) {
+  virtual const char* operator()(ExecutionContext* context, float in_data, const char* tz,
+                                 bool in_valid, bool* out_valid) {
     *out_valid = false;
 
     if (!in_valid) {
       return "";
     }
 
-    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::duration<float>(in_data));
+    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::duration<float>(in_data));
 
     std::chrono::system_clock::time_point tp{seconds};
 
@@ -515,13 +519,14 @@ class GANDIVA_EXPORT FromUtcTimestampFloat32Holder
     const std::string function_name("from_utc_timestamp");
 
     if (node.children().empty()) {
-      return Status::Invalid("from_utc_timestamp function requires at least one parameter");
+      return Status::Invalid(
+          "from_utc_timestamp function requires at least one parameter");
     }
 
     if (node.children().size() > 1) {
       // It means that the function called was
       return FromUtcFunctionsHolder<FromUtcTimestampFloat32Holder>::Make(node, holder,
-                                                                      function_name);
+                                                                         function_name);
     }
 
     const int32_t not_supress_errors = 0;
@@ -531,22 +536,24 @@ class GANDIVA_EXPORT FromUtcTimestampFloat32Holder
   static Status Make(int32_t suppress_errors,
                      std::shared_ptr<FromUtcTimestampFloat32Holder>* holder) {
     return FromUtcFunctionsHolder<FromUtcTimestampFloat32Holder>::Make(suppress_errors,
-                                                                    holder);
+                                                                       holder);
   }
 };
 
-/// Function Holder for Hive 'from_utc_timestamp' from float64
+/// Function Holder for 'from_utc_timestamp' from float64
 class GANDIVA_EXPORT FromUtcTimestampFloat64Holder
     : public gandiva::FromUtcFunctionsHolder<FromUtcTimestampFloat64Holder> {
  public:
-  virtual const char* operator()(ExecutionContext* context, double in_data, const char* tz, bool in_valid, bool* out_valid) {
+  virtual const char* operator()(ExecutionContext* context, double in_data,
+                                 const char* tz, bool in_valid, bool* out_valid) {
     *out_valid = false;
 
     if (!in_valid) {
       return "";
     }
 
-    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::duration<double>(in_data));
+    std::chrono::seconds seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::duration<double>(in_data));
 
     std::chrono::system_clock::time_point tp{seconds};
 
@@ -575,13 +582,14 @@ class GANDIVA_EXPORT FromUtcTimestampFloat64Holder
     const std::string function_name("from_utc_timestamp");
 
     if (node.children().empty()) {
-      return Status::Invalid("from_utc_timestamp function requires at least one parameter");
+      return Status::Invalid(
+          "from_utc_timestamp function requires at least one parameter");
     }
 
     if (node.children().size() > 1) {
       // It means that the function called was
       return FromUtcFunctionsHolder<FromUtcTimestampFloat64Holder>::Make(node, holder,
-                                                                       function_name);
+                                                                         function_name);
     }
 
     const int32_t not_supress_errors = 0;
@@ -591,7 +599,7 @@ class GANDIVA_EXPORT FromUtcTimestampFloat64Holder
   static Status Make(int32_t suppress_errors,
                      std::shared_ptr<FromUtcTimestampFloat64Holder>* holder) {
     return FromUtcFunctionsHolder<FromUtcTimestampFloat64Holder>::Make(suppress_errors,
-                                                                     holder);
+                                                                       holder);
   }
 };
 }  // namespace gandiva

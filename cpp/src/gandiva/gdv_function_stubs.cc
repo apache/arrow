@@ -279,7 +279,9 @@ const char* gdv_fn_from_unixtime_utf8_utf8_int32(int64_t context_ptr, int64_t ho
 }
 
 const char* gdv_fn_from_utc_timestamp_utf8(int64_t context_ptr, int64_t holder_ptr,
-                                      const char* data, int32_t data_len, const char* tz, bool in1_validity, bool* out_valid) {
+                                           const char* data, int32_t data_len,
+                                           const char* tz, bool in1_validity,
+                                           bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::FromUtcTimestampUtf8Holder* holder =
@@ -288,7 +290,8 @@ const char* gdv_fn_from_utc_timestamp_utf8(int64_t context_ptr, int64_t holder_p
 }
 
 const char* gdv_fn_from_utc_timestamp_int32(int64_t context_ptr, int64_t holder_ptr,
-                                           int32_t data, const char* tz, bool in1_validity, bool* out_valid) {
+                                            int32_t data, const char* tz,
+                                            bool in1_validity, bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::FromUtcTimestampInt32Holder* holder =
@@ -297,7 +300,8 @@ const char* gdv_fn_from_utc_timestamp_int32(int64_t context_ptr, int64_t holder_
 }
 
 const char* gdv_fn_from_utc_timestamp_int64(int64_t context_ptr, int64_t holder_ptr,
-                                            int64_t data, const char* tz, bool in1_validity, bool* out_valid) {
+                                            int64_t data, const char* tz,
+                                            bool in1_validity, bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::FromUtcTimestampInt64Holder* holder =
@@ -306,7 +310,8 @@ const char* gdv_fn_from_utc_timestamp_int64(int64_t context_ptr, int64_t holder_
 }
 
 const char* gdv_fn_from_utc_timestamp_float32(int64_t context_ptr, int64_t holder_ptr,
-                                            gdv_float32 data, const char* tz, bool in1_validity, bool* out_valid) {
+                                              gdv_float32 data, const char* tz,
+                                              bool in1_validity, bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::FromUtcTimestampFloat32Holder* holder =
@@ -315,11 +320,63 @@ const char* gdv_fn_from_utc_timestamp_float32(int64_t context_ptr, int64_t holde
 }
 
 const char* gdv_fn_from_utc_timestamp_float64(int64_t context_ptr, int64_t holder_ptr,
-                                              gdv_float64 data, const char* tz, bool in1_validity, bool* out_valid) {
+                                              gdv_float64 data, const char* tz,
+                                              bool in1_validity, bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::FromUtcTimestampFloat64Holder* holder =
       reinterpret_cast<gandiva::FromUtcTimestampFloat64Holder*>(holder_ptr);
+  return (*holder)(context, data, tz, in1_validity, out_valid);
+}
+
+const char* gdv_fn_to_utc_timestamp_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                         const char* data, int32_t data_len,
+                                         const char* tz, bool in1_validity,
+                                         bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToUtcTimestampUtf8Holder* holder =
+      reinterpret_cast<gandiva::ToUtcTimestampUtf8Holder*>(holder_ptr);
+  return (*holder)(context, data, data_len, tz, in1_validity, out_valid);
+}
+
+const char* gdv_fn_to_utc_timestamp_int32(int64_t context_ptr, int64_t holder_ptr,
+                                          int32_t data, const char* tz, bool in1_validity,
+                                          bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToUtcTimestampInt32Holder* holder =
+      reinterpret_cast<gandiva::ToUtcTimestampInt32Holder*>(holder_ptr);
+  return (*holder)(context, data, tz, in1_validity, out_valid);
+}
+
+const char* gdv_fn_to_utc_timestamp_int64(int64_t context_ptr, int64_t holder_ptr,
+                                          int64_t data, const char* tz, bool in1_validity,
+                                          bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToUtcTimestampInt64Holder* holder =
+      reinterpret_cast<gandiva::ToUtcTimestampInt64Holder*>(holder_ptr);
+  return (*holder)(context, data, tz, in1_validity, out_valid);
+}
+
+const char* gdv_fn_to_utc_timestamp_float32(int64_t context_ptr, int64_t holder_ptr,
+                                            gdv_float32 data, const char* tz,
+                                            bool in1_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToUtcTimestampFloat32Holder* holder =
+      reinterpret_cast<gandiva::ToUtcTimestampFloat32Holder*>(holder_ptr);
+  return (*holder)(context, data, tz, in1_validity, out_valid);
+}
+
+const char* gdv_fn_to_utc_timestamp_float64(int64_t context_ptr, int64_t holder_ptr,
+                                            gdv_float64 data, const char* tz,
+                                            bool in1_validity, bool* out_valid) {
+  gandiva::ExecutionContext* context =
+      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  gandiva::ToUtcTimestampFloat64Holder* holder =
+      reinterpret_cast<gandiva::ToUtcTimestampFloat64Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
@@ -1727,9 +1784,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_utc_timestamp_utf8",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_utf8));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_utc_timestamp_utf8", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_utf8));
 
   // gdv_fn_from_utc_timestamp_int32
   args = {types->i64_type(),                   // int64_t execution_context
@@ -1739,9 +1796,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_utc_timestamp_int32",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_int32));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_utc_timestamp_int32", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_int32));
 
   // gdv_fn_from_utc_timestamp_int64
   args = {types->i64_type(),                   // int64_t execution_context
@@ -1751,9 +1808,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_utc_timestamp_int64",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_int64));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_utc_timestamp_int64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_int64));
 
   // gdv_fn_from_utc_timestamp_float32
   args = {types->i64_type(),                   // int64_t execution_context
@@ -1763,9 +1820,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_utc_timestamp_float32",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_float32));
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_utc_timestamp_float32", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_float32));
 
   // gdv_fn_from_utc_timestamp_float64
   args = {types->i64_type(),                   // int64_t execution_context
@@ -1775,9 +1832,70 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in1_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_fn_from_utc_timestamp_float64",
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_from_utc_timestamp_float64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_float64));
+
+  // gdv_fn_to_utc_timestamp_utf8
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i8_ptr_type(),                // char const* data
+          types->i32_type(),                   // int32_t data_len
+          types->i8_ptr_type(),                // char const* tz
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc("gdv_fn_to_utc_timestamp_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_from_utc_timestamp_float64));
+                                  reinterpret_cast<void*>(gdv_fn_to_utc_timestamp_utf8));
+
+  // gdv_fn_to_utc_timestamp_int32
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i32_type(),                   // char const* data
+          types->i8_ptr_type(),                // char const* tz
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc("gdv_fn_to_utc_timestamp_int32",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_utc_timestamp_int32));
+
+  // gdv_fn_to_utc_timestamp_int64
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->i64_type(),                   // char const* data
+          types->i8_ptr_type(),                // char const* tz
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc("gdv_fn_to_utc_timestamp_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_utc_timestamp_int64));
+
+  // gdv_fn_to_utc_timestamp_float32
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->float_type(),                 // char const* data
+          types->i8_ptr_type(),                // char const* tz
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_to_utc_timestamp_float32", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_to_utc_timestamp_float32));
+
+  // gdv_fn_to_utc_timestamp_float64
+  args = {types->i64_type(),                   // int64_t execution_context
+          types->i64_type(),                   // int64_t holder_ptr
+          types->double_type(),                // char const* data
+          types->i8_ptr_type(),                // char const* tz
+          types->i1_type(),                    // bool in1_validity
+          types->ptr_type(types->i8_type())};  // bool* out_valid
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_to_utc_timestamp_float64", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_to_utc_timestamp_float64));
 
   // gdv_fn_in_expr_lookup_int32
   args = {types->i64_type(),  // int64_t in holder ptr

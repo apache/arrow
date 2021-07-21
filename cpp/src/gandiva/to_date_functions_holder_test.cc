@@ -511,4 +511,165 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeErrorWithoutPattern) {
   EXPECT_EQ(millis_since_epoch, 0);
   EXPECT_TRUE(execution_context_.has_error() == false);
 }
+
+TEST_F(TestToDateHolder, TestToUtcTimestampUtf8) {
+  std::shared_ptr<ToUtcTimestampUtf8Holder> to_date_holder;
+  ASSERT_OK(ToUtcTimestampUtf8Holder::Make(1, &to_date_holder));
+
+  auto& to_utc_timestamp = *to_date_holder;
+  bool out_valid;
+
+  const char* date = "1970-01-30 16:00:00";
+  auto output_timestamp =
+      to_utc_timestamp(&execution_context_, date, 19, "PST8PDT", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-31 00:00:00");
+
+  date = "1970-01-30 08:30:58";
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, 19, "Etc/GMT+8", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-30 16:30:58");
+
+  date = "1970-01-01 00:00:00";
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, 19, "Etc/GMT+0", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:00:00");
+
+  date = "1969-12-31 23:59:59";
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, 19, "Etc/GMT+1", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:59:59");
+}
+
+TEST_F(TestToDateHolder, TestToUtcTimestampInt32) {
+  std::shared_ptr<ToUtcTimestampInt32Holder> to_date_holder;
+  ASSERT_OK(ToUtcTimestampInt32Holder::Make(1, &to_date_holder));
+
+  auto& to_utc_timestamp = *to_date_holder;
+  bool out_valid;
+
+  int32_t date = 2592000;
+  auto output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-31 08:00:00");
+
+  date = 2536258;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+8", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-30 16:30:58");
+
+  date = 0;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+0", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:00:00");
+
+  date = -1;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+1", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:59:59");
+}
+
+TEST_F(TestToDateHolder, TestToUtcTimestampInt64) {
+  std::shared_ptr<ToUtcTimestampInt64Holder> to_date_holder;
+  ASSERT_OK(ToUtcTimestampInt64Holder::Make(1, &to_date_holder));
+
+  auto& to_utc_timestamp = *to_date_holder;
+  bool out_valid;
+
+  int64_t date = 2592000000;
+  auto output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-31 08:00:00");
+
+  date = 2536258000;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+8", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-30 16:30:58");
+
+  date = 0L;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+0", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:00:00");
+
+  date = -1000L;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+1", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:59:59");
+}
+
+TEST_F(TestToDateHolder, TestToUtcTimestampFloat32) {
+  std::shared_ptr<ToUtcTimestampFloat32Holder> to_date_holder;
+  ASSERT_OK(ToUtcTimestampFloat32Holder::Make(1, &to_date_holder));
+
+  auto& to_utc_timestamp = *to_date_holder;
+  bool out_valid;
+
+  int32_t date = 2592000.0f;
+  auto output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-31 08:00:00");
+
+  date = 2536258.0f;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+8", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-30 16:30:58");
+
+  date = 0.0f;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+0", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:00:00");
+
+  date = -1.0f;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+1", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:59:59");
+}
+
+TEST_F(TestToDateHolder, TestToUtcTimestampFloat64) {
+  std::shared_ptr<ToUtcTimestampFloat64Holder> to_date_holder;
+  ASSERT_OK(ToUtcTimestampFloat64Holder::Make(1, &to_date_holder));
+
+  auto& to_utc_timestamp = *to_date_holder;
+  bool out_valid;
+
+  int32_t date = 2592000.0;
+  auto output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-31 08:00:00");
+
+  date = 2536258.0;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+8", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-30 16:30:58");
+
+  date = 0.0;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+0", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:00:00");
+
+  date = -1.0;
+  output_timestamp =
+      to_utc_timestamp(&execution_context_, date, "Etc/GMT+1", true, &out_valid);
+  EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
+            "1970-01-01 00:59:59");
+}
+
 }  // namespace gandiva
