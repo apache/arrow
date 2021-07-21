@@ -19,17 +19,16 @@ skip_if_not_installed("duckdb")
 library(duckdb)
 library(dplyr)
 
+con <- dbConnect(duckdb::duckdb())
+
 test_that("basic integration", {
   rb <- record_batch(example_data)
 
-  con <- dbConnect(duckdb::duckdb())
   # we always want to test in parallel
   dbExecute(con, "PRAGMA threads=2")
 
   duckdb_register_arrow(con, "my_recordbatch", rb)
   expect_identical(dbGetQuery(con, "SELECT count(*) FROM my_recordbatch")$`count_star()`, 10)
-
-  dbDisconnect(con, shutdown=TRUE)
 })
 
 test_that("alchemize_to_duckdb", {
@@ -97,11 +96,8 @@ test_that("summarise(..., .engine)", {
 test_that("Joining, auto-cleanup", {
   ds <- InMemoryDataset$create(example_data)
 
-  con <- dbConnect(duckdb::duckdb())
   # we always want to test in parallel
   dbExecute(con, "PRAGMA threads=2")
-  # add a table to keep the connection available
-  dbWriteTable(con, "mtcars", mtcars)
 
   table_one <- alchemize_to_duckdb(ds, con = con)
   table_one_name <- as.character(table_one$ops$x)
@@ -119,60 +115,60 @@ test_that("Joining, auto-cleanup", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
-  expect_setequal(DBI::dbListTables(con), c("mtcars", table_one_name, table_two_name))
+  expect_true(all(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
   rm(table_one, table_two)
   gc()
-  expect_equal(DBI::dbListTables(con), "mtcars")
-
-  dbDisconnect(con, shutdown=TRUE)
+  expect_false(any(c(table_one_name, table_two_name) %in% DBI::dbListTables(con)))
 })
 
 test_that("Joining, auto-cleanup disabling", {
   ds <- InMemoryDataset$create(example_data)
 
-  con <- dbConnect(duckdb::duckdb())
-  table_one <- alchemize_to_duckdb(ds, con = con, auto_disconnect = FALSE)
-  table_one_name <- as.character(table_one$ops$x)
+  table_three <- alchemize_to_duckdb(ds, con = con, auto_disconnect = FALSE)
+  table_three_name <- as.character(table_three$ops$x)
 
   # clean up does *not* clean these tables
-  expect_equal(DBI::dbListTables(con), table_one_name)
-  rm(table_one)
+  expect_true(table_three_name %in% DBI::dbListTables(con))
+  rm(table_three)
   gc()
   # but because we aren't auto_disconnecting then we still have this table.
-  expect_equal(DBI::dbListTables(con), table_one_name)
-
-  dbDisconnect(con, shutdown=TRUE)
+  expect_true(table_three_name %in% DBI::dbListTables(con))
 })
 
 
 test_that("alchemize_to_duckdb passing a connection", {
   ds <- InMemoryDataset$create(example_data)
 
-  con <- dbConnect(duckdb::duckdb())
+  con_separate <- dbConnect(duckdb::duckdb())
   # we always want to test in parallel
-  dbExecute(con, "PRAGMA threads=2")
+  dbExecute(con_separate, "PRAGMA threads=2")
 
-  # mock out the dbConnect method to error
-  # TODO: use mockr for this? As it stands, if there is an error, the unmocking
-  # won't be called (and on.exit only works at the end of the file it appears)
-  old_arrow_duck_connection <- arrow_duck_connection
-  new_arrow_duck_connection <- function(...) stop("A new connection was attempted")
-  assignInNamespace("arrow_duck_connection", new_arrow_duck_connection, "arrow")
+  # create a table to join to that we know is in our con_separate
+  new_df <- data.frame(
+    int = 1:10,
+    char = letters[26:17]
+  )
+  DBI::dbWriteTable(con_separate, "separate_join_table", new_df)
 
-  expect_identical(
-    ds %>%
-      select(int, lgl, dbl) %>%
-      alchemize_to_duckdb(con = con) %>%
-      group_by(lgl) %>%
-      summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
-    tibble::tibble(
-      lgl = c(TRUE, NA, FALSE),
-      mean_int = c(3, 6.25, 8.5),
-      mean_dbl = c(3.1, 6.35, 6.1)
+  table_four <- ds %>%
+    select(int, lgl, dbl) %>%
+    alchemize_to_duckdb(con = con_separate)
+  table_four_name <- table_four$ops$x
+
+  result <- DBI::dbGetQuery(
+    con_separate,
+    paste0(
+      "SELECT * FROM ", table_four_name,
+      " INNER JOIN separate_join_table ",
+      "ON separate_join_table.int = ", table_four_name, ".int"
     )
   )
 
-  assignInNamespace("arrow_duck_connection", old_arrow_duck_connection, "arrow")
-  dbDisconnect(con, shutdown=TRUE)
+  expect_identical(dim(result), c(9L, 5L))
+  expect_identical(result$char, new_df[new_df$int != 4, ]$char)
+
+
+  dbDisconnect(con_separate, shutdown = TRUE)
 })
+
+dbDisconnect(con, shutdown = TRUE)

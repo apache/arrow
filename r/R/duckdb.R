@@ -72,7 +72,7 @@ duckdb_disconnector <- function(con, tbl_name, quiet = FALSE) {
   reg.finalizer(environment(), function(...) {
     # remote the table we ephemerally created (though only if the connection is
     # still valid)
-    if (dbIsValid(con)) {
+    if (DBI::dbIsValid(con)) {
       duckdb::duckdb_unregister_arrow(con, tbl_name)
     }
 
