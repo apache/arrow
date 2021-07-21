@@ -163,7 +163,7 @@ garrow_datum_is_scalar(GArrowDatum *datum)
  * garrow_datum_is_value:
  * @datum: A #GArrowDatum.
  *
- * Returns: %TRUE if the datum holds a #GArrowArray, #GChunkedArray or
+ * Returns: %TRUE if the datum holds a #GArrowArray, #GArrowChunkedArray or
  *   #GArrowScalar, %FALSE otherwise.
  *
  * Since: 5.0.0

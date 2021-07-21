@@ -17,9 +17,7 @@
  * under the License.
  */
 
-#include <arrow-glib/error.hpp>
-#include <arrow-glib/ipc-options.hpp>
-#include <arrow-glib/schema.hpp>
+#include <arrow-glib/arrow-glib.hpp>
 
 #include <arrow-flight-glib/common.hpp>
 
@@ -36,7 +34,7 @@ G_BEGIN_DECLS
  * #GAFlightLocation is a class for location.
  *
  * #GAFlightDescriptor is a base class for all descriptor classes such
- * as #GArrowFlightPathDescriptor.
+ * as #GAFlightPathDescriptor.
  *
  * #GAFlightPathDescriptor is a class for path descriptor.
  *
@@ -47,6 +45,10 @@ G_BEGIN_DECLS
  * #GAFlightEndpoint is a class for endpoint.
  *
  * #GAFlightInfo is a class for flight information.
+ *
+ * #GAFlightStreamChunk is a class for a chunk in stream.
+ *
+ * #GAFlightRecordBatchReader is a class for reading record batches.
  *
  * Since: 5.0.0
  */
@@ -1094,9 +1096,246 @@ gaflight_info_get_total_bytes(GAFlightInfo *info)
   return flight_info->total_bytes();
 }
 
+typedef struct GAFlightStreamChunkPrivate_ {
+  arrow::flight::FlightStreamChunk chunk;
+} GAFlightStreamChunkPrivate;
+
+enum {
+  PROP_CHUNK = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightStreamChunk,
+                           gaflight_stream_chunk,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(obj)            \
+  static_cast<GAFlightStreamChunkPrivate *>(             \
+    gaflight_stream_chunk_get_instance_private(           \
+      GAFLIGHT_STREAM_CHUNK(obj)))
+
+static void
+gaflight_stream_chunk_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(object);
+
+  priv->chunk.~FlightStreamChunk();
+
+  G_OBJECT_CLASS(gaflight_info_parent_class)->finalize(object);
+}
+
+static void
+gaflight_stream_chunk_set_property(GObject *object,
+                                   guint prop_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CHUNK:
+    priv->chunk =
+      *static_cast<arrow::flight::FlightStreamChunk *>(
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_stream_chunk_init(GAFlightStreamChunk *object)
+{
+}
+
+static void
+gaflight_stream_chunk_class_init(GAFlightStreamChunkClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = gaflight_stream_chunk_finalize;
+  gobject_class->set_property = gaflight_stream_chunk_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("chunk",
+                              "Stream chunk",
+                              "The raw arrow::flight::FlightStreamChunk *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CHUNK, spec);
+}
+
+/**
+ * gaflight_stream_chunk_get_data:
+ * @chunk: A #GAFlightStreamChunk.
+ *
+ * Returns: (transfer full): The data of the chunk.
+ *
+ * Since: 6.0.0
+ */
+GArrowRecordBatch *
+gaflight_stream_chunk_get_data(GAFlightStreamChunk *chunk)
+{
+  auto flight_chunk = gaflight_stream_chunk_get_raw(chunk);
+  return garrow_record_batch_new_raw(&(flight_chunk->data));
+}
+
+/**
+ * gaflight_stream_chunk_get_metadata:
+ * @chunk: A #GAFlightStreamChunk.
+ *
+ * Returns: (nullable) (transfer full): The metadata of the chunk.
+ *
+ *   The metadata may be NULL.
+ *
+ * Since: 6.0.0
+ */
+GArrowBuffer *
+gaflight_stream_chunk_get_metadata(GAFlightStreamChunk *chunk)
+{
+  auto flight_chunk = gaflight_stream_chunk_get_raw(chunk);
+  if (flight_chunk->app_metadata) {
+    return garrow_buffer_new_raw(&(flight_chunk->app_metadata));
+  } else {
+    return NULL;
+  }
+}
+
+
+typedef struct GAFlightRecordBatchReaderPrivate_ {
+  arrow::flight::MetadataRecordBatchReader *reader;
+} GAFlightRecordBatchReaderPrivate;
+
+enum {
+  PROP_READER = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightRecordBatchReader,
+                           gaflight_record_batch_reader,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(obj)            \
+  static_cast<GAFlightRecordBatchReaderPrivate *>(               \
+    gaflight_record_batch_reader_get_instance_private(           \
+      GAFLIGHT_RECORD_BATCH_READER(obj)))
+
+static void
+gaflight_record_batch_reader_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(object);
+
+  delete priv->reader;
+
+  G_OBJECT_CLASS(gaflight_info_parent_class)->finalize(object);
+}
+
+static void
+gaflight_record_batch_reader_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_READER:
+    priv->reader =
+      static_cast<arrow::flight::MetadataRecordBatchReader *>(
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_record_batch_reader_init(GAFlightRecordBatchReader *object)
+{
+}
+
+static void
+gaflight_record_batch_reader_class_init(GAFlightRecordBatchReaderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = gaflight_record_batch_reader_finalize;
+  gobject_class->set_property = gaflight_record_batch_reader_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("reader",
+                              "Reader",
+                              "The raw arrow::flight::MetadataRecordBatchReader *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_READER, spec);
+}
+
+/**
+ * gaflight_record_batch_reader_read_next:
+ * @reader: A #GAFlightRecordBatchReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The next chunk on success, %NULL on end
+ *   of stream, %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GAFlightStreamChunk *
+gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
+                                       GError **error)
+{
+  auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
+  arrow::flight::FlightStreamChunk flight_chunk;
+  auto status = flight_reader->Next(&flight_chunk);
+  if (garrow::check(error, status, "[flight-record-batch-reader][read-next]")) {
+    if (flight_chunk.data) {
+      return gaflight_stream_chunk_new_raw(&flight_chunk);
+    } else {
+      return NULL;
+    }
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * gaflight_record_batch_reader_read_all:
+ * @reader: A #GAFlightRecordBatchReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The all data on success, %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GArrowTable *
+gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
+                                      GError **error)
+{
+  auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = flight_reader->ReadAll(&arrow_table);
+  if (garrow::check(error, status, "[flight-record-batch-reader][read-all]")) {
+    return garrow_table_new_raw(&arrow_table);
+  } else {
+    return NULL;
+  }
+}
+
 
 G_END_DECLS
 
+
+GAFlightCriteria *
+gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria)
+{
+  auto criteria = g_object_new(GAFLIGHT_TYPE_CRITERIA, NULL);
+  auto priv = GAFLIGHT_CRITERIA_GET_PRIVATE(criteria);
+  priv->criteria = *flight_criteria;
+  priv->expression = g_bytes_new(priv->criteria.expression.data(),
+                                 priv->criteria.expression.size());
+  return GAFLIGHT_CRITERIA(criteria);
+}
 
 arrow::flight::Criteria *
 gaflight_criteria_get_raw(GAFlightCriteria *criteria)
@@ -1137,6 +1376,17 @@ gaflight_descriptor_get_raw(GAFlightDescriptor *descriptor)
 {
   auto priv = GAFLIGHT_DESCRIPTOR_GET_PRIVATE(descriptor);
   return &(priv->descriptor);
+}
+
+GAFlightTicket *
+gaflight_ticket_new_raw(const arrow::flight::Ticket *flight_ticket)
+{
+  auto ticket = g_object_new(GAFLIGHT_TYPE_TICKET, NULL);
+  auto priv = GAFLIGHT_TICKET_GET_PRIVATE(ticket);
+  priv->ticket = *flight_ticket;
+  priv->data = g_bytes_new(priv->ticket.ticket.data(),
+                           priv->ticket.ticket.size());
+  return GAFLIGHT_TICKET(ticket);
 }
 
 arrow::flight::Ticket *
@@ -1191,4 +1441,27 @@ gaflight_info_get_raw(GAFlightInfo *info)
 {
   auto priv = GAFLIGHT_INFO_GET_PRIVATE(info);
   return &(priv->info);
+}
+
+GAFlightStreamChunk *
+gaflight_stream_chunk_new_raw(arrow::flight::FlightStreamChunk *flight_chunk)
+{
+  return GAFLIGHT_STREAM_CHUNK(
+    g_object_new(GAFLIGHT_TYPE_STREAM_CHUNK,
+                 "chunk", flight_chunk,
+                 NULL));
+}
+
+arrow::flight::FlightStreamChunk *
+gaflight_stream_chunk_get_raw(GAFlightStreamChunk *chunk)
+{
+  auto priv = GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(chunk);
+  return &(priv->chunk);
+}
+
+arrow::flight::MetadataRecordBatchReader *
+gaflight_record_batch_reader_get_raw(GAFlightRecordBatchReader *reader)
+{
+  auto priv = GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(reader);
+  return priv->reader;
 }

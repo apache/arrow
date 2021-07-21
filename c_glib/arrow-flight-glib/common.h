@@ -223,4 +223,46 @@ gint64
 gaflight_info_get_total_bytes(GAFlightInfo *info);
 
 
+#define GAFLIGHT_TYPE_STREAM_CHUNK (gaflight_stream_chunk_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightStreamChunk,
+                         gaflight_stream_chunk,
+                         GAFLIGHT,
+                         STREAM_CHUNK,
+                         GObject)
+struct _GAFlightStreamChunkClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowRecordBatch *
+gaflight_stream_chunk_get_data(GAFlightStreamChunk *chunk);
+GARROW_AVAILABLE_IN_6_0
+GArrowBuffer *
+gaflight_stream_chunk_get_metadata(GAFlightStreamChunk *chunk);
+
+
+#define GAFLIGHT_TYPE_RECORD_BATCH_READER       \
+  (gaflight_record_batch_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightRecordBatchReader,
+                         gaflight_record_batch_reader,
+                         GAFLIGHT,
+                         RECORD_BATCH_READER,
+                         GObject)
+struct _GAFlightRecordBatchReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GAFlightStreamChunk *
+gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
+                                       GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+GArrowTable *
+gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
+                                      GError **error);
+
+
 G_END_DECLS

@@ -145,6 +145,42 @@ garrow_record_batch_reader_class_init(GArrowRecordBatchReaderClass *klass)
 }
 
 /**
+ * garrow_record_batch_reader_new:
+ * @record_batches: (element-type GArrowRecordBatch):
+ *   A list of #GArrowRecordBatch.
+ * @schema: (nullable): A #GArrowSchema to confirm to.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The schema in the stream on success, %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GArrowRecordBatchReader *
+garrow_record_batch_reader_new(GList *record_batches,
+                               GArrowSchema *schema,
+                               GError **error)
+{
+  std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
+  for (auto node = record_batches; node; node = node->next) {
+    auto record_batch = GARROW_RECORD_BATCH(node->data);
+    arrow_record_batches.push_back(garrow_record_batch_get_raw(record_batch));
+  }
+  std::shared_ptr<arrow::Schema> arrow_schema;
+  if (schema) {
+    arrow_schema = garrow_schema_get_raw(schema);
+  }
+  auto arrow_reader_result =
+    arrow::RecordBatchReader::Make(arrow_record_batches, arrow_schema);
+  if (garrow::check(error,
+                    arrow_reader_result,
+                    "[record-batch-stream-reader][new]")) {
+    return garrow_record_batch_reader_new_raw(&*arrow_reader_result);
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_record_batch_reader_get_schema:
  * @reader: A #GArrowRecordBatchReader.
  *
@@ -226,6 +262,33 @@ garrow_record_batch_reader_read_next(GArrowRecordBatchReader *reader,
     } else {
       return garrow_record_batch_new_raw(&arrow_record_batch);
     }
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_reader_read_all:
+ * @reader: A #GArrowRecordBatchReader.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The all record batches in the stream as #GArrowTable.
+ *
+ * Since: 6.0.0
+ */
+GArrowTable *
+garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
+                                    GError **error)
+{
+  auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
+  std::shared_ptr<arrow::Table> arrow_table;
+  auto status = arrow_reader->ReadAll(&arrow_table);
+
+  if (garrow::check(error,
+                    status,
+                    "[record-batch-reader][read-all]")) {
+    return garrow_table_new_raw(&arrow_table);
   } else {
     return NULL;
   }
@@ -2077,13 +2140,13 @@ garrow_json_reader_read(GArrowJSONReader *reader,
 G_END_DECLS
 
 GArrowRecordBatchReader *
-garrow_record_batch_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader)
+garrow_record_batch_reader_new_raw(
+  std::shared_ptr<arrow::RecordBatchReader> *arrow_reader)
 {
-  auto reader =
-    GARROW_RECORD_BATCH_READER(g_object_new(GARROW_TYPE_RECORD_BATCH_READER,
-                                            "record-batch-reader", arrow_reader,
-                                            NULL));
-  return reader;
+  return GARROW_RECORD_BATCH_READER(
+    g_object_new(GARROW_TYPE_RECORD_BATCH_READER,
+                 "record-batch-reader", arrow_reader,
+                 NULL));
 }
 
 std::shared_ptr<arrow::ipc::RecordBatchReader>

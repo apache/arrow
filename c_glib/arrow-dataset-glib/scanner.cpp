@@ -202,7 +202,7 @@ gadataset_scanner_builder_class_init(GADatasetScannerBuilderClass *klass)
 
 /**
  * gadataset_scanner_builder_new:
- * @dataset: A #GADatasetDatast to be scanned.
+ * @dataset: A #GADatasetDataset to be scanned.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GADatasetScannerBuilder on success,
