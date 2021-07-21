@@ -61,71 +61,24 @@ import io.grpc.Status;
  * API to Implement an Arrow Flight SQL producer.
  */
 public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable {
-  private static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
+  public static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
       Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
       Field.nullable("schema_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_type", MinorType.VARCHAR.getType()),
       Field.nullable("table_schema", MinorType.VARBINARY.getType())));
-  private static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
+  public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
       Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
       Field.nullable("schema_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  private static final Schema GET_CATALOGS_SCHEMA = new Schema(
+  public static final Schema GET_CATALOGS_SCHEMA = new Schema(
       Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
-  private static final Schema GET_TABLE_TYPES_SCHEMA =
+  public static final Schema GET_TABLE_TYPES_SCHEMA =
       new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  private static final Schema GET_SCHEMAS_SCHEMA = new Schema(
+  public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
       Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-      Field.nullable("schema_name", MinorType.VARCHAR.getType())));
-
-  /**
-   * Gets the expected {@link Schema} for the `GetTableTypes` command.
-   *
-   * @return the `GetTableTypes` command schema.
-   */
-  public static Schema getGetTableTypesSchema() {
-    return GET_TABLE_TYPES_SCHEMA;
-  }
-
-  /**
-   * Gets the expected {@link Schema} for the `GetSchemas` command.
-   *
-   * @return the `GetSchemas` command schema.
-   */
-  public static Schema getGetSchemasSchema() {
-    return GET_SCHEMAS_SCHEMA;
-  }
-
-  /**
-   * Gets the expected {@link Schema} for the `GetTables` command
-   * with {@code includeSchema} as {@code true}.
-   *
-   * @return the `GetTables` schema.
-   */
-  public static Schema getGetTablesSchema() {
-    return GET_TABLES_SCHEMA;
-  }
-
-  /**
-   * Gets the expected {@link Schema} for the `GetTables` command
-   * with {@code includeSchema} as {@code false}.
-   *
-   * @return the `GetTables` schema.
-   */
-  public static Schema getGetTablesSchemaNoSchema() {
-    return GET_TABLES_SCHEMA_NO_SCHEMA;
-  }
-
-  /**
-   * Gets the expected {@link Schema} for the `GetCatalogs` command.
-   *
-   * @return the `GetCatalogs` schema.
-   */
-  public static Schema getGetCatalogsSchema() {
-    return GET_CATALOGS_SCHEMA;
-  }
+          Field.nullable("schema_name", MinorType.VARCHAR.getType())));
 
   /**
    * Depending on the provided command, method either:
@@ -499,7 +452,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaCatalogs() {
-    return new SchemaResult(getGetCatalogsSchema());
+    return new SchemaResult(GET_CATALOGS_SCHEMA);
   }
 
   /**
@@ -530,7 +483,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaSchemas() {
-    return new SchemaResult(getGetSchemasSchema());
+    return new SchemaResult(GET_SCHEMAS_SCHEMA);
   }
 
   /**
@@ -562,7 +515,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTables() {
-    return new SchemaResult(getGetTablesSchema());
+    return new SchemaResult(GET_TABLES_SCHEMA);
   }
 
   /**
@@ -592,9 +545,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTableTypes() {
-    return new SchemaResult(getGetTableTypesSchema());
+    return new SchemaResult(GET_TABLE_TYPES_SCHEMA);
   }
-
 
   /**
    * Returns data for table types based data stream.
