@@ -281,7 +281,42 @@ message CommandGetPrimaryKeys {
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
  */
-message CommandGetForeignKeys {
+message CommandGetExportedKeys{
+  // Specifies the catalog to search for the foreign key table.
+  string fk_catalog = 1;
+
+  // Specifies the schema to search for the foreign key table.
+  string fk_schema = 2;
+
+  // Specifies the foreign key table to get the foreign keys for.
+  string fk_table = 3;
+}
+
+/*
+ * Represents a request to retrieve the foreign keys of a table on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the catalog metadata request.
+ *
+ * The returned schema will be:
+ * <
+ *  pk_catalog_name: utf8,
+ *  pk_schema_name: utf8,
+ *  pk_table_name: utf8,
+ *  pk_column_name: utf8,
+ *  fk_catalog_name: utf8,
+ *  fk_schema_name: utf8,
+ *  fk_table_name: utf8,
+ *  fk_column_name: utf8,
+ *  key_sequence: int,
+ *  fk_key_name: utf8,
+ *  pk_key_name: utf8,
+ *  update_rule: int,
+ *  delete_rule: int
+ * >
+ * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ */
+message CommandGetImportedKeys {
   // Specifies the catalog to search for the primary key table.
   google.protobuf.StringValue pk_catalog = 1;
 
@@ -289,16 +324,7 @@ message CommandGetForeignKeys {
   google.protobuf.StringValue pk_schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
-  google.protobuf.StringValue pk_table = 3;
-
-  // Specifies the catalog to search for the foreign key table.
-  google.protobuf.StringValue fk_catalog = 4;
-
-  // Specifies the schema to search for the foreign key table.
-  google.protobuf.StringValue fk_schema = 5;
-
-  // Specifies the foreign key table to get the foreign keys for.
-  google.protobuf.StringValue fk_table = 6;
+  string pk_table = 3;
 }
 
 // SQL Execution Action Messages

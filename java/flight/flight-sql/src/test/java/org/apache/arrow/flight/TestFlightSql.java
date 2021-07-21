@@ -309,6 +309,60 @@ public class TestFlightSql {
     collector.checkThat(result.get(5), notNullValue());
   }
 
+  @Test
+  public void testGetForeignKey(){
+    final FlightStream stream =
+        sqlClient.getStream(
+            sqlClient.getForeignKeys(null, null, "INTTABLE", null, null, "FOREIGNTABLE")
+                .getEndpoints().get(0).getTicket());
+
+    final List<List<String>> results = getResults(stream);
+
+    for (List<String> result : results) {
+      final int size = result.size();
+      collector.checkThat(result.get(size - 13), nullValue());
+      collector.checkThat(result.get(size - 12),is( "APP"));
+      collector.checkThat(result.get(size - 11),is( "FOREIGNTABLE"));
+      collector.checkThat(result.get(size - 10), is("ID"));
+      collector.checkThat(result.get(size - 9), nullValue());
+      collector.checkThat(result.get(size - 8), is("APP"));
+      collector.checkThat(result.get(size - 7), is("INTTABLE"));
+      collector.checkThat(result.get(size - 6), is("FOREIGNID"));
+      collector.checkThat(result.get(size - 5), is("1"));
+      collector.checkThat(result.get(size - 4), containsString("SQL210720"));
+      collector.checkThat(result.get(size - 3), containsString("SQL210720"));
+      collector.checkThat(result.get(size - 2), is("3"));
+      collector.checkThat(result.get(size - 1), is("3"));
+    }
+  }
+
+  @Test
+  public void testGetForeignKey2(){
+    final FlightStream stream =
+        sqlClient.getStream(
+            sqlClient.getForeignKeys(null, null, "INTTABLE", null, null, "FOREIGNTABLE")
+                .getEndpoints().get(0).getTicket());
+
+    final List<List<String>> results = getResults(stream);
+
+    for (List<String> result : results) {
+      final int size = result.size();
+      collector.checkThat(result.get(size - 13), nullValue());
+      collector.checkThat(result.get(size - 12),is( "APP"));
+      collector.checkThat(result.get(size - 11),is( "FOREIGNTABLE"));
+      collector.checkThat(result.get(size - 10), is("ID"));
+      collector.checkThat(result.get(size - 9), nullValue());
+      collector.checkThat(result.get(size - 8), is("APP"));
+      collector.checkThat(result.get(size - 7), is("INTTABLE"));
+      collector.checkThat(result.get(size - 6), is("FOREIGNID"));
+      collector.checkThat(result.get(size - 5), is("1"));
+      collector.checkThat(result.get(size - 4), containsString("SQL210720"));
+      collector.checkThat(result.get(size - 3), containsString("SQL210720"));
+      collector.checkThat(result.get(size - 2), is("3"));
+      collector.checkThat(result.get(size - 1), is("3"));
+    }
+  }
+
   List<List<String>> getResults(FlightStream stream) {
     final List<List<String>> results = new ArrayList<>();
     while (stream.next()) {

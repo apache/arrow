@@ -31,6 +31,7 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
@@ -179,7 +180,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       getStreamPrimaryKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class),
           context, ticket, listener);
     } else if (command.is(CommandGetForeignKeys.class)) {
-      getStreamForeignKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class),
+      getStreamExportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetForeignKeys.class),
           context, ticket, listener);
     } else {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -618,16 +619,13 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
   /**
    * Returns data for foreign keys based data stream.
-   *
-   * @param command  The command to generate the data stream.
+   *  @param command  The command to generate the data stream.
    * @param context  Per-call context.
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamForeignKeys(CommandGetForeignKeys command, CallContext context, Ticket ticket,
-                            ServerStreamListener listener);
-
-  /**
+  void getStreamExportedKeys(FlightSql.CommandGetExportedKeys command, CallContext context, Ticket ticket,
+                                             ServerStreamListener listener);/**
    * Default schema templates for the {@link FlightSqlProducer}.
    */
   final class Schemas {
