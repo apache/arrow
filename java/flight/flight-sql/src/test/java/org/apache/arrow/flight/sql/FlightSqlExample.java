@@ -121,6 +121,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
@@ -303,61 +304,87 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     defaultConsumer.accept(data, vector);
   }
 
-  private static VectorSchemaRoot getSchemasRoot(final ResultSet data) throws SQLException {
-    final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+  private static VectorSchemaRoot getSchemasRoot(final ResultSet data, final BufferAllocator allocator)
+      throws SQLException {
     final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
     final VarCharVector schemas = new VarCharVector("schema_name", allocator);
     final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
     vectors.forEach(FieldVector::allocateNew);
-    int rows = 0;
 
-    for (; data.next(); rows++) {
-      final String catalog = data.getString("TABLE_CATALOG");
-      if (isNull(catalog)) {
-        catalogs.setNull(rows);
-      } else {
-        catalogs.setSafe(rows, new Text(catalog));
-      }
-      schemas.setSafe(rows, new Text(data.getString("TABLE_SCHEM")));
-    }
+    final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
+        catalogs, "TABLE_CATALOG",
+        schemas, "TABLE_SCHEM");
 
-    for (final FieldVector vector : vectors) {
-      vector.setValueCount(rows);
-    }
+    final int rows = saveToVectors(vectorToColumnName, data);
+    vectors.forEach(vector -> vector.setValueCount(rows));
 
     return new VectorSchemaRoot(vectors);
   }
 
-  private static VectorSchemaRoot getTableTypesRoot(final ResultSet data, final BufferAllocator allocator)
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data, boolean emptyToNull)
       throws SQLException {
-    final VarCharVector dataVector = new VarCharVector("table_type", allocator);
+    checkNotNull(vectorToColumnName);
+    checkNotNull(data);
     int rows = 0;
     for (; data.next(); rows++) {
-      saveToVector(data.getString("TABLE_TYPE"), dataVector, rows);
+      for (final Map.Entry<T, String> vectorToColumn : vectorToColumnName.entrySet()) {
+        final T vector = vectorToColumn.getKey();
+        final String columnName = vectorToColumn.getValue();
+        if (vector instanceof VarCharVector) {
+          String thisData = data.getString(columnName);
+          saveToVector(emptyToNull ? emptyToNull(thisData) : thisData, (VarCharVector) vector, rows);
+          continue;
+        }
+        throw Status.INVALID_ARGUMENT.asRuntimeException();
+      }
     }
-    dataVector.setValueCount(rows);
-    return new VectorSchemaRoot(singletonList(dataVector));
+    return rows;
+  }
+
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data)
+      throws SQLException {
+    return saveToVectors(vectorToColumnName, data, false);
+  }
+
+  private static VectorSchemaRoot getTableTypesRoot(final ResultSet data, final BufferAllocator allocator)
+      throws SQLException {
+    return getRoot(data, allocator, "table_type", "TABLE_TYPE");
   }
 
   private static VectorSchemaRoot getCatalogsRoot(final ResultSet data, final BufferAllocator allocator)
       throws SQLException {
-    final VarCharVector dataVector = new VarCharVector("catalog_name", allocator);
-    int rows = 0;
-    for (; data.next(); rows++) {
-      saveToVector(data.getString("TABLE_CATALOG"), dataVector, rows);
-    }
+    return getRoot(data, allocator, "catalog_name", "TABLE_CATALOG");
+  }
+
+  private static VectorSchemaRoot getRoot(final ResultSet data, final BufferAllocator allocator,
+                                          final String fieldVectorName, final String columnName)
+      throws SQLException {
+    final VarCharVector dataVector = new VarCharVector(fieldVectorName, allocator);
+    final int rows = saveToVectors(ImmutableMap.of(dataVector, columnName), data);
     dataVector.setValueCount(rows);
     return new VectorSchemaRoot(singletonList(dataVector));
   }
 
-  private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
-                                         final BufferAllocator allocator,
-                                         final boolean includeSchema,
-                                         final @Nullable String catalog,
-                                         final @Nullable String schemaFilterPattern,
-                                         final @Nullable String tableFilterPattern,
-                                         final @Nullable String... tableTypes)
+  private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
+                                                final BufferAllocator allocator,
+                                                final boolean includeSchema,
+                                                final @Nullable String catalog,
+                                                final @Nullable String schemaFilterPattern,
+                                                final @Nullable String tableFilterPattern,
+                                                final @Nullable String... tableTypes)
       throws SQLException, IOException {
+    /*
+     * TODO Fix DerbyDB inconsistency if possible.
+     * During the early development of this prototype, an inconsistency has been found in the database
+     * used for this demonstration; as DerbyDB does not operate with the concept of catalogs, fetching
+     * the catalog name for a given table from `DatabaseMetadata#getColumns` and `DatabaseMetadata#getSchemas`
+     * returns null, as expected. However, the inconsistency lies in the fact that accessing the same
+     * information -- that is, the catalog name for a given table -- from `DatabaseMetadata#getSchemas`
+     * returns an empty String.The temporary workaround for this was making sure we convert the empty Strings
+     * to null using `com.google.common.base.Strings#emptyToNull`.
+     */
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", checkNotNull(allocator));
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
     final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
@@ -369,7 +396,11 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                 catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
     vectors.forEach(FieldVector::allocateNew);
 
-    int rows = 0;
+    final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
+        catalogNameVector, "TABLE_CAT",
+        schemaNameVector, "TABLE_SCHEM",
+        tableNameVector, "TABLE_NAME",
+        tableTypeVector, "TABLE_TYPE");
 
     try (final ResultSet data =
              checkNotNull(
@@ -377,54 +408,46 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                  format("%s cannot be null!", databaseMetaData.getClass().getName()))
                  .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
 
-      for (; data.next(); rows++) {
-        saveToVector(emptyToNull(data.getString("TABLE_CAT")), catalogNameVector, rows);
-        saveToVector(emptyToNull(data.getString("TABLE_SCHEM")), schemaNameVector, rows);
-        saveToVector(emptyToNull(data.getString("TABLE_NAME")), tableNameVector, rows);
-        saveToVector(emptyToNull(data.getString("TABLE_TYPE")), tableTypeVector, rows);
-      }
+      final int rows = saveToVectors(vectorToColumnName, data, true);
+      vectors.forEach(vector -> vector.setValueCount(rows));
 
-      for (final FieldVector vector : vectors) {
-        vector.setValueCount(rows);
-      }
-    }
+      if (includeSchema) {
+        final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
+        tableSchemaVector.allocateNew(rows);
 
-    if (includeSchema) {
-      final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
-      tableSchemaVector.allocateNew(rows);
+        try (final ResultSet columnsData =
+                 databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null)) {
+          final Map<String, List<Field>> tableToFields = new HashMap<>();
 
-      try (final ResultSet columnsData =
-               databaseMetaData.getColumns(catalog, schemaFilterPattern, tableFilterPattern, null)) {
-        final Map<String, List<Field>> tableToFields = new HashMap<>();
+          while (columnsData.next()) {
+            final String tableName = columnsData.getString("TABLE_NAME");
+            final String fieldName = columnsData.getString("COLUMN_NAME");
+            final int dataType = columnsData.getInt("DATA_TYPE");
+            final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
+            final int precision = columnsData.getInt("NUM_PREC_RADIX");
+            final int scale = columnsData.getInt("DECIMAL_DIGITS");
+            final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
+            final Field field =
+                new Field(
+                    fieldName,
+                    new FieldType(
+                        isNullable,
+                        getArrowTypeFromJdbcType(dataType, precision, scale),
+                        null),
+                    null);
+            fields.add(field);
+          }
 
-        while (columnsData.next()) {
-          final String tableName = columnsData.getString("TABLE_NAME");
-          final String fieldName = columnsData.getString("COLUMN_NAME");
-          final int dataType = columnsData.getInt("DATA_TYPE");
-          final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
-          final int precision = columnsData.getInt("NUM_PREC_RADIX");
-          final int scale = columnsData.getInt("DECIMAL_DIGITS");
-          final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
-          final Field field =
-              new Field(
-                  fieldName,
-                  new FieldType(
-                      isNullable,
-                      getArrowTypeFromJdbcType(dataType, precision, scale),
-                      null),
-                  null);
-          fields.add(field);
+          for (int index = 0; index < rows; index++) {
+            final String tableName = tableNameVector.getObject(index).toString();
+            final Schema schema = new Schema(tableToFields.get(tableName));
+            saveToVector(schema.toByteArray(), tableSchemaVector, index);
+          }
         }
 
-        for (int index = 0; index < rows; index++) {
-          final String tableName = tableNameVector.getObject(index).toString();
-          final Schema schema = new Schema(tableToFields.get(tableName));
-          saveToVector(schema.toByteArray(), tableSchemaVector, index);
-        }
+        tableSchemaVector.setValueCount(rows);
+        vectors.add(tableSchemaVector);
       }
-
-      tableSchemaVector.setValueCount(rows);
-      vectors.add(tableSchemaVector);
     }
 
     return new VectorSchemaRoot(vectors);
@@ -659,11 +682,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final String catalog = command.getCatalog();
+    final String catalog = emptyToNull(command.getCatalog());
     final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
     try (final Connection connection = dataSource.getConnection();
-         final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern)) {
-      makeListen(listener, getSchemasRoot(schemas));
+         final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getSchemasRoot(schemas, allocator));
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamSchemas: <%s>.", e.getMessage()), e);
       listener.error(e);
