@@ -86,6 +86,8 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
           .runQuery(signature.sql));
 
       execute(vectorSchemaRoot);
+    } catch (SQLException e) {
+      throw e;
     } catch (Exception e) {
       throw new SQLException(e);
     }
