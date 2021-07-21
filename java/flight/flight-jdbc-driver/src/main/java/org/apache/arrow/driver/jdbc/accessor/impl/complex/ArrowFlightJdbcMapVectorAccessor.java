@@ -46,7 +46,7 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
       return null;
     }
 
-    JsonStringHashMap<Object, Object> result = new JsonStringHashMap<>();
+    Map<Object, Object> result = new JsonStringHashMap<>();
     UnionMapReader reader = vector.getReader();
 
     reader.setPosition(index);
