@@ -1416,32 +1416,14 @@ cdef class ParquetReadOptions(_Weakrefable):
 
     @property
     def coerce_int96_timestamp_unit(self):
-        unit = self._coerce_int96_timestamp_unit
-        if unit == TimeUnit_SECOND:
-            return "s"
-        elif unit == TimeUnit_MILLI:
-            return "ms"
-        elif unit == TimeUnit_MICRO:
-            return "us"
-        elif unit == TimeUnit_NANO:
-            return "ns"
-        else:
-            return None
+        return timeunit_to_string(self._coerce_int96_timestamp_unit)
 
     @coerce_int96_timestamp_unit.setter
     def coerce_int96_timestamp_unit(self, unit):
-        if unit is None or unit == "ns":
-            self._coerce_int96_timestamp_unit = TimeUnit_NANO
-        elif unit == "us":
-            self._coerce_int96_timestamp_unit = TimeUnit_MICRO
-        elif unit == "ms":
-            self._coerce_int96_timestamp_unit = TimeUnit_MILLI
-        elif unit == "s":
-            self._coerce_int96_timestamp_unit = TimeUnit_SECOND
+        if unit is not None:
+            self._coerce_int96_timestamp_unit = string_to_timeunit(unit)
         else:
-            raise ValueError(
-                f"Invalid value for coerce_int96_timestamp_unit: {unit}"
-            )
+            self._coerce_int96_timestamp_unit = TimeUnit_NANO
 
     def equals(self, ParquetReadOptions other):
         return (self.dictionary_columns == other.dictionary_columns and
