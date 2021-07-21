@@ -41,6 +41,8 @@ machine is located in the same AWS region as the data. So, for this vignette,
 we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
 directory.
 
+### Retrieving data from a public Amazon S3 bucket
+
 If your __arrow__ build has S3 support, you can sync the data locally with:
 
 ```{r, eval = FALSE}
@@ -100,14 +102,18 @@ The first step is to create a Dataset object, pointing at the directory of data.
 ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 ```
 
-The default file format for `open_dataset()` is Parquet; if you had a directory
-of Arrow format files, you could include `format = "arrow"` in the call.
+The file format for `open_dataset()` is controlled by the `format` parameter, 
+which has a default value of `"parquet"`.  If you had a directory
+of Arrow format files, you could instead specify `format = "arrow"` in the call.
+
 Other supported formats include: 
 
-* `"feather"` (an alias for `"arrow"`, as Feather v2 is the Arrow file format)
-* `"csv"`, `"tsv"` (for tab-delimited), and `"text"` for generic text-delimited files.
+* `"feather"` or `"ipc"` (aliases for `"arrow"`, as Feather v2 is the Arrow file format)
+* `"csv"` (comma-delimited files) and `"tsv"` (tab-delimited files)
+* `"text"` (generic text-delimited files - use the `delimiter` argument to specify which to use)
 
-For text files, you can pass any parsing options (`delim`, `quote`, etc.) to `open_dataset()` that you would otherwise pass to `read_csv_arrow()`.
+For text files, you can pass any parsing options (`delim`, `quote`, etc.) to 
+`open_dataset()` that you would otherwise pass to `read_csv_arrow()`.
 
 The `partitioning` argument lets you specify how the file paths provide information
 about how the dataset is chunked into different files. The files in this example
@@ -174,10 +180,10 @@ would have been detected automatically.
 
 ## Querying the dataset
 
-Up to this point, you haven't loaded any data.  You have walked directories to find
+Up to this point, you haven't loaded any data.  You've walked directories to find
 files, you've parsed file paths to identify partitions, and you've read the
 headers of the Parquet files to inspect their schemas so that you can make sure
-they all line up.
+they all are as expected.
 
 In the current release, __arrow__ supports the dplyr verbs `mutate()`, 
 `transmute()`, `select()`, `rename()`, `relocate()`, `filter()`, and 
@@ -185,11 +191,12 @@ In the current release, __arrow__ supports the dplyr verbs `mutate()`,
 or other verbs with aggregate functions, use `collect()` to pull the selected
 subset of the data into an in-memory R data frame.
 
-Suppose you attempt to call unsupported __dplyr__ verbs or unimplemented functions in your query on an Arrow Dataset. In that case, the __arrow__ package raises an error. However,
+Suppose you attempt to call unsupported __dplyr__ verbs or unimplemented functions
+in your query on an Arrow Dataset. In that case, the __arrow__ package raises an error. However,
 for __dplyr__ queries on `Table` objects (typically smaller in size than Datasets), the
 package automatically calls `collect()` before processing that __dplyr__ verb.
 
-Here's an example. Suppose I was curious about tipping behavior among the
+Here's an example. Suppose that you are curious about tipping behavior among the
 longest taxi rides. Let's find the median tip percentage for rides with
 fares greater than $100 in 2015, broken down by the number of passengers:
 
@@ -228,8 +235,8 @@ cat("
 ")
 ```
 
-You just selected a subset out of a dataset with around 2 billion rows, computed
-a new column, and aggregated it in under 2 seconds on my laptop. How does
+You've just selected a subset out of a dataset with around 2 billion rows, computed
+a new column, and aggregated it in under 2 seconds on most modern laptops. How does
 this work?
 
 First, `mutate()`/`transmute()`, `select()`/`rename()`/`relocate()`, `filter()`, 
@@ -266,7 +273,8 @@ intermediate datasets that would potentially be large.
 Second, all work is pushed down to the individual data files,
 and depending on the file format, chunks of data within the files. As a result,
 you can select a subset of data from a much larger dataset by collecting the
-smaller slices from each file--you don't have to load the whole dataset in memory to slice from it.
+smaller slices from each file--you don't have to load the whole dataset in 
+memory to slice from it.
 
 Third, because of partitioning, you can ignore some files entirely.
 In this example, by filtering `year == 2015`, all files corresponding to other years
@@ -281,13 +289,25 @@ There are a few ways you can control the Dataset creation to adapt to special us
 
 ### Working with files in a directory
 
-If you are working with a single file or a set of files that are not all in the same directory, you can provide a file path or a vector of multiple file paths to `open_dataset()`. This is useful if, for example, you have a single CSV file that is too big to read into memory. You could pass the file path to `open_dataset()`, use `group_by()` to partition the Dataset into manageable chunks, then use `write_dataset()` to write each chunk to a separate Parquet file---all without needing to read the full CSV file into R.
+If you are working with a single file or a set of files that are not all in the 
+same directory, you can provide a file path or a vector of multiple file paths 
+to `open_dataset()`. This is useful if, for example, you have a single CSV file 
+that is too big to read into memory. You could pass the file path to 
+`open_dataset()`, use `group_by()` to partition the Dataset into manageable chunks, 
+then use `write_dataset()` to write each chunk to a separate Parquet file---all 
+without needing to read the full CSV file into R.
 
 ### Explicitly declare column names and data types
 
-You can specify a `schema` argument to `open_dataset()` to declare the columns and their data types. This is useful if you have data files that have different storage schema (for example, a column could be `int32` in one and `int8` in another) and you want to ensure that the resulting Dataset has a specific type.
+You can specify a `schema` argument to `open_dataset()` to declare the columns 
+and their data types. This is useful if you have data files that have different 
+storage schema (for example, a column could be `int32` in one and `int8` in 
+another) and you want to ensure that the resulting Dataset has a specific type.
 
-To be clear, it's not necessary to specify a schema, even in this example of mixed integer types, because the Dataset constructor will reconcile differences like these. The schema specification just lets you declare what you want the result to be.
+To be clear, it's not necessary to specify a schema, even in this example of 
+mixed integer types, because the Dataset constructor will reconcile differences
+like these. The schema specification just lets you declare what you want the 
+result to be.
 
 ### Explicitly declare partition format
 
@@ -310,11 +330,15 @@ instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, d
 
 As you can see, querying a large dataset can be made quite fast by storage in an
 efficient binary columnar format like Parquet or Feather and partitioning based on
-columns commonly used for filtering. However, data isn't always stored that way. Sometimes you might start with one giant CSV. The first step in analyzing data is cleaning is up and reshaping it into a more usable form.
+columns commonly used for filtering. However, data isn't always stored that way.
+Sometimes you might start with one giant CSV. The first step in analyzing data 
+is cleaning is up and reshaping it into a more usable form.
 
-The `write_dataset()` function allows you to take a Dataset or other tabular data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write it to a different file format, partitioned into multiple files.
+The `write_dataset()` function allows you to take a Dataset or another tabular 
+data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write
+it to a different file format, partitioned into multiple files.
 
-Assume you have a version of the NYC Taxi data as CSV:
+Assume that you have a version of the NYC Taxi data as CSV:
 
 ```r
 ds <- open_dataset("nyc-taxi/csv/", format = "csv")
