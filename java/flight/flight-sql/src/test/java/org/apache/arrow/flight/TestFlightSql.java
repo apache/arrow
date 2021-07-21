@@ -21,6 +21,8 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
+import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchema;
+import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchemaNoSchema;
 import static org.apache.arrow.util.AutoCloseables.close;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -104,14 +106,8 @@ public class TestFlightSql {
 
   @Test
   public void testGetTablesSchema() {
-    final FlightInfo info = sqlClient.getTables(null, null, null, null, false);
-    final Schema expectedInfoSchema = new Schema(asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_type", MinorType.VARCHAR.getType()),
-        Field.nullable("table_schema", MinorType.VARBINARY.getType())));
-    collector.checkThat(info.getSchema(), is(expectedInfoSchema));
+    final FlightInfo info = sqlClient.getTables(null, null, null, null, true);
+    collector.checkThat(info.getSchema(), is(getGetTablesSchema()));
   }
 
   @Test
@@ -120,6 +116,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
                      .getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(getGetTablesSchemaNoSchema()));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -157,6 +154,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), false)
                      .getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(getGetTablesSchemaNoSchema()));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -171,6 +169,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), true)
                      .getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(getGetTablesSchema()));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -237,8 +236,8 @@ public class TestFlightSql {
   public void testGetCatalogs() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
+      // TODO Check `FlightStream` schemas
       List<List<String>> catalogs = getResults(stream);
-      // TODO Add catalogs if possible.
       collector.checkThat(catalogs, is(emptyList()));
     }
   }
@@ -256,6 +255,7 @@ public class TestFlightSql {
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
+      // TODO Check `FlightStream` schemas
       final List<List<String>> tableTypes = getResults(stream);
       final List<List<String>> expectedTableTypes = ImmutableList.of(
           // table_type
@@ -282,6 +282,7 @@ public class TestFlightSql {
   public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
+      // TODO Check `FlightStream` schemas
       final List<List<String>> schemas = getResults(stream);
       final List<List<String>> expectedSchemas = ImmutableList.of(
           // catalog_name | schema_name

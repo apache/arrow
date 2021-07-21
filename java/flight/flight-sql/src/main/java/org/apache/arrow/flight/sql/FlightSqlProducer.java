@@ -62,6 +62,38 @@ import io.grpc.Status;
  * API to Implement an Arrow Flight SQL producer.
  */
 public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable {
+  private static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
+      Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+      Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+      Field.nullable("table_name", MinorType.VARCHAR.getType()),
+      Field.nullable("table_type", MinorType.VARCHAR.getType()),
+      Field.nullable("table_schema", MinorType.VARBINARY.getType())));
+  private static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
+      Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+      Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+      Field.nullable("table_name", MinorType.VARCHAR.getType()),
+      Field.nullable("table_type", MinorType.VARCHAR.getType())));
+
+  /**
+   * Gets the expected {@link Schema} for the `GetTables` command
+   * with {@code includeSchema} as {@code true}.
+   *
+   * @return the `GetTables` schema.
+   */
+  public static Schema getGetTablesSchema() {
+    return GET_TABLES_SCHEMA;
+  }
+
+  /**
+   * Gets the expected {@link Schema} for the `GetTables` command
+   * with {@code includeSchema} as {@code false}.
+   *
+   * @return the `GetTables` schema.
+   */
+  public static Schema getGetTablesSchemaNoSchema() {
+    return GET_TABLES_SCHEMA_NO_SCHEMA;
+  }
+
   /**
    * Depending on the provided command, method either:
    * 1. Return information about a SQL query, or
@@ -505,14 +537,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaTables() {
-    final List<Field> fields = Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_type", MinorType.VARCHAR.getType()),
-        Field.nullable("table_schema", MinorType.VARBINARY.getType()));
-
-    return new SchemaResult(new Schema(fields));
+    return new SchemaResult(getGetTablesSchema());
   }
 
   /**
