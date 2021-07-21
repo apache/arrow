@@ -18,12 +18,11 @@
 from pathlib import Path
 
 import click
-import tempfile
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import JsonReport, EmailReport, ConsoleReport
 from ..utils.source import ArrowSources
-
+from datetime import datetime
 
 _default_arrow_path = ArrowSources.find().path
 _default_queue_path = _default_arrow_path.parent / "crossbow"
@@ -253,8 +252,14 @@ def save_report_data(obj, job_name, fetch):
     job = queue.get(job_name)
     report = JsonReport(job=job)
 
-    with tempfile.NamedTemporaryFile(delete=False) as temp:
+    filename = 'tmp/' + job_name + datetime.utcnow() + '.json'
+    with open(filename, "w") as temp:
         temp.write(report.get_json_tasks())
+
+    # now commit and push the json contents
+    branch_name = 'nightly-json-reports'
+    branch = queue.create_branch(branch_name=branch_name, files=filename)
+    return branch
 
 
 @crossbow.command()
