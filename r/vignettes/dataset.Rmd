@@ -102,11 +102,12 @@ ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 
 The default file format for `open_dataset()` is Parquet; if you had a directory
 of Arrow format files, you could include `format = "arrow"` in the call.
-Other supported formats include: `"feather"` (an alias for `"arrow"`, as Feather
-v2 is the Arrow file format), `"csv"`, `"tsv"` (for tab-delimited), and `"text"`
-for generic text-delimited files. For text files, you can pass any parsing
-options (`delim`, `quote`, etc.) to `open_dataset()` that you would otherwise
-pass to `read_csv_arrow()`.
+Other supported formats include: 
+
+* `"feather"` (an alias for `"arrow"`, as Feather v2 is the Arrow file format)
+* `"csv"`, `"tsv"` (for tab-delimited), and `"text"` for generic text-delimited files.
+
+For text files, you can pass any parsing options (`delim`, `quote`, etc.) to `open_dataset()` that you would otherwise pass to `read_csv_arrow()`.
 
 The `partitioning` argument lets you specify how the file paths provide information
 about how the dataset is chunked into different files. The files in this example
@@ -167,13 +168,13 @@ year=2009/month=02/data.parquet
 ...
 ```
 
-you would not have had to provide the names in `partitioning`:
+you would not have had to provide the names in `partitioning`;
 you could have just called `ds <- open_dataset("nyc-taxi")` and the partitions
 would have been detected automatically.
 
 ## Querying the dataset
 
-Up to this point, you haven't loaded any data: you have walked directories to find
+Up to this point, you haven't loaded any data.  You have walked directories to find
 files, you've parsed file paths to identify partitions, and you've read the
 headers of the Parquet files to inspect their schemas so that you can make sure
 they all line up.
