@@ -215,35 +215,11 @@ allowing to more easily read arrays bigger than the total memory.
       print("LEN:", len(loaded_array))
       print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
 
-Equally we can write back to disk the loaded array without consuming any
-extra memory thanks to the fact that iterating over the array will just
-scan through the data without the need to make copies of it
-
-.. ipython:: python
-
-      with pa.OSFile('bigfile2.arrow', 'wb') as sink:
-         with pa.ipc.new_file(sink, schema) as writer:
-            for chunk in loaded_array[0].iterchunks():
-                  batch = pa.record_batch([chunk], schema)
-                  writer.write(batch)
-      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+.. note::
 
 Most high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
 ``memory_map`` option. But in those cases, the memory mapping can't help with
-reducing resident memory consumption. Because Parquet data needs to be decoded
-from the parquet format and compression, it can't be directly mapped from disk,
-thus the ``memory_map`` option might perform better on some systems but won't
-help much with resident memory consumption.
-
-.. code-block:: python
-
-      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=True)
-      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
-      RSS: 4299MB
-
-      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=False)
-      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
-      RSS: 4299MB   
+reducing resident memory consumption. See :ref:`parquet_mmap` for details.
 
 Arbitrary Object Serialization
 ------------------------------
