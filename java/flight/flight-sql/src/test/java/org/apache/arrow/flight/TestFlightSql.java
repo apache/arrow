@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetCatalogsSchema;
+import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetSchemasSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTableTypesSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchemaNoSchema;
@@ -270,18 +271,14 @@ public class TestFlightSql {
   @Test
   public void testGetSchemasSchema() {
     final FlightInfo info = sqlClient.getSchemas(null, null);
-    final Schema infoSchema = info.getSchema();
-    final Schema expectedSchema = new Schema(asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType())));
-    collector.checkThat(infoSchema, is(expectedSchema));
+    collector.checkThat(info.getSchema(), is(getGetSchemasSchema()));
   }
 
   @Test
   public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
-      // TODO Check `FlightStream` schemas
+      collector.checkThat(stream.getSchema(), is(getGetSchemasSchema()));
       final List<List<String>> schemas = getResults(stream);
       final List<List<String>> expectedSchemas = ImmutableList.of(
           // catalog_name | schema_name

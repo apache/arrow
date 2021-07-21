@@ -76,6 +76,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
   private static final Schema GET_TABLE_TYPES_SCHEMA =
       new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
+  private static final Schema GET_SCHEMAS_SCHEMA = new Schema(Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+      Field.nullable("schema_name", MinorType.VARCHAR.getType())));
 
   /**
    * Gets the expected {@link Schema} for the `GetTableTypes` command.
@@ -84,6 +86,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    */
   public static Schema getGetTableTypesSchema() {
     return GET_TABLE_TYPES_SCHEMA;
+  }
+
+  /**
+   * Gets the expected {@link Schema} for the `GetSchemas` command.
+   *
+   * @return the `GetSchemas` command schema.
+   */
+  public static Schema getGetSchemasSchema() {
+    return GET_SCHEMAS_SCHEMA;
   }
 
   /**
@@ -518,11 +529,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return Schema for the stream.
    */
   public SchemaResult getSchemaSchemas() {
-    List<Field> fields = Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()));
-
-    return new SchemaResult(new Schema(fields));
+    return new SchemaResult(getGetSchemasSchema());
   }
 
   /**
