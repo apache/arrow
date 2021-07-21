@@ -22,6 +22,8 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.util.AutoCloseables.close;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.CoreMatchers.nullValue;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -44,6 +46,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
@@ -61,6 +64,7 @@ import com.google.common.collect.ImmutableList;
 public class TestFlightSql {
 
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
+      new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
       Field.nullable("VALUE", MinorType.INT.getType())));
   private static final String LOCALHOST = "localhost";
@@ -177,6 +181,7 @@ public class TestFlightSql {
               "INTTABLE",
               "TABLE",
               new Schema(asList(
+                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
                   Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
                   Field.nullable("VALUE", MinorType.INT.getType()))).toJson()));
       collector.checkThat(results, is(expectedResults));
@@ -202,11 +207,10 @@ public class TestFlightSql {
                      .execute()
                      .getEndpoints()
                      .get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
 
       final List<List<String>> result = getResults(stream);
       final List<List<String>> expected = asList(
-          asList("one", "1"), asList("zero", "0"), asList("negative one", "-1"));
+          asList("1", "one", "1"), asList("2", "zero", "0"), asList("3", "negative one", "-1"));
 
       collector.checkThat(result, is(expected));
     }
@@ -291,6 +295,24 @@ public class TestFlightSql {
       collector.checkThat(schemas, is(allOf(notNullValue(), not(emptyList()))));
     }
     */
+  }
+
+  @Test
+  public void testGetPrimaryKey() {
+    final FlightInfo flightInfo = sqlClient.getPrimaryKeys(null, null, "INTTABLE");
+    final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
+
+    final List<List<String>> results = getResults(stream);
+    collector.checkThat(results.size(), is(1));
+
+    final List<String> result = results.get(0);
+
+    collector.checkThat(result.get(0), nullValue());
+    collector.checkThat(result.get(1), is("APP"));
+    collector.checkThat(result.get(2), is("INTTABLE"));
+    collector.checkThat(result.get(3), is("ID"));
+    collector.checkThat(result.get(4), is("1"));
+    collector.checkThat(result.get(5), notNullValue());
   }
 
   List<List<String>> getResults(FlightStream stream) {

@@ -95,7 +95,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getFlightInfoSqlInfo(
           FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
-    } else if (command.is(CommandPreparedStatementQuery.class)) {
+    } else if (command.is(CommandGetPrimaryKeys.class)) {
       return getFlightInfoPrimaryKeys(
           FlightSqlUtils.unpackOrThrow(command, CommandGetPrimaryKeys.class), context, descriptor);
     } else if (command.is(CommandGetForeignKeys.class)) {
