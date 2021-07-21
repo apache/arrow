@@ -745,8 +745,7 @@ tasks:
                     "java",
                     "js",
                     "python",
-                    "ruby",
-                    "rust"] %}
+                    "ruby"] %}
 
   verify-rc-source-{{ platform }}-{{ target }}:
     ci: github
