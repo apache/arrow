@@ -109,7 +109,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
       return getFlightInfoTables(
           FlightSqlUtils.unpackOrThrow(command, CommandGetTables.class), context, descriptor);
     } else if (command.is(CommandGetTableTypes.class)) {
-      return getFlightInfoTableTypes(context, descriptor);
+      return getFlightInfoTableTypes(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetTableTypes.class), context, descriptor);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return getFlightInfoSqlInfo(
           FlightSqlUtils.unpackOrThrow(command, CommandGetSqlInfo.class), context, descriptor);
@@ -537,7 +538,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoTableTypes(CallContext context, FlightDescriptor descriptor);
+  public abstract FlightInfo getFlightInfoTableTypes(CommandGetTableTypes request, CallContext context,
+                                                     FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get table types data stream.
