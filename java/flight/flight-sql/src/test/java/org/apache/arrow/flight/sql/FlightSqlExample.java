@@ -78,6 +78,7 @@ import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
@@ -96,6 +97,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -208,7 +210,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     Optional<SQLException> exception = empty();
     try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
-      statement.execute("CREATE TABLE intTable (keyName varchar(100), value int)");
+      statement.execute("CREATE TABLE intTable (id INT not null primary key GENERATED ALWAYS AS IDENTITY " +
+          "(START WITH 1, INCREMENT BY 1), keyName varchar(100), value int)");
       statement.execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
       statement.execute("INSERT INTO intTable (keyName, value) VALUES ('zero', 0)");
       statement.execute("INSERT INTO intTable (keyName, value) VALUES ('negative one', -1)");
@@ -270,6 +273,12 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
+  }
+
+  private static void saveToVector(final int data, final IntVector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
   private static void saveToVector(final @Nullable byte[] data, final VarBinaryVector vector, final int index) {
@@ -695,15 +704,58 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys request, final CallContext context,
                                              final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final Schema schema = getSchemaPrimaryKeys().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
   public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
                                    final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+
+    String catalog = emptyToNull(command.getCatalog());
+    String schema = emptyToNull(command.getSchema());
+    String table = emptyToNull(command.getTable());
+
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
+      final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
+
+      final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+      final VarCharVector catalogNameVector = new VarCharVector("catalog_nam", allocator);
+      final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
+      final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
+      final VarCharVector columnNameVector = new VarCharVector("column_name", allocator);
+      final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
+      final VarCharVector keyNameVector = new VarCharVector("key_name", allocator);
+
+      final List<FieldVector> vectors =
+          new ArrayList<>(
+              ImmutableList.of(
+                  catalogNameVector, schemaNameVector, tableNameVector, columnNameVector, keySequenceVector,
+                  keyNameVector));
+      vectors.forEach(FieldVector::allocateNew);
+
+      int rows = 0;
+      for (; primaryKeys.next(); rows++) {
+        saveToVector(emptyToNull(primaryKeys.getString("TABLE_CAT")), catalogNameVector, rows);
+        saveToVector(emptyToNull(primaryKeys.getString("TABLE_SCHEM")), schemaNameVector, rows);
+        saveToVector(emptyToNull(primaryKeys.getString("TABLE_NAME")), tableNameVector, rows);
+        saveToVector(emptyToNull(primaryKeys.getString("COLUMN_NAME")), columnNameVector, rows);
+        saveToVector(Integer.parseInt(primaryKeys.getString("KEY_SEQ")), keySequenceVector, rows);
+        saveToVector(emptyToNull(primaryKeys.getString("PK_NAME")), keyNameVector, rows);
+      }
+
+      for (final FieldVector vector : vectors) {
+        vector.setValueCount(rows);
+      }
+
+      makeListen(listener, singletonList(new VectorSchemaRoot(vectors)));
+    } catch (SQLException e) {
+      e.printStackTrace();
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
