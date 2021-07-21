@@ -755,12 +755,13 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
 
       int rows = 0;
       for (; primaryKeys.next(); rows++) {
-        saveToVector(emptyToNull(primaryKeys.getString("TABLE_CAT")), catalogNameVector, rows);
-        saveToVector(emptyToNull(primaryKeys.getString("TABLE_SCHEM")), schemaNameVector, rows);
-        saveToVector(emptyToNull(primaryKeys.getString("TABLE_NAME")), tableNameVector, rows);
-        saveToVector(emptyToNull(primaryKeys.getString("COLUMN_NAME")), columnNameVector, rows);
-        saveToVector(Integer.parseInt(primaryKeys.getString("KEY_SEQ")), keySequenceVector, rows);
-        saveToVector(emptyToNull(primaryKeys.getString("PK_NAME")), keyNameVector, rows);
+        saveToVector(primaryKeys.getString("TABLE_CAT"), catalogNameVector, rows);
+        saveToVector(primaryKeys.getString("TABLE_SCHEM"), schemaNameVector, rows);
+        saveToVector(primaryKeys.getString("TABLE_NAME"), tableNameVector, rows);
+        saveToVector(primaryKeys.getString("COLUMN_NAME"), columnNameVector, rows);
+        final String key_seq = primaryKeys.getString("KEY_SEQ");
+        saveToVector(key_seq != null ? Integer.parseInt(key_seq) : null, keySequenceVector, rows);
+        saveToVector(primaryKeys.getString("PK_NAME"), keyNameVector, rows);
       }
 
       for (final FieldVector vector : vectors) {
