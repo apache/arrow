@@ -354,6 +354,17 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new VectorSchemaRoot(singletonList(dataVector));
   }
 
+  private static VectorSchemaRoot getCatalogsRoot(final ResultSet data, final BufferAllocator allocator)
+      throws SQLException {
+    final VarCharVector dataVector = new VarCharVector("catalog_name", allocator);
+    int rows = 0;
+    for (; data.next(); rows++) {
+      saveToVector(data.getString("TABLE_CATALOG"), dataVector, rows);
+    }
+    dataVector.setValueCount(rows);
+    return new VectorSchemaRoot(singletonList(dataVector));
+  }
+
   private VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
                                          final BufferAllocator allocator,
                                          final boolean includeSchema,
@@ -663,8 +674,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
     try (final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getVectorsFromData(catalogs, allocator));
-    } catch (SQLException | IOException e) {
+      makeListen(listener, getCatalogsRoot(catalogs, allocator));
+    } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
