@@ -627,10 +627,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs request, final CallContext context,
                                           final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaCatalogs().getSchema();
-    final List<FlightEndpoint> endpoints =
-        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
-    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    return getFlightInfoForSchema(request, descriptor, getSchemaCatalogs().getSchema());
   }
 
   @Override
@@ -649,10 +646,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaSchemas().getSchema();
-    final List<FlightEndpoint> endpoints =
-        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
-    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+    return getFlightInfoForSchema(request, descriptor, getSchemaSchemas().getSchema());
   }
 
   @Override
