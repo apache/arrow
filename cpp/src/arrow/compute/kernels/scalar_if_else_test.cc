@@ -853,7 +853,7 @@ TEST(TestCaseWhen, FixedSizeBinary) {
 template <typename Type>
 class TestCaseWhenBinary : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestCaseWhenBinary, BinaryArrowTypes);
 
 TYPED_TEST(TestCaseWhenBinary, Basics) {
   auto type = default_type_instance<TypeParam>();
@@ -910,6 +910,71 @@ TYPED_TEST(TestCaseWhenBinary, Basics) {
               ArrayFromJSON(type, R"(["cDE", null, null, "efg"])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, "efg"])"));
+}
+
+template <typename Type>
+class TestCaseWhenList : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestCaseWhenList, ListArrowTypes);
+
+TYPED_TEST(TestCaseWhenList, ListOfString) {
+  auto type = std::make_shared<TypeParam>(utf8());
+  auto cond_true = ScalarFromJSON(boolean(), "true");
+  auto cond_false = ScalarFromJSON(boolean(), "false");
+  auto cond_null = ScalarFromJSON(boolean(), "null");
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto scalar_null = ScalarFromJSON(type, "null");
+  auto scalar1 = ScalarFromJSON(type, R"(["aB", "xYz"])");
+  auto scalar2 = ScalarFromJSON(type, R"(["b", null])");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 =
+      ArrayFromJSON(type, R"([["cD", "E"], null, ["de", "gf", "hi"], ["ef", "g"]])");
+  auto values2 = ArrayFromJSON(type, R"([["f", "ghi", "jk"], ["ghi"], null, ["hi"]])");
+
+  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
+
+  CheckScalar("case_when", {MakeStruct({cond_true}), scalar1, values1},
+              *MakeArrayFromScalar(*scalar1, 4));
+  CheckScalar("case_when", {MakeStruct({cond_false}), scalar1, values1}, values1);
+
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
+
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+              values_null);
+  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+              values2);
+  CheckScalar("case_when",
+              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
+
+  CheckScalar(
+      "case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
+      ArrayFromJSON(type, R"([["aB", "xYz"], ["aB", "xYz"], ["b", null], null])"));
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
+              ArrayFromJSON(type, R"([null, null, ["aB", "xYz"], ["aB", "xYz"]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
+              ArrayFromJSON(
+                  type, R"([["aB", "xYz"], ["aB", "xYz"], ["b", null], ["aB", "xYz"]])"));
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([["cD", "E"], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([["cD", "E"], null, null, ["ef", "g"]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, ["ef", "g"]])"));
 }
 
 TEST(TestCaseWhen, DispatchBest) {

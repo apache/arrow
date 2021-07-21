@@ -170,6 +170,8 @@ using BinaryArrowTypes =
 
 using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 
+using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
+
 using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
 class Array;
