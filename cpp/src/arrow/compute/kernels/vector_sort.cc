@@ -377,11 +377,18 @@ template <typename VisitorNotNull, typename VisitorNull>
 inline void VisitRawValuesInline(const BooleanArray& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
-  const uint8_t* data = values.data()->buffers[1]->data();
-  VisitBitBlocksVoid(
-      values.null_bitmap(), values.offset(), values.length(),
-      [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
-      [&]() { visitor_null(); });
+  if (values.null_count() != 0) {
+    const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
+    VisitBitBlocksVoid(
+        values.null_bitmap(), values.offset(), values.length(),
+        [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
+        [&]() { visitor_null(); });
+  } else {
+    // Can avoid GetBit() overhead in the no-nulls case
+    VisitBitBlocksVoid(
+        values.data()->buffers[1], values.offset(), values.length(),
+        [&](int64_t i) { visitor_not_null(true); }, [&]() { visitor_not_null(false); });
+  }
 }
 
 template <typename ArrowType>
@@ -514,16 +521,15 @@ class ArrayCountSorter<BooleanType> {
     const auto nulls_begin = indices_begin + null_position;
 
     if (options.order == SortOrder::Ascending) {
+      // ones start after zeros
       counts[1] = zeros;
-      VisitRawValuesInline(
-          values, [&](bool v) { indices_begin[counts[v]++] = index++; },
-          [&]() { indices_begin[null_position++] = index++; });
     } else {
+      // zeros start after ones
       counts[0] = ones;
-      VisitRawValuesInline(
-          values, [&](bool v) { indices_begin[counts[v]++] = index++; },
-          [&]() { indices_begin[null_position++] = index++; });
     }
+    VisitRawValuesInline(
+        values, [&](bool v) { indices_begin[counts[v]++] = index++; },
+        [&]() { indices_begin[null_position++] = index++; });
     return nulls_begin;
   }
 };
