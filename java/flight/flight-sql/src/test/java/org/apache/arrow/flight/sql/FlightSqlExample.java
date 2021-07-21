@@ -48,6 +48,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -142,6 +143,7 @@ import io.grpc.Status;
 public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
+  private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
@@ -229,7 +231,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
     final ArrowType type =
         JdbcToArrowConfig.getDefaultJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(jdbcDataType, precision, scale),
-            JdbcToArrowUtils.getUtcCalendar());
+            DEFAULT_CALENDAR);
     return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
@@ -454,7 +456,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private static Schema buildSchema(final ResultSetMetaData resultSetMetaData) throws SQLException {
-    return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, JdbcToArrowUtils.getUtcCalendar());
+    return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, DEFAULT_CALENDAR);
   }
 
   private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
