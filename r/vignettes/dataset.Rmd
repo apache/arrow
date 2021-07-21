@@ -85,7 +85,7 @@ is running, let's check whether you're running with live data:
 dir.exists("nyc-taxi")
 ```
 
-## Getting started
+## Opening the dataset
 
 Because __dplyr__ is not necessary for many Arrow workflows,
 it is an optional (`Suggests`) dependency. So, to work with Datasets,
