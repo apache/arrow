@@ -307,7 +307,7 @@ public class TestFlightSql {
 
     final List<String> result = results.get(0);
 
-    collector.checkThat(result.get(0), nullValue());
+    collector.checkThat(result.get(0), is(""));
     collector.checkThat(result.get(1), is("APP"));
     collector.checkThat(result.get(2), is("INTTABLE"));
     collector.checkThat(result.get(3), is("ID"));
