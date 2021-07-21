@@ -202,7 +202,7 @@ of memory:
       print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
 
 To more efficiently read big data from disk, we can memory map the file, so that
-the arrow can directly reference the data mapped from disk and avoid having to
+Arrow can directly reference the data mapped from disk and avoid having to
 allocate its own memory.
 In such case the operating system will be able to page in the mapped memory
 lazily and page it out without any write back cost when under pressure,
