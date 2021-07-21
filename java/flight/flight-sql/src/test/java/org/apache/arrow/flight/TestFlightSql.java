@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetCatalogsSchema;
+import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTableTypesSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchemaNoSchema;
 import static org.apache.arrow.util.AutoCloseables.close;
@@ -234,7 +235,10 @@ public class TestFlightSql {
   public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      // collector.checkThat(stream.getSchema(), is(getGetCatalogsSchema()));
+      /*
+       No schema, empty list.
+       collector.checkThat(stream.getSchema(), is(getGetCatalogsSchema()));
+       */
       List<List<String>> catalogs = getResults(stream);
       collector.checkThat(catalogs, is(emptyList()));
     }
@@ -243,17 +247,14 @@ public class TestFlightSql {
   @Test
   public void testGetTableTypesSchema() {
     final FlightInfo info = sqlClient.getTableTypes();
-    final Schema infoSchema = info.getSchema();
-    final Schema expectedInfoSchema =
-        new Schema(singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-    collector.checkThat(infoSchema, is(expectedInfoSchema));
+    collector.checkThat(info.getSchema(), is(getGetTableTypesSchema()));
   }
 
   @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      // TODO Check `FlightStream` schemas
+      collector.checkThat(stream.getSchema(), is(getGetTableTypesSchema()));
       final List<List<String>> tableTypes = getResults(stream);
       final List<List<String>> expectedTableTypes = ImmutableList.of(
           // table_type
