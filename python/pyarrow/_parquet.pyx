@@ -928,7 +928,8 @@ cdef class ParquetReader(_Weakrefable):
 
     def open(self, object source not None, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0, bint pre_buffer=False):
+             int buffer_size=0, bint pre_buffer=False,
+             coerce_int96_timestamp_unit=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -950,6 +951,21 @@ cdef class ParquetReader(_Weakrefable):
             raise ValueError('Buffer size must be larger than zero')
 
         arrow_props.set_pre_buffer(pre_buffer)
+
+        if coerce_int96_timestamp_unit is None:
+            # use the default defined in default_arrow_reader_properties()
+            pass
+        elif coerce_int96_timestamp_unit == "ns":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_NANO)
+        elif coerce_int96_timestamp_unit == "us":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_MICRO)
+        elif coerce_int96_timestamp_unit == "ms":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_MILLI)
+        elif coerce_int96_timestamp_unit == "s":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_SECOND)
+        else:
+            raise ValueError(f"Invalid value for coerce_int96_timestamp_unit: "
+                             f"{coerce_int96_timestamp_unit}")
 
         self.source = source
 

@@ -629,13 +629,29 @@ def test_partition_keys():
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
+    opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
 
     assert opts1.dictionary_columns == set()
 
     assert opts2.dictionary_columns == {'a', 'b'}
 
+    assert opts1.coerce_int96_timestamp_unit == "ns"
+    assert opts3.coerce_int96_timestamp_unit == "ms"
+
     assert opts1 == opts1
     assert opts1 != opts2
+    assert opts1 != opts3
+
+
+def test_parquet_file_format_read_options():
+    pff1 = ds.ParquetFileFormat()
+    pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
+    pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
+
+    assert pff1.read_options == ds.ParquetReadOptions()
+    assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
+    assert pff3.read_options == ds.ParquetReadOptions(
+        coerce_int96_timestamp_unit="s")
 
 
 def test_parquet_scan_options():
