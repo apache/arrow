@@ -23,7 +23,7 @@ For demonstration purposes, we have hosted a Parquet-formatted version
 of about ten years of the trip data in a public Amazon S3 bucket.
 
 The total file size is around 37 gigabytes, even in the efficient Parquet file
-format. That's bigger than memory on most people's computers, so we can't just
+format. That's bigger than memory on most people's computers, so you can't just
 read it all in and stack it into a single data frame.
 
 In Windows and macOS binary packages, S3 support is included.
@@ -77,7 +77,7 @@ feel free to grab only a year or two of data.
 
 If you don't have the taxi data downloaded, the vignette will still run and will
 yield previously cached output for reference. To be explicit about which version
-is running, let's check whether we're running with live data:
+is running, let's check whether you're running with live data:
 
 ```{r}
 dir.exists("nyc-taxi")
@@ -87,29 +87,29 @@ dir.exists("nyc-taxi")
 
 Because `dplyr` is not necessary for many Arrow workflows,
 it is an optional (`Suggests`) dependency. So, to work with Datasets,
-we need to load both `arrow` and `dplyr`.
+you need to load both `arrow` and `dplyr`.
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-The first step is to create our Dataset object, pointing at the directory of data.
+The first step is to create a Dataset object, pointing at the directory of data.
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 ```
 
-The default file format for `open_dataset()` is Parquet; if we had a directory
-of Arrow format files, we could include `format = "arrow"` in the call.
+The default file format for `open_dataset()` is Parquet; if you had a directory
+of Arrow format files, you could include `format = "arrow"` in the call.
 Other supported formats include: `"feather"` (an alias for `"arrow"`, as Feather
 v2 is the Arrow file format), `"csv"`, `"tsv"` (for tab-delimited), and `"text"`
 for generic text-delimited files. For text files, you can pass any parsing
 options (`delim`, `quote`, etc.) to `open_dataset()` that you would otherwise
 pass to `read_csv_arrow()`.
 
-The `partitioning` argument lets us specify how the file paths provide information
-about how the dataset is chunked into different files. Our files in this example
+The `partitioning` argument lets you specify how the file paths provide information
+about how the dataset is chunked into different files. The files in this example
 have file paths like
 
 ```
@@ -118,12 +118,12 @@ have file paths like
 ...
 ```
 
-By providing a character vector to `partitioning`, we're saying that the first
+By providing a character vector to `partitioning`, you're saying that the first
 path segment gives the value for `year`, and the second segment is `month`.
 Every row in `2009/01/data.parquet` has a value of 2009 for `year`
 and 1 for `month`, even though those columns may not be present in the file.
 
-Indeed, when we look at the dataset, we see that in addition to the columns present
+Indeed, when you look at the dataset, you can see that in addition to the columns present
 in every file, there are also columns `year` and `month`.
 
 ```{r, eval = file.exists("nyc-taxi")}
@@ -159,7 +159,7 @@ See $metadata for additional Schema metadata
 
 The other form of partitioning currently supported is [Hive](https://hive.apache.org/)-style,
 in which the partition variable names are included in the path segments.
-If we had saved our files in paths like
+If you had saved your files in paths like
 
 ```
 year=2009/month=01/data.parquet
@@ -167,15 +167,15 @@ year=2009/month=02/data.parquet
 ...
 ```
 
-we would not have had to provide the names in `partitioning`:
-we could have just called `ds <- open_dataset("nyc-taxi")` and the partitions
+you would not have had to provide the names in `partitioning`:
+you could have just called `ds <- open_dataset("nyc-taxi")` and the partitions
 would have been detected automatically.
 
 ## Querying the dataset
 
-Up to this point, we haven't loaded any data: we have walked directories to find
-files, we've parsed file paths to identify partitions, and we've read the
-headers of the Parquet files to inspect their schemas so that we can make sure
+Up to this point, you haven't loaded any data: you have walked directories to find
+files, you've parsed file paths to identify partitions, and you've read the
+headers of the Parquet files to inspect their schemas so that you can make sure
 they all line up.
 
 In the current release, `arrow` supports the dplyr verbs `mutate()`, 
@@ -227,7 +227,7 @@ cat("
 ")
 ```
 
-We just selected a subset out of a dataset with around 2 billion rows, computed
+You just selected a subset out of a dataset with around 2 billion rows, computed
 a new column, and aggregated it in under 2 seconds on my laptop. How does
 this work?
 
@@ -264,14 +264,14 @@ intermediate datasets that would potentially be large.
 
 Second, all work is pushed down to the individual data files,
 and depending on the file format, chunks of data within the files. As a result,
-we can select a subset of data from a much larger dataset by collecting the
-smaller slices from each file--we don't have to load the whole dataset in memory to slice from it.
+you can select a subset of data from a much larger dataset by collecting the
+smaller slices from each file--you don't have to load the whole dataset in memory to slice from it.
 
-Third, because of partitioning, we can ignore some files entirely.
+Third, because of partitioning, you can ignore some files entirely.
 In this example, by filtering `year == 2015`, all files corresponding to other years
-are immediately excluded: we don't have to load them in order to find that no
+are immediately excluded: you don't have to load them in order to find that no
 rows match the filter. Relatedly, since Parquet files contain row groups with
-statistics on the data within, there may be entire chunks of data we can
+statistics on the data within, there may be entire chunks of data you can
 avoid scanning because they have no rows where `total_amount > 100`.
 
 ## More dataset options
@@ -292,8 +292,8 @@ To be clear, it's not necessary to specify a schema, even in this example of mix
 
 Similarly, you can provide a Schema in the `partitioning` argument of `open_dataset()`
 in order to declare the types of the virtual columns that define the partitions.
-This would be useful, in our taxi dataset example, if you wanted to keep
-`month` as a string instead of an integer for some reason.
+This would be useful, in the taxi dataset example, if you wanted to keep
+`month` as a string instead of an integer.
 
 ### Work with multiple data sources
 
@@ -309,27 +309,25 @@ instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, d
 
 As you can see, querying a large dataset can be made quite fast by storage in an
 efficient binary columnar format like Parquet or Feather and partitioning based on
-columns commonly used for filtering. However, we don't always get our data delivered
-to us that way. Sometimes we start with one giant CSV. Our first step in analyzing data
-is cleaning is up and reshaping it into a more usable form.
+columns commonly used for filtering. However, data isn't always stored that way. Sometimes you might start with one giant CSV. The first step in analyzing data is cleaning is up and reshaping it into a more usable form.
 
 The `write_dataset()` function allows you to take a Dataset or other tabular data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write it to a different file format, partitioned into multiple files.
 
-Assume we have a version of the NYC Taxi data as CSV:
+Assume you have a version of the NYC Taxi data as CSV:
 
 ```r
 ds <- open_dataset("nyc-taxi/csv/", format = "csv")
 ```
 
-We can write it to a new location and translate the files to the Feather format
+You can write it to a new location and translate the files to the Feather format
 by calling `write_dataset()` on it:
 
 ```r
 write_dataset(ds, "nyc-taxi/feather", format = "feather")
 ```
 
-Next, let's imagine that the `payment_type` column is something we often filter
-on, so we want to partition the data by that variable. By doing so we ensure
+Next, let's imagine that the `payment_type` column is something you often filter
+on, so you want to partition the data by that variable. By doing so you ensure
 that a filter like `payment_type == "Cash"` will touch only a subset of files
 where `payment_type` is always `"Cash"`.
 
@@ -363,14 +361,14 @@ system("tree nyc-taxi/feather")
 
 Note that the directory names are `payment_type=Cash` and similar:
 this is the Hive-style partitioning described above. This means that when
-we call `open_dataset()` on this directory, we don't have to declare what the
+you call `open_dataset()` on this directory, you don't have to declare what the
 partitions are because they can be read from the file paths.
 (To instead write bare values for partition segments, i.e. `Cash` rather than 
 `payment_type=Cash`, call `write_dataset()` with `hive_style = FALSE`.)
 
-Perhaps, though, `payment_type == "Cash"` is the only data we ever care about,
-and we just want to drop the rest and have a smaller working set.
-For this, we can `filter()` them out when writing:
+Perhaps, though, `payment_type == "Cash"` is the only data you ever care about,
+and you just want to drop the rest and have a smaller working set.
+For this, you can `filter()` them out when writing:
 
 ```r
 ds %>%
@@ -378,9 +376,9 @@ ds %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-The other thing we can do when writing datasets is select a subset of and/or reorder
-columns. Suppose we never care about `vendor_id`, and being a string column,
-it can take up a lot of space when we read it in, so let's drop it:
+The other thing you can do when writing datasets is select a subset of and/or reorder
+columns. Suppose you never care about `vendor_id`, and being a string column,
+it can take up a lot of space when you read it in, so let's drop it:
 
 ```r
 ds %>%
