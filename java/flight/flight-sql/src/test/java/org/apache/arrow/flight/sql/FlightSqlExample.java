@@ -210,11 +210,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     Optional<SQLException> exception = empty();
     try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
+      statement.execute("CREATE TABLE foreignTable (id INT not null primary key GENERATED ALWAYS AS IDENTITY " +
+          "(START WITH 1, INCREMENT BY 1), foreignName varchar(100), value int)");
       statement.execute("CREATE TABLE intTable (id INT not null primary key GENERATED ALWAYS AS IDENTITY " +
-          "(START WITH 1, INCREMENT BY 1), keyName varchar(100), value int)");
-      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('one', 1)");
-      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('zero', 0)");
-      statement.execute("INSERT INTO intTable (keyName, value) VALUES ('negative one', -1)");
+          "(START WITH 1, INCREMENT BY 1), keyName varchar(100), value int, foreignId int references foreignTable(id))");
+      statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1)");
+      statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0)");
+      statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1)");
+      statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1)");
+      statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1)");
+      statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1)");
     } catch (SQLException e) {
       LOGGER.error(
           format("Failed attempt to populate DerbyDB: <%s>", e.getMessage()),
@@ -838,15 +843,81 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoForeignKeys(final CommandGetForeignKeys request, final CallContext context,
                                              final FlightDescriptor descriptor) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final Schema schema = getSchemaForeignKeys().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
   @Override
-  public void getStreamForeignKeys(final CommandGetForeignKeys command, final CallContext context, final Ticket ticket,
-                                   final ServerStreamListener listener) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+  public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context, final Ticket ticket,
+                                    final ServerStreamListener listener) {
+
+    String primaryKeyCatalog = emptyToNull(command.getPkCatalog());
+    String primaryKeySchema = emptyToNull(command.getPkSchema());
+    String primaryKeyTable = emptyToNull(command.getPkTable());
+
+    String foreignKeyCatalog = emptyToNull(command.getFkCatalog());
+    String foreignKeySchema = emptyToNull(command.getFkSchema());
+    String foreignKeyTable = emptyToNull(command.getFkTable());
+
+    try(Connection connection = DriverManager.getConnection(DATABASE_URI)){
+
+      final ResultSet keys = connection.getMetaData().getExportedKeys(foreignKeyCatalog,
+          foreignKeySchema, foreignKeyTable);
+
+      final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+      final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
+      final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", allocator);
+      final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", allocator);
+      final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", allocator);
+      final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", allocator);
+      final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", allocator);
+      final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", allocator);
+      final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", allocator);
+      final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
+      final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", allocator);
+      final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", allocator);
+      final IntVector updateRuleVector = new IntVector("update_rule", allocator);
+      final IntVector deleteRuleVector = new IntVector("delete_rule", allocator);
+
+      final List<FieldVector> vectors =
+          new ArrayList<>(
+              ImmutableList.of(
+                  pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
+                  fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
+                  pkKeyNameVector, updateRuleVector, deleteRuleVector));
+      vectors.forEach(FieldVector::allocateNew);
+      int rows = 0;
+
+      for (; keys.next(); rows++) {
+        saveToVector(emptyToNull(keys.getString("PKTABLE_CAT")), pkCatalogNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("PKTABLE_SCHEM")), pkSchemaNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("PKTABLE_NAME")), pkTableNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("PKCOLUMN_NAME")), pkColumnNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("FKTABLE_CAT")), fkCatalogNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("FKTABLE_SCHEM")), fkSchemaNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("FKTABLE_NAME")), fkTableNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("FKCOLUMN_NAME")), fkColumnNameVector ,rows);
+        saveToVector(Integer.parseInt(keys.getString("KEY_SEQ")), keySequenceVector ,rows);
+        saveToVector(Integer.parseInt(keys.getString("UPDATE_RULE")), updateRuleVector ,rows);
+        saveToVector(Integer.parseInt(keys.getString("DELETE_RULE")), deleteRuleVector ,rows);
+        saveToVector(emptyToNull(keys.getString("FK_NAME")), fkKeyNameVector ,rows);
+        saveToVector(emptyToNull(keys.getString("PK_NAME")), pkKeyNameVector ,rows);
+      }
+
+      for (final FieldVector vector : vectors) {
+        vector.setValueCount(rows);
+      }
+
+      makeListen(
+          listener, singletonList(new VectorSchemaRoot(vectors)));
+    } catch (SQLException e) {
+      e.printStackTrace();
+    }
+    finally {
+      listener.completed();
+    }
   }
 
   @Override
