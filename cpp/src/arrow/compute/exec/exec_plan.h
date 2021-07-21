@@ -222,6 +222,10 @@ class ARROW_EXPORT ExecNode {
            std::vector<std::string> input_labels, std::shared_ptr<Schema> output_schema,
            int num_outputs);
 
+  // A helper method to send an error status to all outputs.
+  // Returns true if the status was an error.
+  bool ErrorIfNotOk(Status status);
+
   ExecPlan* plan_;
   std::string label_;
 

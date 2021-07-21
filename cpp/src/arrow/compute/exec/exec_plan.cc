@@ -244,6 +244,15 @@ Status ExecNode::Validate() const {
   return Status::OK();
 }
 
+bool ExecNode::ErrorIfNotOk(Status status) {
+  if (status.ok()) return false;
+
+  for (auto out : outputs_) {
+    out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
+  }
+  return true;
+}
+
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::string label, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<util::optional<ExecBatch>> generator)
@@ -384,10 +393,7 @@ struct FilterNode : ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_filtered = DoFilter(std::move(batch));
-    if (!maybe_filtered.ok()) {
-      outputs_[0]->ErrorReceived(this, maybe_filtered.status());
-      return;
-    }
+    if (ErrorIfNotOk(maybe_filtered.status())) return;
 
     maybe_filtered->guarantee = batch.guarantee;
     outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
@@ -463,10 +469,7 @@ struct ProjectNode : ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_projected = DoProject(std::move(batch));
-    if (!maybe_projected.ok()) {
-      outputs_[0]->ErrorReceived(this, maybe_projected.status());
-      return;
-    }
+    if (ErrorIfNotOk(maybe_projected.status())) return;
 
     maybe_projected->guarantee = batch.guarantee;
     outputs_[0]->InputReceived(this, seq, maybe_projected.MoveValueUnsafe());
@@ -526,6 +529,44 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
       input, std::move(label), schema(std::move(fields)), std::move(exprs));
 }
 
+class InputCounter {
+ public:
+  InputCounter() = default;
+
+  int count() const { return count_.load(); }
+
+  util::optional<int> total() const {
+    int total = total_.load();
+    if (total == -1) return {};
+    return total;
+  }
+
+  // return true if the counter is complete
+  bool Increment() {
+    DCHECK_NE(count_.load(), total_.load());
+    int count = count_.fetch_add(1) + 1;
+    return IsComplete(count, total_.load());
+  }
+
+  // return true if the counter is complete
+  bool SetTotal(int total) {
+    total_.store(total);
+    return IsComplete(count_.load(), total);
+  }
+
+ private:
+  // ensure there is only one true return from Increment() or SetTotal()
+  bool IsComplete(int count, int total) {
+    if (count != total) return false;
+
+    bool expected = false;
+    return complete_.compare_exchange_strong(expected, true);
+  }
+
+  std::atomic<int> count_{0}, total_{-1};
+  std::atomic<bool> complete_{false};
+};
+
 struct SinkNode : ExecNode {
   SinkNode(ExecNode* input, std::string label,
            AsyncGenerator<util::optional<ExecBatch>>* generator)
@@ -567,21 +608,15 @@ struct SinkNode : ExecNode {
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (finished_.is_finished()) return;
+    bool did_push = producer_.Push(std::move(batch));
+    if (!did_push) return;  // producer_ was Closed already
 
-    producer_.Push(std::move(batch));
-
-    std::unique_lock<std::mutex> lock(mutex_);
-
-    ++num_received_;
-    if (num_received_ == emit_stop_) {
-      lock.unlock();
-      Finish();
-      return;
+    if (auto total = input_counter_.total()) {
+      DCHECK_LE(seq_num, *total);
     }
 
-    if (emit_stop_ != -1) {
-      DCHECK_LE(seq_num, emit_stop_);
+    if (input_counter_.Increment()) {
+      Finish();
     }
   }
 
@@ -593,10 +628,7 @@ struct SinkNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int seq_stop) override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    emit_stop_ = seq_stop;
-    if (num_received_ == emit_stop_) {
-      lock.unlock();
+    if (input_counter_.SetTotal(seq_stop)) {
       Finish();
     }
   }
@@ -608,10 +640,7 @@ struct SinkNode : ExecNode {
     }
   }
 
-  std::mutex mutex_;
-
-  int num_received_ = 0;
-  int emit_stop_ = -1;
+  InputCounter input_counter_;
   Future<> finished_ = Future<>::MakeFinished();
 
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
@@ -652,6 +681,23 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
   return out;
 }
 
+class ThreadIndexer {
+ public:
+  size_t operator()(std::mutex* mutex) {
+    std::unique_lock<std::mutex> lock(*mutex);
+    return this->operator()();
+  }
+
+  size_t operator()() {
+    auto id = std::this_thread::get_id();
+    const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
+    return id_index.second;
+  }
+
+ private:
+  std::unordered_map<std::thread::id, size_t> id_to_index_;
+};
+
 struct ScalarAggregateNode : ExecNode {
   ScalarAggregateNode(ExecNode* input, std::string label,
                       std::shared_ptr<Schema> output_schema,
@@ -667,8 +713,11 @@ struct ScalarAggregateNode : ExecNode {
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
+      DCHECK_LT(thread_index, states_[i].size());
+
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
+
       ExecBatch single_column_batch{{batch.values[i]}, batch.length};
       RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
     }
@@ -678,25 +727,12 @@ struct ScalarAggregateNode : ExecNode {
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto it =
-        thread_indices_.emplace(std::this_thread::get_id(), thread_indices_.size()).first;
-    auto thread_index = it->second;
+    auto thread_index = get_thread_index_(&mutex_);
 
-    lock.unlock();
+    if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
 
-    Status st = DoConsume(std::move(batch), thread_index);
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
-      return;
-    }
-
-    lock.lock();
-    ++num_received_;
-    st = MaybeFinish(&lock);
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
-    }
+    if (!input_counter_.Increment()) return;
+    if (ErrorIfNotOk(MaybeFinish())) return;
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -704,15 +740,11 @@ struct ScalarAggregateNode : ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int seq) override {
+  void InputFinished(ExecNode* input, int num_total) override {
     DCHECK_EQ(input, inputs_[0]);
-    std::unique_lock<std::mutex> lock(mutex_);
-    num_total_ = seq;
-    Status st = MaybeFinish(&lock);
 
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
-    }
+    if (!input_counter_.SetTotal(num_total)) return;
+    if (ErrorIfNotOk(MaybeFinish())) return;
   }
 
   Status StartProducing() override {
@@ -732,20 +764,20 @@ struct ScalarAggregateNode : ExecNode {
   }
 
   void StopProducing() override {
-    inputs_[0]->StopProducing(this);
     std::unique_lock<std::mutex> lock(mutex_);
-    if (finished_.is_finished()) return;
+    if (states_.empty()) return;
     states_.clear();
     lock.unlock();
+
+    inputs_[0]->StopProducing(this);
     finished_.MarkFinished();
   }
 
   Future<> finished() override { return finished_; }
 
  private:
-  Status MaybeFinish(std::unique_lock<std::mutex>* lock) {
-    if (num_received_ != num_total_) return Status::OK();
-
+  Status MaybeFinish() {
+    std::unique_lock<std::mutex> lock(mutex_);
     if (states_.empty()) return Status::OK();
 
     ExecBatch batch{{}, 1};
@@ -758,20 +790,22 @@ struct ScalarAggregateNode : ExecNode {
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
     states_.clear();
-    lock->unlock();
+
+    lock.unlock();
 
     outputs_[0]->InputReceived(this, 0, batch);
-
     finished_.MarkFinished();
     return Status::OK();
   }
 
   Future<> finished_ = Future<>::MakeFinished();
   std::vector<const ScalarAggregateKernel*> kernels_;
+
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
-  std::unordered_map<std::thread::id, size_t> thread_indices_;
   std::mutex mutex_;
-  int num_received_ = 0, num_total_ = -1;
+
+  ThreadIndexer get_thread_index_;
+  InputCounter input_counter_;
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
@@ -830,18 +864,22 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
 }
 
 namespace internal {
+
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<internal::Aggregate>& aggregates,
     const std::vector<ValueDescr>& in_descrs);
+
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
     const std::vector<internal::Aggregate>& aggregates,
     const std::vector<ValueDescr>& in_descrs);
+
 Result<FieldVector> ResolveKernels(
     const std::vector<internal::Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
     const std::vector<ValueDescr>& descrs);
+
 }  // namespace internal
 
 struct GroupByNode : ExecNode {
@@ -856,62 +894,9 @@ struct GroupByNode : ExecNode {
         key_field_ids_(std::move(key_field_ids)),
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
-        agg_kernels_(std::move(agg_kernels)) {
-    num_input_batches_processed_.store(0);
-    num_input_batches_total_.store(-1);
-    num_output_batches_processed_.store(0);
-    output_started_.store(false);
-  }
+        agg_kernels_(std::move(agg_kernels)) {}
 
   const char* kind_name() override { return "GroupByNode"; }
-
- private:
-  struct ThreadLocalState;
-
- public:
-  ThreadLocalState* GetLocalState() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto it =
-        thread_indices_.emplace(std::this_thread::get_id(), thread_indices_.size()).first;
-    auto thread_index = it->second;
-    return &local_states_[thread_index];
-  }
-
-  Status InitLocalStateIfNeeded(ThreadLocalState* state) {
-    // Get input schema
-    auto input_schema = inputs_[0]->output_schema();
-
-    if (!state->grouper) {
-      // Build vector of key field data types
-      std::vector<ValueDescr> key_descrs(key_field_ids_.size());
-      for (size_t i = 0; i < key_field_ids_.size(); ++i) {
-        auto key_field_id = key_field_ids_[i];
-        key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
-      }
-
-      // Construct grouper
-      ARROW_ASSIGN_OR_RAISE(state->grouper, internal::Grouper::Make(key_descrs, ctx_));
-    }
-    if (state->agg_states.empty()) {
-      // Build vector of aggregate source field data types
-      std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());
-      for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        auto agg_src_field_id = agg_src_field_ids_[i];
-        agg_src_descrs[i] =
-            ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
-      }
-
-      ARROW_ASSIGN_OR_RAISE(
-          state->agg_states,
-          internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
-
-      ARROW_ASSIGN_OR_RAISE(
-          FieldVector agg_result_fields,
-          internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states, ctx_,
-                                   agg_src_descrs));
-    }
-    return Status::OK();
-  }
 
   Status ProcessInputBatch(const ExecBatch& batch) {
     ThreadLocalState* state = GetLocalState();
@@ -997,8 +982,6 @@ struct GroupByNode : ExecNode {
   }
 
   Status OutputNthBatch(int n) {
-    DCHECK(output_started_.load());
-
     // Check finished flag
     if (finished_.is_finished()) {
       return Status::OK();
@@ -1007,11 +990,9 @@ struct GroupByNode : ExecNode {
     // Slice arrays
     int64_t batch_size = output_batch_size();
     int64_t batch_start = n * batch_size;
-    int64_t batch_length = std::min(batch_size, num_out_groups_ - batch_start);
     std::vector<Datum> output_slices(out_data_.size());
-    for (size_t out_field_id = 0; out_field_id < out_data_.size(); ++out_field_id) {
-      output_slices[out_field_id] =
-          out_data_[out_field_id]->Slice(batch_start, batch_length);
+    for (size_t i = 0; i < out_data_.size(); ++i) {
+      output_slices[i] = out_data_[i]->Slice(batch_start, batch_size);
     }
 
     ARROW_ASSIGN_OR_RAISE(ExecBatch output_batch, ExecBatch::Make(output_slices));
@@ -1027,11 +1008,6 @@ struct GroupByNode : ExecNode {
   }
 
   Status OutputResult() {
-    bool expected = false;
-    if (!output_started_.compare_exchange_strong(expected, true)) {
-      return Status::OK();
-    }
-
     RETURN_NOT_OK(Merge());
     RETURN_NOT_OK(Finalize());
 
@@ -1039,73 +1015,59 @@ struct GroupByNode : ExecNode {
     int num_result_batches = (num_out_groups_ + batch_size - 1) / batch_size;
     outputs_[0]->InputFinished(this, num_result_batches);
 
-    auto executor = arrow::internal::GetCpuThreadPool();
+    auto executor = ctx_->executor();
     for (int i = 0; i < num_result_batches; ++i) {
-      // Check finished flag
-      if (finished_.is_finished()) {
-        break;
-      }
+      // bail if StopProducing was called
+      if (finished_.is_finished()) break;
 
-      RETURN_NOT_OK(executor->Spawn([this, i]() {
-        Status status = OutputNthBatch(i);
-        if (!status.ok()) {
-          ErrorReceived(inputs_[0], status);
-        }
-      }));
+      if (executor) {
+        RETURN_NOT_OK(executor->Spawn([this, i]() {
+          Status status = OutputNthBatch(i);
+          if (!status.ok()) {
+            ErrorReceived(inputs_[0], status);
+          }
+        }));
+      } else {
+        RETURN_NOT_OK(OutputNthBatch(i));
+      }
     }
 
     return Status::OK();
   }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
     DCHECK_EQ(input, inputs_[0]);
 
-    if (finished_.is_finished()) {
-      return;
-    }
+    if (ErrorIfNotOk(ProcessInputBatch(batch))) return;
 
-    DCHECK_NE(num_input_batches_processed_.load(), num_input_batches_total_.load());
+    if (!input_counter_.Increment()) return;
 
-    Status status = ProcessInputBatch(batch);
-    if (!status.ok()) {
-      ErrorReceived(input, status);
-      return;
-    }
-
-    num_input_batches_processed_.fetch_add(1);
-    if (num_input_batches_processed_.load() == num_input_batches_total_.load()) {
-      status = OutputResult();
-      if (!status.ok()) {
-        ErrorReceived(input, status);
-        return;
-      }
-    }
+    if (ErrorIfNotOk(OutputResult())) return;
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
-    StopProducing();
   }
 
-  void InputFinished(ExecNode* input, int seq) override {
+  void InputFinished(ExecNode* input, int num_total) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    num_input_batches_total_.store(seq);
-    if (num_input_batches_processed_.load() == num_input_batches_total_.load()) {
-      Status status = OutputResult();
+    if (!input_counter_.SetTotal(num_total)) return;
 
-      if (!status.ok()) {
-        ErrorReceived(input, status);
-      }
-    }
+    if (ErrorIfNotOk(OutputResult())) return;
   }
 
   Status StartProducing() override {
     finished_ = Future<>::Make();
+
     auto executor = plan_->exec_context()->executor();
     local_states_.resize(executor ? executor->GetCapacity() : 1);
+
     return Status::OK();
   }
 
@@ -1117,6 +1079,7 @@ struct GroupByNode : ExecNode {
     DCHECK_EQ(output, outputs_[0]);
     inputs_[0]->StopProducing(this);
 
+    // FIXME StopProducing must be idempotent, but we may call MarkFinished twice
     finished_.MarkFinished();
   }
 
@@ -1125,6 +1088,48 @@ struct GroupByNode : ExecNode {
   Future<> finished() override { return finished_; }
 
  private:
+  struct ThreadLocalState {
+    std::unique_ptr<internal::Grouper> grouper;
+    std::vector<std::unique_ptr<KernelState>> agg_states;
+  };
+
+  ThreadLocalState* GetLocalState() { return &local_states_[get_thread_index_(&mutex_)]; }
+
+  Status InitLocalStateIfNeeded(ThreadLocalState* state) {
+    // Get input schema
+    auto input_schema = inputs_[0]->output_schema();
+
+    if (state->grouper != nullptr) return Status::OK();
+
+    // Build vector of key field data types
+    std::vector<ValueDescr> key_descrs(key_field_ids_.size());
+    for (size_t i = 0; i < key_field_ids_.size(); ++i) {
+      auto key_field_id = key_field_ids_[i];
+      key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
+    }
+
+    // Construct grouper
+    ARROW_ASSIGN_OR_RAISE(state->grouper, internal::Grouper::Make(key_descrs, ctx_));
+
+    // Build vector of aggregate source field data types
+    std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      auto agg_src_field_id = agg_src_field_ids_[i];
+      agg_src_descrs[i] =
+          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        state->agg_states,
+        internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+
+    ARROW_ASSIGN_OR_RAISE(FieldVector agg_result_fields,
+                          internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states,
+                                                   ctx_, agg_src_descrs));
+
+    return Status::OK();
+  }
+
   int output_batch_size() const {
     int result = static_cast<int>(ctx_->exec_chunksize());
     if (result < 0) {
@@ -1137,24 +1142,19 @@ struct GroupByNode : ExecNode {
   Future<> finished_ = Future<>::MakeFinished();
 
   std::mutex mutex_;
-  std::atomic<int> num_input_batches_processed_;
-  std::atomic<int> num_input_batches_total_;
-  std::atomic<uint32_t> num_output_batches_processed_;
+  std::atomic<uint32_t> num_output_batches_processed_{0};
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
-  struct ThreadLocalState {
-    std::unique_ptr<internal::Grouper> grouper;
-    std::vector<std::unique_ptr<KernelState>> agg_states;
-  };
+  ThreadIndexer get_thread_index_;
+  InputCounter input_counter_;
+
   std::vector<ThreadLocalState> local_states_;
-  std::unordered_map<std::thread::id, size_t> thread_indices_;
   uint32_t num_out_groups_{0};
   ArrayDataVector out_data_;
-  std::atomic<bool> output_started_;
 };
 
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
