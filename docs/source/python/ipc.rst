@@ -217,9 +217,9 @@ allowing to more easily read arrays bigger than the total memory.
 
 .. note::
 
-Most high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
-``memory_map`` option. But in those cases, the memory mapping can't help with
-reducing resident memory consumption. See :ref:`parquet_mmap` for details.
+   Most high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
+   ``memory_map`` option. But in those cases, the memory mapping can't help with
+   reducing resident memory consumption. See :ref:`parquet_mmap` for details.
 
 Arbitrary Object Serialization
 ------------------------------
