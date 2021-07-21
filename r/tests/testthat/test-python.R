@@ -152,10 +152,10 @@ test_that("RecordBatchReader to python", {
   ds_py <- ds %>%
     select(int, lgl) %>%
     filter(int > 6) %>%
-    alchemize(to = "python")
+    alchemize_to_python()
 
   rb_reader <- ds_py %>%
-    alchemize(to = "arrow")
+    alchemize_to_arrow()
 
   expect_identical(
     as.data.frame(rb_reader$read_table()),

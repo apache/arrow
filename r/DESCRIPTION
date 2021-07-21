@@ -57,6 +57,8 @@ Suggests:
     withr
 LinkingTo: cpp11 (>= 0.2.0)
 Collate:
+    'python.R'
+    'alchemize.R'
     'arrowExports.R'
     'enums.R'
     'arrow-package.R'
@@ -94,7 +96,6 @@ Collate:
     'record-batch.R'
     'table.R'
     'dplyr.R'
-    'python.R'
     'duckdb.R'
     'feather.R'
     'field.R'
