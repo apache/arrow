@@ -89,6 +89,9 @@ else
 fi
 
 %changelog
+* Wed Jul 21 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 5.0.0-1
+- New upstream release.
+
 * Mon Jan 18 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 3.0.0-1
 - New upstream release.
 
