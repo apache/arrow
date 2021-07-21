@@ -659,7 +659,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final String catalog = emptyToNull(command.getCatalog());
+    final String catalog = command.getCatalog();
     final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern)) {
