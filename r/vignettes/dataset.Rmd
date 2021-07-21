@@ -36,7 +36,7 @@ To see if your __arrow__ installation has S3 support, run:
 arrow::arrow_with_s3()
 ```
 
-Even with an S3 support enabled network, speed will be a bottleneck unless your
+Even with S3 support enabled, network speed will be a bottleneck unless your
 machine is located in the same AWS region as the data. So, for this vignette,
 we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
 directory.
