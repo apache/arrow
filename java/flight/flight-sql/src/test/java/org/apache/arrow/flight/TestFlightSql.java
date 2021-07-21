@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
+import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetCatalogsSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchema;
 import static org.apache.arrow.flight.sql.FlightSqlProducer.getGetTablesSchemaNoSchema;
 import static org.apache.arrow.util.AutoCloseables.close;
@@ -226,17 +227,14 @@ public class TestFlightSql {
   @Test
   public void testGetCatalogsSchema() {
     final FlightInfo info = sqlClient.getCatalogs();
-    final Schema infoSchema = info.getSchema();
-    final Schema expectedInfoSchema =
-        new Schema(singletonList(Field.nullable("catalog_name", MinorType.VARCHAR.getType())));
-    collector.checkThat(infoSchema, is(expectedInfoSchema));
+    collector.checkThat(info.getSchema(), is(getGetCatalogsSchema()));
   }
 
   @Test
-  public void testGetCatalogs() throws Exception {
+  public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      // TODO Check `FlightStream` schemas
+      // collector.checkThat(stream.getSchema(), is(getGetCatalogsSchema()));
       List<List<String>> catalogs = getResults(stream);
       collector.checkThat(catalogs, is(emptyList()));
     }
