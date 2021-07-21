@@ -17,7 +17,7 @@
 
 arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
-  if (is.null(con) || !dbIsValid(con)) {
+  if (is.null(con) || !DBI::dbIsValid(con)) {
     con <- DBI::dbConnect(duckdb::duckdb())
     # Use the same CPU count that the arrow library is set to
     DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
@@ -43,7 +43,7 @@ rb_to_duckdb <- function(x, con = arrow_duck_connection(), groups = NULL, auto_d
 
   tbl <- tbl(con, table_name)
   if (length(groups) > 0 && !is.null(groups)) {
-    tbl <- group_by(tbl, !!sym(groups))
+    tbl <- dplyr::group_by(tbl, !!rlang::sym(groups))
   }
 
   if (auto_disconnect) {
@@ -64,7 +64,7 @@ alchemize_to_duckdb.arrow_dplyr_query <-  alchemize_to_duckdb_dataset
 summarise_duck <- function(.data, ...) {
   # TODO: pass a connection?
   tbl <- alchemize_to_duckdb(.data)
-  summarise(tbl, ...)
+  dplyr::summarise(tbl, ...)
 }
 
 # Creates an environment that disconnects the database when it's GC'd
