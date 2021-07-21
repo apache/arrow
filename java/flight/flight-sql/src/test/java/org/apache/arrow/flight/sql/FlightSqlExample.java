@@ -48,7 +48,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -66,6 +65,7 @@ import javax.annotation.Nullable;
 
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
+import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -229,7 +229,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
     final ArrowType type =
         JdbcToArrowConfig.getDefaultJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(jdbcDataType, precision, scale),
-            Calendar.getInstance());
+            JdbcToArrowUtils.getUtcCalendar());
     return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
@@ -453,6 +453,35 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     return new VectorSchemaRoot(vectors);
   }
 
+  private static Schema buildSchema(final ResultSetMetaData resultSetMetaData) throws SQLException {
+    return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, JdbcToArrowUtils.getUtcCalendar());
+  }
+
+  private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
+
+    final List<Field> parameterFields = new ArrayList<>();
+
+    for (int parameterCounter = 1; parameterCounter <=
+        Preconditions.checkNotNull(parameterMetaData, "ParameterMetaData object can't be null")
+            .getParameterCount();
+         parameterCounter++) {
+      final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
+
+      final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
+      final boolean arrowIsNullable = jdbcIsNullable == ParameterMetaData.parameterNullable;
+
+      final int precision = parameterMetaData.getPrecision(parameterCounter);
+      final int scale = parameterMetaData.getScale(parameterCounter);
+
+      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
+
+      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
+      parameterFields.add(new Field(null, fieldType, null));
+    }
+
+    return new Schema(parameterFields);
+  }
+
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
@@ -506,56 +535,6 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   public SchemaResult getSchemaStatement(final CommandStatementQuery command, final CallContext context,
                                          final FlightDescriptor descriptor) {
     throw Status.UNIMPLEMENTED.asRuntimeException();
-  }
-
-  private Schema buildSchema(ResultSetMetaData resultSetMetaData) throws SQLException {
-    final List<Field> resultSetFields = new ArrayList<>();
-
-    for (int resultSetCounter = 1;
-         resultSetCounter <= Preconditions.checkNotNull(resultSetMetaData, "ResultSetMetaData object can't be null")
-             .getColumnCount();
-         resultSetCounter++) {
-      final String name = resultSetMetaData.getColumnName(resultSetCounter);
-
-      final int jdbcDataType = resultSetMetaData.getColumnType(resultSetCounter);
-
-      final int jdbcIsNullable = resultSetMetaData.isNullable(resultSetCounter);
-      final boolean arrowIsNullable = jdbcIsNullable == ResultSetMetaData.columnNullable;
-
-      final int precision = resultSetMetaData.getPrecision(resultSetCounter);
-      final int scale = resultSetMetaData.getScale(resultSetCounter);
-
-      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-
-      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
-      resultSetFields.add(new Field(name, fieldType, null));
-    }
-
-    return new Schema(resultSetFields);
-  }
-
-  private Schema buildSchema(ParameterMetaData parameterMetaData) throws SQLException {
-    final List<Field> parameterFields = new ArrayList<>();
-
-    for (int parameterCounter = 1; parameterCounter <=
-        Preconditions.checkNotNull(parameterMetaData, "ParameterMetaData object can't be null")
-            .getParameterCount();
-         parameterCounter++) {
-      final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
-
-      final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
-      final boolean arrowIsNullable = jdbcIsNullable == ParameterMetaData.parameterNullable;
-
-      final int precision = parameterMetaData.getPrecision(parameterCounter);
-      final int scale = parameterMetaData.getScale(parameterCounter);
-
-      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-
-      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
-      parameterFields.add(new Field(null, fieldType, null));
-    }
-
-    return new Schema(parameterFields);
   }
 
   @Override
