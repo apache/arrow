@@ -275,7 +275,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
   }
 
-  private static void saveToVector(final int data, final IntVector vector, final int index) {
+  private static void saveToVector(final Integer data, final IntVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
@@ -728,8 +728,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         saveToVector(primaryKeys.getString("TABLE_SCHEM"), schemaNameVector, rows);
         saveToVector(primaryKeys.getString("TABLE_NAME"), tableNameVector, rows);
         saveToVector(primaryKeys.getString("COLUMN_NAME"), columnNameVector, rows);
-        final String key_seq = primaryKeys.getString("KEY_SEQ");
-        saveToVector(key_seq != null ? Integer.parseInt(key_seq) : null, keySequenceVector, rows);
+        final int key_seq = primaryKeys.getInt("KEY_SEQ");
+        saveToVector(primaryKeys.wasNull() ? null : key_seq, keySequenceVector, rows);
         saveToVector(primaryKeys.getString("PK_NAME"), keyNameVector, rows);
       }
 
