@@ -26,7 +26,7 @@ The total file size is around 37 gigabytes, even in the efficient Parquet file
 format. That's bigger than memory on most people's computers, so you can't just
 read it all in and stack it into a single data frame.
 
-In Windows and macOS binary packages, S3 support is included.
+In Windows (for R > 3.6) and macOS binary packages, S3 support is included.
 On Linux, when installing from source, S3 support is not enabled by default,
 and it has additional system requirements.
 See `vignette("install", package = "arrow")` for details.
@@ -36,7 +36,7 @@ To see if your __arrow__ installation has S3 support, run:
 arrow::arrow_with_s3()
 ```
 
-Even with S3 support enabled network, speed will be a bottleneck unless your
+Even with an S3 support enabled network, speed will be a bottleneck unless your
 machine is located in the same AWS region as the data. So, for this vignette,
 we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
 directory.
@@ -287,7 +287,7 @@ avoid scanning because they have no rows where `total_amount > 100`.
 
 There are a few ways you can control the Dataset creation to adapt to special use cases.
 
-### Working with files in a directory
+### Work with files in a directory
 
 If you are working with a single file or a set of files that are not all in the 
 same directory, you can provide a file path or a vector of multiple file paths 
@@ -299,7 +299,7 @@ without needing to read the full CSV file into R.
 
 ### Explicitly declare column names and data types
 
-You can specify a `schema` argument to `open_dataset()` to declare the columns 
+You can specify the `schema` argument to `open_dataset()` to declare the columns 
 and their data types. This is useful if you have data files that have different 
 storage schema (for example, a column could be `int32` in one and `int8` in 
 another) and you want to ensure that the resulting Dataset has a specific type.
@@ -401,8 +401,8 @@ ds %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-The other thing you can do when writing datasets is select a subset of and/or reorder
-columns. Suppose you never care about `vendor_id`, and being a string column,
+The other thing you can do when writing datasets is select a subset of columns 
+or reorder them. Suppose you never care about `vendor_id`, and being a string column,
 it can take up a lot of space when you read it in, so let's drop it:
 
 ```r
