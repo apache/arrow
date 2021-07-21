@@ -54,6 +54,12 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
+  /**
+   * Instantiate a ResultSet backed up by given VectorSchemaRoot.
+   *
+   * @param vectorSchemaRoot root from which the ResultSet will access.
+   * @return a ResultSet which accesses the given VectorSchemaRoot
+   */
   static ArrowFlightResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot) throws SQLException {
     // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
 
