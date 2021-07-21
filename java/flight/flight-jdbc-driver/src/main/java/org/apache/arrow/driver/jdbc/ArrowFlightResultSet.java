@@ -20,14 +20,13 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaResultSet;
@@ -127,89 +126,12 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
           builder.setColumnName(field.getName());
 
           builder.setType(Common.AvaticaType.newBuilder()
-              .setId(getSqlTypeIdFromArrowType(field.getType()))
+              .setId(SqlTypes.getSqlTypeIdFromArrowType(field.getType()))
               .setName(fieldTypeId.name())
               .build());
 
           return ColumnMetaData.fromProto(builder.build());
         }).collect(Collectors.toList());
-  }
-
-  /**
-   * Convert given {@link ArrowType} to its corresponding SQL type.
-   *
-   * @param arrowType type to convert from
-   * @return corresponding SQL type.
-   * @see java.sql.Types
-   */
-  public static int getSqlTypeIdFromArrowType(ArrowType arrowType) {
-    final ArrowType.ArrowTypeID typeID = arrowType.getTypeID();
-    switch (typeID) {
-      case Int:
-        final int bitWidth = ((ArrowType.Int) arrowType).getBitWidth();
-        switch (bitWidth) {
-          case 8:
-            return Types.TINYINT;
-          case 16:
-            return Types.SMALLINT;
-          case 32:
-            return Types.INTEGER;
-          case 64:
-            return Types.BIGINT;
-          default:
-            break;
-        }
-        break;
-      case Binary:
-        return Types.VARBINARY;
-      case FixedSizeBinary:
-        return Types.BINARY;
-      case LargeBinary:
-        return Types.LONGVARBINARY;
-      case Utf8:
-        return Types.VARCHAR;
-      case LargeUtf8:
-        return Types.LONGVARCHAR;
-      case Date:
-        return Types.DATE;
-      case Time:
-        return Types.TIME;
-      case Timestamp:
-        return Types.TIMESTAMP;
-      case Bool:
-        return Types.BOOLEAN;
-      case Decimal:
-        return Types.DECIMAL;
-      case FloatingPoint:
-        final FloatingPointPrecision floatingPointPrecision = ((ArrowType.FloatingPoint) arrowType).getPrecision();
-        switch (floatingPointPrecision) {
-          case DOUBLE:
-            return Types.DOUBLE;
-          case SINGLE:
-            return Types.FLOAT;
-          default:
-            break;
-        }
-        break;
-      case List:
-      case FixedSizeList:
-      case LargeList:
-        return Types.ARRAY;
-      case Struct:
-        return Types.STRUCT;
-      case Duration:
-      case Interval:
-      case Map:
-      case Union:
-        return Types.JAVA_OBJECT;
-      case NONE:
-      case Null:
-        return Types.NULL;
-      default:
-        break;
-    }
-
-    throw new IllegalArgumentException("Unsupported ArrowType " + arrowType);
   }
 
 }
