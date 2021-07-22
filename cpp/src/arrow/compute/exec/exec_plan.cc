@@ -545,20 +545,23 @@ class InputCounter {
   bool Increment() {
     DCHECK_NE(count_.load(), total_.load());
     int count = count_.fetch_add(1) + 1;
-    return IsComplete(count, total_.load());
+    if (count != total_.load()) return false;
+    return DoneOnce();
   }
 
   // return true if the counter is complete
   bool SetTotal(int total) {
     total_.store(total);
-    return IsComplete(count_.load(), total);
+    if (count_.load() != total) return false;
+    return DoneOnce();
   }
 
- private:
-  // ensure there is only one true return from Increment() or SetTotal()
-  bool IsComplete(int count, int total) {
-    if (count != total) return false;
+  // return true if the counter has not already been completed
+  bool Cancel() { return DoneOnce(); }
 
+ private:
+  // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+  bool DoneOnce() {
     bool expected = false;
     return complete_.compare_exchange_strong(expected, true);
   }
@@ -622,8 +625,12 @@ struct SinkNode : ExecNode {
 
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
+
     producer_.Push(std::move(error));
-    Finish();
+
+    if (input_counter_.Cancel()) {
+      Finish();
+    }
     inputs_[0]->StopProducing(this);
   }
 
@@ -731,8 +738,9 @@ struct ScalarAggregateNode : ExecNode {
 
     if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
 
-    if (!input_counter_.Increment()) return;
-    if (ErrorIfNotOk(MaybeFinish())) return;
+    if (input_counter_.Increment()) {
+      ErrorIfNotOk(Finish());
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -743,8 +751,9 @@ struct ScalarAggregateNode : ExecNode {
   void InputFinished(ExecNode* input, int num_total) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (!input_counter_.SetTotal(num_total)) return;
-    if (ErrorIfNotOk(MaybeFinish())) return;
+    if (input_counter_.SetTotal(num_total)) {
+      ErrorIfNotOk(Finish());
+    }
   }
 
   Status StartProducing() override {
@@ -764,21 +773,17 @@ struct ScalarAggregateNode : ExecNode {
   }
 
   void StopProducing() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (states_.empty()) return;
-    states_.clear();
-    lock.unlock();
-
+    if (input_counter_.Cancel()) {
+      finished_.MarkFinished();
+    }
     inputs_[0]->StopProducing(this);
-    finished_.MarkFinished();
   }
 
   Future<> finished() override { return finished_; }
 
  private:
-  Status MaybeFinish() {
+  Status Finish() {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (states_.empty()) return Status::OK();
 
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
@@ -789,7 +794,6 @@ struct ScalarAggregateNode : ExecNode {
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
-    states_.clear();
 
     lock.unlock();
 
@@ -898,7 +902,7 @@ struct GroupByNode : ExecNode {
 
   const char* kind_name() override { return "GroupByNode"; }
 
-  Status ProcessInputBatch(const ExecBatch& batch) {
+  Status Consume(ExecBatch batch) {
     ThreadLocalState* state = GetLocalState();
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
@@ -1041,11 +1045,11 @@ struct GroupByNode : ExecNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(ProcessInputBatch(batch))) return;
+    if (ErrorIfNotOk(Consume(std::move(batch)))) return;
 
-    if (!input_counter_.Increment()) return;
-
-    if (ErrorIfNotOk(OutputResult())) return;
+    if (input_counter_.Increment()) {
+      ErrorIfNotOk(OutputResult());
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -1057,9 +1061,9 @@ struct GroupByNode : ExecNode {
   void InputFinished(ExecNode* input, int num_total) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (!input_counter_.SetTotal(num_total)) return;
-
-    if (ErrorIfNotOk(OutputResult())) return;
+    if (input_counter_.SetTotal(num_total)) {
+      ErrorIfNotOk(OutputResult());
+    }
   }
 
   Status StartProducing() override {
@@ -1077,10 +1081,11 @@ struct GroupByNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    inputs_[0]->StopProducing(this);
 
-    // FIXME StopProducing must be idempotent, but we may call MarkFinished twice
-    finished_.MarkFinished();
+    if (input_counter_.Cancel()) {
+      finished_.MarkFinished();
+    }
+    inputs_[0]->StopProducing(this);
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
