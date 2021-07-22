@@ -218,13 +218,13 @@ public class FlightSqlClient {
   /**
    * Request to get info about keys on a table. The fkTable parameter must be specified.
    *
-   * @param fkCatalog The foreign key table catalog.
-   * @param fkSchema  The foreign key table schema.
-   * @param fkTable   The foreign key table.
+   * @param catalog The foreign key table catalog.
+   * @param schema  The foreign key table schema.
+   * @param table   The foreign key table.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getExportedKeys(String fkCatalog, String fkSchema, String fkTable) {
-    if (null == fkTable) {
+  public FlightInfo getExportedKeys(String catalog, String schema, String table) {
+    if (null == table) {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
 

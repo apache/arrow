@@ -283,13 +283,13 @@ message CommandGetPrimaryKeys {
  */
 message CommandGetExportedKeys{
   // Specifies the catalog to search for the foreign key table.
-  string fk_catalog = 1;
+  string catalog = 1;
 
   // Specifies the schema to search for the foreign key table.
-  string fk_schema = 2;
+  string schema = 2;
 
   // Specifies the foreign key table to get the foreign keys for.
-  string fk_table = 3;
+  string table = 3;
 }
 
 /*
