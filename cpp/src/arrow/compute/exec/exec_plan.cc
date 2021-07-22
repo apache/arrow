@@ -716,7 +716,9 @@ struct ScalarAggregateNode : ExecNode {
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      DCHECK_LT(thread_index, states_[i].size());
+      DCHECK_LT(thread_index, states_[i].size())
+          << "thread index " << thread_index << " is out of range [0, "
+          << states_[i].size() << ")";
 
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
@@ -969,7 +971,7 @@ struct GroupByNode : ExecNode {
     state->grouper.reset();
 
     if (output_counter_.SetTotal(
-            BitUtil::CeilDiv(out_data.length, output_batch_size()))) {
+            BitUtil::CeilDiv(static_cast<int>(out_data.length), output_batch_size()))) {
       // this will be hit if out_data.length == 0
       finished_.MarkFinished();
     }
@@ -1074,7 +1076,14 @@ struct GroupByNode : ExecNode {
     std::vector<std::unique_ptr<KernelState>> agg_states;
   };
 
-  ThreadLocalState* GetLocalState() { return &local_states_[get_thread_index_()]; }
+  ThreadLocalState* GetLocalState() {
+    size_t thread_index = get_thread_index_();
+    DCHECK_LT(thread_index, local_states_.size())
+        << "thread index " << thread_index << " is out of range [0, "
+        << local_states_.size() << ")";
+
+    return &local_states_[thread_index];
+  }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
