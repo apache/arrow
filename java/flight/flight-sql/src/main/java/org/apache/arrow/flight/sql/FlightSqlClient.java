@@ -36,7 +36,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -46,6 +45,17 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.StringValue;
 
 import io.grpc.Status;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 
 /**
  * Flight client with Flight SQL semantics.
@@ -64,7 +74,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo execute(String query) {
-    final FlightSql.CommandStatementQuery.Builder builder = FlightSql.CommandStatementQuery.newBuilder();
+    final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder();
     builder.setQuery(query);
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
@@ -77,7 +87,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public long executeUpdate(String query) {
-    final FlightSql.CommandStatementUpdate.Builder builder = FlightSql.CommandStatementUpdate.newBuilder();
+    final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder();
     builder.setQuery(query);
     return 0; // TODO
   }
@@ -88,7 +98,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getCatalogs() {
-    final FlightSql.CommandGetCatalogs.Builder builder = FlightSql.CommandGetCatalogs.newBuilder();
+    final CommandGetCatalogs.Builder builder = CommandGetCatalogs.newBuilder();
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
   }
@@ -101,7 +111,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getSchemas(final String catalog, final String schemaFilterPattern) {
-    final FlightSql.CommandGetSchemas.Builder builder = FlightSql.CommandGetSchemas.newBuilder();
+    final CommandGetSchemas.Builder builder = CommandGetSchemas.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
@@ -142,7 +152,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getSqlInfo(String... info) {
-    final FlightSql.CommandGetSqlInfo.Builder builder = FlightSql.CommandGetSqlInfo.newBuilder();
+    final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
 
     if (info != null && 0 != info.length) {
       builder.addAllInfo(Arrays.asList(info));
@@ -165,7 +175,7 @@ public class FlightSqlClient {
   public FlightInfo getTables(final @Nullable String catalog, final @Nullable String schemaFilterPattern,
                               final @Nullable String tableFilterPattern, final List<String> tableTypes,
                               final boolean includeSchema) {
-    final FlightSql.CommandGetTables.Builder builder = FlightSql.CommandGetTables.newBuilder();
+    final CommandGetTables.Builder builder = CommandGetTables.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
@@ -198,7 +208,7 @@ public class FlightSqlClient {
    */
   public FlightInfo getPrimaryKeys(final @Nullable String catalog, final @Nullable String schema,
                                    final @Nullable String table) {
-    final FlightSql.CommandGetPrimaryKeys.Builder builder = FlightSql.CommandGetPrimaryKeys.newBuilder();
+    final CommandGetPrimaryKeys.Builder builder = CommandGetPrimaryKeys.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
@@ -228,15 +238,7 @@ public class FlightSqlClient {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
 
-    final FlightSql.CommandGetForeignKeys.Builder builder = FlightSql.CommandGetForeignKeys.newBuilder();
-
-    if (pkCatalog != null) {
-      builder.setPkCatalog(StringValue.newBuilder().setValue(pkCatalog).build());
-    }
-
-    if (pkSchema != null) {
-      builder.setPkSchema(StringValue.newBuilder().setValue(pkSchema).build());
-    }
+    final CommandGetExportedKeys.Builder builder = CommandGetExportedKeys.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
@@ -246,11 +248,7 @@ public class FlightSqlClient {
       builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
-    if (fkSchema != null) {
-      builder.setFkSchema(StringValue.newBuilder().setValue(fkSchema).build());
-    }
-
-    builder.setFkTable(StringValue.newBuilder().setValue(fkTable).build());
+    builder.setTable(table).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
@@ -262,7 +260,7 @@ public class FlightSqlClient {
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getTableTypes() {
-    final FlightSql.CommandGetTableTypes.Builder builder = FlightSql.CommandGetTableTypes.newBuilder();
+    final CommandGetTableTypes.Builder builder = CommandGetTableTypes.newBuilder();
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
   }
@@ -299,7 +297,7 @@ public class FlightSqlClient {
 
       final Iterator<Result> preparedStatementResults = client.doAction(new Action(
           FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType(),
-          Any.pack(FlightSql.ActionCreatePreparedStatementRequest
+          Any.pack(ActionCreatePreparedStatementRequest
               .newBuilder()
               .setQuery(sql)
               .build())
@@ -375,7 +373,7 @@ public class FlightSqlClient {
       isClosed = true;
       final Iterator<Result> closePreparedStatementResults = client.doAction(new Action(
           FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType(),
-          Any.pack(FlightSql.ActionClosePreparedStatementRequest
+          Any.pack(ActionClosePreparedStatementRequest
               .newBuilder()
               .setPreparedStatementHandleBytes(preparedStatementResult.getPreparedStatementHandle())
               .build())
