@@ -84,17 +84,6 @@ std::vector<T> FilterVector(std::vector<T> values, Predicate&& predicate) {
   return values;
 }
 
-/// \brief Like MapVector, but where the function can fail.
-template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
-          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
-Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& src) {
-  std::vector<To> out;
-  out.reserve(src.size());
-  ARROW_RETURN_NOT_OK(MaybeTransform(src.begin(), src.end(), std::back_inserter(out),
-                                     std::forward<Fn>(map)));
-  return std::move(out);
-}
-
 template <typename Fn, typename From,
           typename To = decltype(std::declval<Fn>()(std::declval<From>()))>
 std::vector<To> MapVector(Fn&& map, const std::vector<From>& source) {
@@ -103,6 +92,39 @@ std::vector<To> MapVector(Fn&& map, const std::vector<From>& source) {
   std::transform(source.begin(), source.end(), std::back_inserter(out),
                  std::forward<Fn>(map));
   return out;
+}
+
+template <typename Fn, typename From,
+          typename To = decltype(std::declval<Fn>()(std::declval<From>()))>
+std::vector<To> MapVector(Fn&& map, std::vector<From>&& source) {
+  std::vector<To> out;
+  out.reserve(source.size());
+  std::transform(std::make_move_iterator(source.begin()),
+                 std::make_move_iterator(source.end()), std::back_inserter(out),
+                 std::forward<Fn>(map));
+  return out;
+}
+
+/// \brief Like MapVector, but where the function can fail.
+template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
+          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& source) {
+  std::vector<To> out;
+  out.reserve(source.size());
+  ARROW_RETURN_NOT_OK(MaybeTransform(source.begin(), source.end(),
+                                     std::back_inserter(out), std::forward<Fn>(map)));
+  return std::move(out);
+}
+
+template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
+          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+Result<std::vector<To>> MaybeMapVector(Fn&& map, std::vector<From>&& source) {
+  std::vector<To> out;
+  out.reserve(source.size());
+  ARROW_RETURN_NOT_OK(MaybeTransform(std::make_move_iterator(source.begin()),
+                                     std::make_move_iterator(source.end()),
+                                     std::back_inserter(out), std::forward<Fn>(map)));
+  return std::move(out);
 }
 
 template <typename T>

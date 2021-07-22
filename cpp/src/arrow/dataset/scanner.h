@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
@@ -194,20 +195,22 @@ using EnumeratedRecordBatchIterator = Iterator<EnumeratedRecordBatch>;
 template <>
 struct IterationTraits<dataset::TaggedRecordBatch> {
   static dataset::TaggedRecordBatch End() {
-    return dataset::TaggedRecordBatch{NULL, NULL};
+    return dataset::TaggedRecordBatch{NULLPTR, NULLPTR};
   }
   static bool IsEnd(const dataset::TaggedRecordBatch& val) {
-    return val.record_batch == NULL;
+    return val.record_batch == NULLPTR;
   }
 };
 
 template <>
 struct IterationTraits<dataset::EnumeratedRecordBatch> {
   static dataset::EnumeratedRecordBatch End() {
-    return dataset::EnumeratedRecordBatch{{NULL, -1, false}, {NULL, -1, false}};
+    return dataset::EnumeratedRecordBatch{
+        IterationEnd<Enumerated<std::shared_ptr<RecordBatch>>>(),
+        IterationEnd<Enumerated<std::shared_ptr<dataset::Fragment>>>()};
   }
   static bool IsEnd(const dataset::EnumeratedRecordBatch& val) {
-    return val.fragment.value == NULL;
+    return IsIterationEnd(val.fragment);
   }
 };
 
@@ -401,9 +404,29 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<ScanOptions> scan_options_;
+  std::shared_ptr<ScanOptions> scan_options_ = std::make_shared<ScanOptions>();
 };
+
+/// \brief Construct a source ExecNode which yields batches from a dataset scan.
+///
+/// Does not construct associated filter or project nodes.
+/// Yielded batches will be augmented with fragment/batch indices to enable stable
+/// ordering for simple ExecPlans.
+ARROW_DS_EXPORT Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*,
+                                                        std::shared_ptr<Dataset>,
+                                                        std::shared_ptr<ScanOptions>);
+
+/// \brief Construct a ProjectNode which preserves fragment/batch indices.
+ARROW_DS_EXPORT Result<compute::ExecNode*> MakeAugmentedProjectNode(
+    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
+    std::vector<std::string> names = {});
+
+/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+///
+/// Emitted batches will be ordered by fragment and batch indices, or an error
+/// will be raised if those fields are not available in the input.
+ARROW_DS_EXPORT Result<AsyncGenerator<util::optional<compute::ExecBatch>>>
+MakeOrderedSinkNode(compute::ExecNode*, std::string label);
 
 /// @}
 
@@ -421,10 +444,6 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
-
-ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches,
-    std::shared_ptr<ScanOptions> options);
 
 }  // namespace dataset
 }  // namespace arrow

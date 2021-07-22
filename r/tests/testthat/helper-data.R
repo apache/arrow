@@ -152,7 +152,7 @@ example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
   dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
   chr = c("", "", "\"", "&", "ABC", "NULL", "a", "abc", "zzz", NA_character_),
-  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA), # bool is not supported (ARROW-12016)
+  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA),
   dttm = lubridate::ymd_hms(c(
     "0000-01-01 00:00:00",
     "1919-05-29 13:08:55",

@@ -58,7 +58,9 @@ RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
 
 # Patch ports files as needed
-COPY ci/vcpkg arrow/ci/vcpkg
+COPY ci/vcpkg/*.patch \
+     ci/vcpkg/*linux*.cmake \
+     arrow/ci/vcpkg/
 RUN cd /opt/vcpkg && git apply --ignore-whitespace /arrow/ci/vcpkg/ports.patch
 
 ARG build_type=release

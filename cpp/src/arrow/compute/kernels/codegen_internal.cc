@@ -185,7 +185,9 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
 // work above
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return descrs[0];
+  ValueDescr result = descrs.front();
+  result.shape = GetBroadcastShape(descrs);
+  return result;
 }
 
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
@@ -218,9 +220,14 @@ void ReplaceTypes(const std::shared_ptr<DataType>& type,
 }
 
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
-  DCHECK(!descrs.empty()) << "tried to find CommonNumeric type of an empty set";
+  return CommonNumeric(descrs.data(), descrs.size());
+}
 
-  for (const auto& descr : descrs) {
+std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
+  DCHECK_GT(count, 0) << "tried to find CommonNumeric type of an empty set";
+
+  for (size_t i = 0; i < count; i++) {
+    const auto& descr = *(begin + i);
     auto id = descr.type->id();
     if (!is_floating(id) && !is_integer(id)) {
       // a common numeric type is only possible if all types are numeric
@@ -232,19 +239,22 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
     }
   }
 
-  for (const auto& descr : descrs) {
+  for (size_t i = 0; i < count; i++) {
+    const auto& descr = *(begin + i);
     if (descr.type->id() == Type::DOUBLE) return float64();
   }
 
-  for (const auto& descr : descrs) {
+  for (size_t i = 0; i < count; i++) {
+    const auto& descr = *(begin + i);
     if (descr.type->id() == Type::FLOAT) return float32();
   }
 
   int max_width_signed = 0, max_width_unsigned = 0;
 
-  for (const auto& descr : descrs) {
+  for (size_t i = 0; i < count; i++) {
+    const auto& descr = *(begin + i);
     auto id = descr.type->id();
-    auto max_width = is_signed_integer(id) ? &max_width_signed : &max_width_unsigned;
+    auto max_width = &(is_signed_integer(id) ? max_width_signed : max_width_unsigned);
     *max_width = std::max(bit_width(id), *max_width);
   }
 
@@ -253,7 +263,7 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
     if (max_width_unsigned == 32) return uint32();
     if (max_width_unsigned == 16) return uint16();
     DCHECK_EQ(max_width_unsigned, 8);
-    return int8();
+    return uint8();
   }
 
   if (max_width_signed <= max_width_unsigned) {

@@ -19,8 +19,14 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/matchers.h"
+#include "arrow/util/enum.h"
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
+
+using testing::ElementsAre;
+using testing::Eq;
+using testing::HasSubstr;
 
 namespace arrow {
 namespace internal {
@@ -191,6 +197,101 @@ TEST(Reflection, FromStringToDataMembers) {
   EXPECT_EQ(PersonFromString("Person{age:19,moniker:Genos}"), util::nullopt);
 
   EXPECT_EQ(PersonFromString("Person{age: 19, name: Genos}"), util::nullopt);
+}
+
+enum class PersonType : int8_t {
+  EMPLOYEE,
+  CONTRACTOR,
+};
+
+template <>
+struct EnumTraits<PersonType>
+    : BasicEnumTraits<PersonType, PersonType::EMPLOYEE, PersonType::CONTRACTOR> {
+  static std::string name() { return "PersonType"; }
+  static std::string value_name(PersonType value) {
+    switch (value) {
+      case PersonType::EMPLOYEE:
+        return "EMPLOYEE";
+      case PersonType::CONTRACTOR:
+        return "CONTRACTOR";
+    }
+    return "<INVALID>";
+  }
+};
+
+TEST(Reflection, EnumTraits) {
+  static_assert(!has_enum_traits<Person>::value, "");
+  static_assert(has_enum_traits<PersonType>::value, "");
+  static_assert(std::is_same<EnumTraits<PersonType>::CType, int8_t>::value, "");
+  static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
+}
+
+TEST(Reflection, CompileTimeStringOps) {
+  static_assert(CaseInsensitiveEquals("a", "a"), "");
+  static_assert(CaseInsensitiveEquals("Ab", "ab"), "");
+  static_assert(CaseInsensitiveEquals("Ab ", "ab", 2), "");
+  static_assert(CaseInsensitiveEquals(util::string_view{"Ab ", 2}, "ab"), "");
+}
+
+/// \brief Enumeration of primary colors.
+///
+/// - red:   Hex value 0xff0000
+/// - green: Hex value 0x00ff00
+/// - blue:  Hex value 0x0000ff
+struct Color : EnumType<Color> {
+  using EnumType<Color>::EnumType;
+  static constexpr EnumStrings<3> values() { return {"red", "green", "blue"}; }
+  static constexpr const char* name() { return "Color"; }
+};
+
+TEST(Reflection, EnumType) {
+  static_assert(Color::size() == 3, "");
+  EXPECT_THAT(Color::values(),
+              ElementsAre(util::string_view{"red"}, util::string_view{"green"},
+                          util::string_view{"blue"}));
+
+  static_assert(Color("red").index == 0, "");
+  static_assert(*Color("GREEN") == 1, "");
+  static_assert(Color("Blue") == Color(2), "");
+
+  EXPECT_EQ(Color("red").ToString(), "red");
+  EXPECT_EQ(Color("GREEN").ToString(), "green");
+  EXPECT_EQ(Color("Blue").ToString(), "blue");
+
+  static_assert(Color("GREEN") == Color("Green"), "");
+  static_assert(Color("GREEN") == Color(1), "");
+  static_assert(Color("GREEN") != Color(), "");
+
+  static_assert(!Color("chartreuse"), "");
+  static_assert(Color("violet") == Color(), "");
+  static_assert(Color(-1) == Color(), "");
+  static_assert(Color(-29) == Color(), "");
+  static_assert(Color(12334) == Color(), "");
+
+  for (util::string_view repr : {"Red", "orange", "BLUE"}) {
+    switch (*Color(repr)) {
+      case* Color("blue"):
+        EXPECT_EQ(repr, "BLUE");
+        break;
+      case* Color("red"):
+        EXPECT_EQ(repr, "Red");
+        break;
+      default:
+        EXPECT_EQ(repr, "orange");
+        break;
+    }
+  }
+
+  EXPECT_THAT(Color::Make(0), ResultWith(Eq(Color(0))));
+  EXPECT_THAT(Color::Make(-33), Raises(StatusCode::Invalid,
+                                       HasSubstr("index -33 for enum Color- index should "
+                                                 "be in range [0, 3)")));
+
+  EXPECT_THAT(Color::Make("red"), ResultWith(Eq(Color("red"))));
+  EXPECT_THAT(Color::Make("mahogany"),
+              Raises(StatusCode::Invalid,
+                     HasSubstr("string 'mahogany' for enum Color- string should "
+                               "be one of {'red', 'green', 'blue'}")));
 }
 
 }  // namespace internal

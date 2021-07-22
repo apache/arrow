@@ -36,6 +36,8 @@ try:
 except ImportError:
     pd = tm = None
 
+pytestmark = pytest.mark.parquet
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset

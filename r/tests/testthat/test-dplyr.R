@@ -67,7 +67,7 @@ chr: string
 See $.data for the source Arrow object',
   fixed = TRUE
   )
-  
+
 })
 
 test_that("summarize", {
@@ -361,6 +361,14 @@ test_that("relocate with selection helpers", {
     input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
     df
   )
+  # works after other dplyr verbs
+  expect_dplyr_equal(
+    input %>%
+      mutate(c = as.character(c)) %>%
+      relocate(d, e, f, .after = where(is.numeric)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("explicit type conversions with cast()", {
@@ -516,11 +524,22 @@ test_that("is.finite(), is.infinite(), is.nan()", {
       ) %>% collect(),
     df
   )
-  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  # is.nan() evaluates to FALSE on NA_real_ (ARROW-12850)
   expect_dplyr_equal(
     input %>%
       transmute(
         is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
+test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
+  df <- tibble(x = c(1.1, 2.2, NA_real_, 4.4, NaN, 6.6, 7.7))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_na = is.na(x)
       ) %>% collect(),
     df
   )
@@ -800,6 +819,58 @@ test_that("type checks with is_*()", {
   )
 })
 
+test_that("type checks on expressions", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.character(as.character(int)),
+        b = is.integer(as.character(int)),
+        c = is.integer(int + int),
+        d = is.double(int + dbl),
+        e = is.logical(dbl > pi)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # the code in the expectation below depends on RE2
+  skip_if_not_available("re2")
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.logical(grepl("[def]", chr))
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("type checks on R scalar literals", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character("foo"),
+        int_is_chr = is.character(42L),
+        int_is_int = is.integer(42L),
+        chr_is_int = is.integer("foo"),
+        dbl_is_num = is.numeric(3.14159),
+        int_is_num = is.numeric(42L),
+        chr_is_num = is.numeric("foo"),
+        dbl_is_dbl = is.double(3.14159),
+        chr_is_dbl = is.double("foo"),
+        lgl_is_lgl = is.logical(TRUE),
+        chr_is_lgl = is.logical("foo"),
+        fct_is_fct = is.factor(factor("foo", levels = c("foo", "bar", "baz"))),
+        chr_is_fct = is.factor("foo"),
+        lst_is_lst = is.list(list(c(a = "foo", b = "bar"))),
+        chr_is_lst = is.list("foo")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
@@ -904,9 +975,515 @@ test_that("abs()", {
 
   expect_dplyr_equal(
     input %>%
-      transmute(
-        abs = abs(x)
-      ) %>% collect(),
+      transmute(abs = abs(x)) %>%
+      collect(),
     df
+  )
+})
+
+test_that("sign()", {
+  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(sign = sign(x)) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("ceiling(), floor(), trunc()", {
+  df <- tibble(x = c(-1, -0.55, -0.5, -0.1, 0, 0.1, 0.5, 0.55, 1, NA, NaN))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        c = ceiling(x),
+        f = floor(x),
+        t = trunc(x)
+      ) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("log functions", {
+
+  df <- tibble(x = c(1:10, NA, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = exp(1))) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = 2)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log(x, base = 10)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$log(Expression$scalar(x), base = 5),
+    "`base` values other than exp(1), 2 and 10 not supported in Arrow",
+    fixed = TRUE
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = logb(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log1p(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log2(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = log10(x)) %>%
+      collect(),
+    df
+  )
+
+})
+
+test_that("trig functions", {
+
+  df <- tibble(x = c(seq(from = 0, to = 1, by = 0.1), NA))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = sin(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = cos(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = tan(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = asin(x)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = acos(x)) %>%
+      collect(),
+    df
+  )
+
+})
+
+test_that("if_else and ifelse", {
+  tbl <- example_data
+  tbl$another_chr <- tail(letters, 10)
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, 1, 0)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, int, 0L)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_error(
+    Table$create(tbl) %>%
+      mutate(
+        y = if_else(int > 5, 1, FALSE)
+      ) %>% collect(),
+    'NotImplemented: Function if_else has no kernel matching input types'
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, 1, NA_real_)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = ifelse(int > 5, 1, 0)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(dbl > 5, TRUE, FALSE)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(chr %in% letters[1:3], 1L, 3L)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, "one", "zero")
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, chr, another_chr)
+      ) %>% collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, "true", chr, missing = "MISSING")
+      ) %>% collect(),
+    tbl
+  )
+
+  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
+  # supports factors in if(_)else
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(int > 5, fct, factor("a"))
+      ) %>% collect() %>%
+      # This is a no-op on the Arrow side, but necessary to make the results equal
+      mutate(y = as.character(y)),
+    tbl,
+    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
+  )
+
+  # detecting NA and NaN works just fine
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(is.na(dbl), chr, "false", missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
+  )
+
+  # However, currently comparisons with NaNs return false and not NaNs or NAs
+  skip("ARROW-13364")
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        y = if_else(dbl > 5, chr, another_chr, missing = "MISSING")
+      ) %>% collect(),
+    example_data_for_sorting
+  )
+
+  skip("TODO: could? should? we support the autocasting in ifelse")
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = ifelse(int > 5, 1, FALSE)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("case_when()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ dbl, !false ~ dbl + dbl2)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(cw = case_when(int > 5 ~ 1, TRUE ~ 0)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      filter(case_when(
+        dbl + int - 1.1 == dbl2 ~ TRUE,
+        NA ~ NA,
+        TRUE ~ FALSE
+      ) & !is.na(dbl2)) %>%
+      collect(),
+    tbl
+  )
+
+  # dplyr::case_when() errors if values on right side of formulas do not have
+  # exactly the same type, but the Arrow case_when kernel allows compatible types
+  expect_equal(
+    tbl %>%
+      mutate(i64 = as.integer64(1e10)) %>%
+      Table$create() %>%
+      transmute(cw = case_when(
+        is.na(fct) ~ int,
+        is.na(chr) ~ dbl,
+        TRUE ~ i64
+      )) %>%
+      collect(),
+    tbl %>%
+      transmute(
+        cw = ifelse(is.na(fct), int, ifelse(is.na(chr), dbl, 1e10))
+      )
+  )
+
+  # expected errors (which are caught by abandon_ship() and changed to warnings)
+  # TODO: Find a way to test these directly without abandon_ship() interfering
+  expect_error(
+    # no cases
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when()),
+      "case_when"
+    )
+  )
+  expect_error(
+    # argument not a formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(TRUE ~ FALSE, TRUE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical R scalar on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(0L ~ FALSE, TRUE ~ FALSE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical Arrow column reference on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(int ~ FALSE)),
+      "case_when"
+    )
+  )
+  expect_error(
+    # non-logical Arrow expression on left side of formula
+    expect_warning(
+      tbl %>%
+        Table$create() %>%
+        transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
+      "case_when"
+    )
+  )
+
+  skip("case_when does not yet support with variable-width types (ARROW-13222)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ "abc")) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(cw = case_when(lgl ~ verses, !false ~ paste(chr, chr))) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = paste0(case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct), "!")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("coalesce()", {
+  # character
+  df <- tibble(
+    w = c(NA_character_, NA_character_, NA_character_),
+    x = c(NA_character_, NA_character_, "c"),
+    y = c(NA_character_, "b", "c"),
+    z = c("a", "b", "c")
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # integer
+  df <- tibble(
+    w = c(NA_integer_, NA_integer_, NA_integer_),
+    x = c(NA_integer_, NA_integer_, 3L),
+    y = c(NA_integer_, 2L, 3L),
+    z = 1:3
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # double with NaNs
+  df <- tibble(
+    w = c(NA_real_, NaN, NA_real_),
+    x = c(NA_real_, NaN, 3.3),
+    y = c(NA_real_, 2.2, 3.3),
+    z = c(1.1, 2.2, 3.3)
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        cw = coalesce(w),
+        cz = coalesce(z),
+        cwx = coalesce(w, x),
+        cwxy = coalesce(w, x, y),
+        cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+  # NaNs stay NaN and are not converted to NA in the results
+  # (testing this requires expect_identical())
+  expect_identical(
+    df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect(),
+    df %>% mutate(cwx = coalesce(w, x))
+  )
+  expect_identical(
+    df %>% Table$create() %>% transmute(cw = coalesce(w)) %>% collect(),
+    df %>% transmute(cw = coalesce(w))
+  )
+  expect_identical(
+    df %>% Table$create() %>% transmute(cn = coalesce(NaN)) %>% collect(),
+    df %>% transmute(cn = coalesce(NaN))
+  )
+  # singles stay single
+  expect_equal(
+    (df %>%
+      Table$create(schema = schema(
+        w = float32(),
+        x = float32(),
+        y = float32(),
+        z = float32()
+      )) %>%
+      transmute(c = coalesce(w, x, y, z)) %>%
+      compute()
+    )$schema[[1]]$type,
+    float32()
+  )
+  # with R literal values
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        c1 = coalesce(4.4),
+        c2 = coalesce(NA_real_),
+        c3 = coalesce(NaN),
+        c4 = coalesce(w, x, y, 5.5),
+        c5 = coalesce(w, x, y, NA_real_),
+        c6 = coalesce(w, x, y, NaN)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # factors
+  # TODO: remove the mutate + warning after ARROW-13390 is merged and Arrow
+  # supports factors in coalesce
+  df <- tibble(
+    x = factor("a", levels = c("a", "z")),
+    y = factor("b", levels = c("a", "b", "c"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(c = coalesce(x, y)) %>%
+      collect() %>%
+      # This is a no-op on the Arrow side, but necessary to make the results equal
+      mutate(c = as.character(c)),
+    df,
+    warning = "Dictionaries .* are currently converted to strings .* in coalesce"
+  )
+
+  # no arguments
+  expect_error(
+    nse_funcs$coalesce(),
+    "At least one argument must be supplied to coalesce()",
+    fixed = TRUE
   )
 })

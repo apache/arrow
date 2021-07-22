@@ -555,7 +555,7 @@ struct ValidateArrayFullImpl {
       const ArrayData& field = *data.child_data[i];
       const Status field_valid = ValidateArrayFull(field);
       if (!field_valid.ok()) {
-        return Status::Invalid("Struct child array #", i,
+        return Status::Invalid("Union child array #", i,
                                " invalid: ", field_valid.ToString());
       }
     }

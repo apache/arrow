@@ -53,7 +53,9 @@ string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSI
 
 # if no build build type is specified, default to release builds
 if(NOT DEFINED CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
+  set(CMAKE_BUILD_TYPE
+      Release
+      CACHE STRING "Choose the type of build.")
 endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
@@ -117,18 +119,15 @@ set(ARROW_LLVM_VERSIONS
     "8"
     "7")
 list(GET ARROW_LLVM_VERSIONS 0 ARROW_LLVM_VERSION_PRIMARY)
-string(REGEX
-       REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_PRIMARY_MAJOR
-               "${ARROW_LLVM_VERSION_PRIMARY}")
+string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_PRIMARY_MAJOR
+                     "${ARROW_LLVM_VERSION_PRIMARY}")
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/../.env ARROW_ENV)
 string(REGEX MATCH "CLANG_TOOLS=[^\n]+" ARROW_ENV_CLANG_TOOLS_VERSION "${ARROW_ENV}")
-string(REGEX
-       REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
-               "${ARROW_ENV_CLANG_TOOLS_VERSION}")
-string(REGEX
-       REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
-               "${ARROW_CLANG_TOOLS_VERSION}")
+string(REGEX REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
+                     "${ARROW_ENV_CLANG_TOOLS_VERSION}")
+string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
+                     "${ARROW_CLANG_TOOLS_VERSION}")
 
 if(APPLE)
   find_program(BREW_BIN brew)
@@ -163,7 +162,9 @@ endif()
 
 find_package(ClangTools)
 find_package(InferTools)
-if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND OR INFER_FOUND)
+if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
+   OR CLANG_TIDY_FOUND
+   OR INFER_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
   # with various development tools, such as Vim's YouCompleteMe plugin.
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
@@ -226,7 +227,9 @@ if(NOT LINT_EXCLUSIONS_FILE)
   set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
 endif()
 
-find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+find_program(CPPLINT_BIN
+             NAMES cpplint cpplint.py
+             HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
 add_custom_target(lint
@@ -271,7 +274,7 @@ if(${CLANG_FORMAT_FOUND})
 endif()
 
 add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+                               ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 if(ARROW_LINT_ONLY)
   message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
@@ -469,10 +472,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln
-                          ${MORE_ARGS}
-                          -sf
-                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
                           ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
@@ -506,6 +506,11 @@ endif()
 
 include(BuildUtils)
 enable_testing()
+
+# For arrow.pc. Requires.private and Libs.private are used when
+# "pkg-config --libs --static arrow" is used.
+set(ARROW_PC_REQUIRES_PRIVATE)
+set(ARROW_PC_LIBS_PRIVATE)
 
 include(ThirdpartyToolchain)
 
@@ -550,12 +555,9 @@ include_directories(src/generated)
 #
 if(PARQUET_BUILD_SHARED)
   set_target_properties(arrow_shared
-                        PROPERTIES C_VISIBILITY_PRESET
-                                   hidden
-                                   CXX_VISIBILITY_PRESET
-                                   hidden
-                                   VISIBILITY_INLINES_HIDDEN
-                                   1)
+                        PROPERTIES C_VISIBILITY_PRESET hidden
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN 1)
 endif()
 
 #
@@ -599,7 +601,9 @@ endif(UNIX)
 # "make cscope" target
 #
 if(UNIX)
-  add_custom_target(cscope find ${CMAKE_CURRENT_SOURCE_DIR}
+  add_custom_target(cscope
+                    find
+                    ${CMAKE_CURRENT_SOURCE_DIR}
                     (-name
                      \\*.cc
                      -or
@@ -636,23 +640,14 @@ endif(UNIX)
 
 if(${INFER_FOUND})
   # runs infer capture
-  add_custom_target(infer
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    1)
+  add_custom_target(infer ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                          ${CMAKE_BINARY_DIR}/compile_commands.json 1)
   # runs infer analyze
-  add_custom_target(infer-analyze
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    2)
+  add_custom_target(infer-analyze ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                                  ${CMAKE_BINARY_DIR}/compile_commands.json 2)
   # runs infer report
-  add_custom_target(infer-report
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    3)
+  add_custom_target(infer-report ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                                 ${CMAKE_BINARY_DIR}/compile_commands.json 3)
 endif()
 
 #
@@ -721,7 +716,7 @@ if(ARROW_ORC)
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
-                ${ARROW_PROTOBUF_LIBPROTOBUF})
+         ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
 endif()
 
@@ -865,8 +860,9 @@ endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
 
-if(THREADS_FOUND)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+if(CMAKE_THREAD_LIBS_INIT)
+  string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
 if(WIN32)
@@ -916,8 +912,7 @@ endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
-              ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-        DESTINATION "${ARROW_DOC_DIR}")
+              ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION "${ARROW_DOC_DIR}")
 
 #
 # Validate and print out Arrow configuration options

@@ -60,7 +60,7 @@ classdef tfeathermex < matlab.unittest.TestCase
             invalidVariable = mlarrow.util.createVariableStruct('double', 1, true, '@');
             validVariable = mlarrow.util.createVariableStruct('double', 1, true, 'Valid');
             variables = [invalidVariable, validVariable];
-            metadata = mlarrow.util.createMetadataStruct('', 1, 2);
+            metadata = mlarrow.util.createMetadataStruct(1, 2);
             featherwritemex(filename, variables, metadata);
             t = featherread(filename);
             

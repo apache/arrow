@@ -165,13 +165,8 @@ Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_e
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}
 
-Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
-    std::shared_ptr<ScanOptions> options) {
-  return std::make_shared<ScannerBuilder>(this->shared_from_this(), options);
-}
-
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
-  return NewScan(std::make_shared<ScanOptions>());
+  return std::make_shared<ScannerBuilder>(this->shared_from_this());
 }
 
 Result<FragmentIterator> Dataset::GetFragments() {

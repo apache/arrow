@@ -55,6 +55,9 @@ def version(request):
 
 @pytest.fixture(scope="module", params=[None, "uncompressed", "lz4", "zstd"])
 def compression(request):
+    if request.param in ['lz4', 'zstd'] and not pa.Codec.is_available(
+            request.param):
+        pytest.skip(f'{request.param} is not available')
     yield request.param
 
 
@@ -599,6 +602,9 @@ def test_v2_set_chunksize():
 
 
 @pytest.mark.pandas
+@pytest.mark.lz4
+@pytest.mark.snappy
+@pytest.mark.zstd
 def test_v2_compression_options():
     df = pd.DataFrame({'A': np.arange(1000)})
 
@@ -776,6 +782,7 @@ def test_roundtrip(table, compression):
     _check_arrow_roundtrip(table, compression=compression)
 
 
+@pytest.mark.lz4
 def test_feather_v017_experimental_compression_backward_compatibility(datadir):
     # ARROW-11163 - ensure newer pyarrow versions can read the old feather
     # files from version 0.17.0 with experimental compression support (before

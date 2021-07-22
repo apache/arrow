@@ -67,10 +67,12 @@ popd
 
 echo
 echo "=="
+echo "== CMake:"
 echo "== Building example project using Arrow C++ library"
 echo "=="
 echo
 
+rm -rf $EXAMPLE_BUILD_DIR
 mkdir -p $EXAMPLE_BUILD_DIR
 pushd $EXAMPLE_BUILD_DIR
 
@@ -81,10 +83,39 @@ popd
 
 echo
 echo "=="
+echo "== CMake:"
 echo "== Running example project"
 echo "=="
 echo
 
 pushd $EXAMPLE_DIR
 
-${EXAMPLE_BUILD_DIR}/arrow_example
+$EXAMPLE_BUILD_DIR/arrow_example
+
+echo
+echo "=="
+echo "== pkg-config"
+echo "== Building example project using Arrow C++ library"
+echo "=="
+echo
+
+rm -rf $EXAMPLE_BUILD_DIR
+mkdir -p $EXAMPLE_BUILD_DIR
+${CXX:-c++} \
+  -o $EXAMPLE_BUILD_DIR/arrow_example \
+  $EXAMPLE_DIR/example.cc \
+  $(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \
+     pkg-config --cflags --libs --static arrow)
+
+popd
+
+echo
+echo "=="
+echo "== pkg-config:"
+echo "== Running example project"
+echo "=="
+echo
+
+pushd $EXAMPLE_DIR
+
+$EXAMPLE_BUILD_DIR/arrow_example

@@ -41,7 +41,7 @@
 namespace arrow {
 namespace compute {
 
-struct FunctionOptions;
+class FunctionOptions;
 
 /// \brief Base class for opaque kernel-specific state. For example, if there
 /// is some kind of initialization required.
@@ -366,8 +366,10 @@ class ARROW_EXPORT OutputType {
 
 /// \brief Holds the input types and output type of the kernel.
 ///
-/// VarArgs functions should pass a single input type to be used to validate
-/// the input types of a function invocation.
+/// VarArgs functions with minimum N arguments should pass up to N input types to be
+/// used to validate the input types of a function invocation. The first N-1 types
+/// will be matched against the first N-1 arguments, and the last type will be
+/// matched against the remaining arguments.
 class ARROW_EXPORT KernelSignature {
  public:
   KernelSignature(std::vector<InputType> in_types, OutputType out_type,
@@ -522,6 +524,10 @@ struct Kernel {
   /// set up any options or state relevant for execution.
   KernelInit init;
 
+  /// \brief Create a vector of new KernelState for invocations of this kernel.
+  static Status InitAll(KernelContext*, const KernelInitArgs&,
+                        std::vector<std::unique_ptr<KernelState>>*);
+
   /// \brief Indicates whether execution can benefit from parallelization
   /// (splitting large chunks into smaller chunks and using multiple
   /// threads). Some kernels may not support parallel execution at
@@ -672,6 +678,12 @@ struct ScalarAggregateKernel : public Kernel {
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
             std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+
+  /// \brief Merge a vector of KernelStates into a single KernelState.
+  /// The merged state will be returned and will be set on the KernelContext.
+  static Result<std::unique_ptr<KernelState>> MergeAll(
+      const ScalarAggregateKernel* kernel, KernelContext* ctx,
+      std::vector<std::unique_ptr<KernelState>> states);
 
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;

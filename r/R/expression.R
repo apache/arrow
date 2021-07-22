@@ -18,22 +18,70 @@
 #' @include arrowExports.R
 
 .unary_function_map <- list(
-  "!" = "invert",
-  "as.factor" = "dictionary_encode",
-  "is.na" = "is_null",
-  "is.nan" = "is_nan",
+  # NOTE: Each of the R functions mapped here takes exactly *one* argument, maps
+  # *directly* to an Arrow C++ compute kernel, and does not require any
+  # non-default options to be specified. More complex R function mappings are
+  # defined in dplyr-functions.R.
+
+  # functions are arranged alphabetically by name within categories
+
+  # arithmetic functions
   "abs" = "abs_checked",
+  "ceiling" = "ceil",
+  "floor" = "floor",
+  "log10" = "log10_checked",
+  "log1p" = "log1p_checked",
+  "log2" = "log2_checked",
+  "sign" = "sign",
+  # trunc is defined in dplyr-functions.R
+
+  # trigonometric functions
+  "acos" = "acos_checked",
+  "asin" = "asin_checked",
+  "cos" = "cos_checked",
+  "sin" = "sin_checked",
+  "tan" = "tan_checked",
+
+  # logical functions
+  "!" = "invert",
+
+  # string functions
   # nchar is defined in dplyr-functions.R
+  "str_length" = "utf8_length",
+  # str_pad is defined in dplyr-functions.R
+  # str_sub is defined in dplyr-functions.R
+  "str_to_lower" = "utf8_lower",
+  "str_to_upper" = "utf8_upper",
+  # str_trim is defined in dplyr-functions.R
+  "stri_reverse" = "utf8_reverse",
+  # substr is defined in dplyr-functions.R
+  # substring is defined in dplyr-functions.R
   "tolower" = "utf8_lower",
   "toupper" = "utf8_upper",
-  # stringr spellings of those
-  "str_length" = "utf8_length",
-  "str_to_lower" = "utf8_lower",
-  "str_to_upper" = "utf8_upper"
-  # str_trim is defined in dplyr.R
+
+  # date and time functions
+  "day" = "day",
+  "hour" = "hour",
+  "isoweek" = "iso_week",
+  "isoyear" = "iso_year",
+  "minute" = "minute",
+  "month" = "month",
+  "quarter" = "quarter",
+  # second is defined in dplyr-functions.R
+  # wday is defined in dplyr-functions.R
+  "yday" = "day_of_year",
+  "year" = "year",
+
+  # type conversion functions
+  "as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
+  # NOTE: Each of the R functions/operators mapped here takes exactly *two*
+  # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
+  # non-default options, but some are modified by build_expr(). More complex R
+  # function/operator mappings are defined in dplyr-functions.R.
+
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
@@ -76,6 +124,8 @@
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
+    # TODO: Implement type determination without storing
+    # schemas in Expression objects (ARROW-13186)
     schema = NULL,
     type = function(schema = self$schema) {
       assert_that(!is.null(schema))
@@ -104,14 +154,20 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  compute___expr__call(function_name, args, options)
+  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
+  expr <- compute___expr__call(function_name, args, options)
+  expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  expr
 }
+
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  compute___expr__scalar(Scalar$create(x))
+  expr <- compute___expr__scalar(Scalar$create(x))
+  expr$schema <- schema()
+  expr
 }
 
 # Wrapper around Expression$create that:
@@ -174,4 +230,12 @@ Ops.Expression <- function(e1, e2) {
 }
 
 #' @export
-is.na.Expression <- function(x) Expression$create("is_null", x)
+is.na.Expression <- function(x) {
+  if (!is.null(x$schema) && x$type_id() %in% TYPES_WITH_NAN) {
+    # TODO: if an option is added to the is_null kernel to treat NaN as NA,
+    # use that to simplify the code here (ARROW-13367)
+    Expression$create("is_nan", x) | build_expr("is_null", x)
+  } else {
+    Expression$create("is_null", x)
+  }
+}

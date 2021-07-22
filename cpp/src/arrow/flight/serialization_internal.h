@@ -54,15 +54,17 @@ struct FlightData {
 };
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
-/// True is returned on success, false if some error occurred (connection closed?).
-bool WritePayload(const FlightPayload& payload,
-                  grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
-bool WritePayload(const FlightPayload& payload,
-                  grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer);
-bool WritePayload(const FlightPayload& payload,
-                  grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer);
-bool WritePayload(const FlightPayload& payload,
-                  grpc::ServerWriter<pb::FlightData>* writer);
+// Returns Invalid if the payload is ill-formed
+// Returns IOError if gRPC did not write the message (note this is not
+// necessarily an error - the client may simply have gone away)
+Status WritePayload(const FlightPayload& payload,
+                    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
+Status WritePayload(const FlightPayload& payload,
+                    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer);
+Status WritePayload(const FlightPayload& payload,
+                    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer);
+Status WritePayload(const FlightPayload& payload,
+                    grpc::ServerWriter<pb::FlightData>* writer);
 
 /// Read Flight message from gRPC stream with zero-copy optimizations.
 /// True is returned on success, false if stream ended.

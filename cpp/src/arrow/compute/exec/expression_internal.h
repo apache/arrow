@@ -34,6 +34,10 @@ using internal::checked_cast;
 
 namespace compute {
 
+struct KnownFieldValues {
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+};
+
 inline const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
   DCHECK_NE(call, nullptr);
@@ -216,20 +220,10 @@ inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
 
-inline const compute::SetLookupOptions* GetSetLookupOptions(
+inline const compute::MakeStructOptions* GetMakeStructOptions(
     const Expression::Call& call) {
-  if (!IsSetLookup(call.function_name)) return nullptr;
-  return checked_cast<const compute::SetLookupOptions*>(call.options.get());
-}
-
-inline const compute::ProjectOptions* GetProjectOptions(const Expression::Call& call) {
-  if (call.function_name != "project") return nullptr;
-  return checked_cast<const compute::ProjectOptions*>(call.options.get());
-}
-
-inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {
-  if (call.function_name != "strptime") return nullptr;
-  return checked_cast<const compute::StrptimeOptions*>(call.options.get());
+  if (call.function_name != "make_struct") return nullptr;
+  return checked_cast<const compute::MakeStructOptions*>(call.options.get());
 }
 
 /// A helper for unboxing an Expression composed of associative function calls.

@@ -118,7 +118,6 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
     sort(input, decreasing = FALSE, na.last = TRUE),
     tbl$dbl
   )
-  skip("is.na() evaluates to FALSE on Arrow NaN values (ARROW-12055)")
   expect_vector_equal(
     sort(input, decreasing = TRUE, na.last = NA),
     tbl$dbl

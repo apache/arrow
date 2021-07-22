@@ -122,25 +122,6 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   EXPECT_EQ(batch, nullptr);
 }
 
-/// Test dataset that returns one or more fragments.
-class FragmentDataset : public Dataset {
- public:
-  FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
-      : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
-
-  std::string type_name() const override { return "fragment"; }
-
-  Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
-    return Status::NotImplemented("");
-  }
-
- protected:
-  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
-    return MakeVectorIterator(fragments_);
-  }
-  FragmentVector fragments_;
-};
-
 class DatasetFixtureMixin : public ::testing::Test {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
@@ -547,8 +528,8 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
 
   // Scan the fragment through the scanner.
   RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
-    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
-    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
+                                                     FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
@@ -563,7 +544,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     opts_->use_threads = GetParam().use_threads;
     if (GetParam().use_async) {
       EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
       return batch_it;
     }
     EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
@@ -761,12 +742,11 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
-
-    util::string_view view{*buffer};
-
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
-    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
+
+    RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
+    return std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches))
+        ->Scan(std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -910,13 +890,10 @@ struct ArithmeticDatasetFixture {
   static std::shared_ptr<Schema> schema() {
     return ::arrow::schema({
         field("i64", int64()),
-        // ARROW-1644: Parquet can't write complex level
-        // field("struct", struct_({
-        //                     // ARROW-2587: Parquet can't write struct with more
-        //                     // than one field.
-        //                     // field("i32", int32()),
-        //                     field("str", utf8()),
-        //                 })),
+        field("struct", struct_({
+                            field("i32", int32()),
+                            field("str", utf8()),
+                        })),
         field("u8", uint8()),
         field("list", list(int32())),
         field("bool", boolean()),
@@ -933,12 +910,12 @@ struct ArithmeticDatasetFixture {
 
     ss << "{";
     ss << "\"i64\": " << n << ", ";
-    // ss << "\"struct\": {";
-    // {
-    //   // ss << "\"i32\": " << n_i32 << ", ";
-    //   ss << "\"str\": \"" << std::to_string(n) << "\"";
-    // }
-    // ss << "}, ";
+    ss << "\"struct\": {";
+    {
+      ss << "\"i32\": " << n_i32 << ", ";
+      ss << R"("str": ")" << std::to_string(n) << "\"";
+    }
+    ss << "}, ";
     ss << "\"u8\": " << static_cast<int32_t>(n) << ", ";
     ss << "\"list\": [" << n_i32 << ", " << n_i32 << "], ";
     ss << "\"bool\": " << (static_cast<bool>(n % 2) ? "true" : "false");
@@ -1052,7 +1029,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
     scan_options_ = std::make_shared<ScanOptions>();
-    scan_options_->dataset_schema = source_schema_;
+    scan_options_->dataset_schema = dataset_->schema();
     ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
   }
 

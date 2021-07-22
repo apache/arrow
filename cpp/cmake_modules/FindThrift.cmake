@@ -33,9 +33,13 @@ function(EXTRACT_THRIFT_VERSION)
     string(REGEX MATCH "#define PACKAGE_VERSION \"[0-9.]+\"" THRIFT_VERSION_DEFINITION
                  "${THRIFT_CONFIG_H_CONTENT}")
     string(REGEX MATCH "[0-9.]+" THRIFT_VERSION "${THRIFT_VERSION_DEFINITION}")
-    set(THRIFT_VERSION "${THRIFT_VERSION}" PARENT_SCOPE)
+    set(THRIFT_VERSION
+        "${THRIFT_VERSION}"
+        PARENT_SCOPE)
   else()
-    set(THRIFT_VERSION "" PARENT_SCOPE)
+    set(THRIFT_VERSION
+        ""
+        PARENT_SCOPE)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
@@ -53,21 +57,19 @@ set(THRIFT_LIB_NAME_BASE "thrift${THRIFT_MSVC_LIB_SUFFIX}")
 if(ARROW_THRIFT_USE_SHARED)
   set(THRIFT_LIB_NAMES thrift)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(
-      APPEND
-        THRIFT_LIB_NAMES
-        "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-      )
-  endif()
-  list(
-    APPEND
-      THRIFT_LIB_NAMES
-      "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    list(APPEND
+         THRIFT_LIB_NAMES
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
+  endif()
+  list(APPEND
+       THRIFT_LIB_NAMES
+       "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
 else()
-  set(
-    THRIFT_LIB_NAMES
-    "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(THRIFT_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
 endif()
 
 if(Thrift_ROOT)
@@ -78,7 +80,9 @@ if(Thrift_ROOT)
   find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
             PATHS ${Thrift_ROOT}
             PATH_SUFFIXES "include")
-  find_program(THRIFT_COMPILER thrift PATHS ${Thrift_ROOT} PATH_SUFFIXES "bin")
+  find_program(THRIFT_COMPILER thrift
+               PATHS ${Thrift_ROOT}
+               PATH_SUFFIXES "bin")
   extract_thrift_version()
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
@@ -115,13 +119,11 @@ else()
   set(Thrift_COMPILER_FOUND FALSE)
 endif()
 
-find_package_handle_standard_args(Thrift
-                                  REQUIRED_VARS
-                                  THRIFT_LIB
-                                  THRIFT_INCLUDE_DIR
-                                  VERSION_VAR
-                                  THRIFT_VERSION
-                                  HANDLE_COMPONENTS)
+find_package_handle_standard_args(
+  Thrift
+  REQUIRED_VARS THRIFT_LIB THRIFT_INCLUDE_DIR
+  VERSION_VAR THRIFT_VERSION
+  HANDLE_COMPONENTS)
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)

@@ -21,13 +21,15 @@
 
 namespace gandiva {
 
-#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                              \
-  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}), \
-      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {}),    \
-      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {}),  \
-      DATE_TYPES(INNER, name##Week, {}), DATE_TYPES(INNER, name##Day, {}),       \
-      DATE_TYPES(INNER, name##Hour, {}), DATE_TYPES(INNER, name##Minute, {}),    \
-      DATE_TYPES(INNER, name##Second, {})
+#define DATE_EXTRACTION_TRUNCATION_FNS(INNER, name)                                    \
+  DATE_TYPES(INNER, name##Millennium, {}), DATE_TYPES(INNER, name##Century, {}),       \
+      DATE_TYPES(INNER, name##Decade, {}), DATE_TYPES(INNER, name##Year, {"year"}),    \
+      DATE_TYPES(INNER, name##Quarter, {}), DATE_TYPES(INNER, name##Month, {"month"}), \
+      DATE_TYPES(INNER, name##Week, ({"weekofyear", "yearweek"})),                     \
+      DATE_TYPES(INNER, name##Day, ({"day", "dayofmonth"})),                           \
+      DATE_TYPES(INNER, name##Hour, {"hour"}),                                         \
+      DATE_TYPES(INNER, name##Minute, {"minute"}),                                     \
+      DATE_TYPES(INNER, name##Second, {"second"})
 
 #define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
@@ -37,10 +39,10 @@ namespace gandiva {
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  time32(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
 
-#define TIME_EXTRACTION_FNS(name)                              \
-  TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {}),       \
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {}), \
-      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {})
+#define TIME_EXTRACTION_FNS(name)                                      \
+  TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {"hour"}),         \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {"minute"}), \
+      TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Second, {"second"})
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {

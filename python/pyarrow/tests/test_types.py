@@ -403,7 +403,7 @@ def test_timestamp():
             assert ty.tz == tz
 
     for invalid_unit in ('m', 'arbit', 'rary'):
-        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+        with pytest.raises(ValueError, match='Invalid time unit'):
             pa.timestamp(invalid_unit)
 
 
@@ -413,7 +413,7 @@ def test_time32_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 'us', 'ns'):
-        error_msg = 'Invalid TimeUnit for time32: {}'.format(invalid_unit)
+        error_msg = 'Invalid time unit for time32: {!r}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time32(invalid_unit)
 
@@ -424,7 +424,7 @@ def test_time64_units():
         assert ty.unit == valid_unit
 
     for invalid_unit in ('m', 's', 'ms'):
-        error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
+        error_msg = 'Invalid time unit for time64: {!r}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
 
@@ -435,7 +435,7 @@ def test_duration():
         assert ty.unit == unit
 
     for invalid_unit in ('m', 'arbit', 'rary'):
-        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+        with pytest.raises(ValueError, match='Invalid time unit'):
             pa.duration(invalid_unit)
 
 

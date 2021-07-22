@@ -489,5 +489,25 @@ TEST(UTF8FindIf, Basics) {
   CheckOkUTF8("", U'β', 0, 0);
 }
 
+TEST(UTF8Length, Basics) {
+  auto length = [](const std::string& s) {
+    const auto* p = reinterpret_cast<const uint8_t*>(s.data());
+    return UTF8Length(p, p + s.length());
+  };
+  ASSERT_EQ(length("abcde"), 5);
+  // accented a encoded as a single codepoint
+  ASSERT_EQ(length("\xc3\x81"
+                   "bcde"),
+            5);
+  // accented a encoded as two codepoints via combining character
+  ASSERT_EQ(length("a\xcc\x81"
+                   "bcde"),
+            6);
+  // hiragana a (3 bytes)
+  ASSERT_EQ(length("\xe3\x81\x81"), 1);
+  // raised hands emoji (4 bytes)
+  ASSERT_EQ(length("\xf0\x9f\x99\x8c"), 1);
+}
+
 }  // namespace util
 }  // namespace arrow

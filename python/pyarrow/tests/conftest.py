@@ -24,6 +24,7 @@ import pytest
 import hypothesis as h
 
 from pyarrow.util import find_free_port
+from pyarrow import Codec
 
 
 # setup hypothesis profiles
@@ -44,13 +45,17 @@ os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
 groups = [
+    'brotli',
+    'bz2',
     'cython',
     'dataset',
     'hypothesis',
     'fastparquet',
     'gandiva',
+    'gzip',
     'hdfs',
     'large_memory',
+    'lz4',
     'memory_leak',
     'nopandas',
     'orc',
@@ -58,20 +63,26 @@ groups = [
     'parquet',
     'plasma',
     's3',
+    'snappy',
     'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
+    'zstd',
 ]
 
 defaults = {
+    'brotli': Codec.is_available('brotli'),
+    'bz2': Codec.is_available('bz2'),
     'cython': False,
     'dataset': False,
     'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
+    'gzip': Codec.is_available('gzip'),
     'hdfs': False,
     'large_memory': False,
+    'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'orc': False,
     'nopandas': False,
@@ -79,10 +90,12 @@ defaults = {
     'parquet': False,
     'plasma': False,
     's3': False,
+    'snappy': Codec.is_available('snappy'),
     'tensorflow': False,
     'flight': False,
     'slow': False,
     'requires_testing_data': True,
+    'zstd': Codec.is_available('zstd'),
 }
 
 try:

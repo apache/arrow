@@ -147,8 +147,7 @@ func TestErrorAuths(t *testing.T) {
 }
 
 func TestBasicAuthHelpers(t *testing.T) {
-	unary, stream := flight.CreateServerBearerTokenAuthInterceptors(&validator{})
-	s := flight.NewFlightServer(nil, grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
+	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
 	s.RegisterFlightService(&flight.FlightServiceService{

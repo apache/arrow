@@ -341,6 +341,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
   ipc::IpcPayload ipc_message;
+
+  /// \brief Check that the payload can be written to the wire.
+  Status Validate() const;
 };
 
 /// \brief Schema result returned after a schema request RPC

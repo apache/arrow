@@ -16,13 +16,15 @@
 // under the License.
 
 import '../../jest-extensions';
-import { AsyncIterable } from 'ix';
-import { util } from '../../Arrow';
-import { Builder } from '../../Arrow';
-import { DataType, Vector, Chunked } from '../../Arrow';
+import { from, fromDOMStream, toArray } from 'ix/asynciterable';
+import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
+import 'ix/Ix.node';
+import { util } from 'apache-arrow';
+import { Builder } from 'apache-arrow';
+import { DataType, Vector, Chunked } from 'apache-arrow';
+import randstr from 'randomatic';
 
 const rand = Math.random.bind(Math);
-const randstr = require('randomatic');
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any> null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);
@@ -147,9 +149,9 @@ export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen
     return async function encodeEachDOM<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const strategy = { highWaterMark: chunkLen };
-        const source = AsyncIterable.from(vals).toDOMStream();
+        const source = from(vals).toDOMStream();
         const builder = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
-        const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(builder)).toArray();
+        const chunks = await fromDOMStream(source.pipeThrough(builder)).pipe(toArray);
         return Chunked.concat(...chunks) as Chunked<T>;
     };
 }
@@ -158,10 +160,10 @@ export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLe
     return async function encodeEachNode<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const vals_ = vals.map((x) => x === null ? undefined : x);
-        const source = AsyncIterable.from(vals_).toNodeStream({ objectMode: true });
+        const source = from(vals_).toNodeStream({ objectMode: true });
         const nulls_ = nullValues ? nullValues.map((x) => x === null ? undefined : x) : nullValues;
         const builder = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
-        const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(builder), chunkLen).toArray();
+        const chunks: any[] = await fromNodeStream(source.pipe(builder), chunkLen).pipe(toArray);
         return Chunked.concat(...chunks) as Chunked<T>;
     };
 }

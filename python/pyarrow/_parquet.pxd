@@ -347,6 +347,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)
         c_bool pre_buffer() const
+        void set_coerce_int96_timestamp_unit(TimeUnit unit)
+        TimeUnit coerce_int96_timestamp_unit() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

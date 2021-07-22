@@ -34,8 +34,7 @@ We follow a similar PEP8-like coding style to the `pandas project
 
 .. code-block:: shell
 
-   pip install -e arrow/dev/archery
-   pip install -r arrow/dev/archery/requirements-lint.txt
+   pip install -e arrow/dev/archery[lint]
 
 .. code-block:: shell
 
@@ -174,10 +173,10 @@ On Linux and macOS:
 .. code-block:: shell
 
     conda create -y -n pyarrow-dev -c conda-forge \
-        --file arrow/ci/conda_env_unix.yml \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_python.yml \
-        --file arrow/ci/conda_env_gandiva.yml \
+        --file arrow/ci/conda_env_unix.txt \
+        --file arrow/ci/conda_env_cpp.txt \
+        --file arrow/ci/conda_env_python.txt \
+        --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         python=3.7 \
         pandas
@@ -432,9 +431,9 @@ First, starting from fresh clones of Apache Arrow:
 .. code-block:: shell
 
    conda create -y -n pyarrow-dev -c conda-forge ^
-       --file arrow\ci\conda_env_cpp.yml ^
-       --file arrow\ci\conda_env_python.yml ^
-       --file arrow\ci\conda_env_gandiva.yml ^
+       --file arrow\ci\conda_env_cpp.txt ^
+       --file arrow\ci\conda_env_python.txt ^
+       --file arrow\ci\conda_env_gandiva.txt ^
        python=3.7
    conda activate pyarrow-dev
 

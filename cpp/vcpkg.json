@@ -15,7 +15,9 @@
       ]
     },
     "benchmark",
-    "boost",
+    "boost-filesystem",
+    "boost-multiprecision",
+    "boost-system",
     "brotli",
     "bzip2",
     "c-ares",

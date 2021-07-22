@@ -205,7 +205,6 @@ def localfs(request, tempdir):
     return dict(
         fs=LocalFileSystem(),
         pathfn=lambda p: (tempdir / p).as_posix(),
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -216,7 +215,6 @@ def py_localfs(request, tempdir):
     return dict(
         fs=PyFileSystem(ProxyHandler(LocalFileSystem())),
         pathfn=lambda p: (tempdir / p).as_posix(),
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -227,7 +225,6 @@ def mockfs(request):
     return dict(
         fs=_MockFileSystem(),
         pathfn=lambda p: p,
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -238,7 +235,6 @@ def py_mockfs(request):
     return dict(
         fs=PyFileSystem(ProxyHandler(_MockFileSystem())),
         pathfn=lambda p: p,
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -249,7 +245,6 @@ def localfs_with_mmap(request, tempdir):
     return dict(
         fs=LocalFileSystem(use_mmap=True),
         pathfn=lambda p: (tempdir / p).as_posix(),
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -260,7 +255,6 @@ def subtree_localfs(request, tempdir, localfs):
     return dict(
         fs=SubTreeFileSystem(str(tempdir), localfs['fs']),
         pathfn=lambda p: p,
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -285,7 +279,6 @@ def s3fs(request, s3_connection, s3_server):
     yield dict(
         fs=fs,
         pathfn=bucket.__add__,
-        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -298,7 +291,6 @@ def subtree_s3fs(request, s3fs):
     return dict(
         fs=SubTreeFileSystem(prefix, s3fs['fs']),
         pathfn=prefix.__add__,
-        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -318,7 +310,6 @@ def hdfs(request, hdfs_connection):
     return dict(
         fs=fs,
         pathfn=lambda p: p,
-        allow_copy_file=False,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -331,7 +322,6 @@ def py_fsspec_localfs(request, tempdir):
     return dict(
         fs=PyFileSystem(FSSpecHandler(fs)),
         pathfn=lambda p: (tempdir / p).as_posix(),
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -347,7 +337,6 @@ def py_fsspec_memoryfs(request, tempdir):
     return dict(
         fs=PyFileSystem(FSSpecHandler(fs)),
         pathfn=lambda p: p,
-        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -374,7 +363,6 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
     yield dict(
         fs=fs,
         pathfn=bucket.__add__,
-        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=True,
     )
@@ -444,11 +432,6 @@ def pathfn(request, filesystem_config):
 @pytest.fixture
 def allow_move_dir(request, filesystem_config):
     return filesystem_config['allow_move_dir']
-
-
-@pytest.fixture
-def allow_copy_file(request, filesystem_config):
-    return filesystem_config['allow_copy_file']
 
 
 @pytest.fixture
@@ -804,20 +787,16 @@ def test_delete_root_dir_contents(mockfs, py_mockfs):
     _check_root_dir_contents(py_mockfs)
 
 
-def test_copy_file(fs, pathfn, allow_copy_file):
+def test_copy_file(fs, pathfn):
     s = pathfn('test-copy-source-file')
     t = pathfn('test-copy-target-file')
 
     with fs.open_output_stream(s):
         pass
 
-    if allow_copy_file:
-        fs.copy_file(s, t)
-        fs.delete_file(s)
-        fs.delete_file(t)
-    else:
-        with pytest.raises(pa.ArrowNotImplementedError):
-            fs.copy_file(s, t)
+    fs.copy_file(s, t)
+    fs.delete_file(s)
+    fs.delete_file(t)
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
@@ -876,6 +855,7 @@ def identity(v):
     return v
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'compressor'),
     [
@@ -913,6 +893,7 @@ def test_open_input_file(fs, pathfn):
     assert result == data[read_from:]
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'decompressor'),
     [
@@ -934,6 +915,7 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         assert f.read(len(data)) == data
 
 
+@pytest.mark.gzip
 @pytest.mark.parametrize(
     ('compression', 'buffer_size', 'compressor', 'decompressor'),
     [

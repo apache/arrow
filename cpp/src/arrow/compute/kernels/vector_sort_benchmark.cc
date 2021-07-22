@@ -81,6 +81,16 @@ static void ArraySortIndicesInt64Wide(benchmark::State& state) {
   ArraySortIndicesInt64Benchmark(state, min, max);
 }
 
+static void ArraySortIndicesBool(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size * 8;
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values = rand.Boolean(array_size, 0.5, args.null_proportion);
+
+  ArraySortIndicesBenchmark(state, values);
+}
+
 static void ChunkedArraySortIndicesInt64Narrow(benchmark::State& state) {
   ChunkedArraySortIndicesInt64Benchmark(state, -100, 100);
 }
@@ -230,6 +240,12 @@ BENCHMARK(ArraySortIndicesInt64Narrow)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(ArraySortIndicesInt64Wide)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ArraySortIndicesBool)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})

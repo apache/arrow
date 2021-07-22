@@ -22,9 +22,11 @@ set -ex
 source_dir=${1}
 
 : ${ARROW_S3:=ON}
+: ${ARROW_FLIGHT:=ON}
 
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
+export PYARROW_TEST_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_TEST_GANDIVA=OFF
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
@@ -33,7 +35,6 @@ export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PLASMA=ON
 export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
-export PYARROW_TEST_FLIGHT=ON
 
 export ARROW_TEST_DATA=${source_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
@@ -47,7 +48,6 @@ import pyarrow
 import pyarrow._hdfs
 import pyarrow.csv
 import pyarrow.dataset
-import pyarrow.flight
 import pyarrow.fs
 import pyarrow.json
 import pyarrow.orc
@@ -57,6 +57,9 @@ import pyarrow.plasma
 
 if [ "${PYARROW_TEST_S3}" == "ON" ]; then
   python -c "import pyarrow._s3fs"
+fi
+if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
+  python -c "import pyarrow.flight"
 fi
 
 # Install testing dependencies

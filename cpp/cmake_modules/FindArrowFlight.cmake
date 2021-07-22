@@ -75,13 +75,10 @@ mark_as_advanced(ARROW_FLIGHT_IMPORT_LIB
                  ARROW_FLIGHT_VERSION
                  ARROW_FLIGHT_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowFlight
-                                  REQUIRED_VARS
-                                  ARROW_FLIGHT_INCLUDE_DIR
-                                  ARROW_FLIGHT_LIB_DIR
-                                  ARROW_FLIGHT_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_FLIGHT_VERSION)
+find_package_handle_standard_args(
+  ArrowFlight
+  REQUIRED_VARS ARROW_FLIGHT_INCLUDE_DIR ARROW_FLIGHT_LIB_DIR ARROW_FLIGHT_VERSION_MATCH
+  VERSION_VAR ARROW_FLIGHT_VERSION)
 set(ARROW_FLIGHT_FOUND ${ArrowFlight_FOUND})
 
 if(ArrowFlight_FOUND AND NOT ArrowFlight_FIND_QUIETLY)

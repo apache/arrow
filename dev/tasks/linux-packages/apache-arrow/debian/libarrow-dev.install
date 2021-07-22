@@ -6,8 +6,7 @@ usr/lib/*/cmake/arrow/Find*Alt.cmake
 usr/lib/*/cmake/arrow/FindArrow.cmake
 usr/lib/*/cmake/arrow/FindBrotli.cmake
 usr/lib/*/cmake/arrow/FindLz4.cmake
-usr/lib/*/cmake/arrow/FindSnappy.cmake
-usr/lib/*/cmake/arrow/Find[uz]*.cmake
+usr/lib/*/cmake/arrow/Find[Suz]*.cmake
 usr/lib/*/cmake/arrow/arrow-config.cmake
 usr/lib/*/libarrow.a
 usr/lib/*/libarrow.so

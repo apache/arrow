@@ -564,8 +564,13 @@ struct GrouperFastImpl : Grouper {
         varlen = batch[icol].array()->buffers[2]->data();
       }
 
-      cols_[icol] = arrow::compute::KeyEncoder::KeyColumnArray(
-          col_metadata_[icol], num_rows, non_nulls, fixedlen, varlen);
+      int64_t offset = batch[icol].array()->offset;
+
+      auto col_base = arrow::compute::KeyEncoder::KeyColumnArray(
+          col_metadata_[icol], offset + num_rows, non_nulls, fixedlen, varlen);
+
+      cols_[icol] =
+          arrow::compute::KeyEncoder::KeyColumnArray(col_base, offset, num_rows);
     }
 
     // Split into smaller mini-batches

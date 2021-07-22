@@ -228,6 +228,9 @@ class ZSTDCodec : public Codec {
   }
 
   Compression::type compression_type() const override { return Compression::ZSTD; }
+  int minimum_compression_level() const override { return ZSTD_minCLevel(); }
+  int maximum_compression_level() const override { return ZSTD_maxCLevel(); }
+  int default_compression_level() const override { return kZSTDDefaultCompressionLevel; }
 
   int compression_level() const override { return compression_level_; }
 

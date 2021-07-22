@@ -311,7 +311,7 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
 };
 
 template <typename Type>
-struct UnboxScalar<Type, enable_if_base_binary<Type>> {
+struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   static util::string_view Unbox(const Scalar& val) {
     if (!val.is_valid) return util::string_view();
     return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
@@ -826,7 +826,8 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_it(), arg1_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_it(),
+                                                               &st);
     }));
     return st;
   }
@@ -837,7 +838,8 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_it(), arg1_val, &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_val,
+                                                               &st);
     }));
     return st;
   }
@@ -848,7 +850,8 @@ struct ScalarBinary {
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_val, arg1_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_it(),
+                                                               &st);
     }));
     return st;
   }
@@ -859,8 +862,9 @@ struct ScalarBinary {
     if (out->scalar()->is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val, &st),
-                              out->scalar().get());
+      BoxScalar<OutType>::Box(
+          Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
+          out->scalar().get());
     }
     return st;
   }
@@ -1218,25 +1222,26 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator>
+template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
-      return Generator<NullType>::Exec;
+      return Generator<NullType, Args...>::Exec;
     case Type::BOOL:
-      return Generator<BooleanType>::Exec;
+      return Generator<BooleanType, Args...>::Exec;
     case Type::UINT8:
     case Type::INT8:
-      return Generator<UInt8Type>::Exec;
+      return Generator<UInt8Type, Args...>::Exec;
     case Type::UINT16:
     case Type::INT16:
-      return Generator<UInt16Type>::Exec;
+      return Generator<UInt16Type, Args...>::Exec;
     case Type::UINT32:
     case Type::INT32:
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
-      return Generator<UInt32Type>::Exec;
+    case Type::INTERVAL_MONTHS:
+      return Generator<UInt32Type, Args...>::Exec;
     case Type::UINT64:
     case Type::INT64:
     case Type::DOUBLE:
@@ -1244,7 +1249,8 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::TIMESTAMP:
     case Type::TIME64:
     case Type::DURATION:
-      return Generator<UInt64Type>::Exec;
+    case Type::INTERVAL_DAY_TIME:
+      return Generator<UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
@@ -1360,6 +1366,9 @@ void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* des
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
+
+ARROW_EXPORT
+std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonTimestamp(const std::vector<ValueDescr>& descrs);

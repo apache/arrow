@@ -55,7 +55,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] true_probability the probability of a value being 1 / bit-set
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Boolean(int64_t size, double true_probability,
@@ -66,7 +66,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt8(int64_t size, uint8_t min, uint8_t max,
@@ -77,7 +77,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int8(int64_t size, int8_t min, int8_t max,
@@ -88,7 +88,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt16(int64_t size, uint16_t min, uint16_t max,
@@ -99,7 +99,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int16(int64_t size, int16_t min, int16_t max,
@@ -110,7 +110,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt32(int64_t size, uint32_t min, uint32_t max,
@@ -121,7 +121,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int32(int64_t size, int32_t min, int32_t max,
@@ -132,7 +132,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt64(int64_t size, uint64_t min, uint64_t max,
@@ -143,7 +143,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int64(int64_t size, int64_t min, int64_t max,
@@ -154,7 +154,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the distribution
   /// \param[in] max the upper bound of the distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
@@ -165,8 +165,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
-  /// \param[in] nan_probability the probability of a row being NaN
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] nan_probability the probability of a value being NaN
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float32(int64_t size, float min, float max,
@@ -177,8 +177,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
-  /// \param[in] nan_probability the probability of a row being NaN
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] nan_probability the probability of a value being NaN
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float64(int64_t size, double min, double max,
@@ -231,10 +231,21 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] type the type of the array to generate
   ///            (must be an instance of Decimal128Type)
   /// \param[in] size the size of the array to generate
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Decimal128(std::shared_ptr<DataType> type, int64_t size,
+                                    double null_probability = 0);
+
+  /// \brief Generate a random Decimal256Array
+  ///
+  /// \param[in] type the type of the array to generate
+  ///            (must be an instance of Decimal256Type)
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Decimal256(std::shared_ptr<DataType> type, int64_t size,
                                     double null_probability = 0);
 
   /// \brief Generate an array of offsets (for use in e.g. ListArray::FromArrays)
@@ -261,7 +272,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            determined by the uniform distribution
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> String(int64_t size, int32_t min_length, int32_t max_length,
@@ -274,7 +285,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            determined by the uniform distribution
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> LargeString(int64_t size, int32_t min_length, int32_t max_length,
@@ -289,7 +300,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            determined by the uniform distribution
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> StringWithRepeats(int64_t size, int64_t unique,
@@ -305,7 +316,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] byte_width the byte width of fixed-size binary items
-  /// \param[in] null_probability the probability of a row being null
+  /// \param[in] null_probability the probability of a value being null
   ///
   /// \return a generated Array
   std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,

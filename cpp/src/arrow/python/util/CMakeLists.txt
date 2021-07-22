@@ -24,8 +24,8 @@ if(PYARROW_BUILD_TESTS)
 
   if(APPLE)
     target_link_libraries(arrow/python_test_main GTest::gtest dl)
-    set_target_properties(arrow/python_test_main
-                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    set_target_properties(arrow/python_test_main PROPERTIES LINK_FLAGS
+                                                            "-undefined dynamic_lookup")
   else()
     target_link_libraries(arrow/python_test_main GTest::gtest pthread dl)
   endif()

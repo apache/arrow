@@ -467,6 +467,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status Append(const Buffer& s) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(util::string_view(s));
+    return Status::OK();
+  }
+
+  Status Append(const std::shared_ptr<Buffer>& s) { return Append(*s); }
+
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -501,6 +509,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 #endif
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
+
+  void UnsafeAppend(const Buffer& s) { UnsafeAppend(util::string_view(s)); }
+
+  void UnsafeAppend(const std::shared_ptr<Buffer>& s) { UnsafeAppend(*s); }
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);

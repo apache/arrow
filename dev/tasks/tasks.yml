@@ -355,10 +355,11 @@ tasks:
                                                    ("10.13", "high-sierra", "ON")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
-  wheel-osx-{{ macos_codename }}-{{ python_tag }}:
+  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
     ci: github
-    template: python-wheels/github.osx.yml
+    template: python-wheels/github.osx.amd64.yml
     params:
+      vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}
       macos_deployment_target: {{ macos_version }}
       arrow_s3: {{ arrow_s3 }}
@@ -369,7 +370,7 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-  wheel-windows-{{ python_tag }}:
+  wheel-windows-{{ python_tag }}-amd64:
     ci: github
     template: python-wheels/github.windows.yml
     params:
@@ -378,6 +379,30 @@ tasks:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
 {% endfor %}
+
+{############################## Wheel OSX M1 #################################}
+
+  wheel-macos-big-sur-cp39-arm64:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: arm64
+      vcpkg_version: "2021.04.30"
+      python_version: "3.9"
+      macos_deployment_target: "11.0"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_arm64.whl
+
+  wheel-macos-big-sur-cp39-universal2:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: universal2
+      vcpkg_version: "2021.04.30"
+      python_version: "3.9"
+      macos_deployment_target: "11.0"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_universal2.whl
 
 {############################ Python sdist ####################################}
 
@@ -824,7 +849,10 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        # clang-tools and llvm version need to be synchronized so as
+        # to have the right llvm-symbolizer version
         CLANG_TOOLS: 11
+        LLVM: 11
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
@@ -896,7 +924,7 @@ tasks:
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml
-    
+
   test-r-rtools-35:
     ci: github
     template: r/github.windows.rtools35.yml
@@ -929,6 +957,28 @@ tasks:
       r_image: {{ r_image }}
       r_tag: {{ r_tag }}
 {% endfor %}
+
+  test-r-ubuntu-21.04:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
+      image: ubuntu-r
+
+  test-r-gcc-11:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
+        GCC_VERSION: 11
+      # S3 support is not buildable with gcc11 right now
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
+      image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
     ci: azure

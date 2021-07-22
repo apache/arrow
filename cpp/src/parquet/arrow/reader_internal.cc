@@ -429,7 +429,7 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
   }
   ::arrow::compute::ExecContext ctx(pool);
   ::arrow::compute::CastOptions cast_options;
-  cast_options.allow_invalid_utf8 = false;  // avoid spending time validating UTF8 data
+  cast_options.allow_invalid_utf8 = true;  // avoid spending time validating UTF8 data
 
   auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
   DCHECK(binary_reader);

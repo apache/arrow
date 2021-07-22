@@ -25,9 +25,9 @@ struct ValueDescr;
 namespace compute {
 
 class Function;
-struct FunctionOptions;
+class FunctionOptions;
 
-struct CastOptions;
+class CastOptions;
 
 struct ExecBatch;
 class ExecContext;
@@ -41,6 +41,8 @@ struct VectorKernel;
 struct KernelState;
 
 class Expression;
+class ExecNode;
+class ExecPlan;
 
 }  // namespace compute
 }  // namespace arrow

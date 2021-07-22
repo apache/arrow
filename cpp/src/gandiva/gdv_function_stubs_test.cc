@@ -24,6 +24,121 @@
 
 namespace gandiva {
 
+TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // tests for integer values as input
+  const char* out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, -46, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-46");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 2147483647, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "2147483647");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, -2147483647 - 1, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 0, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 34567, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "345");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+
+  // tests for big integer values as input
+  out_str =
+      gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 9223372036854775807LL, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "9223372036854775807");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100,
+                                             &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-9223372036854775808");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 0, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 12345, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+  EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestGdvFnStubs, TestBase64Encode) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  auto value = gdv_fn_base64_encode_binary(ctx_ptr, "hello", 5, &out_len);
+  std::string out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "aGVsbG8=");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "test", 4, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "dGVzdA==");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "hive", 4, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "aGl2ZQ==");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "", 0, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+
+  value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestBase64Decode) {
+  gandiva::ExecutionContext ctx;
+
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  auto value = gdv_fn_base64_decode_utf8(ctx_ptr, "aGVsbG8=", 8, &out_len);
+  std::string out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "hello");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "dGVzdA==", 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "test");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "aGl2ZQ==", 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "hive");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "", 0, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+
+  value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+}
+
 TEST(TestGdvFnStubs, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
@@ -431,20 +546,20 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "Asdfj\nHlqf");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, "s;DCgs,Jo!L", 11, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "S;DCgs,Jo!L");
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "s;DCgs,Jo!l", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "S;Dcgs,Jo!L");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, " mÜNCHEN", 9, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), " MÜNCHEN");
+  EXPECT_EQ(std::string(out_str, out_len), " München");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "citroën CaR", 12, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "Citroën CaR");
+  EXPECT_EQ(std::string(out_str, out_len), "Citroën Car");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "ÂbĆDËFgh\néll", 16, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "ÂbĆDËFgh\nÉll");
+  EXPECT_EQ(std::string(out_str, out_len), "Âbćdëfgh\nÉll");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "  øhpqršvñ  \n\n", 17, &out_len);
@@ -457,7 +572,31 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "{ÕHP,pqśv}Ń+", 15, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "{ÕHP,pqśv}Ń+");
+  EXPECT_EQ(std::string(out_str, out_len), "{Õhp,Pqśv}Ń+");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "sɦasasdsɦsd\"sdsdɦ", 19, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Sɦasasdsɦsd\"Sdsdɦ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "mysuperscipt@number²isfine", 27, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Mysuperscipt@Number²Isfine");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "Ő<tŵas̓老ƕɱ¢vIYwށ", 25, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Ő<Tŵas̓老Ƕɱ¢Viywށ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "ↆcheckↆnumberisspace", 24, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ↆcheckↆnumberisspace");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "testing ᾌTitleᾌcase", 23, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Testing ᾌtitleᾄcase");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "ʳTesting mʳodified", 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ʳTesting MʳOdified");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "", 0, &out_len);

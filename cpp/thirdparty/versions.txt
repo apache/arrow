@@ -42,7 +42,7 @@ ARROW_JEMALLOC_BUILD_VERSION=5.2.1
 ARROW_LZ4_BUILD_VERSION=v1.9.3
 # mimalloc 1.6.7 didn't build on Visual Studio 2015
 # https://github.com/microsoft/mimalloc/issues/353
-ARROW_MIMALLOC_BUILD_VERSION=v1.6.4
+ARROW_MIMALLOC_BUILD_VERSION=v1.7.2
 ARROW_ORC_BUILD_VERSION=1.6.6
 ARROW_PROTOBUF_BUILD_VERSION=v3.14.0
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
@@ -56,7 +56,7 @@ ARROW_THRIFT_BUILD_MD5_CHECKSUM=38a27d391a2b03214b444cb13d5664f1
 ARROW_UTF8PROC_BUILD_VERSION=v2.6.1
 ARROW_XSIMD_BUILD_VERSION=e9234cd6e6f4428fc260073b2c34ffe86fda1f34
 ARROW_ZLIB_BUILD_VERSION=1.2.11
-ARROW_ZSTD_BUILD_VERSION=v1.4.8
+ARROW_ZSTD_BUILD_VERSION=v1.5.0
 
 # The first field is the name of the environment variable expected by cmake.
 # This _must_ match what is defined. The second field is the name of the
@@ -65,6 +65,9 @@ ARROW_ZSTD_BUILD_VERSION=v1.4.8
 DEPENDENCIES=(
   "ARROW_ABSL_URL absl-${ARROW_ABSL_BUILD_VERSION}.tar.gz https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz"
   "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+  "ARROW_AWS_CHECKSUMS_URL aws-checksums-${ARROW_AWS_CHECKSUMS_BUILD_VERSION} https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
+  "ARROW_AWS_C_COMMON_URL aws-c-common-${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
+  "ARROW_AWS_C_EVENT_STREAM_URL aws-c-event-stream-${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION} https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
   "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"

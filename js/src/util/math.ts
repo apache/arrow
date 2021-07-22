@@ -28,8 +28,7 @@ const u32 = new Uint32Array(f64.buffer);
 export function uint16ToFloat64(h: number) {
     const expo = (h & 0x7C00) >> 10;
     const sigf = (h & 0x03FF) / 1024;
-    // use Math.pow to prevent closure compiler from creating incorrect js: https://github.com/google/closure-compiler/issues/3810
-    const sign = Math.pow(-1, (h & 0x8000) >> 15);
+    const sign = (-1) ** ((h & 0x8000) >> 15);
     switch (expo) {
         case 0x1F: return sign * (sigf ? NaN : 1 / 0);
         case 0x00: return sign * (sigf ? 6.103515625e-5 * sigf : 0);

@@ -15,8 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative "info-generator"
+
 module Helper
   class Server < ArrowFlight::Server
     type_register
+
+    private
+    def virtual_do_list_flights(context, criteria)
+      generator = InfoGenerator.new
+      [generator.page_view]
+    end
   end
 end

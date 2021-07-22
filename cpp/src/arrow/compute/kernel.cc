@@ -59,6 +59,26 @@ Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t n
   return result;
 }
 
+Status Kernel::InitAll(KernelContext* ctx, const KernelInitArgs& args,
+                       std::vector<std::unique_ptr<KernelState>>* states) {
+  for (auto& state : *states) {
+    ARROW_ASSIGN_OR_RAISE(state, args.kernel->init(ctx, args));
+  }
+  return Status::OK();
+}
+
+Result<std::unique_ptr<KernelState>> ScalarAggregateKernel::MergeAll(
+    const ScalarAggregateKernel* kernel, KernelContext* ctx,
+    std::vector<std::unique_ptr<KernelState>> states) {
+  auto out = std::move(states.back());
+  states.pop_back();
+  ctx->SetState(out.get());
+  for (auto& state : states) {
+    RETURN_NOT_OK(kernel->merge(ctx, std::move(*state), out.get()));
+  }
+  return std::move(out);
+}
+
 // ----------------------------------------------------------------------
 // Some basic TypeMatcher implementations
 
@@ -382,8 +402,7 @@ KernelSignature::KernelSignature(std::vector<InputType> in_types, OutputType out
       out_type_(std::move(out_type)),
       is_varargs_(is_varargs),
       hash_code_(0) {
-  // VarArgs sigs must have only a single input type to use for argument validation
-  DCHECK(!is_varargs || (is_varargs && (in_types_.size() == 1)));
+  DCHECK(!is_varargs || (is_varargs && (in_types_.size() >= 1)));
 }
 
 std::shared_ptr<KernelSignature> KernelSignature::Make(std::vector<InputType> in_types,
@@ -410,8 +429,8 @@ bool KernelSignature::Equals(const KernelSignature& other) const {
 
 bool KernelSignature::MatchesInputs(const std::vector<ValueDescr>& args) const {
   if (is_varargs_) {
-    for (const auto& arg : args) {
-      if (!in_types_[0].Matches(arg)) {
+    for (size_t i = 0; i < args.size(); ++i) {
+      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(args[i])) {
         return false;
       }
     }
@@ -444,15 +463,19 @@ std::string KernelSignature::ToString() const {
   std::stringstream ss;
 
   if (is_varargs_) {
-    ss << "varargs[" << in_types_[0].ToString() << "]";
+    ss << "varargs[";
   } else {
     ss << "(";
-    for (size_t i = 0; i < in_types_.size(); ++i) {
-      if (i > 0) {
-        ss << ", ";
-      }
-      ss << in_types_[i].ToString();
+  }
+  for (size_t i = 0; i < in_types_.size(); ++i) {
+    if (i > 0) {
+      ss << ", ";
     }
+    ss << in_types_[i].ToString();
+  }
+  if (is_varargs_) {
+    ss << "]";
+  } else {
     ss << ")";
   }
   ss << " -> " << out_type_.ToString();

@@ -17,6 +17,7 @@
 package flight
 
 import (
+	context "context"
 	"net"
 	"os"
 	"os/signal"
@@ -47,6 +48,46 @@ type Server interface {
 	RegisterFlightService(*FlightServiceService)
 }
 
+type CustomServerMiddleware interface {
+	// StartCall will be called with the current context of the call, grpc.SetHeader can be used to add outgoing headers
+	// if the returned context is non-nil, then it will be used as the new context being passed through the calls
+	StartCall(ctx context.Context) context.Context
+	// CallCompleted is a callback which is called with the return from the handler
+	// it will be nil if everything was successful or will be the error about to be returned
+	// to grpc
+	CallCompleted(ctx context.Context, err error)
+}
+
+func CreateServerMiddleware(middleware CustomServerMiddleware) ServerMiddleware {
+	return ServerMiddleware{
+		Unary: func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (ret interface{}, err error) {
+			nctx := middleware.StartCall(ctx)
+			if nctx != nil {
+				ctx = nctx
+			}
+
+			ret, err = handler(ctx, req)
+			middleware.CallCompleted(ctx, err)
+			return
+		},
+		Stream: func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+			ctx := middleware.StartCall(stream.Context())
+			if ctx != nil {
+				stream = &wrappedStream{ServerStream: stream, ctx: ctx}
+			}
+
+			err := handler(srv, stream)
+			middleware.CallCompleted(stream.Context(), err)
+			return err
+		},
+	}
+}
+
+type ServerMiddleware struct {
+	Stream grpc.StreamServerInterceptor
+	Unary  grpc.UnaryServerInterceptor
+}
+
 type server struct {
 	lis        net.Listener
 	sigChannel <-chan os.Signal
@@ -63,6 +104,8 @@ type server struct {
 // Alternatively, a grpc server can be created normally without this helper as the
 // grpc server generated code is still being exported. This only exists to allow
 // the utility of the helpers
+//
+// Deprecated: prefer to use NewServerWithMiddleware
 func NewFlightServer(auth ServerAuthHandler, opt ...grpc.ServerOption) Server {
 	if auth != nil {
 		opt = append([]grpc.ServerOption{
@@ -75,6 +118,38 @@ func NewFlightServer(auth ServerAuthHandler, opt ...grpc.ServerOption) Server {
 		authHandler: auth,
 		server:      grpc.NewServer(opt...),
 	}
+}
+
+// NewServerWithMiddleware takes a slice of middleware which will be used
+// by grpc and chained, the first middleware will be the outer most with the last
+// middleware being the inner most wrapper around the actual call. It also takes
+// any grpc Server options desired, such as TLS certs and so on which will just
+// be passed through to the underlying grpc server.
+//
+// Alternatively, a grpc server can be created normally without this helper as the
+// grpc server generated code is still being exported. This only exists to allow
+// the utility of the helpers
+func NewServerWithMiddleware(auth ServerAuthHandler, middleware []ServerMiddleware, opts ...grpc.ServerOption) Server {
+	unary := make([]grpc.UnaryServerInterceptor, 0, len(middleware))
+	stream := make([]grpc.StreamServerInterceptor, 0, len(middleware))
+	if auth != nil {
+		unary = append(unary, createServerAuthUnaryInterceptor(auth))
+		stream = append(stream, createServerAuthStreamInterceptor(auth))
+	}
+
+	if len(middleware) > 0 {
+		for _, m := range middleware {
+			if m.Unary != nil {
+				unary = append(unary, m.Unary)
+			}
+			if m.Stream != nil {
+				stream = append(stream, m.Stream)
+			}
+		}
+	}
+	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
+
+	return &server{server: grpc.NewServer(opts...), authHandler: auth}
 }
 
 func (s *server) Init(addr string) (err error) {

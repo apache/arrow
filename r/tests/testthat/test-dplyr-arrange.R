@@ -159,7 +159,6 @@ test_that("arrange() on datetime columns", {
 })
 
 test_that("arrange() on logical columns", {
-  skip("Sorting by bool columns is not supported (ARROW-12016)")
   expect_dplyr_equal(
     input %>%
       arrange(lgl, int) %>%
@@ -195,6 +194,13 @@ test_that("arrange() with bad inputs", {
       Table$create() %>%
       arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
     "not found",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      arrange(desc(int, chr)),
+    "expects only one argument",
     fixed = TRUE
   )
 })

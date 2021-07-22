@@ -321,13 +321,20 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   state_->finished_workers_.clear();
 }
 
+thread_local ThreadPool* current_thread_pool_ = nullptr;
+
+bool ThreadPool::OwnsThisThread() { return current_thread_pool_ == this; }
+
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
 
   for (int i = 0; i < threads; i++) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
-    *it = std::thread([state, it] { WorkerLoop(state, it); });
+    *it = std::thread([this, state, it] {
+      current_thread_pool_ = this;
+      WorkerLoop(state, it);
+    });
   }
 }
 

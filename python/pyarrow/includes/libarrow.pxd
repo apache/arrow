@@ -1637,6 +1637,10 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+        CIOContext io_context
+
+        CCSVWriteOptions()
+        CCSVWriteOptions(CCSVWriteOptions&&)
 
         @staticmethod
         CCSVWriteOptions Defaults()
@@ -1658,10 +1662,12 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
             CIOContext, shared_ptr[CInputStream],
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
+    cdef CStatus WriteCSV(CTable&, CCSVWriteOptions& options, COutputStream*)
     cdef CStatus WriteCSV(
-        CTable&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
-    cdef CStatus WriteCSV(
-        CRecordBatch&, CCSVWriteOptions& options, CMemoryPool*, COutputStream*)
+        CRecordBatch&, CCSVWriteOptions& options, COutputStream*)
+    cdef CResult[shared_ptr[CRecordBatchWriter]] MakeCSVWriter(
+        shared_ptr[COutputStream], shared_ptr[CSchema],
+        CCSVWriteOptions& options)
 
 
 cdef extern from "arrow/json/options.h" nogil:
@@ -1751,8 +1757,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_string] arg_names
         c_string options_class
 
+    cdef cppclass CFunctionOptionsType" arrow::compute::FunctionOptionsType":
+        const char* type_name() const
+
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
-        pass
+        const CFunctionOptionsType* options_type() const
+        const char* type_name() const
+        c_bool Equals(const CFunctionOptions& other)
+        c_string ToString()
+        CResult[shared_ptr[CBuffer]] Serialize() const
+
+        @staticmethod
+        CResult[unique_ptr[CFunctionOptions]] Deserialize(
+            const c_string& type_name, const CBuffer&)
 
     cdef cppclass CFunction" arrow::compute::Function":
         const c_string& name() const
@@ -1823,6 +1840,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CTrimOptions(c_string characters)
         c_string characters
 
+    cdef cppclass CPadOptions \
+            "arrow::compute::PadOptions"(CFunctionOptions):
+        CPadOptions(int64_t width, c_string padding)
+        int64_t width
+        c_string padding
+
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
         CSliceOptions(int64_t start, int64_t stop, int64_t step)
@@ -1837,9 +1860,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool reverse
 
     cdef cppclass CSplitPatternOptions \
-            "arrow::compute::SplitPatternOptions"(CSplitOptions):
+            "arrow::compute::SplitPatternOptions"(CFunctionOptions):
         CSplitPatternOptions(c_string pattern, int64_t max_splits,
                              c_bool reverse)
+        int64_t max_splits
+        c_bool reverse
         c_string pattern
 
     cdef cppclass CReplaceSliceOptions \
@@ -1915,6 +1940,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit)
 
+    cdef cppclass CDayOfWeekOptions \
+            "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
+        CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
+        c_bool one_based_numbering
+        uint32_t week_start
+
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
         CVarianceOptions(int ddof)
@@ -1940,9 +1971,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
-    cdef cppclass CProjectOptions \
-            "arrow::compute::ProjectOptions"(CFunctionOptions):
-        CProjectOptions(vector[c_string] field_names)
+    cdef cppclass CMakeStructOptions \
+            "arrow::compute::MakeStructOptions"(CFunctionOptions):
+        CMakeStructOptions(vector[c_string] field_names)
         vector[c_string] field_names
 
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
@@ -2019,6 +2050,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
         CDatum value_set
         c_bool skip_nulls
+
+
+cdef extern from * namespace "arrow::compute":
+    # inlined from compute/function_internal.h to avoid exposing
+    # implementation details
+    """
+    #include "arrow/compute/function.h"
+    namespace arrow {
+    namespace compute {
+    namespace internal {
+    Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
+        const Buffer& buffer);
+    } //  namespace internal
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    CResult[unique_ptr[CFunctionOptions]] DeserializeFunctionOptions\
+        " arrow::compute::internal::DeserializeFunctionOptions"(
+            const CBuffer& buffer)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
@@ -2303,6 +2353,23 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
 
         @staticmethod
+        CResult[unique_ptr[CCodec]] CreateWithLevel" Create"(
+            CCompressionType codec,
+            int compression_level)
+
+        @staticmethod
+        c_bool SupportsCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] MinimumCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] MaximumCompressionLevel(CCompressionType codec)
+
+        @staticmethod
+        CResult[int] DefaultCompressionLevel(CCompressionType codec)
+
+        @staticmethod
         c_bool IsAvailable(CCompressionType codec)
 
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
@@ -2312,6 +2379,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
         c_string name() const
+        int compression_level() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

@@ -29,7 +29,7 @@ new repositories, as they offer many important tools to manage it (e.g. github
 issues, “watch”, “github stars” to measure overall interest).
 
 Process
--------
++++++++
 
 * A committer *may* initiate experimental work by creating a separate git
   repository within the Apache Arrow (e.g. via `selfserve <https://selfserve.apache.org/>`_)
@@ -44,21 +44,21 @@ Process
 * The committer decides when the repository is archived.
 
 Repository management
----------------------
++++++++++++++++++++++
 
-* The repository *must* be under `apache/`
-* The repository’s name *must* be prefixed by `arrow-experimental-`
+* The repository *must* be under ``apache/``
+* The repository’s name *must* be prefixed by ``arrow-experimental-``
 * The committer has full permissions over the repository (within possible in ASF)
 * Push / merge permissions *must only* be granted to Apache Arrow committers
 
 Development process
--------------------
++++++++++++++++++++
 
 * The repository must follow the ASF requirements about 3rd party code.
 * The committer decides how to manage issues, PRs, etc.
 
 Divergences
------------
++++++++++++
 
 * If any of the “must” above fails to materialize and no correction measure
   is taken by the committer upon request, the PMC *should* take ownership

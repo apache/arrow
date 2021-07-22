@@ -1492,9 +1492,14 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   Status CreateBucket(const std::string& bucket) {
     S3Model::CreateBucketConfiguration config;
     S3Model::CreateBucketRequest req;
-    config.SetLocationConstraint(
-        S3Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(
-            ToAwsString(options().region)));
+    auto _region = region();
+    // AWS S3 treats the us-east-1 differently than other regions
+    // https://docs.aws.amazon.com/cli/latest/reference/s3api/create-bucket.html
+    if (_region != "us-east-1") {
+      config.SetLocationConstraint(
+          S3Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(
+              ToAwsString(_region)));
+    }
     req.SetBucket(ToAwsString(bucket));
     req.SetCreateBucketConfiguration(config);
 

@@ -395,6 +395,23 @@ TEST_F(TestThreadPool, StressSpawn) {
   SpawnAdds(pool.get(), 1000, task_add<int>);
 }
 
+TEST_F(TestThreadPool, OwnsCurrentThread) {
+  auto pool = this->MakeThreadPool(30);
+  std::atomic<bool> one_failed{false};
+
+  for (int i = 0; i < 1000; ++i) {
+    ASSERT_OK(pool->Spawn([&] {
+      if (pool->OwnsThisThread()) return;
+
+      one_failed = true;
+    }));
+  }
+
+  ASSERT_OK(pool->Shutdown());
+  ASSERT_FALSE(pool->OwnsThisThread());
+  ASSERT_FALSE(one_failed);
+}
+
 TEST_F(TestThreadPool, StressSpawnThreaded) {
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>);

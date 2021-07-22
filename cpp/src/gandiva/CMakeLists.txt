@@ -97,8 +97,8 @@ set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
 
 set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 
-if(ARROW_GANDIVA_STATIC_LIBSTDCPP
-   AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
+if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
+                                      ))
   set(GANDIVA_STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS} -static-libstdc++
                                -static-libgcc)
 endif()
@@ -210,8 +210,11 @@ endfunction()
 
 set(GANDIVA_INTERNALS_TEST_ARGUMENTS)
 if(WIN32)
-  list(APPEND GANDIVA_INTERNALS_TEST_ARGUMENTS EXTRA_LINK_LIBS LLVM::LLVM_INTERFACE
-              ${GANDIVA_OPENSSL_LIBS})
+  list(APPEND
+       GANDIVA_INTERNALS_TEST_ARGUMENTS
+       EXTRA_LINK_LIBS
+       LLVM::LLVM_INTERFACE
+       ${GANDIVA_OPENSSL_LIBS})
 endif()
 add_gandiva_test(internals-test
                  SOURCES
@@ -226,7 +229,7 @@ add_gandiva_test(internals-test
                  expr_decomposer_test.cc
                  expression_registry_test.cc
                  selection_vector_test.cc
-                 lru_cache_test.cc
+                 greedy_dual_size_cache_test.cc
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
