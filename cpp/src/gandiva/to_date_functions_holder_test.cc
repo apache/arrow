@@ -615,7 +615,7 @@ TEST_F(TestToDateHolder, TestToUtcTimestampFloat32) {
   auto& to_utc_timestamp = *to_date_holder;
   bool out_valid;
 
-  int32_t date = 2592000.0f;
+  float date = 2592000.0f;
   auto output_timestamp =
       to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
   EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
@@ -647,7 +647,7 @@ TEST_F(TestToDateHolder, TestToUtcTimestampFloat64) {
   auto& to_utc_timestamp = *to_date_holder;
   bool out_valid;
 
-  int32_t date = 2592000.0;
+  double date = 2592000.0;
   auto output_timestamp =
       to_utc_timestamp(&execution_context_, date, "PST8PDT", true, &out_valid);
   EXPECT_EQ(std::string(output_timestamp, strlen(output_timestamp)),
