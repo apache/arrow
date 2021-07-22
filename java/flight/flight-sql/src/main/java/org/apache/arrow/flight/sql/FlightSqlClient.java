@@ -25,6 +25,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.annotation.Nullable;
+
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -41,6 +43,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.StringValue;
 
 import io.grpc.Status;
 
@@ -97,15 +100,15 @@ public class FlightSqlClient {
    * @param schemaFilterPattern The schema filter pattern.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSchemas(String catalog, String schemaFilterPattern) {
+  public FlightInfo getSchemas(final String catalog, final String schemaFilterPattern) {
     final FlightSql.CommandGetSchemas.Builder builder = FlightSql.CommandGetSchemas.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(catalog);
+      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
     }
 
     if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(schemaFilterPattern);
+      builder.setSchemaFilterPattern(StringValue.newBuilder().setValue(schemaFilterPattern).build());
     }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
@@ -114,8 +117,9 @@ public class FlightSqlClient {
 
   /**
    * Get schema for a stream.
+   *
    * @param descriptor The descriptor for the stream.
-   * @param options RPC-layer hints for this call.
+   * @param options    RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
     return this.client.getSchema(descriptor, options);
@@ -123,7 +127,8 @@ public class FlightSqlClient {
 
   /**
    * Retrieve a stream from the server.
-   * @param ticket The ticket granting access to the data stream.
+   *
+   * @param ticket  The ticket granting access to the data stream.
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
@@ -133,7 +138,7 @@ public class FlightSqlClient {
   /**
    * Request a set of Flight SQL metadata.
    *
-   * @param info             The set of metadata to retrieve. None to retrieve all metadata.
+   * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getSqlInfo(String... info) {
@@ -157,20 +162,21 @@ public class FlightSqlClient {
    * @param includeSchema       True to include the schema upon return, false to not include the schema.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTables(String catalog, String schemaFilterPattern,
-          String tableFilterPattern, List<String> tableTypes, boolean includeSchema) {
+  public FlightInfo getTables(final @Nullable String catalog, final @Nullable String schemaFilterPattern,
+                              final @Nullable String tableFilterPattern, final List<String> tableTypes,
+                              final boolean includeSchema) {
     final FlightSql.CommandGetTables.Builder builder = FlightSql.CommandGetTables.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(catalog);
+      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
     }
 
     if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(schemaFilterPattern);
+      builder.setSchemaFilterPattern(StringValue.newBuilder().setValue(schemaFilterPattern).build());
     }
 
     if (tableFilterPattern != null) {
-      builder.setTableNameFilterPattern(tableFilterPattern);
+      builder.setTableNameFilterPattern(StringValue.newBuilder().setValue(tableFilterPattern).build());
     }
 
     if (tableTypes != null) {
@@ -185,42 +191,47 @@ public class FlightSqlClient {
   /**
    * Request the primary keys for a table.
    *
-   * @param catalog             The catalog.
-   * @param schema              The schema.
-   * @param table               The table.
+   * @param catalog The catalog.
+   * @param schema  The schema.
+   * @param table   The table.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getPrimaryKeys(String catalog, String schema, String table) {
+  public FlightInfo getPrimaryKeys(final @Nullable String catalog, final @Nullable String schema,
+                                   final @Nullable String table) {
     final FlightSql.CommandGetPrimaryKeys.Builder builder = FlightSql.CommandGetPrimaryKeys.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(catalog);
+      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
     }
 
     if (schema != null) {
-      builder.setSchema(schema);
+      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
-    builder.setTable(table);
+    if (table != null) {
+      builder.setTable(StringValue.newBuilder().setValue(table).build());
+    }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
   }
 
   /**
    * Request the foreign keys for a table.
-   *
+   * <p>
    * One of pkTable or fkTable must be specified, both cannot be null.
    *
-   * @param pkCatalog             The primary key table catalog.
-   * @param pkSchema              The primary key table schema.
-   * @param pkTable               The primary key table.
-   * @param fkCatalog             The foreign key table catalog.
-   * @param fkSchema              The foreign key table schema.
-   * @param fkTable               The foreign key table.
+   * @param pkCatalog The primary key table catalog.
+   * @param pkSchema  The primary key table schema.
+   * @param pkTable   The primary key table.
+   * @param fkCatalog The foreign key table catalog.
+   * @param fkSchema  The foreign key table schema.
+   * @param fkTable   The foreign key table.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getForeignKeys(String pkCatalog, String pkSchema, String pkTable,
-                                   String fkCatalog, String fkSchema, String fkTable) {
+  public FlightInfo getForeignKeys(final @Nullable String pkCatalog, final @Nullable String pkSchema,
+                                   final @Nullable String pkTable,
+                                   final @Nullable String fkCatalog, final @Nullable String fkSchema,
+                                   final @Nullable String fkTable) {
     if (null == pkTable && null == fkTable) {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
@@ -228,27 +239,27 @@ public class FlightSqlClient {
     final FlightSql.CommandGetForeignKeys.Builder builder = FlightSql.CommandGetForeignKeys.newBuilder();
 
     if (pkCatalog != null) {
-      builder.setPkCatalog(pkCatalog);
+      builder.setPkCatalog(StringValue.newBuilder().setValue(pkCatalog).build());
     }
 
     if (pkSchema != null) {
-      builder.setPkSchema(pkSchema);
+      builder.setPkSchema(StringValue.newBuilder().setValue(pkSchema).build());
     }
 
     if (pkTable != null) {
-      builder.setPkTable(pkTable);
+      builder.setPkTable(StringValue.newBuilder().setValue(pkTable).build());
     }
 
     if (fkCatalog != null) {
-      builder.setFkCatalog(fkCatalog);
+      builder.setFkCatalog(StringValue.newBuilder().setValue(fkCatalog).build());
     }
 
     if (fkSchema != null) {
-      builder.setFkSchema(fkSchema);
+      builder.setFkSchema(StringValue.newBuilder().setValue(fkSchema).build());
     }
 
     if (fkTable != null) {
-      builder.setFkTable(fkTable);
+      builder.setFkTable(StringValue.newBuilder().setValue(fkTable).build());
     }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
@@ -305,8 +316,8 @@ public class FlightSqlClient {
               .toByteArray()));
 
       preparedStatementResult = FlightSqlUtils.unpackAndParseOrThrow(
-              preparedStatementResults.next().getBody(),
-              ActionCreatePreparedStatementResult.class);
+          preparedStatementResults.next().getBody(),
+          ActionCreatePreparedStatementResult.class);
 
       invocationCount = new AtomicLong(0);
       isClosed = false;

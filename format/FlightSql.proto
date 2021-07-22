@@ -17,6 +17,7 @@
  */
 
 syntax = "proto3";
+import "google/protobuf/wrappers.proto";
 
 option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
@@ -133,14 +134,16 @@ message ActionGetCatalogsRequest {
   /*
    * Specifies the order of result values.
    */ 
-  ResultsOrder order = 1;
-}
+  google.protobuf.StringValue catalog = 1;
 
-/*
- * Wrap the result of a "GetCatalogs" action.
- */
-message ActionGetCatalogsResult {
-  repeated string catalog = 1;
+  /*
+   * Specifies a filter pattern for schemas to search for.
+   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * In the pattern string, two special characters can be used to denote matching rules:
+   *    - "%" means to match any substring with 0 or more characters.
+   *    - "_" means to match any one character.
+   */
+  google.protobuf.StringValue schema_filter_pattern = 2;
 }
 
 /*
@@ -164,26 +167,7 @@ message ActionGetSchemasRequest {
    * Specifies the Catalog to search for the tables.
    * If omitted, then all catalogs are searched.
    */
-  ResultsOrder order = 1;
-
-  /*
-   * Specifies the Catalog to search for schemas.
-   * If omitted, then schemas for all catalogs are searched.
-   */ 
-  string catalog = 2;
-
-  // TODO: Clarify what kind of filter pattern - regex?
-  // Specifies a filter pattern for schemas to search for.
-  string schema_filter_pattern = 3;
-}
-
-/*
- * Wrap the result of a "GetSchemas" action.
- */
-message ActionGetSchemasResult {
-  string catalog = 1;
-  string schema = 2;
-}
+  google.protobuf.StringValue catalog = 1;
 
   /*
    * Specifies a filter pattern for schemas to search for.
@@ -192,7 +176,7 @@ message ActionGetSchemasResult {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  ResultsOrder order = 1;
+  google.protobuf.StringValue schema_filter_pattern = 2;
 
   /*
    * Specifies a filter pattern for tables to search for.
@@ -201,7 +185,7 @@ message ActionGetSchemasResult {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  string table_name_filter_pattern = 3;
+  google.protobuf.StringValue table_name_filter_pattern = 3;
 
   // Specifies a filter of table types which must match.
   repeated string table_types = 5;
@@ -264,13 +248,13 @@ message ActionGetTableTypesResult {
  */
 message CommandGetPrimaryKeys {
   // Specifies the catalog to search for the table.
-  string catalog = 1;
+  google.protobuf.StringValue catalog = 1;
 
   // Specifies the schema to search for the table.
-  string schema = 2;
+  google.protobuf.StringValue schema = 2;
 
   // Specifies the table to get the primary keys for.
-  string table = 3;
+  google.protobuf.StringValue table = 3;
 }
 
 /*
@@ -299,22 +283,22 @@ message CommandGetPrimaryKeys {
  */
 message CommandGetForeignKeys {
   // Specifies the catalog to search for the primary key table.
-  string pk_catalog = 1;
+  google.protobuf.StringValue pk_catalog = 1;
 
   // Specifies the schema to search for the primary key table.
-  string pk_schema = 2;
+  google.protobuf.StringValue pk_schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
-  string pk_table = 3;
+  google.protobuf.StringValue pk_table = 3;
 
   // Specifies the catalog to search for the foreign key table.
-  string fk_catalog = 4;
+  google.protobuf.StringValue fk_catalog = 4;
 
   // Specifies the schema to search for the foreign key table.
-  string fk_schema = 5;
+  google.protobuf.StringValue fk_schema = 5;
 
   // Specifies the foreign key table to get the foreign keys for.
-  string fk_table = 6;
+  google.protobuf.StringValue fk_table = 6;
 }
 
 // SQL Execution Action Messages

@@ -653,8 +653,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final String catalog = emptyToNull(command.getCatalog());
-    final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schemaFilterPattern =
+        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
@@ -677,9 +678,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamTables(final CommandGetTables command, final CallContext context,
                               final Ticket ticket, final ServerStreamListener listener) {
-    final String catalog = emptyToNull(command.getCatalog());
-    final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
-    final String tableFilterPattern = emptyToNull(command.getTableNameFilterPattern());
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schemaFilterPattern =
+        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
+    final String tableFilterPattern =
+        command.hasTableNameFilterPattern() ? command.getTableNameFilterPattern().getValue() : null;
 
     final ProtocolStringList protocolStringList = command.getTableTypesList();
     final int protocolSize = protocolStringList.size();
@@ -734,9 +737,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
                                    final ServerStreamListener listener) {
 
-    String catalog = emptyToNull(command.getCatalog());
-    String schema = emptyToNull(command.getSchema());
-    String table = emptyToNull(command.getTable());
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    final String table = command.hasTable() ? command.getTable().getValue() : null;
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
