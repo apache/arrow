@@ -50,8 +50,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -326,25 +329,24 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
     final VarCharVector schemas = new VarCharVector("schema_name", allocator);
     final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
     vectors.forEach(FieldVector::allocateNew);
-
     final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
         catalogs, "TABLE_CATALOG",
         schemas, "TABLE_SCHEM");
-
-    final int rows = saveToVectors(vectorToColumnName, data);
+    saveToVectors(vectorToColumnName, data);
+    final int rows = vectors.stream().map(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
     vectors.forEach(vector -> vector.setValueCount(rows));
-
     return new VectorSchemaRoot(vectors);
   }
 
-  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
-                                                           final ResultSet data, boolean emptyToNull)
+  private static <T extends FieldVector> void saveToVectors(final Map<T, String> vectorToColumnName,
+                                                            final ResultSet data, boolean emptyToNull)
       throws SQLException {
     checkNotNull(vectorToColumnName);
     checkNotNull(data);
+    final Set<Entry<T, String>> entrySet = vectorToColumnName.entrySet();
     int rows = 0;
     for (; data.next(); rows++) {
-      for (final Map.Entry<T, String> vectorToColumn : vectorToColumnName.entrySet()) {
+      for (final Entry<T, String> vectorToColumn : entrySet) {
         final T vector = vectorToColumn.getKey();
         final String columnName = vectorToColumn.getValue();
         if (vector instanceof VarCharVector) {
@@ -355,13 +357,15 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
         throw Status.INVALID_ARGUMENT.asRuntimeException();
       }
     }
-    return rows;
+    for (final Entry<T, String> vectorToColumn : entrySet) {
+      vectorToColumn.getKey().setValueCount(rows);
+    }
   }
 
-  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
-                                                           final ResultSet data)
+  private static <T extends FieldVector> void saveToVectors(final Map<T, String> vectorToColumnName,
+                                                            final ResultSet data)
       throws SQLException {
-    return saveToVectors(vectorToColumnName, data, false);
+    saveToVectors(vectorToColumnName, data, false);
   }
 
   private static VectorSchemaRoot getTableTypesRoot(final ResultSet data, final BufferAllocator allocator)
@@ -378,7 +382,8 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                                           final String fieldVectorName, final String columnName)
       throws SQLException {
     final VarCharVector dataVector = new VarCharVector(fieldVectorName, allocator);
-    final int rows = saveToVectors(ImmutableMap.of(dataVector, columnName), data);
+    saveToVectors(ImmutableMap.of(dataVector, columnName), data);
+    final int rows = dataVector.getValueCount();
     dataVector.setValueCount(rows);
     return new VectorSchemaRoot(singletonList(dataVector));
   }
@@ -424,7 +429,9 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
                  format("%s cannot be null!", databaseMetaData.getClass().getName()))
                  .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
 
-      final int rows = saveToVectors(vectorToColumnName, data, true);
+      saveToVectors(vectorToColumnName, data, true);
+      final int rows =
+          vectors.stream().map(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
       vectors.forEach(vector -> vector.setValueCount(rows));
 
       if (includeSchema) {
@@ -439,7 +446,7 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
             final String tableName = columnsData.getString("TABLE_NAME");
             final String fieldName = columnsData.getString("COLUMN_NAME");
             final int dataType = columnsData.getInt("DATA_TYPE");
-            final boolean isNullable = columnsData.getInt("NULLABLE") == 1;
+            final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
             final int precision = columnsData.getInt("NUM_PREC_RADIX");
             final int scale = columnsData.getInt("DECIMAL_DIGITS");
             final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
@@ -474,23 +481,16 @@ public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable
   }
 
   private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
-
+    checkNotNull(parameterMetaData);
     final List<Field> parameterFields = new ArrayList<>();
-
-    for (int parameterCounter = 1; parameterCounter <=
-        Preconditions.checkNotNull(parameterMetaData, "ParameterMetaData object can't be null")
-            .getParameterCount();
+    for (int parameterCounter = 1; parameterCounter <= parameterMetaData.getParameterCount();
          parameterCounter++) {
       final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
-
       final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
-      final boolean arrowIsNullable = jdbcIsNullable == ParameterMetaData.parameterNullable;
-
+      final boolean arrowIsNullable = jdbcIsNullable != ParameterMetaData.parameterNoNulls;
       final int precision = parameterMetaData.getPrecision(parameterCounter);
       final int scale = parameterMetaData.getScale(parameterCounter);
-
       final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-
       final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
       parameterFields.add(new Field(null, fieldType, null));
     }
