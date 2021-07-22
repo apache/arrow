@@ -1123,10 +1123,6 @@ struct GroupByNode : ExecNode {
         state->agg_states,
         internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
 
-    ARROW_ASSIGN_OR_RAISE(FieldVector agg_result_fields,
-                          internal::ResolveKernels(aggs_, agg_kernels_, state->agg_states,
-                                                   ctx_, agg_src_descrs));
-
     return Status::OK();
   }
 
