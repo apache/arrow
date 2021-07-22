@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static org.apache.arrow.util.AutoCloseables.close;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -51,7 +52,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
+import org.hamcrest.Matcher;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -67,7 +70,8 @@ public class TestFlightSql {
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
       new Field("ID", new FieldType(true, MinorType.INT.getType(), null), null),
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
-      Field.nullable("VALUE", MinorType.INT.getType())));
+      Field.nullable("VALUE", MinorType.INT.getType()),
+      Field.nullable("FOREIGNID", MinorType.INT.getType())));
   private static final String LOCALHOST = "localhost";
   private static int port;
   private static BufferAllocator allocator;
@@ -143,6 +147,7 @@ public class TestFlightSql {
           asList(null /* TODO No catalog yet */, "SYS", "SYSUSERS", "SYSTEM TABLE"),
           asList(null /* TODO No catalog yet */, "SYS", "SYSVIEWS", "SYSTEM TABLE"),
           asList(null /* TODO No catalog yet */, "SYSIBM", "SYSDUMMY1", "SYSTEM TABLE"),
+          asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
           asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
       collector.checkThat(results, is(expectedResults));
     }
@@ -158,6 +163,7 @@ public class TestFlightSql {
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
+          asList(null /* TODO No catalog yet */, "APP", "FOREIGNTABLE", "TABLE"),
           asList(null /* TODO No catalog yet */, "APP", "INTTABLE", "TABLE"));
       collector.checkThat(results, is(expectedResults));
     }
@@ -176,12 +182,22 @@ public class TestFlightSql {
           asList(
               null /* TODO No catalog yet */,
               "APP",
+              "FOREIGNTABLE",
+              "TABLE",
+              new Schema(asList(
+                  new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
+                  Field.nullable("FOREIGNNAME", MinorType.VARCHAR.getType()),
+                  Field.nullable("VALUE", MinorType.INT.getType()))).toJson()),
+          asList(
+              null /* TODO No catalog yet */,
+              "APP",
               "INTTABLE",
               "TABLE",
               new Schema(asList(
                   new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
                   Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
-                  Field.nullable("VALUE", MinorType.INT.getType()))).toJson()));
+                  Field.nullable("VALUE", MinorType.INT.getType()),
+                  Field.nullable("FOREIGNID", MinorType.INT.getType()))).toJson()));
       collector.checkThat(results, is(expectedResults));
     }
   }
@@ -209,7 +225,7 @@ public class TestFlightSql {
 
       final List<List<String>> result = getResults(stream);
       final List<List<String>> expected = asList(
-          asList("1", "one", "1"), asList("2", "zero", "0"), asList("3", "negative one", "-1"));
+          asList("1", "one", "1", "1"), asList("2", "zero", "0", "1"), asList("3", "negative one", "-1", "1"));
 
       collector.checkThat(result, is(expected));
     }
@@ -307,33 +323,6 @@ public class TestFlightSql {
     collector.checkThat(result.get(3), is("ID"));
     collector.checkThat(result.get(4), is("1"));
     collector.checkThat(result.get(5), notNullValue());
-  }
-
-  @Test
-  public void testGetForeignKey(){
-    final FlightStream stream =
-        sqlClient.getStream(
-            sqlClient.getForeignKeys(null, null, "INTTABLE", null, null, "FOREIGNTABLE")
-                .getEndpoints().get(0).getTicket());
-
-    final List<List<String>> results = getResults(stream);
-
-    for (List<String> result : results) {
-      final int size = result.size();
-      collector.checkThat(result.get(size - 13), nullValue());
-      collector.checkThat(result.get(size - 12),is( "APP"));
-      collector.checkThat(result.get(size - 11),is( "FOREIGNTABLE"));
-      collector.checkThat(result.get(size - 10), is("ID"));
-      collector.checkThat(result.get(size - 9), nullValue());
-      collector.checkThat(result.get(size - 8), is("APP"));
-      collector.checkThat(result.get(size - 7), is("INTTABLE"));
-      collector.checkThat(result.get(size - 6), is("FOREIGNID"));
-      collector.checkThat(result.get(size - 5), is("1"));
-      collector.checkThat(result.get(size - 4), containsString("SQL210720"));
-      collector.checkThat(result.get(size - 3), containsString("SQL210720"));
-      collector.checkThat(result.get(size - 2), is("3"));
-      collector.checkThat(result.get(size - 1), is("3"));
-    }
   }
 
   @Test
