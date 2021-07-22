@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Transfer an Arrow memory structure to Python
+#'
+#' @param x the R-based Arrow object to export to Python
+#' @param ... arguments passed to the methods
+#'
+#' @retuen a reticulate-based Python object
+#'
+#' @keywords internal
+#' @export
+r_to_py <- function(x, ...) {
+  UseMethod("r_to_py")
+}
+
 py_to_r.pyarrow.lib.Array <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   array_ptr <- allocate_arrow_array()
