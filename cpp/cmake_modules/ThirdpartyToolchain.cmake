@@ -2542,10 +2542,8 @@ macro(build_grpc)
       re2::re2
       c-ares::cares
       ZLIB::ZLIB
+      OpenSSL::SSL
       Threads::Threads)
-  if(ARROW_OPENSSL_USE_SHARED)
-    list(APPEND GRPC_LINK_LIBRARIES OpenSSL::SSL)
-  endif()
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
