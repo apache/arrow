@@ -29,11 +29,6 @@ pushd ${source_dir}/tests
 
 export TEST_R_WITH_ARROW=TRUE
 
-# Set cli to not use a separate thread. This thread isn't explicitly closed,
-# which triggers a valgrind possibly lost error. We can remove this when
-# https://github.com/r-lib/cli/issues/311 is resolved + released on cran.
-export CLI_NO_THREAD=1
-
 # to generate suppression files run:
 # ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testtthat.supp
 ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --suppressions=/${1}/ci/etc/valgrind-cran.supp" -f testthat.R |& tee testthat.out
