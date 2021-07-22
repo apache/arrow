@@ -38,7 +38,6 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    libzstd-devel \
     lz4-devel \
     make \
     openssl-devel \

@@ -1281,9 +1281,11 @@ TEST(Decimal256Test, TestComparators) {
   constexpr size_t num_values =
       sizeof(kSortedDecimal256Bits) / sizeof(kSortedDecimal256Bits[0]);
   for (size_t i = 0; i < num_values; ++i) {
-    Decimal256 left(kSortedDecimal256Bits[i]);
+    Decimal256 left(
+        ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[i]));
     for (size_t j = 0; j < num_values; ++j) {
-      Decimal256 right(kSortedDecimal256Bits[j]);
+      Decimal256 right(
+          ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[j]));
       EXPECT_EQ(i == j, left == right);
       EXPECT_EQ(i != j, left != right);
       EXPECT_EQ(i < j, left < right);
@@ -1296,7 +1298,7 @@ TEST(Decimal256Test, TestComparators) {
 
 TEST(Decimal256Test, TestToBytesRoundTrip) {
   for (const std::array<uint64_t, 4>& bits : kSortedDecimal256Bits) {
-    Decimal256 decimal(bits);
+    Decimal256 decimal(::arrow::BitUtil::LittleEndianArray::ToNative(bits));
     EXPECT_EQ(decimal, Decimal256(decimal.ToBytes().data()));
   }
 }
@@ -1318,18 +1320,21 @@ TYPED_TEST_SUITE(Decimal256Test, Decimal256Types);
 TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
   using UInt64Array = std::array<uint64_t, 4>;
   Decimal256 value(TypeParam{42});
-  EXPECT_EQ(UInt64Array({42, 0, 0, 0}), value.little_endian_array());
+  EXPECT_EQ(UInt64Array({42, 0, 0, 0}),
+            ::arrow::BitUtil::LittleEndianArray::FromNative(value.native_endian_array()));
 
   TypeParam max = std::numeric_limits<TypeParam>::max();
   Decimal256 max_value(max);
-  EXPECT_EQ(UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
-            max_value.little_endian_array());
+  EXPECT_EQ(
+      UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
+      ::arrow::BitUtil::LittleEndianArray::FromNative(max_value.native_endian_array()));
 
   TypeParam min = std::numeric_limits<TypeParam>::min();
   Decimal256 min_value(min);
   uint64_t high_bits = std::is_signed<TypeParam>::value ? ~uint64_t{0} : uint64_t{0};
-  EXPECT_EQ(UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
-            min_value.little_endian_array());
+  EXPECT_EQ(
+      UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
+      ::arrow::BitUtil::LittleEndianArray::FromNative(min_value.native_endian_array()));
 }
 
 TEST(Decimal256Test, ConstructibleFromBool) {
@@ -1432,12 +1437,12 @@ TEST(Decimal256Test, Shift) {
     Decimal256 v("-12346789123456789123456789");
     v <<= 15;
     ASSERT_EQ(v, Decimal256("-404579585997432065997432061952"))
-        << std::hex << v.little_endian_array()[0] << " " << v.little_endian_array()[1]
-        << " " << v.little_endian_array()[2] << " " << v.little_endian_array()[3] << "\n"
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[0] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[1] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[2] << " "
-        << Decimal256("-404579585997432065997432061952").little_endian_array()[3];
+        << std::hex << v.native_endian_array()[0] << " " << v.native_endian_array()[1]
+        << " " << v.native_endian_array()[2] << " " << v.native_endian_array()[3] << "\n"
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[0] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[1] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[2] << " "
+        << Decimal256("-404579585997432065997432061952").native_endian_array()[3];
     v <<= 30;
     ASSERT_EQ(v, Decimal256("-434414022622047565860171081516421480448"));
     v <<= 66;

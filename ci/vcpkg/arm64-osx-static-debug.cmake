@@ -15,26 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_ARROW_EXAMPLE(row_wise_conversion_example)
+set(VCPKG_TARGET_ARCHITECTURE arm64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
 
-if (ARROW_COMPUTE)
-  ADD_ARROW_EXAMPLE(compute_register_example)
-endif()
+set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+set(VCPKG_OSX_ARCHITECTURES arm64)
 
-if (ARROW_PARQUET AND ARROW_DATASET)
-  if (ARROW_BUILD_SHARED)
-    set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)
-  else()
-    set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_static)
-  endif()
-
-  ADD_ARROW_EXAMPLE(dataset_parquet_scan_example
-    EXTRA_LINK_LIBS
-    ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(dataset_parquet_scan_example parquet)
-
-  ADD_ARROW_EXAMPLE(dataset_documentation_example
-    EXTRA_LINK_LIBS
-    ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(dataset_documentation_example parquet)
-endif()
+set(VCPKG_BUILD_TYPE debug)

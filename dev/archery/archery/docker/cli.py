@@ -116,7 +116,8 @@ def docker_build(obj, image, *, force_pull, using_docker_cli,
         compose.build(image, use_cache=use_cache,
                       use_leaf_cache=use_leaf_cache,
                       using_docker=using_docker_cli,
-                      using_buildx=using_docker_buildx)
+                      using_buildx=using_docker_buildx,
+                      pull_parents=force_pull)
     except UndefinedImage as e:
         raise click.ClickException(
             "There is no service/image defined in docker-compose.yml with "

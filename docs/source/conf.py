@@ -34,6 +34,7 @@
 import datetime
 import os
 import sys
+import warnings
 from unittest import mock
 
 import pyarrow
@@ -44,6 +45,10 @@ sys.path.extend([
                  '..', '../..')
 
 ])
+
+# Suppresses all warnings printed when sphinx is traversing the code (e.g.
+# deprecation warnings)
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*pyarrow.*")
 
 # -- General configuration ------------------------------------------------
 

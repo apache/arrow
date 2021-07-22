@@ -1397,17 +1397,38 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    coerce_int96_timestamp_unit : str, default None.
+        Cast timestamps that are stored in INT96 format to a particular
+        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+        and therefore INT96 timestamps will be infered as timestamps
+        in nanoseconds.
     """
 
     cdef public:
         set dictionary_columns
+        TimeUnit _coerce_int96_timestamp_unit
 
     # Also see _PARQUET_READ_OPTIONS
-    def __init__(self, dictionary_columns=None):
+    def __init__(self, dictionary_columns=None,
+                 coerce_int96_timestamp_unit=None):
         self.dictionary_columns = set(dictionary_columns or set())
+        self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+
+    @property
+    def coerce_int96_timestamp_unit(self):
+        return timeunit_to_string(self._coerce_int96_timestamp_unit)
+
+    @coerce_int96_timestamp_unit.setter
+    def coerce_int96_timestamp_unit(self, unit):
+        if unit is not None:
+            self._coerce_int96_timestamp_unit = string_to_timeunit(unit)
+        else:
+            self._coerce_int96_timestamp_unit = TimeUnit_NANO
 
     def equals(self, ParquetReadOptions other):
-        return self.dictionary_columns == other.dictionary_columns
+        return (self.dictionary_columns == other.dictionary_columns and
+                self.coerce_int96_timestamp_unit ==
+                other.coerce_int96_timestamp_unit)
 
     def __eq__(self, other):
         try:
@@ -1416,8 +1437,11 @@ cdef class ParquetReadOptions(_Weakrefable):
             return False
 
     def __repr__(self):
-        return (f"<ParquetReadOptions"
-                f" dictionary_columns={self.dictionary_columns}>")
+        return (
+            f"<ParquetReadOptions"
+            f" dictionary_columns={self.dictionary_columns}"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+        )
 
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
@@ -1500,7 +1524,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
 
-cdef set _PARQUET_READ_OPTIONS = {'dictionary_columns'}
+cdef set _PARQUET_READ_OPTIONS = {
+    'dictionary_columns', 'coerce_int96_timestamp_unit'
+}
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -1565,6 +1591,8 @@ cdef class ParquetFileFormat(FileFormat):
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
+        options.coerce_int96_timestamp_unit = \
+            read_options._coerce_int96_timestamp_unit
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -1577,10 +1605,15 @@ cdef class ParquetFileFormat(FileFormat):
     def read_options(self):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
-        return ParquetReadOptions(
+        parquet_read_options = ParquetReadOptions(
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
         )
+        # Read options getter/setter works with strings so setting
+        # the private property which uses the C Type
+        parquet_read_options._coerce_int96_timestamp_unit = \
+            options.coerce_int96_timestamp_unit
+        return parquet_read_options
 
     def make_write_options(self, **kwargs):
         opts = FileFormat.make_write_options(self)
@@ -1725,12 +1758,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.buffer_size == other.buffer_size and
             self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
-            other.enable_parallel_column_conversion)
+            other.enable_parallel_column_conversion
+        )
 
     def __reduce__(self):
         return ParquetFragmentScanOptions, (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.enable_parallel_column_conversion)
+            self.enable_parallel_column_conversion
+        )
 
 
 cdef class IpcFileWriteOptions(FileWriteOptions):

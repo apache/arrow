@@ -36,7 +36,8 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
-                          NativeFile, get_reader, get_writer)
+                          NativeFile, get_reader, get_writer,
+                          string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          _stringify_path, _datetime_from_int,
@@ -928,7 +929,8 @@ cdef class ParquetReader(_Weakrefable):
 
     def open(self, object source not None, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0, bint pre_buffer=False):
+             int buffer_size=0, bint pre_buffer=False,
+             coerce_int96_timestamp_unit=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -937,6 +939,7 @@ cdef class ParquetReader(_Weakrefable):
                 default_arrow_reader_properties())
             c_string path
             FileReaderBuilder builder
+            TimeUnit int96_timestamp_unit_code
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -950,6 +953,13 @@ cdef class ParquetReader(_Weakrefable):
             raise ValueError('Buffer size must be larger than zero')
 
         arrow_props.set_pre_buffer(pre_buffer)
+
+        if coerce_int96_timestamp_unit is None:
+            # use the default defined in default_arrow_reader_properties()
+            pass
+        else:
+            arrow_props.set_coerce_int96_timestamp_unit(
+                string_to_timeunit(coerce_int96_timestamp_unit))
 
         self.source = source
 

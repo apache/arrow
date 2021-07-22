@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.11
+# - Go >= 1.15
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -449,7 +449,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.14.1
+  local VERSION=1.15.14
   local ARCH=amd64
 
   if [ "$(uname)" == "Darwin" ]; then
@@ -474,39 +474,6 @@ test_go() {
   go get -v ./...
   go test ./...
   go clean -modcache
-
-  popd
-}
-
-test_rust() {
-  # install rust toolchain in a similar fashion like test-miniconda
-  export RUSTUP_HOME=$PWD/test-rustup
-  export CARGO_HOME=$PWD/test-rustup
-
-  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
-
-  export PATH=$RUSTUP_HOME/bin:$PATH
-  source $RUSTUP_HOME/env
-
-  # build and test rust
-  pushd rust
-
-  # raises on any formatting errors
-  rustup component add rustfmt --toolchain stable
-  cargo +stable fmt --all -- --check
-  rustup default stable
-
-  # use local modules because we don't publish modules to crates.io yet
-  sed \
-    -i.bak \
-    -E \
-    -e 's/^arrow = "([^"]*)"/arrow = { version = "\1", path = "..\/arrow" }/g' \
-    -e 's/^parquet = "([^"]*)"/parquet = { version = "\1", path = "..\/parquet" }/g' \
-    */Cargo.toml
-
-  # raises on any warnings
-  RUSTFLAGS="-D warnings" cargo build
-  cargo test
 
   popd
 }
@@ -587,9 +554,6 @@ test_source_distribution() {
   fi
   if [ ${TEST_GO} -gt 0 ]; then
     test_go
-  fi
-  if [ ${TEST_RUST} -gt 0 ]; then
-    test_rust
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
@@ -736,7 +700,6 @@ fi
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
 : ${TEST_JS:=${TEST_DEFAULT}}
 : ${TEST_GO:=${TEST_DEFAULT}}
-: ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
 if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
   TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}

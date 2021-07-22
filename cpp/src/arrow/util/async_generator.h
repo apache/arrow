@@ -950,7 +950,7 @@ class MergedGenerator {
     if (state_->first) {
       state_->first = false;
       for (std::size_t i = 0; i < state_->active_subscriptions.size(); i++) {
-        state_->source().AddCallback(OuterCallback{state_, i});
+        state_->PullSource().AddCallback(OuterCallback{state_, i});
       }
     }
     return waiting_future;
@@ -978,6 +978,13 @@ class MergedGenerator {
           source_exhausted(false),
           finished(false),
           num_active_subscriptions(max_subscriptions) {}
+
+    Future<AsyncGenerator<T>> PullSource() {
+      // Need to guard access to source() so we don't pull sync-reentrantly which
+      // is never valid.
+      auto lock = mutex.Lock();
+      return source();
+    }
 
     AsyncGenerator<AsyncGenerator<T>> source;
     // active_subscriptions and delivered_jobs will be bounded by max_subscriptions
@@ -1014,7 +1021,7 @@ class MergedGenerator {
         }
       }
       if (sub_finished) {
-        state->source().AddCallback(OuterCallback{state, index});
+        state->PullSource().AddCallback(OuterCallback{state, index});
       } else if (sink.is_valid()) {
         sink.MarkFinished(maybe_next);
         if (maybe_next.ok()) {

@@ -50,10 +50,11 @@ struct VarStdState {
 
     using SumType =
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
-    SumType sum = arrow::compute::detail::SumArray<CType, SumType>(*array.data());
+    SumType sum =
+        arrow::compute::detail::SumArray<CType, SumType, SimdLevel::NONE>(*array.data());
 
     const double mean = static_cast<double>(sum) / count;
-    const double m2 = arrow::compute::detail::SumArray<CType, double>(
+    const double m2 = arrow::compute::detail::SumArray<CType, double, SimdLevel::NONE>(
         *array.data(), [mean](CType value) {
           const double v = static_cast<double>(value);
           return (v - mean) * (v - mean);

@@ -570,6 +570,7 @@ TEST_P(MergedGeneratorTestFixture, MergedStress) {
       sources.push_back(source);
     }
     AsyncGenerator<AsyncGenerator<TestInt>> source_gen = AsyncVectorIt(sources);
+    auto outer_gaurd = ExpectNotAccessedReentrantly(&source_gen);
 
     auto merged = MakeMergedGenerator(source_gen, 4);
     ASSERT_FINISHES_OK_AND_ASSIGN(auto items, CollectAsyncGenerator(merged));

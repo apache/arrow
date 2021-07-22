@@ -132,3 +132,14 @@ test_that("RecordBatchReader to python", {
       filter(int > 6)
   )
 })
+
+test_that("RecordBatchReader from python", {
+  tab <- Table$create(example_data)
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  pyreader <- reticulate::r_to_py(reader)
+  back_to_r <- reticulate::py_to_r(pyreader)
+  rt_table <- back_to_r$read_table()
+  expect_r6_class(rt_table, "Table")
+  expect_identical(as.data.frame(rt_table), example_data)
+})

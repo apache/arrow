@@ -27,6 +27,16 @@ ipc_dir <- make_temp_dir()
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
 
+skip_if_multithreading_disabled <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+  if (is_32bit && is_old_r && is_windows) {
+    skip("Multithreading does not work properly on this system")
+  }
+}
+
+
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
   int = 1:10,
@@ -342,6 +352,7 @@ test_that("IPC/Feather format data", {
 })
 
 test_that("CSV dataset", {
+  skip_if_multithreading_disabled()
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
@@ -369,6 +380,7 @@ test_that("CSV dataset", {
 })
 
 test_that("CSV scan options", {
+  skip_if_multithreading_disabled()
   options <- FragmentScanOptions$create("text")
   expect_equal(options$type, "csv")
   options <- FragmentScanOptions$create("csv",
@@ -408,6 +420,7 @@ test_that("CSV scan options", {
 })
 
 test_that("compressed CSV dataset", {
+  skip_if_multithreading_disabled()
   skip_if_not_available("gzip")
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv.gz")
@@ -431,6 +444,7 @@ test_that("compressed CSV dataset", {
 })
 
 test_that("CSV dataset options", {
+  skip_if_multithreading_disabled()
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
   df <- tibble(chr = letters[1:10])
@@ -458,6 +472,7 @@ test_that("CSV dataset options", {
 })
 
 test_that("Other text delimited dataset", {
+  skip_if_multithreading_disabled()
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equivalent(
     ds1 %>%
@@ -486,6 +501,7 @@ test_that("Other text delimited dataset", {
 })
 
 test_that("readr parse options", {
+  skip_if_multithreading_disabled()
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
@@ -1575,6 +1591,7 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Writing a dataset: CSV format options", {
+  skip_if_multithreading_disabled()
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),

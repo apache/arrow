@@ -1871,6 +1871,19 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
+cdef TimeUnit string_to_timeunit(unit) except *:
+    if unit == 's':
+        return TimeUnit_SECOND
+    elif unit == 'ms':
+        return TimeUnit_MILLI
+    elif unit == 'us':
+        return TimeUnit_MICRO
+    elif unit == 'ns':
+        return TimeUnit_NANO
+    else:
+        raise ValueError(f"Invalid time unit: {unit!r}")
+
+
 def tzinfo_to_string(tz):
     """
     Converts a time zone object into a string indicating the name of a time
@@ -1945,16 +1958,7 @@ def timestamp(unit, tz=None):
         TimeUnit unit_code
         c_string c_timezone
 
-    if unit == "s":
-        unit_code = TimeUnit_SECOND
-    elif unit == 'ms':
-        unit_code = TimeUnit_MILLI
-    elif unit == 'us':
-        unit_code = TimeUnit_MICRO
-    elif unit == 'ns':
-        unit_code = TimeUnit_NANO
-    else:
-        raise ValueError('Invalid TimeUnit string')
+    unit_code = string_to_timeunit(unit)
 
     cdef TimestampType out = TimestampType.__new__(TimestampType)
 
@@ -2003,7 +2007,7 @@ def time32(unit):
     elif unit == 'ms':
         unit_code = TimeUnit_MILLI
     else:
-        raise ValueError('Invalid TimeUnit for time32: {}'.format(unit))
+        raise ValueError(f"Invalid time unit for time32: {unit!r}")
 
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
@@ -2046,7 +2050,7 @@ def time64(unit):
     elif unit == 'ns':
         unit_code = TimeUnit_NANO
     else:
-        raise ValueError('Invalid TimeUnit for time64: {}'.format(unit))
+        raise ValueError(f"Invalid time unit for time64: {unit!r}")
 
     if unit_code in _time_type_cache:
         return _time_type_cache[unit_code]
@@ -2084,16 +2088,7 @@ def duration(unit):
     cdef:
         TimeUnit unit_code
 
-    if unit == "s":
-        unit_code = TimeUnit_SECOND
-    elif unit == 'ms':
-        unit_code = TimeUnit_MILLI
-    elif unit == 'us':
-        unit_code = TimeUnit_MICRO
-    elif unit == 'ns':
-        unit_code = TimeUnit_NANO
-    else:
-        raise ValueError('Invalid TimeUnit string')
+    unit_code = string_to_timeunit(unit)
 
     if unit_code in _duration_type_cache:
         return _duration_type_cache[unit_code]

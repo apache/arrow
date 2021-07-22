@@ -214,15 +214,23 @@ class ParquetFile:
         Coalesce and issue file reads in parallel to improve performance on
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
+    coerce_int96_timestamp_unit : str, default None.
+        Cast timestamps that are stored in INT96 format to a particular
+        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+        and therefore INT96 timestamps will be infered as timestamps
+        in nanoseconds.
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0,
-                 pre_buffer=False):
+                 pre_buffer=False, coerce_int96_timestamp_unit=None):
         self.reader = ParquetReader()
-        self.reader.open(source, use_memory_map=memory_map,
-                         buffer_size=buffer_size, pre_buffer=pre_buffer,
-                         read_dictionary=read_dictionary, metadata=metadata)
+        self.reader.open(
+            source, use_memory_map=memory_map,
+            buffer_size=buffer_size, pre_buffer=pre_buffer,
+            read_dictionary=read_dictionary, metadata=metadata,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
@@ -1254,13 +1262,18 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
+coerce_int96_timestamp_unit : str, default None.
+    Cast timestamps that are stored in INT96 format to a particular resolution
+    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
+    timestamps will be infered as timestamps in nanoseconds.
 """.format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
-                use_legacy_dataset=None, pre_buffer=True):
+                use_legacy_dataset=None, pre_buffer=True,
+                coerce_int96_timestamp_unit=None):
         if use_legacy_dataset is None:
             # if a new filesystem is passed -> default to new implementation
             if isinstance(filesystem, FileSystem):
@@ -1270,18 +1283,21 @@ pre_buffer : bool, default True
                 use_legacy_dataset = True
 
         if not use_legacy_dataset:
-            return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
-                                     filters=filters,
-                                     partitioning=partitioning,
-                                     read_dictionary=read_dictionary,
-                                     memory_map=memory_map,
-                                     buffer_size=buffer_size,
-                                     pre_buffer=pre_buffer,
-                                     # unsupported keywords
-                                     schema=schema, metadata=metadata,
-                                     split_row_groups=split_row_groups,
-                                     validate_schema=validate_schema,
-                                     metadata_nthreads=metadata_nthreads)
+            return _ParquetDatasetV2(
+                path_or_paths, filesystem=filesystem,
+                filters=filters,
+                partitioning=partitioning,
+                read_dictionary=read_dictionary,
+                memory_map=memory_map,
+                buffer_size=buffer_size,
+                pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+                # unsupported keywords
+                schema=schema, metadata=metadata,
+                split_row_groups=split_row_groups,
+                validate_schema=validate_schema,
+                metadata_nthreads=metadata_nthreads
+            )
         self = object.__new__(cls)
         return self
 
@@ -1289,7 +1305,8 @@ pre_buffer : bool, default True
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
                  memory_map=False, buffer_size=0, partitioning="hive",
-                 use_legacy_dataset=True, pre_buffer=True):
+                 use_legacy_dataset=True, pre_buffer=True,
+                 coerce_int96_timestamp_unit=None):
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -1582,7 +1599,7 @@ class _ParquetDatasetV2:
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
-                 **kwargs):
+                 coerce_int96_timestamp_unit=None, **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -1596,7 +1613,10 @@ class _ParquetDatasetV2:
                     "Dataset API".format(keyword))
 
         # map format arguments
-        read_options = {"pre_buffer": pre_buffer}
+        read_options = {
+            "pre_buffer": pre_buffer,
+            "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit
+        }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
                                 buffer_size=buffer_size)
@@ -1825,7 +1845,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
-               ignore_prefixes=None, pre_buffer=True):
+               ignore_prefixes=None, pre_buffer=True,
+               coerce_int96_timestamp_unit=None):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -1845,6 +1866,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 filters=filters,
                 ignore_prefixes=ignore_prefixes,
                 pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1866,7 +1888,9 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
                 memory_map=memory_map, buffer_size=buffer_size,
-                pre_buffer=pre_buffer)
+                pre_buffer=pre_buffer,
+                coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+            )
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
@@ -1877,16 +1901,22 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             "use_legacy_dataset=False")
 
     if _is_path_like(source):
-        pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
-                            read_dictionary=read_dictionary,
-                            buffer_size=buffer_size,
-                            filesystem=filesystem, filters=filters,
-                            partitioning=partitioning)
+        pf = ParquetDataset(
+            source, metadata=metadata, memory_map=memory_map,
+            read_dictionary=read_dictionary,
+            buffer_size=buffer_size,
+            filesystem=filesystem, filters=filters,
+            partitioning=partitioning,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
     else:
-        pf = ParquetFile(source, metadata=metadata,
-                         read_dictionary=read_dictionary,
-                         memory_map=memory_map,
-                         buffer_size=buffer_size)
+        pf = ParquetFile(
+            source, metadata=metadata,
+            read_dictionary=read_dictionary,
+            memory_map=memory_map,
+            buffer_size=buffer_size,
+            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit
+        )
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 

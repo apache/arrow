@@ -20,37 +20,40 @@
 
 env:
   ARROW_S3: {{ arrow_s3 }}
-  MACOSX_DEPLOYMENT_TARGET: {{ macos_deployment_target }}
-  MB_PYTHON_VERSION: {{ python_version }}
-  PLAT: x86_64
+  CC: "clang"
+  CXX: "clang++"
+  MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
-  PYARROW_VERSION: {{ arrow.no_rc_version }}
-  PYTHON_VERSION: {{ python_version }}
-  SETUPTOOLS_SCM_PRETEND_VERSION: {{ arrow.no_rc_version }}
+  PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+  PYTHON_VERSION: "{{ python_version }}"
+  PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
+  VCPKG_VERSION: "{{ vcpkg_version }}"
 
 jobs:
   build:
     name: Build wheel for OS X
-    runs-on: macos-latest
+    runs-on: macos-10.15
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
-        run: brew install bison coreutils ninja cmake
+        run: brew install bash bison coreutils ninja cmake
 
       - uses: actions/cache@v2
         id: vcpkg-cache
         with:
           path: vcpkg
-          key: vcpkg-{{ macos_deployment_target }}-{{ vcpkg_version }}-{{ "${{ hashFiles('arrow/ci/vcpkg/**') }}" }}
+          key: vcpkg-{{ macos_deployment_target }}-{{ vcpkg_version }}-{{ "${{ hashFiles('arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}
 
       - name: Install Vcpkg
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
         run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
 
       - name: Install Packages
@@ -83,35 +86,24 @@ jobs:
         run: $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
       {% endif %}
 
-      - name: Setup Multibuild
-        run: |
-          git clone https://github.com/matthew-brett/multibuild
-          git -C multibuild checkout 03950c9a7feb09d215f82d6563c4ffd91274a1e1
+      - name: Install Python {{ python_version }}
+        shell: bash
+        run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
 
       - name: Build Wheel
-        env:
-          CONFIG_PATH: /dev/null
+        shell: bash
         run: |
-          # configure environment and install python
-          source multibuild/common_utils.sh
-          source multibuild/travis_osx_steps.sh
-          before_install
+          $PYTHON -m virtualenv build-env
+          source build-env/bin/activate
+          pip install --upgrade pip wheel
+          arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
 
-          # install python dependencies
-          pip install -r arrow/python/requirements-wheel-build.txt delocate
-
-          # build the wheel
-          arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
-
-      - name: Setup Python for Testing
-        uses: actions/setup-python@v2
-        with:
-          python-version: "{{ python_version }}"
-
-      - name: Test the Wheel
+      - name: Test Wheel
+        shell: bash
         run: |
-          # TODO(kszucs): temporarily remove homebrew libs
-          unset MACOSX_DEPLOYMENT_TARGET
+          $PYTHON -m virtualenv test-env
+          source test-env/bin/activate
+          pip install --upgrade pip wheel
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
