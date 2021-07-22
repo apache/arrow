@@ -813,19 +813,19 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       int rows = 0;
 
       for (; keys.next(); rows++) {
-        saveToVector(emptyToNull(keys.getString("PKTABLE_CAT")), pkCatalogNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKTABLE_SCHEM")), pkSchemaNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKTABLE_NAME")), pkTableNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKCOLUMN_NAME")), pkColumnNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_CAT")), fkCatalogNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_SCHEM")), fkSchemaNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_NAME")), fkTableNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKCOLUMN_NAME")), fkColumnNameVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("KEY_SEQ")), keySequenceVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("UPDATE_RULE")), updateRuleVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("DELETE_RULE")), deleteRuleVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FK_NAME")), fkKeyNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PK_NAME")), pkKeyNameVector ,rows);
+        saveToVector(keys.getString("PKTABLE_CAT"), pkCatalogNameVector ,rows);
+        saveToVector(keys.getString("PKTABLE_SCHEM"), pkSchemaNameVector ,rows);
+        saveToVector(keys.getString("PKTABLE_NAME"), pkTableNameVector ,rows);
+        saveToVector(keys.getString("PKCOLUMN_NAME"), pkColumnNameVector ,rows);
+        saveToVector(keys.getString("FKTABLE_CAT"), fkCatalogNameVector ,rows);
+        saveToVector(keys.getString("FKTABLE_SCHEM"), fkSchemaNameVector ,rows);
+        saveToVector(keys.getString("FKTABLE_NAME"), fkTableNameVector ,rows);
+        saveToVector(keys.getString("FKCOLUMN_NAME"), fkColumnNameVector ,rows);
+        saveToVector(keys.getInt("KEY_SEQ"), keySequenceVector ,rows);
+        saveToVector(keys.getInt("UPDATE_RULE"), updateRuleVector ,rows);
+        saveToVector(keys.getInt("DELETE_RULE"), deleteRuleVector ,rows);
+        saveToVector(keys.getString("FK_NAME"), fkKeyNameVector ,rows);
+        saveToVector(keys.getString("PK_NAME"), pkKeyNameVector ,rows);
       }
 
       for (final FieldVector vector : vectors) {
@@ -835,7 +835,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       makeListen(
           listener, singletonList(new VectorSchemaRoot(vectors)));
     } catch (SQLException e) {
-      e.printStackTrace();
+      listener.error(e);
     }
     finally {
       listener.completed();
