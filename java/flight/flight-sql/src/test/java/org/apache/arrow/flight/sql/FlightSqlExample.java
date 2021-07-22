@@ -688,8 +688,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final String catalog = emptyToNull(command.getCatalog());
-    final String schemaFilterPattern = emptyToNull(command.getSchemaFilterPattern());
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schemaFilterPattern =
+        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
@@ -731,12 +732,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }
 
-    List<FlightEndpoint> endpoints =
-        results.stream()
-            .map(Result::getBody)
-            .map(Ticket::new)
-            .map(ticket -> new FlightEndpoint(ticket, location))
-            .collect(toList());
+  @Override
+  public void getStreamTables(final CommandGetTables command, final CallContext context,
+                              final Ticket ticket, final ServerStreamListener listener) {
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schemaFilterPattern =
+        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
+    final String tableFilterPattern =
+        command.hasTableNameFilterPattern() ? command.getTableNameFilterPattern().getValue() : null;
 
     final Schema schema = new Schema(singletonList(nullable("Sample", Null.INSTANCE)));
     return new FlightInfo(schema, descriptor, endpoints, Byte.MAX_VALUE, endpoints.size());
@@ -787,9 +790,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
                                    final ServerStreamListener listener) {
 
-    String catalog = emptyToNull(command.getCatalog());
-    String schema = emptyToNull(command.getSchema());
-    String table = emptyToNull(command.getTable());
+    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    final String table = command.hasTable() ? command.getTable().getValue() : null;
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
