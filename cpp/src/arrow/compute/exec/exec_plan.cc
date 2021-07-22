@@ -529,9 +529,9 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
       input, std::move(label), schema(std::move(fields)), std::move(exprs));
 }
 
-class InputCounter {
+class AtomicCounter {
  public:
-  InputCounter() = default;
+  AtomicCounter() = default;
 
   int count() const { return count_.load(); }
 
@@ -646,7 +646,7 @@ struct SinkNode : ExecNode {
     }
   }
 
-  InputCounter input_counter_;
+  AtomicCounter input_counter_;
   Future<> finished_ = Future<>::MakeFinished();
 
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
@@ -800,7 +800,7 @@ struct ScalarAggregateNode : ExecNode {
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
   ThreadIndexer get_thread_index_;
-  InputCounter input_counter_;
+  AtomicCounter input_counter_;
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
@@ -949,81 +949,61 @@ struct GroupByNode : ExecNode {
     return Status::OK();
   }
 
-  Status Finalize() {
-    out_data_.resize(agg_kernels_.size() + key_field_ids_.size());
-    auto it = out_data_.begin();
-
+  Result<ExecBatch> Finalize() {
     ThreadLocalState* state = &local_states_[0];
-    num_out_groups_ = state->grouper->num_groups();
+
+    ExecBatch out_data{{}, state->grouper->num_groups()};
+    out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
-
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       KernelContext batch_ctx{ctx_};
       batch_ctx.SetState(state->agg_states[i].get());
-      Datum out;
-      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out));
-      *it++ = out.array();
+      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
       state->agg_states[i].reset();
     }
 
     ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
-    for (const auto& key : out_keys.values) {
-      *it++ = key.array();
-    }
+    std::move(out_keys.values.begin(), out_keys.values.end(),
+              out_data.values.begin() + agg_kernels_.size());
     state->grouper.reset();
 
-    return Status::OK();
-  }
-
-  Status OutputNthBatch(int n) {
-    // Check finished flag
-    if (finished_.is_finished()) {
-      return Status::OK();
-    }
-
-    // Slice arrays
-    int64_t batch_size = output_batch_size();
-    int64_t batch_start = n * batch_size;
-    std::vector<Datum> output_slices(out_data_.size());
-    for (size_t i = 0; i < out_data_.size(); ++i) {
-      output_slices[i] = out_data_[i]->Slice(batch_start, batch_size);
-    }
-
-    ARROW_ASSIGN_OR_RAISE(ExecBatch output_batch, ExecBatch::Make(output_slices));
-    outputs_[0]->InputReceived(this, n, output_batch);
-
-    uint32_t num_output_batches_processed =
-        1 + num_output_batches_processed_.fetch_add(1);
-    if (num_output_batches_processed * batch_size >= num_out_groups_) {
+    if (output_counter_.SetTotal(
+            BitUtil::CeilDiv(out_data.length, output_batch_size()))) {
+      // this will be hit if out_data.length == 0
       finished_.MarkFinished();
     }
+    return out_data;
+  }
 
-    return Status::OK();
+  void OutputNthBatch(int n) {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
+    int64_t batch_size = output_batch_size();
+    outputs_[0]->InputReceived(this, n, out_data_.Slice(batch_size * n, batch_size));
+
+    if (output_counter_.Increment()) {
+      finished_.MarkFinished();
+    }
   }
 
   Status OutputResult() {
     RETURN_NOT_OK(Merge());
-    RETURN_NOT_OK(Finalize());
+    ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
 
-    int batch_size = output_batch_size();
-    int num_result_batches = (num_out_groups_ + batch_size - 1) / batch_size;
-    outputs_[0]->InputFinished(this, num_result_batches);
+    int num_output_batches = *output_counter_.total();
+    outputs_[0]->InputFinished(this, num_output_batches);
 
     auto executor = ctx_->executor();
-    for (int i = 0; i < num_result_batches; ++i) {
-      // bail if StopProducing was called
-      if (finished_.is_finished()) break;
-
+    for (int i = 0; i < num_output_batches; ++i) {
       if (executor) {
-        RETURN_NOT_OK(executor->Spawn([this, i]() {
-          Status status = OutputNthBatch(i);
-          if (!status.ok()) {
-            ErrorReceived(inputs_[0], status);
-          }
-        }));
+        // bail if StopProducing was called
+        if (finished_.is_finished()) break;
+
+        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
       } else {
-        RETURN_NOT_OK(OutputNthBatch(i));
+        OutputNthBatch(i);
       }
     }
 
@@ -1050,6 +1030,9 @@ struct GroupByNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.SetTotal(num_total)) {
@@ -1074,6 +1057,8 @@ struct GroupByNode : ExecNode {
     DCHECK_EQ(output, outputs_[0]);
 
     if (input_counter_.Cancel()) {
+      finished_.MarkFinished();
+    } else if (output_counter_.Cancel()) {
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);
@@ -1137,19 +1122,16 @@ struct GroupByNode : ExecNode {
   ExecContext* ctx_;
   Future<> finished_ = Future<>::MakeFinished();
 
-  std::atomic<uint32_t> num_output_batches_processed_{0};
-
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
   ThreadIndexer get_thread_index_;
-  InputCounter input_counter_;
+  AtomicCounter input_counter_, output_counter_;
 
   std::vector<ThreadLocalState> local_states_;
-  uint32_t num_out_groups_{0};
-  ArrayDataVector out_data_;
+  ExecBatch out_data_;
 };
 
 Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
