@@ -337,29 +337,32 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetForeignKey2(){
+  public void testGetCommandExportedKeys(){
     final FlightStream stream =
         sqlClient.getStream(
-            sqlClient.getForeignKeys(null, null, "INTTABLE", null, null, "FOREIGNTABLE")
+            sqlClient.getExportedKeys( null, null, "FOREIGNTABLE")
                 .getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
 
-    for (List<String> result : results) {
-      final int size = result.size();
-      collector.checkThat(result.get(size - 13), nullValue());
-      collector.checkThat(result.get(size - 12),is( "APP"));
-      collector.checkThat(result.get(size - 11),is( "FOREIGNTABLE"));
-      collector.checkThat(result.get(size - 10), is("ID"));
-      collector.checkThat(result.get(size - 9), nullValue());
-      collector.checkThat(result.get(size - 8), is("APP"));
-      collector.checkThat(result.get(size - 7), is("INTTABLE"));
-      collector.checkThat(result.get(size - 6), is("FOREIGNID"));
-      collector.checkThat(result.get(size - 5), is("1"));
-      collector.checkThat(result.get(size - 4), containsString("SQL210720"));
-      collector.checkThat(result.get(size - 3), containsString("SQL210720"));
-      collector.checkThat(result.get(size - 2), is("3"));
-      collector.checkThat(result.get(size - 1), is("3"));
+    final List<Matcher<String>> matchers = asList(
+        nullValue(String.class), // pk_catalog_name
+        is("APP"), // pk_schema_name
+        is("FOREIGNTABLE"), // pk_table_name
+        is("ID"), // pk_column_name
+        nullValue(String.class), // fk_catalog_name
+        is("APP"), // fk_schema_name
+        is("INTTABLE"), // fk_table_name
+        is("FOREIGNID"), // fk_column_name
+        is("1"), // key_sequence
+        containsString("SQL"), // fk_key_name
+        containsString("SQL"), // pk_key_name
+        is("3"), // update_rule
+        is("3")); // delete_rule
+
+    Assert.assertTrue(results.size() > 0);
+    for (int i = 0; i < matchers.size(); i++) {
+      collector.checkThat(results.get(0).get(i), matchers.get(i));
     }
   }
 
