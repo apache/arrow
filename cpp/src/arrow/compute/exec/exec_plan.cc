@@ -690,13 +690,27 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
 class ThreadIndexer {
  public:
   size_t operator()() {
-    std::unique_lock<std::mutex> lock(mutex_);
     auto id = std::this_thread::get_id();
+
+    std::unique_lock<std::mutex> lock(mutex_);
     const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
-    return id_index.second;
+
+    return Check(id_index.second);
+  }
+
+  static size_t Capacity() {
+    static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity();
+    return max_size;
   }
 
  private:
+  size_t Check(size_t thread_index) {
+    DCHECK_LT(thread_index, Capacity()) << "thread index " << thread_index
+                                        << " is out of range [0, " << Capacity() << ")";
+
+    return thread_index;
+  }
+
   std::mutex mutex_;
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
@@ -716,11 +730,6 @@ struct ScalarAggregateNode : ExecNode {
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      if (thread_index >= states_[i].size()) {
-        return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
-                                  states_[i].size(), ")");
-      }
-
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
@@ -839,7 +848,7 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
     }
 
     KernelContext kernel_ctx{exec_ctx};
-    states[i].resize(exec_ctx->executor() ? exec_ctx->executor()->GetCapacity() : 1);
+    states[i].resize(ThreadIndexer::Capacity());
     RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
                                   KernelInitArgs{kernels[i],
                                                  {
@@ -1052,9 +1061,7 @@ struct GroupByNode : ExecNode {
   Status StartProducing() override {
     finished_ = Future<>::Make();
 
-    auto executor = plan_->exec_context()->executor();
-    local_states_.resize(executor ? executor->GetCapacity() : 1);
-
+    local_states_.resize(ThreadIndexer::Capacity());
     return Status::OK();
   }
 
@@ -1085,10 +1092,6 @@ struct GroupByNode : ExecNode {
 
   ThreadLocalState* GetLocalState() {
     size_t thread_index = get_thread_index_();
-    DCHECK_LT(thread_index, local_states_.size())
-        << "thread index " << thread_index << " is out of range [0, "
-        << local_states_.size() << ")";
-
     return &local_states_[thread_index];
   }
 
