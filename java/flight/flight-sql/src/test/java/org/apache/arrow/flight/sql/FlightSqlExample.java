@@ -793,52 +793,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
       final ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
 
-      final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-      final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
-      final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", allocator);
-      final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", allocator);
-      final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", allocator);
-      final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", allocator);
-      final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", allocator);
-      final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", allocator);
-      final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", allocator);
-      final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
-      final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", allocator);
-      final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", allocator);
-      final IntVector updateRuleVector = new IntVector("update_rule", allocator);
-      final IntVector deleteRuleVector = new IntVector("delete_rule", allocator);
-
-      final List<FieldVector> vectors =
-          new ArrayList<>(
-              ImmutableList.of(
-                  pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
-                  fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
-                  pkKeyNameVector, updateRuleVector, deleteRuleVector));
-      vectors.forEach(FieldVector::allocateNew);
-      int rows = 0;
-
-      for (; keys.next(); rows++) {
-        saveToVector(keys.getString("PKTABLE_CAT"), pkCatalogNameVector, rows);
-        saveToVector(keys.getString("PKTABLE_SCHEM"), pkSchemaNameVector, rows);
-        saveToVector(keys.getString("PKTABLE_NAME"), pkTableNameVector, rows);
-        saveToVector(keys.getString("PKCOLUMN_NAME"), pkColumnNameVector, rows);
-        saveToVector(keys.getString("FKTABLE_CAT"), fkCatalogNameVector, rows);
-        saveToVector(keys.getString("FKTABLE_SCHEM"), fkSchemaNameVector, rows);
-        saveToVector(keys.getString("FKTABLE_NAME"), fkTableNameVector, rows);
-        saveToVector(keys.getString("FKCOLUMN_NAME"), fkColumnNameVector, rows);
-        final int key_seq = keys.getInt("KEY_SEQ");
-        saveToVector(keys.wasNull() ? null : key_seq, keySequenceVector, rows);
-        final int update_rule = keys.getInt("UPDATE_RULE");
-        saveToVector(keys.wasNull() ? null : update_rule, updateRuleVector, rows);
-        final int delete_rule = keys.getInt("DELETE_RULE");
-        saveToVector(keys.wasNull() ? null : delete_rule, deleteRuleVector, rows);
-        saveToVector(keys.getString("FK_NAME"), fkKeyNameVector, rows);
-        saveToVector(keys.getString("PK_NAME"), pkKeyNameVector, rows);
-      }
-
-      for (final FieldVector vector : vectors) {
-        vector.setValueCount(rows);
-      }
+      final List<FieldVector> vectors = createVectors(keys);
 
       makeListen(
           listener, singletonList(new VectorSchemaRoot(vectors)));
@@ -847,6 +802,52 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     } finally {
       listener.completed();
     }
+  }
+
+  private List<FieldVector> createVectors(ResultSet keys) throws SQLException {
+    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
+    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", allocator);
+    final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", allocator);
+    final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", allocator);
+    final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", allocator);
+    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", allocator);
+    final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", allocator);
+    final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", allocator);
+    final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
+    final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", allocator);
+    final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", allocator);
+    final IntVector updateRuleVector = new IntVector("update_rule", allocator);
+    final IntVector deleteRuleVector = new IntVector("delete_rule", allocator);
+
+    Map<FieldVector, String> vectorToColumnName = new HashMap<>();
+    vectorToColumnName.put(pkCatalogNameVector, "PKTABLE_CAT");
+    vectorToColumnName.put(pkSchemaNameVector, "PKTABLE_SCHEM");
+    vectorToColumnName.put(pkTableNameVector, "PKTABLE_NAME");
+    vectorToColumnName.put(pkColumnNameVector, "PKCOLUMN_NAME");
+    vectorToColumnName.put(fkCatalogNameVector, "FKTABLE_CAT");
+    vectorToColumnName.put(fkSchemaNameVector, "FKTABLE_SCHEM");
+    vectorToColumnName.put(fkTableNameVector, "FKTABLE_NAME");
+    vectorToColumnName.put(fkColumnNameVector, "FKCOLUMN_NAME");
+    vectorToColumnName.put(keySequenceVector, "KEY_SEQ");
+    vectorToColumnName.put(fkKeyNameVector, "UPDATE_RULE");
+    vectorToColumnName.put(pkKeyNameVector, "DELETE_RULE");
+    vectorToColumnName.put(updateRuleVector, "FK_NAME");
+    vectorToColumnName.put(deleteRuleVector, "PK_NAME");
+
+    final List<FieldVector> vectors =
+        new ArrayList<>(
+            ImmutableList.of(
+                pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
+                fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
+                pkKeyNameVector, updateRuleVector, deleteRuleVector));
+    vectors.forEach(FieldVector::allocateNew);
+
+    saveToVectors(vectorToColumnName, keys);
+
+    final int rows = vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
+    vectors.forEach(vector -> vector.setValueCount(rows));
+    return vectors;
   }
 
   @Override
