@@ -29,6 +29,7 @@ import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
 import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -41,10 +42,8 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
-import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -461,14 +460,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new VectorSchemaRoot(vectors);
   }
 
-  private static Schema buildSchema(final ResultSetMetaData resultSetMetaData) throws SQLException {
-    return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, DEFAULT_CALENDAR);
-  }
-
-  private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
-    return JdbcToArrowUtils.jdbcToArrowSchema(parameterMetaData, DEFAULT_CALENDAR);
-  }
-
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
@@ -509,7 +500,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                                    final FlightDescriptor descriptor) {
     try {
       final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
-      return getFlightInfoForSchema(command, descriptor, buildSchema(resultSet.getMetaData()));
+      return getFlightInfoForSchema(command, descriptor,
+          jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
     } catch (ExecutionException | SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
@@ -556,8 +548,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final PreparedStatementContext statementContext =
           preparedStatementLoadingCache.get(cacheKey);
       final PreparedStatement preparedStatement = statementContext.getPreparedStatement();
-      final Schema parameterSchema = buildSchema(preparedStatement.getParameterMetaData());
-      final Schema datasetSchema = buildSchema(preparedStatement.getMetaData());
+      final Schema parameterSchema =
+          jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
+      final Schema datasetSchema =
+          jdbcToArrowSchema(preparedStatement.getMetaData(), DEFAULT_CALENDAR);
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(copyFrom(datasetSchema.toByteArray()))
           .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
