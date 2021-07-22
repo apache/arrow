@@ -1570,6 +1570,9 @@ TEST(TestStringOps, TestFindInSet) {
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "ha", 2, "hao,mn,hc,ha,hef", 16), 4);
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "hef", 3, "hao,mn,hc,ha,hef", 16), 5);
 
+  // returns zero if the string to search contains a comma
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "hao,mn", 6, "hao,mn,hc,ha,hef", 16), 0);
+
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", -5, "B,C,,A,", 6), 0);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid input values."));
   ctx.Reset();

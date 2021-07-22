@@ -1870,6 +1870,11 @@ gdv_int32 find_in_set_utf8_utf8(gdv_int64 context, const char* in, gdv_int32 in_
     return 0;
   }
 
+  // check if string to find contains comma. In this case returns 0
+  for (int i = 0; i < in_len; i++) {
+    if (memcmp(in + i, ",", 1) == 0) return 0;
+  }
+
   int last_delimit = 0, count = 1;
   bool match_delimiter = false;
   for (int i = 0; i < text_len; i++) {

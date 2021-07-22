@@ -798,8 +798,10 @@ TEST_F(TestProjector, TestFindInSet) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8({"A", "", "Z", "A"}, {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"A,B", ",A", "A", "B,A,"}, {true, true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"A", "", "Z", "A", ""}, {true, true, true, true, false});
+  auto array1 =
+      MakeArrowArrayUtf8({"A,B", ",A", "A", "B,A,", "A"}, {true, true, true, true, true});
 
   // expected output
   auto exp_find = MakeArrowArrayInt32({1, 1, 0, 2}, {true, true, true, true});
