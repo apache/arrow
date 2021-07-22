@@ -37,13 +37,13 @@ alchemize_to_arrow(x, ...)
 An object with a reference to the the alchemized data
 }
 \description{
-The \verb{alchemize_*} family of functions take data in one context (e.g. Arrow data in an R
-session, Arrow data in a Python session) and transform it into a form usable
-by another context: (e.g. Arrow data in a Python session, a (virtual) table in
-a DuckDB session). All of these functions use Arrow's C-interface and data is
-not serialized or moved when it is alchemized, instead it is made available for
-a subprocess of the new context (e.g. Python through reticulate or the DuckDB
-engine).
+The \verb{alchemize_*} family of functions take data in one context (e.g. Arrow
+data in an R session, Arrow data in a Python session) and transform it into a
+form usable by another context: (e.g. Arrow data in a Python session, a
+(virtual) table in a DuckDB session). All of these functions use Arrow's
+C-interface and data is not serialized or moved when it is alchemized,
+instead it is made available for a subprocess of the new context (e.g. Python
+through reticulate or the DuckDB engine).
 }
 \details{
 The return value is for each function in the family based on what is at the
@@ -56,8 +56,9 @@ pipelines, or you can write DuckDB queries using the table name (by default
 to use a specific, pre-existent connection to DuckDB use the \code{con} argument
 to pass the connection to use. By default, these tables are automatically
 cleaned up when the \code{tbl} is removed from the session (and garbage collection
-occurs on that), to disable this, pass \code{auto_disconnect = FALSE}.
-\item \code{alchemize_to_python} - returns a reticulate-based python object. This is
-the same as the interface using the \code{r_to_py} functions.
+occurs on that), to disable this, pass \code{auto_disconnect = FALSE}. *
+\code{alchemize_to_python} - returns a reticulate-based python object. This is the
+same as the interface using the \code{r_to_py} functions.
 }
 }
+\keyword{internal}

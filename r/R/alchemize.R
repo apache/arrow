@@ -44,6 +44,7 @@
 #'
 #' @return An object with a reference to the the alchemized data
 #'
+#' @keywords internal
 #' @name alchemize
 NULL
 
