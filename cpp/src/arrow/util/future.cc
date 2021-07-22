@@ -320,7 +320,6 @@ class ConcreteFutureImpl : public FutureImpl {
     for (auto& callback_record : callbacks_) {
       RunOrScheduleCallback(std::move(callback_record), /*in_add_callback=*/false);
     }
-    callbacks_.clear();
   }
 
   void DoWait() {
