@@ -258,7 +258,8 @@ message CommandGetPrimaryKeys {
 }
 
 /*
- * Represents a request to retrieve the foreign keys of a table on a Flight SQL enabled backend.
+ * Represents a request to retrieve a description of the foreign key columns that reference the given table's
+ * primary key columns (the foreign keys exported by a table) of a table on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.

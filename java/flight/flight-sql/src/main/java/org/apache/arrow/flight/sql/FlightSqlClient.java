@@ -216,7 +216,7 @@ public class FlightSqlClient {
   }
 
   /**
-   * Request to get info about keys on a table. The fkTable parameter must be specified.
+   * Request to get info about keys on a table. The table, which exports the foreign keys, parameter must be specified.
    *
    * @param catalog The foreign key table catalog.
    * @param schema  The foreign key table schema.
