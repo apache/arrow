@@ -29,23 +29,23 @@ void ExportedContextFunctions::AddMappings(Engine* engine) const {
   auto types = engine->types();
 
   // gdv_fn_context_set_error_msg
-  args = {types->void_ptr_type(),  // void* context_ptr
-          types->i8_ptr_type()};   // char const* err_msg
+  args = {types->opaque_ptr_type(),  // void* context_ptr
+          types->i8_ptr_type()};     // char const* err_msg
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_set_error_msg", types->void_type(),
                                   args,
                                   reinterpret_cast<void*>(gdv_fn_context_set_error_msg));
 
   // gdv_fn_context_arena_malloc
-  args = {types->void_ptr_type(),  // void* context_ptr
-          types->i32_type()};      // int32_t size
+  args = {types->opaque_ptr_type(),  // void* context_ptr
+          types->i32_type()};        // int32_t size
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_arena_malloc", types->i8_ptr_type(),
                                   args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_malloc));
 
   // gdv_fn_context_arena_reset
-  args = {types->void_ptr_type()};  // void* context_ptr
+  args = {types->opaque_ptr_type()};  // void* context_ptr
 
   engine->AddGlobalMappingForFunc("gdv_fn_context_arena_reset", types->void_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_reset));

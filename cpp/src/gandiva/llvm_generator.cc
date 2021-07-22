@@ -264,8 +264,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     case SelectionVector::MODE_UINT64:
       arguments.push_back(types()->i64_ptr_type());
   }
-  arguments.push_back(types()->void_ptr_type());  // ctx_ptr
-  arguments.push_back(types()->i64_type());       // nrec
+  arguments.push_back(types()->opaque_ptr_type());  // ctx_ptr
+  arguments.push_back(types()->i64_type());         // nrec
   llvm::FunctionType* prototype =
       llvm::FunctionType::get(types()->i32_type(), arguments, false /*isVarArg*/);
 
@@ -1002,7 +1002,7 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
 
   const InExprDex<Type>& dex_instance = dynamic_cast<const InExprDex<Type>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* holder_ptr = types->void_ptr_constant(dex_instance.in_holder().get());
+  llvm::Constant* holder_ptr = types->opaque_ptr_constant(dex_instance.in_holder().get());
   params.push_back(holder_ptr);
 
   /* eval expr result */
@@ -1042,7 +1042,7 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* holder_ptr = types->void_ptr_constant(dex_instance.in_holder().get());
+  llvm::Constant* holder_ptr = types->opaque_ptr_constant(dex_instance.in_holder().get());
   params.push_back(holder_ptr);
 
   /* eval expr result */
@@ -1234,7 +1234,7 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
 
   // if the function has holder, add the holder pointer.
   if (holder != nullptr) {
-    auto ptr = types->void_ptr_constant(holder);
+    auto ptr = types->opaque_ptr_constant(holder);
     params.push_back(ptr);
   }
 
