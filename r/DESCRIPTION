@@ -41,6 +41,7 @@ RoxygenNote: 7.1.1.9001
 VignetteBuilder: knitr
 Suggests:
     DBI,
+    dbplyr,
     decor,
     distro,
     dplyr,
@@ -58,7 +59,6 @@ Suggests:
     withr
 LinkingTo: cpp11 (>= 0.2.0)
 Collate:
-    'python.R'
     'alchemize.R'
     'arrowExports.R'
     'enums.R'
@@ -109,6 +109,7 @@ Collate:
     'message.R'
     'metadata.R'
     'parquet.R'
+    'python.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
     'reexports-bit64.R'

@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_installed("duckdb")
-# TODO: uncomment when we get a passing CI build that confirms these tests run.
-# skip_if_not_installed("dbplyr")
+skip_if_not_installed("duckdb", minimum_version = "0.2.8")
+skip_if_not_installed("dbplyr")
 library(duckdb)
 library(dplyr)
 
@@ -25,19 +24,15 @@ con <- dbConnect(duckdb::duckdb())
 # we always want to test in parallel
 dbExecute(con, "PRAGMA threads=2")
 
-test_that("basic integration", {
-  rb <- record_batch(example_data)
+# write one table to the connection so it is kept open
+DBI::dbWriteTable(con, "mtcars", mtcars)
 
-  duckdb_register_arrow(con, "my_recordbatch", rb)
-  expect_identical(dbGetQuery(con, "SELECT count(*) FROM my_recordbatch")$`count_star()`, 10)
-})
-
-test_that("alchemize_to_duckdb", {
+test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
 
   expect_identical(
     ds %>%
-      alchemize_to_duckdb() %>%
+      to_duckdb() %>%
       collect() %>%
       # factors don't roundtrip
       select(!fct),
@@ -47,7 +42,7 @@ test_that("alchemize_to_duckdb", {
   expect_identical(
     ds %>%
       select(int, lgl, dbl) %>%
-      alchemize_to_duckdb() %>%
+      to_duckdb() %>%
       group_by(lgl) %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
       collect(),
@@ -58,12 +53,12 @@ test_that("alchemize_to_duckdb", {
     )
   )
 
-  # can group_by before the alchemize_to_duckdb
+  # can group_by before the to_duckdb
   expect_identical(
     ds %>%
       select(int, lgl, dbl) %>%
       group_by(lgl) %>%
-      alchemize_to_duckdb() %>%
+      to_duckdb() %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
       collect(),
     tibble::tibble(
@@ -100,9 +95,9 @@ test_that("Joining, auto-cleanup", {
   # we always want to test in parallel
   dbExecute(con, "PRAGMA threads=2")
 
-  table_one <- alchemize_to_duckdb(ds, con = con)
+  table_one <- to_duckdb(ds, con = con)
   table_one_name <- as.character(table_one$ops$x)
-  table_two <- alchemize_to_duckdb(ds, con = con)
+  table_two <- to_duckdb(ds, con = con)
   table_two_name <- as.character(table_two$ops$x)
 
   res <- dbGetQuery(
@@ -125,7 +120,7 @@ test_that("Joining, auto-cleanup", {
 test_that("Joining, auto-cleanup disabling", {
   ds <- InMemoryDataset$create(example_data)
 
-  table_three <- alchemize_to_duckdb(ds, con = con, auto_disconnect = FALSE)
+  table_three <- to_duckdb(ds, con = con, auto_disconnect = FALSE)
   table_three_name <- as.character(table_three$ops$x)
 
   # clean up does *not* clean these tables
@@ -136,12 +131,12 @@ test_that("Joining, auto-cleanup disabling", {
   expect_true(table_three_name %in% DBI::dbListTables(con))
 })
 
-test_that("alchemize_to_duckdb with a table", {
+test_that("to_duckdb with a table", {
   tab <- Table$create(example_data)
 
   expect_identical(
     tab %>%
-      alchemize_to_duckdb() %>%
+      to_duckdb() %>%
       group_by(int > 4) %>%
       summarise(
         int_mean = mean(int, na.rm = TRUE),
@@ -157,7 +152,7 @@ test_that("alchemize_to_duckdb with a table", {
 })
 
 
-test_that("alchemize_to_duckdb passing a connection", {
+test_that("to_duckdb passing a connection", {
   ds <- InMemoryDataset$create(example_data)
 
   con_separate <- dbConnect(duckdb::duckdb())
@@ -173,7 +168,7 @@ test_that("alchemize_to_duckdb passing a connection", {
 
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
-    alchemize_to_duckdb(con = con_separate)
+    to_duckdb(con = con_separate)
   table_four_name <- table_four$ops$x
 
   result <- DBI::dbGetQuery(

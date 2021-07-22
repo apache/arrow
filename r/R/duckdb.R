@@ -15,6 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Create a (virtual) DuckDB table from an Arrow object
+#'
+#' This will do the necessary configuration to create a (virtual) table in DuckDB
+#' that is backed by the Arrow object given. No data is copied or modified until
+#' `collect()` or `compute()` are called or a query is run against the table.
+#'
+#' The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
+#'
+#' @param src the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
+#' @param con a DuckDB connection to use (default will create one and store it
+#' in `options("arrow_duck_con")`)
+#' @param table_name a name to use in DuckDB for this object. The default is a
+#' unique string `"arrow_"` followed by numbers.
+#' @param auto_disconnect should the table be automatically cleaned up when the
+#' resulting object is removed (and garbage collected)? Default: `TRUE`
+#'
+#' @return A tbl of the new table in DuckDB
+#'
+#' @keywords internal
+#' @name to_duckdb
+NULL
+
 arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
   if (is.null(con) || !DBI::dbIsValid(con)) {
@@ -26,22 +48,22 @@ arrow_duck_connection <- function() {
   con
 }
 
-# TODO: note that this is copied from dbplyr
+# Adapted from dbplyr
 unique_arrow_tablename <- function () {
   i <- getOption("arrow_table_name", 0) + 1
   options(arrow_table_name = i)
   sprintf("arrow_%03i", i)
 }
 
-.alchemize_to_duckdb <- function(x, ...) {
-  rb_to_duckdb(x, groups = x$group, ...)
-}
-
-rb_to_duckdb <- function(x, con = arrow_duck_connection(), groups = NULL, auto_disconnect = TRUE) {
-  table_name <- unique_arrow_tablename()
-  duckdb::duckdb_register_arrow(con, table_name, x)
+.alchemize_to_duckdb <- function(
+  src,
+  con = arrow_duck_connection(),
+  table_name =  unique_arrow_tablename(),
+  auto_disconnect = TRUE) {
+  duckdb::duckdb_register_arrow(con, table_name, src)
 
   tbl <- tbl(con, table_name)
+  groups <- src$group
   if (length(groups) > 0 && !is.null(groups)) {
     tbl <- dplyr::group_by(tbl, !!rlang::sym(groups))
   }
@@ -55,21 +77,25 @@ rb_to_duckdb <- function(x, con = arrow_duck_connection(), groups = NULL, auto_d
   tbl
 }
 
-#' @rdname alchemize
+#' @rdname to_duckdb
 #' @export
-alchemize_to_duckdb.Dataset <- .alchemize_to_duckdb
+to_duckdb <- function(src, con, table_name, auto_disconnect) UseMethod("to_duckdb", src)
 
-#' @rdname alchemize
+#' @rdname to_duckdb
 #' @export
-alchemize_to_duckdb.Table <- .alchemize_to_duckdb
+to_duckdb.Dataset <- .alchemize_to_duckdb
 
-#' @rdname alchemize
+#' @rdname to_duckdb
 #' @export
-alchemize_to_duckdb.arrow_dplyr_query <- .alchemize_to_duckdb
+to_duckdb.Table <- .alchemize_to_duckdb
+
+#' @rdname to_duckdb
+#' @export
+to_duckdb.arrow_dplyr_query <- .alchemize_to_duckdb
 
 summarise_duck <- function(.data, ...) {
   # TODO: pass a connection?
-  tbl <- alchemize_to_duckdb(.data)
+  tbl <- to_duckdb(.data)
   dplyr::summarise(tbl, ...)
 }
 

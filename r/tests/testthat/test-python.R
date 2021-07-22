@@ -143,23 +143,3 @@ test_that("RecordBatchReader from python", {
   expect_r6_class(rt_table, "Table")
   expect_identical(as.data.frame(rt_table), example_data)
 })
-
-test_that("alchemize_to_python", {
-  library(dplyr)
-
-  ds <- InMemoryDataset$create(example_data)
-  ds_py <- ds %>%
-    select(int, lgl) %>%
-    filter(int > 6) %>%
-    alchemize_to_python()
-
-  rb_reader <- ds_py %>%
-    alchemize_to_arrow()
-
-  expect_identical(
-    as.data.frame(rb_reader$read_table()),
-    example_data %>%
-      select(int, lgl) %>%
-      filter(int > 6)
-  )
-})
