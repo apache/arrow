@@ -822,8 +822,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         saveToVector(keys.getString("FKTABLE_NAME"), fkTableNameVector ,rows);
         saveToVector(keys.getString("FKCOLUMN_NAME"), fkColumnNameVector ,rows);
         saveToVector(keys.getInt("KEY_SEQ"), keySequenceVector ,rows);
-        saveToVector(keys.getInt("UPDATE_RULE"), updateRuleVector ,rows);
-        saveToVector(keys.getInt("DELETE_RULE"), deleteRuleVector ,rows);
+        saveToVector(keys.wasNull() ? null : keys.getInt("UPDATE_RULE"), updateRuleVector, rows);
+        saveToVector(keys.wasNull() ? null : keys.getInt("DELETE_RULE"), deleteRuleVector, rows);
         saveToVector(keys.getString("FK_NAME"), fkKeyNameVector ,rows);
         saveToVector(keys.getString("PK_NAME"), pkKeyNameVector ,rows);
       }
