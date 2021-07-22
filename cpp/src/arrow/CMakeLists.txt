@@ -218,6 +218,7 @@ set(ARROW_SRCS
     util/thread_pool.cc
     util/time.cc
     util/trie.cc
+    util/unreachable.cc
     util/uri.cc
     util/utf8.cc
     util/value_parsing.cc

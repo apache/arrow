@@ -39,6 +39,7 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 
 namespace arrow {
@@ -263,8 +264,7 @@ struct SourceNode : ExecNode {
   const char* kind_name() override { return "SourceNode"; }
 
   [[noreturn]] static void NoInputs() {
-    DCHECK(false) << "no inputs; this should never be called";
-    std::abort();
+    Unreachable("no inputs; this should never be called");
   }
   [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
   [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
@@ -594,8 +594,7 @@ struct SinkNode : ExecNode {
 
   // sink nodes have no outputs from which to feel backpressure
   [[noreturn]] static void NoOutputs() {
-    DCHECK(false) << "no outputs; this should never be called";
-    std::abort();
+    Unreachable("no outputs; this should never be called");
   }
   [[noreturn]] void ResumeProducing(ExecNode* output) override { NoOutputs(); }
   [[noreturn]] void PauseProducing(ExecNode* output) override { NoOutputs(); }
@@ -690,18 +689,15 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
 
 class ThreadIndexer {
  public:
-  size_t operator()(std::mutex* mutex) {
-    std::unique_lock<std::mutex> lock(*mutex);
-    return this->operator()();
-  }
-
   size_t operator()() {
+    std::unique_lock<std::mutex> lock(mutex_);
     auto id = std::this_thread::get_id();
     const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
     return id_index.second;
   }
 
  private:
+  std::mutex mutex_;
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
@@ -734,7 +730,7 @@ struct ScalarAggregateNode : ExecNode {
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    auto thread_index = get_thread_index_(&mutex_);
+    auto thread_index = get_thread_index_();
 
     if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
 
@@ -783,8 +779,6 @@ struct ScalarAggregateNode : ExecNode {
 
  private:
   Status Finish() {
-    std::unique_lock<std::mutex> lock(mutex_);
-
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
 
@@ -795,9 +789,7 @@ struct ScalarAggregateNode : ExecNode {
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
 
-    lock.unlock();
-
-    outputs_[0]->InputReceived(this, 0, batch);
+    outputs_[0]->InputReceived(this, 0, std::move(batch));
     finished_.MarkFinished();
     return Status::OK();
   }
@@ -806,7 +798,6 @@ struct ScalarAggregateNode : ExecNode {
   std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
-  std::mutex mutex_;
 
   ThreadIndexer get_thread_index_;
   InputCounter input_counter_;
@@ -1098,7 +1089,7 @@ struct GroupByNode : ExecNode {
     std::vector<std::unique_ptr<KernelState>> agg_states;
   };
 
-  ThreadLocalState* GetLocalState() { return &local_states_[get_thread_index_(&mutex_)]; }
+  ThreadLocalState* GetLocalState() { return &local_states_[get_thread_index_()]; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
@@ -1146,7 +1137,6 @@ struct GroupByNode : ExecNode {
   ExecContext* ctx_;
   Future<> finished_ = Future<>::MakeFinished();
 
-  std::mutex mutex_;
   std::atomic<uint32_t> num_output_batches_processed_{0};
 
   const std::vector<int> key_field_ids_;
