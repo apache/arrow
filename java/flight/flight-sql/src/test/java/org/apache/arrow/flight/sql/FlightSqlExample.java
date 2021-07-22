@@ -137,7 +137,7 @@ import io.grpc.Status;
  * - execution of a prepared statement by using a {@link CommandPreparedStatementQuery}
  * with {@link #getFlightInfo} and {@link #getStream}.
  */
-public class FlightSqlExample extends FlightSqlProducer implements AutoCloseable {
+public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private final Location location;
