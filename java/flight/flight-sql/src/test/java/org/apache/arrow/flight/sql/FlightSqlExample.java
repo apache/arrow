@@ -466,21 +466,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
-    checkNotNull(parameterMetaData);
-    final List<Field> parameterFields = new ArrayList<>();
-    for (int parameterCounter = 1; parameterCounter <= parameterMetaData.getParameterCount();
-         parameterCounter++) {
-      final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
-      final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
-      final boolean arrowIsNullable = jdbcIsNullable != ParameterMetaData.parameterNoNulls;
-      final int precision = parameterMetaData.getPrecision(parameterCounter);
-      final int scale = parameterMetaData.getScale(parameterCounter);
-      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
-      parameterFields.add(new Field(null, fieldType, null));
-    }
-
-    return new Schema(parameterFields);
+    return JdbcToArrowUtils.jdbcToArrowSchema(parameterMetaData, DEFAULT_CALENDAR);
   }
 
   @Override
