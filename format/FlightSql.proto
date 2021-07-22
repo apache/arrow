@@ -283,10 +283,10 @@ message CommandGetPrimaryKeys {
  */
 message CommandGetExportedKeys{
   // Specifies the catalog to search for the foreign key table.
-  string catalog = 1;
+  google.protobuf.StringValue catalog = 1;
 
   // Specifies the schema to search for the foreign key table.
-  string schema = 2;
+  google.protobuf.StringValue schema = 2;
 
   // Specifies the foreign key table to get the foreign keys for.
   string table = 3;

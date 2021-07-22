@@ -238,12 +238,12 @@ public class FlightSqlClient {
       builder.setPkSchema(StringValue.newBuilder().setValue(pkSchema).build());
     }
 
-    if (pkTable != null) {
-      builder.setPkTable(StringValue.newBuilder().setValue(pkTable).build());
+    if (catalog != null) {
+      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
     }
 
-    if (fkCatalog != null) {
-      builder.setFkCatalog(StringValue.newBuilder().setValue(fkCatalog).build());
+    if (schema != null) {
+      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
     if (fkSchema != null) {
