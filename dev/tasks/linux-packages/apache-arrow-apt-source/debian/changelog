@@ -1,0 +1,5 @@
+apache-arrow-apt-source (5.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Thu, 22 Jul 2021 12:37:56 -0000
