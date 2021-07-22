@@ -603,11 +603,11 @@ public class TestFlightSql {
     final List<List<String>> results = getResults(stream);
 
     final List<Matcher<String>> matchers = asList(
-        is(""), // pk_catalog_name
+        nullValue(String.class), // pk_catalog_name
         is("APP"), // pk_schema_name
         is("FOREIGNTABLE"), // pk_table_name
         is("ID"), // pk_column_name
-        is(""), // fk_catalog_name
+        nullValue(String.class), // fk_catalog_name
         is("APP"), // fk_schema_name
         is("INTTABLE"), // fk_table_name
         is("FOREIGNID"), // fk_column_name
