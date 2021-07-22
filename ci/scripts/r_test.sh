@@ -65,6 +65,9 @@ fi
 BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
+# Install the dev version of duckdb, remove this when 0.2.8 is released
+install.packages('https://github.com/duckdb/duckdb/releases/download/master-builds/duckdb_r_src.tar.gz', repos = NULL)
+
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
   if (as_cran) {
     rcmdcheck::rcmdcheck(args = c('--as-cran', if (run_donttest) '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)

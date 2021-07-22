@@ -26,8 +26,6 @@ pushd ${source_dir}
 
 # Install R package dependencies
 ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys', 'dbplyr'))"
-# Install the dev version of duckdb, remove this when 0.2.8 is released
-${R_BIN} -e "install.packages('https://github.com/duckdb/duckdb/releases/download/master-builds/duckdb_r_src.tar.gz', repos = NULL)"
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
 popd
