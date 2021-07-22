@@ -15,11 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @export
-r_to_py <- function(x, ...) {
-  UseMethod("r_to_py")
-}
-
 py_to_r.pyarrow.lib.Array <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   array_ptr <- allocate_arrow_array()

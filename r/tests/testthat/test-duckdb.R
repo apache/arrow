@@ -135,6 +135,26 @@ test_that("Joining, auto-cleanup disabling", {
   expect_true(table_three_name %in% DBI::dbListTables(con))
 })
 
+test_that("alchemize_to_duckdb with a table", {
+  tab <- Table$create(example_data)
+
+  expect_identical(
+    tab %>%
+      alchemize_to_duckdb() %>%
+      group_by(int > 4) %>%
+      summarise(
+        int_mean = mean(int, na.rm = TRUE),
+        dbl_mean = mean(dbl, na.rm = TRUE)
+      ) %>%
+    collect(),
+    tibble::tibble(
+      "int > 4" = c(FALSE, NA, TRUE),
+      int_mean = c(2, NA, 7.5),
+      dbl_mean = c(2.1, 4.1, 7.3)
+    )
+  )
+})
+
 
 test_that("alchemize_to_duckdb passing a connection", {
   ds <- InMemoryDataset$create(example_data)
@@ -169,7 +189,5 @@ test_that("alchemize_to_duckdb passing a connection", {
 
   dbDisconnect(con_separate, shutdown = TRUE)
 })
-
-# TODO: test Tables
 
 dbDisconnect(con, shutdown = TRUE)

@@ -55,9 +55,15 @@ rb_to_duckdb <- function(x, con = arrow_duck_connection(), groups = NULL, auto_d
   tbl
 }
 
+#' @rdname alchemize
 #' @export
 alchemize_to_duckdb.Dataset <- alchemize_to_duckdb_dataset
 
+#' @rdname alchemize
+#' @export
+alchemize_to_duckdb.Table <-  alchemize_to_duckdb_dataset
+
+#' @rdname alchemize
 #' @export
 alchemize_to_duckdb.arrow_dplyr_query <-  alchemize_to_duckdb_dataset
 
