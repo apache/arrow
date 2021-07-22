@@ -851,9 +851,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context, final Ticket ticket,
                                     final ServerStreamListener listener) {
-    String foreignKeyCatalog = emptyToNull(command.getCatalog());
-    String foreignKeySchema = emptyToNull(command.getSchema());
-    String foreignKeyTable = emptyToNull(command.getTable());
+    String foreignKeyCatalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    String foreignKeySchema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String foreignKeyTable = command.getTable();
 
     try(Connection connection = DriverManager.getConnection(DATABASE_URI)){
 
