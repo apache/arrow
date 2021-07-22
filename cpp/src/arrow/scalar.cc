@@ -76,7 +76,8 @@ struct ScalarHashImpl {
 
   Status Visit(const Decimal256Scalar& s) {
     Status status = Status::OK();
-    for (uint64_t elem : s.value.little_endian_array()) {
+    // endianness doesn't affect result
+    for (uint64_t elem : s.value.native_endian_array()) {
       status &= StdHash(elem);
     }
     return status;
