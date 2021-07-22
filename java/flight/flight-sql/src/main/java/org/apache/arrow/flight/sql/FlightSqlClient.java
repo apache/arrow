@@ -220,19 +220,13 @@ public class FlightSqlClient {
    * <p>
    * One of pkTable or fkTable must be specified, both cannot be null.
    *
-   * @param pkCatalog The primary key table catalog.
-   * @param pkSchema  The primary key table schema.
-   * @param pkTable   The primary key table.
    * @param fkCatalog The foreign key table catalog.
    * @param fkSchema  The foreign key table schema.
    * @param fkTable   The foreign key table.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getForeignKeys(final @Nullable String pkCatalog, final @Nullable String pkSchema,
-                                   final @Nullable String pkTable,
-                                   final @Nullable String fkCatalog, final @Nullable String fkSchema,
-                                   final @Nullable String fkTable) {
-    if (null == pkTable && null == fkTable) {
+  public FlightInfo getExportedKeys(String fkCatalog, String fkSchema, String fkTable) {
+    if (null == fkTable) {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
     }
 
