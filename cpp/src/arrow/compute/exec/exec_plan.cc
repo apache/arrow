@@ -716,9 +716,10 @@ struct ScalarAggregateNode : ExecNode {
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      DCHECK_LT(thread_index, states_[i].size())
-          << "thread index " << thread_index << " is out of range [0, "
-          << states_[i].size() << ")";
+      if (thread_index >= states_[i].size()) {
+        return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
+                                  states_[i].size(), ")");
+      }
 
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
@@ -896,7 +897,13 @@ struct GroupByNode : ExecNode {
   const char* kind_name() override { return "GroupByNode"; }
 
   Status Consume(ExecBatch batch) {
-    ThreadLocalState* state = GetLocalState();
+    size_t thread_index = get_thread_index_();
+    if (thread_index >= local_states_.size()) {
+      return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
+                                local_states_.size(), ")");
+    }
+
+    auto state = &local_states_[thread_index];
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     // Create a batch with key columns
