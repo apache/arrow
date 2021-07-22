@@ -44,7 +44,7 @@ Suggests:
     decor,
     distro,
     dplyr,
-    duckdb (>= 0.2.7),
+    duckdb (> 0.2.7),
     hms,
     knitr,
     lubridate,
