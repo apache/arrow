@@ -61,22 +61,22 @@ import io.grpc.Status;
  * API to Implement an Arrow Flight SQL producer.
  */
 public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable {
-  public static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
+  protected static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
       Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
       Field.nullable("schema_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_type", MinorType.VARCHAR.getType()),
       Field.nullable("table_schema", MinorType.VARBINARY.getType())));
-  public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
+  protected static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
       Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
       Field.nullable("schema_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_name", MinorType.VARCHAR.getType()),
       Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  public static final Schema GET_CATALOGS_SCHEMA = new Schema(
+  protected static final Schema GET_CATALOGS_SCHEMA = new Schema(
       Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
-  public static final Schema GET_TABLE_TYPES_SCHEMA =
+  protected static final Schema GET_TABLE_TYPES_SCHEMA =
       new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
+  protected static final Schema GET_SCHEMAS_SCHEMA = new Schema(
       Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
           Field.nullable("schema_name", MinorType.VARCHAR.getType())));
 
