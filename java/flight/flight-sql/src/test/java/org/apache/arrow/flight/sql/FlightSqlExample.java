@@ -209,10 +209,15 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     Optional<SQLException> exception = empty();
     try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
-      statement.execute("CREATE TABLE foreignTable (id INT not null primary key GENERATED ALWAYS AS IDENTITY " +
-          "(START WITH 1, INCREMENT BY 1), foreignName varchar(100), value int)");
-      statement.execute("CREATE TABLE intTable (id INT not null primary key GENERATED ALWAYS AS IDENTITY " +
-          "(START WITH 1, INCREMENT BY 1), keyName varchar(100), value int, foreignId int references foreignTable(id))");
+      statement.execute("CREATE TABLE foreignTable (" +
+          "id INT not null primary key GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " +
+          "foreignName varchar(100), " +
+          "value int)");
+      statement.execute("CREATE TABLE intTable (" +
+          "id INT not null primary key GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " +
+          "keyName varchar(100), " +
+          "value int, " +
+          "foreignId int references foreignTable(id))");
       statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyOne', 1)");
       statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyTwo', 0)");
       statement.execute("INSERT INTO foreignTable (foreignName, value) VALUES ('keyThree', -1)");
@@ -849,16 +854,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context, final Ticket ticket,
+  public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context,
+                                    final Ticket ticket,
                                     final ServerStreamListener listener) {
-    String foreignKeyCatalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
-    String foreignKeySchema = command.hasSchema() ? command.getSchema().getValue() : null;
-    String foreignKeyTable = command.getTable();
+    String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String table = command.getTable();
 
-    try(Connection connection = DriverManager.getConnection(DATABASE_URI)){
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
 
-      final ResultSet keys = connection.getMetaData().getExportedKeys(foreignKeyCatalog,
-          foreignKeySchema, foreignKeyTable);
+      final ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
 
       final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
       final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
@@ -885,19 +890,22 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       int rows = 0;
 
       for (; keys.next(); rows++) {
-        saveToVector(emptyToNull(keys.getString("PKTABLE_CAT")), pkCatalogNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKTABLE_SCHEM")), pkSchemaNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKTABLE_NAME")), pkTableNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PKCOLUMN_NAME")), pkColumnNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_CAT")), fkCatalogNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_SCHEM")), fkSchemaNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKTABLE_NAME")), fkTableNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FKCOLUMN_NAME")), fkColumnNameVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("KEY_SEQ")), keySequenceVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("UPDATE_RULE")), updateRuleVector ,rows);
-        saveToVector(Integer.parseInt(keys.getString("DELETE_RULE")), deleteRuleVector ,rows);
-        saveToVector(emptyToNull(keys.getString("FK_NAME")), fkKeyNameVector ,rows);
-        saveToVector(emptyToNull(keys.getString("PK_NAME")), pkKeyNameVector ,rows);
+        saveToVector(keys.getString("PKTABLE_CAT"), pkCatalogNameVector, rows);
+        saveToVector(keys.getString("PKTABLE_SCHEM"), pkSchemaNameVector, rows);
+        saveToVector(keys.getString("PKTABLE_NAME"), pkTableNameVector, rows);
+        saveToVector(keys.getString("PKCOLUMN_NAME"), pkColumnNameVector, rows);
+        saveToVector(keys.getString("FKTABLE_CAT"), fkCatalogNameVector, rows);
+        saveToVector(keys.getString("FKTABLE_SCHEM"), fkSchemaNameVector, rows);
+        saveToVector(keys.getString("FKTABLE_NAME"), fkTableNameVector, rows);
+        saveToVector(keys.getString("FKCOLUMN_NAME"), fkColumnNameVector, rows);
+        final int key_seq = keys.getInt("KEY_SEQ");
+        saveToVector(keys.wasNull() ? null : key_seq, keySequenceVector, rows);
+        final int update_rule = keys.getInt("UPDATE_RULE");
+        saveToVector(keys.wasNull() ? null : update_rule, updateRuleVector, rows);
+        final int delete_rule = keys.getInt("DELETE_RULE");
+        saveToVector(keys.wasNull() ? null : delete_rule, deleteRuleVector, rows);
+        saveToVector(keys.getString("FK_NAME"), fkKeyNameVector, rows);
+        saveToVector(keys.getString("PK_NAME"), pkKeyNameVector, rows);
       }
 
       for (final FieldVector vector : vectors) {
@@ -907,9 +915,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       makeListen(
           listener, singletonList(new VectorSchemaRoot(vectors)));
     } catch (SQLException e) {
-      e.printStackTrace();
-    }
-    finally {
+      listener.error(e);
+    } finally {
       listener.completed();
     }
   }
