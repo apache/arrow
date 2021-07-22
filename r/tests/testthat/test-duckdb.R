@@ -16,6 +16,8 @@
 # under the License.
 
 skip_if_not_installed("duckdb")
+# TODO: uncomment when we get a passing CI build that confirms these tests run.
+# skip_if_not_installed("dbplyr")
 library(duckdb)
 library(dplyr)
 
