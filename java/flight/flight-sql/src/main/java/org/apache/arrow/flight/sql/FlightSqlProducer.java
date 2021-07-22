@@ -60,26 +60,7 @@ import io.grpc.Status;
 /**
  * API to Implement an Arrow Flight SQL producer.
  */
-public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable {
-  protected static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
-      Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-      Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-      Field.nullable("table_name", MinorType.VARCHAR.getType()),
-      Field.nullable("table_type", MinorType.VARCHAR.getType()),
-      Field.nullable("table_schema", MinorType.VARBINARY.getType())));
-  protected static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
-      Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-      Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-      Field.nullable("table_name", MinorType.VARCHAR.getType()),
-      Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  protected static final Schema GET_CATALOGS_SCHEMA = new Schema(
-      Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
-  protected static final Schema GET_TABLE_TYPES_SCHEMA =
-      new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
-  protected static final Schema GET_SCHEMAS_SCHEMA = new Schema(
-      Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-          Field.nullable("schema_name", MinorType.VARCHAR.getType())));
-
+public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Depending on the provided command, method either:
    * 1. Return information about a SQL query, or
@@ -90,7 +71,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return information about the given SQL query, or the given prepared statement.
    */
   @Override
-  public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+  default FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
@@ -133,7 +114,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return the result set schema.
    */
   @Override
-  public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
+  default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     final Any command = FlightSqlUtils.parseOrThrow(descriptor.getCommand());
 
     if (command.is(CommandStatementQuery.class)) {
@@ -168,7 +149,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param listener An interface for sending data back to the client.
    */
   @Override
-  public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+  default void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
     final Any command;
 
     try {
@@ -218,7 +199,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @return a Runnable to process the stream.
    */
   @Override
-  public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+  default Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
     final Any command = FlightSqlUtils.parseOrThrow(flightStream.getDescriptor().getCommand());
 
     if (command.is(CommandStatementUpdate.class)) {
@@ -245,7 +226,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param listener An interface for sending data back to the client.
    */
   @Override
-  public void listActions(CallContext context, StreamListener<ActionType> listener) {
+  default void listActions(CallContext context, StreamListener<ActionType> listener) {
     FlightSqlUtils.FLIGHT_SQL_ACTIONS.forEach(listener::onNext);
     listener.onCompleted();
   }
@@ -258,7 +239,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param listener A stream of responses.
    */
   @Override
-  public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+  default void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
       final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
@@ -281,8 +262,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param context  Per-call context.
    * @param listener A stream of responses.
    */
-  public abstract void createPreparedStatement(ActionCreatePreparedStatementRequest request, CallContext context,
-                                               StreamListener<Result> listener);
+  void createPreparedStatement(ActionCreatePreparedStatementRequest request, CallContext context,
+                               StreamListener<Result> listener);
 
   /**
    * Closes a prepared statement on the server. No result is expected.
@@ -291,8 +272,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param context  Per-call context.
    * @param listener A stream of responses.
    */
-  public abstract void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
-                                              StreamListener<Result> listener);
+  void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
+                              StreamListener<Result> listener);
 
   /**
    * Gets information about a particular SQL query based data stream.
@@ -302,8 +283,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoStatement(CommandStatementQuery command, CallContext context,
-                                                    FlightDescriptor descriptor);
+  FlightInfo getFlightInfoStatement(CommandStatementQuery command, CallContext context,
+                                    FlightDescriptor descriptor);
 
   /**
    * Gets information about a particular prepared statement data stream.
@@ -313,8 +294,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery command,
-                                                            CallContext context, FlightDescriptor descriptor);
+  FlightInfo getFlightInfoPreparedStatement(CommandPreparedStatementQuery command,
+                                            CallContext context, FlightDescriptor descriptor);
 
   /**
    * Gets schema about a particular SQL query based data stream.
@@ -324,8 +305,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Schema for the stream.
    */
-  public abstract SchemaResult getSchemaStatement(CommandStatementQuery command, CallContext context,
-                                                  FlightDescriptor descriptor);
+  SchemaResult getSchemaStatement(CommandStatementQuery command, CallContext context,
+                                  FlightDescriptor descriptor);
 
   /**
    * Returns data for a SQL query based data stream.
@@ -335,8 +316,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
-                                          ServerStreamListener listener);
+  void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
+                          ServerStreamListener listener);
 
   /**
    * Returns data for a particular prepared statement query instance.
@@ -346,8 +327,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
-                                                  Ticket ticket, ServerStreamListener listener);
+  void getStreamPreparedStatement(CommandPreparedStatementQuery command, CallContext context,
+                                  Ticket ticket, ServerStreamListener listener);
 
   /**
    * Accepts uploaded data for a particular SQL query based data stream.
@@ -359,8 +340,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ackStream    The result data stream.
    * @return A runnable to process the stream.
    */
-  public abstract Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
-                                              FlightStream flightStream, StreamListener<PutResult> ackStream);
+  Runnable acceptPutStatement(CommandStatementUpdate command, CallContext context,
+                              FlightStream flightStream, StreamListener<PutResult> ackStream);
 
   /**
    * Accepts uploaded data for a particular prepared statement data stream.
@@ -372,9 +353,9 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ackStream    The result data stream.
    * @return A runnable to process the stream.
    */
-  public abstract Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command,
-                                                            CallContext context, FlightStream flightStream,
-                                                            StreamListener<PutResult> ackStream);
+  Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command,
+                                            CallContext context, FlightStream flightStream,
+                                            StreamListener<PutResult> ackStream);
 
   /**
    * Accepts uploaded parameter values for a particular prepared statement query.
@@ -385,9 +366,9 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ackStream    The result data stream.
    * @return A runnable to process the stream.
    */
-  public abstract Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command,
-                                                           CallContext context, FlightStream flightStream,
-                                                           StreamListener<PutResult> ackStream);
+  Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command,
+                                           CallContext context, FlightStream flightStream,
+                                           StreamListener<PutResult> ackStream);
 
   /**
    * Returns the SQL Info of the server by returning a
@@ -398,15 +379,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoSqlInfo(CommandGetSqlInfo request, CallContext context,
-                                                  FlightDescriptor descriptor);
+  FlightInfo getFlightInfoSqlInfo(CommandGetSqlInfo request, CallContext context,
+                                  FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get SQL info data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaSqlInfo() {
+  default SchemaResult getSchemaSqlInfo() {
 
     final List<Field> children = Arrays.asList(
         Field.nullable("string_value", MinorType.VARCHAR.getType()),
@@ -432,8 +413,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context, Ticket ticket,
-                                        ServerStreamListener listener);
+  void getStreamSqlInfo(CommandGetSqlInfo command, CallContext context, Ticket ticket,
+                        ServerStreamListener listener);
 
   /**
    * Returns the available catalogs by returning a stream of
@@ -444,16 +425,16 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoCatalogs(CommandGetCatalogs request, CallContext context,
-                                                   FlightDescriptor descriptor);
+  FlightInfo getFlightInfoCatalogs(CommandGetCatalogs request, CallContext context,
+                                   FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get catalogs data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaCatalogs() {
-    return new SchemaResult(GET_CATALOGS_SCHEMA);
+  default SchemaResult getSchemaCatalogs() {
+    return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
   }
 
   /**
@@ -463,8 +444,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamCatalogs(CallContext context, Ticket ticket,
-                                         ServerStreamListener listener);
+  void getStreamCatalogs(CallContext context, Ticket ticket,
+                         ServerStreamListener listener);
 
   /**
    * Returns the available schemas by returning a stream of
@@ -475,16 +456,16 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoSchemas(CommandGetSchemas request, CallContext context,
-                                                  FlightDescriptor descriptor);
+  FlightInfo getFlightInfoSchemas(CommandGetSchemas request, CallContext context,
+                                  FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get schemas data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaSchemas() {
-    return new SchemaResult(GET_SCHEMAS_SCHEMA);
+  default SchemaResult getSchemaSchemas() {
+    return new SchemaResult(Schemas.GET_SCHEMAS_SCHEMA);
   }
 
   /**
@@ -495,8 +476,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamSchemas(CommandGetSchemas command, CallContext context, Ticket ticket,
-                                        ServerStreamListener listener);
+  void getStreamSchemas(CommandGetSchemas command, CallContext context, Ticket ticket,
+                        ServerStreamListener listener);
 
   /**
    * Returns the available tables by returning a stream of
@@ -507,16 +488,16 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoTables(CommandGetTables request, CallContext context,
-                                                 FlightDescriptor descriptor);
+  FlightInfo getFlightInfoTables(CommandGetTables request, CallContext context,
+                                 FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get tables data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaTables() {
-    return new SchemaResult(GET_TABLES_SCHEMA);
+  default SchemaResult getSchemaTables() {
+    return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
   }
 
   /**
@@ -527,8 +508,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamTables(CommandGetTables command, CallContext context, Ticket ticket,
-                                       ServerStreamListener listener);
+  void getStreamTables(CommandGetTables command, CallContext context, Ticket ticket,
+                       ServerStreamListener listener);
 
   /**
    * Returns the available table types by returning a stream of
@@ -538,16 +519,16 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoTableTypes(CommandGetTableTypes request, CallContext context,
-                                                     FlightDescriptor descriptor);
+  FlightInfo getFlightInfoTableTypes(CommandGetTableTypes request, CallContext context,
+                                     FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get table types data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaTableTypes() {
-    return new SchemaResult(GET_TABLE_TYPES_SCHEMA);
+  default SchemaResult getSchemaTableTypes() {
+    return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
   }
 
   /**
@@ -557,7 +538,7 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamTableTypes(CallContext context, Ticket ticket, ServerStreamListener listener);
+  void getStreamTableTypes(CallContext context, Ticket ticket, ServerStreamListener listener);
 
   /**
    * Returns the available primary keys by returning a stream of
@@ -568,15 +549,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoPrimaryKeys(CommandGetPrimaryKeys request, CallContext context,
-                                                      FlightDescriptor descriptor);
+  FlightInfo getFlightInfoPrimaryKeys(CommandGetPrimaryKeys request, CallContext context,
+                                      FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get primary keys data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaPrimaryKeys() {
+  default SchemaResult getSchemaPrimaryKeys() {
     final List<Field> fields = Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
@@ -596,8 +577,8 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamPrimaryKeys(CommandGetPrimaryKeys command, CallContext context, Ticket ticket,
-                                            ServerStreamListener listener);
+  void getStreamPrimaryKeys(CommandGetPrimaryKeys command, CallContext context, Ticket ticket,
+                            ServerStreamListener listener);
 
   /**
    * Returns the available primary keys by returning a stream of
@@ -608,15 +589,15 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  public abstract FlightInfo getFlightInfoForeignKeys(CommandGetForeignKeys request, CallContext context,
-                                                      FlightDescriptor descriptor);
+  FlightInfo getFlightInfoForeignKeys(CommandGetForeignKeys request, CallContext context,
+                                      FlightDescriptor descriptor);
 
   /**
    * Gets schema about the get foreign keys data stream.
    *
    * @return Schema for the stream.
    */
-  public SchemaResult getSchemaForeignKeys() {
+  default SchemaResult getSchemaForeignKeys() {
     final List<Field> fields = Arrays.asList(
         Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
@@ -643,6 +624,34 @@ public abstract class FlightSqlProducer implements FlightProducer, AutoCloseable
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  public abstract void getStreamForeignKeys(CommandGetForeignKeys command, CallContext context, Ticket ticket,
-                                            ServerStreamListener listener);
+  void getStreamForeignKeys(CommandGetForeignKeys command, CallContext context, Ticket ticket,
+                            ServerStreamListener listener);
+
+  /**
+   * Default schema templates for the {@link FlightSqlProducer}.
+   */
+  final class Schemas {
+    public static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_type", MinorType.VARCHAR.getType()),
+        Field.nullable("table_schema", MinorType.VARBINARY.getType())));
+    public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_type", MinorType.VARCHAR.getType())));
+    public static final Schema GET_CATALOGS_SCHEMA = new Schema(
+        Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
+    public static final Schema GET_TABLE_TYPES_SCHEMA =
+        new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
+    public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
+        Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+            Field.nullable("schema_name", MinorType.VARCHAR.getType())));
+
+    private Schemas() {
+      // Prevent instantiation.
+    }
+  }
 }

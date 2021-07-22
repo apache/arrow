@@ -37,7 +37,7 @@ import java.util.Properties;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlExample;
-import org.apache.arrow.flight.sql.SampleTestUtils;
+import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -106,7 +106,7 @@ public class TestFlightSql {
   @Test
   public void testGetTablesSchema() {
     final FlightInfo info = sqlClient.getTables(null, null, null, null, true);
-    collector.checkThat(info.getSchema(), is(SampleTestUtils.GET_TABLES_SCHEMA));
+    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
   }
 
   @Test
@@ -115,7 +115,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, null, false)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_TABLES_SCHEMA_NO_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -153,7 +153,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), false)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_TABLES_SCHEMA_NO_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -168,7 +168,7 @@ public class TestFlightSql {
              sqlClient.getStream(
                  sqlClient.getTables(null, null, null, singletonList("TABLE"), true)
                      .getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_TABLES_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA));
       final List<List<String>> results = getResults(stream);
       final List<List<String>> expectedResults = ImmutableList.of(
           // catalog_name | schema_name | table_name | table_type | table_schema
@@ -225,14 +225,14 @@ public class TestFlightSql {
   @Test
   public void testGetCatalogsSchema() {
     final FlightInfo info = sqlClient.getCatalogs();
-    collector.checkThat(info.getSchema(), is(SampleTestUtils.GET_CATALOGS_SCHEMA));
+    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA));
   }
 
   @Test
   public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_CATALOGS_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA));
       List<List<String>> catalogs = getResults(stream);
       collector.checkThat(catalogs, is(emptyList()));
     }
@@ -241,14 +241,14 @@ public class TestFlightSql {
   @Test
   public void testGetTableTypesSchema() {
     final FlightInfo info = sqlClient.getTableTypes();
-    collector.checkThat(info.getSchema(), is(SampleTestUtils.GET_TABLE_TYPES_SCHEMA));
+    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
   }
 
   @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_TABLE_TYPES_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
       final List<List<String>> tableTypes = getResults(stream);
       final List<List<String>> expectedTableTypes = ImmutableList.of(
           // table_type
@@ -264,14 +264,14 @@ public class TestFlightSql {
   @Test
   public void testGetSchemasSchema() {
     final FlightInfo info = sqlClient.getSchemas(null, null);
-    collector.checkThat(info.getSchema(), is(SampleTestUtils.GET_SCHEMAS_SCHEMA));
+    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
   }
 
   @Test
   public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
-      collector.checkThat(stream.getSchema(), is(SampleTestUtils.GET_SCHEMAS_SCHEMA));
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
       final List<List<String>> schemas = getResults(stream);
       final List<List<String>> expectedSchemas = ImmutableList.of(
           // catalog_name | schema_name
