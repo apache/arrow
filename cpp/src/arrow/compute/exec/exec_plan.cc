@@ -971,7 +971,7 @@ struct GroupByNode : ExecNode {
     state->grouper.reset();
 
     if (output_counter_.SetTotal(
-            BitUtil::CeilDiv(static_cast<int>(out_data.length), output_batch_size()))) {
+            static_cast<int>(BitUtil::CeilDiv(out_data.length, output_batch_size())))) {
       // this will be hit if out_data.length == 0
       finished_.MarkFinished();
     }
