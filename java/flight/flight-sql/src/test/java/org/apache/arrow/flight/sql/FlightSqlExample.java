@@ -347,6 +347,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           String thisData = data.getString(columnName);
           saveToVector(emptyToNull ? emptyToNull(thisData) : thisData, (VarCharVector) vector, rows);
           continue;
+        } else if (vector instanceof IntVector) {
+          final int intValue = data.getInt(columnName);
+          saveToVector(data.wasNull() ? null : intValue, (IntVector) vector, rows);
+          continue;
         }
         throw Status.INVALID_ARGUMENT.asRuntimeException();
       }
@@ -843,7 +847,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                 pkKeyNameVector, updateRuleVector, deleteRuleVector));
     vectors.forEach(FieldVector::allocateNew);
 
-    saveToVectors(vectorToColumnName, keys);
+    saveToVectors(vectorToColumnName, keys, true);
 
     final int rows = vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
     vectors.forEach(vector -> vector.setValueCount(rows));
