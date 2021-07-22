@@ -675,11 +675,11 @@ std::string Decimal256::ToIntegerString() const {
     result.push_back('-');
     Decimal256 abs = *this;
     abs.Negate();
-    AppendLittleEndianArrayToString(BitUtil::ToLittleEndian(abs.native_endian_array()),
-                                    &result);
+    AppendLittleEndianArrayToString(
+        BitUtil::LittleEndianArray::FromNative(abs.native_endian_array()), &result);
   } else {
-    AppendLittleEndianArrayToString(BitUtil::ToLittleEndian(native_endian_array()),
-                                    &result);
+    AppendLittleEndianArrayToString(
+        BitUtil::LittleEndianArray::FromNative(native_endian_array()), &result);
   }
   return result;
 }
@@ -727,7 +727,7 @@ Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
-    *out = Decimal256(BitUtil::FromLittleEndian(little_endian_array));
+    *out = Decimal256(BitUtil::LittleEndianArray::ToNative(little_endian_array));
 
     if (dec.sign == '-') {
       out->Negate();
@@ -800,7 +800,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
     length -= word_length;
   }
 
-  return Decimal256(BitUtil::FromLittleEndian(little_endian_array));
+  return Decimal256(BitUtil::LittleEndianArray::ToNative(little_endian_array));
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
@@ -843,7 +843,7 @@ struct Decimal256RealConversion {
     DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part0, 0);
     DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
-    return Decimal256(BitUtil::FromLittleEndian<uint64_t, 4>(
+    return Decimal256(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
         {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
          static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)}));
   }
@@ -867,7 +867,7 @@ struct Decimal256RealConversion {
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
-    BitUtil::LittleEndianArrayReader<uint64_t, 4> parts_le(decimal.native_endian_array());
+    const auto parts_le = BitUtil::LittleEndianArray::Make(decimal.native_endian_array());
     x += Derived::two_to_192(static_cast<Real>(parts_le[3]));
     x += Derived::two_to_128(static_cast<Real>(parts_le[2]));
     x += Derived::two_to_64(static_cast<Real>(parts_le[1]));

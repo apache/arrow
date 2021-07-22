@@ -412,7 +412,7 @@ struct DecimalConversions<Decimal128, Decimal256> {
   // Scale then truncate
   static Decimal256 ConvertInput(Decimal256&& val) { return val; }
   static Decimal128 ConvertOutput(Decimal256&& val) {
-    BitUtil::LittleEndianArrayReader<uint64_t, 4> array_le(val.native_endian_array());
+    const auto array_le = BitUtil::LittleEndianArray::Make(val.native_endian_array());
     return Decimal128(array_le[1], array_le[0]);
   }
 };

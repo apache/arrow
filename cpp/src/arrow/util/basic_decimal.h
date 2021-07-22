@@ -204,6 +204,7 @@ class ARROW_EXPORT BasicDecimal256 {
   static constexpr int bit_width = 256;
 
   /// \brief Create a BasicDecimal256 from the two's complement representation.
+  /// Input array is assumed to be in native endianness.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& array) noexcept
       : array_(array) {}
 
@@ -215,12 +216,12 @@ class ARROW_EXPORT BasicDecimal256 {
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
   constexpr BasicDecimal256(T value) noexcept
-      : array_(BitUtil::FromLittleEndian<uint64_t, 4>({static_cast<uint64_t>(value),
-                                                       extend(value), extend(value),
-                                                       extend(value)})) {}
+      : array_(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
+            {static_cast<uint64_t>(value), extend(value), extend(value),
+             extend(value)})) {}
 
   explicit BasicDecimal256(const BasicDecimal128& value) noexcept
-      : array_(BitUtil::FromLittleEndian<uint64_t, 4>(
+      : array_(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(
             {value.low_bits(), static_cast<uint64_t>(value.high_bits()),
              extend(value.high_bits()), extend(value.high_bits())})) {}
 
@@ -252,9 +253,7 @@ class ARROW_EXPORT BasicDecimal256 {
   inline const std::array<uint64_t, 4>& native_endian_array() const { return array_; }
 
   /// \brief Get the lowest bits of the two's complement representation of the number.
-  inline uint64_t low_bits() const {
-    return BitUtil::LittleEndianArrayReader<uint64_t, 4>(array_)[0];
-  }
+  inline uint64_t low_bits() const { return BitUtil::LittleEndianArray::Make(array_)[0]; }
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 32> ToBytes() const;
@@ -283,14 +282,11 @@ class ARROW_EXPORT BasicDecimal256 {
   bool FitsInPrecision(int32_t precision) const;
 
   inline int64_t Sign() const {
-    return 1 | (static_cast<int64_t>(
-                    BitUtil::LittleEndianArrayReader<uint64_t, 4>(array_)[3]) >>
-                63);
+    return 1 | (static_cast<int64_t>(BitUtil::LittleEndianArray::Make(array_)[3]) >> 63);
   }
 
   inline int64_t IsNegative() const {
-    return static_cast<int64_t>(
-               BitUtil::LittleEndianArrayReader<uint64_t, 4>(array_)[3]) < 0;
+    return static_cast<int64_t>(BitUtil::LittleEndianArray::Make(array_)[3]) < 0;
   }
 
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.
