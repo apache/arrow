@@ -33,7 +33,7 @@ unique_arrow_tablename <- function () {
   sprintf("arrow_%03i", i)
 }
 
-alchemize_to_duckdb_dataset <- function(x, ...) {
+.alchemize_to_duckdb <- function(x, ...) {
   rb_to_duckdb(x, groups = x$group, ...)
 }
 
@@ -57,15 +57,15 @@ rb_to_duckdb <- function(x, con = arrow_duck_connection(), groups = NULL, auto_d
 
 #' @rdname alchemize
 #' @export
-alchemize_to_duckdb.Dataset <- alchemize_to_duckdb_dataset
+alchemize_to_duckdb.Dataset <- .alchemize_to_duckdb
 
 #' @rdname alchemize
 #' @export
-alchemize_to_duckdb.Table <-  alchemize_to_duckdb_dataset
+alchemize_to_duckdb.Table <- .alchemize_to_duckdb
 
 #' @rdname alchemize
 #' @export
-alchemize_to_duckdb.arrow_dplyr_query <-  alchemize_to_duckdb_dataset
+alchemize_to_duckdb.arrow_dplyr_query <- .alchemize_to_duckdb
 
 summarise_duck <- function(.data, ...) {
   # TODO: pass a connection?

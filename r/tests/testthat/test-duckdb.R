@@ -20,12 +20,11 @@ library(duckdb)
 library(dplyr)
 
 con <- dbConnect(duckdb::duckdb())
+# we always want to test in parallel
+dbExecute(con, "PRAGMA threads=2")
 
 test_that("basic integration", {
   rb <- record_batch(example_data)
-
-  # we always want to test in parallel
-  dbExecute(con, "PRAGMA threads=2")
 
   duckdb_register_arrow(con, "my_recordbatch", rb)
   expect_identical(dbGetQuery(con, "SELECT count(*) FROM my_recordbatch")$`count_star()`, 10)

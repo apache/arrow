@@ -17,13 +17,13 @@
 
 #' Transform a data structure from one engine to another
 #'
-#' The `alchemize_*` family of functions take data in one context (e.g. Arrow data in an R
-#' session, Arrow data in a Python session) and transform it into a form usable
-#' by another context: (e.g. Arrow data in a Python session, a (virtual) table in
-#' a DuckDB session). All of these functions use Arrow's C-interface and data is
-#' not serialized or moved when it is alchemized, instead it is made available for
-#' a subprocess of the new context (e.g. Python through reticulate or the DuckDB
-#' engine).
+#' The `alchemize_*` family of functions take data in one context (e.g. Arrow
+#' data in an R session, Arrow data in a Python session) and transform it into a
+#' form usable by another context: (e.g. Arrow data in a Python session, a
+#' (virtual) table in a DuckDB session). All of these functions use Arrow's
+#' C-interface and data is not serialized or moved when it is alchemized,
+#' instead it is made available for a subprocess of the new context (e.g. Python
+#' through reticulate or the DuckDB engine).
 #'
 #' The return value is for each function in the family based on what is at the
 #' end of the function name:
@@ -35,9 +35,9 @@
 #' to use a specific, pre-existent connection to DuckDB use the `con` argument
 #' to pass the connection to use. By default, these tables are automatically
 #' cleaned up when the `tbl` is removed from the session (and garbage collection
-#' occurs on that), to disable this, pass `auto_disconnect = FALSE`.
-#' * `alchemize_to_python` - returns a reticulate-based python object. This is
-#' the same as the interface using the `r_to_py` functions.
+#' occurs on that), to disable this, pass `auto_disconnect = FALSE`. *
+#' `alchemize_to_python` - returns a reticulate-based python object. This is the
+#' same as the interface using the `r_to_py` functions.
 #'
 #' @param x the object to alchemize
 #' @param ... arguments passed to other functions

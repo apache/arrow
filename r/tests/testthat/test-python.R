@@ -133,7 +133,6 @@ test_that("RecordBatchReader to python", {
   )
 })
 
-
 test_that("RecordBatchReader from python", {
   tab <- Table$create(example_data)
   scan <- Scanner$create(tab)
@@ -145,7 +144,7 @@ test_that("RecordBatchReader from python", {
   expect_identical(as.data.frame(rt_table), example_data)
 })
 
-test_that("RecordBatchReader to python", {
+test_that("alchemize_to_python", {
   library(dplyr)
 
   ds <- InMemoryDataset$create(example_data)
