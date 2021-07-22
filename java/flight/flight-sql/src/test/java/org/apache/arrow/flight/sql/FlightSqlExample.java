@@ -830,10 +830,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     vectorToColumnName.put(fkTableNameVector, "FKTABLE_NAME");
     vectorToColumnName.put(fkColumnNameVector, "FKCOLUMN_NAME");
     vectorToColumnName.put(keySequenceVector, "KEY_SEQ");
-    vectorToColumnName.put(fkKeyNameVector, "UPDATE_RULE");
-    vectorToColumnName.put(pkKeyNameVector, "DELETE_RULE");
-    vectorToColumnName.put(updateRuleVector, "FK_NAME");
-    vectorToColumnName.put(deleteRuleVector, "PK_NAME");
+    vectorToColumnName.put(updateRuleVector, "UPDATE_RULE");
+    vectorToColumnName.put(deleteRuleVector, "DELETE_RULE");
+    vectorToColumnName.put(fkKeyNameVector, "FK_NAME");
+    vectorToColumnName.put(pkKeyNameVector, "PK_NAME");
 
     final List<FieldVector> vectors =
         new ArrayList<>(
