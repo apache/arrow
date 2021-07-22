@@ -37,12 +37,12 @@ public class ArrowFlightJdbcLargeListVectorAccessor extends AbstractArrowFlightJ
 
   @Override
   protected long getStartOffset(int index) {
-    return vector.getOffsetBuffer().getLong((long) index * 8L);
+    return vector.getOffsetBuffer().getLong((long) index * LargeListVector.OFFSET_WIDTH);
   }
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer().getLong(((long) index + 1L) * 8L);
+    return vector.getOffsetBuffer().getLong((long) (index + 1) * LargeListVector.OFFSET_WIDTH);
   }
 
   @Override
