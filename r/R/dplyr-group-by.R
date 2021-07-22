@@ -18,16 +18,33 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
+#' @importFrom rlang quo_name
 group_by.arrow_dplyr_query <- function(.data,
                                        ...,
                                        .add = FALSE,
                                        add = .add,
                                        .drop = dplyr::group_by_drop_default(.data)) {
   .data <- arrow_dplyr_query(.data)
-  # ... can contain expressions (i.e. can add (or rename?) columns)
-  # Check for those (they show up as named expressions)
   new_groups <- enquos(...)
-  new_groups <- new_groups[nzchar(names(new_groups))]
+  # ... can contain expressions (i.e. can add (or rename?) columns) and so we
+  # need to identify those and add them on to the query with mutate. Specifically,
+  # we want to mark as new:
+  #   * expressions (named or otherwise)
+  #   * variables that have new names
+  # All others (i.e. simple references to variables) should not be (re)-added
+  new_group_ind <- purrr::map_lgl(new_groups, ~!(quo_name(.x) %in% names(.data)))
+  named_group_ind <- purrr::map_lgl(names(new_groups), nzchar)
+  new_groups <- new_groups[new_group_ind | named_group_ind]
+
+  # now either use the name that was given in ... or if that is "" then use the expr
+  names(new_groups) <- purrr::map_chr(seq_along(new_groups), function(i) {
+    name <- names(new_groups)[[i]]
+    if (name == "") {
+      quo_name(new_groups[[i]])
+    } else {
+      name
+    }
+  })
   if (length(new_groups)) {
     # Add them to the data
     .data <- dplyr::mutate(.data, !!!new_groups)
