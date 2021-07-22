@@ -400,6 +400,24 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkDate) {
                  ArrayFromJSON(date32(), "[null]")});
 }
 
+TEST_F(InferringColumnBuilderTest, SingleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "01:23:45", "NA"}}, options,
+                {ArrayFromJSON(time32(TimeUnit::SECOND), "[null, 5025, null]")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = time32(TimeUnit::SECOND);
+
+  CheckInferred(tg, {{""}, {"01:23:45"}, {"NA"}}, options,
+                {ArrayFromJSON(type, "[null]"), ArrayFromJSON(type, "[5025]"),
+                 ArrayFromJSON(type, "[null]")});
+}
+
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();

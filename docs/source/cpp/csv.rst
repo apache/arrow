@@ -151,6 +151,7 @@ column.  Type inference considers the following data types, in order:
 * Int64
 * Boolean
 * Date32
+* Time32 (with seconds unit)
 * Timestamp (with seconds unit)
 * Timestamp (with nanoseconds unit)
 * Float64
@@ -169,6 +170,7 @@ can be chosen from the following list:
 * Decimal128
 * Boolean
 * Date32 and Date64
+* Time32 and Time64
 * Timestamp
 * Binary and Large Binary
 * String and Large String (with optional UTF8 input validation)

@@ -894,6 +894,33 @@ class BaseTestCSVRead(BaseTestCSV):
             'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
         }
 
+    def test_times(self):
+        # Times are inferred as time32[s] by default
+        from datetime import time
+
+        rows = b"a,b\n12:34:56,12:34:56.789\n23:59:59,23:59:59.999\n"
+        table = self.read_bytes(rows)
+        # Column 'b' has subseconds, so cannot be inferred as time32[s]
+        schema = pa.schema([('a', pa.time32('s')),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(12, 34, 56), time(23, 59, 59)],
+            'b': ["12:34:56.789", "23:59:59.999"],
+        }
+
+        # Can ask for time types explicitly
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.time64('us'), 'b': pa.time32('ms')}
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.time64('us')),
+                            ('b', pa.time32('ms'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(12, 34, 56), time(23, 59, 59)],
+            'b': [time(12, 34, 56, 789000), time(23, 59, 59, 999000)],
+        }
+
     def test_auto_dict_encode(self):
         opts = ConvertOptions(auto_dict_encode=True)
         rows = "a,b\nab,1\ncdé,2\ncdé,3\nab,4".encode()
