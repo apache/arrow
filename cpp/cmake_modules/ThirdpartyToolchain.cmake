@@ -2542,6 +2542,7 @@ macro(build_grpc)
       re2::re2
       c-ares::cares
       ZLIB::ZLIB
+      OpenSSL::SSL
       Threads::Threads)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
