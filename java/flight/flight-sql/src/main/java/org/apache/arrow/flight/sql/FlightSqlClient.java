@@ -216,9 +216,7 @@ public class FlightSqlClient {
   }
 
   /**
-   * Request the foreign keys for a table.
-   * <p>
-   * One of pkTable or fkTable must be specified, both cannot be null.
+   * Request to get info about keys on a table. The fkTable parameter must be specified.
    *
    * @param fkCatalog The foreign key table catalog.
    * @param fkSchema  The foreign key table schema.
@@ -252,9 +250,7 @@ public class FlightSqlClient {
       builder.setFkSchema(StringValue.newBuilder().setValue(fkSchema).build());
     }
 
-    if (fkTable != null) {
-      builder.setFkTable(StringValue.newBuilder().setValue(fkTable).build());
-    }
+    builder.setFkTable(StringValue.newBuilder().setValue(fkTable).build());
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
