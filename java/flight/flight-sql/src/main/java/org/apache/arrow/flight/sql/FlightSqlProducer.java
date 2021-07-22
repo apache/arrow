@@ -55,6 +55,8 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import io.grpc.Status;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 
 /**
  * API to Implement an Arrow Flight SQL producer.
