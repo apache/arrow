@@ -17,6 +17,10 @@
 
 package org.apache.arrow.flight.sql;
 
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -55,8 +59,6 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import io.grpc.Status;
-import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 
 /**
  * API to Implement an Arrow Flight SQL producer.
@@ -619,7 +621,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
   /**
    * Returns data for foreign keys based data stream.
-   *  @param command  The command to generate the data stream.
+   *
+   * @param command  The command to generate the data stream.
    * @param context  Per-call context.
    * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.

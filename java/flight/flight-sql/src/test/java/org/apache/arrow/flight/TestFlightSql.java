@@ -25,7 +25,6 @@ import static org.apache.arrow.util.AutoCloseables.close;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.CoreMatchers.nullValue;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -326,10 +325,10 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetCommandExportedKeys(){
+  public void testGetCommandExportedKeys() {
     final FlightStream stream =
         sqlClient.getStream(
-            sqlClient.getExportedKeys( null, null, "FOREIGNTABLE")
+            sqlClient.getExportedKeys(null, null, "FOREIGNTABLE")
                 .getEndpoints().get(0).getTicket());
 
     final List<List<String>> results = getResults(stream);
