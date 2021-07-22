@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.util.JsonStringHashMap;
@@ -62,12 +63,12 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
 
   @Override
   protected long getStartOffset(int index) {
-    return vector.getOffsetBuffer().getInt(index * 4L);
+    return vector.getOffsetBuffer().getInt((long) index * BaseRepeatedValueVector.OFFSET_WIDTH);
   }
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer().getInt((index + 1) * 4L);
+    return vector.getOffsetBuffer().getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
   }
 
   @Override
