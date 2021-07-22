@@ -117,7 +117,7 @@ maps) will perform the best.
 Reading Parquet and Memory Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because Parquet data needs to be decoded from the parquet format 
+Because Parquet data needs to be decoded from the Parquet format 
 and compression, it can't be directly mapped from disk.
 Thus the ``memory_map`` option might perform better on some systems
 but won't help much with resident memory consumption.
@@ -132,7 +132,7 @@ but won't help much with resident memory consumption.
       >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
       RSS: 4299MB   
 
-If you need to deal with parquet data bigger than memory, 
+If you need to deal with Parquet data bigger than memory, 
 the :ref:`dataset` and partitioning is probably what you are looking for.
 
 Parquet file writing options
