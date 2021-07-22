@@ -83,7 +83,6 @@ import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRe
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
-import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetForeignKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
@@ -841,8 +840,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoForeignKeys(final CommandGetForeignKeys request, final CallContext context,
-                                             final FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoExportedKeys(final FlightSql.CommandGetExportedKeys request, final CallContext context,
+                                              final FlightDescriptor descriptor) {
     final Schema schema = getSchemaForeignKeys().getSchema();
     final List<FlightEndpoint> endpoints =
         singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
@@ -852,11 +851,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context, final Ticket ticket,
                                     final ServerStreamListener listener) {
-
-    String primaryKeyCatalog = emptyToNull(command.getPkCatalog());
-    String primaryKeySchema = emptyToNull(command.getPkSchema());
-    String primaryKeyTable = emptyToNull(command.getPkTable());
-
     String foreignKeyCatalog = emptyToNull(command.getFkCatalog());
     String foreignKeySchema = emptyToNull(command.getFkSchema());
     String foreignKeyTable = emptyToNull(command.getFkTable());
