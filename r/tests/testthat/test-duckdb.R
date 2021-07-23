@@ -95,10 +95,10 @@ test_that("Joining, auto-cleanup", {
   # we always want to test in parallel
   dbExecute(con, "PRAGMA threads=2")
 
-  table_one <- to_duckdb(ds, con = con)
-  table_one_name <- as.character(table_one$ops$x)
-  table_two <- to_duckdb(ds, con = con)
-  table_two_name <- as.character(table_two$ops$x)
+  table_one_name <- "my_arrow_table_1"
+  table_one <- to_duckdb(ds, con = con, table_name = table_one_name)
+  table_two_name <- "my_arrow_table_2"
+  table_two <- to_duckdb(ds, con = con, table_name = table_two_name)
 
   res <- dbGetQuery(
     con,
@@ -120,8 +120,8 @@ test_that("Joining, auto-cleanup", {
 test_that("Joining, auto-cleanup disabling", {
   ds <- InMemoryDataset$create(example_data)
 
-  table_three <- to_duckdb(ds, con = con, auto_disconnect = FALSE)
-  table_three_name <- as.character(table_three$ops$x)
+  table_three_name <- "my_arrow_table_3"
+  table_three <- to_duckdb(ds, con = con, table_name = table_three_name, auto_disconnect = FALSE)
 
   # clean up does *not* clean these tables
   expect_true(table_three_name %in% DBI::dbListTables(con))

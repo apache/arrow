@@ -2,28 +2,9 @@
 % Please edit documentation in R/duckdb.R
 \name{to_duckdb}
 \alias{to_duckdb}
-\alias{to_duckdb.Dataset}
-\alias{to_duckdb.Table}
-\alias{to_duckdb.arrow_dplyr_query}
 \title{Create a (virtual) DuckDB table from an Arrow object}
 \usage{
-to_duckdb(src, con, table_name, auto_disconnect)
-
-\method{to_duckdb}{Dataset}(
-  src,
-  con = arrow_duck_connection(),
-  table_name = unique_arrow_tablename(),
-  auto_disconnect = TRUE
-)
-
-\method{to_duckdb}{Table}(
-  src,
-  con = arrow_duck_connection(),
-  table_name = unique_arrow_tablename(),
-  auto_disconnect = TRUE
-)
-
-\method{to_duckdb}{arrow_dplyr_query}(
+to_duckdb(
   src,
   con = arrow_duck_connection(),
   table_name = unique_arrow_tablename(),
@@ -43,7 +24,7 @@ unique string \code{"arrow_"} followed by numbers.}
 resulting object is removed (and garbage collected)? Default: \code{TRUE}}
 }
 \value{
-A tbl of the new table in DuckDB
+A \code{tbl} of the new table in DuckDB
 }
 \description{
 This will do the necessary configuration to create a (virtual) table in DuckDB
@@ -52,5 +33,28 @@ that is backed by the Arrow object given. No data is copied or modified until
 }
 \details{
 The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
+
+Alternatively, one can pass the argument \code{.engine = "duckdb"} to \code{summarise()}
+that starts with an Arrow object to use DuckDB to calculate the summarization
+step. Internally, this calls \code{to_duckdb()} with all of the default argument
+values.
 }
-\keyword{internal}
+\examples{
+\dontshow{if (arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+library(dplyr)
+
+ds <- InMemoryDataset$create(mtcars)
+
+ds \%>\%
+  filter(mpg < 30) \%>\%
+  to_duckdb() \%>\%
+  group_by(cyl) \%>\%
+  summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+
+# the same query can be simplified using .engine = "duckdb"
+ds \%>\%
+  filter(mpg < 30) \%>\%
+  group_by(cyl) \%>\%
+  summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
+\dontshow{\}) # examplesIf}
+}

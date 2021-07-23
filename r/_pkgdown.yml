@@ -164,6 +164,9 @@ reference:
       - match_arrow
       - value_counts
       - list_compute_functions
+  - title: Connections to other systems
+    contents:
+      - to_duckdb
   - title: Configuration
     contents:
       - arrow_info

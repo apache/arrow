@@ -20,7 +20,8 @@
 
 summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
   if (match.arg(.engine) == "duckdb") {
-    summarise_duck(.data, ...)
+    tbl <- to_duckdb(.data)
+    dplyr::summarise(tbl, ...)
   } else {
     call <- match.call()
     .data <- arrow_dplyr_query(.data)

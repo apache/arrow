@@ -23,6 +23,11 @@
 #'
 #' The result is a dbplyr-compatible object that can be used in d(b)plyr pipelines.
 #'
+#' Alternatively, one can pass the argument `.engine = "duckdb"` to `summarise()`
+#' that starts with an Arrow object to use DuckDB to calculate the summarization
+#' step. Internally, this calls `to_duckdb()` with all of the default argument
+#' values.
+#'
 #' @param src the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
 #' in `options("arrow_duck_con")`)
@@ -31,31 +36,28 @@
 #' @param auto_disconnect should the table be automatically cleaned up when the
 #' resulting object is removed (and garbage collected)? Default: `TRUE`
 #'
-#' @return A tbl of the new table in DuckDB
+#' @return A `tbl` of the new table in DuckDB
 #'
-#' @keywords internal
 #' @name to_duckdb
-NULL
-
-arrow_duck_connection <- function() {
-  con <- getOption("arrow_duck_con")
-  if (is.null(con) || !DBI::dbIsValid(con)) {
-    con <- DBI::dbConnect(duckdb::duckdb())
-    # Use the same CPU count that the arrow library is set to
-    DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
-    options(arrow_duck_con = con)
-  }
-  con
-}
-
-# Adapted from dbplyr
-unique_arrow_tablename <- function () {
-  i <- getOption("arrow_table_name", 0) + 1
-  options(arrow_table_name = i)
-  sprintf("arrow_%03i", i)
-}
-
-.alchemize_to_duckdb <- function(
+#' @export
+#' @examplesIf arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)
+#' library(dplyr)
+#'
+#' ds <- InMemoryDataset$create(mtcars)
+#'
+#' ds %>%
+#'   filter(mpg < 30) %>%
+#'   to_duckdb() %>%
+#'   group_by(cyl) %>%
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+#'
+#' # the same query can be simplified using .engine = "duckdb"
+#' ds %>%
+#'   filter(mpg < 30) %>%
+#'   group_by(cyl) %>%
+#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
+#'
+to_duckdb <- function(
   src,
   con = arrow_duck_connection(),
   table_name =  unique_arrow_tablename(),
@@ -77,26 +79,22 @@ unique_arrow_tablename <- function () {
   tbl
 }
 
-#' @rdname to_duckdb
-#' @export
-to_duckdb <- function(src, con, table_name, auto_disconnect) UseMethod("to_duckdb", src)
+arrow_duck_connection <- function() {
+  con <- getOption("arrow_duck_con")
+  if (is.null(con) || !DBI::dbIsValid(con)) {
+    con <- DBI::dbConnect(duckdb::duckdb())
+    # Use the same CPU count that the arrow library is set to
+    DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
+    options(arrow_duck_con = con)
+  }
+  con
+}
 
-#' @rdname to_duckdb
-#' @export
-to_duckdb.Dataset <- .alchemize_to_duckdb
-
-#' @rdname to_duckdb
-#' @export
-to_duckdb.Table <- .alchemize_to_duckdb
-
-#' @rdname to_duckdb
-#' @export
-to_duckdb.arrow_dplyr_query <- .alchemize_to_duckdb
-
-summarise_duck <- function(.data, ...) {
-  # TODO: pass a connection?
-  tbl <- to_duckdb(.data)
-  dplyr::summarise(tbl, ...)
+# Adapted from dbplyr
+unique_arrow_tablename <- function () {
+  i <- getOption("arrow_table_name", 0) + 1
+  options(arrow_table_name = i)
+  sprintf("arrow_%03i", i)
 }
 
 # Creates an environment that disconnects the database when it's GC'd
