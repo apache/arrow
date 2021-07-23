@@ -356,7 +356,7 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithSingleArg() throws Exception {
-    final FlightInfo info = sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME");
+    final FlightInfo info = sqlClient.getSqlInfo(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = singletonList(
@@ -369,7 +369,10 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithTwoArgs() throws Exception {
-    final FlightInfo info = sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION");
+    final FlightInfo info =
+        sqlClient.getSqlInfo(
+            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = ImmutableList.of(
@@ -384,7 +387,10 @@ public class TestFlightSql {
   @Test
   public void testGetSqlInfoResultsWithThreeArgs() throws Exception {
     final FlightInfo info =
-        sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION", "SQL_IDENTIFIER_QUOTE_CHAR");
+        sqlClient.getSqlInfo(
+            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+            FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = ImmutableList.of(

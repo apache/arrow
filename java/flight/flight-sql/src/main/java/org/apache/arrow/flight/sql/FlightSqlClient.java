@@ -153,7 +153,7 @@ public class FlightSqlClient {
    * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(String... info) {
+  public FlightInfo getSqlInfo(final @Nullable Integer... info) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
 
     if (info != null && 0 != info.length) {

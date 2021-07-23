@@ -49,16 +49,16 @@ message ActionGetSQLInfoResult {
    * 1. Server Information: Provides basic information about the Flight SQL Server.
    *
    * The name of the Flight SQL Server.
-   * FLIGHT_SQL_SERVER_NAME
+   * 0 = FLIGHT_SQL_SERVER_NAME
    *
    * The native version of the Flight SQL Server.
-   * FLIGHT_SQL_SERVER_VERSION
+   * 1 = FLIGHT_SQL_SERVER_VERSION
    *
-   * The Arrow version of the Flight SQL Server.
-   * FLIGHT_SQL_SERVER_ARROW_VERSION
+   * The Arrow format version of the Flight SQL Server.
+   * 2 = FLIGHT_SQL_SERVER_ARROW_VERSION
    *
    * Indicates whether the Flight SQL Server is read only.
-   * FLIGHT_SQL_SERVER_READ_ONLY
+   * 3 = FLIGHT_SQL_SERVER_READ_ONLY
    *
    * Indicates whether the Flight SQL Server supports both read and write.
    * FLIGHT_SQL_SERVER_READ_WRITE
@@ -67,31 +67,32 @@ message ActionGetSQLInfoResult {
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
    * In a SQL environment, a catalog is a collection of schemas.
-   * SQL_DDL_CATALOG
+   * 4 = SQL_DDL_CATALOG
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
    * In a SQL environment, a catalog is a collection of tables, views, indexes etc.
-   * SQL_DDL_SCHEMA
+   * 5 = SQL_DDL_SCHEMA
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
    * In a SQL environment, a table is a collection of rows of information. Each row of information
    * may have one or more columns of data.
-   * SQL_DDL_TABLE
+   * 6 = SQL_DDL_TABLE
    *
    * Indicates the case sensitivity of catalog, table and schema names.
-   * SQL_IDENTIFIER_CASE
+   * 7 = SQL_IDENTIFIER_CASE
    *
    * Indicates the supported character(s) used to surround a delimited identifier.
-   * SQL_IDENTIFIER_QUOTE_CHAR
+   * 8 = SQL_IDENTIFIER_QUOTE_CHAR
    *
    * Indicates case sensitivity of quoted identifiers.
-   * SQL_QUOTED_IDENTIFIER_CASE
+   * 9 = SQL_QUOTED_IDENTIFIER_CASE
    *
+   * If omitted, then all metadata will be retrieved.
+   * Flight SQL Servers may choose to include additional metadata above and beyond the specified set, however they must
+   * at least return the specified set. IDs ranging from 0 to 10,000 (exclusive) are reserved.
+   * If additional metadata is included, the metadata IDs should start from 10,000.
    */
-  map<string, TGetSQLInfoValue> flight_sql_info = 1;
-
-  // Implementation specific custom SQLInfo values.
-  map<string, TGetSQLInfoValue> custom_info = 2;
+  repeated uint32 info = 1;
 }
 
 /*
