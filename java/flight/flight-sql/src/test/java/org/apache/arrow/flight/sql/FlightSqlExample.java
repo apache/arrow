@@ -793,9 +793,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     String schema = command.hasSchema() ? command.getSchema().getValue() : null;
     String table = command.getTable();
 
-    try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
-
-      final ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+         ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table)) {
 
       final List<FieldVector> vectors = createVectors(keys);
 
