@@ -141,8 +141,6 @@ struct VarStdState {
   double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
 };
 
-enum class VarOrStd : bool { Var, Std };
-
 template <typename ArrowType>
 struct VarStdImpl : public ScalarAggregator {
   using ThisType = VarStdImpl<ArrowType>;

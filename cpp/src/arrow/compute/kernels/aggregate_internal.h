@@ -55,6 +55,10 @@ struct ScalarAggregator : public KernelState {
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
 };
 
+// Helper to differentiate between var/std calculation so we can fold
+// kernel implementations together
+enum class VarOrStd : bool { Var, Std };
+
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);

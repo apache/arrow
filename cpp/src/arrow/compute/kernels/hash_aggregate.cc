@@ -1078,8 +1078,6 @@ struct GroupedMeanFactory {
 
 // Variance/Stdev implementation
 
-enum class VarOrStd : bool { Var, Std };
-
 using arrow::internal::int128_t;
 
 template <typename Type>
