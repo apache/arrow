@@ -33,7 +33,7 @@ test_that("group_by groupings are recorded", {
   )
 })
 
-test_that("group_by does now support creating/renaming", {
+test_that("group_by supports creating/renaming", {
   expect_dplyr_equal(
     input %>%
       group_by(chr, numbers = int) %>%
