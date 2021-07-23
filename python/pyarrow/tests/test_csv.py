@@ -324,13 +324,8 @@ def test_write_options():
 class BaseTestCSV:
     """Common tests which are shared by streaming and non streaming readers"""
 
-    def base_row_number_offset_in_errors(self, use_threads, read_bytes,
-                                         num_blocks=3):
-        """
-        num_blocks is a temporary work around because streaming reader does
-        not get schema from first non empty block
-        """
-
+    @staticmethod
+    def base_row_number_offset_in_errors(use_threads, read_bytes):
         # Row numbers are only correctly counted in serial reads
         def format_msg(msg_format, row, *args):
             if use_threads:
@@ -342,7 +337,7 @@ class BaseTestCSV:
         csv, _ = make_random_csv(4, 100, write_names=True)
 
         read_options = ReadOptions()
-        read_options.block_size = len(csv) / num_blocks
+        read_options.block_size = len(csv) / 3
         convert_options = ConvertOptions()
         convert_options.column_types = {"a": pa.int32()}
 
@@ -1618,8 +1613,7 @@ class TestStreamingCSVRead(BaseTestCSV):
         def read_bytes(b, **kwargs):
             return self.open_bytes(b, use_threads, **kwargs).read_all()
 
-        self.base_row_number_offset_in_errors(use_threads, read_bytes,
-                                              num_blocks=1)
+        self.base_row_number_offset_in_errors(use_threads, read_bytes)
 
 
 class BaseTestCompressedCSVRead:
