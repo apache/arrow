@@ -71,9 +71,11 @@ test_that("Division", {
   # the behavior of %/% matches R's (i.e. the integer of the quotient, not
   # simply dividing two integers)
   expect_equal(b / 2.2, Array$create(c(1:4 / 2.2, NA_real_)))
+  # nolint start
   # c(1:4) %/% 2.2 != c(1:4) %/% as.integer(2.2)
   # c(1:4) %/% 2.2             == c(0L, 0L, 1L, 1L)
   # c(1:4) %/% as.integer(2.2) == c(0L, 1L, 1L, 2L)
+  # nolint end
   expect_equal(b %/% 2.2, Array$create(c(0L, 0L, 1L, 1L, NA_integer_)))
 
   expect_equal(a %% 2, Array$create(c(1L, 0L, 1L, 0L, NA_integer_)))
@@ -89,22 +91,22 @@ test_that("Power", {
 
   expect_equal(a^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(a^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(a^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(a^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(a^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(b^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(b^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(b^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(b^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(b^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(c^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(c^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(c^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(c^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(c^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 
   expect_equal(d^0, Array$create(c(1, 1, 1, 1, NA_real_)))
   expect_equal(d^2, Array$create(c(1, 4, 9, 16, NA_real_)))
-  expect_equal(d^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(d^(-1), Array$create(c(1, 1 / 2, 1 / 3, 1 / 4, NA_real_)))
   expect_equal(d^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 })
 
@@ -113,5 +115,5 @@ test_that("Dates casting", {
 
   skip("ARROW-11090 (date/datetime arithmetic)")
   # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
-  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
+  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
 })

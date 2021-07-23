@@ -113,9 +113,8 @@ eval_array_expression <- function(FUN,
     out <- eval_array_expression("/", args = args, options = options)
     return(out$cast(int32(), allow_float_truncate = TRUE))
   } else if (FUN == "%%") {
-    # {e1 - e2 * ( e1 %/% e2 )}
-    # ^^^ form doesn't work because Ops.Array evaluates eagerly,
-    # but we can build that up
+    # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
+    # eagerly, but we can build that up
     quotient <- eval_array_expression("%/%", args = args)
     base <- eval_array_expression("*", quotient, args[[2]])
     # this cast is to ensure that the result of this and e1 are the same
@@ -193,7 +192,7 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
     if (is.Array(i)) {
       stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
     }
-    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
+    stop("Cannot extract rows with an object of class ", class(i), call. = FALSE)
   }
 }
 

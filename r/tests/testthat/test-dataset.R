@@ -151,7 +151,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 
   expect_identical(
     ds %>%
-      filter(chr == 'a') %>%
+      filter(chr == "a") %>%
       dim(),
     c(2L, 7L)
   )
@@ -164,7 +164,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   expect_identical(
     ds %>%
       select(chr, fct, int) %>%
-      filter(chr == 'a') %>%
+      filter(chr == "a") %>%
       dim(),
     c(2L, 3L)
   )
@@ -412,7 +412,7 @@ test_that("CSV scan options", {
   df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
   write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
   ds <- open_dataset(dst_dir, format = "csv",
-                     delimiter="\t",
+                     delimiter = "\t",
                      null_values = c("mynull"),
                      strings_can_be_null = TRUE)
   expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
@@ -457,7 +457,7 @@ test_that("CSV dataset options", {
     ds %>%
       select(string = a) %>%
       collect(),
-    df1[-1,] %>%
+    df1[-1, ] %>%
       select(string = chr)
   )
 
@@ -467,7 +467,7 @@ test_that("CSV dataset options", {
     ds %>%
       select(string = foo) %>%
       collect(),
-    tibble(foo = c(c('chr'), letters[1:10]))
+    tibble(foo = c(c("chr"), letters[1:10]))
   )
 })
 
@@ -907,27 +907,27 @@ test_that("head/tail", {
   expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(
     as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2,])
+    rbind(df1, df2[1:2, ])
   )
   expect_equal(
     ds %>%
       filter(int > 6) %>%
       head() %>%
       as.data.frame(),
-    rbind(df1[7:10,], df2[1:2,])
+    rbind(df1[7:10, ], df2[1:2, ])
   )
 
   expect_equal(as.data.frame(tail(ds)), tail(df2))
   expect_equal(
     as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10,], df2)
+    rbind(df1[9:10, ], df2)
   )
   expect_equal(
     ds %>%
       filter(int < 105) %>%
       tail() %>%
       as.data.frame(),
-    rbind(df1[9:10,], df2[1:4,])
+    rbind(df1[9:10, ], df2[1:4, ])
   )
 })
 
@@ -1445,18 +1445,18 @@ test_that("Dataset writing: partition on null", {
   ds <- open_dataset(hive_dir)
 
   dst_dir <- tempfile()
-  partitioning = hive_partition(lgl = boolean())
+  partitioning <- hive_partition(lgl = boolean())
   write_dataset(ds, dst_dir, partitioning = partitioning)
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), c("lgl=__HIVE_DEFAULT_PARTITION__", "lgl=false", "lgl=true"))
 
   dst_dir <- tempfile()
-  partitioning = hive_partition(lgl = boolean(), null_fallback="xyz")
+  partitioning <- hive_partition(lgl = boolean(), null_fallback = "xyz")
   write_dataset(ds, dst_dir, partitioning = partitioning)
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
 
-  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback="xyz"))
+  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback = "xyz"))
 
   expect_identical(
     ds %>%

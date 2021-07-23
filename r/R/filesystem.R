@@ -343,7 +343,13 @@ S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
   args <- list2(...)
   if (anonymous) {
-    invalid_args <- intersect(c("access_key", "secret_key", "session_token", "role_arn", "session_name", "external_id", "load_frequency"), names(args))
+    invalid_args <- intersect(
+      c(
+        "access_key", "secret_key", "session_token", "role_arn", "session_name",
+        "external_id", "load_frequency"
+      ),
+      names(args)
+    )
     if (length(invalid_args)) {
       stop("Cannot specify ", oxford_paste(invalid_args), " when anonymous = TRUE", call. = FALSE)
     }

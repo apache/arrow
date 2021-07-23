@@ -42,7 +42,7 @@ group_by.arrow_dplyr_query <- function(.data,
     .data <- dplyr::mutate(.data, !!!new_groups)
   }
   if (".add" %in% names(formals(dplyr::group_by))) {
-    # dplyr >= 1.0
+    # For compatibility with dplyr >= 1.0
     gv <- dplyr::group_by_prepare(.data, ..., .add = .add)$group_names
   } else {
     gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names

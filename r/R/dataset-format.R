@@ -60,10 +60,10 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #' write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
-#' 
+#'
 #' # Create FileFormat object
 #' format <- FileFormat$create(format = "text", delimiter = ";")
-#' 
+#'
 #' open_dataset(tf, format = format)
 #' @export
 FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
@@ -118,8 +118,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
-                                 convert_options = csv_file_format_convert_options(...),
-                                 read_options = csv_file_format_read_options(...)) {
+                                 convert_options = csv_file_format_convert_opts(...),
+                                 read_options = csv_file_format_read_opts(...)) {
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
@@ -193,7 +193,7 @@ csv_file_format_parse_options <- function(...) {
   }
 }
 
-csv_file_format_convert_options <- function(...) {
+csv_file_format_convert_opts <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -205,7 +205,7 @@ csv_file_format_convert_options <- function(...) {
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_options <- function(...) {
+csv_file_format_read_opts <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -255,7 +255,6 @@ FragmentScanOptions <- R6Class("FragmentScanOptions", inherit = ArrowObject,
   )
 )
 FragmentScanOptions$create <- function(format, ...) {
-  opt_names <- names(list(...))
   if (format %in% c("csv", "text", "tsv")) {
     CsvFragmentScanOptions$create(...)
   } else if (format == "parquet") {
@@ -276,8 +275,8 @@ as.character.FragmentScanOptions <- function(x, ...) {
 #' @export
 CsvFragmentScanOptions <- R6Class("CsvFragmentScanOptions", inherit = FragmentScanOptions)
 CsvFragmentScanOptions$create <- function(...,
-                                          convert_opts = csv_file_format_convert_options(...),
-                                          read_opts = csv_file_format_read_options(...)) {
+                                          convert_opts = csv_file_format_convert_opts(...),
+                                          read_opts = csv_file_format_read_opts(...)) {
   dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
 }
 

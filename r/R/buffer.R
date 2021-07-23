@@ -28,7 +28,7 @@
 #' - `$is_mutable` : is this buffer mutable?
 #' - `$ZeroPadding()` : zero bytes in padding, i.e. bytes between size and capacity
 #' - `$size` : size in memory, in bytes
-#' - `$capacity`: possible capacity, in bytes 
+#' - `$capacity`: possible capacity, in bytes
 #'
 #' @rdname buffer
 #' @name buffer

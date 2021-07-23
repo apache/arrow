@@ -58,7 +58,7 @@ skip_if_not_running_large_memory_tests <- function() {
 
 skip_on_valgrind <- function() {
   # This does not actually skip on valgrind because we can't exactly detect it.
-  # Instead, it skips on CRAN when the OS is linux + and the R version is development 
+  # Instead, it skips on CRAN when the OS is linux + and the R version is development
   # (which is where valgrind is run as of this code)
   linux_dev <- identical(tolower(Sys.info()[["sysname"]]), "linux") &&
     grepl("devel", R.version.string)

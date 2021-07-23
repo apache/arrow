@@ -52,27 +52,27 @@ test_that("RecordBatch", {
   expect_error(batch$column_name("one"))
 
   col_int <- batch$column(0)
-  expect_true(inherits(col_int, 'Array'))
+  expect_true(inherits(col_int, "Array"))
   expect_equal(col_int$as_vector(), tbl$int)
   expect_equal(col_int$type, int32())
 
   col_dbl <- batch$column(1)
-  expect_true(inherits(col_dbl, 'Array'))
+  expect_true(inherits(col_dbl, "Array"))
   expect_equal(col_dbl$as_vector(), tbl$dbl)
   expect_equal(col_dbl$type, float64())
 
   col_lgl <- batch$column(2)
-  expect_true(inherits(col_dbl, 'Array'))
+  expect_true(inherits(col_dbl, "Array"))
   expect_equal(col_lgl$as_vector(), tbl$lgl)
   expect_equal(col_lgl$type, boolean())
 
   col_chr <- batch$column(3)
-  expect_true(inherits(col_chr, 'Array'))
+  expect_true(inherits(col_chr, "Array"))
   expect_equal(col_chr$as_vector(), tbl$chr)
   expect_equal(col_chr$type, utf8())
 
   col_fct <- batch$column(4)
-  expect_true(inherits(col_fct, 'Array'))
+  expect_true(inherits(col_fct, "Array"))
   expect_equal(col_fct$as_vector(), tbl$fct)
   expect_equal(col_fct$type, dictionary(int8(), utf8()))
 
@@ -89,7 +89,7 @@ test_that("RecordBatch", {
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
   expect_equal(batch2$column(0), batch$column(1))
-  expect_data_frame(batch2, tbl[,-1])
+  expect_data_frame(batch2, tbl[, -1])
 
   # input validation
   expect_error(batch$RemoveColumn(NA), "'i' cannot be NA")
@@ -109,10 +109,10 @@ test_that("RecordBatch S3 methods", {
 
 test_that("RecordBatch$Slice", {
   batch3 <- batch$Slice(5)
-  expect_data_frame(batch3, tbl[6:10,])
+  expect_data_frame(batch3, tbl[6:10, ])
 
   batch4 <- batch$Slice(5, 2)
-  expect_data_frame(batch4, tbl[6:7,])
+  expect_data_frame(batch4, tbl[6:7, ])
 
   # Input validation
   expect_error(batch$Slice("ten"))
@@ -131,25 +131,25 @@ test_that("RecordBatch$Slice", {
 })
 
 test_that("[ on RecordBatch", {
-  expect_data_frame(batch[6:7,], tbl[6:7,])
-  expect_data_frame(batch[c(6, 7),], tbl[6:7,])
+  expect_data_frame(batch[6:7, ], tbl[6:7, ])
+  expect_data_frame(batch[c(6, 7), ], tbl[6:7, ])
   expect_data_frame(batch[6:7, 2:4], tbl[6:7, 2:4])
   expect_data_frame(batch[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
   expect_data_frame(batch[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
   expect_data_frame(
-    batch[rep(c(FALSE, TRUE), 5),],
-    tbl[c(2, 4, 6, 8, 10),]
+    batch[rep(c(FALSE, TRUE), 5), ],
+    tbl[c(2, 4, 6, 8, 10), ]
   )
   # bool Array
-  expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
+  expect_data_frame(batch[batch$lgl, ], tbl[tbl$lgl, ])
   # int Array
   expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
 
   # input validation
   expect_error(batch[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
-  expect_error(batch[, c(6, NA)], 'Column indices cannot be NA')
-  expect_error(batch[, c(2, -2)], 'Invalid column index')
+  expect_error(batch[, c(6, NA)], "Column indices cannot be NA")
+  expect_error(batch[, c(2, -2)], "Invalid column index")
 })
 
 test_that("[[ and $ on RecordBatch", {
@@ -161,7 +161,7 @@ test_that("[[ and $ on RecordBatch", {
   expect_error(batch[[c(4, 3)]])
   expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
   expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(batch[[c("asdf", "jkl;")]], 'name is not a string', fixed = TRUE)
+  expect_error(batch[[c("asdf", "jkl;")]], "name is not a string", fixed = TRUE)
 })
 
 test_that("[[<- assignment", {
@@ -517,7 +517,10 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
   expect_error(
     as.data.frame(batch_with_nul),
-    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 
@@ -568,7 +571,7 @@ test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
 
 test_that("RecordBatchReader to C-interface", {
   skip_if_not_available("dataset")
-  
+
   tab <- Table$create(example_data)
 
   # export the RecordBatchReader via the C-interface

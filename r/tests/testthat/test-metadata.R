@@ -113,7 +113,8 @@ test_that("Metadata serialization compression", {
   )
 
   # But we can disable compression
-  op <- options(arrow.compress_metadata = FALSE); on.exit(options(op))
+  op <- options(arrow.compress_metadata = FALSE)
+  on.exit(options(op))
 
   large_strings <- as.list(rep(make_string_of_size(1), 100))
   large <- .serialize_arrow_r_metadata(large_strings)

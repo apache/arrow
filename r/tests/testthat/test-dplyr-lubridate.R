@@ -44,7 +44,7 @@ test_that("timezone aware timestamps are not supported", {
 })
 
 # We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported",{
+test_that("date32 objects are not supported", {
 
   date <- ymd("2017-01-01")
   df <- tibble::tibble(date = date)

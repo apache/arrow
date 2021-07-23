@@ -18,7 +18,8 @@
 
 #' @title RecordBatchReader classes
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather.
 #' `RecordBatchStreamReader` and `RecordBatchFileReader` are
 #' interfaces for accessing record batches from input sources in those formats,

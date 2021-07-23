@@ -267,7 +267,7 @@ make_output_stream <- function(x, filesystem = NULL) {
     x <- x$base_path
   } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
-    filesystem = fs_and_path$fs
+    filesystem <- fs_and_path$fs
     x <- fs_and_path$path
   }
   assert_that(is.string(x))

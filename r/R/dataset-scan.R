@@ -76,7 +76,7 @@ Scanner$create <- function(dataset,
                            fragment_scan_options = NULL,
                            ...) {
   if (is.null(use_async)) {
-    use_async = getOption("arrow.use_async", FALSE)
+    use_async <- getOption("arrow.use_async", FALSE)
   }
 
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -155,9 +155,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   }
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
-  # message("Making ScanTasks")
   lapply(scanner$ScanBatches(), function(batch) {
-    # message("Processing Batch")
     # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
     # X$temp_columns, and X$group_by_vars
     # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE

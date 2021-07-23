@@ -42,7 +42,7 @@ mutate.arrow_dplyr_query <- function(.data,
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    return(abandon_ship(call, .data, 'mutate() on grouped data not supported in Arrow'))
+    return(abandon_ship(call, .data, "mutate() on grouped data not supported in Arrow"))
   }
 
   # Check for unnamed expressions and fix if any
@@ -67,7 +67,7 @@ mutate.arrow_dplyr_query <- function(.data,
                !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values
       if (length(results[[new_var]]) != 1) {
-        msg <- paste0('In ', new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        msg <- paste0("In ", new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
         return(abandon_ship(call, .data, msg))
       }
       results[[new_var]] <- Expression$scalar(results[[new_var]])

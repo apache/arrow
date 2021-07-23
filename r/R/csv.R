@@ -379,11 +379,11 @@ CsvTableReader$create <- function(file,
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
 #' The default is to use an ISO-8601 format parser.
-#' 
+#'
 #' The `CsvWriteOptions$create()` factory method takes the following arguments:
 #' - `include_header` Whether to write an initial header line with column names
 #' - `batch_size` Maximum number of rows processed at a time. Default is 1024.
-#' 
+#'
 #' @section Active bindings:
 #'
 #' - `column_names`: from `CsvReadOptions`
@@ -447,7 +447,7 @@ CsvParseOptions$create <- function(delimiter = ",",
                                    quote_char = '"',
                                    double_quote = TRUE,
                                    escaping = FALSE,
-                                   escape_char = '\\',
+                                   escape_char = "\\",
                                    newlines_in_values = FALSE,
                                    ignore_empty_lines = TRUE) {
 
@@ -478,7 +478,7 @@ readr_to_csv_parse_options <- function(delim = ",",
     quote_char = quote,
     double_quote = escape_double,
     escaping = escape_backslash,
-    escape_char = '\\',
+    escape_char = "\\",
     newlines_in_values = escape_backslash,
     ignore_empty_lines = skip_empty_rows
   )
@@ -576,7 +576,7 @@ readr_to_csv_convert_options <- function(na,
              "_" = null(),
              "-" = null(),
              "?" = NULL,
-             abort("Unsupported compact specification: '", .x,"' for column '", .y, "'")
+             abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
       )
     }))
     # To "guess" types, omit them from col_types
@@ -622,26 +622,26 @@ write_csv_arrow <- function(x,
                             sink,
                             include_header = TRUE,
                             batch_size = 1024L) {
-  
+
   write_options <- CsvWriteOptions$create(include_header, batch_size)
-  
+
   x_out <- x
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
-  
+
   assert_that(is_writable_table(x))
-  
+
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
-  
+
   if (inherits(x, "RecordBatch")) {
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
   }
-  
+
   invisible(x_out)
 }

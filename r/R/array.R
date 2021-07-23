@@ -316,7 +316,7 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
   )
 )
 
-is.Array <- function(x, type = NULL) {
+is.Array <- function(x, type = NULL) { # nolint
   is_it <- inherits(x, c("Array", "ChunkedArray"))
   if (is_it && !is.null(type)) {
     is_it <- x$type$ToString() %in% type

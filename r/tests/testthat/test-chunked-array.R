@@ -61,7 +61,7 @@ test_that("ChunkedArray", {
   expect_equal(z$length(), 5L)
   expect_equal(z$as_vector(), c(9:10, 1:3))
 
-  expect_chunked_roundtrip(list(c(1,2,3), c(4,5,6)), float64())
+  expect_chunked_roundtrip(list(c(1, 2, 3), c(4, 5, 6)), float64())
 
   # input validation
   expect_error(x$chunk(14), "subscript out of bounds")
@@ -94,8 +94,8 @@ test_that("ChunkedArray", {
 
 test_that("print ChunkedArray", {
   verify_output(test_path("test-chunked-array.txt"), {
-    chunked_array(c(1,2,3), c(4,5,6))
-    chunked_array(1:30, c(4,5,6))
+    chunked_array(c(1, 2, 3), c(4, 5, 6))
+    chunked_array(1:30, c(4, 5, 6))
     chunked_array(1:30)
     chunked_array(factor(c("a", "b")), factor(c("c", "d")))
   })
@@ -280,7 +280,7 @@ test_that("chunked_array() handles downcasting", {
 
 test_that("chunked_array() makes chunks of the same type", {
   a <- chunked_array(10L, bit64::as.integer64(13), type = int64())
-  for(chunk in a$chunks) {
+  for (chunk in a$chunks) {
     expect_type_equal(chunk$type, int64())
   }
 })
@@ -412,7 +412,10 @@ test_that("Handling string data with embedded nuls", {
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
   expect_error(
     as.vector(chunked_array_with_nul),
-    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 

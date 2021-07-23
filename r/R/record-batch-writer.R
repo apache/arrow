@@ -18,7 +18,8 @@
 
 #' @title RecordBatchWriter classes
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather.
 #' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
 #' interfaces for writing record batches to those formats, respectively.

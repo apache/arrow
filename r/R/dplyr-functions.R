@@ -379,7 +379,7 @@ nse_funcs$substr <- function(x, start, stop) {
   )
 }
 
-nse_funcs$substring <- function(text, first, last){
+nse_funcs$substring <- function(text, first, last) {
   nse_funcs$substr(x = text, start = first, stop = last)
 }
 
@@ -496,9 +496,8 @@ nse_funcs$strsplit <- function(x,
   if (fixed && perl) {
     warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
   }
-  # since split is not a regex, proceed without any warnings or errors
-  # regardless of the value of perl, for consistency with the behavior of
-  # base::strsplit()
+  # since split is not a regex, proceed without any warnings or errors regardless
+  # of the value of perl, for consistency with the behavior of base::strsplit()
   Expression$create(
     arrow_fun,
     x,
@@ -718,7 +717,7 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
   stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
 }
 
-nse_funcs$if_else <- function(condition, true, false, missing = NULL){
+nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
   if (!is.null(missing)) {
     return(nse_funcs$if_else(
       nse_funcs$is.na(condition),
@@ -731,7 +730,11 @@ nse_funcs$if_else <- function(condition, true, false, missing = NULL){
   # TODO: remove this after ARROW-13358 is merged
   warn_types <- nse_funcs$is.factor(true) | nse_funcs$is.factor(false)
   if (warn_types) {
-    warning("Dictionaries (in R: factors) are currently converted to strings (characters) in if_else and ifelse", call. = FALSE)
+    warning(
+      "Dictionaries (in R: factors) are currently converted to strings (characters) ",
+      "in if_else and ifelse",
+      call. = FALSE
+    )
   }
 
   build_expr("if_else", condition, true, false)

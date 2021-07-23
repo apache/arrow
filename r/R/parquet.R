@@ -152,11 +152,11 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  
+
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  
+
   assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
@@ -166,10 +166,16 @@ write_parquet <- function(x,
 
   # Deprecation warnings
   if (!is.null(properties)) {
-    warning("Providing 'properties' is deprecated. If you need to assemble properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'properties' is deprecated. If you need to assemble properties outside ",
+      "this function, use ParquetFileWriter instead."
+    )
   }
   if (!is.null(arrow_properties)) {
-    warning("Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties outside this function, use ParquetFileWriter instead.")
+    warning(
+      "Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties ",
+      "outside this function, use ParquetFileWriter instead."
+    )
   }
 
   writer <- ParquetFileWriter$create(
@@ -236,7 +242,7 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
   tryCatch(
     valid_versions[[match.arg(version, choices = names(valid_versions))]],
     error = function(cond) {
-      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call.=FALSE)
+      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call. = FALSE)
     }
   )
 }
@@ -441,7 +447,8 @@ ParquetFileWriter$create <- function(schema,
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integers).
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row
+#'    groups (0-based integers).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].

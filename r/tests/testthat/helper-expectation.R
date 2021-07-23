@@ -36,7 +36,7 @@ expect_r6_class <- function(object, class) {
 expect_equivalent <- function(object, expected, ...) {
   # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
   # They look spurious, like:
-  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)`
+  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)` # nolint
   if (tibble::is_tibble(object)) {
     class(object) <- "data.frame"
   }
@@ -137,7 +137,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) {
+    error = function(e) {
       msg <- conditionMessage(e)
 
       # The error here is of the form:
@@ -227,7 +227,7 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
 
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec))),
-    error = function (e) {
+    error = function(e) {
       msg <- conditionMessage(e)
 
       pattern <- i18ize_error_messages()

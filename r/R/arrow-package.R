@@ -19,7 +19,10 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap_chr
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs expr caller_env is_character quo_name
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
+#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec
+#' @importFrom rlang is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs
+#' @importFrom rlang expr caller_env is_character quo_name
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -218,7 +221,10 @@ print.arrow_info <- function(x, ...) {
     ))
     if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
       # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
-      cat("To reinstall with more optional capabilities enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
+      cat(
+        "To reinstall with more optional capabilities enabled, see\n",
+        "  https://arrow.apache.org/docs/r/articles/install.html\n\n"
+      )
     }
 
     if (length(x$options)) {
@@ -245,7 +251,10 @@ print.arrow_info <- function(x, ...) {
       `Git ID` = x$build_info$git_id
     ))
   } else {
-    cat("Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html for troubleshooting.\n")
+    cat(
+      "Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html ",
+      "for troubleshooting.\n"
+    )
   }
   invisible(x)
 }
@@ -292,10 +301,10 @@ ArrowObject <- R6Class("ArrowObject",
 )
 
 #' @export
-`!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs)
+`!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs) # nolint
 
 #' @export
-`==.ArrowObject` <- function(x, y) {
+`==.ArrowObject` <- function(x, y) {  # nolint
   x$Equals(y)
 }
 

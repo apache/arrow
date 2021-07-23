@@ -98,5 +98,5 @@ JsonParseOptions$create <- function(newlines_in_values = FALSE, schema = NULL) {
   } else {
     json___ParseOptions__initialize2(newlines_in_values, schema)
   }
-  
+
 }

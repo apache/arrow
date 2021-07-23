@@ -41,7 +41,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
     if (inherits(sorts[[i]], "try-error")) {
-      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      msg <- paste("Expression", as_label(exprs[[i]]), "not supported in Arrow")
       return(abandon_ship(call, .data, msg))
     }
     names(sorts)[i] <- as_label(exprs[[i]])

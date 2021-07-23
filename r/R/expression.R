@@ -96,7 +96,7 @@
   "/" = "divide_checked",
   "%/%" = "divide_checked",
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
-  # use %/% above.
+  # use `%/%` above.
   "%%" = "divide_checked",
   "^" = "power_checked",
   "%in%" = "is_in_meta_binary"
@@ -212,7 +212,7 @@ build_expr <- function(FUN,
       out <- build_expr("/", args = args)
       return(out$cast(int32(), allow_float_truncate = TRUE))
     } else if (FUN == "%%") {
-      return(args[[1]] - args[[2]] * ( args[[1]] %/% args[[2]] ))
+      return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
     }
 
     expr <- Expression$create(.array_function_map[[FUN]] %||% FUN, args = args, options = options)

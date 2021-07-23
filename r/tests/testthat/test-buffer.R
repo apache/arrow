@@ -51,7 +51,7 @@ test_that("buffer buffer buffers buffers", {
 
 test_that("Other types can't be converted to Buffers", {
   expect_error(
-    buffer(data.frame(a="asdf")),
+    buffer(data.frame(a = "asdf")),
     "Cannot convert object of class data.frame to arrow::Buffer"
   )
 })
