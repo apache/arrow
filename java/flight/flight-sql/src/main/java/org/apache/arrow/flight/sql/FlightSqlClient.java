@@ -49,6 +49,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStat
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
@@ -239,6 +240,35 @@ public class FlightSqlClient {
     }
 
     final CommandGetExportedKeys.Builder builder = CommandGetExportedKeys.newBuilder();
+
+    if (catalog != null) {
+      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+    }
+
+    if (schema != null) {
+      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
+    }
+
+    builder.setTable(table).build();
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    return client.getInfo(descriptor);
+  }
+
+  /**
+   * Request to get info about keys on a table. The table, which exports the foreign keys, parameter must be specified.
+   *
+   * @param catalog The foreign key table catalog.
+   * @param schema  The foreign key table schema.
+   * @param table   The foreign key table.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getImportedKeys(String catalog, String schema, String table) {
+    if (null == table) {
+      throw Status.INVALID_ARGUMENT.asRuntimeException();
+    }
+
+    final CommandGetImportedKeys.Builder builder = CommandGetImportedKeys.newBuilder();
 
     if (catalog != null) {
       builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());

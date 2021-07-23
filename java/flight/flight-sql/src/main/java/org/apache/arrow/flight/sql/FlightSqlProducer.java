@@ -19,6 +19,7 @@ package org.apache.arrow.flight.sql;
 
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -103,6 +104,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetExportedKeys.class)) {
       return getFlightInfoExportedKeys(
           FlightSqlUtils.unpackOrThrow(command, CommandGetExportedKeys.class), context, descriptor);
+    } else if (command.is(CommandGetImportedKeys.class)) {
+      return getFlightInfoImportedKeys(
+          FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, descriptor);
     }
 
     throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -135,6 +139,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return getSchemaPrimaryKeys();
     } else if (command.is(CommandGetExportedKeys.class)) {
+      return getSchemaForImportedAndExportedKeys();
+    } else if (command.is(CommandGetImportedKeys.class)) {
       return getSchemaForImportedAndExportedKeys();
     }
 
@@ -182,6 +188,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           context, ticket, listener);
     } else if (command.is(CommandGetExportedKeys.class)) {
       getStreamExportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetExportedKeys.class),
+          context, ticket, listener);
+    } else if (command.is(CommandGetImportedKeys.class)) {
+      getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class),
           context, ticket, listener);
     } else {
       throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -592,10 +601,22 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @return Metadata about the stream.
    */
   FlightInfo getFlightInfoExportedKeys(CommandGetExportedKeys request, CallContext context,
-                                                       FlightDescriptor descriptor);
+                                       FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get imported  and exported keys data stream.
+   * Retrieves a description of the foreign key columns that reference the given table's primary key columns
+   * {@link CommandGetExportedKeys} objects in {@link Result} objects.
+   *
+   * @param request    request filter parameters.
+   * @param context    Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  FlightInfo getFlightInfoImportedKeys(CommandGetImportedKeys request, CallContext context,
+                                       FlightDescriptor descriptor);
+
+  /**
+   * Gets schema about the get imported and exported keys data stream.
    *
    * @return Schema for the stream.
    */
@@ -627,7 +648,20 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param listener An interface for sending data back to the client.
    */
   void getStreamExportedKeys(CommandGetExportedKeys command, CallContext context, Ticket ticket,
-                                             ServerStreamListener listener);/**
+                             ServerStreamListener listener);
+
+  /**
+   * Returns data for foreign keys based data stream.
+   *
+   * @param command  The command to generate the data stream.
+   * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
+   */
+  void getStreamImportedKeys(CommandGetImportedKeys command, CallContext context, Ticket ticket,
+                             ServerStreamListener listener);
+
+  /**
    * Default schema templates for the {@link FlightSqlProducer}.
    */
   final class Schemas {

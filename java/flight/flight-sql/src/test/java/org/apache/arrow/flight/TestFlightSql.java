@@ -355,6 +355,36 @@ public class TestFlightSql {
     }
   }
 
+  @Test
+  public void testGetCommandImportedKeys() {
+    final FlightStream stream =
+        sqlClient.getStream(
+            sqlClient.getImportedKeys(null, null, "INTTABLE")
+                .getEndpoints().get(0).getTicket());
+
+    final List<List<String>> results = getResults(stream);
+
+    final List<Matcher<String>> matchers = asList(
+        nullValue(String.class), // pk_catalog_name
+        is("APP"), // pk_schema_name
+        is("FOREIGNTABLE"), // pk_table_name
+        is("ID"), // pk_column_name
+        nullValue(String.class), // fk_catalog_name
+        is("APP"), // fk_schema_name
+        is("INTTABLE"), // fk_table_name
+        is("FOREIGNID"), // fk_column_name
+        is("1"), // key_sequence
+        containsString("SQL"), // fk_key_name
+        containsString("SQL"), // pk_key_name
+        is("3"), // update_rule
+        is("3")); // delete_rule
+
+    Assert.assertEquals(1, results.size());
+    for (int i = 0; i < matchers.size(); i++) {
+      collector.checkThat(results.get(0).get(i), matchers.get(i));
+    }
+  }
+
   List<List<String>> getResults(FlightStream stream) {
     final List<List<String>> results = new ArrayList<>();
     while (stream.next()) {
