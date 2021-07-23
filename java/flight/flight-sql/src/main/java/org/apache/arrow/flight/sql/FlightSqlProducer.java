@@ -621,22 +621,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @return Schema for the stream.
    */
   default SchemaResult getSchemaForImportedAndExportedKeys() {
-    final List<Field> fields = Arrays.asList(
-        Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("key_sequence", MinorType.INT.getType()),
-        Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
-        Field.nullable("update_rule", MinorType.INT.getType()),
-        Field.nullable("delete_rule", MinorType.INT.getType()));
-
-    return new SchemaResult(new Schema(fields));
+    return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
   }
 
   /**
@@ -683,6 +668,20 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
         Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
             Field.nullable("schema_name", MinorType.VARCHAR.getType())));
+    public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA = new Schema(Arrays.asList(
+        Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("fk_column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
+        Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
+        Field.nullable("update_rule", MinorType.INT.getType()),
+        Field.nullable("delete_rule", MinorType.INT.getType())));
 
     private Schemas() {
       // Prevent instantiation.
