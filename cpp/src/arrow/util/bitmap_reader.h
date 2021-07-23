@@ -75,6 +75,7 @@ class BitmapReader {
 
 class BitmapUInt64Reader {
  public:
+  ARROW_DISABLE_UBSAN("pointer-overflow")
   BitmapUInt64Reader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap + start_offset / 8),
         num_carry_bits_(8 - start_offset % 8),
