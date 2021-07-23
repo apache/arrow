@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.TimeZone;
@@ -28,6 +29,9 @@ import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
 
+/**
+ * {@link ResultSet} implementation for Arrow Flight used to access the results of a {@link FlightStream}.
+ */
 public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
   private FlightStream flightStream;
@@ -73,5 +77,16 @@ public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcV
       return next();
     }
     return false;
+  }
+
+  @Override
+  public void close() {
+    super.close();
+
+    try {
+      this.flightStream.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }
