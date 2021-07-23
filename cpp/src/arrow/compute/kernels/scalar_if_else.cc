@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/array/builder_nested.h>
+#include <arrow/array/builder_primitive.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
@@ -1591,8 +1592,101 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
   }
 };
 
+using ArrayAppenderFunc = std::function<Status(
+    ArrayBuilder*, const std::shared_ptr<ArrayData>&, int64_t, int64_t)>;
+
+static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_appender);
+
+struct GetAppenders {
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    using c_type = typename T::c_type;
+    array_appender = [](ArrayBuilder* raw_builder,
+                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                        const int64_t length) {
+      return checked_cast<BuilderType*>(raw_builder)
+          ->AppendValues(array->GetValues<c_type>(1) + offset, length,
+                         array->GetValues<uint8_t>(0, 0), array->offset + offset);
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const StringType&) {
+    array_appender = [](ArrayBuilder* raw_builder,
+                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                        const int64_t length) {
+      auto builder = checked_cast<StringBuilder*>(raw_builder);
+      auto bitmap = array->GetValues<uint8_t>(0, 0);
+      auto offsets = array->GetValues<int32_t>(1);
+      auto data = array->GetValues<uint8_t>(2, 0);
+      for (int64_t i = 0; i < length; i++) {
+        if (!bitmap || BitUtil::GetBit(bitmap, offset + i)) {
+          const int32_t start = offsets[offset + i];
+          const int32_t end = offsets[offset + i + 1];
+          RETURN_NOT_OK(builder->Append(data + start, end - start));
+        } else {
+          RETURN_NOT_OK(builder->AppendNull());
+        }
+      }
+      return Status::OK();
+    };
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_var_size_list<T, Status> Visit(const T& ty) {
+    // TODO: reuse this below? Or make a fully generic (but runtime
+    // dispatched) impl of the top level case when
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    using offset_type = typename T::offset_type;
+    const auto& list_ty = checked_cast<const T&>(ty);
+    ArrayAppenderFunc sub_appender;
+    RETURN_NOT_OK(GetValueAppenders(*list_ty.value_type(), &sub_appender));
+    array_appender = [=](ArrayBuilder* raw_builder,
+                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                         const int64_t length) {
+      auto builder = checked_cast<BuilderType*>(raw_builder);
+      auto child_builder = builder->value_builder();
+      const offset_type* offsets = array->GetValues<offset_type>(1);
+      const uint8_t* validity =
+          array->MayHaveNulls() ? array->buffers[0]->data() : nullptr;
+      for (int64_t row = offset; row < offset + length; row++) {
+        if (!validity || BitUtil::GetBit(validity, array->offset + row)) {
+          RETURN_NOT_OK(builder->Append());
+          int64_t length = offsets[row + 1] - offsets[row];
+          RETURN_NOT_OK(
+              sub_appender(child_builder, array->child_data[0], offsets[row], length));
+        } else {
+          RETURN_NOT_OK(builder->AppendNull());
+        }
+      }
+      return Status::OK();
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& ty) {
+    return Status::NotImplemented("Appender for type ", ty);
+  }
+
+  ArrayAppenderFunc GetArrayAppender() { return array_appender; }
+
+  ArrayAppenderFunc array_appender;
+};
+
+static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_appender) {
+  // TODO: should cover scalars too
+  GetAppenders get_appenders;
+  RETURN_NOT_OK(VisitTypeInline(type, &get_appenders));
+  *array_appender = std::move(get_appenders.array_appender);
+  return Status::OK();
+}
+
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
@@ -1612,20 +1706,45 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
         });
   }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: horrendously slow, but generic
+    const auto& ty = checked_cast<const Type&>(*out->type());
+    ArrayAppenderFunc array_appender;
+    RETURN_NOT_OK(GetValueAppenders(*ty.value_type(), &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
-        [](ArrayBuilder*) {},
+        [&](ArrayBuilder* raw_builder) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+
+          int64_t reservation = 0;
+          for (size_t arg = 1; arg < batch.values.size(); arg++) {
+            auto source = batch.values[arg];
+            if (!source.is_array()) {
+              const auto& scalar = checked_cast<const BaseListScalar&>(*source.scalar());
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->length());
+            } else {
+              const auto& array = *source.array();
+              reservation = std::max<int64_t>(reservation, array.child_data[0]->length);
+            }
+          }
+          return child_builder->Reserve(reservation);
+        },
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
         },
         // AppendArray
-        [](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-           const int64_t row) {
-          ARROW_ASSIGN_OR_RAISE(auto scalar, MakeArray(array)->GetScalar(row));
-          return raw_builder->AppendScalar(*scalar);
+        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
+            const int64_t row) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+          RETURN_NOT_OK(builder->Append());
+          const offset_type* offsets = array->GetValues<offset_type>(1);
+          int64_t length = offsets[row + 1] - offsets[row];
+          return array_appender(child_builder, array->child_data[0], offsets[row],
+                                length);
         });
   }
 };
@@ -1690,29 +1809,40 @@ struct CaseWhenFunctor<FixedSizeListType> {
         });
   }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: horrendously slow, but generic
+    const auto& ty = checked_cast<const FixedSizeListType&>(*out->type());
+    const int64_t width = ty.list_size();
+    ArrayAppenderFunc array_appender;
+    RETURN_NOT_OK(GetValueAppenders(*ty.value_type(), &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
-        [](ArrayBuilder*) {},
+        [&](ArrayBuilder* raw_builder) {
+          int64_t children = batch.length * width;
+          return checked_cast<FixedSizeListBuilder*>(raw_builder)
+              ->value_builder()
+              ->Reserve(children);
+        },
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
+          // // Append the boxed array to the child builder, then append a new offset
+          // auto child_builder =
+          // checked_cast<FixedSizeListBuilder*>(raw_builder)->value_builder(); return
+          // raw_builder->Append();
           return raw_builder->AppendScalar(scalar);
         },
         // AppendArray
-        [](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-           const int64_t row) {
-          ARROW_ASSIGN_OR_RAISE(auto scalar, MakeArray(array)->GetScalar(row));
-          return raw_builder->AppendScalar(*scalar);
+        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
+            const int64_t row) {
+          // Append a slice of the child array to the child builder, then append a new
+          // offset
+          auto builder = checked_cast<FixedSizeListBuilder*>(raw_builder);
+          auto child_builder = builder->value_builder();
+          array_appender(child_builder, array->child_data[0],
+                         width * (array->offset + row), width);
+          return builder->Append();
         });
   }
 };
-
-// TODO: map, fixed size list, struct, union, dictionary
-
-// TODO: file separate issue for dictionary? need utility to unify
-// dictionary and return mapping. what is an R factor? may need to
-// promote index type
 
 struct CoalesceFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;

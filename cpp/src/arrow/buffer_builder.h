@@ -350,6 +350,17 @@ class TypedBufferBuilder<bool> {
     bit_length_ += num_elements;
   }
 
+  void UnsafeAppend(const uint8_t* bitmap, int64_t offset, int64_t num_elements) {
+    if (num_elements == 0) return;
+    int64_t i = offset;
+    internal::GenerateBitsUnrolled(mutable_data(), bit_length_, num_elements, [&] {
+      bool value = BitUtil::GetBit(bitmap, i++);
+      false_count_ += !value;
+      return value;
+    });
+    bit_length_ += num_elements;
+  }
+
   void UnsafeAppend(const int64_t num_copies, bool value) {
     BitUtil::SetBitsTo(mutable_data(), bit_length_, num_copies, value);
     false_count_ += num_copies * !value;

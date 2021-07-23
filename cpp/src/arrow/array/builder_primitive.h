@@ -156,6 +156,21 @@ class NumericBuilder : public ArrayBuilder {
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
+  /// \param[in] bitmap a validity bitmap to copy (may be null)
+  /// \param[in] bitmap_offset an offset into the validity bitmap
+  /// \return Status
+  Status AppendValues(const value_type* values, int64_t length, const uint8_t* bitmap,
+                      int64_t bitmap_offset) {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(values, length);
+    // length_ is update by these
+    ArrayBuilder::UnsafeAppendToBitmap(bitmap, bitmap_offset, length);
+    return Status::OK();
+  }
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
   /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status

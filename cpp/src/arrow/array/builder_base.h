@@ -189,6 +189,17 @@ class ARROW_EXPORT ArrayBuilder {
     null_count_ = null_bitmap_builder_.false_count();
   }
 
+  // Vector append. Copy from a given bitmap. If bitmap is null assume
+  // all of length bits are valid.
+  void UnsafeAppendToBitmap(const uint8_t* bitmap, int64_t offset, int64_t length) {
+    if (bitmap == NULLPTR) {
+      return UnsafeSetNotNull(length);
+    }
+    null_bitmap_builder_.UnsafeAppend(bitmap, offset, length);
+    length_ += length;
+    null_count_ = null_bitmap_builder_.false_count();
+  }
+
   // Append the same validity value a given number of times.
   void UnsafeAppendToBitmap(const int64_t num_bits, bool value) {
     if (value) {
