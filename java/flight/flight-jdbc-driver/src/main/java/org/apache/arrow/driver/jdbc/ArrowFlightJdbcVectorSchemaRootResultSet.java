@@ -40,7 +40,7 @@ import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.proto.Common;
 
 /**
- * The {@link ResultSet} implementation for Arrow Flight.
+ * {@link ResultSet} implementation used to access a {@link VectorSchemaRoot}.
  */
 public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
