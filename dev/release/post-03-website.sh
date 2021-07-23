@@ -57,14 +57,37 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
-committers_command_line="git shortlog -csn ${git_range}"
-contributors_command_line="git shortlog -sn ${git_range}"
+directories=("${ARROW_DIR}" "${ARROW_RS_DIR}")
+git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${version})
 
-committers=$(${committers_command_line})
-contributors=$(${contributors_command_line})
+committers=$(
+  for (( i=0; i<${#directories[@]}; i++ ));
+  do
+    cd ${directories[$i]}
+    git shortlog -csn ${git_ranges[$i]}
+  done | 
+  awk '{
+    name_email="";
+    for (i=2; i<=NF; i++) { name_email=name_email " " $i}; 
+    count_by_user[name_email]+=$1} END {for (name_email in count_by_user) print count_by_user[name_email], name_email}' |
+  sort -rn 
+)
+
+contributors=$(
+  for (( i=0; i<${#directories[@]}; i++ ));
+  do
+    cd ${directories[$i]}
+    git shortlog -sn ${git_ranges[$i]}
+  done | 
+  awk '{
+    name_email="";
+    for (i=2; i<=NF; i++) { name_email=name_email " " $i}; 
+    count_by_user[name_email]+=$1} END {for (name_email in count_by_user) print count_by_user[name_email], name_email}' |
+  sort -rn 
+)
 
 n_commits=$(git log --pretty=oneline ${git_range} | wc -l)
-n_contributors=$(${contributors_command_line} | wc -l)
+n_contributors=$(${contributors} | wc -l)
 
 git_tag_hash=$(git log -n 1 --pretty=%H ${git_tag})
 
@@ -117,7 +140,6 @@ This is a major release covering more than ${rough_n_development_months} months 
 This release includes ${n_commits} commits from ${n_contributors} distinct contributors.
 
 \`\`\`console
-$ ${contributors_command_line}
 ANNOUNCE
 
 echo "${contributors}" >> "${announce_file}"
@@ -130,7 +152,6 @@ cat <<ANNOUNCE >> "${announce_file}"
 The following Apache committers merged contributed patches to the repository.
 
 \`\`\`console
-$ ${committers_command_line}
 ANNOUNCE
 
 echo "${committers}" >> "${announce_file}"
