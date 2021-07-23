@@ -466,16 +466,6 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   return Status::OK();
 }
 
-// template <>
-// inline Status NumPyConverter::ConvertData<ExtensionType>(std::shared_ptr<Buffer>* data) {
-//   std::shared_ptr<DataType> input_type;
-
-//   return Status::Invalid("Can't handle ExtensionType ConvertData");
-
-//   RETURN_NOT_OK(PrepareInputData<ExtensionType>(data));
-
-//   return Status::OK();
-// }
 
 template <>
 inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
@@ -594,42 +584,37 @@ Status NumPyConverter::Visit(const BinaryType& type) {
   return Status::OK();
 }
 
+
 Status NumPyConverter::Visit(const ExtensionType& type) {
   if(type.extension_name() == "arrow.extension.complex64") {
-    // TODO(sjperkins)
-    // Cut n paste from VisitNative, fix this
     if (mask_ != nullptr) {
-        RETURN_NOT_OK(InitNullBitmap());
-        null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      RETURN_NOT_OK(InitNullBitmap());
+      null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
     } else {
       RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
-                                                &null_count_));
+                                                 &null_count_));
     }
 
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(ConvertData<ComplexFloatType>(&data));
 
-    std::shared_ptr<Buffer> empty;
-
-    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_, 0);
+    auto float_arr_data = ArrayData::Make(float32(), length_*2, {nullptr, data}, 0, 0);
+    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_}, {float_arr_data}, null_count_, 0);
     return PushArray(arr_data);
   } else if(type.extension_name() == "arrow.extension.complex128") {
-    // TODO(sjperkins)
-    // Cut n paste from VisitNative, fix this
     if (mask_ != nullptr) {
-        RETURN_NOT_OK(InitNullBitmap());
-        null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      RETURN_NOT_OK(InitNullBitmap());
+      null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
     } else {
       RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
-                                                &null_count_));
+                                                 &null_count_));
     }
 
     std::shared_ptr<Buffer> data;
-    RETURN_NOT_OK(ConvertData<ComplexFloatType>(&data));
+    RETURN_NOT_OK(ConvertData<ComplexDoubleType>(&data));
 
-    std::shared_ptr<Buffer> empty;
-
-    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_, 0);
+    auto float_arr_data = ArrayData::Make(float64(), length_*2, {nullptr, data}, 0, 0);
+    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_}, {float_arr_data}, null_count_, 0);
     return PushArray(arr_data);
   } else {
     return TypeNotImplemented(type.ToString());
