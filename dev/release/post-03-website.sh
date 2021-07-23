@@ -57,6 +57,7 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
+# DataFusion directory and git ranges should be added here once git tagging convention confimed with DF team
 directories=("${ARROW_DIR}" "${ARROW_RS_DIR}")
 git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${version})
 
