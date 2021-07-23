@@ -85,14 +85,14 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   }
 
   @Override
-  public ArrowFlightResultSet newResultSet(final AvaticaStatement statement,
-      final QueryState state,
-      final Meta.Signature signature,
-      final TimeZone timeZone,
-      final Meta.Frame frame) throws SQLException {
+  public ArrowFlightJdbcVectorSchemaRootResultSet newResultSet(final AvaticaStatement statement,
+                                                               final QueryState state,
+                                                               final Meta.Signature signature,
+                                                               final TimeZone timeZone,
+                                                               final Meta.Frame frame) throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightResultSet(statement, state, signature, metaData, timeZone, frame);
+    return new ArrowFlightJdbcVectorFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
   }
 
   @Override

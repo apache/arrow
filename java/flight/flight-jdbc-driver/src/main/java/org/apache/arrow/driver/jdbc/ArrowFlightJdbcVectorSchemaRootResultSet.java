@@ -42,14 +42,14 @@ import org.apache.calcite.avatica.proto.Common;
 /**
  * The {@link ResultSet} implementation for Arrow Flight.
  */
-public class ArrowFlightResultSet extends AvaticaResultSet {
+public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
   VectorSchemaRoot vectorSchemaRoot;
 
-  ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
-                       final Signature signature,
-                       final ResultSetMetaData resultSetMetaData,
-                       final TimeZone timeZone, final Frame firstFrame) throws SQLException {
+  ArrowFlightJdbcVectorSchemaRootResultSet(final AvaticaStatement statement, final QueryState state,
+                                           final Signature signature,
+                                           final ResultSetMetaData resultSetMetaData,
+                                           final TimeZone timeZone, final Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
@@ -59,7 +59,8 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
    * @param vectorSchemaRoot root from which the ResultSet will access.
    * @return a ResultSet which accesses the given VectorSchemaRoot
    */
-  public static ArrowFlightResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot) throws SQLException {
+  public static ArrowFlightJdbcVectorSchemaRootResultSet fromVectorSchemaRoot(VectorSchemaRoot vectorSchemaRoot)
+      throws SQLException {
     // Similar to how org.apache.calcite.avatica.util.ArrayFactoryImpl does
 
     final String sql = "MOCKED";
@@ -69,7 +70,8 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
     Meta.Signature signature = ArrowFlightMetaImpl.newSignature(sql);
 
     AvaticaResultSetMetaData resultSetMetaData = new AvaticaResultSetMetaData(null, sql, signature);
-    ArrowFlightResultSet resultSet = new ArrowFlightResultSet(null, state, signature, resultSetMetaData,
+    ArrowFlightJdbcVectorSchemaRootResultSet
+        resultSet = new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
         timeZone, null);
 
     resultSet.execute(vectorSchemaRoot);
@@ -94,13 +96,13 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
     return this;
   }
 
-  private void execute(VectorSchemaRoot vectorSchemaRoot) {
+  void execute(VectorSchemaRoot vectorSchemaRoot) {
     final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
     List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
     signature.columns.addAll(columns);
 
     this.vectorSchemaRoot = vectorSchemaRoot;
-    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+    execute2(new ArrowFlightJdbcVectorSchemaRootCursor(vectorSchemaRoot), this.signature.columns);
   }
 
   @Override

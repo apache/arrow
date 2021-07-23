@@ -22,12 +22,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
@@ -141,9 +143,10 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   @Override
   public FlightStream getStream(final String query) {
     // TODO refactor to not use one endpoint
-    FlightStream stream = client.getStream(
-            getInfo(query).getEndpoints().get(0).getTicket(),
-            token);
+    final FlightInfo flightInfo = getInfo(query);
+    final List<FlightEndpoint> endpoints = flightInfo.getEndpoints();
+    FlightStream stream = client.getStream(endpoints.get(0).getTicket(), token);
+    System.out.println(stream.getSchema());
     resources.addFirst(stream);
     return stream;
   }
