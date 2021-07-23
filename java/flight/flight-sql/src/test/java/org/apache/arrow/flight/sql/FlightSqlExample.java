@@ -922,6 +922,83 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
+  public FlightInfo getFlightInfoImportedKeys(final FlightSql.CommandGetImportedKeys request, final CallContext context,
+                                              final FlightDescriptor descriptor) {
+    final Schema schema = getSchemaForImportedAndExportedKeys().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+  }
+
+  @Override
+  public void getStreamImportedKeys(final FlightSql.CommandGetImportedKeys command, final CallContext context,
+                                    final Ticket ticket,
+                                    final ServerStreamListener listener) {
+    String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String table = command.getTable();
+
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+         ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table)) {
+
+      final List<FieldVector> vectors = createVectors(keys);
+
+      makeListen(
+          listener, singletonList(new VectorSchemaRoot(vectors)));
+    } catch (SQLException e) {
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
+  }
+
+  private List<FieldVector> createVectors(ResultSet keys) throws SQLException {
+    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
+    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", allocator);
+    final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", allocator);
+    final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", allocator);
+    final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", allocator);
+    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", allocator);
+    final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", allocator);
+    final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", allocator);
+    final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
+    final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", allocator);
+    final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", allocator);
+    final IntVector updateRuleVector = new IntVector("update_rule", allocator);
+    final IntVector deleteRuleVector = new IntVector("delete_rule", allocator);
+
+    Map<FieldVector, String> vectorToColumnName = new HashMap<>();
+    vectorToColumnName.put(pkCatalogNameVector, "PKTABLE_CAT");
+    vectorToColumnName.put(pkSchemaNameVector, "PKTABLE_SCHEM");
+    vectorToColumnName.put(pkTableNameVector, "PKTABLE_NAME");
+    vectorToColumnName.put(pkColumnNameVector, "PKCOLUMN_NAME");
+    vectorToColumnName.put(fkCatalogNameVector, "FKTABLE_CAT");
+    vectorToColumnName.put(fkSchemaNameVector, "FKTABLE_SCHEM");
+    vectorToColumnName.put(fkTableNameVector, "FKTABLE_NAME");
+    vectorToColumnName.put(fkColumnNameVector, "FKCOLUMN_NAME");
+    vectorToColumnName.put(keySequenceVector, "KEY_SEQ");
+    vectorToColumnName.put(updateRuleVector, "UPDATE_RULE");
+    vectorToColumnName.put(deleteRuleVector, "DELETE_RULE");
+    vectorToColumnName.put(fkKeyNameVector, "FK_NAME");
+    vectorToColumnName.put(pkKeyNameVector, "PK_NAME");
+
+    final List<FieldVector> vectors =
+        new ArrayList<>(
+            ImmutableList.of(
+                pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
+                fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
+                pkKeyNameVector, updateRuleVector, deleteRuleVector));
+    vectors.forEach(FieldVector::allocateNew);
+
+    saveToVectors(vectorToColumnName, keys, true);
+
+    final int rows = vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
+    vectors.forEach(vector -> vector.setValueCount(rows));
+    return vectors;
+  }
+
+  @Override
   public void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
                                  ServerStreamListener listener) {
     throw Status.UNIMPLEMENTED.asRuntimeException();
