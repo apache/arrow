@@ -61,16 +61,19 @@ git_range=apache-arrow-${previous_version}..${git_tag}
 directories=("${ARROW_DIR}" "${ARROW_RS_DIR}")
 git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${version})
 
+
+format_results='
+      {person="";
+      for (x=2; x<=NF; x++) {person=person " " $x}; 
+      counts[person]+=$1 } END {for (person in counts) print counts[person], person}' 
+
 committers=$(
   for (( i=0; i<${#directories[@]}; i++ ));
   do
     cd ${directories[$i]}
     git shortlog -csn ${git_ranges[$i]}
   done | 
-  awk '{
-    name_email="";
-    for (i=2; i<=NF; i++) { name_email=name_email " " $i}; 
-    count_by_user[name_email]+=$1} END {for (name_email in count_by_user) print count_by_user[name_email], name_email}' |
+  awk "$format_results" |
   sort -rn 
 )
 
@@ -80,10 +83,7 @@ contributors=$(
     cd ${directories[$i]}
     git shortlog -sn ${git_ranges[$i]}
   done | 
-  awk '{
-    name_email="";
-    for (i=2; i<=NF; i++) { name_email=name_email " " $i}; 
-    count_by_user[name_email]+=$1} END {for (name_email in count_by_user) print count_by_user[name_email], name_email}' |
+  awk "$format_results" |
   sort -rn 
 )
 
