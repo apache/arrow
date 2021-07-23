@@ -604,8 +604,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                        FlightDescriptor descriptor);
 
   /**
-   * Retrieves a description of the foreign key columns that reference the given table's primary key columns
-   * {@link CommandGetExportedKeys} objects in {@link Result} objects.
+   * Retrieves a description of the primary key columns that are referenced by given table's foreign key columns
+   * {@link CommandGetImportedKeys} objects in {@link Result} objects.
    *
    * @param request    request filter parameters.
    * @param context    Per-call context.

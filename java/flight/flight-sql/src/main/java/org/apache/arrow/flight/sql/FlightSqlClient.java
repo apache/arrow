@@ -256,11 +256,11 @@ public class FlightSqlClient {
   }
 
   /**
-   * Request to get info about keys on a table. The table, which exports the foreign keys, parameter must be specified.
+   * Request to get info about keys on a table. The table, which imports the foreign keys, parameter must be specified.
    *
-   * @param catalog The foreign key table catalog.
-   * @param schema  The foreign key table schema.
-   * @param table   The foreign key table.
+   * @param catalog The primary key table catalog.
+   * @param schema  The primary key table schema.
+   * @param table   The primary key table.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
   public FlightInfo getImportedKeys(String catalog, String schema, String table) {
