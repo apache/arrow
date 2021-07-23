@@ -154,8 +154,8 @@ DataFrame output:
    df = pa.ipc.open_file(buf).read_pandas()
    df[:5]
 
-Efficiently Writing and Reading Arrow Arrays
---------------------------------------------
+Efficiently Writing and Reading Arrow Data
+------------------------------------------
 
 Being optimized for zero copy and memory mapped data, Arrow allows to easily
 read and write arrays consuming the minimum amount of resident memory.
