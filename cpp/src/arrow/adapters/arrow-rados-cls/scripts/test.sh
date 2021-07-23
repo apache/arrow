@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -eux
 
 build_dir=cpp/release
 test_dir=${build_dir}/test-cluster
@@ -7,13 +7,17 @@ test_dir=${build_dir}/test-cluster
 pushd ${build_dir}
 
     # get rid of process and directories leftovers
-    pkill ceph-mon || true
-    pkill ceph-osd || true
+    pkill -KILL ceph* || true
     rm -fr ${test_dir}
+
+    # copy the CLS libs to the appropriate locations.
+    OBJCLASS_PATH=${build_dir}/lib/rados-classes
+    mkdir -p ${OBJCLASS_PATH}
+    cp release/libcls_arrow* ${OBJCLASS_PATH}/
 
     # cluster wide parameters
     mkdir -p ${test_dir}/log
-    cat >> /etc/ceph/ceph.conf <<EOF
+    cat > /etc/ceph/ceph.conf <<EOF
 [global]
 fsid = $(uuidgen)
 osd crush chooseleaf type = 0
@@ -58,6 +62,7 @@ osd journal = ${OSD_DATA}.journal
 osd journal size = 100
 osd objectstore =  memstore
 osd class load list = *
+osd class dir = ${OBJCLASS_PATH}
 debug osd = 20
 EOF
 
@@ -67,7 +72,7 @@ EOF
     ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID} || ceph-osd --id ${OSD_ID}
 
     # start a MDS daemon
-    MDS_DATA=${TEST_DIR}/mds
+    MDS_DATA=${test_dir}/mds
     mkdir -p $MDS_DATA
 
     ceph osd pool create cephfs_data 16
@@ -82,13 +87,8 @@ EOF
 
     export CEPH_CONF="/etc/ceph/ceph.conf"
 
-    # copy the CLS libs to the appropriate locations.
-    mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
-    cp release/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
-    systemctl restart ceph-osd.target
-
     # mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
-    fusermount -uz /mnt/cephfs
+    fusermount -uz /mnt/cephfs || true
     rm -rf /mnt/cephfs
     mkdir -p /mnt/cephfs
     ceph-fuse /mnt/cephfs
