@@ -88,9 +88,10 @@ public class ResultSetTest {
         for (int column = 1; column <= columns; column++) {
           resultSet.getObject(column);
         }
+        assertEquals("Test Name #" + count, resultSet.getString(2));
       }
 
-      assertEquals(count, Byte.MAX_VALUE);
+      assertEquals(Byte.MAX_VALUE, count);
     }
   }
 

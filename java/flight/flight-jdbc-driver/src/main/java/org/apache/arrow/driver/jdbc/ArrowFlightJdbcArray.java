@@ -138,7 +138,7 @@ public class ArrowFlightJdbcArray implements Array {
     FieldVector vectorSlice = (FieldVector) transferPair.getTo();
 
     VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(vectorSlice);
-    return ArrowFlightResultSet.fromVectorSchemaRoot(vectorSchemaRoot);
+    return ArrowFlightJdbcVectorSchemaRootResultSet.fromVectorSchemaRoot(vectorSchemaRoot);
   }
 
   @Override
