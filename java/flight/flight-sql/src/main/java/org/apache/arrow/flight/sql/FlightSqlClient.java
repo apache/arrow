@@ -17,6 +17,19 @@
 
 package org.apache.arrow.flight.sql;
 
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -45,18 +58,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.StringValue;
 
 import io.grpc.Status;
-import static org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
-import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCatalogs;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSchemas;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 
 /**
  * Flight client with Flight SQL semantics.

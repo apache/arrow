@@ -47,6 +47,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -326,6 +327,77 @@ public class TestFlightSql {
   }
 
   @Test
+  public void testGetSqlInfoSchema() {
+    final FlightInfo info = sqlClient.getSqlInfo();
+    collector.checkThat(info.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+  }
+
+  @Test
+  public void testGetSqlInfoResults() throws Exception {
+    final FlightInfo info = sqlClient.getSqlInfo();
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+      final List<List<String>> expected = ImmutableList.of(
+          // info_name | value
+          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
+          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"),
+          asList("FLIGHT_SQL_SERVER_ARROW_VERSION", "10.14.2.0 - (1828579)"),
+          asList("FLIGHT_SQL_SERVER_READ_ONLY", "0"),
+          asList("SQL_DDL_CATALOG", "0"),
+          asList("SQL_DDL_SCHEMA", "1"),
+          asList("SQL_DDL_TABLE", "1"),
+          asList("SQL_IDENTIFIER_CASE", "UPPERCASE"),
+          asList("SQL_IDENTIFIER_QUOTE_CHAR", "\""),
+          asList("SQL_QUOTED_IDENTIFIER_CASE", "CASE_INSENSITIVE"));
+      final List<List<String>> results = getResults(stream);
+      collector.checkThat(results, is(expected));
+    }
+  }
+
+  @Test
+  public void testGetSqlInfoResultsWithSingleArg() throws Exception {
+    final FlightInfo info = sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME");
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+      final List<List<String>> expected = singletonList(
+          // info_name | value
+          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"));
+      final List<List<String>> results = getResults(stream);
+      collector.checkThat(results, is(expected));
+    }
+  }
+
+  @Test
+  public void testGetSqlInfoResultsWithTwoArgs() throws Exception {
+    final FlightInfo info = sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION");
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+      final List<List<String>> expected = ImmutableList.of(
+          // info_name | value
+          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
+          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"));
+      final List<List<String>> results = getResults(stream);
+      collector.checkThat(results, is(expected));
+    }
+  }
+
+  @Test
+  public void testGetSqlInfoResultsWithThreeArgs() throws Exception {
+    final FlightInfo info =
+        sqlClient.getSqlInfo("FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION", "SQL_IDENTIFIER_QUOTE_CHAR");
+    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
+      final List<List<String>> expected = ImmutableList.of(
+          // info_name | value
+          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
+          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"),
+          asList("SQL_IDENTIFIER_QUOTE_CHAR", "\""));
+      final List<List<String>> results = getResults(stream);
+      collector.checkThat(results, is(expected));
+    }
+  }
+
+  @Test
   public void testGetCommandExportedKeys() {
     final FlightStream stream =
         sqlClient.getStream(
@@ -413,6 +485,12 @@ public class TestFlightSql {
                 final String output =
                     isNull(data) ? null : Schema.deserialize(ByteBuffer.wrap(data)).toJson();
                 results.get(rowIndex).add(output);
+              }
+            } else if (fieldVector instanceof DenseUnionVector) {
+              final DenseUnionVector denseUnionVector = (DenseUnionVector) fieldVector;
+              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                final Object data = denseUnionVector.getObject(rowIndex);
+                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
               }
             } else {
               throw new UnsupportedOperationException("Not yet implemented");
