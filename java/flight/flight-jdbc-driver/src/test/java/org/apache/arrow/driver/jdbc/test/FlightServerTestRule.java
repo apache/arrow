@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
@@ -156,9 +155,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       public void evaluate() throws Throwable {
         try (FlightServer flightServer =
                  getStartServer(location -> FlightServer.builder(allocator, location, getFlightProducer())
-            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                new BasicCallHeaderAuthenticator(FlightServerTestRule.this::validate)))
-            .build(), 3)) {
+                     .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                         new BasicCallHeaderAuthenticator(FlightServerTestRule.this::validate)))
+                     .build(), 3)) {
           LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
           base.evaluate();
         } finally {
@@ -209,22 +208,31 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           final DateDayVector hireDate = new DateDayVector("Hire Date", allocator);
           final TimeStampMilliVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
 
-          final IntStream range = IntStream.range(0, rows);
-          range.forEach(row -> {
-            id.setSafe(row, random.nextLong());
-            name.setSafe(row, new Text("Test Name #" + row));
-            age.setSafe(row, random.nextInt(Integer.MAX_VALUE));
-            salary.setSafe(row, random.nextDouble());
-            hireDate.setSafe(row, random.nextInt(Integer.MAX_VALUE));
-            lastSale.setSafe(row, Instant.now().toEpochMilli());
-          });
-
           List<FieldVector> vectors = ImmutableList.of(id, name, age, salary, hireDate, lastSale);
 
           try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
-            root.setRowCount(rows);
+            root.allocateNew();
             listener.start(root);
-            listener.putNext();
+            int batchSize = 10;
+            int indexOnBatch = 0;
+
+            for (int i = 0; i < rows; i++) {
+              id.setSafe(indexOnBatch, random.nextLong());
+              name.setSafe(indexOnBatch, new Text("Test Name #" + i));
+              age.setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
+              salary.setSafe(indexOnBatch, random.nextDouble());
+              hireDate.setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
+              lastSale.setSafe(indexOnBatch, Instant.now().toEpochMilli());
+
+              indexOnBatch++;
+              if (indexOnBatch == batchSize) {
+                root.setRowCount(indexOnBatch);
+                listener.putNext();
+                root.allocateNew();
+                indexOnBatch = 0;
+              }
+            }
+            root.setRowCount(indexOnBatch);
             listener.putNext();
             listener.completed();
           }
