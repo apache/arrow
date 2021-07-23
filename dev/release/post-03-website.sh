@@ -71,7 +71,6 @@ git_range=apache-arrow-${previous_version}..${git_tag}
 directories=("${ARROW_DIR}" "${ARROW_RS_DIR}")
 git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${version})
 
-
 format_results='
       {person="";
       for (x=2; x<=NF; x++) {person=person " " $x}; 
@@ -97,9 +96,17 @@ contributors=$(
   sort -rn 
 )
 
-n_commits=$(git log --pretty=oneline ${git_range} | wc -l)
-n_contributors=$(${contributors} | wc -l)
+n_commits=0
+for (( i=0; i<${#directories[@]}; i++ ));
+do
+  cd ${directories[$i]}
+  commits_here=$(git log --pretty=oneline ${git_ranges[$i]} | wc -l)
+  n_commits=$((n_commits+commits_here))
+done
 
+n_contributors=$(echo "$contributors" | wc -l)
+
+pushd "${ARROW_DIR}"
 git_tag_hash=$(git log -n 1 --pretty=%H ${git_tag})
 
 popd
