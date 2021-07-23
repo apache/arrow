@@ -807,6 +807,37 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
+  @Override
+  public FlightInfo getFlightInfoImportedKeys(final FlightSql.CommandGetImportedKeys request, final CallContext context,
+                                              final FlightDescriptor descriptor) {
+    final Schema schema = getSchemaForImportedAndExportedKeys().getSchema();
+    final List<FlightEndpoint> endpoints =
+        singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
+    return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+  }
+
+  @Override
+  public void getStreamImportedKeys(final FlightSql.CommandGetImportedKeys command, final CallContext context,
+                                    final Ticket ticket,
+                                    final ServerStreamListener listener) {
+    String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String table = command.getTable();
+
+    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+         ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table)) {
+
+      final List<FieldVector> vectors = createVectors(keys);
+
+      makeListen(
+          listener, singletonList(new VectorSchemaRoot(vectors)));
+    } catch (SQLException e) {
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
+  }
+
   private List<FieldVector> createVectors(ResultSet keys) throws SQLException {
     final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
