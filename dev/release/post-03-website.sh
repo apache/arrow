@@ -160,7 +160,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ## Patch Committers
 
-The following Apache committers merged contributed patches to the repository.
+The following Apache committers merged contributed patches to Arrow repositories.
 
 \`\`\`console
 ANNOUNCE
