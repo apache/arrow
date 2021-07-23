@@ -727,11 +727,11 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final int FLIGHT_SQL_SERVER_VERSION = 1;
     public static final int FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
     public static final int FLIGHT_SQL_SERVER_READ_ONLY = 3;
-    public static final int SQL_DDL_CATALOG = 4;
-    public static final int SQL_DDL_SCHEMA = 5;
-    public static final int SQL_DDL_TABLE = 6;
-    public static final int SQL_IDENTIFIER_CASE = 7;
-    public static final int SQL_IDENTIFIER_QUOTE_CHAR = 8;
-    public static final int SQL_QUOTED_IDENTIFIER_CASE = 9;
+    public static final int SQL_DDL_CATALOG = 500;
+    public static final int SQL_DDL_SCHEMA = 501;
+    public static final int SQL_DDL_TABLE = 502;
+    public static final int SQL_IDENTIFIER_CASE = 503;
+    public static final int SQL_IDENTIFIER_QUOTE_CHAR = 504;
+    public static final int SQL_QUOTED_IDENTIFIER_CASE = 505;
   }
 }
