@@ -325,7 +325,7 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<FixedSizeListArray, T>::value,
               Status>
   Visit(const T& array) {
-    if (!CheckPrintableArray(array)) {
+    if (array.Validate() != Status::OK()) {
       (*sink_) << "<invalid array>";
       return Status::OK();
     }
@@ -339,13 +339,6 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Visit(const ExtensionArray& array) { return Print(*array.storage()); }
-
-  template <typename T>
-  bool CheckPrintableArray(const NumericArray<T>& array) {
-    return array.raw_values() != nullptr;
-  }
-
-  bool CheckPrintableArray(const Array& array) { return true; }
 
   Status WriteValidityBitmap(const Array& array);
 
