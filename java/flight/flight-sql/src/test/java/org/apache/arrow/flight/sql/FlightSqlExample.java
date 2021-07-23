@@ -779,7 +779,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoExportedKeys(final FlightSql.CommandGetExportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaForeignKeys().getSchema();
+    final Schema schema = getSchemaForImportedAndExportedKeys().getSchema();
     final List<FlightEndpoint> endpoints =
         singletonList(new FlightEndpoint(new Ticket(pack(request).toByteArray()), location));
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
