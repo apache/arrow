@@ -57,7 +57,17 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
-# DataFusion directory and git ranges should be added here once git tagging convention confimed with DF team
+# Previously this code counted commits, committers, and contributors only to the
+# apache/arrow repository. After the Rust implementation of Arrow was moved to
+# the separate apache/arrow-rs repository, this code was modified to also count
+# commits, committers, and contributors to that repository.
+#
+# TODO: Add DataFusion directory and git ranges here once git tagging convention
+# for apache/arrow-datafusion repo is confirmed with DF team
+#
+# TODO: Consider counting other apache/arrow-* repos here if tagging conventions
+# permit (arrow-cookbook, arrow-site)
+
 directories=("${ARROW_DIR}" "${ARROW_RS_DIR}")
 git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${version})
 
