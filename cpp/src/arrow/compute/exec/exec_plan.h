@@ -222,6 +222,10 @@ class ARROW_EXPORT ExecNode {
            std::vector<std::string> input_labels, std::shared_ptr<Schema> output_schema,
            int num_outputs);
 
+  // A helper method to send an error status to all outputs.
+  // Returns true if the status was an error.
+  bool ErrorIfNotOk(Status status);
+
   ExecPlan* plan_;
   std::string label_;
 
@@ -282,6 +286,20 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
 ARROW_EXPORT
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
                                           std::vector<internal::Aggregate> aggregates);
+
+/// \brief Make a node which groups input rows based on key fields and computes
+/// aggregates for each group
+ARROW_EXPORT
+Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
+                                  std::vector<std::string> keys,
+                                  std::vector<std::string> agg_srcs,
+                                  std::vector<internal::Aggregate> aggs);
+
+ARROW_EXPORT
+Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                   const std::vector<Datum>& keys,
+                                   const std::vector<internal::Aggregate>& aggregates,
+                                   bool use_threads, ExecContext* ctx);
 
 }  // namespace compute
 }  // namespace arrow

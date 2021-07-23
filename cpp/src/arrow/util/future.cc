@@ -245,7 +245,8 @@ class ConcreteFutureImpl : public FutureImpl {
     CallbackRecord callback_record{std::move(callback), opts};
     if (IsFutureFinished(state_)) {
       lock.unlock();
-      RunOrScheduleCallback(std::move(callback_record), /*in_add_callback=*/true);
+      RunOrScheduleCallback(shared_from_this(), std::move(callback_record),
+                            /*in_add_callback=*/true);
     } else {
       callbacks_.push_back(std::move(callback_record));
     }
@@ -263,8 +264,8 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
-  bool ShouldScheduleCallback(const CallbackRecord& callback_record,
-                              bool in_add_callback) {
+  static bool ShouldScheduleCallback(const CallbackRecord& callback_record,
+                                     bool in_add_callback) {
     switch (callback_record.options.should_schedule) {
       case ShouldSchedule::Never:
         return false;
@@ -280,7 +281,9 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
-  void RunOrScheduleCallback(CallbackRecord&& callback_record, bool in_add_callback) {
+  static void RunOrScheduleCallback(const std::shared_ptr<FutureImpl>& self,
+                                    CallbackRecord&& callback_record,
+                                    bool in_add_callback) {
     if (ShouldScheduleCallback(callback_record, in_add_callback)) {
       struct CallbackTask {
         void operator()() { std::move(callback)(*self); }
@@ -289,10 +292,10 @@ class ConcreteFutureImpl : public FutureImpl {
         std::shared_ptr<FutureImpl> self;
       };
       // Need to keep `this` alive until the callback has a chance to be scheduled.
-      CallbackTask task{std::move(callback_record.callback), shared_from_this()};
+      CallbackTask task{std::move(callback_record.callback), self};
       DCHECK_OK(callback_record.options.executor->Spawn(std::move(task)));
     } else {
-      std::move(callback_record.callback)(*this);
+      std::move(callback_record.callback)(*self);
     }
   }
 
@@ -311,16 +314,18 @@ class ConcreteFutureImpl : public FutureImpl {
     }
     cv_.notify_all();
 
+    auto callbacks = std::move(callbacks_);
+    auto self = shared_from_this();
+
     // run callbacks, lock not needed since the future is finished by this
     // point so nothing else can modify the callbacks list and it is safe
     // to iterate.
     //
     // In fact, it is important not to hold the locks because the callback
     // may be slow or do its own locking on other resources
-    for (auto& callback_record : callbacks_) {
-      RunOrScheduleCallback(std::move(callback_record), /*in_add_callback=*/false);
+    for (auto& callback_record : callbacks) {
+      RunOrScheduleCallback(self, std::move(callback_record), /*in_add_callback=*/false);
     }
-    callbacks_.clear();
   }
 
   void DoWait() {

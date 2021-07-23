@@ -425,7 +425,7 @@ struct ARROW_EXPORT Aggregate {
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates,
+                      const std::vector<Aggregate>& aggregates, bool use_threads = false,
                       ExecContext* ctx = default_exec_context());
 
 }  // namespace internal
