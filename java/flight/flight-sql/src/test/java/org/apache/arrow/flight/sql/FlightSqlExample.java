@@ -535,12 +535,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
-                                                 final Iterable<String> requestedInfo) throws SQLException {
-    return getSqlInfoRoot(metaData, allocator, stream(requestedInfo.spliterator(), false).toArray(String[]::new));
+                                                 final Iterable<Integer> requestedInfo) throws SQLException {
+    return getSqlInfoRoot(metaData, allocator, stream(requestedInfo.spliterator(), false).toArray(Integer[]::new));
   }
 
   private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
-                                                 final String... requestedInfo) throws SQLException {
+                                                 final Integer... requestedInfo) throws SQLException {
     checkNotNull(metaData, "metaData cannot be null!");
     checkNotNull(allocator, "allocator cannot be null!");
     checkNotNull(requestedInfo, "requestedInfo cannot be null!");
@@ -558,40 +558,49 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     vectors.forEach(FieldVector::allocateNew);
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
-      final String currentInfo = requestedInfo[index];
-      saveToVector(currentInfo, infoNameVector, index);
+      final int currentInfo = checkNotNull(requestedInfo[index], "Required info cannot be nulL!");
       switch (currentInfo) {
-        case "FLIGHT_SQL_SERVER_NAME":
+        case SqlInfo.FLIGHT_SQL_SERVER_NAME:
+          saveToVector("FLIGHT_SQL_SERVER_NAME", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDatabaseProductName(), valueVector, index);
           break;
-        case "FLIGHT_SQL_SERVER_VERSION":
+        case SqlInfo.FLIGHT_SQL_SERVER_VERSION:
+          saveToVector("FLIGHT_SQL_SERVER_VERSION", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDatabaseProductVersion(), valueVector, index);
           break;
-        case "FLIGHT_SQL_SERVER_ARROW_VERSION":
+        case SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION:
+          saveToVector("FLIGHT_SQL_SERVER_ARROW_VERSION", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDriverVersion(), valueVector, index);
           break;
-        case "FLIGHT_SQL_SERVER_READ_ONLY":
+        case SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY:
+          saveToVector("FLIGHT_SQL_SERVER_READ_ONLY", infoNameVector, index);
           saveToVector(intValueId, metaData.isReadOnly() ? 1 : 0, valueVector, index);
           break;
-        case "SQL_DDL_CATALOG":
+        case SqlInfo.SQL_DDL_CATALOG:
+          saveToVector("SQL_DDL_CATALOG", infoNameVector, index);
           saveToVector(intValueId, metaData.supportsCatalogsInDataManipulation() ? 1 : 0, valueVector, index);
           break;
-        case "SQL_DDL_SCHEMA":
+        case SqlInfo.SQL_DDL_SCHEMA:
+          saveToVector("SQL_DDL_SCHEMA", infoNameVector, index);
           saveToVector(intValueId, metaData.supportsSchemasInDataManipulation() ? 1 : 0, valueVector, index);
           break;
-        case "SQL_DDL_TABLE":
+        case SqlInfo.SQL_DDL_TABLE:
+          saveToVector("SQL_DDL_TABLE", infoNameVector, index);
           saveToVector(intValueId, metaData.allTablesAreSelectable() ? 1 : 0, valueVector, index);
           break;
-        case "SQL_IDENTIFIER_CASE":
+        case SqlInfo.SQL_IDENTIFIER_CASE:
+          saveToVector("SQL_IDENTIFIER_CASE", infoNameVector, index);
           saveToVector(
               stringValueId, metaData.storesMixedCaseIdentifiers() ? "CASE_INSENSITIVE" :
                   metaData.storesUpperCaseIdentifiers() ? "UPPERCASE" :
                       metaData.storesLowerCaseIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
           break;
-        case "SQL_IDENTIFIER_QUOTE_CHAR":
+        case SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR:
+          saveToVector("SQL_IDENTIFIER_QUOTE_CHAR", infoNameVector, index);
           saveToVector(stringValueId, metaData.getIdentifierQuoteString(), valueVector, index);
           break;
-        case "SQL_QUOTED_IDENTIFIER_CASE":
+        case SqlInfo.SQL_QUOTED_IDENTIFIER_CASE:
+          saveToVector("SQL_QUOTED_IDENTIFIER_CASE", infoNameVector, index);
           saveToVector(stringValueId, metaData.storesMixedCaseQuotedIdentifiers() ? "CASE_INSENSITIVE" :
               metaData.storesUpperCaseQuotedIdentifiers() ? "UPPERCASE" :
                   metaData.storesLowerCaseQuotedIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
@@ -757,12 +766,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final List<String> requestedInfo =
+    final List<Integer> requestedInfo =
         command.getInfoCount() == 0 ?
             ImmutableList.of(
-                "FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION", "FLIGHT_SQL_SERVER_ARROW_VERSION",
-                "FLIGHT_SQL_SERVER_READ_ONLY", "SQL_DDL_CATALOG", "SQL_DDL_SCHEMA", "SQL_DDL_TABLE",
-                "SQL_IDENTIFIER_CASE", "SQL_IDENTIFIER_QUOTE_CHAR", "SQL_QUOTED_IDENTIFIER_CASE") :
+                SqlInfo.FLIGHT_SQL_SERVER_NAME, SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+                SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
+                SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, SqlInfo.SQL_DDL_CATALOG, SqlInfo.SQL_DDL_SCHEMA,
+                SqlInfo.SQL_DDL_TABLE,
+                SqlInfo.SQL_IDENTIFIER_CASE, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, SqlInfo.SQL_QUOTED_IDENTIFIER_CASE) :
             command.getInfoList();
     try (final Connection connection = dataSource.getConnection();
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
