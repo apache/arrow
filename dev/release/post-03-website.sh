@@ -155,7 +155,7 @@ This is a major release covering more than ${rough_n_development_months} months 
 
 ## Contributors
 
-This release includes ${n_commits} commits from ${n_contributors} distinct contributors.
+This release includes ${n_commits} commits from ${n_contributors} distinct contributors in ${#directories[@]} Arrow repositories.
 
 \`\`\`console
 ANNOUNCE
