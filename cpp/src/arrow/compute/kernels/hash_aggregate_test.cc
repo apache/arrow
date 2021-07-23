@@ -684,18 +684,18 @@ TEST(GroupBy, MeanOnly) {
                                            use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
 
-    AssertDatumsEqual(ArrayFromJSON(struct_({
-                                        field("hash_mean", float64()),
-                                        field("key_0", int64()),
-                                    }),
-                                    R"([
+    AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                              field("hash_mean", float64()),
+                                              field("key_0", int64()),
+                                          }),
+                                          R"([
     [2.125,   1],
     [-0.041666666666666664, 2],
     [null,   3],
     [2.375,   null]
   ])"),
-                      aggregated_and_grouped,
-                      /*verbose=*/true);
+                            aggregated_and_grouped,
+                            /*verbose=*/true);
   }
 }
 

@@ -1024,7 +1024,7 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
     double* means = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups_; ++i) {
       if (counts[i] > 0) {
-        means[i] = sums[i] / counts[i];
+        means[i] = static_cast<double>(sums[i] / counts[i]);
         continue;
       }
       means[i] = 0;
