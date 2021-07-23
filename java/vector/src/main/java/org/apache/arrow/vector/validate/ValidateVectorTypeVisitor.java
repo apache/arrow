@@ -114,6 +114,25 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
         "Expecting date unit %s, actual date unit %s.", expectedDateUnit, dateType.getUnit());
   }
 
+  private void validateDecimalVector(ValueVector vector) {
+    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Decimal,
+        "Vector %s is not a decimal vector", vector.getClass());
+    ArrowType.Decimal decimalType = (ArrowType.Decimal) vector.getField().getFieldType().getType();
+    validateOrThrow(decimalType.getScale() >= 0, "The scale of decimal %s is negative.", decimalType.getScale());
+    switch (decimalType.getBitWidth()) {
+      case 128:
+        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= 38,
+            "Invalid precision %s for decimal 128.", decimalType.getPrecision());
+        break;
+      case 256:
+        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= 76,
+            "Invalid precision %s for decimal 256.", decimalType.getPrecision());
+        break;
+      default:
+        throw new ValidateUtil.ValidateException("Only decimal 128 or decimal 256 are supported for decimal types");
+    }
+  }
+
   private void validateTimeVector(ValueVector vector, TimeUnit expectedTimeUnit, int expectedBitWidth) {
     validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Time,
         "Vector %s is not a time vector.", vector.getClass());
@@ -175,10 +194,7 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateVectorCommon(vector, ArrowType.Bool.class);
     } else if (vector instanceof DecimalVector || vector instanceof Decimal256Vector) {
       validateVectorCommon(vector, ArrowType.Decimal.class);
-      ArrowType.Decimal arrowType = (ArrowType.Decimal) vector.getField().getType();
-      validateOrThrow(arrowType.getScale() > 0, "The scale of decimal %s is not positive.", arrowType.getScale());
-      validateOrThrow(arrowType.getPrecision() > 0, "The precision of decimal %S is not positive.",
-          arrowType.getPrecision());
+      validateDecimalVector(vector);
     } else if (vector instanceof DateDayVector) {
       validateVectorCommon(vector, ArrowType.Date.class);
       validateDateVector(vector, DateUnit.DAY);
