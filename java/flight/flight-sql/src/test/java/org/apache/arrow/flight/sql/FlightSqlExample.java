@@ -34,6 +34,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -92,6 +93,8 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -100,6 +103,11 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.vector.holders.ValueHolder;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -139,6 +147,8 @@ import io.grpc.Status;
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
+  private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
+  private final Map<Object, ValueHolder> valueHolderCache = new HashMap<>();
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
@@ -297,6 +307,45 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       throws SQLException, IOException {
     Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, new RootAllocator(Long.MAX_VALUE));
     return () -> iterator;
+  }
+
+  private static void saveToVector(final byte typeRegisteredId, final @Nullable String data,
+                                   final DenseUnionVector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> {
+          // Nothing.
+        },
+        (theData, fieldVector) -> {
+          final String effectiveData = (isNull(data)) ? "" : data;
+          final NullableVarCharHolder holder = new NullableVarCharHolder();
+          final int dataLength = effectiveData.length();
+          final ArrowBuf buffer = fieldVector.getAllocator().buffer(dataLength);
+          buffer.writeBytes(effectiveData.getBytes(StandardCharsets.UTF_8));
+          holder.buffer = buffer;
+          holder.end = dataLength;
+          holder.isSet = 1;
+          fieldVector.setTypeId(index, typeRegisteredId);
+          fieldVector.setSafe(index, holder);
+        });
+  }
+
+  private static void saveToVector(final byte typeRegisteredId, final @Nullable Integer data,
+                                   final DenseUnionVector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> {
+          // Nothing.
+        },
+        (theData, fieldVector) -> {
+          final NullableIntHolder holder = new NullableIntHolder();
+          holder.value = isNull(data) ? 0 : data;
+          holder.isSet = 1;
+          fieldVector.setTypeId(index, typeRegisteredId);
+          fieldVector.setSafe(index, holder);
+        });
   }
 
   private static void saveToVector(final @Nullable String data, final VarCharVector vector, final int index) {
@@ -485,26 +534,74 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new VectorSchemaRoot(vectors);
   }
 
-  private static Schema buildSchema(final ResultSetMetaData resultSetMetaData) throws SQLException {
-    return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, JdbcToArrowUtils.getUtcCalendar());
+  private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
+                                                 final Iterable<String> requestedInfo) throws SQLException {
+    return getSqlInfoRoot(metaData, allocator, stream(requestedInfo.spliterator(), false).toArray(String[]::new));
   }
 
-  private static Schema buildSchema(final ParameterMetaData parameterMetaData) throws SQLException {
-    checkNotNull(parameterMetaData);
-    final List<Field> parameterFields = new ArrayList<>();
-    for (int parameterCounter = 1; parameterCounter <= parameterMetaData.getParameterCount();
-         parameterCounter++) {
-      final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
-      final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
-      final boolean arrowIsNullable = jdbcIsNullable != ParameterMetaData.parameterNoNulls;
-      final int precision = parameterMetaData.getPrecision(parameterCounter);
-      final int scale = parameterMetaData.getScale(parameterCounter);
-      final ArrowType arrowType = getArrowTypeFromJdbcType(jdbcDataType, precision, scale);
-      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
-      parameterFields.add(new Field(null, fieldType, null));
+  private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
+                                                 final String... requestedInfo) throws SQLException {
+    checkNotNull(metaData, "metaData cannot be null!");
+    checkNotNull(allocator, "allocator cannot be null!");
+    checkNotNull(requestedInfo, "requestedInfo cannot be null!");
+    final VarCharVector infoNameVector = new VarCharVector("info_name", allocator);
+    final DenseUnionVector valueVector = DenseUnionVector.empty("value", allocator);
+    valueVector.initializeChildrenFromFields(
+        ImmutableList.of(
+            new Field("string_value", FieldType.nullable(MinorType.VARCHAR.getType()), null),
+            new Field("int_value", FieldType.nullable(MinorType.INT.getType()), null),
+            new Field("bigint_value", FieldType.nullable(MinorType.BIGINT.getType()), null),
+            new Field("int32_bitmask", FieldType.nullable(MinorType.INT.getType()), null)));
+    final List<FieldVector> vectors = ImmutableList.of(infoNameVector, valueVector);
+    final byte stringValueId = 0;
+    final byte intValueId = 1;
+    vectors.forEach(FieldVector::allocateNew);
+    final int rows = requestedInfo.length;
+    for (int index = 0; index < rows; index++) {
+      final String currentInfo = requestedInfo[index];
+      saveToVector(currentInfo, infoNameVector, index);
+      switch (currentInfo) {
+        case "FLIGHT_SQL_SERVER_NAME":
+          saveToVector(stringValueId, metaData.getDatabaseProductName(), valueVector, index);
+          break;
+        case "FLIGHT_SQL_SERVER_VERSION":
+          saveToVector(stringValueId, metaData.getDatabaseProductVersion(), valueVector, index);
+          break;
+        case "FLIGHT_SQL_SERVER_ARROW_VERSION":
+          saveToVector(stringValueId, metaData.getDriverVersion(), valueVector, index);
+          break;
+        case "FLIGHT_SQL_SERVER_READ_ONLY":
+          saveToVector(intValueId, metaData.isReadOnly() ? 1 : 0, valueVector, index);
+          break;
+        case "SQL_DDL_CATALOG":
+          saveToVector(intValueId, metaData.supportsCatalogsInDataManipulation() ? 1 : 0, valueVector, index);
+          break;
+        case "SQL_DDL_SCHEMA":
+          saveToVector(intValueId, metaData.supportsSchemasInDataManipulation() ? 1 : 0, valueVector, index);
+          break;
+        case "SQL_DDL_TABLE":
+          saveToVector(intValueId, metaData.allTablesAreSelectable() ? 1 : 0, valueVector, index);
+          break;
+        case "SQL_IDENTIFIER_CASE":
+          saveToVector(
+              stringValueId, metaData.storesMixedCaseIdentifiers() ? "CASE_INSENSITIVE" :
+                  metaData.storesUpperCaseIdentifiers() ? "UPPERCASE" :
+                      metaData.storesLowerCaseIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
+          break;
+        case "SQL_IDENTIFIER_QUOTE_CHAR":
+          saveToVector(stringValueId, metaData.getIdentifierQuoteString(), valueVector, index);
+          break;
+        case "SQL_QUOTED_IDENTIFIER_CASE":
+          saveToVector(stringValueId, metaData.storesMixedCaseQuotedIdentifiers() ? "CASE_INSENSITIVE" :
+              metaData.storesUpperCaseQuotedIdentifiers() ? "UPPERCASE" :
+                  metaData.storesLowerCaseQuotedIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
+          break;
+        default:
+          throw Status.INVALID_ARGUMENT.asRuntimeException();
+      }
     }
-
-    return new Schema(parameterFields);
+    vectors.forEach(vector -> vector.setValueCount(rows));
+    return new VectorSchemaRoot(vectors);
   }
 
   @Override
@@ -654,13 +751,28 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    return getFlightInfoForSchema(request, descriptor, getSchemaSqlInfo().getSchema());
   }
 
   @Override
   public void getStreamSqlInfo(final CommandGetSqlInfo command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final List<String> requestedInfo =
+        command.getInfoCount() == 0 ?
+            ImmutableList.of(
+                "FLIGHT_SQL_SERVER_NAME", "FLIGHT_SQL_SERVER_VERSION", "FLIGHT_SQL_SERVER_ARROW_VERSION",
+                "FLIGHT_SQL_SERVER_READ_ONLY", "SQL_DDL_CATALOG", "SQL_DDL_SCHEMA", "SQL_DDL_TABLE",
+                "SQL_IDENTIFIER_CASE", "SQL_IDENTIFIER_QUOTE_CHAR", "SQL_QUOTED_IDENTIFIER_CASE") :
+            command.getInfoList();
+    try (final Connection connection = dataSource.getConnection();
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getSqlInfoRoot(connection.getMetaData(), allocator, requestedInfo));
+    } catch (SQLException e) {
+      LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+    }
   }
 
   @Override
@@ -989,7 +1101,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     saveToVectors(vectorToColumnName, keys, true);
 
-    final int rows = vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
+    final int rows =
+        vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
     vectors.forEach(vector -> vector.setValueCount(rows));
     return vectors;
   }
