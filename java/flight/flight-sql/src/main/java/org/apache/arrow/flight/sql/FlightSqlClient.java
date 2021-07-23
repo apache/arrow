@@ -33,7 +33,6 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -51,6 +50,7 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
@@ -153,15 +153,23 @@ public class FlightSqlClient {
    * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final @Nullable Integer... info) {
+  public FlightInfo getSqlInfo(final int... info) {
+    Preconditions.checkNotNull(info);
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
-
-    if (info != null && 0 != info.length) {
-      builder.addAllInfo(Arrays.asList(info));
+    for (final int pieceOfInfo : info) {
+      builder.addInfo(pieceOfInfo);
     }
-
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor);
+  }
+
+  /**
+   * Request a set of Flight SQL metadata.
+   *
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getSqlInfo() {
+    return getSqlInfo(new int[0]);
   }
 
   /**

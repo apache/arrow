@@ -67,25 +67,25 @@ message ActionGetSQLInfoResult {
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
    * In a SQL environment, a catalog is a collection of schemas.
-   * 4 = SQL_DDL_CATALOG
+   * 500 = SQL_DDL_CATALOG
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
    * In a SQL environment, a catalog is a collection of tables, views, indexes etc.
-   * 5 = SQL_DDL_SCHEMA
+   * 501 = SQL_DDL_SCHEMA
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
    * In a SQL environment, a table is a collection of rows of information. Each row of information
    * may have one or more columns of data.
-   * 6 = SQL_DDL_TABLE
+   * 502 = SQL_DDL_TABLE
    *
    * Indicates the case sensitivity of catalog, table and schema names.
-   * 7 = SQL_IDENTIFIER_CASE
+   * 503 = SQL_IDENTIFIER_CASE
    *
    * Indicates the supported character(s) used to surround a delimited identifier.
-   * 8 = SQL_IDENTIFIER_QUOTE_CHAR
+   * 504 = SQL_IDENTIFIER_QUOTE_CHAR
    *
    * Indicates case sensitivity of quoted identifiers.
-   * 9 = SQL_QUOTED_IDENTIFIER_CASE
+   * 505 = SQL_QUOTED_IDENTIFIER_CASE
    *
    * If omitted, then all metadata will be retrieved.
    * Flight SQL Servers may choose to include additional metadata above and beyond the specified set, however they must
