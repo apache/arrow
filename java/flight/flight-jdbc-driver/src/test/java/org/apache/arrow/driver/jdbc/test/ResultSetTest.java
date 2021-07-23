@@ -41,7 +41,6 @@ import java.util.stream.IntStream;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.hamcrest.CoreMatchers;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -72,11 +71,6 @@ public class ResultSetTest {
   @BeforeClass
   public static void setup() throws SQLException {
     connection = rule.getConnection();
-  }
-
-  @AfterClass
-  public static void tearDown() throws SQLException {
-    connection.close();
   }
 
   /**

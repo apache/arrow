@@ -27,7 +27,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -41,6 +40,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -80,6 +80,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -110,19 +111,24 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
+  private final BasicDataSource dataSource;
 
   FlightServerTestRule(Map<BaseProperty, Object> properties) {
-    this();
+    this(properties, new RootAllocator(Long.MAX_VALUE));
+  }
+
+  private FlightServerTestRule(Map<BaseProperty, Object> properties, BufferAllocator allocator) {
+    this.properties = generateDefaults();
     this.properties.putAll(properties);
-  }
 
-  private FlightServerTestRule(BufferAllocator allocator) {
-    properties = generateDefaults();
     this.allocator = allocator;
-  }
 
-  private FlightServerTestRule() {
-    this(new RootAllocator(Long.MAX_VALUE));
+    Properties dataSourceProperties = new Properties();
+    dataSourceProperties.put(USERNAME.getEntry().getKey(), getProperty(USERNAME));
+    dataSourceProperties.put(PASSWORD.getEntry().getKey(), getProperty(PASSWORD));
+
+    final String url = "jdbc:arrow-flight://" + getProperty(HOST) + ":" + getProperty(PORT);
+    this.dataSource = new ArrowFlightJdbcDataSource(url, dataSourceProperties);
   }
 
   /**
@@ -154,13 +160,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    * @throws SQLException in case of error.
    */
   Connection getConnection() throws SQLException {
-    Properties props = new Properties();
-    props.put(USERNAME.getEntry().getKey(), getProperty(USERNAME));
-    props.put(PASSWORD.getEntry().getKey(), getProperty(PASSWORD));
-
-    final String url = "jdbc:arrow-flight://" + getProperty(HOST) + ":" + getProperty(PORT);
-
-    return DriverManager.getConnection(url, props);
+    return dataSource.getConnection();
   }
 
   @Override
@@ -392,5 +392,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   public void close() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
     AutoCloseables.close(allocator);
+
+    dataSource.close();
   }
 }
