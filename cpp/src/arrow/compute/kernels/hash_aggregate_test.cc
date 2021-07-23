@@ -728,19 +728,19 @@ TEST(GroupBy, VarianceAndStddev) {
                                {"hash_stddev", nullptr},
                            }));
 
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("hash_variance", float64()),
-                                      field("hash_stddev", float64()),
-                                      field("key_0", int64()),
-                                  }),
-                                  R"([
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_variance", float64()),
+                                            field("hash_stddev", float64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
     [1.0,                 1.0,                1],
     [0.22222222222222224, 0.4714045207910317, 2],
     [null,                null,               3],
     [2.25,                1.5,                null]
   ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
 
   batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
@@ -769,19 +769,19 @@ TEST(GroupBy, VarianceAndStddev) {
                                                        {"hash_stddev", nullptr},
                                                    }));
 
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("hash_variance", float64()),
-                                      field("hash_stddev", float64()),
-                                      field("key_0", int64()),
-                                  }),
-                                  R"([
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_variance", float64()),
+                                            field("hash_stddev", float64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
     [1.0,                 1.0,                1],
     [0.22222222222222224, 0.4714045207910317, 2],
     [null,                null,               3],
     [2.25,                1.5,                null]
   ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
 }
 
 TEST(GroupBy, MinMaxOnly) {
