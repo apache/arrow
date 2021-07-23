@@ -196,13 +196,15 @@ class BaseSetBitRunReader {
   /// \param[in] start_offset bit offset into the source data
   /// \param[in] length number of bits to copy
   ARROW_NOINLINE
-  ARROW_DISABLE_UBSAN("pointer-overflow")
   BaseSetBitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap),
         length_(length),
         remaining_(length_),
         current_word_(0),
         current_num_bits_(0) {
+    if (bitmap_ == NULLPTR) {
+      return;
+    }
     if (Reverse) {
       bitmap_ += (start_offset + length) / 8;
       const int8_t end_bit_offset = static_cast<int8_t>((start_offset + length) % 8);
