@@ -5,14 +5,14 @@
 \title{Create a (virtual) DuckDB table from an Arrow object}
 \usage{
 to_duckdb(
-  src,
+  .data,
   con = arrow_duck_connection(),
   table_name = unique_arrow_tablename(),
   auto_disconnect = TRUE
 )
 }
 \arguments{
-\item{src}{the Arrow object (e.g. Dataset, Table) to use for the DuckDB table}
+\item{.data}{the Arrow object (e.g. Dataset, Table) to use for the DuckDB table}
 
 \item{con}{a DuckDB connection to use (default will create one and store it
 in \code{options("arrow_duck_con")})}

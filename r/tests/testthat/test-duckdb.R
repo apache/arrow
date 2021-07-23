@@ -20,13 +20,6 @@ skip_if_not_installed("dbplyr")
 library(duckdb)
 library(dplyr)
 
-con <- dbConnect(duckdb::duckdb())
-# we always want to test in parallel
-dbExecute(con, "PRAGMA threads=2")
-
-# write one table to the connection so it is kept open
-DBI::dbWriteTable(con, "mtcars", mtcars)
-
 test_that("to_duckdb", {
   ds <- InMemoryDataset$create(example_data)
 
@@ -89,11 +82,18 @@ test_that("summarise(..., .engine)", {
   )
 })
 
+# The next set of tests use an already-extant connection to test features of
+# persistence and querying against the table without using the `tbl` itself, so
+# we need to create a connection separate from the ephemeral one that is made
+# with arrow_duck_connection()
+con <- dbConnect(duckdb::duckdb())
+dbExecute(con, "PRAGMA threads=2")
+
+# write one table to the connection so it is kept open
+DBI::dbWriteTable(con, "mtcars", mtcars)
+
 test_that("Joining, auto-cleanup", {
   ds <- InMemoryDataset$create(example_data)
-
-  # we always want to test in parallel
-  dbExecute(con, "PRAGMA threads=2")
 
   table_one_name <- "my_arrow_table_1"
   table_one <- to_duckdb(ds, con = con, table_name = table_one_name)
@@ -150,7 +150,6 @@ test_that("to_duckdb with a table", {
     )
   )
 })
-
 
 test_that("to_duckdb passing a connection", {
   ds <- InMemoryDataset$create(example_data)

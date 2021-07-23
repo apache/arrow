@@ -28,7 +28,7 @@
 #' step. Internally, this calls `to_duckdb()` with all of the default argument
 #' values.
 #'
-#' @param src the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
+#' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
 #' in `options("arrow_duck_con")`)
 #' @param table_name a name to use in DuckDB for this object. The default is a
@@ -57,17 +57,17 @@
 #'   group_by(cyl) %>%
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
 #'
-to_duckdb <- function(
-  src,
-  con = arrow_duck_connection(),
-  table_name =  unique_arrow_tablename(),
-  auto_disconnect = TRUE) {
-  duckdb::duckdb_register_arrow(con, table_name, src)
+to_duckdb <- function(.data,
+                      con = arrow_duck_connection(),
+                      table_name =  unique_arrow_tablename(),
+                      auto_disconnect = TRUE) {
+  .data <- arrow_dplyr_query(.data)
+  duckdb::duckdb_register_arrow(con, table_name, .data)
 
   tbl <- tbl(con, table_name)
-  groups <- src$group
-  if (length(groups) > 0 && !is.null(groups)) {
-    tbl <- dplyr::group_by(tbl, !!rlang::sym(groups))
+  groups <- dplyr::groups(.data)
+  if (length(groups)) {
+    tbl <- dplyr::group_by(tbl, groups)
   }
 
   if (auto_disconnect) {
@@ -91,14 +91,14 @@ arrow_duck_connection <- function() {
 }
 
 # Adapted from dbplyr
-unique_arrow_tablename <- function () {
+unique_arrow_tablename <- function() {
   i <- getOption("arrow_table_name", 0) + 1
   options(arrow_table_name = i)
   sprintf("arrow_%03i", i)
 }
 
 # Creates an environment that disconnects the database when it's GC'd
-duckdb_disconnector <- function(con, tbl_name, quiet = FALSE) {
+duckdb_disconnector <- function(con, tbl_name) {
   reg.finalizer(environment(), function(...) {
     # remote the table we ephemerally created (though only if the connection is
     # still valid)
