@@ -349,7 +349,7 @@ public class TestFlightSql {
         is("3"), // update_rule
         is("3")); // delete_rule
 
-    Assert.assertTrue(results.size() > 0);
+    Assert.assertEquals(1, results.size());
     for (int i = 0; i < matchers.size(); i++) {
       collector.checkThat(results.get(0).get(i), matchers.get(i));
     }
