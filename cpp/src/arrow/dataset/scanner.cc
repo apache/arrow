@@ -462,54 +462,6 @@ const FieldVector kAugmentedFields{
     field("__last_in_fragment", boolean()),
 };
 
-Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
-                                        FragmentGenerator fragment_gen,
-                                        std::shared_ptr<ScanOptions> options) {
-  if (!options->use_async) {
-    return Status::NotImplemented("ScanNodes without asynchrony");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
-                        FragmentsToBatches(std::move(fragment_gen), options));
-
-  auto merged_batch_gen =
-      MakeMergedGenerator(std::move(batch_gen_gen), options->fragment_readahead);
-
-  auto batch_gen =
-      MakeReadaheadGenerator(std::move(merged_batch_gen), options->fragment_readahead);
-
-  auto gen = MakeMappedGenerator(
-      std::move(batch_gen),
-      [options](const EnumeratedRecordBatch& partial)
-          -> Result<util::optional<compute::ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(
-            util::optional<compute::ExecBatch> batch,
-            compute::MakeExecBatch(*options->dataset_schema, partial.record_batch.value));
-        // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
-        // than this, for example parquet's row group stats. Failing to do this leaves
-        // perf on the table because row group stats could be used to skip kernel execs in
-        // FilterNode.
-        //
-        // Additionally, if a fragment failed to perform projection pushdown there may be
-        // unnecessarily materialized columns in batch. We could drop them now instead of
-        // letting them coast through the rest of the plan.
-        batch->guarantee = partial.fragment.value->partition_expression();
-
-        // tag rows with fragment- and batch-of-origin
-        batch->values.emplace_back(partial.fragment.index);
-        batch->values.emplace_back(partial.record_batch.index);
-        batch->values.emplace_back(partial.record_batch.last);
-        return batch;
-      });
-
-  auto fields = options->dataset_schema->fields();
-  for (const auto& aug_field : kAugmentedFields) {
-    fields.push_back(aug_field);
-  }
-  return compute::MakeSourceNode(plan, "dataset_scan", schema(std::move(fields)),
-                                 std::move(gen));
-}
-
 class OneShotScanTask : public ScanTask {
  public:
   OneShotScanTask(RecordBatchIterator batch_it, std::shared_ptr<ScanOptions> options,
@@ -620,22 +572,22 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-
-  ARROW_ASSIGN_OR_RAISE(auto scan, MakeScanNode(plan.get(), dataset_, scan_options_));
-
-  ARROW_ASSIGN_OR_RAISE(auto filter,
-                        compute::MakeFilterNode(scan, "filter", scan_options_->filter));
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
-  ARROW_ASSIGN_OR_RAISE(
-      auto project,
-      MakeAugmentedProjectNode(filter, "project", std::move(exprs), std::move(names)));
 
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(project, "sink");
+  RETURN_NOT_OK(compute::Declaration::Sequence(
+                    {
+                        {"scan", ScanNodeOptions{dataset_, scan_options_}},
+                        {"filter", compute::FilterNodeOptions{scan_options_->filter}},
+                        {"augmented_project",
+                         compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+                        {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
 
@@ -790,7 +742,7 @@ Result<int64_t> AsyncScanner::CountRows() {
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   // Drop projection since we only need to count rows
-  auto options = std::make_shared<ScanOptions>(*scan_options_);
+  const auto options = std::make_shared<ScanOptions>(*scan_options_);
   RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
 
   std::atomic<int64_t> total{0};
@@ -813,21 +765,23 @@ Result<int64_t> AsyncScanner::CountRows() {
             });
       });
 
-  ARROW_ASSIGN_OR_RAISE(auto scan,
-                        MakeScanNode(plan.get(), std::move(fragment_gen), options));
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  ARROW_ASSIGN_OR_RAISE(auto get_selection,
-                        compute::MakeProjectNode(scan, "get_selection", {options->filter},
-                                                 {"selection_mask"}));
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto sum_selection,
-      compute::MakeScalarAggregateNode(get_selection, "sum_selection",
-                                       {compute::internal::Aggregate{"sum", nullptr}},
-                                       {"selection_mask"}, {"sum"}));
-
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(sum_selection, "sink");
+  RETURN_NOT_OK(
+      compute::Declaration::Sequence(
+          {
+              {"scan", ScanNodeOptions{std::make_shared<FragmentDataset>(
+                                           scan_options_->dataset_schema,
+                                           std::move(fragment_gen)),
+                                       options}},
+              {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
+              {"aggregate", compute::AggregateNodeOptions{{compute::internal::Aggregate{
+                                                              "sum", nullptr}},
+                                                          /*targets=*/{"mask"},
+                                                          /*names=*/{"selected_count"}}},
+              {"sink", compute::SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
 
   RETURN_NOT_OK(plan->StartProducing());
   auto maybe_slow_count = sink_gen().result();
@@ -1146,9 +1100,19 @@ Result<int64_t> SyncScanner::CountRows() {
   return count;
 }
 
+namespace {
+
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
-                                        std::shared_ptr<Dataset> dataset,
-                                        std::shared_ptr<ScanOptions> scan_options) {
+                                        std::vector<compute::ExecNode*> inputs,
+                                        const compute::ExecNodeOptions& options) {
+  const auto& scan_node_options = checked_cast<const ScanNodeOptions&>(options);
+  auto scan_options = scan_node_options.scan_options;
+  auto dataset = scan_node_options.dataset;
+
+  if (!scan_options->use_async) {
+    return Status::NotImplemented("ScanNodes without asynchrony");
+  }
+
   if (scan_options->dataset_schema == nullptr) {
     scan_options->dataset_schema = dataset->schema();
   }
@@ -1171,14 +1135,59 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
-  auto fragments_gen = MakeVectorGenerator(std::move(fragments_vec));
+  auto fragment_gen = MakeVectorGenerator(std::move(fragments_vec));
 
-  return MakeScanNode(plan, std::move(fragments_gen), std::move(scan_options));
+  ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
+                        FragmentsToBatches(std::move(fragment_gen), scan_options));
+
+  auto merged_batch_gen =
+      MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
+
+  auto batch_gen = MakeReadaheadGenerator(std::move(merged_batch_gen),
+                                          scan_options->fragment_readahead);
+
+  auto gen = MakeMappedGenerator(
+      std::move(batch_gen),
+      [scan_options](const EnumeratedRecordBatch& partial)
+          -> Result<util::optional<compute::ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(util::optional<compute::ExecBatch> batch,
+                              compute::MakeExecBatch(*scan_options->dataset_schema,
+                                                     partial.record_batch.value));
+        // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
+        // than this, for example parquet's row group stats. Failing to do this leaves
+        // perf on the table because row group stats could be used to skip kernel execs in
+        // FilterNode.
+        //
+        // Additionally, if a fragment failed to perform projection pushdown there may be
+        // unnecessarily materialized columns in batch. We could drop them now instead of
+        // letting them coast through the rest of the plan.
+        batch->guarantee = partial.fragment.value->partition_expression();
+
+        // tag rows with fragment- and batch-of-origin
+        batch->values.emplace_back(partial.fragment.index);
+        batch->values.emplace_back(partial.record_batch.index);
+        batch->values.emplace_back(partial.record_batch.last);
+        return batch;
+      });
+
+  auto fields = scan_options->dataset_schema->fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
+
+  return compute::MakeExecNode(
+      "source", plan, {},
+      compute::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
 }
+compute::ExecFactoryRegistry::AddOnLoad kRegisterScan("scan", MakeScanNode);
 
 Result<compute::ExecNode*> MakeAugmentedProjectNode(
-    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
-    std::vector<std::string> names) {
+    compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+    const compute::ExecNodeOptions& options) {
+  const auto& project_options = checked_cast<const compute::ProjectNodeOptions&>(options);
+  auto exprs = project_options.expressions;
+  auto names = project_options.names;
+
   if (names.size() == 0) {
     names.resize(exprs.size());
     for (size_t i = 0; i < exprs.size(); ++i) {
@@ -1190,13 +1199,26 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
     exprs.push_back(compute::field_ref(aug_field->name()));
     names.push_back(aug_field->name());
   }
-  return compute::MakeProjectNode(input, std::move(label), std::move(exprs),
-                                  std::move(names));
+  return compute::MakeExecNode(
+      "project", plan, std::move(inputs),
+      compute::ProjectNodeOptions{std::move(exprs), std::move(names)});
 }
+compute::ExecFactoryRegistry::AddOnLoad kRegisterProject("augmented_project",
+                                                         MakeAugmentedProjectNode);
 
-Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
-    compute::ExecNode* input, std::string label) {
-  auto unordered = compute::MakeSinkNode(input, std::move(label));
+Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
+                                               std::vector<compute::ExecNode*> inputs,
+                                               const compute::ExecNodeOptions& options) {
+  if (inputs.size() != 1) {
+    return Status::Invalid("Ordered SinkNode requires exactly 1 input, got ",
+                           inputs.size());
+  }
+  auto input = inputs[0];
+
+  AsyncGenerator<util::optional<compute::ExecBatch>> unordered;
+  ARROW_ASSIGN_OR_RAISE(auto node,
+                        compute::MakeExecNode("sink", plan, std::move(inputs),
+                                              compute::SinkNodeOptions{&unordered}));
 
   const Schema& schema = *input->output_schema();
   ARROW_ASSIGN_OR_RAISE(FieldPath match, FieldRef("__fragment_index").FindOne(schema));
@@ -1256,9 +1278,16 @@ Result<AsyncGenerator<util::optional<compute::ExecBatch>>> MakeOrderedSinkNode(
            last_in_fragment(*prev) && batch_index(*next) == 0;
   };
 
-  return MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
-                                 util::make_optional(std::move(before_any)));
-}
+  const auto& sink_options = checked_cast<const compute::SinkNodeOptions&>(options);
+  *sink_options.generator =
+      MakeSequencingGenerator(std::move(unordered), left_after_right, is_next,
+                              util::make_optional(std::move(before_any)));
 
+  return node;
+}
+compute::ExecFactoryRegistry::AddOnLoad kRegisterSink("ordered_sink",
+                                                      MakeOrderedSinkNode);
+
+}  // namespace
 }  // namespace dataset
 }  // namespace arrow

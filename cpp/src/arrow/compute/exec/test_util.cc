@@ -50,10 +50,9 @@ namespace compute {
 namespace {
 
 struct DummyNode : ExecNode {
-  DummyNode(ExecPlan* plan, std::string label, NodeVector inputs, int num_outputs,
+  DummyNode(ExecPlan* plan, NodeVector inputs, int num_outputs,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
-      : ExecNode(plan, std::move(label), std::move(inputs), {}, dummy_schema(),
-                 num_outputs),
+      : ExecNode(plan, std::move(inputs), {}, dummy_schema(), num_outputs),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     input_labels_.resize(inputs_.size());
@@ -127,9 +126,11 @@ struct DummyNode : ExecNode {
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc start_producing,
                         StopProducingFunc stop_producing) {
-  return plan->EmplaceNode<DummyNode>(plan, std::move(label), std::move(inputs),
-                                      num_outputs, std::move(start_producing),
-                                      std::move(stop_producing));
+  auto node =
+      plan->EmplaceNode<DummyNode>(plan, std::move(inputs), num_outputs,
+                                   std::move(start_producing), std::move(stop_producing));
+  node->SetLabel(std::move(label));
+  return node;
 }
 
 ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
