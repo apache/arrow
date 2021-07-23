@@ -282,7 +282,7 @@ message CommandGetPrimaryKeys {
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
  */
-message CommandGetExportedKeys{
+message CommandGetExportedKeys {
   // Specifies the catalog to search for the foreign key table.
   google.protobuf.StringValue catalog = 1;
 

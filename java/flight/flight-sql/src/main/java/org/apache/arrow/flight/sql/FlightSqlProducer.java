@@ -20,7 +20,6 @@ package org.apache.arrow.flight.sql;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -136,7 +135,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return getSchemaPrimaryKeys();
     } else if (command.is(CommandGetExportedKeys.class)) {
-      return getSchemaForeignKeys();
+      return getSchemaForImportedAndExportedKeys();
     }
 
     throw Status.INVALID_ARGUMENT.asRuntimeException();
@@ -596,11 +595,11 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                                        FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get foreign keys data stream.
+   * Gets schema about the get imported  and exported keys data stream.
    *
    * @return Schema for the stream.
    */
-  default SchemaResult getSchemaForeignKeys() {
+  default SchemaResult getSchemaForImportedAndExportedKeys() {
     final List<Field> fields = Arrays.asList(
         Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
