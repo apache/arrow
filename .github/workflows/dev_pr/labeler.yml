@@ -36,6 +36,9 @@ lang-js:
 lang-julia:
   - julia/**/*
 
+lang-matlab:
+  - matlab/**/*
+
 lang-python:
   - python/**/*
 
