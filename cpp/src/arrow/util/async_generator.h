@@ -141,66 +141,10 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
 }
 
 /// \see MakeMappedGenerator
-///
-/// Note: This version forwards async pressure on to the source
 template <typename T, typename V>
-class BasicMappingGenerator {
+class MappingGenerator {
  public:
-  BasicMappingGenerator(AsyncGenerator<T> source, std::function<Future<V>(const T&)> map)
-      : state_(std::make_shared<State>(std::move(source), std::move(map))) {}
-
-  Future<V> operator()() {
-    if (state_->finished.load()) {
-      return IterationEnd<V>();
-    }
-    auto state = state_;
-    return state_->source().Then(Callback{state_},
-                                 [state](const Status& err) -> Result<V> {
-                                   state->finished.store(true);
-                                   return err;
-                                 });
-  }
-
- private:
-  struct State {
-    State(AsyncGenerator<T> source, std::function<Future<V>(const T&)> map)
-        : source(std::move(source)), map(std::move(map)) {}
-
-    std::atomic<bool> finished{false};
-    AsyncGenerator<T> source;
-    std::function<Future<V>(const T&)> map;
-  };
-
-  struct Callback {
-    Future<V> operator()(const T& maybe_next) {
-      if (IsIterationEnd(maybe_next) || state_->finished.load()) {
-        return IterationEnd<V>();
-      }
-      Future<V> mapped_fut = state_->map(maybe_next);
-      auto state = state_;
-      return mapped_fut.Then([](const V& result) { return result; },
-                             [state](const Status& err) -> Result<V> {
-                               state->finished.store(true);
-                               return err;
-                             });
-    }
-
-    std::shared_ptr<State> state_;
-  };
-
-  std::shared_ptr<State> state_;
-};
-
-/// \see MakeMappedGenerator
-///
-/// Note: This version will queue incoming requests to prevent source
-/// from being pulled async-reentrantly (even if this generator is pulled async
-/// reentrantly).  However, it will still run the map function in parallel.
-template <typename T, typename V>
-class QueueingMappingGenerator {
- public:
-  QueueingMappingGenerator(AsyncGenerator<T> source,
-                           std::function<Future<V>(const T&)> map)
+  MappingGenerator(AsyncGenerator<T> source, std::function<Future<V>(const T&)> map)
       : state_(std::make_shared<State>(std::move(source), std::move(map))) {}
 
   Future<V> operator()() {
@@ -313,16 +257,6 @@ class QueueingMappingGenerator {
 /// \brief Creates a generator that will apply the map function to each element of
 /// source.  The map function is not called on the end token.
 ///
-/// This generator is always async-reentrant.  If queue_requests is true then any
-/// reentrant requests will be queued and this generator will not pull from
-/// source_generator in an async-reentrant fashion.  If queue_requests is false then
-/// requests will be forwarded directly to the source_generator and source_generator
-/// will also be pulled in an async-reentrant fashion.
-///
-/// If this generator is pulled async-reentrantly then the map function should be
-/// thread safe (that is, it should be safe to be running map(response N) at the
-/// same time as map(response N-1)) regardless of the value of queue_requests
-///
 /// Note: This function makes a copy of `map` for each item
 /// Note: Errors returned from the `map` function will be propagated
 ///
@@ -330,21 +264,14 @@ class QueueingMappingGenerator {
 template <typename T, typename MapFn,
           typename Mapped = detail::result_of_t<MapFn(const T&)>,
           typename V = typename EnsureFuture<Mapped>::type::ValueType>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map,
-                                      bool queue_requests = true) {
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   struct MapCallback {
     MapFn map_;
 
     Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
   };
 
-  if (queue_requests) {
-    return QueueingMappingGenerator<T, V>(std::move(source_generator),
-                                          MapCallback{std::move(map)});
-  } else {
-    return BasicMappingGenerator<T, V>(std::move(source_generator),
-                                       MapCallback{std::move(map)});
-  }
+  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
 }
 
 /// \see MakeSequencingGenerator
@@ -808,7 +735,9 @@ class ReadaheadGenerator {
  private:
   struct State {
     State(AsyncGenerator<T> source_generator, int max_readahead)
-        : source_generator(std::move(source_generator)), max_readahead(max_readahead) {}
+        : source_generator(std::move(source_generator)), max_readahead(max_readahead) {
+      finished.store(false);
+    }
 
     void MarkFinishedIfDone(const T& next_result) {
       if (IsIterationEnd(next_result)) {
@@ -818,7 +747,7 @@ class ReadaheadGenerator {
 
     AsyncGenerator<T> source_generator;
     int max_readahead;
-    std::atomic<bool> finished{false};
+    std::atomic<bool> finished;
     std::queue<Future<T>> readahead_queue;
   };
 
@@ -1046,6 +975,7 @@ class MergedGenerator {
           waiting_jobs(),
           mutex(),
           first(true),
+          source_exhausted(false),
           finished(false),
           num_active_subscriptions(max_subscriptions) {}
 
@@ -1065,6 +995,7 @@ class MergedGenerator {
     std::deque<std::shared_ptr<Future<T>>> waiting_jobs;
     util::Mutex mutex;
     bool first;
+    bool source_exhausted;
     bool finished;
     int num_active_subscriptions;
   };
@@ -1110,6 +1041,7 @@ class MergedGenerator {
       {
         auto guard = state->mutex.Lock();
         if (!maybe_next.ok() || IsIterationEnd(*maybe_next)) {
+          state->source_exhausted = true;
           if (!maybe_next.ok() || --state->num_active_subscriptions == 0) {
             state->finished = true;
             should_purge = true;

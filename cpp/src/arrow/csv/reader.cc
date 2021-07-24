@@ -428,7 +428,7 @@ class BlockParsingOperator {
     if (count_rows_) {
       num_rows_seen_ += parser->num_rows();
     }
-    DCHECK(!block.consume_bytes);
+    RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }
@@ -892,21 +892,12 @@ class StreamingReaderImpl : public ReaderMixin,
         auto decoder_op,
         BlockDecodingOperator::Make(io_context_, convert_options_, conversion_schema_));
 
-    auto block_gen = ThreadedBlockReader::MakeAsyncIterator(
+    auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
-    AsyncGenerator<CSVBlock> spawning_block_gen = [block_gen]() {
-      CallbackOptions callback_options;
-      callback_options.executor = internal::GetCpuThreadPool();
-      callback_options.should_schedule = ShouldSchedule::Always;
-      return block_gen().Then([](const CSVBlock& val) { return val; },
-                              [](const Status& err) -> Result<CSVBlock> { return err; },
-                              callback_options);
-    };
     auto parsed_block_gen =
-        MakeMappedGenerator(std::move(spawning_block_gen), std::move(parser_op));
-    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op),
-                                      /*queue_requests=*/false);
+        MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
+    auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {

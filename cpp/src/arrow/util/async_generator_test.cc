@@ -347,69 +347,57 @@ TEST(TestAsyncUtil, Collect) {
   ASSERT_EQ(expected, collected_val);
 }
 
-class MapFixture : public GeneratorTestFixture {
- public:
-  AsyncGenerator<TestInt> MakeSlowSource(std::atomic<uint64_t>* count,
-                                         std::shared_ptr<GatingTask> gating_task) {
-    // Slow source
-    return [count, gating_task]() -> Future<TestInt> {
-      int val = (*count)++;
-      return gating_task->AsyncTask().Then([val]() -> Result<TestInt> {
-        if (val < 2) {
-          return val;
-        }
-        return IterationEnd<TestInt>();
-      });
-    };
-  }
-};
-
-TEST_P(MapFixture, SyncMapFn) {
-  AsyncGenerator<TestInt> source = this->MakeSource({1, 2, 3});
-  std::function<TestStr(const TestInt&)> map_fn = [](const TestInt& in) {
+TEST(TestAsyncUtil, Map) {
+  std::vector<TestInt> input = {1, 2, 3};
+  auto generator = AsyncVectorIt(input);
+  std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
     return std::to_string(in.value);
   };
-  AsyncGenerator<TestStr> mapped =
-      MakeMappedGenerator(std::move(source), std::move(map_fn));
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};
   AssertAsyncGeneratorMatch(expected, mapped);
 }
 
-TEST_P(MapFixture, AsyncMapFn) {
-  AsyncGenerator<TestInt> source = this->MakeSource({1, 2, 3});
-  std::function<Future<TestStr>(const TestInt&)> map_fn = [](const TestInt& in) {
+TEST(TestAsyncUtil, MapAsync) {
+  std::vector<TestInt> input = {1, 2, 3};
+  auto generator = AsyncVectorIt(input);
+  std::function<Future<TestStr>(const TestInt&)> mapper = [](const TestInt& in) {
     return SleepAsync(1e-3).Then([in]() { return TestStr(std::to_string(in.value)); });
   };
-  AsyncGenerator<TestStr> mapped =
-      MakeMappedGenerator(std::move(source), std::move(map_fn));
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};
   AssertAsyncGeneratorMatch(expected, mapped);
 }
 
-TEST_P(MapFixture, RunsAsyncFunctionInParallel) {
-  AsyncGenerator<TestInt> source = MakeSource({1, 2});
-  std::shared_ptr<GatingTask> gating_task = GatingTask::Make();
+TEST(TestAsyncUtil, MapReentrant) {
+  std::vector<TestInt> input = {1, 2};
+  auto source = AsyncVectorIt(input);
   TrackingGenerator<TestInt> tracker(std::move(source));
-  source = AsyncGenerator<TestInt>(tracker);
+  source = MakeTransferredGenerator(AsyncGenerator<TestInt>(tracker),
+                                    internal::GetCpuThreadPool());
 
+  std::atomic<int> map_tasks_running(0);
   // Mapper blocks until can_proceed is marked finished, should start multiple map tasks
-  std::function<Future<TestStr>(const TestInt&)> map_fn = [&](const TestInt& in) {
-    return gating_task->AsyncTask().Then(
-        [in]() { return TestStr(std::to_string(in.value)); });
+  Future<> can_proceed = Future<>::Make();
+  std::function<Future<TestStr>(const TestInt&)> mapper = [&](const TestInt& in) {
+    map_tasks_running.fetch_add(1);
+    return can_proceed.Then([in]() { return TestStr(std::to_string(in.value)); });
   };
-  auto mapped = MakeMappedGenerator(std::move(source), std::move(map_fn));
+  auto mapped = MakeMappedGenerator(std::move(source), mapper);
 
   EXPECT_EQ(0, tracker.num_read());
 
   auto one = mapped();
   auto two = mapped();
 
-  ASSERT_OK(gating_task->WaitForRunning(2));
+  BusyWait(10, [&] { return map_tasks_running.load() == 2; });
+  EXPECT_EQ(2, map_tasks_running.load());
+  EXPECT_EQ(2, tracker.num_read());
 
   auto end_one = mapped();
   auto end_two = mapped();
 
-  ASSERT_OK(gating_task->Unlock());
+  can_proceed.MarkFinished();
   ASSERT_FINISHES_OK_AND_ASSIGN(auto oneval, one);
   EXPECT_EQ("1", oneval.value);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto twoval, two);
@@ -420,64 +408,12 @@ TEST_P(MapFixture, RunsAsyncFunctionInParallel) {
   ASSERT_EQ(IterationTraits<TestStr>::End(), end);
 }
 
-TEST_P(MapFixture, BlocksReentrantPressureByDefault) {
-  std::shared_ptr<GatingTask> gating_task = GatingTask::Make();
-  std::atomic<uint64_t> num_pulled_from_source(0);
-  AsyncGenerator<TestInt> source = MakeSlowSource(&num_pulled_from_source, gating_task);
-  std::function<TestStr(const TestInt&)> map_fn = [](const TestInt& in) {
-    return std::to_string(in.value);
-  };
-  auto guard = ExpectNotAccessedReentrantly(&source);
-  auto mapped = MakeMappedGenerator(std::move(source), std::move(map_fn));
-
-  auto zero = mapped();
-  auto one = mapped();
-  auto end = mapped();
-
-  // Even though we have pulled from the mapped generator twice it should not pull
-  // reentrantly from source and so should only have pulled 1 item.
-  ASSERT_EQ(1, num_pulled_from_source);
-
-  ASSERT_OK(gating_task->Unlock());
-
-  ASSERT_FINISHES_OK_AND_EQ(TestStr("0"), zero);
-  ASSERT_FINISHES_OK_AND_EQ(TestStr("1"), one);
-  ASSERT_FINISHES_OK_AND_EQ(IterationEnd<TestStr>(), end);
-  AssertGeneratorExhausted(mapped);
-}
-
-TEST_P(MapFixture, CanOptionallyForwardReentrantPressure) {
-  std::shared_ptr<GatingTask> gating_task = GatingTask::Make();
-  std::atomic<uint64_t> num_pulled_from_source(0);
-  AsyncGenerator<TestInt> source = MakeSlowSource(&num_pulled_from_source, gating_task);
-  std::function<TestStr(const TestInt&)> map_fn = [](const TestInt& in) {
-    return std::to_string(in.value);
-  };
-  auto mapped = MakeMappedGenerator(std::move(source), std::move(map_fn), false);
-
-  auto zero = mapped();
-  auto one = mapped();
-  auto end = mapped();
-
-  ASSERT_EQ(3, num_pulled_from_source);
-
-  AssertNotFinished(zero);
-  AssertNotFinished(one);
-  AssertNotFinished(end);
-
-  ASSERT_OK(gating_task->Unlock());
-
-  ASSERT_FINISHES_OK_AND_EQ(TestStr("0"), zero);
-  ASSERT_FINISHES_OK_AND_EQ(TestStr("1"), one);
-  ASSERT_FINISHES_OK_AND_EQ(IterationEnd<TestStr>(), end);
-  AssertGeneratorExhausted(mapped);
-}
-
-TEST_P(MapFixture, QueueingMapStress) {
+TEST(TestAsyncUtil, MapParallelStress) {
   constexpr int NTASKS = 10;
   constexpr int NITEMS = 10;
   for (int i = 0; i < NTASKS; i++) {
-    auto gen = MakeSource(RangeVector(NITEMS));
+    auto gen = MakeVectorGenerator(RangeVector(NITEMS));
+    gen = SlowdownABit(std::move(gen));
     auto guard = ExpectNotAccessedReentrantly(&gen);
     std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
       SleepABit();
@@ -490,43 +426,28 @@ TEST_P(MapFixture, QueueingMapStress) {
   }
 }
 
-TEST_P(MapFixture, BasicMapStress) {
-  constexpr int NTASKS = 10;
-  constexpr int NITEMS = 10;
-  for (int i = 0; i < NTASKS; i++) {
-    auto gen = MakeSource(RangeVector(NITEMS));
-    std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
-      SleepABit();
-      return std::to_string(in.value);
-    };
-    auto mapped = MakeMappedGenerator(std::move(gen), mapper, false);
-    mapped = MakeReadaheadGenerator(mapped, 8);
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, CollectAsyncGenerator(mapped));
-    ASSERT_EQ(NITEMS, collected.size());
-  }
-}
-
-TEST_P(MapFixture, MapTaskFail) {
-  auto source = MakeSource({1, 2, 3});
-  std::function<Result<TestStr>(const TestInt&)> map_fn =
+TEST(TestAsyncUtil, MapTaskFail) {
+  std::vector<TestInt> input = {1, 2, 3};
+  auto generator = AsyncVectorIt(input);
+  std::function<Result<TestStr>(const TestInt&)> mapper =
       [](const TestInt& in) -> Result<TestStr> {
     if (in.value == 2) {
       return Status::Invalid("XYZ");
     }
     return TestStr(std::to_string(in.value));
   };
-  auto mapped = MakeMappedGenerator(std::move(source), std::move(map_fn));
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(mapped));
 }
 
-TEST_P(MapFixture, MapSourceFail) {
-  auto source = MakeSource({1, 2, 3});
-  auto failing_source = FailsAt(std::move(source), 1);
-  std::function<Result<TestStr>(const TestInt&)> map_fn =
+TEST(TestAsyncUtil, MapSourceFail) {
+  std::vector<TestInt> input = {1, 2, 3};
+  auto generator = FailsAt(AsyncVectorIt(input), 1);
+  std::function<Result<TestStr>(const TestInt&)> mapper =
       [](const TestInt& in) -> Result<TestStr> {
     return TestStr(std::to_string(in.value));
   };
-  auto mapped = MakeMappedGenerator(std::move(failing_source), std::move(map_fn));
+  auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(mapped));
 }
 
@@ -539,8 +460,6 @@ TEST(TestAsyncUtil, Concatenated) {
   auto concat = MakeConcatenatedGenerator(gen);
   AssertAsyncGeneratorMatch(expected, concat);
 }
-
-INSTANTIATE_TEST_SUITE_P(MapTests, MapFixture, ::testing::Values(false, true));
 
 class FromFutureFixture : public GeneratorTestFixture {};
 
