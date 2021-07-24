@@ -32,11 +32,6 @@ cd skyhookdm-arrow/
 docker run -it -v $PWD:/w -w /w --privileged uccross/skyhookdm-arrow:v0.2.0 bash
 ```
 
-3. Install docker.
-```bash
-curl -o- https://get.docker.com | bash
-```
-
 3. Run the build script.
 ```bash
 ./cpp/src/arrow/adapters/arrow-rados-cls/scripts/build.sh
