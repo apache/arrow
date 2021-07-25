@@ -18,16 +18,12 @@
 Gandiva Expression Compiler
 ===========================
 
-.. sidebar:: Contents
-
-    .. contents:: :local:
-
 TreeExprBuilder Class
 ---------------------
-    
+
 .. doxygenclass:: gandiva::TreeExprBuilder
     :members:
-    
+
 .. doxygenclass:: gandiva::Node
     :members:
 

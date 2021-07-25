@@ -36,9 +36,6 @@ pre-compiled into LLVM IR (intermediate representation).
 
 .. _LLVM: https://llvm.org/
 
-.. contents:: Contents
-   :depth: 2
-
 
 Building Expressions
 ====================

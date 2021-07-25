@@ -33,9 +33,6 @@ projector you created to operate on Arrow record batches.
 
 .. _LLVM: https://llvm.org/
 
-.. contents:: Contents
-  :depth: 3
-
 .. note::
 
    As present, Gandiva is only built on PyArrow Conda distributions, not PyPI wheels.
