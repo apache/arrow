@@ -73,8 +73,8 @@ module Arrow
               values << item
             end
           end
-          @key_builder.append_values(keys)
-          @item_builder.append_values(values)
+          @key_builder.append(*keys)
+          @item_builder.append(*values)
         end
       else
         message = "wrong number of arguments (given #{n_args}, expected 0..1)"
