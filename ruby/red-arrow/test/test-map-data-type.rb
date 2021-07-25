@@ -18,19 +18,19 @@
 class MapDataTypeTest < Test::Unit::TestCase
   sub_test_case(".new") do
     def setup
-      @key_type = :int8
-      @item_type = :string
+      @key = :int8
+      @item = :string
     end
 
     test("ordered arguments") do
       assert_equal("map<int8, string>",
-                   Arrow::MapDataType.new(@key_type, @item_type).to_s)
+                   Arrow::MapDataType.new(@key, @item).to_s)
     end
 
     test("description") do
       assert_equal("map<int8, string>",
-                   Arrow::MapDataType.new(key_type: @key_type,
-                                          item_type: @item_type,).to_s)
+                   Arrow::MapDataType.new(key: @key,
+                                          item: @item,).to_s)
     end
   end
 end

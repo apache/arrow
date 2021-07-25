@@ -22,9 +22,9 @@ module Arrow
 
     # Creates a new {Arrow::MapDataType}.
     #
-    # @overload initialize(key_type, item_type)
+    # @overload initialize(key, item)
     #
-    #   @param key_type [Arrow::DataType, Hash, String, Symbol]
+    #   @param key [Arrow::DataType, Hash, String, Symbol]
     #     The key data type of the map data type.
     #
     #     You can specify data type as a description by `Hash`.
@@ -32,7 +32,7 @@ module Arrow
     #     See {Arrow::DataType.resolve} how to specify data type
     #     description.
     #
-    #   @param item_type [Arrow::DataType, Hash, String, Symbol]
+    #   @param item [Arrow::DataType, Hash, String, Symbol]
     #     The item data type of the map data type.
     #
     #     You can specify data type as a description by `Hash`.
@@ -41,17 +41,17 @@ module Arrow
     #     description.
     #
     #   @example Create a map data type for {0: "Hello", 1: "World"}
-    #     key_type = :int8
-    #     item_type = :string
-    #     Arrow::MapDataType.new(key_type, item_type)
+    #     key = :int8
+    #     item = :string
+    #     Arrow::MapDataType.new(key, item)
     #
     # @overload initialize(description)
     #
     #   @param description [Hash] The description of the map data
-    #     type. It must have `:key_type`, `:item_type` values.
+    #     type. It must have `:key`, `:item` values.
     #
     #   @option description [Arrow::DataType, Hash, String, Symbol]
-    #     :key_type The key data type of the map data type.
+    #     :key The key data type of the map data type.
     #
     #     You can specify data type as a description by `Hash`.
     #
@@ -59,7 +59,7 @@ module Arrow
     #     description.
     #
     #   @option description [Arrow::DataType, Hash, String, Symbol]
-    #     :item_type  The item data type of the map data type.
+    #     :item  The item data type of the map data type.
     #
     #     You can specify data type as a description by `Hash`.
     #
@@ -67,23 +67,23 @@ module Arrow
     #     description.
     #
     #   @example Create a maap data type for {0: "Hello", 1: "World"}
-    #     Arrow::MapDataType.new(key_type: :int8, item_type: :string)
+    #     Arrow::MapDataType.new(key: :int8, item: :string)
     def initialize(*args)
       n_args = args.size
       case n_args
       when 1
         description = args[0]
-        key_type = description[:key_type]
-        item_type = description[:item_type]
+        key = description[:key]
+        item = description[:item]
       when 2
-        key_type, item_type = args
+        key, item = args
       else
         message = "wrong number of arguments (given, #{n_args}, expected 1..2)"
         raise ArgumentError, message
       end
-      key_type = DataType.resolve(key_type)
-      item_type = DataType.resolve(item_type)
-      initialize_raw(key_type, item_type)
+      key = DataType.resolve(key)
+      item = DataType.resolve(item)
+      initialize_raw(key, item)
     end
   end
 end
