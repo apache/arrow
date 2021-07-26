@@ -123,16 +123,18 @@ Currently, the R package cannot be made to work with a locally-built Arrow C++ l
 
 ## Step 2 - Configure the Arrow build
 
+### Build location
+
 There are two different ways that you can choose to build and then install the Arrow library:
 
 1. into a user-defined directory
 2. into a system-level directory
 
-You only need to do one of these two options.
+You only need to do one of these options.
 
 It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
 
-### Configure for installing to a user directory
+#### Configure for installing to a user directory
 
 In this example we will install the Arrow C++ library to a directory called `dist` that has the same parent directory as our `arrow` checkout but your installation of the Arrow R package can point to any directory with any name.  However, we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
@@ -141,14 +143,14 @@ export ARROW_HOME=$(pwd)/dist
 mkdir $ARROW_HOME
 ```
 
-_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
+_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that is under where you set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS you do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
-Now we can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
+Now you can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
 pushd arrow
@@ -178,11 +180,11 @@ cmake \
 
 `..` refers to the C++ source directory: we're in `cpp/build`, and the source is in `cpp`.
 
-### Configure to install to a system directory
+#### Configure to install to a system directory
 
 If you would like to install Arrow as a system library you can do that as well. This is in some respects simpler, but if you already have Arrow libraries installed there, it would disrupt them and possibly require `sudo` permissions.
 
-Now we can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
+Now you can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & sys_install}
 pushd arrow
@@ -227,9 +229,10 @@ To enable optional features including: S3 support, an alternative memory allocat
 Other flags that may be useful:
 
 * `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
+
 * `-DCMAKE_BUILD_TYPE=debug` or `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging. You probably don't want to do this generally because a debug build is much slower at runtime than the default `release` build.
 
-_Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace around
+_Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace
 
 ## Step 3 - Building Arrow
 
