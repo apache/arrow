@@ -17,6 +17,7 @@
 
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/builder_time.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
@@ -1600,7 +1601,8 @@ static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_a
 
 struct GetAppenders {
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  enable_if_t<has_c_type<T>::value && !is_boolean_type<T>::value, Status> Visit(
+      const T&) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
     using c_type = typename T::c_type;
     array_appender = [](ArrayBuilder* raw_builder,
@@ -1609,6 +1611,31 @@ struct GetAppenders {
       return checked_cast<BuilderType*>(raw_builder)
           ->AppendValues(array->GetValues<c_type>(1) + offset, length,
                          array->GetValues<uint8_t>(0, 0), array->offset + offset);
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    array_appender = [](ArrayBuilder* raw_builder,
+                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                        const int64_t length) {
+      return checked_cast<BooleanBuilder*>(raw_builder)
+          ->AppendValues(array->GetValues<uint8_t>(1, 0), length,
+                         array->GetValues<uint8_t>(0, 0), array->offset + offset);
+    };
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_fixed_size_binary<T, Status> Visit(const T& ty) {
+    const int32_t width = static_cast<const FixedSizeBinaryType&>(ty).byte_width();
+    array_appender = [=](ArrayBuilder* raw_builder,
+                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                         const int64_t length) {
+      return checked_cast<FixedSizeBinaryBuilder*>(raw_builder)
+          ->AppendValues(
+              array->GetValues<uint8_t>(1, 0) + ((array->offset + offset) * width),
+              length, array->GetValues<uint8_t>(0, 0), array->offset + offset);
     };
     return Status::OK();
   }
@@ -2516,7 +2543,6 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
     AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
     AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
-    // TODO: union, dictionary, extension
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

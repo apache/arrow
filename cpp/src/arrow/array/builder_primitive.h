@@ -379,6 +379,15 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
                       const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a bitmap of values
+  /// \param[in] length the number of values to append
+  /// \param[in] validity a validity bitmap to copy (may be null)
+  /// \param[in] offset an offset into the values and validity bitmaps
+  /// \return Status
+  Status AppendValues(const uint8_t* values, int64_t length, const uint8_t* validity,
+                      int64_t offset);
+
+  /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
   /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null

@@ -607,6 +607,23 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
           {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)), Datum(values1)}));
 }
 
+TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
+  // More minimal test to check type coverage
+  auto type = list(default_type_instance<TypeParam>());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, R"([[1, 2], null, [3, 4, 5], [6, null]])");
+  auto values2 = ArrayFromJSON(type, R"([[8, 9, 10], [11], null, [12]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([[1, 2], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([[1, 2], null, null, [6, null]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
+}
+
 TEST(TestCaseWhen, Null) {
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
@@ -977,8 +994,24 @@ TYPED_TEST(TestCaseWhenList, ListOfString) {
               ArrayFromJSON(type, R"([null, null, null, ["ef", "g"]])"));
 }
 
+// More minimal tests to check type coverage
+TYPED_TEST(TestCaseWhenList, ListOfBool) {
+  auto type = std::make_shared<TypeParam>(boolean());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(type, R"([[true], null, [false], [false, null]])");
+  auto values2 = ArrayFromJSON(type, R"([[false], [false], null, [true]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([[true], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([[true], null, null, [false, null]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, [false, null]])"));
+}
+
 TYPED_TEST(TestCaseWhenList, ListOfInt) {
-  // More minimal test to check type coverage
   auto type = std::make_shared<TypeParam>(int64());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
@@ -994,8 +1027,63 @@ TYPED_TEST(TestCaseWhenList, ListOfInt) {
               ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
 }
 
+TYPED_TEST(TestCaseWhenList, ListOfDayTimeInterval) {
+  auto type = std::make_shared<TypeParam>(day_time_interval());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 =
+      ArrayFromJSON(type, R"([[[1, 2]], null, [[3, 4], [5, 0]], [[6, 7], null]])");
+  auto values2 = ArrayFromJSON(type, R"([[[8, 9], null], [[11, 12]], null, [[12, 1]]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([[[1, 2]], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([[[1, 2]], null, null, [[6, 7], null]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, [[6, 7], null]])"));
+}
+
+TYPED_TEST(TestCaseWhenList, ListOfDecimal) {
+  for (const auto& decimal_ty :
+       std::vector<std::shared_ptr<DataType>>{decimal128(3, 2), decimal256(3, 2)}) {
+    auto type = std::make_shared<TypeParam>(decimal_ty);
+    auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+    auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+    auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+    auto values1 = ArrayFromJSON(
+        type, R"([["1.23", "2.34"], null, ["3.45", "4.56", "5.67"], ["6.78", null]])");
+    auto values2 =
+        ArrayFromJSON(type, R"([["8.90", "9.01", "1.02"], ["1.12"], null, ["1.23"]])");
+
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                ArrayFromJSON(type, R"([["1.23", "2.34"], null, null, null])"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+                ArrayFromJSON(type, R"([["1.23", "2.34"], null, null, ["6.78", null]])"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+                ArrayFromJSON(type, R"([null, null, null, ["6.78", null]])"));
+  }
+}
+
+TYPED_TEST(TestCaseWhenList, ListOfFixedSizeBinary) {
+  auto type = std::make_shared<TypeParam>(fixed_size_binary(4));
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
+  auto values1 = ArrayFromJSON(
+      type, R"([["1.23", "2.34"], null, ["3.45", "4.56", "5.67"], ["6.78", null]])");
+  auto values2 =
+      ArrayFromJSON(type, R"([["8.90", "9.01", "1.02"], ["1.12"], null, ["1.23"]])");
+
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              ArrayFromJSON(type, R"([["1.23", "2.34"], null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              ArrayFromJSON(type, R"([["1.23", "2.34"], null, null, ["6.78", null]])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              ArrayFromJSON(type, R"([null, null, null, ["6.78", null]])"));
+}
+
 TYPED_TEST(TestCaseWhenList, ListOfListOfInt) {
-  // More minimal test to check type coverage
   auto type = std::make_shared<TypeParam>(list(int64()));
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");

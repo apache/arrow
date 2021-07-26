@@ -486,6 +486,9 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
 
+  Status AppendValues(const uint8_t* data, int64_t length, const uint8_t* validity,
+                      int64_t bitmap_offset);
+
   Status AppendNull() final;
   Status AppendNulls(int64_t length) final;
 
