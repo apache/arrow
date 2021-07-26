@@ -52,7 +52,9 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
   public final Array getArray() {
     int index = getCurrentRow();
     FieldVector dataVector = getDataVector();
-    if (this.wasNull = dataVector.isNull(index)) {
+
+    this.wasNull = dataVector.isNull(index);
+    if (this.wasNull) {
       return null;
     }
 

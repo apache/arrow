@@ -85,7 +85,9 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   @Override
   public String getString() {
     StringBuilder stringBuilder = this.stringBuilderGetter.get(getCurrentRow());
-    if (this.wasNull = (stringBuilder == null)) {
+
+    this.wasNull = stringBuilder == null;
+    if (this.wasNull) {
       return null;
     }
 

@@ -88,7 +88,8 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
   public float getFloat() {
     vector.get(getCurrentRow(), holder);
 
-    if (this.wasNull = holder.isSet == 0) {
+    this.wasNull = holder.isSet == 0;
+    if (this.wasNull) {
       return 0;
     }
 
