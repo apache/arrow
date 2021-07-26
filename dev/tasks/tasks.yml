@@ -770,22 +770,24 @@ tasks:
         TEST_DEFAULT: 0
       artifact: "wheels"
 
-  # The macos-11 runners are in preview only, but should be enabled once they are generally available:
+  # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
   #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-  # verify-rc-wheels-macos-11-amd64:
-  #   ci: github
-  #   template: verify-rc/github.macos.amd64.yml
-  #   params:
-  #     github_runner: "macos-11"
-  #     env:
-  #       TEST_DEFAULT: 0
-  #     artifact: "wheels"
+  verify-rc-wheels-macos-11-amd64:
+    ci: github
+    template: verify-rc/github.macos.arm64.yml
+    params:
+      github_runner: "self-hosted"
+      arch_emulation: "x86_64"
+      env:
+        TEST_DEFAULT: 0
+      artifact: "wheels"
 
   verify-rc-wheels-macos-11-arm64:
     ci: github
     template: verify-rc/github.macos.arm64.yml
     params:
       github_runner: "self-hosted"
+      arch_emulation: "arm64"
       env:
         TEST_DEFAULT: 0
       artifact: "wheels"

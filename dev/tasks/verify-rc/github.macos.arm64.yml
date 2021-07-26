@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate macOS {{ artifact }}"
-    runs-on: {{ github_runner|default("macos-latest") }}
+    runs-on: {{ github_runner }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           export PATH="/opt/homebrew/opt/node@14/bin:$PATH"
-          arch -arm64 arrow/dev/release/verify-release-candidate.sh \
+          arch -{{ arch_emulation|default("arm64") }} arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
             {{ release|default("1.0.0") }} {{ rc|default("0") }}
 
