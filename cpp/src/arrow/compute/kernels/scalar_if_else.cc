@@ -1880,7 +1880,7 @@ struct CaseWhenFunctor<MapType> {
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
-        [](ArrayBuilder*) {},
+        [](ArrayBuilder*) { return Status::OK(); },
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
@@ -1919,7 +1919,7 @@ struct CaseWhenFunctor<StructType> {
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
-        [](ArrayBuilder*) {},
+        [](ArrayBuilder*) { return Status::OK(); },
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
