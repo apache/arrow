@@ -68,7 +68,7 @@ brew install apache-arrow
 brew install apache-arrow --HEAD
 ```
 
-## Windows or Linux
+## Windows and Linux
 
 On Windows and Linux, you can download a .zip file with the arrow dependencies from the
 nightly repository.
@@ -91,9 +91,9 @@ On Linux, you'll need to create a `libarrow` directory inside the R package dire
 
 # R and C++ developer environment setup
 
-If you need to alter both the Arrow C++ library and the R package code, or if you can't get a binary version of the latest C++ library elsewhere, you'll need to build it from source too. This section discusses how to set up a C++ build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
+If you need to alter both the Arrow C++ library and the R package code, or if you can't get a binary version of the latest C++ library elsewhere, you'll need to build it from source. This section discusses how to set up a C++ build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
-There are five major steps to the process — the first three are relevant to all Arrow developers, and the last one is specific to the R bindings:
+There are five major steps to the process — the first four are relevant to all Arrow developers, and the last one is specific to developers making changes to the R package:
 
 1. Install dependencies
 2. Configuring the Arrow library build (using `cmake`) — this specifies how you want the build to go, what features to include, etc.
@@ -103,9 +103,9 @@ There are five major steps to the process — the first three are relevant to al
 
 ## Step 1 - Install dependencies
 
-The Arrow C++ library will by default use system dependencies if suitable versions are found; if they are not present, it will build them during its own build process. The only dependencies that one needs to install outside of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
+The Arrow C++ library will by default use system dependencies if suitable versions are found.  If system dependencies are not present, the Arrow C++ library will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
 
-For a faster build, you may choose to install on the system more C++ library dependencies (such as `lz4`, `zstd`, etc.) so that they don't need to be built from source in the Arrow build. This is optional.
+For a faster build, you may choose to pre-install more C++ library dependencies (such as `lz4`, `zstd`, etc.) on the system  so that they don't need to be built from source in the Arrow build.
 
 ### macOS
 ```{bash, save=run & macos}
@@ -134,7 +134,7 @@ It is recommended that you install the arrow library to a user-level directory t
 
 ### Configure for installing to a user directory
 
-In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout, but it could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout.
+In this example we will install the Arrow C++ library to a directory called `dist` that has the same parent directory as our `arrow` checkout but your installation of the Arrow R package can point to any directory with any name.  However, we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
