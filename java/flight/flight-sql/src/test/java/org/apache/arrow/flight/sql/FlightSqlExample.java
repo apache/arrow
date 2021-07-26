@@ -678,7 +678,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
     try {
-      final String randomUUID = randomUUID().toString();
+      final String prepareStatementHandle = randomUUID().toString();
       // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
       final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery());
@@ -686,7 +686,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           new PreparedStatementContext(connection, preparedStatement);
 
       final Cache<String, PreparedStatementContext> preparedStatementLoadingCache = this.preparedStatementLoadingCache;
-      preparedStatementLoadingCache.put(randomUUID, preparedStatementContext );
+      preparedStatementLoadingCache.put(prepareStatementHandle, preparedStatementContext );
 
       final Schema parameterSchema =
           jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
@@ -695,7 +695,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(copyFrom(datasetSchema.toByteArray()))
           .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
-          .setPreparedStatementHandle(ByteString.copyFrom(randomUUID.getBytes()))
+          .setPreparedStatementHandle(ByteString.copyFrom(prepareStatementHandle.getBytes()))
           .build();
       listener.onNext(new Result(pack(result).toByteArray()));
     } catch (final Throwable t) {
