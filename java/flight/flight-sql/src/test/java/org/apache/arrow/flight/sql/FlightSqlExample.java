@@ -153,6 +153,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private final PoolingDataSource<PoolableConnection> dataSource;
   private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
   private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
+  private final BufferAllocator rootAllocator = new RootAllocator(128);
 
   public FlightSqlExample(final Location location) {
     Preconditions.checkState(
@@ -678,6 +679,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
 
     AutoCloseables.close(dataSource);
+    AutoCloseables.close(rootAllocator);
   }
 
   @Override
@@ -730,8 +732,26 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public Runnable acceptPutStatement(CommandStatementUpdate command,
                                      CallContext context, FlightStream flightStream,
                                      StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final String query = command.getQuery();
+
+    return () -> {
+      try {
+        final Connection connection = dataSource.getConnection();
+        final Statement statement = connection.createStatement();
+        final int result = statement.executeUpdate(query);
+
+        final FlightSql.DoPutUpdateResult build =
+            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result).build();
+
+        try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
+          buffer.writeBytes(build.toByteArray());
+          ackStream.onNext(PutResult.metadata(buffer));
+          ackStream.onCompleted();
+        }
+      } catch (SQLException e) {
+        ackStream.onError(e);
+      }
+    };
   }
 
   @Override
