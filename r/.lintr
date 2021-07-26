@@ -19,7 +19,7 @@ linters: with_defaults(
   object_name_linter = NULL,
   # Even with a liberal definition of name styles, some of our names cause issues due to `.`s for s3 classes or NA in the name
   # TODO: figure out if we con contribute to lintr to make these work
-  # object_name_linter = object_name_linter(styles = c("snake_case", "camelCase", "CamelCase", "symbols", "dotted.case", "UPPERCASE")),
+  # object_name_linter = object_name_linter(styles = c("snake_case", "camelCase", "CamelCase", "symbols", "dotted.case", "UPPERCASE", "SNAKE_CASE")),
   object_length_linter = object_length_linter(40),
   object_usage_linter = NULL, # R6 methods are flagged,
   cyclocomp_linter = cyclocomp_linter(26) # TODO: reduce to default of 15

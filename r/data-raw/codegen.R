@@ -58,9 +58,7 @@ get_exported_functions <- function(decorations, export_tag) {
   out <- decorations %>%
     filter(decoration %in% paste0(export_tag, "::export")) %>%
     mutate(functions = map(context, decor:::parse_cpp_function)) %>%
-    {
-      vec_cbind(., vec_rbind(!!!pull(., functions)))
-    } %>%
+    vec_cbind(., vec_rbind(!!!pull(., functions))) %>%
     select(-functions) %>%
     mutate(decoration = sub("::export", "", decoration))
   message(glue("*** > {n} functions decorated with [[{tags}::export]]", n = nrow(out), tags = paste0(export_tag, collapse = "|")))
@@ -84,7 +82,7 @@ wrap_call <- function(name, return_type, args) {
 
 feature_available <- function(feat) {
   glue::glue(
-    'extern "C" SEXP _{feat}_available() {{
+'extern "C" SEXP _{feat}_available() {{
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_{toupper(feat)})
   TRUE
