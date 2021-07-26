@@ -646,9 +646,9 @@ test_macos_wheels() {
           --platform macosx_11_0_universal2 \
           --only-binary=:all: \
           pyarrow==${VERSION}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+      INSTALL_PYARROW=OFF INSTALL_DEPENDENCIES=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
         arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+      INSTALL_PYARROW=OFF INSTALL_DEPENDENCIES=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
         arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
       deactivate
