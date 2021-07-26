@@ -760,7 +760,7 @@ tasks:
 
   verify-rc-wheels-macos-10.15:
     ci: github
-    template: verify-rc/github.osx.yml
+    template: verify-rc/github.macos.yml
     params:
       github_runner: "macos-10.15"
       env:
@@ -769,7 +769,7 @@ tasks:
 
   verify-rc-wheels-macos-11-amd64:
     ci: github
-    template: verify-rc/github.osx.yml
+    template: verify-rc/github.macos.yml
     params:
       github_runner: "macos-11"
       env:
@@ -778,7 +778,7 @@ tasks:
 
   verify-rc-wheels-macos-11-arm64:
     ci: github
-    template: verify-rc/github.osx.yml
+    template: verify-rc/github.macos.yml
     params:
       github_runner: "self-hosted"
       env:
