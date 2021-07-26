@@ -795,7 +795,7 @@ services:
     environment:
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
-    command: /arrow/ci/scripts/python_wheel_unix_test.sh
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-unittests:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
@@ -813,7 +813,7 @@ services:
     environment:
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
-    command: /arrow/ci/scripts/python_wheel_unix_test.sh
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2017:
     # The windows images must be built locally and pushed to a remote registry:
