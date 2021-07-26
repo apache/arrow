@@ -193,7 +193,7 @@ subset of the data into an in-memory R data frame.
 
 Suppose you attempt to call unsupported dplyr verbs or unimplemented functions
 in your query on an Arrow Dataset. In that case, the arrow package raises an error. However,
-for dplyr queries on Arrow Table objects (typically smaller in size than Arrow Datasets), the
+for dplyr queries on Arrow Table objects (typically smaller in size than Datasets), the
 package automatically calls `collect()` before processing that dplyr verb.
 
 Here's an example. Suppose that you are curious about tipping behavior among the
