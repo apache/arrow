@@ -150,4 +150,4 @@ jobs:
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

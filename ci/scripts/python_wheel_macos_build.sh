@@ -159,3 +159,7 @@ if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
+
+# Move the verified wheels
+mkdir -p ${source_dir}/python/repaired_wheels
+mv ${source_dir}/python/dist/*.whl ${source_dir}/python/repaired_wheels/
