@@ -56,6 +56,7 @@ TEST(GetTakeIndices, Basics) {
   };
 
   // Drop null cases
+  // TODO: aocsa
   CheckCase("[]", "[]", FilterOptions::DROP);
   CheckCase("[null]", "[]", FilterOptions::DROP);
   CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]", FilterOptions::DROP);
