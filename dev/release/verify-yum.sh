@@ -123,9 +123,6 @@ else
     sed \
       -i"" \
       -e "s,/centos/,/centos-rc/,g" \
-      /etc/yum.repos.d/Apache-Arrow.repo
-    sed \
-      -i"" \
       -e "s,/amazon-linux/,/amazon-linux-rc/,g" \
       /etc/yum.repos.d/Apache-Arrow.repo
   fi
