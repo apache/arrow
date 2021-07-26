@@ -68,9 +68,10 @@ static constexpr flatbuf::MetadataVersion kLatestMetadataVersion =
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
     flatbuf::MetadataVersion::V4;
 
+// These functions are used in unit tests
+ARROW_EXPORT
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version);
 
-// This function is used in a unit test
 ARROW_EXPORT
 flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version);
 
