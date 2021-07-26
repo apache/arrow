@@ -577,21 +577,28 @@ check_python_imports() {
 import platform
 
 import pyarrow
+import pyarrow._hdfs
+import pyarrow.csv
+import pyarrow.dataset
+
+import pyarrow.fs
+import pyarrow.json
+import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
-import pyarrow.dataset
-import pyarrow.flight
+
+check_s3fs = True
+check_flight = True
 
 if platform.system() == "Darwin":
     macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
     check_s3fs = macos_version >= (10, 13)
-else:
-    check_s3fs = True
+    check_flight = platform.machine() != "arm64"
 
 if check_s3fs:
     import pyarrow._s3fs
+if check_flight:
+    import pyarrow.flight
 IMPORT_TESTS
 }
 
@@ -627,6 +634,7 @@ test_macos_wheels() {
     local py_arches="3.6m 3.7m 3.8 3.9"
   fi
 
+  # verify arch-native wheels inside a conda environment
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
@@ -644,6 +652,8 @@ test_macos_wheels() {
 
     conda deactivate
   done
+
+  # verify universal2 wheels
 }
 
 test_wheels() {
