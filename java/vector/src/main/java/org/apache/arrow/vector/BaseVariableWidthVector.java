@@ -887,7 +887,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       reallocValidityAndOffsetBuffers();
     }
     fillHoles(valueCount);
-    lastSet = valueCount - 1;
     setReaderAndWriterIndex();
   }
 
@@ -901,7 +900,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void fillEmpties(int index) {
     handleSafe(index, emptyByteArray.length);
     fillHoles(index);
-    lastSet = index - 1;
   }
 
   /**
