@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
@@ -50,7 +51,6 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
@@ -153,10 +153,9 @@ public class FlightSqlClient {
    * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final int... info) {
-    Preconditions.checkNotNull(info);
+  public FlightInfo getSqlInfo(final @Nullable int... info) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
-    for (final int pieceOfInfo : info) {
+    for (final int pieceOfInfo : Objects.isNull(info) ? new int[0] : info) {
       builder.addInfo(pieceOfInfo);
     }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
