@@ -393,7 +393,6 @@ test_that("decimal type and validation", {
   expect_error(decimal(4, NA), '"scale" must be an integer')
 
   expect_r6_class(decimal(4, 2), "Decimal128Type")
-
 })
 
 test_that("Binary", {

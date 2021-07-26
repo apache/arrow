@@ -273,9 +273,9 @@ test_that("chunked_array() uses the first ... to infer type", {
 })
 
 test_that("chunked_array() handles downcasting", {
-   a <- chunked_array(10L, 10)
-   expect_type_equal(a$type, int32())
-   expect_equal(as.vector(a), c(10L, 10L))
+  a <- chunked_array(10L, 10)
+  expect_type_equal(a$type, int32())
+  expect_equal(as.vector(a), c(10L, 10L))
 })
 
 test_that("chunked_array() makes chunks of the same type", {
@@ -407,8 +407,10 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))),
-    class = c("arrow_binary", "vctrs_vctr", "list"))
+    as.raw(c(0x74, 0x76))
+  ),
+  class = c("arrow_binary", "vctrs_vctr", "list")
+  )
   chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
   expect_error(
     as.vector(chunked_array_with_nul),

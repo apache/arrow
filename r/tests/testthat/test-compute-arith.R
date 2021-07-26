@@ -45,16 +45,20 @@ test_that("Subtraction", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a - 3L, Array$create(c(-2:1, NA_integer_)))
 
-  expect_equal(Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)) - a,
-               Array$create(c(4.1, 4.1, 4.1, 4.1, NA_real_)))
+  expect_equal(
+    Array$create(c(5.1, 6.1, 7.1, 8.1, NA_real_)) - a,
+    Array$create(c(4.1, 4.1, 4.1, 4.1, NA_real_))
+  )
 })
 
 test_that("Multiplication", {
   a <- Array$create(c(1:4, NA_integer_))
   expect_equal(a * 2L, Array$create(c(1:4 * 2L, NA_integer_)))
 
-  expect_equal((a * 0.5) * 3L,
-               Array$create(c(1.5, 3, 4.5, 6, NA_real_)))
+  expect_equal(
+    (a * 0.5) * 3L,
+    Array$create(c(1.5, 3, 4.5, 6, NA_real_))
+  )
 })
 
 test_that("Division", {

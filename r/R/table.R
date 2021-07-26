@@ -94,7 +94,8 @@
 #' tab[["cyl"]]
 #' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' @export
-Table <- R6Class("Table", inherit = ArrowTabular,
+Table <- R6Class("Table",
+  inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
@@ -136,7 +137,6 @@ Table <- R6Class("Table", inherit = ArrowTabular,
       super$invalidate()
     }
   ),
-
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),

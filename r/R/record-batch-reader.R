@@ -91,7 +91,8 @@
 #' # Unlike the Writers, we don't have to close RecordBatchReaders,
 #' # but we do still need to close the file connection
 #' read_file_obj$close()
-RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
+RecordBatchReader <- R6Class("RecordBatchReader",
+  inherit = ArrowObject,
   public = list(
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
@@ -124,7 +125,8 @@ RecordBatchReader$import_from_c <- RecordBatchStreamReader$import_from_c <- Impo
 #' @usage NULL
 #' @format NULL
 #' @export
-RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
+RecordBatchFileReader <- R6Class("RecordBatchFileReader",
+  inherit = ArrowObject,
   # Why doesn't this inherit from RecordBatchReader in C++?
   # Origin: https://github.com/apache/arrow/pull/679
   public = list(

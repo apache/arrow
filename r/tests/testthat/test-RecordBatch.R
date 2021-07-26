@@ -325,7 +325,7 @@ test_that("record_batch(schema=) does some basic consistency checking of the sch
 })
 
 test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
-  batch <- record_batch(x = 1:10, y  = 1:10)
+  batch <- record_batch(x = 1:10, y = 1:10)
   expect_equal(dim(batch), c(10L, 2L))
   expect_equal(nrow(batch), 10L)
 })
@@ -411,7 +411,7 @@ test_that("record_batch() only auto splice data frames", {
 
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
-  expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
+  expect_equivalent(batch$schema, schema(a = int32(), n = null()))
 })
 
 test_that("record_batch() scalar recycling with vectors", {
@@ -422,7 +422,6 @@ test_that("record_batch() scalar recycling with vectors", {
 })
 
 test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
@@ -437,7 +436,6 @@ test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArra
     record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-
 })
 
 test_that("record_batch() no recycling with tibbles", {
@@ -482,8 +480,8 @@ test_that("RecordBatch$Equals(check_metadata)", {
   expect_true(rb1$Equals(rb2))
   expect_false(rb1$Equals(rb2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(rb1, rb2))  # expect_equal has check_metadata=TRUE
-  expect_equivalent(rb1, rb2)  # expect_equivalent has check_metadata=FALSE
+  expect_failure(expect_equal(rb1, rb2)) # expect_equal has check_metadata=TRUE
+  expect_equivalent(rb1, rb2) # expect_equivalent has check_metadata=FALSE
 
   expect_false(rb1$Equals(24)) # Not a RecordBatch
 })
@@ -511,8 +509,10 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))),
-    class = c("arrow_binary", "vctrs_vctr", "list"))
+    as.raw(c(0x74, 0x76))
+  ),
+  class = c("arrow_binary", "vctrs_vctr", "list")
+  )
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
   expect_error(
@@ -552,11 +552,9 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
       dplyr::group_vars(),
     c("fct", "fct2")
   )
-
 })
 
 test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
-
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
@@ -566,7 +564,6 @@ test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
   rb <- record_batch(!!!tbl)
 
   expect_identical(length(rb), 3L)
-
 })
 
 test_that("RecordBatchReader to C-interface", {

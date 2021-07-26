@@ -56,7 +56,8 @@
 #' @rdname Scanner
 #' @name Scanner
 #' @export
-Scanner <- R6Class("Scanner", inherit = ArrowObject,
+Scanner <- R6Class("Scanner",
+  inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
     ScanBatches = function() dataset___Scanner__ScanBatches(self),
@@ -125,7 +126,8 @@ Scanner$create <- function(dataset,
 #' @export
 names.Scanner <- function(x) names(x$schema)
 
-ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
+ScanTask <- R6Class("ScanTask",
+  inherit = ArrowObject,
   public = list(
     Execute = function() dataset___ScanTask__get_batches(self)
   )
@@ -167,7 +169,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
+ScannerBuilder <- R6Class("ScannerBuilder",
+  inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       # cols is either a character vector or a named list of Expressions

@@ -69,11 +69,11 @@ test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-100
 
   env <- new.env()
   trace(gc, print = FALSE, tracer = function() {
-          env$gc_was_called <- TRUE
-        })
+    env$gc_was_called <- TRUE
+  })
   on.exit(untrace(gc))
   # We expect this should fail because we don't have this much memory,
   # but it should gc() and retry (and fail again)
-  expect_error(BufferOutputStream$create(2 ** 60))
+  expect_error(BufferOutputStream$create(2**60))
   expect_true(env$gc_was_called)
 })

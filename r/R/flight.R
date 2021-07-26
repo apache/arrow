@@ -107,7 +107,8 @@ list_flights <- function(client) {
 #' @rdname list_flights
 #' @export
 flight_path_exists <- function(client, path) {
-  it_exists <- tryCatch({
+  it_exists <- tryCatch(
+    expr = {
       client$get_flight_info(descriptor_for_path(path))
       TRUE
     },

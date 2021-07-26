@@ -36,69 +36,74 @@
 }
 
 .unserialize_arrow_r_metadata <- function(x) {
-  tryCatch({
-    out <- unserialize(charToRaw(x))
+  tryCatch(
+    expr = {
+      out <- unserialize(charToRaw(x))
 
-    # if this is still raw, try decompressing
-    if (is.raw(out)) {
-      out <- unserialize(memDecompress(out, type = "gzip"))
+      # if this is still raw, try decompressing
+      if (is.raw(out)) {
+        out <- unserialize(memDecompress(out, type = "gzip"))
+      }
+      out
+    },
+    error = function(e) {
+      warning("Invalid metadata$r", call. = FALSE)
+      NULL
     }
-    out
-  }, error = function(e) {
-    warning("Invalid metadata$r", call. = FALSE)
-    NULL
-  })
+  )
 }
 
 #' @importFrom rlang trace_back
 apply_arrow_r_metadata <- function(x, r_metadata) {
-  tryCatch({
-    columns_metadata <- r_metadata$columns
-    if (is.data.frame(x)) {
-      if (length(names(x)) && !is.null(columns_metadata)) {
-        for (name in intersect(names(columns_metadata), names(x))) {
-          x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+  tryCatch(
+    expr = {
+      columns_metadata <- r_metadata$columns
+      if (is.data.frame(x)) {
+        if (length(names(x)) && !is.null(columns_metadata)) {
+          for (name in intersect(names(columns_metadata), names(x))) {
+            x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+          }
+        }
+      } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
+        # If we have a list and "columns_metadata" this applies row-level metadata
+        # inside of a column in a dataframe.
+
+        # However, if we are inside of a dplyr collection (including all datasets),
+        # we cannot apply this row-level metadata, since the order of the rows is
+        # not guaranteed to be the same, so don't even try, but warn what's going on
+        trace <- trace_back()
+        in_dplyr_collect <- any(map_lgl(trace$calls, function(x) {
+          grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
+        }))
+        if (in_dplyr_collect) {
+          warning(
+            "Row-level metadata is not compatible with this operation and has ",
+            "been ignored",
+            call. = FALSE
+          )
+        } else {
+          x <- map2(x, columns_metadata, function(.x, .y) {
+            apply_arrow_r_metadata(.x, .y)
+          })
+        }
+        x
+      }
+
+      if (!is.null(r_metadata$attributes)) {
+        attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
+        if (inherits(x, "POSIXlt")) {
+          # We store POSIXlt as a StructArray, which is translated back to R
+          # as a data.frame, but while data frames have a row.names = c(NA, nrow(x))
+          # attribute, POSIXlt does not, so since this is now no longer an object
+          # of class data.frame, remove the extraneous attribute
+          attr(x, "row.names") <- NULL
         }
       }
-    } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
-      # If we have a list and "columns_metadata" this applies row-level metadata
-      # inside of a column in a dataframe.
-
-      # However, if we are inside of a dplyr collection (including all datasets),
-      # we cannot apply this row-level metadata, since the order of the rows is
-      # not guaranteed to be the same, so don't even try, but warn what's going on
-      trace <- trace_back()
-      in_dplyr_collect <- any(map_lgl(trace$calls, function(x) {
-        grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
-      }))
-      if (in_dplyr_collect) {
-        warning(
-          "Row-level metadata is not compatible with this operation and has ",
-          "been ignored",
-          call. = FALSE
-        )
-      } else {
-        x <- map2(x, columns_metadata, function(.x, .y) {
-          apply_arrow_r_metadata(.x, .y)
-        })
-      }
-      x
+    },
+    error = function(e) {
+      warning("Invalid metadata$r", call. = FALSE)
     }
-
-    if (!is.null(r_metadata$attributes)) {
-      attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
-      if (inherits(x, "POSIXlt")) {
-        # We store POSIXlt as a StructArray, which is translated back to R
-        # as a data.frame, but while data frames have a row.names = c(NA, nrow(x))
-        # attribute, POSIXlt does not, so since this is now no longer an object
-        # of class data.frame, remove the extraneous attribute
-        attr(x, "row.names") <- NULL
-      }
-    }
-
-  }, error = function(e) {
-    warning("Invalid metadata$r", call. = FALSE)
-  })
+  )
   x
 }
 

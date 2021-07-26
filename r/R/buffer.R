@@ -41,7 +41,8 @@
 #' @export
 #' @include arrow-package.R
 #' @include enums.R
-Buffer <- R6Class("Buffer", inherit = ArrowObject,
+Buffer <- R6Class("Buffer",
+  inherit = ArrowObject,
   public = list(
     ZeroPadding = function() Buffer__ZeroPadding(self),
     data = function() Buffer__data(self),
@@ -49,7 +50,6 @@ Buffer <- R6Class("Buffer", inherit = ArrowObject,
       inherits(other, "Buffer") && Buffer__Equals(self, other)
     }
   ),
-
   active = list(
     is_mutable = function() Buffer__is_mutable(self),
     size = function() Buffer__size(self),

@@ -45,8 +45,10 @@
   }
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
 
-  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
-               "Field", "DataType", "RecordBatchReader")) {
+  for (cl in c(
+    "Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
+    "Field", "DataType", "RecordBatchReader"
+  )) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
   }
@@ -114,25 +116,33 @@
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
 #' package.
 arrow_available <- function() {
-  tryCatch(.Call(`_arrow_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_arrow_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  tryCatch(.Call(`_dataset_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_dataset_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_parquet <- function() {
-  tryCatch(.Call(`_parquet_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_parquet_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_s3 <- function() {
-  tryCatch(.Call(`_s3_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_s3_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 option_use_threads <- function() {
@@ -267,7 +277,6 @@ option_compress_metadata <- function() {
 ArrowObject <- R6Class("ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
-
     pointer = function() get(".:xp:.", envir = self),
     `.:xp:.` = NULL,
     set_pointer = function(xp) {
@@ -293,7 +302,6 @@ ArrowObject <- R6Class("ArrowObject",
       }
       invisible(self)
     },
-
     invalidate = function() {
       assign(".:xp:.", NULL, envir = self)
     }
@@ -304,7 +312,7 @@ ArrowObject <- R6Class("ArrowObject",
 `!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs) # nolint
 
 #' @export
-`==.ArrowObject` <- function(x, y) {  # nolint
+`==.ArrowObject` <- function(x, y) { # nolint
   x$Equals(y)
 }
 

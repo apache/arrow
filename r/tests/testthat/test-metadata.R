@@ -219,7 +219,8 @@ test_that("metadata of list elements (ARROW-10386)", {
       structure(1, my_value_as_attr = 1),
       structure(2, my_value_as_attr = 2),
       structure(3, my_value_as_attr = 3),
-      structure(4, my_value_as_attr = 3)),
+      structure(4, my_value_as_attr = 3)
+    ),
     int = 1L:4L,
     part = c(1, 3, 2, 1)
   )

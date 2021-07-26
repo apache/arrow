@@ -63,7 +63,6 @@ test_that("C++ expressions", {
     Expression$create("add", 1, 2),
     "Expression arguments must be Expression objects"
   )
-
 })
 
 test_that("Field reference expression schemas and types", {

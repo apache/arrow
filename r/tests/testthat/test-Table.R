@@ -70,7 +70,7 @@ test_that("Table S3 methods", {
 })
 
 test_that("Table $column and $field", {
-  tab <- Table$create(x = 1:10, y  = 1:10)
+  tab <- Table$create(x = 1:10, y = 1:10)
 
   expect_equal(tab$field(0), field("x", int32()))
 
@@ -136,7 +136,7 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], "length(name) not equal to 1", fixed = TRUE)
   expect_error(tab[-3:3], "Invalid column index")
-  expect_error(tab[1000],  "Invalid column index")
+  expect_error(tab[1000], "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")
 
   # input validation
@@ -334,7 +334,8 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
   )
   res <- as.data.frame(tab)
   expect_equal(names(res), c("a", "b", "c", "x", "y"))
-  expect_equal(res,
+  expect_equal(
+    res,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
@@ -395,8 +396,10 @@ test_that("==.Table", {
 
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
-  tab2 <- Table$create(x = 1:2, y = c("a", "b"),
-                       schema = tab1$schema$WithMetadata(list(some = "metadata")))
+  tab2 <- Table$create(
+    x = 1:2, y = c("a", "b"),
+    schema = tab1$schema$WithMetadata(list(some = "metadata"))
+  )
 
   expect_r6_class(tab1, "Table")
   expect_r6_class(tab2, "Table")
@@ -408,8 +411,8 @@ test_that("Table$Equals(check_metadata)", {
   expect_true(tab1$Equals(tab2))
   expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
-  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
+  expect_failure(expect_equal(tab1, tab2)) # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2) # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })
@@ -481,7 +484,6 @@ test_that("Table$create() scalar recycling with vectors", {
 })
 
 test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
@@ -496,7 +498,6 @@ test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArra
     Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-
 })
 
 test_that("Table$create() no recycling with tibbles", {
@@ -533,11 +534,9 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
       dplyr::group_vars(),
     c("fct", "fct2")
   )
-
 })
 
 test_that("ARROW-12729 - length returns number of columns in Table", {
-
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
@@ -547,5 +546,4 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
   tab <- Table$create(!!!tbl)
 
   expect_identical(length(tab), 3L)
-
 })

@@ -578,7 +578,8 @@ test_that("Array$create() handles vector -> large list arrays", {
   expect_array_roundtrip(list(c(TRUE), c(FALSE), c(FALSE, TRUE)), large_list_of(bool()), as = large_list_of(bool()))
   expect_array_roundtrip(
     list(c(TRUE), c(FALSE), NA, logical(0), c(FALSE, NA, TRUE)),
-    large_list_of(bool()), as = large_list_of(bool())
+    large_list_of(bool()),
+    as = large_list_of(bool())
   )
 
   # integer
@@ -587,7 +588,8 @@ test_that("Array$create() handles vector -> large list arrays", {
   expect_array_roundtrip(list(1:2, 3:4, 12:18), large_list_of(int32()), as = large_list_of(int32()))
   expect_array_roundtrip(
     list(c(1:2), NA_integer_, integer(0), c(12:18, NA_integer_)),
-    large_list_of(int32()), as = large_list_of(int32())
+    large_list_of(int32()),
+    as = large_list_of(int32())
   )
 
   # numeric
@@ -596,7 +598,8 @@ test_that("Array$create() handles vector -> large list arrays", {
   expect_array_roundtrip(list(1, c(2, 3), 4), large_list_of(float64()), as = large_list_of(float64()))
   expect_array_roundtrip(
     list(1, numeric(0), c(2, 3, NA_real_), 4),
-    large_list_of(float64()), as = large_list_of(float64())
+    large_list_of(float64()),
+    as = large_list_of(float64())
   )
 
   # character
@@ -604,21 +607,25 @@ test_that("Array$create() handles vector -> large list arrays", {
   expect_array_roundtrip(list(character(0)), large_list_of(utf8()), as = large_list_of(utf8()))
   expect_array_roundtrip(
     list("itsy", c("bitsy", "spider"), c("is")),
-    large_list_of(utf8()), as = large_list_of(utf8())
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
   )
   expect_array_roundtrip(
     list("itsy", character(0), c("bitsy", "spider", NA_character_), c("is")),
-    large_list_of(utf8()), as = large_list_of(utf8())
+    large_list_of(utf8()),
+    as = large_list_of(utf8())
   )
 
   # factor
   expect_array_roundtrip(
     list(factor(c("b", "a"), levels = c("a", "b"))),
-    large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8()))
+    large_list_of(dictionary(int8(), utf8())),
+    as = large_list_of(dictionary(int8(), utf8()))
   )
   expect_array_roundtrip(
     list(factor(NA, levels = c("a", "b"))),
-    large_list_of(dictionary(int8(), utf8())), as = large_list_of(dictionary(int8(), utf8()))
+    large_list_of(dictionary(int8(), utf8())),
+    as = large_list_of(dictionary(int8(), utf8()))
   )
 
   # struct
@@ -713,8 +720,10 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
     as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
-    as.raw(c(0x74, 0x76))),
-    class = c("arrow_binary", "vctrs_vctr", "list"))
+    as.raw(c(0x74, 0x76))
+  ),
+  class = c("arrow_binary", "vctrs_vctr", "list")
+  )
   expect_error(
     rawToChar(raws[[3]]),
     "embedded nul in string: 'ma\\0n'", # See?

@@ -81,7 +81,6 @@
   # arguments. Most map *directly* to an Arrow C++ compute kernel and require no
   # non-default options, but some are modified by build_expr(). More complex R
   # function/operator mappings are defined in dplyr-functions.R.
-
   "==" = "equal",
   "!=" = "not_equal",
   ">" = "greater",
@@ -121,7 +120,8 @@
 #' @name Expression
 #' @rdname Expression
 #' @export
-Expression <- R6Class("Expression", inherit = ArrowObject,
+Expression <- R6Class("Expression",
+  inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
     # TODO: Implement type determination without storing

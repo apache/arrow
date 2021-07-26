@@ -77,7 +77,8 @@
 #' doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 #' doubles$type
 #' @export
-ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
+ChunkedArray <- R6Class("ChunkedArray",
+  inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
     type_id = function() ChunkedArray__type(self)$id,

@@ -48,7 +48,7 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
   assert_that(is.list(options), !is.null(names(options)))
 
   datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
-  valid_args <- map_lgl(args, ~inherits(., datum_classes))
+  valid_args <- map_lgl(args, ~ inherits(., datum_classes))
   if (!all(valid_args)) {
     # Lame, just pick one to report
     first_bad <- min(which(!valid_args))
@@ -252,7 +252,7 @@ all.ArrowDatum <- function(..., na.rm = FALSE) {
 #' is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
 #' is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
 #' @export
-match_arrow <- function(x, table, ...)  {
+match_arrow <- function(x, table, ...) {
   if (!inherits(x, "ArrowDatum")) {
     x <- Array$create(x)
   }
@@ -266,7 +266,6 @@ match_arrow <- function(x, table, ...)  {
 #' @rdname match_arrow
 #' @export
 is_in <- function(x, table, ...) {
-
   if (!inherits(x, "ArrowDatum")) {
     x <- Array$create(x)
   }

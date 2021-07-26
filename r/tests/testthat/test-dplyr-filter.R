@@ -186,7 +186,7 @@ test_that("Negative scalar values", {
       filter(some_negative %in% -1) %>%
       collect(),
     tbl
-    )
+  )
   expect_dplyr_equal(
     input %>%
       filter(int == -some_negative) %>%
@@ -217,7 +217,7 @@ test_that("filter() with between()", {
       collect(),
     tbl %>%
       filter(dbl >= int, dbl <= dbl2)
-    )
+  )
 
   expect_error(
     tbl %>%
@@ -239,7 +239,6 @@ test_that("filter() with between()", {
       filter(between(chr, 1, 2)) %>%
       collect()
   )
-
 })
 
 test_that("filter() with string ops", {
@@ -326,8 +325,8 @@ test_that("Filtering with unsupported functions", {
     input %>%
       filter(
         nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
-        int > 2,                                         # good
-        pnorm(dbl) > .99                                 # bad, opaque
+        int > 2, # good
+        pnorm(dbl) > .99 # bad, opaque
       ) %>%
       collect(),
     tbl,

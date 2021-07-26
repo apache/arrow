@@ -351,9 +351,8 @@ test_that("match_arrow", {
   sc <- Scalar$create(3)
   expect_equal(match_arrow(sc, tab), Scalar$create(1L))
 
-  vec <-  c(1, 2)
+  vec <- c(1, 2)
   expect_equal(match_arrow(vec, tab), Array$create(c(3L, 2L)))
-
 })
 
 test_that("is_in", {
@@ -367,9 +366,8 @@ test_that("is_in", {
   sc <- Scalar$create(3)
   expect_equal(is_in(sc, tab), Scalar$create(TRUE))
 
-  vec <-  c(1, 9)
+  vec <- c(1, 9)
   expect_equal(is_in(vec, tab), Array$create(c(TRUE, FALSE)))
-
 })
 
 test_that("value_counts", {
@@ -388,7 +386,6 @@ test_that("value_counts", {
 })
 
 test_that("any.Array and any.ChunkedArray", {
-
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(any(input > 5), data)
@@ -401,11 +398,9 @@ test_that("any.Array and any.ChunkedArray", {
   expect_vector_equal(any(input), data_logical)
   expect_vector_equal(any(input, na.rm = FALSE), data_logical)
   expect_vector_equal(any(input, na.rm = TRUE), data_logical)
-
 })
 
 test_that("all.Array and all.ChunkedArray", {
-
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(all(input > 5), data)
@@ -418,7 +413,6 @@ test_that("all.Array and all.ChunkedArray", {
 
   expect_vector_equal(all(input), data_logical)
   expect_vector_equal(all(input, na.rm = TRUE), data_logical)
-
 })
 
 test_that("variance", {

@@ -104,7 +104,6 @@ test_that("Masked data type functions still work", {
     arrow::string()
   )
   rm(type)
-
 })
 
 test_that("Type strings are correctly canonicalized", {

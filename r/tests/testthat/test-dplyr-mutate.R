@@ -165,8 +165,8 @@ test_that("nchar() arguments", {
       collect(),
     tbl,
     warning = paste0(
-    "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
-    "allowNA = TRUE not supported by Arrow; pulling data into R"
+      "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
+      "allowNA = TRUE not supported by Arrow; pulling data into R"
     )
   )
 })
@@ -190,8 +190,8 @@ test_that("mutate with unnamed expressions", {
     input %>%
       select(int, padded_strings) %>%
       mutate(
-        int,                   # bare column name
-        nchar(padded_strings)  # expression
+        int, # bare column name
+        nchar(padded_strings) # expression
       ) %>%
       filter(int > 5) %>%
       collect(),
@@ -388,7 +388,7 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-"InMemoryDataset (query)
+    "InMemoryDataset (query)
 int: int32
 twice: double (multiply_checked(int, 2))
 

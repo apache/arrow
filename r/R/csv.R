@@ -130,13 +130,13 @@
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examplesIf arrow_available()
-#'   tf <- tempfile()
-#'   on.exit(unlink(tf))
-#'   write.csv(mtcars, file = tf)
-#'   df <- read_csv_arrow(tf)
-#'   dim(df)
-#'   # Can select columns
-#'   df <- read_csv_arrow(tf, col_select = starts_with("d"))
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write.csv(mtcars, file = tf)
+#' df <- read_csv_arrow(tf)
+#' dim(df)
+#' # Can select columns
+#' df <- read_csv_arrow(tf, col_select = starts_with("d"))
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -226,7 +226,6 @@ read_csv_arrow <- function(file,
                            read_options = NULL,
                            as_data_frame = TRUE,
                            timestamp_parsers = NULL) {
-
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
@@ -252,7 +251,6 @@ read_tsv_arrow <- function(file,
                            read_options = NULL,
                            as_data_frame = TRUE,
                            timestamp_parsers = NULL) {
-
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
@@ -285,7 +283,8 @@ read_tsv_arrow <- function(file,
 #'
 #' @include arrow-package.R
 #' @export
-CsvTableReader <- R6Class("CsvTableReader", inherit = ArrowObject,
+CsvTableReader <- R6Class("CsvTableReader",
+  inherit = ArrowObject,
   public = list(
     Read = function() csv___TableReader__Read(self)
   )
@@ -450,7 +449,6 @@ CsvParseOptions$create <- function(delimiter = ",",
                                    escape_char = "\\",
                                    newlines_in_values = FALSE,
                                    ignore_empty_lines = TRUE) {
-
   csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
@@ -489,7 +487,8 @@ readr_to_csv_parse_options <- function(delim = ",",
 #' @format NULL
 #' @docType class
 #' @export
-TimestampParser <- R6Class("TimestampParser", inherit = ArrowObject,
+TimestampParser <- R6Class("TimestampParser",
+  inherit = ArrowObject,
   public = list(
     kind = function() TimestampParser__kind(self),
     format = function() TimestampParser__format(self)
@@ -512,7 +511,7 @@ CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
 CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),
                                      true_values = c("T", "true", "TRUE"),
-                                     false_values= c("F", "false", "FALSE"),
+                                     false_values = c("F", "false", "FALSE"),
                                      strings_can_be_null = FALSE,
                                      col_types = NULL,
                                      auto_dict_encode = FALSE,
@@ -520,7 +519,6 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      include_columns = character(),
                                      include_missing_columns = FALSE,
                                      timestamp_parsers = NULL) {
-
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
@@ -562,25 +560,25 @@ readr_to_csv_convert_options <- function(na,
       abort("Compact specification for `col_types` requires `col_names`")
     }
 
-    col_types <- set_names(nm = col_names, map2(specs, col_names, ~{
+    col_types <- set_names(nm = col_names, map2(specs, col_names, ~ {
       switch(.x,
-             "c" = utf8(),
-             "i" = int32(),
-             "n" = float64(),
-             "d" = float64(),
-             "l" = bool(),
-             "f" = dictionary(),
-             "D" = date32(),
-             "T" = time32(),
-             "t" = timestamp(),
-             "_" = null(),
-             "-" = null(),
-             "?" = NULL,
-             abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
+        "c" = utf8(),
+        "i" = int32(),
+        "n" = float64(),
+        "d" = float64(),
+        "l" = bool(),
+        "f" = dictionary(),
+        "D" = date32(),
+        "T" = time32(),
+        "t" = timestamp(),
+        "_" = null(),
+        "-" = null(),
+        "?" = NULL,
+        abort("Unsupported compact specification: '", .x, "' for column '", .y, "'")
       )
     }))
     # To "guess" types, omit them from col_types
-    col_types <- keep(col_types, ~!is.null(.x))
+    col_types <- keep(col_types, ~ !is.null(.x))
     col_types <- schema(!!!col_types)
   }
 
@@ -588,7 +586,7 @@ readr_to_csv_convert_options <- function(na,
     assert_is(col_types, "Schema")
     # If any columns are null(), drop them
     # (by specifying the other columns in include_columns)
-    nulls <- map_lgl(col_types$fields, ~.$type$Equals(null()))
+    nulls <- map_lgl(col_types$fields, ~ .$type$Equals(null()))
     if (any(nulls)) {
       include_columns <- setdiff(col_names, names(col_types)[nulls])
     }
@@ -622,7 +620,6 @@ write_csv_arrow <- function(x,
                             sink,
                             include_header = TRUE,
                             batch_size = 1024L) {
-
   write_options <- CsvWriteOptions$create(include_header, batch_size)
 
   x_out <- x

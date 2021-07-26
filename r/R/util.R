@@ -48,7 +48,7 @@ assert_is_list_of <- function(object, class) {
 }
 
 is_list_of <- function(object, class) {
-  is.list(object) && all(map_lgl(object, ~inherits(., class)))
+  is.list(object) && all(map_lgl(object, ~ inherits(., class)))
 }
 
 empty_named_list <- function() structure(list(), .Names = character(0))
@@ -153,14 +153,13 @@ recycle_scalars <- function(arrays) {
   if (length(arrays) > 1 && any(is_scalar) && !all(is_scalar)) {
 
     # Recycling not supported for tibbles and data.frames
-    if (all(map_lgl(arrays, ~inherits(.x, "data.frame")))) {
-
+    if (all(map_lgl(arrays, ~ inherits(.x, "data.frame")))) {
       abort(c(
-          "All input tibbles or data.frames must have the same number of rows",
-          x = paste(
-            "Number of rows in longest and shortest inputs:",
-            oxford_paste(c(max(arr_lens), min(arr_lens)))
-          )
+        "All input tibbles or data.frames must have the same number of rows",
+        x = paste(
+          "Number of rows in longest and shortest inputs:",
+          oxford_paste(c(max(arr_lens), min(arr_lens)))
+        )
       ))
     }
 

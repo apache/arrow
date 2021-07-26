@@ -286,7 +286,6 @@ test_that("Write a CSV file with header", {
 
 
 test_that("Write a CSV file with no header", {
-
   tbl_out <- write_csv_arrow(tbl_no_dates, csv_file, include_header = FALSE)
   expect_true(file.exists(csv_file))
   expect_identical(tbl_out, tbl_no_dates)
@@ -296,11 +295,9 @@ test_that("Write a CSV file with no header", {
   names(tbl_expected) <- c("f0", "f1", "f2", "f3")
 
   expect_identical(tbl_in, tbl_expected)
-
 })
 
 test_that("Write a CSV file with different batch sizes", {
-
   tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, batch_size = 1)
   expect_true(file.exists(csv_file))
   expect_identical(tbl_out1, tbl_no_dates)
@@ -318,16 +315,14 @@ test_that("Write a CSV file with different batch sizes", {
   expect_identical(tbl_out3, tbl_no_dates)
   tbl_in3 <- read_csv_arrow(csv_file)
   expect_identical(tbl_in3, tbl_no_dates)
-
 })
 
 test_that("Write a CSV file with invalid input type", {
-
   bad_input <- Array$create(1:5)
   expect_error(
     write_csv_arrow(bad_input, csv_file),
     regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
-    )
+  )
 })
 
 test_that("Write a CSV file with invalid batch size", {

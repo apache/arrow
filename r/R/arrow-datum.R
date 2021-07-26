@@ -19,7 +19,8 @@
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
+ArrowDatum <- R6Class("ArrowDatum",
+  inherit = ArrowObject,
   public = list(
     cast = function(target_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
@@ -107,7 +108,7 @@ eval_array_expression <- function(FUN,
   # integer inputs and floating-point division on floats
   if (FUN == "/") {
     # TODO: omg so many ways it's wrong to assume these types
-    args <- map(args, ~.$cast(float64()))
+    args <- map(args, ~ .$cast(float64()))
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
     out <- eval_array_expression("/", args = args, options = options)

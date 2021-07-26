@@ -65,7 +65,7 @@ i18ize_error_messages <- function() {
     obj = tryCatch(eval(parse(text = "X_____X")), error = function(e) conditionMessage(e)),
     fun = tryCatch(eval(parse(text = "X_____X()")), error = function(e) conditionMessage(e))
   )
-  paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
+  paste(map(out, ~ sub("X_____X", ".*", .)), collapse = "|")
 }
 
 # Helper to raise a common error
@@ -87,7 +87,7 @@ arrow_mask <- function(.data) {
   }
 
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
+  map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
 
   # Add the column references and make the mask
   out <- new_data_mask(
