@@ -597,16 +597,18 @@ test_linux_wheels() {
 
 test_macos_wheels() {
   local py_arches="3.6m 3.7m 3.8 3.9"
-  local ARROW_S3=ON
-  local ARROW_FLIGHT=ON
-  local INSTALL_PYARROW=OFF  # used in python_wheel_unix_test.sh
+  local macos_version=$(sw_vers -productVersion)
+  local macos_short_version=${macos_version:0:5}
 
+  # macOS version <= 10.13
+  if [ $(echo "10.14\n${macos_short_version}" | sort -V | head -n1) == "10.13" ]; then
+    local check_s3=OFF
+  else
+    local check_s3=ON
+  fi
+  # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local py_arches="3.9"
-    local ARROW_FLIGHT=OFF
-  fi
-  if [[ "$(sw_vers -productVersion)" == 10.13* ]]; then
-    local ARROW_S3=OFF
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -618,34 +620,36 @@ test_macos_wheels() {
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+    INSTALL_PYARROW=OFF ARROW_S3=${check_s3} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
 
   # verify arm64 and universal2 wheels with an universal2 python binary
-  for py_arch in ${py_arches}; do
-    local pyver=${py_arch//m/}
-    local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-    local venv="${ARROW_TMPDIR}/test-virtualenv"
+  if [ "$(uname -m)" = "arm64" ]; then
+    for py_arch in ${py_arches}; do
+      local pyver=${py_arch//m/}
+      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
+      local venv="${ARROW_TMPDIR}/test-virtualenv"
 
-    # create a virtualenv
-    $python -m virtualenv $venv
-    source $venv/bin/activate
-    pip install -U pip
+      # create and activate a virtualenv
+      $python -m virtualenv $venv
+      source $venv/bin/activate
+      pip install -U pip
 
-    # check the mandatory and optional imports
-    pip install \
-        --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
-        --target $(python -c 'import site; print(site.getsitepackages()[0])') \
-        --platform macosx_11_0_universal2 \
-        --only-binary=:all: \
-        pyarrow==${VERSION}
-    arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-    arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      # check the mandatory and optional imports
+      pip install \
+          --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
+          --target $(python -c 'import site; print(site.getsitepackages()[0])') \
+          --platform macosx_11_0_universal2 \
+          --only-binary=:all: \
+          pyarrow==${VERSION}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=OFF arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=OFF arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
-    deactivate
-  done
+      deactivate
+    done
+  fi
 }
 
 test_wheels() {
