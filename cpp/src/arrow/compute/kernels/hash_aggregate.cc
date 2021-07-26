@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/array/builder_primitive.h>
+
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -369,29 +371,42 @@ struct GrouperImpl : Grouper {
     return std::move(impl);
   }
 
-  Result<Datum> Consume(const ExecBatch& batch) override {
-    std::vector<int32_t> offsets_batch(batch.length + 1);
+  Status PopulateKeyData(const ExecBatch& batch, std::vector<int32_t>* offsets_batch,
+                         std::vector<uint8_t>* key_bytes_batch,
+                         std::vector<uint8_t*>* key_buf_ptrs) {
+    offsets_batch->resize(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
+      encoders_[i]->AddLength(*batch[i].array(), offsets_batch->data());
     }
 
     int32_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
       auto total_length_before = total_length;
-      total_length += offsets_batch[i];
-      offsets_batch[i] = total_length_before;
+      total_length += offsets_batch->at(i);
+      offsets_batch->at(i) = total_length_before;
     }
-    offsets_batch[batch.length] = total_length;
+    offsets_batch->at(batch.length) = total_length;
 
-    std::vector<uint8_t> key_bytes_batch(total_length);
-    std::vector<uint8_t*> key_buf_ptrs(batch.length);
+    key_bytes_batch->resize(total_length);
+    key_buf_ptrs->resize(batch.length);
     for (int64_t i = 0; i < batch.length; ++i) {
-      key_buf_ptrs[i] = key_bytes_batch.data() + offsets_batch[i];
+      key_buf_ptrs->at(i) = key_bytes_batch->data() + offsets_batch->at(i);
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data()));
+      RETURN_NOT_OK(encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs->data()));
     }
+
+    return Status::OK();
+  }
+
+  Result<Datum> Consume(const ExecBatch& batch) override {
+    std::vector<int32_t> offsets_batch;
+    std::vector<uint8_t> key_bytes_batch;
+    std::vector<uint8_t*> key_buf_ptrs;
+
+    RETURN_NOT_OK(
+        PopulateKeyData(batch, &offsets_batch, &key_bytes_batch, &key_buf_ptrs));
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
     RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
@@ -419,6 +434,36 @@ struct GrouperImpl : Grouper {
 
     ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
     return Datum(UInt32Array(batch.length, std::move(group_ids)));
+  }
+
+  Result<Datum> Find(const ExecBatch& batch) override {
+    std::vector<int32_t> offsets_batch;
+    std::vector<uint8_t> key_bytes_batch;
+    std::vector<uint8_t*> key_buf_ptrs;
+
+    RETURN_NOT_OK(
+        PopulateKeyData(batch, &offsets_batch, &key_bytes_batch, &key_buf_ptrs));
+
+    UInt32Builder group_ids_batch(ctx_->memory_pool());
+    RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
+
+    for (int64_t i = 0; i < batch.length; ++i) {
+      int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
+      std::string key(
+          reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
+          key_length);
+
+      auto it = map_.find(key);
+      // no group ID was found, null will be emitted!
+      if (it == map_.end()) {
+        group_ids_batch.UnsafeAppendNull();
+      } else {
+        group_ids_batch.UnsafeAppend(it->second);
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
+    return Datum(group_ids);
   }
 
   uint32_t num_groups() const override { return num_groups_; }
@@ -620,6 +665,11 @@ struct GrouperFastImpl : Grouper {
     }
 
     return Datum(UInt32Array(batch.length, std::move(group_ids)));
+  }
+
+  Result<Datum> Find(const ExecBatch& batch) override {
+    // todo impl this
+    return Result<Datum>();
   }
 
   uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
@@ -1929,9 +1979,10 @@ Result<FieldVector> ResolveKernels(
 
 Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
                                                ExecContext* ctx) {
-  if (GrouperFastImpl::CanUse(descrs)) {
-    return GrouperFastImpl::Make(descrs, ctx);
-  }
+  // TODO(niranda) re-enable this!
+  //  if (GrouperFastImpl::CanUse(descrs)) {
+  //    return GrouperFastImpl::Make(descrs, ctx);
+  //  }
   return GrouperImpl::Make(descrs, ctx);
 }
 

@@ -308,6 +308,16 @@ struct TestGrouper {
     AssertEquivalentIds(expected, ids);
   }
 
+  void ExpectFind(const std::string& key_json, const std::string& expected) {
+    ExpectFind(ExecBatchFromJSON(descrs_, key_json), ArrayFromJSON(uint32(), expected));
+  }
+  void ExpectFind(const ExecBatch& key_batch, Datum expected) {
+    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Find(key_batch));
+    ValidateOutput(id_batch);
+
+    AssertDatumsEqual(expected, id_batch);
+  }
+
   void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
     auto left = expected.make_array();
     auto right = actual.make_array();
@@ -433,6 +443,18 @@ TEST(Grouper, NumericKey) {
 
     g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
                     "[0, 1, 0, 1, 3, 2, 1, 2]");
+
+    g.ExpectFind("[[3], [3]]", "[0, 0]");
+
+    g.ExpectFind("[[3], [3]]", "[0, 0]");
+
+    g.ExpectFind("[[27], [81]]", "[1, 2]");
+
+    g.ExpectFind("[[3], [27], [3], [27], [null], [81], [27], [81]]",
+                 "[0, 1, 0, 1, 3, 2, 1, 2]");
+
+    g.ExpectFind("[[27], [3], [27], [null], [81], [1], [81]]",
+                 "[1, 0, 1, 3, 2, null, 2]");
   }
 }
 
