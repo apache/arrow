@@ -32,9 +32,12 @@ import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.stream.StreamSupport;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
@@ -73,6 +76,7 @@ public class TestFlightSql {
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
       Field.nullable("VALUE", MinorType.INT.getType()),
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
+  private static final Map<String, String> GET_SQL_INFO_EXPECTED_RESULTS_MAP = new LinkedHashMap<>();
   private static final String LOCALHOST = "localhost";
   private static int port;
   private static BufferAllocator allocator;
@@ -102,11 +106,69 @@ public class TestFlightSql {
     final Location clientLocation = Location.forGrpcInsecure(LOCALHOST, server.getPort());
     client = FlightClient.builder(allocator, clientLocation).build();
     sqlClient = new FlightSqlClient(client);
+
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME),
+            "Apache Derby");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION),
+            "10.14.2.0 - (1828579)");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION),
+            "10.14.2.0 - (1828579)");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY),
+            "0");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_CATALOG),
+            "0");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_SCHEMA),
+            "1");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_TABLE),
+            "1");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_CASE),
+            "UPPERCASE");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR),
+            "\"");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSqlProducer.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE),
+            "CASE_INSENSITIVE");
   }
 
   @AfterClass
   public static void tearDown() throws Exception {
     close(client, server, allocator);
+  }
+
+  private static boolean matchesGetSqlInfo(final Iterable<? extends Iterable<String>> results) {
+    return matchesGetSqlInfo(StreamSupport.stream(results.spliterator(), false)
+        .map(Iterable::spliterator)
+        .map(spliterator -> StreamSupport.stream(spliterator, false).toArray(String[]::new))
+        .toArray(String[][]::new));
+  }
+
+  private static boolean matchesGetSqlInfo(final String[]... results) {
+    boolean matches = false;
+    for (final String[] result : results) {
+      if (!(matches = GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(result[0]).equals(result[1]))) {
+        break;
+      }
+    }
+    return matches;
   }
 
   @Test
@@ -337,20 +399,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      final List<List<String>> expected = ImmutableList.of(
-          // info_name | value
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION), "10.14.2.0 - (1828579)"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY), "0"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_CATALOG), "0"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_SCHEMA), "1"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_TABLE), "1"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_CASE), "UPPERCASE"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR), "\""),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE), "CASE_INSENSITIVE"));
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results, is(expected));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
     }
   }
 
@@ -359,11 +408,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      final List<List<String>> expected = singletonList(
-          // info_name | value
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"));
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results, is(expected));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
     }
   }
 
@@ -375,12 +420,7 @@ public class TestFlightSql {
             FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      final List<List<String>> expected = ImmutableList.of(
-          // info_name | value
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"));
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results, is(expected));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
     }
   }
 
@@ -393,13 +433,7 @@ public class TestFlightSql {
             FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      final List<List<String>> expected = ImmutableList.of(
-          // info_name | value
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"),
-          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR), "\""));
-      final List<List<String>> results = getResults(stream);
-      collector.checkThat(results, is(expected));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
     }
   }
 

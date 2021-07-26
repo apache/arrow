@@ -30,7 +30,7 @@ package arrow.flight.protocol.sql;
  *
  * The returned schema will be:
  * <
- *  info_name: utf8,
+ *  info_name: int,
  *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
  * >
  * where there is one row per requested piece of metadata information.
@@ -43,10 +43,11 @@ message ActionGetSQLInfoResult {
    * E.g. more SQL syntax support types, scalar functions support, type conversion support etc.
    *
    * Initially, Flight SQL will support the following information types:
-   * - Server Information
-   * -
+   * - Server Information - Range [0-500)
+   * - Syntax Information - Ragne [500-1000)
+   * Range [0-100000) is reserved for defaults. Custom options should start at 100000.
    *
-   * 1. Server Information: Provides basic information about the Flight SQL Server.
+   * 1. Server Information [0-500): Provides basic information about the Flight SQL Server.
    *
    * The name of the Flight SQL Server.
    * 0 = FLIGHT_SQL_SERVER_NAME
@@ -60,10 +61,7 @@ message ActionGetSQLInfoResult {
    * Indicates whether the Flight SQL Server is read only.
    * 3 = FLIGHT_SQL_SERVER_READ_ONLY
    *
-   * Indicates whether the Flight SQL Server supports both read and write.
-   * FLIGHT_SQL_SERVER_READ_WRITE
-   *
-   * 2. SQL Syntax Information: provides information about SQL syntax supported by the Flight SQL Server.
+   * 2. SQL Syntax Information [500-1000): provides information about SQL syntax supported by the Flight SQL Server.
    *
    * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
    * In a SQL environment, a catalog is a collection of schemas.
@@ -133,8 +131,9 @@ message GetSQLInfoValue {
  */
 message ActionGetCatalogsRequest {
   /*
-   * Specifies the order of result values.
-   */ 
+   * Specifies the Catalog to search for schemas.
+   * If omitted, then all catalogs are searched.
+   */
   google.protobuf.StringValue catalog = 1;
 
   /*
@@ -426,7 +425,7 @@ message CommandPreparedStatementUpdate {
 message DoPutUpdateResult {
   // The number of records updated. A return value of -1 represents 
   // an unknown updated record count.
-  int64 record_count = 1; 
+  int64 record_count = 1;
 }
 
 message ResultsOrder {

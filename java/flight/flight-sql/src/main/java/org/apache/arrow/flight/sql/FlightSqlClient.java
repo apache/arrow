@@ -163,15 +163,6 @@ public class FlightSqlClient {
   }
 
   /**
-   * Request a set of Flight SQL metadata.
-   *
-   * @return a FlightInfo object representing the stream(s) to fetch.
-   */
-  public FlightInfo getSqlInfo() {
-    return getSqlInfo(new int[0]);
-  }
-
-  /**
    * Request a list of tables.
    *
    * @param catalog             The catalog.

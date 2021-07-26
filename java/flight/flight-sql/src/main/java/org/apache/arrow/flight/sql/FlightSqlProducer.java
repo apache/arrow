@@ -399,21 +399,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @return Schema for the stream.
    */
   default SchemaResult getSchemaSqlInfo() {
-
-    final List<Field> children = Arrays.asList(
-        Field.nullable("string_value", MinorType.VARCHAR.getType()),
-        Field.nullable("int_value", MinorType.INT.getType()),
-        Field.nullable("bigint_value", MinorType.BIGINT.getType()),
-        Field.nullable("int32_bitmask", MinorType.INT.getType()));
-
-    List<Field> fields = Arrays.asList(
-        Field.nullable("info_name", MinorType.VARCHAR.getType()),
-        new Field("value",
-            // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
-            new FieldType(false, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
-            children));
-
-    return new SchemaResult(new Schema(fields));
+    return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
   }
 
   /**
@@ -682,6 +668,17 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
         Field.nullable("update_rule", MinorType.INT.getType()),
         Field.nullable("delete_rule", MinorType.INT.getType())));
+    public static final Schema GET_SQL_INFO_SCHEMA =
+        new Schema(Arrays.asList(
+            Field.nullable("info_name", MinorType.INT.getType()),
+            new Field("value",
+                // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+                new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
+                Arrays.asList(
+                    Field.nullable("string_value", MinorType.VARCHAR.getType()),
+                    Field.nullable("int_value", MinorType.INT.getType()),
+                    Field.nullable("bigint_value", MinorType.BIGINT.getType()),
+                    Field.nullable("int32_bitmask", MinorType.INT.getType())))));
 
     private Schemas() {
       // Prevent instantiation.
