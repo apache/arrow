@@ -40,7 +40,7 @@ set -e
 set -x
 ```
 
-If you're looking to contribute to __arrow__, this vignette can help you set up a development environment that will enable you to write code and run tests locally. It outlines:
+If you're looking to contribute to arrow, this vignette can help you set up a development environment that will enable you to write code and run tests locally. It outlines:
 * how to build the components that make up the Arrow project and R package
 * some common troubleshooting and workflows that developers use
 
@@ -73,7 +73,7 @@ brew install apache-arrow --HEAD
 On Windows and Linux, you can download a .zip file with the arrow dependencies from the
 nightly repository.
 Windows users then can set the `RWINLIB_LOCAL` environment variable to point to that
-zip file before installing the `arrow` R package. On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip that file into it. Version numbers in that repository correspond to dates.
+zip file before installing the arrow R package. On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip that file into it. Version numbers in that repository correspond to dates.
 
 To see what nightlies are available, you can use Arrow's (or any other S3 client's) S3 listing functionality to see what is in the bucket `s3://arrow-r-nightly/libarrow/bin`:
 
@@ -109,6 +109,10 @@ brew install cmake openssl
 ```{bash, save=run & ubuntu}
 sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 ```
+
+### Windows
+
+Currently, the R package cannot be made to work with a locally-built Arrow C++ library. This will be resolved in a future release.
 
 ## Step 2 - Configure the Arrow build {.tabset}
 
@@ -430,7 +434,7 @@ There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arr
 
 # Editing C++ code in the R package
 
-The `arrow` package uses some customized tools on top of `cpp11` to prepare its
+The arrow package uses some customized tools on top of `cpp11` to prepare its
 C++ code in `src/`. This is because there are some features that are only enabled
 and built conditionally during build time. If you change C++ code in the R
 package, you will need to set the `ARROW_R_DEV` environment variable to `true`
