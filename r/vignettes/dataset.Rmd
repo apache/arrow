@@ -273,7 +273,7 @@ intermediate datasets that would potentially be large.
 Second, all work is pushed down to the individual data files,
 and depending on the file format, chunks of data within the files. As a result,
 you can select a subset of data from a much larger dataset by collecting the
-smaller slices from each file--you don't have to load the whole dataset in 
+smaller slices from each file - you don't have to load the whole dataset in 
 memory to slice from it.
 
 Third, because of partitioning, you can ignore some files entirely.
@@ -294,7 +294,7 @@ same directory, you can provide a file path or a vector of multiple file paths
 to `open_dataset()`. This is useful if, for example, you have a single CSV file 
 that is too big to read into memory. You could pass the file path to 
 `open_dataset()`, use `group_by()` to partition the Dataset into manageable chunks, 
-then use `write_dataset()` to write each chunk to a separate Parquet file---all 
+then use `write_dataset()` to write each chunk to a separate Parquet file - all 
 without needing to read the full CSV file into R.
 
 ### Explicitly declare column names and data types
