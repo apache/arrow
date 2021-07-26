@@ -793,8 +793,8 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
-      CHECK_IMPORTS: ON
-      CHECK_UNITTESTS: OFF
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh
 
   python-wheel-manylinux-test-unittests:
@@ -811,8 +811,8 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
-      CHECK_IMPORTS: OFF
-      CHECK_UNITTESTS: ON
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh
 
   python-wheel-windows-vs2017:
