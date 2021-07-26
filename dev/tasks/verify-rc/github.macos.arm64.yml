@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           export PATH="/opt/homebrew/opt/node@14/bin:$PATH"
-          arrow/dev/release/verify-release-candidate.sh \
+          arch -arm64 arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
             {{ release|default("1.0.0") }} {{ rc|default("0") }}
 
