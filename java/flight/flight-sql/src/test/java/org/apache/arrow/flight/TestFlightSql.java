@@ -538,4 +538,10 @@ public class TestFlightSql {
 
     return results;
   }
+
+  @Test
+  public void testExecuteUpdate() throws Exception {
+    final long result = sqlClient.executeUpdate("INSERT INTO INTTABLE (keyName, value) VALUES ('KEYNAME', 123)");
+    collector.checkThat(result, is(1L));
+  }
 }
