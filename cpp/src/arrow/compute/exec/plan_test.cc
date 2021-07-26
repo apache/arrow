@@ -567,7 +567,8 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(
       auto scalar_agg,
       MakeScalarAggregateNode(source, "scalar_agg",
-                              {{"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}}));
+                              {{"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}},
+                              {"a", "b", "c"}, {"sum a", "sum b", "sum c"}));
 
   auto sink_gen = MakeSinkNode(scalar_agg, "sink");
 
