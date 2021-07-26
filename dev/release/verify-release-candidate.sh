@@ -625,7 +625,9 @@ test_macos_wheels() {
     conda deactivate
   done
 
-  # verify arm64 and universal2 wheels with an universal2 python binary
+  # verify arm64 and universal2 wheels using an universal2 python binary
+  # the interpreter should be installed from python.org:
+  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
     for py_arch in ${py_arches}; do
       local pyver=${py_arch//m/}
