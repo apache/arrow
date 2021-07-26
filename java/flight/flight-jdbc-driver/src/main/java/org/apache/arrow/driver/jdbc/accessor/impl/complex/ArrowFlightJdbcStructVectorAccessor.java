@@ -55,7 +55,9 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
   @Override
   public Struct getStruct() {
     int currentRow = getCurrentRow();
-    if (this.wasNull = vector.isNull(currentRow)) {
+
+    this.wasNull = vector.isNull(currentRow);
+    if (this.wasNull) {
       return null;
     }
 

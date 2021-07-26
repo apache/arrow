@@ -85,7 +85,9 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
   @Override
   public long getLong() {
     vector.get(getCurrentRow(), holder);
-    if (this.wasNull = holder.isSet == 0) {
+
+    this.wasNull = holder.isSet == 0;
+    if (this.wasNull) {
       return 0;
     }
 

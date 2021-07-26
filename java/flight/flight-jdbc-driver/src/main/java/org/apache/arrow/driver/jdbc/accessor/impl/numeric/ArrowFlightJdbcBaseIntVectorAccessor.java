@@ -103,7 +103,8 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   public long getLong() {
     getter.get(getCurrentRow(), holder);
 
-    if (this.wasNull = holder.isSet == 0) {
+    this.wasNull = holder.isSet == 0;
+    if (this.wasNull) {
       return 0;
     }
 
