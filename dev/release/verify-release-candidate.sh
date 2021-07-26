@@ -666,12 +666,14 @@ test_macos_wheels() {
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    check_python_imports
+    arch -arm64 check_python_imports
+    arch -x86_64 check_python_imports
 
     # install test requirements and execute the tests
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
     python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-    pytest --pyargs pyarrow
+    arch -arm64 pytest --pyargs pyarrow
+    arch -x86_64 pytest --pyargs pyarrow
 
     deactivate
   done
