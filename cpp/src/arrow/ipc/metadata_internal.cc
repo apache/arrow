@@ -74,7 +74,7 @@ MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
       return MetadataVersion::V2;
     case flatbuf::MetadataVersion::V3:
       // Arrow 0.3 to 0.7.1
-      return MetadataVersion::V4;
+      return MetadataVersion::V3;
     case flatbuf::MetadataVersion::V4:
       // Arrow 0.8 to 0.17
       return MetadataVersion::V4;
