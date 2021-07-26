@@ -18,12 +18,9 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ...) {
+summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
   call <- match.call()
   .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("summarize()")
-  }
   exprs <- quos(...)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
@@ -31,6 +28,14 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
     dplyr::group_vars(.data)             # vars needed for grouping
   ))
   .data <- dplyr::select(.data, vars_to_keep)
-  dplyr::summarise(dplyr::collect(.data), ...)
+
+  if (match.arg(.engine) == "duckdb") {
+    dplyr::summarise(to_duckdb(.data), ...)
+  } else {
+    if (query_on_dataset(.data)) {
+      not_implemented_for_dataset("summarize()")
+    }
+    dplyr::summarise(dplyr::collect(.data), ...)
+  }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
