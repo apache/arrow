@@ -26,6 +26,9 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 
+/**
+ * Accessor for the Arrow type {@link MapVector}.
+ */
 public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final MapVector vector;
