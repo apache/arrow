@@ -621,7 +621,11 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.6m 3.7m 3.8 3.9"
+  if [ "$(uname -m)" = "arm64" ]; then
+    local py_arches="3.9"
+  else
+    local py_arches="3.6m 3.7m 3.8 3.9"
+  fi
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
