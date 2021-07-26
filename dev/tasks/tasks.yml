@@ -757,7 +757,6 @@ tasks:
                     "csharp",
                     "go",
                     "integration",
-                    "java",
                     "js",
                     "python",
                     "ruby"] %}
@@ -771,6 +770,7 @@ tasks:
         ARROW_GANDIVA: 0
         INSTALL_NODE: 0
         TEST_DEFAULT: 0
+        TEST_INTEGRATION_JAVA: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
       github_runner: {{ runner }}
