@@ -596,7 +596,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle().toStringUtf8());
+    try (final ResultSet resultSet =
+             commandExecutePreparedStatementLoadingCache.getIfPresent(
+                 command.getPreparedStatementHandle().toStringUtf8());
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       makeListen(listener, getVectorsFromData(resultSet, allocator));
     } catch (SQLException | IOException e) {
