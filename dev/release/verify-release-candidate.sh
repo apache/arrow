@@ -635,7 +635,7 @@ test_macos_wheels() {
 
 
       # create and activate a virtualenv for testing as arm64
-      for arch in "arm64 x86_64"; do
+      for arch in "arm64" "x86_64"; do
         local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"
         $python -m virtualenv $venv
         source $venv/bin/activate
