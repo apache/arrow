@@ -113,10 +113,10 @@ groups:
     - verify-rc-source-*
 
   verify-rc-source-macos:
-    - verify-rc-source-macos-*
+    - verify-rc-source-*-macos-*
 
   verify-rc-source-linux:
-    - verify-rc-source-linux-*
+    - verify-rc-source-*-linux-*
 
 {######################## Tasks to run regularly #############################}
 
