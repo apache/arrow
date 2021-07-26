@@ -88,6 +88,7 @@ test_that("summarise(..., .engine)", {
 # with arrow_duck_connection()
 con <- dbConnect(duckdb::duckdb())
 dbExecute(con, "PRAGMA threads=2")
+on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 # write one table to the connection so it is kept open
 DBI::dbWriteTable(con, "mtcars", mtcars)
@@ -157,6 +158,7 @@ test_that("to_duckdb passing a connection", {
   con_separate <- dbConnect(duckdb::duckdb())
   # we always want to test in parallel
   dbExecute(con_separate, "PRAGMA threads=2")
+  on.exit(dbDisconnect(con_separate, shutdown = TRUE), add = TRUE)
 
   # create a table to join to that we know is in our con_separate
   new_df <- data.frame(
@@ -167,7 +169,7 @@ test_that("to_duckdb passing a connection", {
 
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
-    to_duckdb(con = con_separate)
+    to_duckdb(con = con_separate, auto_disconnect = FALSE)
   table_four_name <- table_four$ops$x
 
   result <- DBI::dbGetQuery(
@@ -181,8 +183,4 @@ test_that("to_duckdb passing a connection", {
 
   expect_identical(dim(result), c(9L, 5L))
   expect_identical(result$char, new_df[new_df$int != 4, ]$char)
-
-  dbDisconnect(con_separate, shutdown = TRUE)
 })
-
-dbDisconnect(con, shutdown = TRUE)
