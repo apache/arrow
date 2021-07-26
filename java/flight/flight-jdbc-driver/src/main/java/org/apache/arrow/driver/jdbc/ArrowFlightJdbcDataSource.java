@@ -26,7 +26,7 @@ import org.apache.commons.dbcp2.BasicDataSource;
  */
 public class ArrowFlightJdbcDataSource extends BasicDataSource {
 
-  public static final String DRIVER_CLASS_NAME = "org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver";
+  public static final String DRIVER_CLASS_NAME = ArrowFlightJdbcDriver.class.getName();
 
   /**
    * Instantiates a DataSource that connects to given URL using {@link ArrowFlightJdbcDriver}.
