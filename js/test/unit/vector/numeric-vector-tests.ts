@@ -361,21 +361,25 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
     combos.forEach(([chunksType, vector]) => {
         describe(chunksType, () => {
             // test base case no slicing
-            describe(`base case no slicing`, () => testAndValidateVector(vector, typed, jsArray));
+            describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
             // test slicing without args
-            describe(`slicing without args`, () => testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()));
+            describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
-            describe(`slice the middle half`, () => testAndValidateVector(
-                vector.slice(vectorBegin, vectorEnd),
-                typed.slice(typedBegin, typedEnd),
-                jsArray.slice(jsArrayBegin, jsArrayEnd)
-            ));
+            describe(`slice the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(vectorBegin, vectorEnd),
+                    typed.slice(typedBegin, typedEnd),
+                    jsArray.slice(jsArrayBegin, jsArrayEnd)
+                );
+            });
             // test splicing out the middle half
-            describe(`splicing out the middle half`, () => testAndValidateVector(
-                vector.slice(0, vectorBegin).concat(vector.slice(vectorEnd)),
-                new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)]),
-                [...jsArray.slice(0, jsArrayBegin), ...jsArray.slice(jsArrayEnd)]
-            ));
+            describe(`splicing out the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(0, vectorBegin).concat(vector.slice(vectorEnd)),
+                    new ArrayType([...typed.slice(0, typedBegin), ...typed.slice(typedEnd)]),
+                    [...jsArray.slice(0, jsArrayBegin), ...jsArray.slice(jsArrayEnd)]
+                );
+            });
         });
     });
 }
@@ -399,21 +403,25 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
     combos.forEach(([chunksType, vector]) => {
         describe(chunksType, () => {
             // test base case no slicing
-            describe(`base case no slicing`, () => testAndValidateVector(vector, typed, jsArray));
+            describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
             // test slicing without args
-            describe(`slicing without args`, () => testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()));
+            describe(`slicing without args`, () => { testAndValidateVector(vector.slice(), typed.slice(), jsArray.slice()); });
             // test slicing the middle half
-            describe(`slice the middle half`, () => testAndValidateVector(
-                vector.slice(begin, end),
-                typed.slice(begin, end),
-                jsArray.slice(begin, end)
-            ));
+            describe(`slice the middle half`, () => {
+                    testAndValidateVector(
+                    vector.slice(begin, end),
+                    typed.slice(begin, end),
+                    jsArray.slice(begin, end)
+                );
+            });
             // test splicing out the middle half
-            describe(`splicing out the middle half`, () => testAndValidateVector(
-                vector.slice(0, begin).concat(vector.slice(end)),
-                new ArrayType([...typed.slice(0, begin), ...typed.slice(end)]),
-                [...jsArray.slice(0, begin), ...jsArray.slice(end)]
-            ));
+            describe(`splicing out the middle half`, () => {
+                testAndValidateVector(
+                    vector.slice(0, begin).concat(vector.slice(end)),
+                    new ArrayType([...typed.slice(0, begin), ...typed.slice(end)]),
+                    [...jsArray.slice(0, begin), ...jsArray.slice(end)]
+                );
+            });
         });
     });
 }
