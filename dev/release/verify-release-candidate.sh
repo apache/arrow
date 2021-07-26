@@ -592,16 +592,13 @@ test_linux_wheels() {
   done
 }
 
-# macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
-# check_s3fs = macos_version >= (10, 13)
-
 test_macos_wheels() {
   local py_arches="3.6m 3.7m 3.8 3.9"
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 
   # macOS version <= 10.13
-  if [ $(echo "10.14\n${macos_short_version}" | sort -V | head -n1) == "10.13" ]; then
+  if [ $(echo "${macos_short_version}\n10.14" | sort -V | head -n1) == "${macos_short_version}" ]; then
     local check_s3=OFF
   else
     local check_s3=ON
