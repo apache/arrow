@@ -124,6 +124,7 @@ import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.slf4j.Logger;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -131,7 +132,7 @@ import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
 
@@ -155,8 +156,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private final Map<Object, ValueHolder> valueHolderCache = new HashMap<>();
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
-  private final LoadingCache<CommandPreparedStatementQuery, ResultSet> commandExecutePreparedStatementLoadingCache;
-  private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
+  private final LoadingCache<String, ResultSet> commandExecutePreparedStatementLoadingCache;
+  private final Cache<String, PreparedStatementContext> preparedStatementLoadingCache;
   private final BufferAllocator rootAllocator = new RootAllocator(128);
 
   public FlightSqlExample(final Location location) {
@@ -179,7 +180,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .maximumSize(100)
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .removalListener(new PreparedStatementRemovalListener())
-            .build(new PreparedStatementCacheLoader(dataSource));
+            .build();
 
     commandExecutePreparedStatementLoadingCache =
         CacheBuilder.newBuilder()
@@ -595,10 +596,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
+    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle().toStringUtf8());
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       makeListen(listener, getVectorsFromData(resultSet, allocator));
-    } catch (SQLException | IOException | ExecutionException e) {
+    } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
@@ -612,8 +613,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                      StreamListener<Result> listener) {
     try {
       preparedStatementLoadingCache.invalidate(
-          PreparedStatementCacheKey.fromProtocol(request.getPreparedStatementHandleBytes()));
-    } catch (InvalidProtocolBufferException e) {
+          request.getPreparedStatementHandleBytes().toStringUtf8());
+    } catch (Exception e) {
       listener.onError(e);
     } finally {
       listener.onCompleted();
@@ -630,11 +631,13 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery command,
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
+    final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
     try {
-      final ResultSet resultSet = commandExecutePreparedStatementLoadingCache.get(command);
+      final ResultSet resultSet =
+          commandExecutePreparedStatementLoadingCache.get(preparedStatementHandle.toStringUtf8());
       return getFlightInfoForSchema(command, descriptor,
           jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (ExecutionException | SQLException e) {
+    } catch (SQLException | ExecutionException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -674,12 +677,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
-    final PreparedStatementCacheKey cacheKey =
-        new PreparedStatementCacheKey(randomUUID().toString(), request.getQuery());
     try {
-      final PreparedStatementContext statementContext =
-          preparedStatementLoadingCache.get(cacheKey);
-      final PreparedStatement preparedStatement = statementContext.getPreparedStatement();
+      final String randomUUID = randomUUID().toString();
+      // Ownership of the connection will be passed to the context. Do NOT close!
+      final Connection connection = dataSource.getConnection();
+      final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery());
+      final PreparedStatementContext preparedStatementContext =
+          new PreparedStatementContext(connection, preparedStatement);
+
+      final Cache<String, PreparedStatementContext> preparedStatementLoadingCache = this.preparedStatementLoadingCache;
+      preparedStatementLoadingCache.put(randomUUID, preparedStatementContext );
+
       final Schema parameterSchema =
           jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
       final Schema datasetSchema =
@@ -687,7 +695,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(copyFrom(datasetSchema.toByteArray()))
           .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
-          .setPreparedStatementHandle(cacheKey.toProtocol())
+          .setPreparedStatementHandle(ByteString.copyFrom(randomUUID.getBytes()))
           .build();
       listener.onNext(new Result(pack(result).toByteArray()));
     } catch (final Throwable t) {
@@ -1050,9 +1058,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static class CommandExecutePreparedStatementRemovalListener
-      implements RemovalListener<CommandPreparedStatementQuery, ResultSet> {
+      implements RemovalListener<String, ResultSet> {
     @Override
-    public void onRemoval(RemovalNotification<CommandPreparedStatementQuery, ResultSet> notification) {
+    public void onRemoval(RemovalNotification<String, ResultSet> notification) {
       try {
         AutoCloseables.close(notification.getValue());
       } catch (Throwable e) {
@@ -1062,59 +1070,33 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static class CommandExecutePreparedStatementCacheLoader
-      extends CacheLoader<CommandPreparedStatementQuery, ResultSet> {
+      extends CacheLoader<String, ResultSet> {
 
-    private final LoadingCache<PreparedStatementCacheKey, PreparedStatementContext> preparedStatementLoadingCache;
+    private final Cache<String, PreparedStatementContext> preparedStatementLoadingCache;
 
-    private CommandExecutePreparedStatementCacheLoader(LoadingCache<PreparedStatementCacheKey,
+    private CommandExecutePreparedStatementCacheLoader(Cache<String,
         PreparedStatementContext> preparedStatementLoadingCache) {
       this.preparedStatementLoadingCache = preparedStatementLoadingCache;
     }
 
     @Override
-    public ResultSet load(CommandPreparedStatementQuery commandExecutePreparedStatement)
-        throws SQLException, InvalidProtocolBufferException, ExecutionException {
-      final PreparedStatementCacheKey preparedStatementCacheKey =
-          PreparedStatementCacheKey.fromProtocol(commandExecutePreparedStatement.getPreparedStatementHandle());
+    public ResultSet load(String handle)
+        throws SQLException {
       final PreparedStatementContext preparedStatementContext = preparedStatementLoadingCache
-          .get(preparedStatementCacheKey);
+          .getIfPresent(handle);
+      assert preparedStatementContext != null;
       return preparedStatementContext.getPreparedStatement().executeQuery();
     }
   }
 
-  private static class PreparedStatementRemovalListener implements RemovalListener<PreparedStatementCacheKey,
+  private static class PreparedStatementRemovalListener implements RemovalListener<String,
       PreparedStatementContext> {
     @Override
-    public void onRemoval(RemovalNotification<PreparedStatementCacheKey, PreparedStatementContext> notification) {
+    public void onRemoval(RemovalNotification<String, PreparedStatementContext> notification) {
       try {
         AutoCloseables.close(notification.getValue());
       } catch (Throwable e) {
         // swallow
-      }
-    }
-  }
-
-  private static class PreparedStatementCacheLoader extends CacheLoader<PreparedStatementCacheKey,
-      PreparedStatementContext> {
-
-    // Owned by parent class.
-    private final PoolingDataSource<PoolableConnection> dataSource;
-
-    private PreparedStatementCacheLoader(PoolingDataSource<PoolableConnection> dataSource) {
-      this.dataSource = dataSource;
-    }
-
-    @Override
-    public PreparedStatementContext load(PreparedStatementCacheKey key) throws SQLException {
-
-      // Ownership of the connection will be passed to the context. Do NOT close!
-      final Connection connection = dataSource.getConnection();
-      try {
-        final PreparedStatement preparedStatement = connection.prepareStatement(key.getSql());
-        return new PreparedStatementContext(connection, preparedStatement);
-      } catch (SQLException e) {
-        connection.close();
-        throw e;
       }
     }
   }
