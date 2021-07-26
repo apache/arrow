@@ -45,7 +45,7 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-if [ "$DEPENDENCY_SOURCE" = "AUTO"]; then
+if [ "$DEPENDENCY_SOURCE" = "AUTO" ]; then
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     ARROW_DEPENDENCY_SOURCE="AUTO"
