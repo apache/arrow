@@ -339,16 +339,16 @@ public class TestFlightSql {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = ImmutableList.of(
           // info_name | value
-          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
-          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"),
-          asList("FLIGHT_SQL_SERVER_ARROW_VERSION", "10.14.2.0 - (1828579)"),
-          asList("FLIGHT_SQL_SERVER_READ_ONLY", "0"),
-          asList("SQL_DDL_CATALOG", "0"),
-          asList("SQL_DDL_SCHEMA", "1"),
-          asList("SQL_DDL_TABLE", "1"),
-          asList("SQL_IDENTIFIER_CASE", "UPPERCASE"),
-          asList("SQL_IDENTIFIER_QUOTE_CHAR", "\""),
-          asList("SQL_QUOTED_IDENTIFIER_CASE", "CASE_INSENSITIVE"));
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION), "10.14.2.0 - (1828579)"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY), "0"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_CATALOG), "0"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_SCHEMA), "1"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_TABLE), "1"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_CASE), "UPPERCASE"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR), "\""),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE), "CASE_INSENSITIVE"));
       final List<List<String>> results = getResults(stream);
       collector.checkThat(results, is(expected));
     }
@@ -361,7 +361,7 @@ public class TestFlightSql {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = singletonList(
           // info_name | value
-          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"));
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"));
       final List<List<String>> results = getResults(stream);
       collector.checkThat(results, is(expected));
     }
@@ -377,8 +377,8 @@ public class TestFlightSql {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = ImmutableList.of(
           // info_name | value
-          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
-          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"));
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"));
       final List<List<String>> results = getResults(stream);
       collector.checkThat(results, is(expected));
     }
@@ -395,9 +395,9 @@ public class TestFlightSql {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
       final List<List<String>> expected = ImmutableList.of(
           // info_name | value
-          asList("FLIGHT_SQL_SERVER_NAME", "Apache Derby"),
-          asList("FLIGHT_SQL_SERVER_VERSION", "10.14.2.0 - (1828579)"),
-          asList("SQL_IDENTIFIER_QUOTE_CHAR", "\""));
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME), "Apache Derby"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION), "10.14.2.0 - (1828579)"),
+          asList(Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR), "\""));
       final List<List<String>> results = getResults(stream);
       collector.checkThat(results, is(expected));
     }
