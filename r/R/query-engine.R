@@ -63,6 +63,9 @@ ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
     },
     ScalarAggregate = function(options, target_names, out_field_names) {
       ExecNode_ScalarAggregate(self, options, target_names, out_field_names)
+    },
+    GroupByAggregate = function(group_vars, target_names, aggregations) {
+      ExecNode_GroupByAggregate(self, group_vars, target_names, aggregations)
     }
   )
 )

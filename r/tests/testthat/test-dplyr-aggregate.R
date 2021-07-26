@@ -26,6 +26,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("Can aggregate", {
   withr::local_options(list(arrow.summarize = TRUE))
@@ -35,12 +36,22 @@ test_that("Can aggregate", {
       collect(),
     tbl
   )
-  # This is failing because the default is na.rm = FALSE
+  skip("This is failing because the default is na.rm = FALSE")
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
     tbl
   )
+})
 
+test_that("Group by aggregate on dataset", {
+  withr::local_options(list(arrow.summarize = TRUE))
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
 })

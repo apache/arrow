@@ -46,10 +46,6 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
 
 do_arrow_summarize <- function(.data, ...) {
-  if (length(dplyr::group_vars(.data))) {
-    stop("Grouped aggregation not supprted in Arrow", call. = FALSE)
-  }
-
   exprs <- quos(...)
   # Check for unnamed expressions and fix if any
   unnamed <- !nzchar(names(exprs))
@@ -90,20 +86,41 @@ do_arrow_summarize <- function(.data, ...) {
   .data$selected_columns <- inputs
 
   # Eventually, we will return .data here if (dataset) but do it eagerly now
-  do_exec_plan(.data)
+  do_exec_plan(.data, group_vars = dplyr::group_vars(.data))
 }
 
-do_exec_plan <- function(.data) {
+do_exec_plan <- function(.data, group_vars = NULL) {
   plan <- ExecPlan$create()
-  # Scan also will filter and select columns, so we don't need to Filter
-  start_node <- plan$Scan(.data)
-  # If any columns are derived we need to Project (otherwise this may be no-op)
-  project_node <- start_node$Project(.data$selected_columns)
 
-  final_node <- project_node$ScalarAggregate(
-    options = .data$aggregations,
-    target_names = names(.data),
-    out_field_names = names(.data$aggregations)
-  )
+  if (length(group_vars) == 0) {
+    # Scan also will filter and select columns, so we don't need to Filter
+    start_node <- plan$Scan(.data)
+    # If any columns are derived we need to Project (otherwise this may be no-op)
+    project_node <- start_node$Project(.data$selected_columns)
+    final_node <- project_node$ScalarAggregate(
+      options = .data$aggregations,
+      target_names = names(.data),
+      out_field_names = names(.data$aggregations)
+    )
+  } else {
+    # Collect the target names first because we have to add back the group vars
+    target_names <- names(.data)
+    .data <- ensure_group_vars(.data)
+
+    # We also need to prefix all of the aggregation function names with "hash_"
+    .data$aggregations <- lapply(.data$aggregations, function(x) {
+      x[["fun"]] <- paste0("hash_", x[["fun"]])
+      x
+    })
+    # Scan also will filter and select columns, so we don't need to Filter
+    start_node <- plan$Scan(.data)
+    # If any columns are derived we need to Project (otherwise this may be no-op)
+    project_node <- start_node$Project(.data$selected_columns)
+    final_node <- project_node$GroupByAggregate(
+      group_vars,
+      target_names = target_names,
+      aggregations = .data$aggregations
+    )
+  }
   plan$Run(final_node)
 }

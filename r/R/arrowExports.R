@@ -304,6 +304,10 @@ ExecNode_ScalarAggregate <- function(input, options, target_names, out_field_nam
     .Call(`_arrow_ExecNode_ScalarAggregate`, input, options, target_names, out_field_names)
 }
 
+ExecNode_GroupByAggregate <- function(input, group_vars, agg_srcs, aggregations){
+    .Call(`_arrow_ExecNode_GroupByAggregate`, input, group_vars, agg_srcs, aggregations)
+}
+
 RecordBatch__cast <- function(batch, schema, options){
     .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }

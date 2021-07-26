@@ -19,14 +19,14 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <iostream>
-
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/table.h>
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
+
+#include <iostream>
 
 namespace compute = ::arrow::compute;
 
@@ -94,8 +94,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   }
 
   options->projection =
-      ValueOrStop(call("project", std::move(exprs),
-                       compute::ProjectOptions{std::move(materialized_field_names)})
+      ValueOrStop(call("make_struct", std::move(exprs),
+                       compute::MakeStructOptions{std::move(materialized_field_names)})
                       .Bind(*dataset->schema()));
 
   return ExecNodeOrStop(arrow::dataset::MakeScanNode(plan.get(), dataset, options));
@@ -150,4 +150,28 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
       std::move(out_field_names)));
 }
 
+// [[arrow::export]]
+std::shared_ptr<compute::ExecNode> ExecNode_GroupByAggregate(
+    const std::shared_ptr<compute::ExecNode>& input, std::vector<std::string> group_vars,
+    std::vector<std::string> agg_srcs, cpp11::list aggregations) {
+  std::vector<arrow::compute::internal::Aggregate> aggs;
+  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
+
+  for (cpp11::list name_opts : aggregations) {
+    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
+    auto opts = make_compute_options(name, name_opts[1]);
+
+    aggs.push_back(arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+    keep_alives.push_back(std::move(opts));
+  }
+
+  return ExecNodeOrStop(compute::MakeGroupByNode(input.get(), /*label=*/"group_agg",
+                                                 /*keys=*/std::move(group_vars),
+                                                 std::move(agg_srcs), std::move(aggs)));
+}
+
+// Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
+//                                   std::vector<std::string> keys,
+//                                   std::vector<std::string> agg_srcs,
+//                                   std::vector<internal::Aggregate> aggs);
 #endif

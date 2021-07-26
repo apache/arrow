@@ -1192,6 +1192,24 @@ extern "C" SEXP _arrow_ExecNode_ScalarAggregate(SEXP input_sexp, SEXP options_se
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::ExecNode> ExecNode_GroupByAggregate(const std::shared_ptr<compute::ExecNode>& input, std::vector<std::string> group_vars, std::vector<std::string> agg_srcs, cpp11::list aggregations);
+extern "C" SEXP _arrow_ExecNode_GroupByAggregate(SEXP input_sexp, SEXP group_vars_sexp, SEXP agg_srcs_sexp, SEXP aggregations_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<std::vector<std::string>>::type group_vars(group_vars_sexp);
+	arrow::r::Input<std::vector<std::string>>::type agg_srcs(agg_srcs_sexp);
+	arrow::r::Input<cpp11::list>::type aggregations(aggregations_sexp);
+	return cpp11::as_sexp(ExecNode_GroupByAggregate(input, group_vars, agg_srcs, aggregations));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_GroupByAggregate(SEXP input_sexp, SEXP group_vars_sexp, SEXP agg_srcs_sexp, SEXP aggregations_sexp){
+	Rf_error("Cannot call ExecNode_GroupByAggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -7132,6 +7150,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_ScalarAggregate", (DL_FUNC) &_arrow_ExecNode_ScalarAggregate, 4}, 
+		{ "_arrow_ExecNode_GroupByAggregate", (DL_FUNC) &_arrow_ExecNode_GroupByAggregate, 4}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
