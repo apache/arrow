@@ -1347,6 +1347,11 @@ def test_cast():
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 
+    arr = pa.array([[1, 2], [3, 4, 5]], type=pa.large_list(pa.int8()))
+    expected = pa.array([["1", "2"], ["3", "4", "5"]],
+                        type=pa.list_(pa.utf8()))
+    assert pc.cast(arr, expected.type) == expected
+
 
 def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
