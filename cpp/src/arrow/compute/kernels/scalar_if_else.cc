@@ -1468,7 +1468,7 @@ static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& bat
   std::unique_ptr<ArrayBuilder> raw_builder;
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
-  reserve_data(raw_builder.get());
+  RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
   for (int64_t row = 0; row < batch.length; row++) {
     int64_t selected = have_else_arg ? batch.values.size() - 1 : -1;
@@ -1653,8 +1653,8 @@ struct GetAppenders {
       auto data = array->GetValues<uint8_t>(2, 0);
       for (int64_t i = 0; i < length; i++) {
         if (!bitmap || BitUtil::GetBit(bitmap, offset + i)) {
-          const int32_t start = offsets[offset + i];
-          const int32_t end = offsets[offset + i + 1];
+          const offset_type start = offsets[offset + i];
+          const offset_type end = offsets[offset + i + 1];
           RETURN_NOT_OK(builder->Append(data + start, end - start));
         } else {
           RETURN_NOT_OK(builder->AppendNull());
