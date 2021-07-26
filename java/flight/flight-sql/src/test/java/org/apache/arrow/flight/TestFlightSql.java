@@ -540,8 +540,13 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testExecuteUpdate() throws Exception {
-    final long result = sqlClient.executeUpdate("INSERT INTO INTTABLE (keyName, value) VALUES ('KEYNAME', 123)");
-    collector.checkThat(result, is(1L));
+  public void testExecuteUpdate() {
+    long insertedCount = sqlClient.executeUpdate("INSERT INTO INTTABLE (keyName, value) VALUES " +
+        "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)");
+    collector.checkThat(insertedCount, is(3L));
+
+    long updatedCount = sqlClient.executeUpdate("UPDATE INTTABLE SET keyName = 'KEYNAME1'");
+    long deletedCount = sqlClient.executeUpdate("DELETE FROM INTTABLE WHERE keyName = 'KEYNAME1'");
+    collector.checkThat(deletedCount, is(updatedCount));
   }
 }
