@@ -28,12 +28,11 @@ fi
 
 source_dir=${1}
 
-: ${ARROW_S3:=ON}
 : ${ARROW_FLIGHT:=ON}
-: ${INSTALL_PYARROW:=ON}
-: ${INSTALL_DEPENDENCIES:=ON}
+: ${ARROW_S3:=ON}
 : ${CHECK_IMPORTS:=ON}
 : ${CHECK_UNITTESTS:=ON}
+: ${INSTALL_PYARROW:=ON}
 
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
@@ -78,9 +77,7 @@ fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  if [ "${INSTALL_DEPENDENCIES}" == "ON" ]; then
-    pip install -r ${source_dir}/python/requirements-wheel-test.txt
-  fi
+  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   pytest -r s --pyargs pyarrow
