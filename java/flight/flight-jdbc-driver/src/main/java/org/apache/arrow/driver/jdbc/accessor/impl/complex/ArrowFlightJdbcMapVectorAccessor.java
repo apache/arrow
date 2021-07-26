@@ -43,7 +43,9 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
   @Override
   public Object getObject() {
     int index = getCurrentRow();
-    if (this.wasNull = vector.isNull(index)) {
+
+    this.wasNull = vector.isNull(index);
+    if (this.wasNull) {
       return null;
     }
 
