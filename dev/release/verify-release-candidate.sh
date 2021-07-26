@@ -597,15 +597,17 @@ test_macos_wheels() {
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 
+  local check_s3=ON
+  local check_flight=ON
+
   # macOS version <= 10.13
   if [ $(echo "${macos_short_version}\n10.14" | sort -V | head -n1) == "${macos_short_version}" ]; then
     local check_s3=OFF
-  else
-    local check_s3=ON
   fi
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local py_arches="3.9"
+    local check_flight=OFF
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -617,7 +619,8 @@ test_macos_wheels() {
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    INSTALL_PYARROW=OFF ARROW_S3=${check_s3} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+    INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+     ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
@@ -641,8 +644,10 @@ test_macos_wheels() {
           --platform macosx_11_0_universal2 \
           --only-binary=:all: \
           pyarrow==${VERSION}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=OFF arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=OFF arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+        arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+        arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
       deactivate
     done
