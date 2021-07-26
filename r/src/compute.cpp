@@ -296,19 +296,6 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
         cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
-  if (func_name == "strftime") {
-    using Options = arrow::compute::StrftimeOptions;
-    std::string format = "%Y-%m-%dT%H:%M:%SZ";
-    std::string locale = "C";
-    if (!Rf_isNull(options["format"])) {
-      format = cpp11::as_cpp<std::string>(options["format"]);
-    }
-    if (!Rf_isNull(options["locale"])) {
-      locale = cpp11::as_cpp<std::string>(options["locale"]);
-    }
-    return std::make_shared<Options>(Options(format, locale));
-  }
-
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
     using Options = arrow::compute::SplitPatternOptions;
     int64_t max_splits = -1;

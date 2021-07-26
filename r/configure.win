@@ -44,7 +44,7 @@ else
   RWINLIB="../windows/$(ls windows/ | grep ^arrow- | tail -n 1)"
 fi
 OPENSSL_LIBS="-lcrypto -lcrypt32"
-MIMALLOC_LIBS="-lbcrypt -lpsapi -lole32"
+MIMALLOC_LIBS="-lbcrypt -lpsapi"
 AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 
 # NOTE: If you make changes to the libraries below, you should also change
