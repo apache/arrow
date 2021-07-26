@@ -633,7 +633,6 @@ test_macos_wheels() {
       local pyver=${py_arch//m/}
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
-
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
         local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"

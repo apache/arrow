@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate macOS {{ artifact }}"
-    runs-on: macos-latest
+    runs-on: {{ github_runner|default("macos-latest") }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}

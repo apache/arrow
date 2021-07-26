@@ -729,15 +729,6 @@ tasks:
 {% endfor %}
 
 {% for platform in ["linux", "macos"] %}
-
-  verify-rc-wheels-{{ platform }}:
-    ci: github
-    template: verify-rc/github.{{ platform }}.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
-
   {% for target in ["cpp",
                     "csharp",
                     "go",
@@ -756,10 +747,43 @@ tasks:
         TEST_DEFAULT: 0
         TEST_{{ target|upper }}: 1
       artifact: "source"
-
   {% endfor %}
-
 {% endfor %}
+
+  verify-rc-wheels-linux:
+    ci: github
+    template: verify-rc/github.linux.yml
+    params:
+      env:
+        TEST_DEFAULT: 0
+      artifact: "wheels"
+
+  verify-rc-wheels-macos-10.15:
+    ci: github
+    template: verify-rc/github.osx.yml
+    params:
+      github_runner: "macos-10.15"
+      env:
+        TEST_DEFAULT: 0
+      artifact: "wheels"
+
+  verify-rc-wheels-macos-11-amd64:
+    ci: github
+    template: verify-rc/github.osx.yml
+    params:
+      github_runner: "macos-11"
+      env:
+        TEST_DEFAULT: 0
+      artifact: "wheels"
+
+  verify-rc-wheels-macos-11-arm64:
+    ci: github
+    template: verify-rc/github.osx.yml
+    params:
+      github_runner: "self-hosted"
+      env:
+        TEST_DEFAULT: 0
+      artifact: "wheels"
 
   verify-rc-source-windows:
     ci: github
