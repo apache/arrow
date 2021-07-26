@@ -46,5 +46,3 @@ jobs:
           arch -{{ arch_emulation|default("arm64") }} arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
             {{ release|default("1.0.0") }} {{ rc|default("0") }}
-
-
