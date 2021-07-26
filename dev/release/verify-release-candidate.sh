@@ -634,7 +634,7 @@ test_macos_wheels() {
     local py_arches="3.6m 3.7m 3.8 3.9"
   fi
 
-  # verify arch-native wheels inside a conda environment
+  # verify arch-native wheels inside an arch-native conda environment
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
@@ -653,7 +653,28 @@ test_macos_wheels() {
     conda deactivate
   done
 
-  # verify universal2 wheels
+  # verify arm64 and universal2 wheels with an universal2 python binary
+  for py_arch in ${py_arches}; do
+    local pyver=${py_arch//m/}
+    local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
+    local venv="${ARROW_TMPDIR}/test-virtualenv"
+
+    # create a virtualenv
+    $python -m virtualenv $venv
+    source $venv/bin/activate
+    pip install -U pip
+
+    # check the mandatory and optional imports
+    pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
+    check_python_imports
+
+    # install test requirements and execute the tests
+    pip install -r ${ARROW_DIR}/python/requirements-test.txt
+    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
+    pytest --pyargs pyarrow
+
+    deactivate
+  done
 }
 
 test_wheels() {
