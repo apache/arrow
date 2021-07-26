@@ -85,9 +85,9 @@ struct ValidateArrayImpl {
 
     int64_t expected_values_length = -1;
     if (MultiplyWithOverflow(data.length, list_size, &expected_values_length) ||
-        values.length != expected_values_length) {
+        values.length < expected_values_length) {
       return Status::Invalid("Values length (", values.length,
-                             ") is not equal to the length (", data.length,
+                             ") is less than the length (", data.length,
                              ") multiplied by the value size (", list_size, ")");
     }
 
