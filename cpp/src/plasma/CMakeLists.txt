@@ -161,8 +161,6 @@ install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL}
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support
-  set(JAVA_AWT_INCLUDE_PATH NotNeeded
-  )# We don't care about Java AWT, only about JNI functionality.
   find_package(JNI REQUIRED)
   # add jni support
   include_directories(${JAVA_INCLUDE_PATH})
