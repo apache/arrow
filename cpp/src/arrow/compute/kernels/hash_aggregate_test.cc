@@ -782,6 +782,36 @@ TEST(GroupBy, VarianceAndStddev) {
   ])"),
                           aggregated_and_grouped,
                           /*verbose=*/true);
+
+  // Test ddof
+  VarianceOptions variance_options(/*ddof=*/2);
+  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("argument"),
+                           },
+                           {
+                               batch->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_variance", &variance_options},
+                               {"hash_stddev", &variance_options},
+                           }));
+
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_variance", float64()),
+                                            field("hash_stddev", float64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
+    [null,                null,               1],
+    [0.6666666666666667,  0.816496580927726,  2],
+    [null,                null,               3],
+    [null,                null,               null]
+  ])"),
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
 }
 
 TEST(GroupBy, MinMaxOnly) {

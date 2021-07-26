@@ -919,6 +919,8 @@ struct GroupedSumImpl : public GroupedAggregator {
     auto sums = reinterpret_cast<SumType*>(sums_.mutable_data());
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
 
+    // XXX this uses naive summation; we should switch to pairwise summation as was
+    // done for the scalar aggregate kernel in ARROW-11758
     auto g = batch[1].array()->GetValues<uint32_t>(1);
     VisitArrayDataInline<Type>(
         *batch[0].array(),
@@ -1024,7 +1026,7 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
     double* means = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups_; ++i) {
       if (counts[i] > 0) {
-        means[i] = static_cast<double>(sums[i] / counts[i]);
+        means[i] = static_cast<double>(sums[i]) / counts[i];
         continue;
       }
       means[i] = 0;
@@ -1308,11 +1310,11 @@ struct GroupedVarStdFactory {
   }
 
   Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing variance/stddev of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing variance/stddev of data of type ", type);
   }
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
