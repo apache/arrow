@@ -400,9 +400,9 @@ tasks:
       arch: universal2
       vcpkg_version: "2021.04.30"
       python_version: "3.9"
-      macos_deployment_target: "11.0"
+      macos_deployment_target: "10.13"
     artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_universal2.whl
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_universal2.whl
 
 {############################ Python sdist ####################################}
 
