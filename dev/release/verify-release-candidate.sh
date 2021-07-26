@@ -572,36 +572,6 @@ test_binary_distribution() {
   fi
 }
 
-check_python_imports() {
-   python << IMPORT_TESTS
-import platform
-
-import pyarrow
-import pyarrow._hdfs
-import pyarrow.csv
-import pyarrow.dataset
-
-import pyarrow.fs
-import pyarrow.json
-import pyarrow.orc
-import pyarrow.parquet
-import pyarrow.plasma
-
-check_s3fs = True
-check_flight = True
-
-if platform.system() == "Darwin":
-    macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
-    check_s3fs = macos_version >= (10, 13)
-    check_flight = platform.machine() != "arm64"
-
-if check_s3fs:
-    import pyarrow._s3fs
-if check_flight:
-    import pyarrow.flight
-IMPORT_TESTS
-}
-
 test_linux_wheels() {
   local py_arches="3.6m 3.7m 3.8 3.9"
   local manylinuxes="2010 2014"
@@ -615,23 +585,28 @@ test_linux_wheels() {
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
-      check_python_imports
-
-      # install test requirements and execute the tests
-      pip install -r ${ARROW_DIR}/python/requirements-test.txt
-      python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-      pytest --pyargs pyarrow
+      INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
     done
 
     conda deactivate
   done
 }
 
+# macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
+# check_s3fs = macos_version >= (10, 13)
+
 test_macos_wheels() {
+  local py_arches="3.6m 3.7m 3.8 3.9"
+  local ARROW_S3=ON
+  local ARROW_FLIGHT=ON
+  local INSTALL_PYARROW=OFF  # used in python_wheel_unix_test.sh
+
   if [ "$(uname -m)" = "arm64" ]; then
     local py_arches="3.9"
-  else
-    local py_arches="3.6m 3.7m 3.8 3.9"
+    local ARROW_FLIGHT=OFF
+  fi
+  if [[ "$(sw_vers -productVersion)" == 10.13* ]]; then
+    local ARROW_S3=OFF
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -643,12 +618,7 @@ test_macos_wheels() {
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    check_python_imports
-
-    # install test requirements and execute the tests
-    pip install -r ${ARROW_DIR}/python/requirements-test.txt
-    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-    pytest --pyargs pyarrow
+    ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
@@ -665,15 +635,14 @@ test_macos_wheels() {
     pip install -U pip
 
     # check the mandatory and optional imports
-    pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    arch -arm64 check_python_imports
-    arch -x86_64 check_python_imports
-
-    # install test requirements and execute the tests
-    pip install -r ${ARROW_DIR}/python/requirements-test.txt
-    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-    arch -arm64 pytest --pyargs pyarrow
-    arch -x86_64 pytest --pyargs pyarrow
+    pip install \
+        --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
+        --target $(python -c 'import site; print(site.getsitepackages()[0])') \
+        --platform macosx_11_0_universal2 \
+        --only-binary=:all: \
+        pyarrow==${VERSION}
+    arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+    arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     deactivate
   done
