@@ -740,7 +740,7 @@ tasks:
                     "python",
                     "ruby"] %}
 
-  verify-rc-source-{{ platform }}-{{ target }}-{{ arch }}:
+  verify-rc-source-{{ target }}-{{ platform }}-{{ arch }}:
     ci: github
     template: verify-rc/github.{{ platform }}.{{ arch }}.yml
     params:
