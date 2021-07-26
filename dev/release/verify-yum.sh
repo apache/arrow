@@ -34,13 +34,11 @@ TYPE="$2"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
-artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/centos"
-if [ "${TYPE}" = "rc" ]; then
-  artifactory_base_url+="-rc"
-fi
+artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}")
+distribution_prefix="centos"
 
 cmake_package=cmake
 cmake_command=cmake
@@ -50,6 +48,7 @@ have_glib=yes
 have_parquet=yes
 have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
+
 case "${distribution}-${distribution_version}" in
   amzn-2)
     cmake_package=cmake3
@@ -58,6 +57,8 @@ case "${distribution}-${distribution_version}" in
     have_gandiva=no
     have_python=no
     install_command="yum install -y"
+    distribution_prefix="amazon-linux"
+    amazon-linux-extras install epel -y
     ;;
   centos-7)
     cmake_package=cmake3
@@ -101,8 +102,11 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
+  if [ "${TYPE}" = "rc" ]; then
+    distribution_prefix+="-rc"
+  fi
   ${install_command} \
-    ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -119,6 +123,7 @@ else
     sed \
       -i"" \
       -e "s,/centos/,/centos-rc/,g" \
+      -e "s,/amazon-linux/,/amazon-linux-rc/,g" \
       /etc/yum.repos.d/Apache-Arrow.repo
   fi
 fi
