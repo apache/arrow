@@ -8,10 +8,10 @@ vignette: >
 ---
 
 Apache Arrow lets you work efficiently with large, multi-file datasets.
-The __arrow__ R package provides a __dplyr__ interface to Arrow Datasets,
+The arrow R package provides a [dplyr](https://dplyr.tidyverse.org/) interface to Arrow Datasets,
 and other tools for interactive exploration of Arrow data.
 
-This vignette introduces Datasets and shows how to use __dplyr__ to analyze them.
+This vignette introduces Datasets and shows how to use dplyr to analyze them.
 It describes both what is possible to do with Arrow now
 and what is on the immediate development roadmap.
 
@@ -30,7 +30,7 @@ In Windows (for R > 3.6) and macOS binary packages, S3 support is included.
 On Linux, when installing from source, S3 support is not enabled by default,
 and it has additional system requirements.
 See `vignette("install", package = "arrow")` for details.
-To see if your __arrow__ installation has S3 support, run:
+To see if your arrow installation has S3 support, run:
 
 ```{r}
 arrow::arrow_with_s3()
@@ -43,13 +43,13 @@ directory.
 
 ### Retrieving data from a public Amazon S3 bucket
 
-If your __arrow__ build has S3 support, you can sync the data locally with:
+If your arrow build has S3 support, you can sync the data locally with:
 
 ```{r, eval = FALSE}
 arrow::copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
 ```
 
-If your __arrow__ build doesn't have S3 support, you can download the files
+If your arrow build doesn't have S3 support, you can download the files
 with some additional code:
 
 ```{r, eval = FALSE}
@@ -87,9 +87,9 @@ dir.exists("nyc-taxi")
 
 ## Opening the dataset
 
-Because __dplyr__ is not necessary for many Arrow workflows,
+Because dplyr is not necessary for many Arrow workflows,
 it is an optional (`Suggests`) dependency. So, to work with Datasets,
-you need to load both __arrow__ and __dplyr__.
+you need to load both arrow and dplyr.
 
 ```{r}
 library(arrow, warn.conflicts = FALSE)
@@ -166,7 +166,7 @@ See $metadata for additional Schema metadata
 
 The other form of partitioning currently supported is [Hive](https://hive.apache.org/)-style,
 in which the partition variable names are included in the path segments.
-If you had saved your files in paths like
+If you had saved your files in paths like:
 
 ```
 year=2009/month=01/data.parquet
@@ -185,16 +185,16 @@ files, you've parsed file paths to identify partitions, and you've read the
 headers of the Parquet files to inspect their schemas so that you can make sure
 they all are as expected.
 
-In the current release, __arrow__ supports the dplyr verbs `mutate()`, 
+In the current release, arrow supports the dplyr verbs `mutate()`, 
 `transmute()`, `select()`, `rename()`, `relocate()`, `filter()`, and 
 `arrange()`. Aggregation is not yet supported, so before you call `summarise()`
 or other verbs with aggregate functions, use `collect()` to pull the selected
 subset of the data into an in-memory R data frame.
 
-Suppose you attempt to call unsupported __dplyr__ verbs or unimplemented functions
-in your query on an Arrow Dataset. In that case, the __arrow__ package raises an error. However,
-for __dplyr__ queries on `Table` objects (typically smaller in size than Datasets), the
-package automatically calls `collect()` before processing that __dplyr__ verb.
+Suppose you attempt to call unsupported dplyr verbs or unimplemented functions
+in your query on an Arrow Dataset. In that case, the arrow package raises an error. However,
+for dplyr queries on `Table` objects (typically smaller in size than Datasets), the
+package automatically calls `collect()` before processing that dplyr verb.
 
 Here's an example. Suppose that you are curious about tipping behavior among the
 longest taxi rides. Let's find the median tip percentage for rides with
