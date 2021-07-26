@@ -1580,7 +1580,8 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
         [](ArrayBuilder* raw_builder, const Scalar& raw_scalar) {
           const auto& scalar = checked_cast<const BaseBinaryScalar&>(raw_scalar);
           return checked_cast<BuilderType*>(raw_builder)
-              ->Append(scalar.value->data(), scalar.value->size());
+              ->Append(scalar.value->data(),
+                       static_cast<offset_type>(scalar.value->size()));
         },
         // AppendArray
         [](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
