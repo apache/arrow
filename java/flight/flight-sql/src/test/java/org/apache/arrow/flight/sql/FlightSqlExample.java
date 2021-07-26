@@ -544,7 +544,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     checkNotNull(metaData, "metaData cannot be null!");
     checkNotNull(allocator, "allocator cannot be null!");
     checkNotNull(requestedInfo, "requestedInfo cannot be null!");
-    final VarCharVector infoNameVector = new VarCharVector("info_name", allocator);
+    final IntVector infoNameVector = new IntVector("info_name", allocator);
     final DenseUnionVector valueVector = DenseUnionVector.empty("value", allocator);
     valueVector.initializeChildrenFromFields(
         ImmutableList.of(
@@ -559,48 +559,39 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
       final int currentInfo = checkNotNull(requestedInfo[index], "Required info cannot be nulL!");
+      saveToVector(currentInfo, infoNameVector, index);
       switch (currentInfo) {
         case SqlInfo.FLIGHT_SQL_SERVER_NAME:
-          saveToVector("FLIGHT_SQL_SERVER_NAME", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDatabaseProductName(), valueVector, index);
           break;
         case SqlInfo.FLIGHT_SQL_SERVER_VERSION:
-          saveToVector("FLIGHT_SQL_SERVER_VERSION", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDatabaseProductVersion(), valueVector, index);
           break;
         case SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION:
-          saveToVector("FLIGHT_SQL_SERVER_ARROW_VERSION", infoNameVector, index);
           saveToVector(stringValueId, metaData.getDriverVersion(), valueVector, index);
           break;
         case SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY:
-          saveToVector("FLIGHT_SQL_SERVER_READ_ONLY", infoNameVector, index);
           saveToVector(intValueId, metaData.isReadOnly() ? 1 : 0, valueVector, index);
           break;
         case SqlInfo.SQL_DDL_CATALOG:
-          saveToVector("SQL_DDL_CATALOG", infoNameVector, index);
           saveToVector(intValueId, metaData.supportsCatalogsInDataManipulation() ? 1 : 0, valueVector, index);
           break;
         case SqlInfo.SQL_DDL_SCHEMA:
-          saveToVector("SQL_DDL_SCHEMA", infoNameVector, index);
           saveToVector(intValueId, metaData.supportsSchemasInDataManipulation() ? 1 : 0, valueVector, index);
           break;
         case SqlInfo.SQL_DDL_TABLE:
-          saveToVector("SQL_DDL_TABLE", infoNameVector, index);
           saveToVector(intValueId, metaData.allTablesAreSelectable() ? 1 : 0, valueVector, index);
           break;
         case SqlInfo.SQL_IDENTIFIER_CASE:
-          saveToVector("SQL_IDENTIFIER_CASE", infoNameVector, index);
           saveToVector(
               stringValueId, metaData.storesMixedCaseIdentifiers() ? "CASE_INSENSITIVE" :
                   metaData.storesUpperCaseIdentifiers() ? "UPPERCASE" :
                       metaData.storesLowerCaseIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
           break;
         case SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR:
-          saveToVector("SQL_IDENTIFIER_QUOTE_CHAR", infoNameVector, index);
           saveToVector(stringValueId, metaData.getIdentifierQuoteString(), valueVector, index);
           break;
         case SqlInfo.SQL_QUOTED_IDENTIFIER_CASE:
-          saveToVector("SQL_QUOTED_IDENTIFIER_CASE", infoNameVector, index);
           saveToVector(stringValueId, metaData.storesMixedCaseQuotedIdentifiers() ? "CASE_INSENSITIVE" :
               metaData.storesUpperCaseQuotedIdentifiers() ? "UPPERCASE" :
                   metaData.storesLowerCaseQuotedIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
