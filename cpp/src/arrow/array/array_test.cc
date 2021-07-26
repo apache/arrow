@@ -490,7 +490,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 }
 
-TEST_F(TestArray, TestSlice) {
+TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
 

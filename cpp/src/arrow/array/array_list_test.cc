@@ -1084,7 +1084,7 @@ TEST_F(TestFixedSizeListArray, BulkAppend) {
   ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
 }
 
-TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
+TEST_F(TestFixedSizeListArray, BulkAppendExcess) {
   std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
   std::vector<uint8_t> is_valid = {1, 0, 1};
 
