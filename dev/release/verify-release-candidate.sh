@@ -632,26 +632,28 @@ test_macos_wheels() {
     for py_arch in ${py_arches}; do
       local pyver=${py_arch//m/}
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-      local venv="${ARROW_TMPDIR}/test-virtualenv"
 
-      # create and activate a virtualenv
-      $python -m virtualenv $venv
-      source $venv/bin/activate
-      pip install -U pip
 
-      # check the mandatory and optional imports
-      pip install \
-          --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
-          --target $(python -c 'import site; print(site.getsitepackages()[0])') \
-          --platform macosx_11_0_universal2 \
-          --only-binary=:all: \
-          pyarrow==${VERSION}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-        arch -arm64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-        arch -x86_64 ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      # create and activate a virtualenv for testing as arm64
+      for arch in "arm64 x86_64"; do
+        local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"
+        $python -m virtualenv $venv
+        source $venv/bin/activate
+        pip install -U pip
 
-      deactivate
+        # install pyarrow's universal2 wheel
+        pip install \
+            --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
+            --target $(python -c 'import site; print(site.getsitepackages()[0])') \
+            --platform macosx_11_0_universal2 \
+            --only-binary=:all: \
+            pyarrow==${VERSION}
+        # check the imports and execute the unittests
+        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+
+        deactivate
+      done
     done
   fi
 }
