@@ -193,7 +193,7 @@ subset of the data into an in-memory R data frame.
 
 Suppose you attempt to call unsupported dplyr verbs or unimplemented functions
 in your query on an Arrow Dataset. In that case, the arrow package raises an error. However,
-for dplyr queries on `Table` objects (typically smaller in size than Datasets), the
+for dplyr queries on Arrow Table objects (typically smaller in size than Arrow Datasets), the
 package automatically calls `collect()` before processing that dplyr verb.
 
 Here's an example. Suppose that you are curious about tipping behavior among the
@@ -335,7 +335,7 @@ Sometimes you might start with one giant CSV. The first step in analyzing data
 is cleaning is up and reshaping it into a more usable form.
 
 The `write_dataset()` function allows you to take a Dataset or another tabular 
-data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write
+data object - an Arrow Table or RecordBatch, or an R data frame - and write
 it to a different file format, partitioned into multiple files.
 
 Assume that you have a version of the NYC Taxi data as CSV:
