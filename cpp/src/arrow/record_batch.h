@@ -85,8 +85,7 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
 
-  // \return the table's schema
-  /// \return true if batches are equal
+  /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Retrieve all columns at once
