@@ -659,7 +659,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final ResultSet resultSet =
           commandExecuteStatementLoadingCache.get(command.getClientExecutionHandle().toStringUtf8());
       return getFlightInfoForSchema(command, descriptor, jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (SQLException | ExecutionException e) {
+    } catch (final SQLException | ExecutionException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -1178,7 +1178,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
                                  ServerStreamListener listener) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final String handle = command.getClientExecutionHandle().toStringUtf8();
+    try (final ResultSet resultSet = checkNotNull(commandExecuteStatementLoadingCache.getIfPresent(handle));
+         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      makeListen(listener, getVectorsFromData(resultSet, allocator));
+    } catch (SQLException | IOException e) {
+      LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
+      listener.error(e);
+    } finally {
+      listener.completed();
+      commandExecutePreparedStatementLoadingCache.invalidate(handle);
+    }
   }
 
   private <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
