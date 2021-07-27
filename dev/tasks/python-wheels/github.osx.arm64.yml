@@ -139,14 +139,14 @@ jobs:
         run: |
           $PYTHON -m virtualenv crossbow-env
           source crossbow-env/bin/activate
-          arch -arm64 pip install -e arrow/dev/archery[crossbow-upload]
-          arch -arm64 archery crossbow \
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
           --queue-path $(pwd) \
           --queue-remote {{ queue_remote_url }} \
           upload-artifacts \
           --sha {{ task.branch }} \
           --tag {{ task.tag }} \
-          "arrow/python/dist/*.whl"
+          "arrow/python/repaired_wheels/*.whl"
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
