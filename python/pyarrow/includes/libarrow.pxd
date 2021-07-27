@@ -1020,6 +1020,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
         shared_ptr[CScalar] value
+        int8_t type_code
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
 

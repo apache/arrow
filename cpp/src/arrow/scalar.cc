@@ -49,6 +49,8 @@ bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) cons
   return ScalarApproxEquals(*this, other, options);
 }
 
+namespace {
+
 struct ScalarHashImpl {
   static std::hash<std::string> string_hash;
 
@@ -146,6 +148,8 @@ struct ScalarHashImpl {
 
   size_t hash_;
 };
+
+}  // namespace
 
 size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
 
@@ -285,6 +289,8 @@ std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar>
                                             std::move(type));
 }
 
+namespace {
+
 template <typename T>
 using scalar_constructor_has_arrow_type =
     std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;
@@ -310,6 +316,19 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
+  Status Visit(const SparseUnionType& type) { return MakeUnionScalar(type); }
+
+  Status Visit(const DenseUnionType& type) { return MakeUnionScalar(type); }
+
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status MakeUnionScalar(const T& type) {
+    if (type.num_fields() == 0) {
+      return Status::Invalid("Cannot make scalar of empty union type");
+    }
+    out_ = std::make_shared<ScalarType>(type.type_codes()[0], type_);
+    return Status::OK();
+  }
+
   std::shared_ptr<Scalar> Finish() && {
     // Should not fail.
     DCHECK_OK(VisitTypeInline(*type_, this));
@@ -319,6 +338,8 @@ struct MakeNullImpl {
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> out_;
 };
+
+}  // namespace
 
 std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
   return MakeNullImpl{std::move(type), nullptr}.Finish();

@@ -23,7 +23,7 @@ class TestDenseUnionScalar < Test::Unit::TestCase
     ]
     @data_type = Arrow::DenseUnionDataType.new(fields, [2, 9])
     @value = Arrow::Int8Scalar.new(-29)
-    @scalar = Arrow::DenseUnionScalar.new(@data_type, @value)
+    @scalar = Arrow::DenseUnionScalar.new(@data_type, 2, @value)
   end
 
   def test_data_type
@@ -38,7 +38,7 @@ class TestDenseUnionScalar < Test::Unit::TestCase
   end
 
   def test_equal
-    assert_equal(Arrow::DenseUnionScalar.new(@data_type, @value),
+    assert_equal(Arrow::DenseUnionScalar.new(@data_type, 2, @value),
                  @scalar)
   end
 

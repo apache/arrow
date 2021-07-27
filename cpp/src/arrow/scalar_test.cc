@@ -930,117 +930,134 @@ TEST(TestDictionaryScalar, Cast) {
   }
 }
 
-TEST(TestSparseUnionScalar, Basics) {
-  auto ty = sparse_union({field("string", utf8()), field("number", uint64())});
+void CheckGetValidUnionScalar(const Array& arr, int64_t index, const Scalar& expected,
+                              const Scalar& expected_value) {
+  ASSERT_OK_AND_ASSIGN(auto scalar, arr.GetScalar(index));
+  ASSERT_TRUE(scalar->Equals(expected));
 
-  auto alpha = MakeScalar("alpha");
-  auto beta = MakeScalar("beta");
-  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
-
-  auto scalar_alpha = SparseUnionScalar(alpha, ty);
-  auto scalar_beta = SparseUnionScalar(beta, ty);
-  auto scalar_two = SparseUnionScalar(two, ty);
-
-  // test Array.GetScalar
-  std::vector<std::shared_ptr<Array>> children{
-      ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
-      ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
-  SparseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
-  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
-  ASSERT_TRUE(first->Equals(scalar_alpha));
-
-  const auto& first_as_union = checked_cast<const SparseUnionScalar&>(*first);
-  ASSERT_TRUE(first_as_union.is_valid);
-  ASSERT_TRUE(first_as_union.value->Equals(alpha));
-
-  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
-  ASSERT_TRUE(second->Equals(scalar_two));
-
-  const auto& second_as_union = checked_cast<const SparseUnionScalar&>(*second);
-  ASSERT_TRUE(second_as_union.is_valid);
-  ASSERT_TRUE(second_as_union.value->Equals(two));
-
-  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
-  ASSERT_TRUE(third->Equals(scalar_beta));
-
-  const auto& third_as_union = checked_cast<const SparseUnionScalar&>(*third);
-  ASSERT_TRUE(third_as_union.is_valid);
-  ASSERT_TRUE(third_as_union.value->Equals(beta));
-
-  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
-  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
-
-  const auto& fourth_as_union = checked_cast<const SparseUnionScalar&>(*fourth);
-  ASSERT_FALSE(fourth_as_union.is_valid);
-
-  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
-  ASSERT_TRUE(fifth->Equals(MakeNullScalar(ty)));
-
-  const auto& fifth_as_union = checked_cast<const SparseUnionScalar&>(*fifth);
-  ASSERT_FALSE(fifth_as_union.is_valid);
+  const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
+  ASSERT_TRUE(as_union.is_valid);
+  ASSERT_TRUE(as_union.value->Equals(expected_value));
 }
 
-TEST(TestDenseUnionScalar, Basics) {
-  auto ty = dense_union({field("string", utf8()), field("number", uint64())});
+void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
+  ASSERT_OK_AND_ASSIGN(auto scalar, arr.GetScalar(index));
+  ASSERT_TRUE(scalar->Equals(MakeNullScalar(arr.type())));
 
-  auto alpha = MakeScalar("alpha");
-  auto beta = MakeScalar("beta");
-  ASSERT_OK_AND_ASSIGN(auto two, MakeScalar(uint64(), 2));
-  ASSERT_OK_AND_ASSIGN(auto three, MakeScalar(uint64(), 3));
+  const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
+  ASSERT_FALSE(as_union.is_valid);
+  // XXX in reality, the union array doesn't have a validity bitmap.
+  // Validity is inferred from the underlying child value, which should maybe
+  // be reflected here...
+  ASSERT_EQ(as_union.value, nullptr);
+}
 
-  auto scalar_alpha = DenseUnionScalar(alpha, ty);
-  auto scalar_beta = DenseUnionScalar(beta, ty);
-  auto scalar_two = DenseUnionScalar(two, ty);
-  auto scalar_three = DenseUnionScalar(three, ty);
+template <typename Type>
+class TestUnionScalar : public ::testing::Test {
+ public:
+  using UnionType = Type;
+  using ScalarType = typename TypeTraits<UnionType>::ScalarType;
 
-  // test Array.GetScalar
-  std::vector<std::shared_ptr<Array>> children = {
-      ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
-      ArrayFromJSON(uint64(), "[2, 3]")};
+  void SetUp() {
+    type_.reset(new UnionType({field("string", utf8()), field("number", uint64()),
+                               field("other_number", uint64())},
+                              /*type_codes=*/{3, 42, 43}));
+    alpha_ = MakeScalar("alpha");
+    beta_ = MakeScalar("beta");
+    ASSERT_OK_AND_ASSIGN(two_, MakeScalar(uint64(), 2));
+    ASSERT_OK_AND_ASSIGN(three_, MakeScalar(uint64(), 3));
 
-  auto type_ids = ArrayFromJSON(int8(), "[0, 1, 0, 0, 1]");
+    union_alpha_ = std::make_shared<ScalarType>(alpha_, 3, type_);
+    union_beta_ = std::make_shared<ScalarType>(beta_, 3, type_);
+    union_two_ = std::make_shared<ScalarType>(two_, 42, type_);
+    union_other_two_ = std::make_shared<ScalarType>(two_, 43, type_);
+    union_three_ = std::make_shared<ScalarType>(three_, 42, type_);
+    union_string_null_ = MakeSpecificNullScalar(3);
+    union_number_null_ = MakeSpecificNullScalar(42);
+  }
+
+  void TestEquals() {
+    // Differing values
+    ASSERT_FALSE(union_alpha_->Equals(union_beta_));
+    ASSERT_FALSE(union_two_->Equals(union_three_));
+    // Differing validities
+    ASSERT_FALSE(union_alpha_->Equals(union_string_null_));
+    // Differing types
+    ASSERT_FALSE(union_alpha_->Equals(union_two_));
+    ASSERT_FALSE(union_alpha_->Equals(union_other_two_));
+    // Type codes don't count when comparing union scalars: the underlying values
+    // are identical even though their provenance is different.
+    ASSERT_TRUE(union_two_->Equals(union_other_two_));
+    ASSERT_TRUE(union_string_null_->Equals(union_number_null_));
+  }
+
+  void TestMakeNullScalar() {
+    const auto scalar = MakeNullScalar(type_);
+    const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
+    AssertTypeEqual(type_, as_union.type);
+    ASSERT_FALSE(as_union.is_valid);
+    ASSERT_EQ(as_union.value, nullptr);
+    // Abstractly, the type code must be valid.
+    // Concretely, the first child field is chosen.
+    ASSERT_EQ(as_union.type_code, 3);
+  }
+
+ protected:
+  std::shared_ptr<Scalar> MakeSpecificNullScalar(int8_t type_code) {
+    auto scal = MakeNullScalar(type_);
+    checked_cast<UnionScalar*>(scal.get())->type_code = type_code;
+    return scal;
+  }
+
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Scalar> alpha_, beta_, two_, three_;
+  std::shared_ptr<Scalar> union_alpha_, union_beta_, union_two_, union_three_,
+      union_other_two_, union_string_null_, union_number_null_;
+};
+
+class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {};
+
+TEST_F(TestSparseUnionScalar, Equals) { this->TestEquals(); }
+
+TEST_F(TestSparseUnionScalar, MakeNullScalar) { this->TestMakeNullScalar(); }
+
+TEST_F(TestSparseUnionScalar, GetScalar) {
+  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
+                       ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
+                       ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
+
+  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
+  SparseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1]);
+  ASSERT_OK(arr.ValidateFull());
+
+  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(arr, 3);
+  CheckGetNullUnionScalar(arr, 4);
+}
+
+class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {};
+
+TEST_F(TestDenseUnionScalar, Equals) { this->TestEquals(); }
+
+TEST_F(TestDenseUnionScalar, MakeNullScalar) { this->TestMakeNullScalar(); }
+
+TEST_F(TestDenseUnionScalar, GetScalar) {
+  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
+                       ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
+
+  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
   auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
-  DenseUnionArray arr(ty, 5, children, type_ids->data()->buffers[1],
+  DenseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1],
                       offsets->data()->buffers[1]);
   ASSERT_OK(arr.ValidateFull());
 
-  ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
-  ASSERT_TRUE(first->Equals(scalar_alpha));
-
-  const auto& first_as_union = checked_cast<const DenseUnionScalar&>(*first);
-  ASSERT_TRUE(first_as_union.value->Equals(alpha));
-  ASSERT_TRUE(first_as_union.is_valid);
-
-  ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
-  ASSERT_TRUE(second->Equals(scalar_two));
-
-  const auto& second_as_union = checked_cast<const DenseUnionScalar&>(*second);
-  ASSERT_TRUE(second_as_union.value->Equals(two));
-  ASSERT_TRUE(second_as_union.is_valid);
-
-  ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(2));
-  ASSERT_TRUE(third->Equals(scalar_beta));
-
-  const auto& third_as_union = checked_cast<const DenseUnionScalar&>(*third);
-  ASSERT_TRUE(third_as_union.value->Equals(beta));
-  ASSERT_TRUE(third_as_union.is_valid);
-
-  ASSERT_OK_AND_ASSIGN(auto fourth, arr.GetScalar(3));
-  ASSERT_TRUE(fourth->Equals(MakeNullScalar(ty)));
-
-  const auto& fourth_as_union = checked_cast<const DenseUnionScalar&>(*fourth);
-  ASSERT_FALSE(fourth_as_union.is_valid);
-
-  ASSERT_OK_AND_ASSIGN(auto fifth, arr.GetScalar(4));
-  ASSERT_TRUE(fifth->Equals(scalar_three));
-
-  const auto& fifth_as_union = checked_cast<const DenseUnionScalar&>(*fifth);
-  ASSERT_TRUE(fifth_as_union.value->Equals(three));
-  ASSERT_TRUE(fifth_as_union.is_valid);
+  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(arr, 3);
+  CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
 }
 
 }  // namespace arrow

@@ -644,6 +644,7 @@ struct _GArrowSparseUnionScalarClass
 GARROW_AVAILABLE_IN_5_0
 GArrowSparseUnionScalar *
 garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
+                               int8_t type_code,
                                GArrowScalar *value);
 
 
@@ -661,6 +662,7 @@ struct _GArrowDenseUnionScalarClass
 GARROW_AVAILABLE_IN_5_0
 GArrowDenseUnionScalar *
 garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
+                              int8_t type_code,
                               GArrowScalar *value);
 
 

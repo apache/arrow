@@ -96,6 +96,7 @@ Status ArrayBuilder::Advance(int64_t elements) {
 }
 
 namespace {
+
 struct AppendScalarImpl {
   template <typename T>
   enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value ||
@@ -206,6 +207,45 @@ struct AppendScalarImpl {
     return Status::OK();
   }
 
+  Status Visit(const SparseUnionType& type) { return MakeUnionArray(type); }
+
+  Status Visit(const DenseUnionType& type) { return MakeUnionArray(type); }
+
+  template <typename T>
+  Status MakeUnionArray(const T& type) {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+
+    auto* builder = internal::checked_cast<BuilderType*>(builder_);
+    const auto count = n_repeats_ * (scalars_end_ - scalars_begin_);
+
+    RETURN_NOT_OK(builder->Reserve(count));
+
+    DCHECK_EQ(type.num_fields(), builder->num_children());
+    for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+      RETURN_NOT_OK(builder->child_builder(field_index)->Reserve(count));
+    }
+
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const std::shared_ptr<Scalar>* s = scalars_begin_; s != scalars_end_; s++) {
+        // For each scalar, 1. append the type code, 2. append the value to
+        // the corresponding child (and append null to the other children)
+        const auto& scalar = internal::checked_cast<const UnionScalar&>(**s);
+        const auto scalar_field_index = type.child_ids()[scalar.type_code];
+        RETURN_NOT_OK(builder->Append(scalar.type_code));
+
+        for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+          if (field_index == scalar_field_index && scalar.is_valid) {
+            RETURN_NOT_OK(
+                builder->child_builder(field_index)->AppendScalar(*scalar.value));
+          } else {
+            RETURN_NOT_OK(builder->child_builder(field_index)->AppendNull());
+          }
+        }
+      }
+    }
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("AppendScalar for type ", type);
   }
@@ -217,6 +257,7 @@ struct AppendScalarImpl {
   int64_t n_repeats_;
   ArrayBuilder* builder_;
 };
+
 }  // namespace
 
 Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
