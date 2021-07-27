@@ -68,7 +68,7 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
 
   @Override
   public void close() throws Exception {
-    AutoCloseables.close(statement);
+    AutoCloseables.close(statement, statement.getConnection());
   }
 
   @Override
