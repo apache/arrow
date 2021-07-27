@@ -90,7 +90,7 @@ public class ArrowFlightJdbcFactory extends AbstractFactory {
                                                                final Meta.Frame frame) throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightJdbcVectorFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
+    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
   }
 
   @Override
