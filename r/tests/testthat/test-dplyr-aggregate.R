@@ -51,6 +51,17 @@ test_that("Group by aggregate on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  skip("This is failing because the default is na.rm = FALSE")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int)) %>%
+      arrange(some_grouping) %>%
       collect(),
     tbl
   )

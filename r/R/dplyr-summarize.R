@@ -92,35 +92,45 @@ do_arrow_summarize <- function(.data, ...) {
 do_exec_plan <- function(.data, group_vars = NULL) {
   plan <- ExecPlan$create()
 
-  if (length(group_vars) == 0) {
-    # Scan also will filter and select columns, so we don't need to Filter
-    start_node <- plan$Scan(.data)
-    # If any columns are derived we need to Project (otherwise this may be no-op)
-    project_node <- start_node$Project(.data$selected_columns)
-    final_node <- project_node$ScalarAggregate(
-      options = .data$aggregations,
-      target_names = names(.data),
-      out_field_names = names(.data$aggregations)
-    )
-  } else {
-    # Collect the target names first because we have to add back the group vars
-    target_names <- names(.data)
-    .data <- ensure_group_vars(.data)
+  grouped <- length(group_vars) > 0
 
+  # Collect the target names first because we have to add back the group vars
+  target_names <- names(.data)
+
+  if (grouped) {
+    .data <- ensure_group_vars(.data)
     # We also need to prefix all of the aggregation function names with "hash_"
     .data$aggregations <- lapply(.data$aggregations, function(x) {
       x[["fun"]] <- paste0("hash_", x[["fun"]])
       x
     })
-    # Scan also will filter and select columns, so we don't need to Filter
-    start_node <- plan$Scan(.data)
-    # If any columns are derived we need to Project (otherwise this may be no-op)
-    project_node <- start_node$Project(.data$selected_columns)
+  }
+
+  # Scan also will filter and select columns, so we don't need to Filter
+  start_node <- plan$Scan(.data)
+  # If any columns are derived we need to Project (otherwise this may be no-op)
+  project_node <- start_node$Project(.data$selected_columns)
+
+  if (grouped) {
     final_node <- project_node$GroupByAggregate(
       group_vars,
       target_names = target_names,
       aggregations = .data$aggregations
     )
+    out <- plan$Run(final_node)
+    # The result will have result columns first (named by their function)
+    # then the grouping cols. dplyr orders group cols first, and it accepts
+    # names for the result cols. Adapt the result to meet that expectation.
+    n_results <- length(.data$aggregations)
+    names(out)[seq_along(.data$aggregations)] <- names(.data$aggregations)
+    out <- out[c((n_results + 1):ncol(out), seq_along(.data$aggregations))]
+  } else {
+    final_node <- project_node$ScalarAggregate(
+      options = .data$aggregations,
+      target_names = target_names,
+      out_field_names = names(.data$aggregations)
+    )
+    out <- plan$Run(final_node)
   }
-  plan$Run(final_node)
+  out
 }
