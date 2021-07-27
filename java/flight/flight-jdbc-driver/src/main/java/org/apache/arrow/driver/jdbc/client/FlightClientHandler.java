@@ -28,17 +28,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 public interface FlightClientHandler extends AutoCloseable {
 
   /**
-   * Makes RPC requests to the Dremio Flight Server Endpoint to retrieve results
-   * of the provided SQL query.
-   *
-   * @param query
-   *          The SQL query to execute.
-   * @throws Exception
-   *           If an error occurs during query execution.
-   */
-  VectorSchemaRoot runQuery(String query) throws Exception;
-
-  /**
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
    * object. Retrieves result of the query previously prepared with "getInfo."
    *

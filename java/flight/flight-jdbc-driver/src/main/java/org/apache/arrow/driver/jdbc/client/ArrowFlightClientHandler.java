@@ -124,23 +124,6 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   }
 
   @Override
-  public VectorSchemaRoot runQuery(final String query) throws Exception {
-
-    /*
-     * Will be closed automatically upon this.close() -- don't worry.
-     * This is necessary because otherwise stream.getRoot() will return
-     * an empty VectorSchemaRoot.
-     */
-    FlightStream stream = getStream(query);
-
-    if (!stream.next()) {
-      return null;
-    }
-
-    return stream.getRoot();
-  }
-
-  @Override
   public FlightStream getStream(final String query) {
     // TODO refactor to not use one endpoint
     final FlightInfo flightInfo = getInfo(query);

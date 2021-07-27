@@ -80,20 +80,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    try {
-      VectorSchemaRoot vectorSchemaRoot = (((ArrowFlightConnection) statement
-          .getConnection())
-          .getClient()
-          .runQuery(signature.sql));
-
-      execute(vectorSchemaRoot);
-    } catch (SQLException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
-
-    return this;
+    throw new RuntimeException();
   }
 
   void execute(VectorSchemaRoot vectorSchemaRoot) {
