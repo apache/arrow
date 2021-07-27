@@ -111,6 +111,14 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
+TEST_F(TestArray, TestNullToString) {
+  // Invalid NULL buffer
+  auto data = std::make_shared<Buffer>(nullptr, 400);
+
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
+  ASSERT_EQ(arr->ToString(), "<InvalidArray: Missing values buffer in non-empty array>");
+}
+
 TEST_F(TestArray, TestSliceSafe) {
   std::vector<int32_t> original_data{1, 2, 3, 4, 5, 6, 7};
   auto arr = std::make_shared<Int32Array>(7, Buffer::Wrap(original_data));
