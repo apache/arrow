@@ -492,13 +492,13 @@ public class TestFlightSql {
   }
 
   @Test
+  @Ignore
   public void testCreateStatementSchema() {
     final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
     collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
   }
 
   @Test
-  @Ignore
   public void testCreateStatementResults() throws Exception {
     try (final FlightStream stream = sqlClient
         .getStream(sqlClient.execute("SELECT * FROM intTable").getEndpoints().get(0).getTicket())) {
