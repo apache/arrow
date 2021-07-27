@@ -103,6 +103,8 @@ for temporary access by passing the `role_arn` identifier to `S3FileSystem$creat
 
 ## File systems that emulate S3
 
+### Connecting to a local S3
+
 The `S3FileSystem` machinery enables you to work with any file system that
 provides an S3-compatible interface. For example, [MinIO](https://min.io/) is
 and object-storage server that emulates the S3 API. If you were to
@@ -129,15 +131,16 @@ s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 Among other applications, this can be useful for testing out code locally before
 running on a remote S3 bucket.
 
-## Non-AWS S3 cloud alternatives (DigitalOcean, IBM, Alibaba, and others)
+### COnnecting to a cloud S3
 
-*This section adapts some elements from [Analyzing Room Temperature Data](https://www.jaredlander.com/2021/03/analyzing-room-temperature-data/#getting-the-data) by Jared Lander.*
+*This section adapts some elements from [Analyzing Room Temperature Data](https://www.jaredlander.com/2021/03/analyzing-room-temperature-data/#getting-the-data)
+by Jared Lander.*
 
 If you are using any Amazon S3 Compliant Storage Provider, such as AWS, Alibaba, 
 Ceph, DigitalOcean, Dreamhost, IBM COS, Minio, or others, you can connect to it 
 with `arrow` by using the `S3FileSystem` function as for the case of using 
-MinIO locally. Please note that the use of DigitalOcean here is just an example, as 
-it can be any other S3 compatible service.
+MinIO locally. Please note that the use of DigitalOcean here is just an example,
+as it can be any other S3 compatible service.
 
 At the begininning of this vignette we used:
 
@@ -145,10 +148,12 @@ At the begininning of this vignette we used:
 june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
 ```
 
-Which connects to AWS, and the same can be adapted for other providers, For 
-instructional purposes, we provide [nyc-taxi.sfo3.digitaloceanspaces.com](https://nyc-taxi.sfo3.digitaloceanspaces.com), 
-which is a public storage with the NYC taxi data used in
-[Working with Arrow Datasets and dplyr](dataset.html).
+Which connects to AWS, and the same can be adapted for other providers.
+
+Just as an example for the non-Amazon case, we provide 
+[nyc-taxi.sfo3.digitaloceanspaces.com](https://nyc-taxi.sfo3.digitaloceanspaces.com), 
+which is exactly the same as `s3://ursa-labs-taxi-data` (See
+[Working with Arrow Datasets and dplyr](dataset.html) for the details).
 
 To connect to this space, you only need to adapt the code from the previous
 section:
@@ -174,24 +179,30 @@ space <- arrow::S3FileSystem$create(
 )
 ```
 
-In order to list the files in the space, you can just type:
+
+### S3 operations
+
+In order to list the files in an S3 bucket, you can just type:
 
 ```r
-space$ls('nyc-taxi', recursive = TRUE)
+minio$ls('nyc-taxi', recursive = TRUE)
 ```
 
 Just like AWS, one way to get a subtree is to call the `$cd()` method on a 
 `FileSystem`:
 
 ```r
-june2019 <- space$path("nyc-taxi/2019/06")
+minio$cd()
+june2019 <- minio$path("nyc-taxi/2019/06")
 df <- read_parquet(june2019$path("data.parquet"))
 ```
 
-From here, the same example from the [Working with Arrow Datasets and dplyr](dataset.html) vignette can be completed with a single change:
+From here, the same example from the 
+[Working with Arrow Datasets and dplyr](dataset.html) vignette can be completed 
+with a single change:
 
 ```r 
-copy_files(space$path("nyc-taxi/"), "nyc-taxi")
+copy_files(minio$path("nyc-taxi"), "nyc-taxi")
 ```
 
 Instead of:
@@ -199,3 +210,11 @@ Instead of:
 ```
 copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
 ```
+
+Note that you can copy a single year or month, say
+```r 
+copy_files("s3://ursa-labs-taxi-data/2019/06", "nyc-taxi/2019/06")
+```
+
+Of course, this also applies to the `space` object or any S3 connection to your
+favourite cloud provider.
