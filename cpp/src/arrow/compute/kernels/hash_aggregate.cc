@@ -35,6 +35,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
@@ -1162,8 +1163,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     const auto& array = *batch[0].array();
     const auto g = batch[1].array()->GetValues<uint32_t>(1);
 
-    std::vector<int64_t> sum(num_groups_);
-    std::vector<int128_t> square_sum(num_groups_);
+    std::vector<IntegerVarStd<Type>> var_std(num_groups_);
 
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
@@ -1179,8 +1179,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       // process in chunks that overflow will never happen
 
       // reset state
-      std::fill(sum.begin(), sum.end(), 0);
-      std::fill(square_sum.begin(), square_sum.end(), 0);
+      var_std.clear();
+      var_std.resize(num_groups_);
       GroupedVarStdImpl<Type> state;
       RETURN_NOT_OK(state.Init(ctx_, &options_));
       RETURN_NOT_OK(state.Resize(num_groups_));
@@ -1195,26 +1195,16 @@ struct GroupedVarStdImpl : public GroupedAggregator {
             for (int64_t i = 0; i < len; ++i) {
               const int64_t index = start_index + pos + i;
               const auto value = values[index];
-              sum[g[index]] += value;
-              square_sum[g[index]] += static_cast<uint64_t>(value) * value;
-              other_counts[g[index]]++;
+              var_std[g[index]].ConsumeOne(value);
             }
           });
 
       for (int64_t i = 0; i < num_groups_; i++) {
-        if (other_counts[i] == 0) continue;
+        if (var_std[i].count == 0) continue;
 
-        const double mean = static_cast<double>(sum[i]) / other_counts[i];
-        // calculate m2 = square_sum - sum * sum / count
-        // decompose `sum * sum / count` into integers and fractions
-        const int128_t sum_square = static_cast<int128_t>(sum[i]) * sum[i];
-        const int128_t integers = sum_square / other_counts[i];
-        const double fractions =
-            static_cast<double>(sum_square % other_counts[i]) / other_counts[i];
-        const double m2 = static_cast<double>(square_sum[i] - integers) - fractions;
-
-        other_means[i] = mean;
-        other_m2s[i] = m2;
+        other_counts[i] = var_std[i].count;
+        other_means[i] = var_std[i].mean();
+        other_m2s[i] = var_std[i].m2();
       }
       RETURN_NOT_OK(this->Merge(std::move(state), group_id_mapping));
     }
@@ -1237,15 +1227,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       if (other_counts[other_g] == 0) continue;
-      const double mean =
-          (means[*g] * counts[*g] + other_means[other_g] * other_counts[other_g]) /
-          (counts[*g] + other_counts[other_g]);
-      m2s[*g] += other_m2s[other_g] +
-                 counts[*g] * (means[*g] - mean) * (means[*g] - mean) +
-                 other_counts[other_g] * (other_means[other_g] - mean) *
-                     (other_means[other_g] - mean);
-      counts[*g] += other_counts[other_g];
-      means[*g] = mean;
+      MergeVarStd(counts[*g], means[*g], other_counts[other_g], other_means[other_g],
+                  other_m2s[other_g], &counts[*g], &means[*g], &m2s[*g]);
     }
     return Status::OK();
   }
