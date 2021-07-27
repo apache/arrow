@@ -20,6 +20,7 @@ package org.apache.arrow.flight.sql;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
@@ -640,13 +641,15 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoStatement(final CommandStatementQuery command, final CallContext context,
+  public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    createStatementIfNotPresent(command);
+    final CommandStatementQuery identifiableRequest = getIdentifiableRequest(request);
+    createStatementIfNotPresent(identifiableRequest);
     try {
       final ResultSet resultSet =
-          commandExecuteStatementLoadingCache.get(command.getClientExecutionHandle().toStringUtf8());
-      return getFlightInfoForSchema(command, descriptor, jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
+          commandExecuteStatementLoadingCache.get(identifiableRequest.getClientExecutionHandle().toStringUtf8());
+      return getFlightInfoForSchema(identifiableRequest, descriptor,
+          jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
     } catch (final SQLException | ExecutionException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
@@ -700,6 +703,13 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
     // TODO - build example implementation
     throw Status.UNIMPLEMENTED.asRuntimeException();
+  }
+
+  private CommandStatementQuery getIdentifiableRequest(final CommandStatementQuery request) {
+    final String identity = request.getClientExecutionHandle().toStringUtf8();
+    return isNullOrEmpty(identity) ?
+        request.toBuilder().setClientExecutionHandle(copyFrom(randomUUID().toString().getBytes(
+            StandardCharsets.UTF_8))).build() : request;
   }
 
   private void createStatementIfNotPresent(final CommandStatementQuery request) {
@@ -1087,8 +1097,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
-                                 ServerStreamListener listener) {
+  public void getStreamStatement(final CommandStatementQuery command, final CallContext context, final Ticket ticket,
+                                 final ServerStreamListener listener) {
     final String handle = command.getClientExecutionHandle().toStringUtf8();
     try (final ResultSet resultSet = checkNotNull(commandExecuteStatementLoadingCache.getIfPresent(handle));
          final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
