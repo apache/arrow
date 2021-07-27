@@ -1471,7 +1471,7 @@ static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& bat
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
   for (int64_t row = 0; row < batch.length; row++) {
-    int64_t selected = have_else_arg ? batch.values.size() - 1 : -1;
+    int64_t selected = have_else_arg ? static_cast<int64_t>(batch.values.size() - 1) : -1;
     for (int64_t arg = 0; static_cast<size_t>(arg) < conds_array.child_data.size();
          arg++) {
       const ArrayData& cond_array = *conds_array.child_data[arg];
