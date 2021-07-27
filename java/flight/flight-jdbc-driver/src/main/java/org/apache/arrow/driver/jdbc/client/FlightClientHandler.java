@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
+import java.util.List;
+
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
@@ -35,5 +37,5 @@ public interface FlightClientHandler extends AutoCloseable {
    *          The query.
    * @return a {@code FlightStream} of results.
    */
-  FlightStream getStream(String query);
+  List<FlightStream> getFlightStreams(String query);
 }
