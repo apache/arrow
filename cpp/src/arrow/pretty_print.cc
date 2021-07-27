@@ -325,9 +325,9 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<FixedSizeListArray, T>::value,
               Status>
   Visit(const T& array) {
-    Status validArrayState = array.Validate();
-    if (!validArrayState.ok()) {
-      (*sink_) << "<InvalidArray: " << validArrayState.message() << ">";
+    Status st = array.Validate();
+    if (!st.ok()) {
+      (*sink_) << "<InvalidArray: " << st.message() << ">";
       return Status::OK();
     }
 
