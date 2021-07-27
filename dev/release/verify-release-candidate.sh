@@ -606,7 +606,7 @@ test_macos_wheels() {
   fi
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local py_arches="3.9"
+    local py_arches="3.8 3.9"
     local check_flight=OFF
   fi
 
@@ -629,7 +629,7 @@ test_macos_wheels() {
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
-    for py_arch in ${py_arches}; do
+    for py_arch in "3.9"; do
       local pyver=${py_arch//m/}
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
