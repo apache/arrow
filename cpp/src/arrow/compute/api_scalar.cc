@@ -242,7 +242,7 @@ constexpr char StrptimeOptions::kTypeName[];
 
 StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
     : FunctionOptions(internal::kStrftimeOptionsType), format(std::move(format)) {
-  loc = std::locale(locale);
+  loc = std::locale(locale.c_str());
 }
 StrftimeOptions::StrftimeOptions(std::string format)
     : FunctionOptions(internal::kStrftimeOptionsType), format(std::move(format)) {
