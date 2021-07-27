@@ -23,6 +23,7 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -39,7 +40,6 @@ import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Optional;
 
@@ -124,14 +124,16 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   }
 
   @Override
-  public FlightStream getStream(final String query) {
-    // TODO refactor to not use one endpoint
+  public List<FlightStream> getFlightStreams(final String query) {
     final FlightInfo flightInfo = getInfo(query);
     final List<FlightEndpoint> endpoints = flightInfo.getEndpoints();
-    FlightStream stream = client.getStream(endpoints.get(0).getTicket(), token);
 
-    resources.addFirst(stream);
-    return stream;
+    final List<FlightStream> streams =
+        endpoints.stream().map(flightEndpoint -> client.getStream(flightEndpoint.getTicket(), token))
+            .collect(Collectors.toList());
+    streams.forEach(resources::addFirst);
+
+    return streams;
   }
 
   @Override
