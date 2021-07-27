@@ -123,7 +123,7 @@ struct VisitBuilderImpl {
   template <typename T, typename BuilderType = typename TypeTraits<T>::BuilderType,
             // need to let SFINAE drop this Visit when it would result in
             // [](NullBuilder*){}(double_builder)
-            typename E = typename std::result_of<Fn(BuilderType*)>::type>
+            typename = decltype(std::declval<Fn>()(std::declval<BuilderType*>()))>
   Status Visit(const T&) {
     fn_(internal::checked_cast<BuilderType*>(builder_));
     return Status::OK();
