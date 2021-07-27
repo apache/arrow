@@ -179,6 +179,12 @@ static void InitDictValues(int num_values, int num_dicts, std::vector<T>& values
   }
 }
 
+template <>
+inline void InitDictValues<bool>(int num_values, int num_dicts, std::vector<bool>& values,
+                                 std::vector<uint8_t>& buffer) {
+  // No op for bool
+}
+
 class MockPageReader : public PageReader {
  public:
   explicit MockPageReader(const std::vector<std::shared_ptr<Page>>& pages)
@@ -599,12 +605,6 @@ inline void InitValues<Int96>(int num_values, std::vector<Int96>& values,
                               std::vector<uint8_t>& buffer) {
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
                        std::numeric_limits<int32_t>::max(), values.data());
-}
-
-template <>
-inline void InitDictValues<bool>(int num_values, int num_dicts, std::vector<bool>& values,
-                                 std::vector<uint8_t>& buffer) {
-  // No op for bool
 }
 
 inline std::string TestColumnName(int i) {
