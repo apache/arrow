@@ -59,6 +59,7 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.util.TableRef;
