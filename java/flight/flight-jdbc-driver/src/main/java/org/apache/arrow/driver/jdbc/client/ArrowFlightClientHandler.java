@@ -129,7 +129,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
     final FlightInfo flightInfo = getInfo(query);
     final List<FlightEndpoint> endpoints = flightInfo.getEndpoints();
     FlightStream stream = client.getStream(endpoints.get(0).getTicket(), token);
-    System.out.println(stream.getSchema());
+
     resources.addFirst(stream);
     return stream;
   }
