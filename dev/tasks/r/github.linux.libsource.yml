@@ -34,7 +34,7 @@ jobs:
         dep_source: ["AUTO", "BUNDLED"]
     env:
       ARROW_R_DEV: "TRUE"
-      DEPENDENCY_SOURCE: {{ "${{ matrix.dep_source }}" }}
+      R_STATIC_DEPENDENCY_SOURCE: {{ "${{ matrix.dep_source }}" }}
     steps:
       - name: Checkout Arrow
         run: |

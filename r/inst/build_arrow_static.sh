@@ -45,13 +45,13 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-if [ "$DEPENDENCY_SOURCE" = "AUTO" ]; then
+if [ "$R_STATIC_DEPENDENCY_SOURCE" = "AUTO" ]; then
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     ARROW_DEPENDENCY_SOURCE="AUTO"
   else
     ARROW_DEPENDENCY_SOURCE="BUNDLED"
-    echo "**** Warning: DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not detected"
+    echo "**** Warning: $R_STATIC_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not detected"
     echo "**** Using bundled dependencies instead"
   fi
 else
