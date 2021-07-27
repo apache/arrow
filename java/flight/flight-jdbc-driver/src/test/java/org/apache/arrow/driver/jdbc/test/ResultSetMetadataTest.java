@@ -72,7 +72,7 @@ public class ResultSetMetadataTest {
     connection = rule.getConnection();
 
     final Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery("SELECT * FROM METADATA");
+    ResultSet resultSet = statement.executeQuery(FlightServerTestRule.METADATA_QUERY_STRING);
 
     metadata = resultSet.getMetaData();
   }
