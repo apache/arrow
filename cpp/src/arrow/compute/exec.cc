@@ -115,7 +115,7 @@ ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
     if (value.is_scalar()) continue;
     value = value.array()->Slice(offset, length);
   }
-  out.length = length;
+  out.length = std::min(length, this->length - offset);
   return out;
 }
 
