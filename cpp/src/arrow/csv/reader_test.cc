@@ -383,14 +383,11 @@ TEST(StreamingReaderTests, SkipMultipleEmptyBlocksAtStart) {
   ASSERT_EQ(1, batch->num_rows());
   ASSERT_EQ(96, streaming_reader->bytes_read());
 
-  auto schema = streaming_reader->schema();
-  ASSERT_EQ(3, schema->num_fields());
-  ASSERT_EQ("aaa", schema->field(0)->name());
-  ASSERT_EQ(Type::INT64, schema->field(0)->type()->id());
-  ASSERT_EQ("bbb", schema->field(1)->name());
-  ASSERT_EQ(Type::INT64, schema->field(1)->type()->id());
-  ASSERT_EQ("ccc", schema->field(2)->name());
-  ASSERT_EQ(Type::INT64, schema->field(2)->type()->id());
+  auto expected_schema =
+      schema({field("aaa", int64()), field("bbb", int64()), field("ccc", int64())});
+  AssertSchemaEqual(expected_schema, streaming_reader->schema());
+  auto expected_batch = RecordBatchFromJSON(expected_schema, "[[233,343,536]]");
+  ASSERT_TRUE(expected_batch->Equals(*batch));
 
   ASSERT_OK(streaming_reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, batch.get());
