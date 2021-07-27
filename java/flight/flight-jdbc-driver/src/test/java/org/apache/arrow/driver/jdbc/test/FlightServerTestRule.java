@@ -30,7 +30,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
@@ -38,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.UUID;
 import java.util.function.Function;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
@@ -66,13 +66,19 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.DateUnit;
+import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -90,8 +96,14 @@ import com.google.protobuf.ByteString;
 public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
-  private static final byte[] QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
-  private static final byte[] METADATA_QUERY_TICKET = "SELECT * FROM METADATA".getBytes(StandardCharsets.UTF_8);
+
+  static final String QUERY_STRING = "SELECT * FROM TEST";
+  private static final List<String> QUERY_TICKETS = ImmutableList.of(
+      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString());
+
+  static final String METADATA_QUERY_STRING = "SELECT * FROM METADATA";
+  private static final List<String> METADATA_QUERY_TICKETS = ImmutableList.of(
+      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString());
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
@@ -198,31 +210,44 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
         final Random random = new Random(10);
 
-        if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
-          final int rows = Byte.MAX_VALUE;
+        final Schema querySchema = new Schema(ImmutableList.of(
+            new Field("ID", new FieldType(true, new ArrowType.Int(64, true), null), null),
+            new Field("Name", new FieldType(true, new ArrowType.Utf8(), null), null),
+            new Field("Age", new FieldType(true, new ArrowType.Int(32, false), null), null),
+            new Field("Salary", new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), null),
+                null),
+            new Field("Hire Date", new FieldType(true, new ArrowType.Date(DateUnit.DAY), null), null),
+            new Field("Last Sale", new FieldType(true, new ArrowType.Timestamp(TimeUnit.MILLISECOND, null), null),
+                null)
+        ));
 
-          final BigIntVector id = new BigIntVector("ID", allocator);
-          final LargeVarCharVector name = new LargeVarCharVector("Name", allocator);
-          final BigIntVector age = new BigIntVector("Age", allocator);
-          final Float8Vector salary = new Float8Vector("Salary", allocator);
-          final DateDayVector hireDate = new DateDayVector("Hire Date", allocator);
-          final TimeStampMilliVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
+        final Schema metadataSchema = new Schema(ImmutableList.of(
+            new Field("integer0", new FieldType(true, new ArrowType.Int(64, true), null), null),
+            new Field("string1", new FieldType(true, new ArrowType.Utf8(), null), null),
+            new Field("float2", new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null),
+                null)
+        ));
 
-          List<FieldVector> vectors = ImmutableList.of(id, name, age, salary, hireDate, lastSale);
+        String ticketString = new String(ticket.getBytes(), StandardCharsets.UTF_8);
+        if (QUERY_TICKETS.contains(ticketString)) {
+          final int rowsPerPage = 2500;
+          final int page = QUERY_TICKETS.indexOf(ticketString);
 
-          try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+          try (final VectorSchemaRoot root = VectorSchemaRoot.create(querySchema, allocator)) {
             root.allocateNew();
             listener.start(root);
-            int batchSize = 10;
+            int batchSize = 500;
             int indexOnBatch = 0;
 
-            for (int i = 0; i < rows; i++) {
-              id.setSafe(indexOnBatch, random.nextLong());
-              name.setSafe(indexOnBatch, new Text("Test Name #" + i));
-              age.setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
-              salary.setSafe(indexOnBatch, random.nextDouble());
-              hireDate.setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
-              lastSale.setSafe(indexOnBatch, Instant.now().toEpochMilli());
+            int resultsOffset = page * rowsPerPage;
+            for (int i = 0; i < rowsPerPage; i++) {
+              ((BigIntVector) root.getVector("ID")).setSafe(indexOnBatch, random.nextLong());
+              ((VarCharVector) root.getVector("Name"))
+                  .setSafe(indexOnBatch, new Text("Test Name #" + (resultsOffset + i)));
+              ((UInt4Vector) root.getVector("Age")).setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
+              ((Float8Vector) root.getVector("Salary")).setSafe(indexOnBatch, random.nextDouble());
+              ((DateDayVector) root.getVector("Hire Date")).setSafe(indexOnBatch, random.nextInt(Integer.MAX_VALUE));
+              ((TimeStampMilliVector) root.getVector("Last Sale")).setSafe(indexOnBatch, Instant.now().toEpochMilli());
 
               indexOnBatch++;
               if (indexOnBatch == batchSize) {
@@ -236,20 +261,12 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
             listener.putNext();
             listener.completed();
           }
-        } else if (Arrays.equals(METADATA_QUERY_TICKET, ticket.getBytes())) {
-          final List<FieldVector> vectors = new ArrayList<>();
-          final BigIntVector integerVector = new BigIntVector("integer" + 0, allocator);
-          final VarCharVector stringVector = new VarCharVector("string" + 1, allocator);
-          final Float4Vector float4Vector = new Float4Vector("float" + 2, allocator);
-
-          integerVector.setSafe(0, 1);
-          stringVector.setSafe(0, new Text("teste"));
-          float4Vector.setSafe(0, (float) 4.1);
-          vectors.add(integerVector);
-          vectors.add(stringVector);
-          vectors.add(float4Vector);
-
-          try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+        } else if (METADATA_QUERY_TICKETS.contains(ticketString)) {
+          try (final VectorSchemaRoot root = VectorSchemaRoot.create(metadataSchema, allocator)) {
+            root.allocateNew();
+            ((BigIntVector) root.getVector("integer0")).setSafe(0, 1);
+            ((VarCharVector) root.getVector("string1")).setSafe(0, new Text("teste"));
+            ((Float4Vector) root.getVector("float2")).setSafe(0, (float) 4.1);
             root.setRowCount(1);
             listener.start(root);
             listener.putNext();
@@ -273,24 +290,35 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           toProtocol.setAccessible(true);
           Flight.Location location = (Flight.Location) toProtocol.invoke(new Location("grpc+tcp://localhost"));
 
-          final byte[] value = flightDescriptor.getCommand();
+          final String commandString = new String(flightDescriptor.getCommand(), StandardCharsets.UTF_8);
 
-          Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
+          final Flight.FlightInfo.Builder flightInfoBuilder = Flight.FlightInfo.newBuilder()
               .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
                   .setType(Flight.FlightDescriptor.DescriptorType.CMD)
-                  .setCmd(ByteString.copyFrom(value)))
-              .addEndpoint(Flight.FlightEndpoint.newBuilder()
+                  .setCmd(ByteString.copyFrom(commandString, StandardCharsets.UTF_8)));
+
+          if (commandString.equals(QUERY_STRING)) {
+            QUERY_TICKETS.forEach(ticket -> {
+              final byte[] ticketBytes = ticket.getBytes(StandardCharsets.UTF_8);
+              flightInfoBuilder.addEndpoint(Flight.FlightEndpoint.newBuilder()
                   .addLocation(location)
-                  .setTicket(Flight.Ticket.newBuilder()
-                      .setTicket(ByteString.copyFrom(value))
-                      .build())
-              )
-              .build();
+                  .setTicket(Flight.Ticket.newBuilder().setTicket(ByteString.copyFrom(ticketBytes)).build()));
+            });
+          } else if (commandString.equals(METADATA_QUERY_STRING)) {
+            METADATA_QUERY_TICKETS.forEach(ticket -> {
+              final byte[] ticketBytes = ticket.getBytes(StandardCharsets.UTF_8);
+              flightInfoBuilder.addEndpoint(Flight.FlightEndpoint.newBuilder()
+                  .addLocation(location)
+                  .setTicket(Flight.Ticket.newBuilder().setTicket(ByteString.copyFrom(ticketBytes)).build()));
+            });
+          } else {
+            throw new SQLException("Invalid query");
+          }
 
           Constructor<FlightInfo> constructor = FlightInfo.class
               .getDeclaredConstructor(org.apache.arrow.flight.impl.Flight.FlightInfo.class);
           constructor.setAccessible(true);
-          return constructor.newInstance(getInfo);
+          return constructor.newInstance(flightInfoBuilder.build());
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
