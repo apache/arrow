@@ -81,7 +81,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
       int count = 0;
       int columns = 6;
       for (; resultSet.next(); count++) {
@@ -91,7 +91,7 @@ public class ResultSetTest {
         assertEquals("Test Name #" + count, resultSet.getString(2));
       }
 
-      assertEquals(Byte.MAX_VALUE, count);
+      assertEquals(7500, count);
     }
   }
 

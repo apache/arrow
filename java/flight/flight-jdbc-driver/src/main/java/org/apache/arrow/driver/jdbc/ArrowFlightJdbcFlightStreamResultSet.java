@@ -56,11 +56,9 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
           .getClient()
           .getFlightStreams(signature.sql).iterator();
 
-      if (flightStreamIterator.hasNext()) {
-        flightStream = flightStreamIterator.next();
-        final VectorSchemaRoot root = flightStream.getRoot();
-        execute(root);
-      }
+      flightStream = flightStreamIterator.next();
+      final VectorSchemaRoot root = flightStream.getRoot();
+      execute(root);
     } catch (SQLException e) {
       throw e;
     } catch (Exception e) {
