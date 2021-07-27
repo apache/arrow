@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate Ubuntu {{ artifact }}"
-    runs-on: ubuntu-20.04
+    runs-on: {{ github_runner|default("ubuntu-20.04") }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
