@@ -35,11 +35,13 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -48,6 +50,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
@@ -55,6 +58,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -62,6 +66,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -578,7 +583,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache
+    try (final ResultSet resultSet =
+             commandExecutePreparedStatementLoadingCache
+
         .get(command.getPreparedStatementHandle())) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
@@ -780,9 +787,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final PreparedStatementContext statement =
         preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle().toStringUtf8());
 
-    final PreparedStatement preparedStatement = statement.getPreparedStatement();
+
     return () -> {
-      try {
+      assert statement != null;
+      try (final PreparedStatement preparedStatement = statement.getPreparedStatement()){
 
         flightStream.next();
 
@@ -790,15 +798,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         final int rowCount = root.getRowCount();
 
-        System.out.println(rowCount);
+        prepareBatch(preparedStatement, root, rowCount);
 
-        preparedStatement.setString(1, "hello");
-        preparedStatement.setInt(2, 1000);
-
-        final int result = preparedStatement.executeUpdate();
+        final int[] result = preparedStatement.executeBatch();
 
         final FlightSql.DoPutUpdateResult build =
-            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result).build();
+            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result.length).build();
 
         try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
           buffer.writeBytes(build.toByteArray());
@@ -811,6 +816,93 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         ackStream.onCompleted();
       }
     };
+  }
+
+  private void prepareBatch(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount) {
+    IntStream.range(0, rowCount).forEach(i -> {
+      root.getFieldVectors().forEach(vector -> {
+            try {
+              final int vectorPosition = root.getFieldVectors().indexOf(vector);
+              final Object object = vector.getObject(i);
+              boolean isNull = Objects.isNull(object);
+              switch (vector.getMinorType()) {
+                case VARCHAR:
+                case LARGEVARCHAR:
+                  preparedStatement.setString(vectorPosition + 1, String.valueOf(object));
+                  break;
+                case TINYINT:
+                case UINT1:
+                  if(isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.TINYINT);
+                  } else {
+                    preparedStatement.setShort(vectorPosition + 1, (short) object);
+                  }
+                  break;
+                case SMALLINT:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.SMALLINT);
+                  } else {
+                    preparedStatement.setByte(vectorPosition + 1, (byte) object);
+                  }
+                  break;
+                case INT:
+                case UINT2:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.INTEGER);
+                  } else {
+                    preparedStatement.setInt(vectorPosition + 1, (int) object);
+                  }
+                  break;
+                case BIGINT:
+                case UINT8:
+                case UINT4:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.BIGINT);
+                  } else {
+                    preparedStatement.setLong(vectorPosition + 1, (long) object);
+                  }
+                  break;
+                case FLOAT4:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.FLOAT);
+                  } else {
+                    preparedStatement.setFloat(vectorPosition + 1, (float) object);
+                  }
+                  break;
+                case FLOAT8:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.DOUBLE);
+                  } else {
+                    preparedStatement.setDouble(vectorPosition + 1, (double) object);
+                  }
+                  break;
+                case BIT:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.BIT);
+                  } else {
+                    preparedStatement.setBytes(vectorPosition + 1, (byte[]) object);
+                  }
+                  break;
+                case DECIMAL:
+                case DECIMAL256:
+                  preparedStatement.setBigDecimal(vectorPosition + 1, (BigDecimal) object);
+                  break;
+                case LIST:
+                case LARGELIST:
+                case FIXED_SIZE_LIST:
+                  preparedStatement.setArray(vectorPosition + 1, (Array) object);
+              }
+            } catch (SQLException e) {
+              e.printStackTrace();
+            }
+          }
+      );
+      try {
+        preparedStatement.addBatch();
+      } catch (SQLException e) {
+        e.printStackTrace();
+      }
+    });
   }
 
   @Override
