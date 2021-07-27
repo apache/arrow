@@ -382,27 +382,30 @@ tasks:
 
 {############################## Wheel OSX M1 #################################}
 
-  wheel-macos-big-sur-cp39-arm64:
+{% for python_version, python_tag, abi_tag in [("3.8", "cp38"),
+                                               ("3.9", "cp39")] %}
+  wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: arm64
       vcpkg_version: "2021.04.30"
-      python_version: "3.9"
+      python_version: "{{ python_version }}"
       macos_deployment_target: "11.0"
     artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_11_0_arm64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
 
-  wheel-macos-big-sur-cp39-universal2:
+  wheel-macos-big-sur-{{ python_tag }}-universal2:
     ci: github
     template: python-wheels/github.osx.arm64.yml
     params:
       arch: universal2
       vcpkg_version: "2021.04.30"
-      python_version: "3.9"
+      python_version: "{{ python_version }}"
       macos_deployment_target: "10.13"
     artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_universal2.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_10_13_universal2.whl
+{% endfor %}
 
 {############################ Python sdist ####################################}
 
