@@ -620,7 +620,7 @@ test_macos_wheels() {
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
     INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-     ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
