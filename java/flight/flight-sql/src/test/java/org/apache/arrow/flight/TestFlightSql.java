@@ -59,7 +59,6 @@ import org.hamcrest.Matcher;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -492,7 +491,6 @@ public class TestFlightSql {
   }
 
   @Test
-  @Ignore
   public void testCreateStatementSchema() {
     final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
     collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));

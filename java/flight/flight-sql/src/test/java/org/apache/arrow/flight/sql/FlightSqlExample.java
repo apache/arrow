@@ -30,7 +30,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
-import static org.apache.arrow.flight.FlightStatusCode.INTERNAL;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -75,6 +74,7 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
@@ -651,7 +651,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
-      throw new FlightRuntimeException(new CallStatus(INTERNAL, e, e.getMessage(), null));
+      throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
     }
   }
 
@@ -665,11 +665,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           commandExecutePreparedStatementLoadingCache.get(preparedStatementHandle);
       return getFlightInfoForSchema(command, descriptor,
           jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (SQLException | ExecutionException e) {
+    } catch (final SQLException | ExecutionException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
-      throw new FlightRuntimeException(new CallStatus(INTERNAL, e, e.getMessage(), null));
+      throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
     }
   }
 
@@ -1098,7 +1098,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       listener.error(e);
     } finally {
       listener.completed();
-      commandExecutePreparedStatementLoadingCache.invalidate(handle);
+      commandExecuteStatementLoadingCache.invalidate(handle);
     }
   }
 
