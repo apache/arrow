@@ -34,17 +34,17 @@ import org.apache.calcite.avatica.QueryState;
  * {@link ResultSet} implementation for Arrow Flight used to access the results of multiple {@link FlightStream}
  * objects.
  */
-public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
+public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
   private FlightStream flightStream;
   private Iterator<FlightStream> flightStreamIterator;
 
-  ArrowFlightJdbcVectorFlightStreamResultSet(AvaticaStatement statement,
-                                             QueryState state,
-                                             Meta.Signature signature,
-                                             ResultSetMetaData resultSetMetaData,
-                                             TimeZone timeZone,
-                                             Meta.Frame firstFrame) throws SQLException {
+  ArrowFlightJdbcFlightStreamResultSet(AvaticaStatement statement,
+                                       QueryState state,
+                                       Meta.Signature signature,
+                                       ResultSetMetaData resultSetMetaData,
+                                       TimeZone timeZone,
+                                       Meta.Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
