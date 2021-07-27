@@ -29,7 +29,8 @@ The features currently offered are the following:
   such as ``my_data.csv.gz``)
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
-  ``float64``, ``date32``, ``timestamp[s]``, ``timestamp[ns]``, ``string`` or ``binary`` data
+  ``float64``, ``date32``, ``time32[s]``, ``timestamp[s]``, ``timestamp[ns]``,
+  ``string`` or ``binary`` data
 * opportunistic dictionary encoding of ``string`` and ``binary`` columns
   (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
