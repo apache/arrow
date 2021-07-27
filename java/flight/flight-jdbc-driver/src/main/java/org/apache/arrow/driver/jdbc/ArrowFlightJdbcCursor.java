@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Arrow Flight Jdbc's Cursor class.
  */
-public class ArrowFlightJdbcVectorSchemaRootCursor extends AbstractCursor {
+public class ArrowFlightJdbcCursor extends AbstractCursor {
 
   private static final Logger LOGGER;
   private final VectorSchemaRoot root;
@@ -45,10 +45,10 @@ public class ArrowFlightJdbcVectorSchemaRootCursor extends AbstractCursor {
   private int currentRow = -1;
 
   static {
-    LOGGER = LoggerFactory.getLogger(ArrowFlightJdbcVectorSchemaRootCursor.class);
+    LOGGER = LoggerFactory.getLogger(ArrowFlightJdbcCursor.class);
   }
 
-  public ArrowFlightJdbcVectorSchemaRootCursor(VectorSchemaRoot root) {
+  public ArrowFlightJdbcCursor(VectorSchemaRoot root) {
     this.root = root;
     rowCount = root.getRowCount();
   }
