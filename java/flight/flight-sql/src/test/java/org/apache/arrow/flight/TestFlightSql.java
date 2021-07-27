@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
@@ -285,6 +286,35 @@ public class TestFlightSql {
       collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
       collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
     }
+  }
+
+  @Test
+  public void testSimplePreparedStatementUpdateResults() throws Exception {
+    final PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES (?, ?)");
+
+    final Schema parameterSchema = prepare.getParameterSchema();
+    final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(parameterSchema, new RootAllocator());
+
+    final VarCharVector varCharVector = (VarCharVector) vectorSchemaRoot.getVector(0);
+    final IntVector intVector = (IntVector) vectorSchemaRoot.getVector(1);;
+    final int counter = 10;
+    varCharVector.allocateNew(counter);
+    intVector.allocateNew(counter);
+
+    final IntStream range = IntStream.range(0, counter);
+
+    range.forEach(i -> {
+      intVector.setSafe(i, i* counter);
+      varCharVector.setSafe(i, new Text("value" + i ));
+    });
+    intVector.setValueCount(counter);
+    varCharVector.setValueCount(counter);
+
+//    final VectorSchemaRoot root = VectorSchemaRoot.of(varCharVector , intVector);
+    vectorSchemaRoot.setRowCount(counter);
+    final long l = prepare.executeUpdate(vectorSchemaRoot);
+
+    collector.checkThat(l, is(10L));
   }
 
   @Test
