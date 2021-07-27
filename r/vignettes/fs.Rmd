@@ -30,7 +30,8 @@ An S3 URI looks like:
 s3://[access_key:secret_key@]bucket/path[?region=]
 ```
 
-For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
+For example, one of the NYC taxi data files used in 
+`vignette("dataset", package = "arrow")` is found at
 
 ```
 s3://ursa-labs-taxi-data/2019/06/data.parquet
