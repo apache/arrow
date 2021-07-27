@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.TimeZone;
 
 import org.apache.arrow.flight.FlightStream;
@@ -35,6 +36,7 @@ import org.apache.calcite.avatica.QueryState;
 public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
   private FlightStream flightStream;
+  private Iterator<FlightStream> flightStreamIterator;
 
   ArrowFlightJdbcVectorFlightStreamResultSet(AvaticaStatement statement,
                                              QueryState state,
@@ -48,13 +50,16 @@ public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcV
   @Override
   protected AvaticaResultSet execute() throws SQLException {
     try {
-      flightStream = ((ArrowFlightConnection) statement
+      flightStreamIterator = ((ArrowFlightConnection) statement
           .getConnection())
           .getClient()
-          .getStream(signature.sql);
+          .getFlightStreams(signature.sql).iterator();
 
-      final VectorSchemaRoot root = flightStream.getRoot();
-      execute(root);
+      if (flightStreamIterator.hasNext()) {
+        flightStream = flightStreamIterator.next();
+        final VectorSchemaRoot root = flightStream.getRoot();
+        execute(root);
+      }
     } catch (SQLException e) {
       throw e;
     } catch (Exception e) {
@@ -76,6 +81,19 @@ public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcV
       execute(flightStream.getRoot());
       return next();
     }
+
+    if (flightStreamIterator.hasNext()) {
+      if (flightStream != null) {
+        try {
+          flightStream.close();
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+      flightStream = flightStreamIterator.next();
+      execute(flightStream.getRoot());
+      return next();
+    }
     return false;
   }
 
@@ -85,6 +103,10 @@ public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcV
 
     try {
       this.flightStream.close();
+
+      while (flightStreamIterator.hasNext()) {
+        flightStreamIterator.next().close();
+      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
