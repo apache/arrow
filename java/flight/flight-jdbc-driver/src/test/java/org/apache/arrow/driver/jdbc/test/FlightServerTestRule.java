@@ -99,7 +99,10 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   static final String QUERY_STRING = "SELECT * FROM TEST";
   private static final List<String> QUERY_TICKETS = ImmutableList.of(
-      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString());
+      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+      UUID.randomUUID().toString(), UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+      UUID.randomUUID().toString());
 
   static final String METADATA_QUERY_STRING = "SELECT * FROM METADATA";
   private static final List<String> METADATA_QUERY_TICKETS = ImmutableList.of(
@@ -230,13 +233,13 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
         String ticketString = new String(ticket.getBytes(), StandardCharsets.UTF_8);
         if (QUERY_TICKETS.contains(ticketString)) {
-          final int rowsPerPage = 2500;
+          final int rowsPerPage = 50000;
           final int page = QUERY_TICKETS.indexOf(ticketString);
 
           try (final VectorSchemaRoot root = VectorSchemaRoot.create(querySchema, allocator)) {
             root.allocateNew();
             listener.start(root);
-            int batchSize = 500;
+            int batchSize = 5000;
             int indexOnBatch = 0;
 
             int resultsOffset = page * rowsPerPage;

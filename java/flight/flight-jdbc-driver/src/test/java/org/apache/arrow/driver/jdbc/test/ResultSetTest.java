@@ -22,6 +22,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.sql.Connection;
@@ -30,6 +31,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
@@ -84,14 +88,20 @@ public class ResultSetTest {
          ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
       int count = 0;
       int columns = 6;
+      int expectedRows = 500000;
+
+      Set<String> testNames =
+          IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
+
       for (; resultSet.next(); count++) {
         for (int column = 1; column <= columns; column++) {
           resultSet.getObject(column);
         }
-        assertEquals("Test Name #" + count, resultSet.getString(2));
+        assertTrue(testNames.remove(resultSet.getString(2)));
       }
 
-      assertEquals(7500, count);
+      assertTrue(testNames.isEmpty());
+      assertEquals(expectedRows, count);
     }
   }
 
