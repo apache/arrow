@@ -31,7 +31,8 @@ import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
 
 /**
- * {@link ResultSet} implementation for Arrow Flight used to access the results of a {@link FlightStream}.
+ * {@link ResultSet} implementation for Arrow Flight used to access the results of multiple {@link FlightStream}
+ * objects.
  */
 public class ArrowFlightJdbcVectorFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
