@@ -138,8 +138,6 @@ struct ARROW_DS_EXPORT ScanOptions {
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 
-  int64_t file_format = 0;  // 0 = Parquet, 1 = Ipc
-
   // Return a threaded or serial TaskGroup according to use_threads.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 };

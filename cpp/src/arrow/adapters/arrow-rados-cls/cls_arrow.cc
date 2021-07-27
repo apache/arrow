@@ -23,7 +23,7 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
-#include "arrow/dataset/file_rados_parquet.h"
+#include "arrow/dataset/file_skyhook.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/compression.h"
@@ -245,7 +245,7 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
   std::shared_ptr<arrow::Schema> projection_schema;
   std::shared_ptr<arrow::Schema> dataset_schema;
   int64_t file_size;
-  int64_t file_format = 0;  // 0 = Parquet, 1 = Ipc
+  int file_format = 0;  // 0 = Parquet, 1 = Ipc
 
   // Deserialize the scan request
   if (!(s = arrow::dataset::DeserializeScanRequest(&filter, &partition_expression,
@@ -265,7 +265,7 @@ static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
     s = ScanIpcObject(hctx, filter, partition_expression, projection_schema,
                       dataset_schema, table, file_size);
   } else {
-    s = arrow::Status::Invalid("Invalid file format");
+    s = arrow::Status::Invalid("Unsupported file format");
   }
   if (!s.ok()) {
     CLS_LOG(0, "error: %s", s.message().c_str());

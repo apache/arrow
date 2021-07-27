@@ -185,8 +185,8 @@ inline Result<ScanTaskIterator> GetScanTaskIterator(
   auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
 
-    if (fragment->type_name() == "rados-parquet") {
-      // if format is `rados-parquet`, then don't do filter and projection on the client
+    if (fragment->type_name() == "skyhook") {
+      // if format is `skyhook`, then don't do filter and projection on the client
       // side.
       return std::move(scan_task_it);
     }

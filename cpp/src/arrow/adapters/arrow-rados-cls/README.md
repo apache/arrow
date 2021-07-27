@@ -18,7 +18,7 @@
 -->
 # <img src="https://iris-hep.org/assets/logos/skyhookdmLogoJeff.png" width="64" valign="middle" alt="Skyhook"/> SkyhookDM-Arrow
 
-Apache Arrow provides a [`Dataset`](https://arrow.apache.org/docs/cpp/api/dataset.html) API, which acts as an abstraction over a collection of files in different storage backends like S3 and HDFS. It supports different file formats like CSV and Parquet through the [`FileFormat`](https://arrow.apache.org/docs/cpp/api/dataset.html#_CPPv4N5arrow7dataset10FileFormatE) API. In SkyhookDM, we create a new file format called `RadosParquetFileFormat` on top of `ParquetFileFormat`, which besides providing all the features of Parquet allows offloading file fragment scan operations into the storage backend. Offloading scan operations increases the query performance many folds, provides better scalability, and results in less network traffic. The architecture of SkyhookDM is described [here](./docs/architecture.md).
+Apache Arrow provides a [`Dataset`](https://arrow.apache.org/docs/cpp/api/dataset.html) API, which acts as an abstraction over a collection of files in different storage backends like S3 and HDFS. It supports different file formats like CSV and Parquet through the [`FileFormat`](https://arrow.apache.org/docs/cpp/api/dataset.html#_CPPv4N5arrow7dataset10FileFormatE) API. In SkyhookDM, we create a new file format called `SkyhookFileFormat` on top of `ParquetFileFormat`, which besides providing all the features of Parquet allows offloading file fragment scan operations into the storage backend. Offloading scan operations increases the query performance many folds, provides better scalability, and results in less network traffic. The architecture of SkyhookDM is described [here](./docs/architecture.md).
 
 # Getting Started
 
@@ -59,13 +59,13 @@ docker-compose run --service-ports ubuntu-cls-demo
 
 ### Client side - C++
 
-* [`file_rados_parquet.h`](../../dataset/file_rados_parquet.h): This file contains the definitions of 3 APIs. The `RadosCluster` , `DirectObjectAccess`, and the `RadosParquetFileFormat`. The `RadosCluster` API helps create a connection to the Ceph cluster and provides a handle to the cluster that can be passed around. The `DirectObjectAccess` API provides abstractions for converting filenames in CephFS to object IDs in the Object store and allows interacting with the objects directly. The `RadosParquetFileFormat` API takes in the direct object access construct as input and contains the logic of pushing down scans to the underlying objects that make up a file. This file also contains functions for (de)serializing scan options and query results into `ceph::bufferlist` using Flatbuffers for sending them over the network.
+* [`file_skyhook.h`](../../dataset/file_skyhook.h): This file contains the definitions of 3 APIs. The `RadosConnection` , `SkyhookDirectObjectAccess`, and the `SkyhookFileFormat`. The `RadosConnection` API helps create a connection to the Ceph cluster and provides a handle to the cluster that can be passed around. The `SkyhookDirectObjectAccess` API provides abstractions for converting filenames in CephFS to object IDs in the Object store and allows interacting with the objects directly. The `SkyhookFileFormat` API takes in the direct object access construct as input and contains the logic of pushing down scans to the underlying objects that make up a file. This file also contains functions for (de)serializing scan options and query results into `ceph::bufferlist` using Flatbuffers for sending them over the network.
 
 * [`rados.h`](../../dataset/rados.h): Contains a wrapper for the `librados` SDK for exposing `librados` methods like `init2`, `connect`, `stat`, `ioctx_create`, and `exec` which are required for establishing the connection to the Ceph cluster and for operating on objects directly. 
 
 ### Client side - Python
 
-* [`_rados.pyx`](../../../../../python/pyarrow/_rados.pyx): Contains Cython bindings to the `RadosParquetFileFormat` C++ API.
+* [`_rados.pyx`](../../../../../python/pyarrow/_rados.pyx): Contains Cython bindings to the `SkyhookFileFormat` C++ API.
 
 * [`rados.py`](../../../../../python/pyarrow/rados.py): This file contains the definition of the `SplittedParquetWriter`. It is completely implemented in Python.
 

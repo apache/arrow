@@ -173,8 +173,8 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.rados  # noqa
-    if defaults['dataset']:
+    from pyarrow.dataset import SkyhookFileFormat  # noqa
+    if defaults['dataset'] and SkyhookFileFormat:
         defaults['rados'] = True
 except ImportError:
     pass

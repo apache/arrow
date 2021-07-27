@@ -71,10 +71,10 @@ jobs:
               -e CPP_MAKE_PARALLELISM=2 \
               ubuntu-cpp-cls
             ubuntu: 20.04
-            title: AMD64 Ubuntu 20.04 C++ (Rados Parquet Format)
+            title: AMD64 Ubuntu 20.04 C++ (Skyhook Format)
           - image: ubuntu-python-cls
             ubuntu: 20.04
-            title: AMD64 Ubuntu 20.04 Python (Rados Parquet Format)
+            title: AMD64 Ubuntu 20.04 Python (Skyhook Format)
     env:
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
     steps:

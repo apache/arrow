@@ -26,7 +26,6 @@
 
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -71,7 +70,7 @@ namespace connection {
 /// \brief An interface for general connections.
 class ARROW_DS_EXPORT Connection {
  public:
-  virtual Status connect() = 0;
+  virtual Status Connect() = 0;
 
   Connection() = default;
   virtual ~Connection() = default;
@@ -105,60 +104,31 @@ class ARROW_DS_EXPORT RadosConnection : public Connection {
         ioCtx(new IoCtxWrapper()),
         connected(false) {}
 
-  ~RadosConnection() override { shutdown(); }
+  ~RadosConnection();
 
   /// \brief Connect to the Rados cluster.
   /// \return Status.
-  Status connect() override {
-    if (connected) {
-      return Status::OK();
-    }
-
-    // Locks the mutex. Only one thread can pass here at a time.
-    // Another thread handled the connection already.
-    std::unique_lock<std::mutex> lock(connection_mutex);
-    if (connected) {
-      return Status::OK();
-    }
-    connected = true;
-
-    if (rados->init2(ctx.user_name.c_str(), ctx.cluster_name.c_str(), 0))
-      return Status::Invalid("librados::init2 returned non-zero exit code.");
-
-    if (rados->conf_read_file(ctx.ceph_config_path.c_str()))
-      return Status::Invalid("librados::conf_read_file returned non-zero exit code.");
-
-    if (rados->connect())
-      return Status::Invalid("librados::connect returned non-zero exit code.");
-
-    if (rados->ioctx_create(ctx.data_pool.c_str(), ioCtx))
-      return Status::Invalid("librados::ioctx_create returned non-zero exit code.");
-
-    return Status::OK();
-  }
+  Status Connect();
 
   /// \brief Shutdown the connection to the Rados cluster.
   /// \return Status.
-  Status shutdown() {
-    rados->shutdown();
-    return Status::OK();
-  }
+  Status Shutdown();
 
   RadosConnectionCtx ctx;
   RadosInterface* rados;
   IoCtxInterface* ioCtx;
   bool connected;
-  std::mutex connection_mutex;
 };
+
 }  // namespace connection
 
-/// \class DirectObjectAccess
+/// \class SkyhookDirectObjectAccess
 /// \brief Interface for translating the name of a file in CephFS to its
 /// corresponding object ID in RADOS assuming 1:1 mapping between a file
 /// and its underlying object.
-class ARROW_DS_EXPORT DirectObjectAccess {
+class ARROW_DS_EXPORT SkyhookDirectObjectAccess {
  public:
-  explicit DirectObjectAccess(
+  explicit SkyhookDirectObjectAccess(
       const std::shared_ptr<connection::RadosConnection>& connection)
       : connection_(std::move(connection)) {}
 
@@ -205,22 +175,21 @@ class ARROW_DS_EXPORT DirectObjectAccess {
   std::shared_ptr<connection::RadosConnection> connection_;
 };
 
-/// \class RadosParquetFileFormat
+/// \class SkyhookFileFormat
 /// \brief A ParquetFileFormat implementation that offloads the fragment
 /// scan operations to the Ceph OSDs
-class ARROW_DS_EXPORT RadosParquetFileFormat : public ParquetFileFormat {
+class ARROW_DS_EXPORT SkyhookFileFormat : public ParquetFileFormat {
  public:
-  RadosParquetFileFormat(const std::string& ceph_config_path,
-                         const std::string& data_pool, const std::string& user_name,
-                         const std::string& cluster_name, const std::string& cls_name);
+  SkyhookFileFormat(const std::string& format, const std::string& ceph_config_path,
+                    const std::string& data_pool, const std::string& user_name,
+                    const std::string& cluster_name, const std::string& cls_name);
 
-  explicit RadosParquetFileFormat(
-      const std::shared_ptr<connection::RadosConnection>& conn);
+  explicit SkyhookFileFormat(const std::shared_ptr<connection::RadosConnection>& conn);
 
-  explicit RadosParquetFileFormat(std::shared_ptr<DirectObjectAccess>& doa)
+  explicit SkyhookFileFormat(std::shared_ptr<SkyhookDirectObjectAccess>& doa)
       : doa_(std::move(doa)) {}
 
-  std::string type_name() const override { return "rados-parquet"; }
+  std::string type_name() const override { return "skyhook"; }
 
   bool splittable() const { return true; }
 
@@ -252,31 +221,34 @@ class ARROW_DS_EXPORT RadosParquetFileFormat : public ParquetFileFormat {
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return NULLPTR; }
 
  protected:
-  std::shared_ptr<DirectObjectAccess> doa_;
+  std::shared_ptr<SkyhookDirectObjectAccess> doa_;
+  std::string fragment_format_;
 };
 
 /// \brief Serialize scan request to a bufferlist.
 /// \param[in] options The scan options to use to build a ScanRequest.
+/// \param[in] file_format The underlying file format to use.
 /// \param[in] file_size The size of the file fragment.
 /// \param[out] bl Output bufferlist.
 /// \return Status.
 ARROW_DS_EXPORT Status SerializeScanRequest(std::shared_ptr<ScanOptions>& options,
-                                            int64_t& file_size, ceph::bufferlist& bl);
+                                            int& file_format, int64_t& file_size,
+                                            ceph::bufferlist& bl);
 
 /// \brief Deserialize scan request from bufferlist.
 /// \param[out] filter The filter expression to apply.
 /// \param[out] partition The partition expression to use.
 /// \param[out] projected_schema The schema to project the filtered record batches.
 /// \param[out] dataset_schema The dataset schema to use.
-/// \param[out] file_size The size of the file.
-/// \param[out] file_format The file format to use.
+/// \param[out] file_size The size of the file fragment.
+/// \param[out] file_format The underlying file format to use.
 /// \param[in] bl Input Ceph bufferlist.
 /// \return Status.
 ARROW_DS_EXPORT Status DeserializeScanRequest(compute::Expression* filter,
                                               compute::Expression* partition,
                                               std::shared_ptr<Schema>* projected_schema,
                                               std::shared_ptr<Schema>* dataset_schema,
-                                              int64_t& file_size, int64_t& file_format,
+                                              int64_t& file_size, int& file_format,
                                               ceph::bufferlist& bl);
 
 /// \brief Serialize the result Table to a bufferlist.

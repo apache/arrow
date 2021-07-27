@@ -24,7 +24,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/file_rados_parquet.h"
+#include "arrow/dataset/file_skyhook.h"
 #include "arrow/filesystem/api.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
@@ -37,14 +37,14 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 
-std::shared_ptr<arrow::dataset::RadosParquetFileFormat> GetRadosParquetFormat() {
+std::shared_ptr<arrow::dataset::SkyhookFileFormat> GetSkyhookFormat() {
   std::string ceph_config_path = "/etc/ceph/ceph.conf";
   std::string data_pool = "cephfs_data";
   std::string user_name = "client.admin";
   std::string cluster_name = "ceph";
   std::string cls_name = "arrow";
-  return std::make_shared<arrow::dataset::RadosParquetFileFormat>(
-      ceph_config_path, data_pool, user_name, cluster_name, cls_name);
+  return std::make_shared<arrow::dataset::SkyhookFileFormat>(
+      "parquet", ceph_config_path, data_pool, user_name, cluster_name, cls_name);
 }
 
 std::shared_ptr<arrow::dataset::ParquetFileFormat> GetParquetFormat() {
@@ -114,13 +114,13 @@ TEST(TestArrowRadosCLS, SelectEntireDataset) {
       GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
-  format = GetRadosParquetFormat();
+  format = GetSkyhookFormat();
   dataset = GetDatasetFromPath(fs, format, path);
   scanner = GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
-  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+  auto table_skyhook_parquet = scanner->ToTable().ValueOrDie();
 
-  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
-  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+  ASSERT_EQ(table_parquet->Equals(*table_skyhook_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_skyhook_parquet->num_rows());
 }
 
 TEST(TestArrowRadosCLS, SelectFewRows) {
@@ -134,13 +134,13 @@ TEST(TestArrowRadosCLS, SelectFewRows) {
   auto scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
-  format = GetRadosParquetFormat();
+  format = GetSkyhookFormat();
   dataset = GetDatasetFromPath(fs, format, path);
   scanner = GetScannerFromDataset(dataset, columns, filter, true);
-  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+  auto table_skyhook_parquet = scanner->ToTable().ValueOrDie();
 
-  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
-  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+  ASSERT_EQ(table_parquet->Equals(*table_skyhook_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_skyhook_parquet->num_rows());
 }
 
 TEST(TestArrowRadosCLS, SelectFewColumns) {
@@ -154,13 +154,13 @@ TEST(TestArrowRadosCLS, SelectFewColumns) {
       GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
-  format = GetRadosParquetFormat();
+  format = GetSkyhookFormat();
   dataset = GetDatasetFromPath(fs, format, path);
   scanner = GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
-  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+  auto table_skyhook_parquet = scanner->ToTable().ValueOrDie();
 
-  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
-  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+  ASSERT_EQ(table_parquet->Equals(*table_skyhook_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_skyhook_parquet->num_rows());
 }
 
 TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnPartitionKey) {
@@ -175,13 +175,13 @@ TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnPartitionKey) {
   auto scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
-  format = GetRadosParquetFormat();
+  format = GetSkyhookFormat();
   dataset = GetDatasetFromPath(fs, format, path);
   scanner = GetScannerFromDataset(dataset, columns, filter, true);
-  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+  auto table_skyhook_parquet = scanner->ToTable().ValueOrDie();
 
-  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
-  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+  ASSERT_EQ(table_parquet->Equals(*table_skyhook_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_skyhook_parquet->num_rows());
 }
 
 TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnlyOnPartitionKey) {
@@ -199,11 +199,11 @@ TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnlyOnPartitionKey) {
   auto scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
-  format = GetRadosParquetFormat();
+  format = GetSkyhookFormat();
   dataset = GetDatasetFromPath(fs, format, path);
   scanner = GetScannerFromDataset(dataset, columns, filter, true);
-  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+  auto table_skyhook_parquet = scanner->ToTable().ValueOrDie();
 
-  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
-  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+  ASSERT_EQ(table_parquet->Equals(*table_skyhook_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_skyhook_parquet->num_rows());
 }

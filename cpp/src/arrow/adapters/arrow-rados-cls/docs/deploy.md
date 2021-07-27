@@ -25,7 +25,7 @@
 ```
 where mon1, mon2, osd1, etc. are the internal hostnames of the nodes.
 
-2. Build and install the SkyhookDM CLS plugins and PyArrow (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script. For example,
+2. Build and install the SkyhookDM CLS plugins and PyArrow (with Skyhook extensions) using [this](../scripts/deploy_skyhook.sh) script. For example,
 ```bash
 ./deploy_skyhook.sh osd1,osd2,osd3
 ```
@@ -53,6 +53,6 @@ This will write 100 of ~128MB Parquet files to `/mnt/cephfs/dataset` using a Cep
 3. Write a client script and get started with querying datasets in SkyhookDM. An example script is given below.
 ```python
 import pyarrow.dataset as ds
-mydataset = ds.dataset("file:///mnt/cephfs/dataset", format="rados-parquet")
+mydataset = ds.dataset("file:///mnt/cephfs/dataset", format="skyhook")
 print(mydataset.to_table())
 ```

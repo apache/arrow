@@ -34,7 +34,7 @@ wget https://raw.githubusercontent.com/uccross/skyhookdm-arrow/arrow-master/cpp/
 ```
 where mon1, mon2, osd1, etc. are the internal hostnames of the nodes.
 
-3. Build and install the SkyhookDM CLS plugins and PyArrow (with Rados Parquet extensions):
+3. Build and install the SkyhookDM CLS plugins and PyArrow (with Skyhook extensions):
 
 ```bash
 ./deploy_skyhook.sh osd1,osd2,osd3

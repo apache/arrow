@@ -271,7 +271,7 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
     auto fixed_path = StripPrefixAndFilename(info.path(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
     std::shared_ptr<FileFragment> fragment;
-    if (format_->type_name() == "rados-parquet") {
+    if (format_->type_name() == "skyhook") {
       ARROW_ASSIGN_OR_RAISE(fragment,
                             format_->MakeFragment({info, fs_}, partition, true, schema));
     } else {

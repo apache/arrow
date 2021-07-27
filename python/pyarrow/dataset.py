@@ -21,7 +21,7 @@ import pyarrow as pa
 from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
-    RadosParquetFileFormat,
+    SkyhookFileFormat,
     CsvFileFormat,
     CsvFragmentScanOptions,
     Expression,
@@ -252,8 +252,8 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
-    elif obj == "rados-parquet":
-        return RadosParquetFileFormat("/etc/ceph/ceph.conf", "cephfs_data")
+    elif obj == "skyhook":
+        return SkyhookFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 

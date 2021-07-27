@@ -33,40 +33,40 @@ except ModuleNotFoundError:
 def test_dataset_discovery():
     if skip:
         return
-    rados_parquet_dataset = ds.dataset(
+    skyhook_parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
-        format="rados-parquet"
+        format="skyhook"
     )
     parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
         format="parquet"
     )
-    assert len(rados_parquet_dataset.files) == len(parquet_dataset.files)
-    assert len(rados_parquet_dataset.files) == 8
-    assert rados_parquet_dataset.schema == parquet_dataset.schema
+    assert len(skyhook_parquet_dataset.files) == len(parquet_dataset.files)
+    assert len(skyhook_parquet_dataset.files) == 8
+    assert skyhook_parquet_dataset.schema == parquet_dataset.schema
 
 
 @pytest.mark.rados
 def test_without_partition_pruning():
     if skip:
         return
-    rados_parquet_dataset = ds.dataset(
+    skyhook_parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
-        format=ds.RadosParquetFileFormat("/etc/ceph/ceph.conf")
+        format="skyhook"
     )
     parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
         format="parquet"
     )
 
-    rados_parquet_df = rados_parquet_dataset.to_table(
+    skyhook_parquet_df = skyhook_parquet_dataset.to_table(
         columns=['DOLocationID', 'total_amount', 'fare_amount'],
         filter=(ds.field('total_amount') > 200)).to_pandas()
     parquet_df = parquet_dataset.to_table(
         columns=['DOLocationID', 'total_amount', 'fare_amount'],
         filter=(ds.field('total_amount') > 200)).to_pandas()
 
-    assert rados_parquet_df.equals(parquet_df) == 1
+    assert skyhook_parquet_df.equals(parquet_df) == 1
 
 
 @pytest.mark.rados
@@ -84,10 +84,10 @@ def test_with_partition_pruning():
         flavor="hive"
     )
 
-    rados_parquet_dataset = ds.dataset(
+    skyhook_parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
         partitioning=partitioning,
-        format=ds.RadosParquetFileFormat("/etc/ceph/ceph.conf")
+        format="skyhook"
     )
     parquet_dataset = ds.dataset(
         "file:///mnt/cephfs/nyc/",
@@ -95,13 +95,13 @@ def test_with_partition_pruning():
         format="parquet"
     )
 
-    rados_parquet_df = rados_parquet_dataset.to_table(
+    skyhook_parquet_df = skyhook_parquet_dataset.to_table(
         columns=projection_cols, filter=filter_expression).to_pandas()
 
     parquet_df = parquet_dataset.to_table(
         columns=projection_cols, filter=filter_expression).to_pandas()
 
-    assert rados_parquet_df.equals(parquet_df) == 1
+    assert skyhook_parquet_df.equals(parquet_df) == 1
 
 
 @pytest.mark.rados

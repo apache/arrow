@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/file_rados_parquet.h"
+#include "arrow/dataset/file_skyhook.h"
 #include "arrow/api.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/scanner.h"
@@ -52,22 +52,22 @@ std::shared_ptr<arrow::Table> CreateTable() {
   return arrow::Table::Make(schema, {array_a, array_b, array_c});
 }
 
-TEST(TestRadosParquetFileFormat, ScanRequestSerializeDeserialize) {
+TEST(TestSkyhookFileFormat, ScanRequestSerializeDeserialize) {
   std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
   options->projected_schema = arrow::schema({arrow::field("a", arrow::int64())});
   options->dataset_schema = arrow::schema({arrow::field("a", arrow::int64())});
-  options->file_format = 1;
 
   ceph::bufferlist bl;
   int64_t file_size = 1000000;
-  SerializeScanRequest(options, file_size, bl);
+  int file_format = 1;
+  SerializeScanRequest(options, file_format, file_size, bl);
 
   compute::Expression filter_;
   compute::Expression partition_expression_;
   std::shared_ptr<Schema> projected_schema_;
   std::shared_ptr<Schema> dataset_schema_;
   int64_t file_size_;
-  int64_t file_format_;
+  int file_format_;
   DeserializeScanRequest(&filter_, &partition_expression_, &projected_schema_,
                          &dataset_schema_, file_size_, file_format_, bl);
 
@@ -76,10 +76,10 @@ TEST(TestRadosParquetFileFormat, ScanRequestSerializeDeserialize) {
   ASSERT_EQ(options->projected_schema->Equals(projected_schema_), 1);
   ASSERT_EQ(options->dataset_schema->Equals(dataset_schema_), 1);
   ASSERT_EQ(file_size_, file_size);
-  ASSERT_EQ(file_format_, options->file_format);
+  ASSERT_EQ(file_format_, file_format);
 }
 
-TEST(TestRadosParquetFileFormat, SerializeDeserializeTable) {
+TEST(TestSkyhookFileFormat, SerializeDeserializeTable) {
   std::shared_ptr<Table> table = CreateTable();
   ceph::bufferlist bl;
   SerializeTable(table, bl);
