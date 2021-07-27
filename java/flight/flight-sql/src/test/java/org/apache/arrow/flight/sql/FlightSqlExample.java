@@ -710,10 +710,18 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
       final Schema parameterSchema =
           jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
-      final Schema datasetSchema =
-          jdbcToArrowSchema(preparedStatement.getMetaData(), DEFAULT_CALENDAR);
+
+      final ResultSetMetaData metaData = preparedStatement.getMetaData();
+
+      ByteString bytes;
+      if (isNull(metaData)) {
+        bytes = ByteString.EMPTY;
+      } else {
+        bytes = ByteString.copyFrom(
+            jdbcToArrowSchema(metaData, DEFAULT_CALENDAR).toByteArray());
+      }
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
-          .setDatasetSchema(copyFrom(datasetSchema.toByteArray()))
+          .setDatasetSchema(bytes)
           .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
           .setPreparedStatementHandle(preparedStatementHandle)
           .build();
@@ -760,8 +768,40 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
                                                    FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final PreparedStatementContext statement =
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle().toStringUtf8());
+
+    final PreparedStatement preparedStatement = statement.getPreparedStatement();
+    return () -> {
+      try {
+
+        flightStream.next();
+
+        final VectorSchemaRoot root = flightStream.getRoot();
+
+        final int rowCount = root.getRowCount();
+
+        System.out.println(rowCount);
+
+        preparedStatement.setString(1, "hello");
+        preparedStatement.setInt(2, 1000);
+
+        final int result = preparedStatement.executeUpdate();
+
+        final FlightSql.DoPutUpdateResult build =
+            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result).build();
+
+        try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
+          buffer.writeBytes(build.toByteArray());
+          ackStream.onNext(PutResult.metadata(buffer));
+          ackStream.onCompleted();
+        }
+      } catch (SQLException e) {
+        ackStream.onError(e);
+      } finally {
+        ackStream.onCompleted();
+      }
+    };
   }
 
   @Override
