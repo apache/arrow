@@ -146,7 +146,7 @@ jobs:
           upload-artifacts \
           --sha {{ task.branch }} \
           --tag {{ task.tag }} \
-          "arrow/python/dist/*.whl"
+          "arrow/python/repaired_wheels/*.whl"
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
