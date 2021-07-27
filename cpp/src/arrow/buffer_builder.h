@@ -45,8 +45,7 @@ class ARROW_EXPORT BufferBuilder {
   explicit BufferBuilder(MemoryPool* pool = default_memory_pool())
       : pool_(pool),
         data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
-              &util::internal::non_null_filler),
-
+              util::MakeNonNull<uint8_t>()),
         capacity_(0),
         size_(0) {}
 
