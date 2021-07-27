@@ -1088,7 +1088,7 @@ services:
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
-      $R_STATIC_DEPENDENCY_SOURCE: ${$R_STATIC_DEPENDENCY_SOURCE}
+      $R_STATIC_DEPENDENCY_SOURCE: ${R_STATIC_DEPENDENCY_SOURCE}
       ARROW_USE_PKG_CONFIG: "false"
       devtoolset_version: ${DEVTOOLSET_VERSION}
     volumes:
