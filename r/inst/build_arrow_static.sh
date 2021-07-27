@@ -45,19 +45,6 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-if [ "$R_STATIC_DEPENDENCY_SOURCE" = "AUTO" ]; then
-  pkg-config --version >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    ARROW_DEPENDENCY_SOURCE="AUTO"
-  else
-    ARROW_DEPENDENCY_SOURCE="BUNDLED"
-    echo "**** Warning: $R_STATIC_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not detected"
-    echo "**** Using bundled dependencies instead"
-  fi
-else
-  ARROW_DEPENDENCY_SOURCE="BUNDLED"
-fi
-
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
@@ -67,7 +54,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
-    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE} \
+    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_FILESYSTEM=ON \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \
     -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
