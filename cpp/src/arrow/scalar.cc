@@ -52,8 +52,6 @@ bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) cons
 namespace {
 
 struct ScalarHashImpl {
-  static std::hash<std::string> string_hash;
-
   Status Visit(const NullScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -99,8 +97,13 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
-  // TODO(bkietz) implement less wimpy hashing when these have ValueType
-  Status Visit(const UnionScalar& s) { return Status::OK(); }
+  Status Visit(const UnionScalar& s) {
+    // type_code is ignored when comparing for equality, so do not hash it either
+    AccumulateHashFrom(*s.value);
+    return Status::OK();
+  }
+
+  // TODO(bkietz) implement less wimpy hashing when this has ValueType
   Status Visit(const ExtensionScalar& s) { return Status::OK(); }
 
   template <typename T>
