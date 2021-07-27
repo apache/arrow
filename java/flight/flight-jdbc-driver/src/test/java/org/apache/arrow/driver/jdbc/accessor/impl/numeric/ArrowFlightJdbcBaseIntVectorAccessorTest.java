@@ -128,6 +128,24 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
   }
 
   @Test
+  public void testShouldConvertToFloatMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getFloat,
+        (accessor, currentRow) -> equalTo((float) accessor.getLong()));
+  }
+
+  @Test
+  public void testShouldConvertToDoubleMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getDouble,
+        (accessor, currentRow) -> equalTo((double) accessor.getLong()));
+  }
+
+  @Test
+  public void testShouldConvertToBooleanMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getBoolean,
+        (accessor, currentRow) -> equalTo(accessor.getLong() != 0L));
+  }
+
+  @Test
   public void testShouldGetObjectClass() throws Exception {
     accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass,
         equalTo(Long.class));
