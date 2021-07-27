@@ -102,7 +102,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     signature.columns.addAll(columns);
 
     this.vectorSchemaRoot = vectorSchemaRoot;
-    execute2(new ArrowFlightJdbcVectorSchemaRootCursor(vectorSchemaRoot), this.signature.columns);
+    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
   }
 
   @Override
