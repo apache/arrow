@@ -382,8 +382,8 @@ tasks:
 
 {############################## Wheel OSX M1 #################################}
 
-{% for python_version, python_tag, abi_tag in [("3.8", "cp38"),
-                                               ("3.9", "cp39")] %}
+{% for python_version, python_tag in [("3.8", "cp38"),
+                                      ("3.9", "cp39")] %}
   wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
