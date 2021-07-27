@@ -412,7 +412,53 @@ public class FlightSqlClient {
      * @return the number of rows updated.
      */
     public long executeUpdate() {
-      throw Status.UNIMPLEMENTED.asRuntimeException();
+      if (isClosed) {
+        throw new IllegalStateException("Prepared statement has already been closed on the server.");
+      }
+
+      IntVector vector = new IntVector("ID", new RootAllocator(Long.MAX_VALUE));
+      VarCharVector text = new VarCharVector("ID", new RootAllocator(Long.MAX_VALUE));
+      vector.allocateNew(this.values.size());
+
+      final List<FieldVector> vectors = ImmutableList.of(vector, text);
+
+      final FlightDescriptor descriptor = FlightDescriptor
+          .command(Any.pack(FlightSql.CommandPreparedStatementUpdate.newBuilder()
+              .setClientExecutionHandle(
+                  ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
+              .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
+              .build())
+              .toByteArray());
+
+      final VectorSchemaRoot root = new VectorSchemaRoot(vectors);
+
+      final SyncPutListener putlistner = new SyncPutListener();
+      final FlightClient.ClientStreamListener listener =
+          client.startPut(descriptor, root, putlistner);
+
+      int i = 0;
+      for (Map.Entry<String, String> entry : this.values.entrySet()) {
+        text.setSafe(i, new Text(entry.getKey()));
+        vector.setSafe(i, Integer.parseInt(entry.getValue()));
+
+        i++;
+      }
+
+      vector.setValueCount(i);
+      text.setValueCount(i);
+      root.setRowCount(i);
+      listener.putNext();
+      listener.completed();
+
+      try {
+        final PutResult read = putlistner.read();
+        try (final ArrowBuf metadata = read.getApplicationMetadata()) {
+          final FlightSql.DoPutUpdateResult doPutUpdateResult = FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
+          return doPutUpdateResult.getRecordCount();
+        }
+      } catch (InterruptedException | InvalidProtocolBufferException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     // TODO: Set parameter values
