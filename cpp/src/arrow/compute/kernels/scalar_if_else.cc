@@ -1183,6 +1183,15 @@ void CopyOneArrayValue(const DataType& type, const uint8_t* in_valid,
 }
 
 template <typename Type>
+void CopyOneScalarValue(const Scalar& scalar, uint8_t* out_valid, uint8_t* out_values,
+                        const int64_t out_offset) {
+  if (out_valid) {
+    BitUtil::SetBitTo(out_valid, out_offset, scalar.is_valid);
+  }
+  CopyFixedWidth<Type>::CopyScalar(scalar, /*length=*/1, out_values, out_offset);
+}
+
+template <typename Type>
 void CopyOneValue(const Datum& in_values, const int64_t in_offset, uint8_t* out_valid,
                   uint8_t* out_values, const int64_t out_offset) {
   if (in_values.is_array()) {
@@ -1191,8 +1200,7 @@ void CopyOneValue(const Datum& in_values, const int64_t in_offset, uint8_t* out_
                             array.GetValues<uint8_t>(1, 0), array.offset + in_offset,
                             out_valid, out_values, out_offset);
   } else {
-    CopyValues<Type>(in_values, in_offset, /*length=*/1, out_valid, out_values,
-                     out_offset);
+    CopyOneScalarValue<Type>(*in_values.scalar(), out_valid, out_values, out_offset);
   }
 }
 
@@ -1714,10 +1722,9 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
       const auto& index_scalar = *batch[0].scalar();
       if (!index_scalar.is_valid) {
         if (out->is_array()) {
-          auto null_scalar = MakeNullScalar(out->type());
           ARROW_ASSIGN_OR_RAISE(
               auto temp_array,
-              MakeArrayFromScalar(*null_scalar, batch.length, ctx->memory_pool()));
+              MakeArrayOfNull(out->type(), batch.length, ctx->memory_pool()));
           *out->mutable_array() = *temp_array->data();
         }
         return Status::OK();
@@ -1748,6 +1755,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
         const auto row_length =
             checked_cast<const BaseBinaryScalar&>(*value.scalar()).value->size();
         reserve_data = std::max<int64_t>(reserve_data, batch.length * row_length);
+        continue;
       }
       const ArrayData& arr = *value.array();
       const offset_type* offsets = arr.GetValues<offset_type>(1);
@@ -1781,7 +1789,9 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
 
   static Status CopyValue(const Datum& datum, BuilderType* builder, int64_t row) {
     if (datum.is_scalar()) {
-      return builder->AppendScalar(*datum.scalar());
+      const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
+      if (!scalar.value) return builder->AppendNull();
+      return builder->Append(scalar.value->data(), scalar.value->size());
     }
     const ArrayData& source = *datum.array();
     if (!source.MayHaveNulls() ||
@@ -1928,7 +1938,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
 
     AddPrimitiveIfElseKernels(func, NumericTypes());
     AddPrimitiveIfElseKernels(func, TemporalTypes());
-    AddPrimitiveIfElseKernels(func, {boolean(), day_time_interval(), month_interval()});
+    AddPrimitiveIfElseKernels(func, IntervalTypes());
+    AddPrimitiveIfElseKernels(func, {boolean()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
     AddFSBinaryIfElseKernel(func);
@@ -1939,8 +1950,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
         "case_when", Arity::VarArgs(/*min_args=*/1), &case_when_doc);
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
-    AddPrimitiveCaseWhenKernels(
-        func, {boolean(), null(), day_time_interval(), month_interval()});
+    AddPrimitiveCaseWhenKernels(func, IntervalTypes());
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<Decimal128Type>::Exec);
@@ -1952,8 +1963,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
         "coalesce", Arity::VarArgs(/*min_args=*/1), &coalesce_doc);
     AddPrimitiveCoalesceKernels(func, NumericTypes());
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
-    AddPrimitiveCoalesceKernels(
-        func, {boolean(), null(), day_time_interval(), month_interval()});
+    AddPrimitiveCoalesceKernels(func, IntervalTypes());
+    AddPrimitiveCoalesceKernels(func, {boolean(), null()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<Decimal128Type>::Exec);
@@ -1968,8 +1979,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
                                                  &choose_doc);
     AddPrimitiveChooseKernels(func, NumericTypes());
     AddPrimitiveChooseKernels(func, TemporalTypes());
-    AddPrimitiveChooseKernels(func,
-                              {boolean(), null(), day_time_interval(), month_interval()});
+    AddPrimitiveChooseKernels(func, IntervalTypes());
+    AddPrimitiveChooseKernels(func, {boolean(), null()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<Decimal128Type>::Exec);

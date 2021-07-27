@@ -928,7 +928,8 @@ Structural transforms
   value of the first input (the 'index') is used as a zero-based index into the
   remaining arguments (i.e. index 0 is the second argument, index 1 is the third
   argument, etc.), and the value of the output for that row will be the
-  corresponding value of the selected input at that row.
+  corresponding value of the selected input at that row. If the index is null,
+  then the output will also be null.
 
 * \(3) Each row of the output will be the corresponding value of the first
   input which is non-null for that row, otherwise null.

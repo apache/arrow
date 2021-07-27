@@ -1056,6 +1056,8 @@ TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
   CheckScalar("choose", {indices1, values1, values2},
               ArrayFromJSON(type, "[10, 21, null, null, null]"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, "1"), values1},
+              ArrayFromJSON(type, "[1, 11, 1, null, null]"));
   // Mixed scalar and array (note CheckScalar checks all-scalar cases for us)
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
@@ -1078,6 +1080,8 @@ TYPED_TEST(TestChooseBinary, Basics) {
   auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
   CheckScalar("choose", {indices1, values1, values2},
               ArrayFromJSON(type, R"(["a", "klmno", null, null, null])"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, R"("foo")"), values1},
+              ArrayFromJSON(type, R"(["foo", "bc", "foo", null, null])"));
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
@@ -1096,6 +1100,7 @@ TEST(TestChoose, Null) {
   auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
   auto nulls = *MakeArrayOfNull(type, 5);
   CheckScalar("choose", {indices1, nulls, nulls}, nulls);
+  CheckScalar("choose", {indices1, MakeNullScalar(type), nulls}, nulls);
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), nulls, nulls}, nulls);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), nulls, nulls}, nulls);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), nulls, nulls}, nulls);
@@ -1113,6 +1118,8 @@ TEST(TestChoose, Boolean) {
   auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
   CheckScalar("choose", {indices1, values1, values2},
               ArrayFromJSON(type, "[true, false, null, null, null]"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, "false"), values1},
+              ArrayFromJSON(type, "[false, true, false, null, null]"));
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
@@ -1134,6 +1141,8 @@ TEST(TestChoose, DayTimeInterval) {
   auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
   CheckScalar("choose", {indices1, values1, values2},
               ArrayFromJSON(type, "[[10, 1], [2, 20], null, null, null]"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, "[1, 2]"), values1},
+              ArrayFromJSON(type, "[[1, 2], [10, 1], [1, 2], null, null]"));
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
@@ -1155,6 +1164,8 @@ TEST(TestChoose, Decimal) {
     auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
     CheckScalar("choose", {indices1, values1, values2},
                 ArrayFromJSON(type, R"(["1.23", "4.57", null, null, null])"));
+    CheckScalar("choose", {indices1, ScalarFromJSON(type, R"("2.34")"), values1},
+                ArrayFromJSON(type, R"(["2.34", "1.24", "2.34", null, null])"));
     CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
     CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
     CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
@@ -1177,6 +1188,8 @@ TEST(TestChoose, FixedSizeBinary) {
   auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
   CheckScalar("choose", {indices1, values1, values2},
               ArrayFromJSON(type, R"(["abc", "deg", null, null, null])"));
+  CheckScalar("choose", {indices1, ScalarFromJSON(type, R"("xyz")"), values1},
+              ArrayFromJSON(type, R"(["xyz", "abd", "xyz", null, null])"));
   CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
   CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
   CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);

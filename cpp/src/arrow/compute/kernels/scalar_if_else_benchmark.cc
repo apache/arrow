@@ -26,7 +26,7 @@
 namespace arrow {
 namespace compute {
 
-const int64_t elems = 1024 * 1024;
+const int64_t kNumItems = 1024 * 1024;
 
 template <typename Type, typename Enable = void>
 struct SetBytesProcessed {};
@@ -313,38 +313,38 @@ static void ChooseBench64(benchmark::State& state) {
   return ChooseBench<Int64Type>(state);
 }
 
-BENCHMARK(IfElseBench32)->Args({elems, 0});
-BENCHMARK(IfElseBench64)->Args({elems, 0});
+BENCHMARK(IfElseBench32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBench64)->Args({kNumItems, 0});
 
-BENCHMARK(IfElseBench32)->Args({elems, 99});
-BENCHMARK(IfElseBench64)->Args({elems, 99});
+BENCHMARK(IfElseBench32)->Args({kNumItems, 99});
+BENCHMARK(IfElseBench64)->Args({kNumItems, 99});
 
-BENCHMARK(IfElseBench32Contiguous)->Args({elems, 0});
-BENCHMARK(IfElseBench64Contiguous)->Args({elems, 0});
+BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 0});
 
-BENCHMARK(IfElseBench32Contiguous)->Args({elems, 99});
-BENCHMARK(IfElseBench64Contiguous)->Args({elems, 99});
+BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 99});
+BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 99});
 
-BENCHMARK(IfElseBenchString32)->Args({elems, 0});
-BENCHMARK(IfElseBenchString64)->Args({elems, 0});
+BENCHMARK(IfElseBenchString32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchString64)->Args({kNumItems, 0});
 
-BENCHMARK(IfElseBenchString32Contiguous)->Args({elems, 99});
-BENCHMARK(IfElseBenchString64Contiguous)->Args({elems, 99});
+BENCHMARK(IfElseBenchString32Contiguous)->Args({kNumItems, 99});
+BENCHMARK(IfElseBenchString64Contiguous)->Args({kNumItems, 99});
 
-BENCHMARK(CaseWhenBench64)->Args({elems, 0});
-BENCHMARK(CaseWhenBench64)->Args({elems, 99});
+BENCHMARK(CaseWhenBench64)->Args({kNumItems, 0});
+BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
 
-BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
-BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 99});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
 
-BENCHMARK(CoalesceBench64)->Args({elems, 0});
-BENCHMARK(CoalesceBench64)->Args({elems, 99});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 0});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 99});
 
-BENCHMARK(CoalesceNonNullBench64)->Args({elems, 0});
-BENCHMARK(CoalesceNonNullBench64)->Args({elems, 99});
+BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 0});
+BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 99});
 
-BENCHMARK(ChooseBench64)->Args({elems, 0});
-BENCHMARK(ChooseBench64)->Args({elems, 99});
+BENCHMARK(ChooseBench64)->Args({kNumItems, 0});
+BENCHMARK(ChooseBench64)->Args({kNumItems, 99});
 
 }  // namespace compute
 }  // namespace arrow
