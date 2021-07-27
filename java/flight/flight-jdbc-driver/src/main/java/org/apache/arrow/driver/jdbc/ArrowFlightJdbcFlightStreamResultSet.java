@@ -20,9 +20,10 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.Iterator;
+import java.util.List;
 import java.util.TimeZone;
 
+import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.calcite.avatica.AvaticaResultSet;
@@ -36,8 +37,8 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
-  private FlightStream flightStream;
-  private Iterator<FlightStream> flightStreamIterator;
+  private FlightStream currentFlightStream;
+  private FlightStreamQueue flightStreamQueue;
 
   ArrowFlightJdbcFlightStreamResultSet(AvaticaStatement statement,
                                        QueryState state,
@@ -51,13 +52,17 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   protected AvaticaResultSet execute() throws SQLException {
     try {
-      flightStreamIterator = ((ArrowFlightConnection) statement
+      flightStreamQueue = new FlightStreamQueue();
+
+      final List<FlightStream> flightStreams = ((ArrowFlightConnection) statement
           .getConnection())
           .getClient()
-          .getFlightStreams(signature.sql).iterator();
+          .getFlightStreams(signature.sql);
 
-      flightStream = flightStreamIterator.next();
-      final VectorSchemaRoot root = flightStream.getRoot();
+      flightStreams.forEach(flightStreamQueue::addToQueue);
+
+      currentFlightStream = flightStreamQueue.next();
+      final VectorSchemaRoot root = currentFlightStream.getRoot();
       execute(root);
     } catch (SQLException e) {
       throw e;
@@ -75,22 +80,17 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       return true;
     }
 
-    flightStream.getRoot().clear();
-    if (flightStream.next()) {
-      execute(flightStream.getRoot());
+    currentFlightStream.getRoot().clear();
+    if (currentFlightStream.next()) {
+      execute(currentFlightStream.getRoot());
       return next();
     }
 
-    if (flightStreamIterator.hasNext()) {
-      if (flightStream != null) {
-        try {
-          flightStream.close();
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      }
-      flightStream = flightStreamIterator.next();
-      execute(flightStream.getRoot());
+    flightStreamQueue.addToQueue(currentFlightStream);
+    currentFlightStream = flightStreamQueue.next();
+
+    if (currentFlightStream != null) {
+      execute(currentFlightStream.getRoot());
       return next();
     }
     return false;
@@ -101,11 +101,20 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     super.close();
 
     try {
-      this.flightStream.close();
-
-      while (flightStreamIterator.hasNext()) {
-        flightStreamIterator.next().close();
+      if (this.currentFlightStream != null) {
+        this.currentFlightStream.close();
       }
+
+      while (true) {
+        FlightStream flightStream = flightStreamQueue.next();
+        if (flightStream == null) {
+          break;
+        }
+
+        flightStream.close();
+      }
+
+      flightStreamQueue.close();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
