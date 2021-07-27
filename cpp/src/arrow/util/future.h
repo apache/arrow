@@ -48,9 +48,6 @@ struct is_future : std::false_type {};
 template <typename T>
 struct is_future<Future<T>> : std::true_type {};
 
-template <typename Signature>
-using result_of_t_2 = typename std::result_of<Signature>::type;
-
 template <typename Signature, typename Enable = void>
 struct result_of;
 
