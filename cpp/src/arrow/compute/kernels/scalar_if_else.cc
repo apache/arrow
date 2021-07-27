@@ -1791,7 +1791,8 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
     if (datum.is_scalar()) {
       const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
       if (!scalar.value) return builder->AppendNull();
-      return builder->Append(scalar.value->data(), scalar.value->size());
+      return builder->Append(scalar.value->data(),
+                             static_cast<offset_type>(scalar.value->size()));
     }
     const ArrayData& source = *datum.array();
     if (!source.MayHaveNulls() ||
