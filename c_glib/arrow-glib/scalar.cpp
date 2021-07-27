@@ -2045,7 +2045,6 @@ garrow_struct_scalar_get_value(GArrowStructScalar *scalar)
 
 typedef struct GArrowUnionScalarPrivate_ {
   GArrowScalar *value;
-  int8_t type_code;
 } GArrowUnionScalarPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowUnionScalar,
@@ -2121,7 +2120,7 @@ G_END_DECLS
 template<typename ArrowUnionScalarType>
 GArrowScalar *
 garrow_union_scalar_new(GArrowDataType *data_type,
-                        int8_t type_code,
+                        gint8 type_code,
                         GArrowScalar *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
@@ -2138,6 +2137,23 @@ garrow_union_scalar_new(GArrowDataType *data_type,
   return scalar;
 }
 G_BEGIN_DECLS
+
+/**
+ * garrow_union_scalar_get_type_code:
+ * @scalar: A #GArrowUnionScalar.
+ *
+ * Returns: The type code of this scalar.
+ *
+ * Since: 6.0.0
+ */
+gint8
+garrow_union_scalar_get_type_code(GArrowUnionScalar *scalar)
+{
+  const auto &arrow_scalar =
+    std::static_pointer_cast<arrow::UnionScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->type_code;
+}
 
 /**
  * garrow_union_scalar_get_value:
@@ -2172,6 +2188,7 @@ garrow_sparse_union_scalar_class_init(GArrowSparseUnionScalarClass *klass)
 /**
  * garrow_sparse_union_scalar_new:
  * @data_type: A #GArrowSparseUnionDataType for this scalar.
+ * @type_code: The type code of this scalar.
  * @value: The value of this scalar.
  *
  * Returns: A newly created #GArrowSparseUnionScalar.
@@ -2180,7 +2197,7 @@ garrow_sparse_union_scalar_class_init(GArrowSparseUnionScalarClass *klass)
  */
 GArrowSparseUnionScalar *
 garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
-                               int8_t type_code,
+                               gint8 type_code,
                                GArrowScalar *value)
 {
   return GARROW_SPARSE_UNION_SCALAR(
@@ -2206,6 +2223,7 @@ garrow_dense_union_scalar_class_init(GArrowDenseUnionScalarClass *klass)
 /**
  * garrow_dense_union_scalar_new:
  * @data_type: A #GArrowDenseUnionDataType for this scalar.
+ * @type_code: The type code of this scalar.
  * @value: The value of this scalar.
  *
  * Returns: A newly created #GArrowDenseUnionScalar.
@@ -2214,7 +2232,7 @@ garrow_dense_union_scalar_class_init(GArrowDenseUnionScalarClass *klass)
  */
 GArrowDenseUnionScalar *
 garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
-                              int8_t type_code,
+                              gint8 type_code,
                               GArrowScalar *value)
 {
   return GARROW_DENSE_UNION_SCALAR(
