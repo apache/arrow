@@ -196,3 +196,19 @@ space <- arrow::S3FileSystem$create(
 
 Look for `usethis::edit_r_environ()` to put your passwords into environment
 variables.
+
+### Copying from/to S3 filesystems
+
+While there are efficient tools such as [rclone](https://rclone.org/), you can
+copy a year or a month from a remote S3 by using `arrow`:
+
+```r
+mydir <- "~/nyc-taxi/2016/01"
+try(dir.create(mydir, recursive = T))
+arrow::copy_files("s3://ursa-labs-taxi-data/2016/01", "~/nyc-taxi/2016/01")
+```
+
+This works in both directions:
+```r
+arrow::copy_files("~/nyc-taxi/2016/01", "s3://ursa-labs-taxi-data/2016/01")
+```
