@@ -26,9 +26,11 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +39,7 @@ import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -87,21 +90,22 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
       int count = 0;
-      int columns = 6;
-      int expectedRows = 500000;
+      int expectedRows = 50000;
 
       Set<String> testNames =
           IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
 
       for (; resultSet.next(); count++) {
-        for (int column = 1; column <= columns; column++) {
-          resultSet.getObject(column);
-        }
-        assertTrue(testNames.remove(resultSet.getString(2)));
+        collector.checkThat(resultSet.getObject(1), CoreMatchers.instanceOf(Long.class));
+        collector.checkThat(testNames.remove(resultSet.getString(2)), CoreMatchers.is(true));
+        collector.checkThat(resultSet.getObject(3), CoreMatchers.instanceOf(Integer.class));
+        collector.checkThat(resultSet.getObject(4), CoreMatchers.instanceOf(Double.class));
+        collector.checkThat(resultSet.getObject(5), CoreMatchers.instanceOf(Date.class));
+        collector.checkThat(resultSet.getObject(6), CoreMatchers.instanceOf(Timestamp.class));
       }
 
-      assertTrue(testNames.isEmpty());
-      assertEquals(expectedRows, count);
+      collector.checkThat(testNames.isEmpty(), CoreMatchers.is(true));
+      collector.checkThat(expectedRows, CoreMatchers.is(count));
     }
   }
 
