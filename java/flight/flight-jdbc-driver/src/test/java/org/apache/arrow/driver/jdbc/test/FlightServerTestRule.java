@@ -40,7 +40,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSourceFactory;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -123,12 +123,16 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     this.allocator = allocator;
 
-    Properties dataSourceProperties = new Properties();
-    dataSourceProperties.put(USERNAME.getEntry().getKey(), getProperty(USERNAME));
-    dataSourceProperties.put(PASSWORD.getEntry().getKey(), getProperty(PASSWORD));
-
-    final String url = "jdbc:arrow-flight://" + getProperty(HOST) + ":" + getProperty(PORT);
-    this.dataSource = new ArrowFlightJdbcDataSource(url, dataSourceProperties);
+    final ArrowFlightJdbcDataSourceFactory dataSourceFactory = new ArrowFlightJdbcDataSourceFactory();
+    dataSourceFactory.setHost((String) getProperty(HOST));
+    dataSourceFactory.setPort((Integer) getProperty(PORT));
+    dataSourceFactory.setUsername((String) getProperty(USERNAME));
+    dataSourceFactory.setPassword((String) getProperty(PASSWORD));
+    try {
+      this.dataSource = dataSourceFactory.createDataSource();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -383,7 +387,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private Map<BaseProperty, Object> generateDefaults() {
     final Map<BaseProperty, Object> propertiesMap = new HashMap<>();
     Arrays.stream(BaseProperty.values()).forEach(property -> {
-      propertiesMap.put(property, property.getEntry().getValue());
+      propertiesMap.put(property, property.getDefaultValue());
     });
     return propertiesMap;
   }
