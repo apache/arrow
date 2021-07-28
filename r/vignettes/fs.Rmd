@@ -187,8 +187,8 @@ adapt this instead:
 
 ```r
 space <- arrow::S3FileSystem$create(
-  access_key = Sys.getenv('SPACES_TAXI_TOKEN'),
-  secret_key = Sys.getenv('SPACES_TAXI_SECRET'),
+  access_key = Sys.getenv('DO_ACCESS_KEY_ID'),
+  secret_key = Sys.getenv('DO_SECRET_ACCESS_KEY'),
   scheme = "https",
   endpoint_override = "sfo3.digitaloceanspaces.com"
 )
