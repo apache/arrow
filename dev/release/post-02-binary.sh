@@ -83,8 +83,8 @@ docker_run \
     --trace \
     "${rake_tasks[@]}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
-    ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
+    ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
