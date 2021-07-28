@@ -425,15 +425,15 @@ public class FlightSqlClient {
               .toByteArray());
 
 
-      final SyncPutListener putlistner = new SyncPutListener();
+      final SyncPutListener putListener = new SyncPutListener();
       final FlightClient.ClientStreamListener listener =
-          client.startPut(descriptor, root, putlistner);
+          client.startPut(descriptor, root, putListener);
 
       listener.putNext();
       listener.completed();
 
       try {
-        final PutResult read = putlistner.read();
+        final PutResult read = putListener.read();
         try (final ArrowBuf metadata = read.getApplicationMetadata()) {
           final FlightSql.DoPutUpdateResult doPutUpdateResult = FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
