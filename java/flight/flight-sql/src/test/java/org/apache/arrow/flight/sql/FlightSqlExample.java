@@ -608,7 +608,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                      StreamListener<Result> listener) {
     try {
       preparedStatementLoadingCache.invalidate(
-          request.getPreparedStatementHandle().toStringUtf8();
+          request.getPreparedStatementHandle());
     } catch (Exception e) {
       listener.onError(e);
     } finally {
