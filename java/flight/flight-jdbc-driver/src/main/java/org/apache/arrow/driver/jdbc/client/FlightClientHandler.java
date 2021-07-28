@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * A wrapper for a {@link FlightClient}.
@@ -33,8 +32,7 @@ public interface FlightClientHandler extends AutoCloseable {
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
    * object. Retrieves result of the query previously prepared with "getInfo."
    *
-   * @param query
-   *          The query.
+   * @param query The query.
    * @return a {@code FlightStream} of results.
    */
   List<FlightStream> getFlightStreams(String query);
