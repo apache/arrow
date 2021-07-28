@@ -327,7 +327,7 @@ add_parquet_test(internals-test
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
-add_parquet_test(reader_test
+add_parquet_test(reader-test
                  SOURCES
                  column_reader_test.cc
                  level_conversion_test.cc
