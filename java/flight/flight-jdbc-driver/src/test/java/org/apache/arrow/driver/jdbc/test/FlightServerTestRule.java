@@ -233,13 +233,13 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
         String ticketString = new String(ticket.getBytes(), StandardCharsets.UTF_8);
         if (QUERY_TICKETS.contains(ticketString)) {
-          final int rowsPerPage = 50000;
+          final int rowsPerPage = 5000;
           final int page = QUERY_TICKETS.indexOf(ticketString);
 
           try (final VectorSchemaRoot root = VectorSchemaRoot.create(querySchema, allocator)) {
             root.allocateNew();
             listener.start(root);
-            int batchSize = 5000;
+            int batchSize = 500;
             int indexOnBatch = 0;
 
             int resultsOffset = page * rowsPerPage;
