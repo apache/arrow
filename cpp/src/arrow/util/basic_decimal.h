@@ -42,8 +42,15 @@ enum class DecimalStatus {
 /// This class is also compiled into LLVM IR - so, it should not have cpp references like
 /// streams and boost.
 class ARROW_EXPORT BasicDecimal128 {
+  struct LittleEndianArrayTag {};
+
  public:
-  static constexpr int bit_width = 128;
+  static constexpr int kBitWidth = 128;
+  static constexpr int kMaxPrecision = 38;
+  static constexpr int kMaxScale = 38;
+
+  // A constructor tag to introduce a little-endian encoded array
+  static constexpr LittleEndianArrayTag LittleEndianArray{};
 
   /// \brief Create a BasicDecimal128 from the two's complement representation.
 #if ARROW_LITTLE_ENDIAN
@@ -53,6 +60,20 @@ class ARROW_EXPORT BasicDecimal128 {
   constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
       : high_bits_(high), low_bits_(low) {}
 #endif
+
+  /// \brief Create a BasicDecimal256 from the two's complement representation.
+  /// Input array is assumed to be in native endianness.
+#if ARROW_LITTLE_ENDIAN
+  constexpr BasicDecimal128(const std::array<uint64_t, 2>& array) noexcept
+      : low_bits_(array[0]), high_bits_(static_cast<int64_t>(array[1])) {}
+#else
+  constexpr BasicDecimal128(const std::array<uint64_t, 2>& array) noexcept
+      : high_bits_(static_cast<int64_t>(array[0])), low_bits_(array[1]) {}
+#endif
+
+  // XXX
+  BasicDecimal128(LittleEndianArrayTag, const std::array<uint64_t, 2>& array) noexcept
+      : BasicDecimal128(BitUtil::LittleEndianArray::ToNative(array)) {}
 
   /// \brief Empty constructor creates a BasicDecimal128 with a value of 0.
   constexpr BasicDecimal128() noexcept : BasicDecimal128(0, 0) {}
@@ -200,13 +221,24 @@ class ARROW_EXPORT BasicDecimal256 {
     return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
   }
 
+  struct LittleEndianArrayTag {};
+
  public:
-  static constexpr int bit_width = 256;
+  static constexpr int kBitWidth = 256;
+  static constexpr int kMaxPrecision = 76;
+  static constexpr int kMaxScale = 76;
+
+  // A constructor tag to denote a little-endian encoded array
+  static constexpr LittleEndianArrayTag LittleEndianArray{};
 
   /// \brief Create a BasicDecimal256 from the two's complement representation.
   /// Input array is assumed to be in native endianness.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& array) noexcept
       : array_(array) {}
+
+  // XXX
+  BasicDecimal256(LittleEndianArrayTag, const std::array<uint64_t, 4>& array) noexcept
+      : BasicDecimal256(BitUtil::LittleEndianArray::ToNative(array)) {}
 
   /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
   constexpr BasicDecimal256() noexcept : array_({0, 0, 0, 0}) {}

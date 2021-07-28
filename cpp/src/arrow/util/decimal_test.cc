@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstdint>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -45,14 +44,34 @@ using internal::uint128_t;
 static const int128_t kInt128Max =
     (static_cast<int128_t>(INT64_MAX) << 64) + static_cast<int128_t>(UINT64_MAX);
 
-class DecimalTestFixture : public ::testing::Test {
+template <typename DecimalType>
+void AssertDecimalFromString(const std::string& s, const DecimalType& expected,
+                             int32_t expected_precision, int32_t expected_scale) {
+  ARROW_SCOPED_TRACE("s = '", s, "'");
+  DecimalType d;
+  int32_t precision, scale;
+  ASSERT_OK(DecimalType::FromString(s, &d, &precision, &scale));
+  EXPECT_EQ(expected, d);
+  EXPECT_EQ(expected_precision, precision);
+  EXPECT_EQ(expected_scale, scale);
+}
+
+Decimal128 Decimal128FromLE(const std::array<uint64_t, 2>& a) {
+  return Decimal128(Decimal128::LittleEndianArray, a);
+}
+
+Decimal256 Decimal256FromLE(const std::array<uint64_t, 4>& a) {
+  return Decimal256(Decimal256::LittleEndianArray, a);
+}
+
+class Decimal128TestFixture : public ::testing::Test {
  public:
-  DecimalTestFixture() : integer_value_(23423445), string_value_("234.23445") {}
+  Decimal128TestFixture() : integer_value_(23423445), string_value_("234.23445") {}
   Decimal128 integer_value_;
   std::string string_value_;
 };
 
-TEST_F(DecimalTestFixture, TestFromString) {
+TEST_F(Decimal128TestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
   Decimal128 result;
   int32_t precision, scale;
@@ -62,7 +81,7 @@ TEST_F(DecimalTestFixture, TestFromString) {
   ASSERT_EQ(scale, 5);
 }
 
-TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
+TEST_F(Decimal128TestFixture, TestStringStartingWithPlus) {
   std::string plus_value("+234.234");
   Decimal128 out;
   int32_t scale;
@@ -73,7 +92,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
   ASSERT_EQ(3, scale);
 }
 
-TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
+TEST_F(Decimal128TestFixture, TestStringStartingWithPlus128) {
   std::string plus_value("+2342394230592.232349023094");
   Decimal128 expected_value("2342394230592232349023094");
   Decimal128 out;
@@ -85,7 +104,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
   ASSERT_EQ(12, scale);
 }
 
-TEST(DecimalTest, TestFromStringDecimal128) {
+TEST(Decimal128Test, TestFromStringDecimal128) {
   std::string string_value("-23049223942343532412");
   Decimal128 result(string_value);
   Decimal128 expected(static_cast<int64_t>(-230492239423435324));
@@ -95,7 +114,7 @@ TEST(DecimalTest, TestFromStringDecimal128) {
   ASSERT_NE(result.high_bits(), 0);
 }
 
-TEST(DecimalTest, TestFromDecimalString128) {
+TEST(Decimal128Test, TestFromDecimalString128) {
   std::string string_value("-23049223942343.532412");
   Decimal128 result;
   ASSERT_OK_AND_ASSIGN(result, Decimal128::FromString(string_value));
@@ -106,7 +125,7 @@ TEST(DecimalTest, TestFromDecimalString128) {
   ASSERT_NE(result.high_bits(), 0);
 }
 
-TEST(DecimalTest, TestStringRoundTrip) {
+TEST(Decimal128Test, TestStringRoundTrip) {
   static constexpr uint64_t kTestBits[] = {
       0,
       1,
@@ -135,7 +154,7 @@ TEST(DecimalTest, TestStringRoundTrip) {
   }
 }
 
-TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
+TEST(Decimal128Test, TestDecimal32SignedRoundTrip) {
   Decimal128 expected("-3402692");
 
   auto bytes = expected.ToBytes();
@@ -143,7 +162,7 @@ TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
+TEST(Decimal128Test, TestDecimal64SignedRoundTrip) {
   Decimal128 expected;
   std::string string_value("-34034293045.921");
   ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
@@ -154,7 +173,7 @@ TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
+TEST(Decimal128Test, TestDecimalStringAndBytesRoundTrip) {
   Decimal128 expected;
   std::string string_value("-340282366920938463463374607431.711455");
   ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
@@ -171,58 +190,20 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(DecimalTest, TestInvalidInputMinus) {
-  std::string invalid_value("-");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+TEST(Decimal128Test, FromStringInvalidInput) {
+  for (const std::string invalid_value : {"-", "0.0.0", "0-13-32", "a", "-23092.235-",
+                                          "-+23092.235", "+-23092.235", "00a", "1e1a"}) {
+    ARROW_SCOPED_TRACE("invalid_value = '", invalid_value, "'");
+    ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+  }
 }
 
-TEST(DecimalTest, TestInvalidInputDot) {
-  std::string invalid_value("0.0.0");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
+TEST(Decimal128Test, LeadingZerosNoDecimalPoint) {
+  AssertDecimalFromString("0000000", Decimal128(0), 0, 0);
 }
 
-TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
-  std::string invalid_value("0-13-32");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputSingleChar) {
-  std::string invalid_value("a");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
-  std::string invalid_value("-23092.235-");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
-  std::string invalid_value("-+23092.235");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
-  std::string invalid_value("+-23092.235");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
-  std::string invalid_value("00a");
-  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
-}
-
-TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
-  std::string string_value("0000000");
-  Decimal128 d;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(0, precision);
-  ASSERT_EQ(0, scale);
-  ASSERT_EQ(0, d);
-}
-
-TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
+TEST(Decimal128Test, LeadingZerosDecimalPoint) {
+  AssertDecimalFromString("000.0000", Decimal128(0), 4, 4);
   std::string string_value("000.0000");
   Decimal128 d;
   int32_t precision;
@@ -233,15 +214,239 @@ TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   ASSERT_EQ(0, d);
 }
 
-TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
-  std::string string_value(".00000");
-  Decimal128 d;
-  int32_t precision;
-  int32_t scale;
-  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
-  ASSERT_EQ(5, precision);
-  ASSERT_EQ(5, scale);
-  ASSERT_EQ(0, d);
+TEST(Decimal128Test, NoLeadingZerosDecimalPoint) {
+  AssertDecimalFromString(".00000", Decimal128(0), 5, 5);
+}
+
+/*
+  Note: generating a number of 64-bit decimal digits from a bigint:
+
+  >>> def dec(x, n):
+  ...:     sign = x < 0
+  ...:     if sign:
+  ...:         x = 2**(64*n) + x
+  ...:     a = []
+  ...:     for i in range(n-1):
+  ...:         x, r = divmod(x, 2**64)
+  ...:         a.append(r)
+  ...:     assert x < 2**64
+  ...:     a.append(x)
+  ...:     return a
+  ...:
+  >>> dec(10**37, 2)
+  [68739955140067328, 542101086242752217]
+  >>> dec(-10**37, 2)
+  [18378004118569484288, 17904642987466799398]
+  >>> dec(10**75, 4)
+  [0, 10084168908774762496, 12965995782233477362, 159309191113245227]
+  >>> dec(-10**75, 4)
+  [0, 8362575164934789120, 5480748291476074253, 18287434882596306388]
+*/
+
+TEST(Decimal128Test, FromStringLimits) {
+  // Positive / zero exponent
+  AssertDecimalFromString(
+      "1e37", Decimal128FromLE({68739955140067328ULL, 542101086242752217ULL}), 38, 0);
+  AssertDecimalFromString(
+      "-1e37", Decimal128FromLE({18378004118569484288ULL, 17904642987466799398ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "9.87e37", Decimal128FromLE({15251391175463010304ULL, 5350537721215964381ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "-9.87e37", Decimal128FromLE({3195352898246541312ULL, 13096206352493587234ULL}), 38,
+      0);
+  AssertDecimalFromString(
+      "12345678901234567890123456789012345678",
+      Decimal128FromLE({14143994781733811022ULL, 669260594276348691ULL}), 38, 0);
+  AssertDecimalFromString(
+      "-12345678901234567890123456789012345678",
+      Decimal128FromLE({4302749291975740594ULL, 17777483479433202924ULL}), 38, 0);
+
+  // "9..9" (38 times)
+  const auto dec38times9pos =
+      Decimal128FromLE({687399551400673279ULL, 5421010862427522170ULL});
+  // "-9..9" (38 times)
+  const auto dec38times9neg =
+      Decimal128FromLE({17759344522308878337ULL, 13025733211282029445ULL});
+
+  AssertDecimalFromString("99999999999999999999999999999999999999", dec38times9pos, 38,
+                          0);
+  AssertDecimalFromString("-99999999999999999999999999999999999999", dec38times9neg, 38,
+                          0);
+  AssertDecimalFromString("9.9999999999999999999999999999999999999e37", dec38times9pos,
+                          38, 0);
+  AssertDecimalFromString("-9.9999999999999999999999999999999999999e37", dec38times9neg,
+                          38, 0);
+
+  // Positive / zero exponent, precision too large for a non-negative scale
+  ASSERT_RAISES(Invalid, Decimal128::FromString("1e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-1e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("9e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
+  // XXX conversion overflows are currently not detected
+  //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
+  //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //   Decimal128::FromString("999999999999999999999999999999999999999"));
+
+  // No exponent, many fractional digits
+  AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
+                          37);
+  AssertDecimalFromString("-9.9999999999999999999999999999999999999", dec38times9neg, 38,
+                          37);
+  AssertDecimalFromString("0.99999999999999999999999999999999999999", dec38times9pos, 38,
+                          38);
+  AssertDecimalFromString("-0.99999999999999999999999999999999999999", dec38times9neg, 38,
+                          38);
+
+  // Negative exponent
+  AssertDecimalFromString("1e-38", Decimal128FromLE({1, 0}), 1, 38);
+  AssertDecimalFromString(
+      "-1e-38", Decimal128FromLE({18446744073709551615ULL, 18446744073709551615ULL}), 1,
+      38);
+  AssertDecimalFromString("9.99e-36", Decimal128FromLE({999, 0}), 3, 38);
+  AssertDecimalFromString(
+      "-9.99e-36", Decimal128FromLE({18446744073709550617ULL, 18446744073709551615ULL}),
+      3, 38);
+  AssertDecimalFromString("987e-38", Decimal128FromLE({987, 0}), 3, 38);
+  AssertDecimalFromString(
+      "-987e-38", Decimal128FromLE({18446744073709550629ULL, 18446744073709551615ULL}), 3,
+      38);
+  AssertDecimalFromString("99999999999999999999999999999999999999e-37", dec38times9pos,
+                          38, 37);
+  AssertDecimalFromString("-99999999999999999999999999999999999999e-37", dec38times9neg,
+                          38, 37);
+  AssertDecimalFromString("99999999999999999999999999999999999999e-38", dec38times9pos,
+                          38, 38);
+  AssertDecimalFromString("-99999999999999999999999999999999999999e-38", dec38times9neg,
+                          38, 38);
+}
+
+TEST(Decimal256Test, FromStringLimits) {
+  // Positive / zero exponent
+  AssertDecimalFromString(
+      "1e75",
+      Decimal256FromLE(
+          {0, 10084168908774762496ULL, 12965995782233477362ULL, 159309191113245227ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-1e75",
+      Decimal256FromLE(
+          {0, 8362575164934789120ULL, 5480748291476074253ULL, 18287434882596306388ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "9.87e75",
+      Decimal256FromLE(
+          {0, 3238743064843046400ULL, 7886074450795240548ULL, 1572381716287730397ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-9.87e75",
+      Decimal256FromLE(
+          {0, 15208001008866505216ULL, 10560669622914311067ULL, 16874362357421821218ULL}),
+      76, 0);
+
+  AssertDecimalFromString(
+      "1234567890123456789012345678901234567890123456789012345678901234567890123456",
+      Decimal256FromLE({17877984925544397504ULL, 5352188884907840935ULL,
+                        234631617561833724ULL, 196678011949953713ULL}),
+      76, 0);
+  AssertDecimalFromString(
+      "-1234567890123456789012345678901234567890123456789012345678901234567890123456",
+      Decimal256FromLE({568759148165154112ULL, 13094555188801710680ULL,
+                        18212112456147717891ULL, 18250066061759597902ULL}),
+      76, 0);
+
+  // "9..9" (76 times)
+  const auto dec76times9pos =
+      Decimal256FromLE({18446744073709551615ULL, 8607968719199866879ULL,
+                        532749306367912313ULL, 1593091911132452277ULL});
+  // "-9..9" (76 times)
+  const auto dec76times9neg = Decimal256FromLE(
+      {1, 9838775354509684736ULL, 17913994767341639302ULL, 16853652162577099338ULL});
+
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 0);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 0);
+  AssertDecimalFromString(
+      "9.999999999999999999999999999999999999999999999999999999999999999999999999999e75",
+      dec76times9pos, 76, 0);
+  AssertDecimalFromString(
+      "-9.999999999999999999999999999999999999999999999999999999999999999999999999999e75",
+      dec76times9neg, 76, 0);
+
+  // Positive / zero exponent, precision too large for a non-negative scale
+  ASSERT_RAISES(Invalid, Decimal256::FromString("1e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-1e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("9e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-9e77"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
+
+  // XXX conversion overflows are currently not detected
+  //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
+  //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
+  //   ASSERT_RAISES(Invalid,
+  //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
+
+  // No exponent, many fractional digits
+  AssertDecimalFromString(
+      "9.999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 75);
+  AssertDecimalFromString(
+      "-9.999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 75);
+  AssertDecimalFromString(
+      "0.9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9pos, 76, 76);
+  AssertDecimalFromString(
+      "-0.9999999999999999999999999999999999999999999999999999999999999999999999999999",
+      dec76times9neg, 76, 76);
+
+  // Negative exponent
+  AssertDecimalFromString("1e-76", Decimal256FromLE({1, 0, 0, 0}), 1, 76);
+  AssertDecimalFromString(
+      "-1e-76",
+      Decimal256FromLE({18446744073709551615ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      1, 76);
+  AssertDecimalFromString("9.99e-74", Decimal256FromLE({999, 0, 0, 0}), 3, 76);
+  AssertDecimalFromString(
+      "-9.99e-74",
+      Decimal256FromLE({18446744073709550617ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      3, 76);
+  AssertDecimalFromString("987e-76", Decimal256FromLE({987, 0, 0, 0}), 3, 76);
+  AssertDecimalFromString(
+      "-987e-76",
+      Decimal256FromLE({18446744073709550629ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 18446744073709551615ULL}),
+      3, 76);
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999e-75",
+      dec76times9pos, 76, 75);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999e-75",
+      dec76times9neg, 76, 75);
+  AssertDecimalFromString(
+      "9999999999999999999999999999999999999999999999999999999999999999999999999999e-76",
+      dec76times9pos, 76, 76);
+  AssertDecimalFromString(
+      "-9999999999999999999999999999999999999999999999999999999999999999999999999999e-76",
+      dec76times9neg, 76, 76);
 }
 
 template <typename T>
