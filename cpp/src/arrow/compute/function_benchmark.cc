@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
@@ -179,16 +180,17 @@ void BM_ExecBatchIterator(benchmark::State& state) {
   random::RandomArrayGenerator rag(kSeed);
 
   const int64_t length = 1 << 20;
-  const int num_fields = 10;
+  const int num_fields = 32;
 
   std::vector<Datum> args(num_fields);
   for (int i = 0; i < num_fields; ++i) {
     args[i] = rag.Int64(length, 0, 100)->data();
   }
 
+  const int64_t blocksize = state.range(0);
   for (auto _ : state) {
-    std::unique_ptr<ExecBatchIterator> it =
-        *ExecBatchIterator::Make(args, state.range(0));
+    std::unique_ptr<detail::ExecBatchIterator> it =
+      *detail::ExecBatchIterator::Make(args, blocksize);
     ExecBatch batch;
     while (it->Next(&batch)) {
       for (int i = 0; i < num_fields; ++i) {
