@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -62,8 +63,8 @@ public class FlightStreamQueue implements AutoCloseable {
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
   public FlightStream next() {
-    try {
-      while (!futures.isEmpty()) {
+    while (!futures.isEmpty()) {
+      try {
         final Future<FlightStream> future = completionService.take();
         futures.remove(future);
 
@@ -71,9 +72,11 @@ public class FlightStreamQueue implements AutoCloseable {
         if (flightStream.getRoot().getRowCount() > 0) {
           return flightStream;
         }
+      } catch (ExecutionException e) {
+        // Try next stream
+      } catch (InterruptedException | CancellationException e) {
+        return null;
       }
-    } catch (ExecutionException | InterruptedException e) {
-      return null;
     }
 
     return null;
