@@ -37,7 +37,8 @@ For example, one of the NYC taxi data files used in
 s3://ursa-labs-taxi-data/2019/06/data.parquet
 ```
 
-Given this URI, we can pass it to `read_parquet()` just as if it were a local file path:
+Given this URI, we can pass it to `read_parquet()` just as if it were a local 
+file path:
 
 ```r
 df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet")
@@ -59,7 +60,8 @@ This may be convenient when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 
-With a `FileSystem` object, we can point to specific files in it with the `$path()` method.
+With a `FileSystem` object, we can point to specific files in it with the 
+`$path()` method.
 In the previous example, this would look like:
 
 ```r
@@ -67,13 +69,18 @@ bucket <- s3_bucket("ursa-labs-taxi-data")
 df <- read_parquet(bucket$path("2019/06/data.parquet"))
 ```
 
-See the help for `FileSystem` for a list of options that `s3_bucket()` and `S3FileSystem$create()`
+See the help for `FileSystem` for a list of options that `s3_bucket()` and 
+`S3FileSystem$create()`
 can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
-parameters in the URI (though `region` will be auto-detected in `s3_bucket()` or from the URI if omitted).
+parameters in the URI (though `region` will be auto-detected in `s3_bucket()` 
+or from the URI if omitted).
 `access_key` and `secret_key` can also be included,
 but other options are not supported in the URI.
 
-The object that `s3_bucket()` returns is technically a `SubTreeFileSystem`, which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be useful for holding a reference to a subdirectory somewhere, on S3 or elsewhere.
+The object that `s3_bucket()` returns is technically a `SubTreeFileSystem`, 
+which holds a path and a file system to which it corresponds. 
+`SubTreeFileSystem`s can be useful for holding a reference to a subdirectory 
+somewhere, on S3 or elsewhere.
 
 One way to get a subtree is to call the `$cd()` method on a `FileSystem`
 
@@ -91,20 +98,27 @@ june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
 ## Authentication
 
 To access private S3 buckets, you need typically need two secret parameters:
-a `access_key`, which is like a user id,
-and `secret_key`, like a token.
+an `access_key`, which is like a user id,
+and a `secret_key`, like a token.
 There are a few options for passing these credentials:
 
-1. Include them in the URI, like `s3://access_key:secret_key@bucket-name/path/to/file`. Be sure to [URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if they contain special characters like "/".
+1. Include them in the URI, like 
+`s3://access_key:secret_key@bucket-name/path/to/file`. Be sure to 
+[URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if 
+they contain special characters like "/".
 
-2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()` or `s3_bucket()`
+2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()` or 
+`s3_bucket()`
 
-3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, respectively.
+3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and 
+`AWS_SECRET_ACCESS_KEY`, respectively.
 
-4. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
+4. Define them in a `~/.aws/credentials` file, according to the 
+[AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
 
 You can also use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
-for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()` or `s3_bucket()`.
+for temporary access by passing the `role_arn` identifier to 
+`S3FileSystem$create()` or `s3_bucket()`.
 
 ## File systems that emulate S3
 
@@ -112,8 +126,20 @@ for temporary access by passing the `role_arn` identifier to `S3FileSystem$creat
 
 The `S3FileSystem` machinery enables you to work with any file system that
 provides an S3-compatible interface. For example, [MinIO](https://min.io/) is
-and object-storage server that emulates the S3 API. If you were to
-run `minio server` locally with its default settings, you could connect to
+and object-storage server that emulates the S3 API.
+
+In order to configure and run MinIO in a Unix-type system, you need to run
+these steps from the command line:
+
+```bash
+cd ~/Downloads 
+wget https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x minio
+MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin ./minio server ~/nyc-taxi
+```
+
+If you were to
+run `minio server` locally with its default settings, you can connect to
 it with `arrow` using `S3FileSystem` like this:
 
 ```r
@@ -131,12 +157,13 @@ or, as a URI, it would be
 s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 ```
 
-(note the URL escaping of the `:` in `endpoint_override`).
+Note the URL escaping of the `:` in `endpoint_override`. From here, you
+can subtree exactly as in the previous section.
 
 Among other applications, this can be useful for testing out code locally before
 running on a remote S3 bucket.
 
-### COnnecting to a cloud S3
+### Connecting to a cloud S3
 
 *This section adapts some elements from [Analyzing Room Temperature Data](https://www.jaredlander.com/2021/03/analyzing-room-temperature-data/#getting-the-data)
 by Jared Lander.*
@@ -147,79 +174,25 @@ with `arrow` by using the `S3FileSystem` function as for the case of using
 MinIO locally. Please note that the use of DigitalOcean here is just an example,
 as it can be any other S3 compatible service.
 
-At the begininning of this vignette we used:
+As an example, to connect to DigitalOcean you need to change the endpoint
+in the previous MinIO example to something like:
 
 ```r
-june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
+endpoint_override = "sfo3.digitaloceanspaces.com"
 ```
 
-Which connects to AWS, and the same can be adapted for other providers.
-
-Just as an example for the non-Amazon case, we provide 
-[nyc-taxi.sfo3.digitaloceanspaces.com](https://nyc-taxi.sfo3.digitaloceanspaces.com), 
-which is exactly the same as `s3://ursa-labs-taxi-data` (See
-[Working with Arrow Datasets and dplyr](dataset.html) for the details).
-
-To connect to this space, you only need to adapt the code from the previous
-section:
+If you were to connect to a private space (i.e. with sensitive data), you would 
+need to provide a token, but please avoid typing passwords in scripts and 
+adapt this instead:
 
 ```r
 space <- arrow::S3FileSystem$create(
-  anonymous = TRUE,
+  access_key = Sys.getenv('SPACES_TAXI_TOKEN'),
+  secret_key = Sys.getenv('SPACES_TAXI_SECRET'),
   scheme = "https",
   endpoint_override = "sfo3.digitaloceanspaces.com"
 )
 ```
 
-The space that we are using space allows anonymous access, but if you were to 
-connect to a private space (i.e. with sensitive data), you would need to 
-provide a token, say:
-
-```r
-space <- arrow::S3FileSystem$create(
-  access_key = Sys.getenv('DO_ARROW_TAXI_TOKEN'),
-  secret_key = Sys.getenv('DO_ARROW_TAXI_SECRET'),
-  scheme = "https",
-  endpoint_override = "sfo3.digitaloceanspaces.com"
-)
-```
-
-
-### S3 operations
-
-In order to list the files in an S3 bucket, you can just type:
-
-```r
-minio$ls('nyc-taxi', recursive = TRUE)
-```
-
-Just like AWS, one way to get a subtree is to call the `$cd()` method on a 
-`FileSystem`:
-
-```r
-minio$cd()
-june2019 <- minio$path("nyc-taxi/2019/06")
-df <- read_parquet(june2019$path("data.parquet"))
-```
-
-From here, the same example from the 
-[Working with Arrow Datasets and dplyr](dataset.html) vignette can be completed 
-with a single change:
-
-```r 
-copy_files(minio$path("nyc-taxi"), "nyc-taxi")
-```
-
-Instead of:
-
-```
-copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
-```
-
-Note that you can copy a single year or month, say
-```r 
-copy_files("s3://ursa-labs-taxi-data/2019/06", "nyc-taxi/2019/06")
-```
-
-Of course, this also applies to the `space` object or any S3 connection to your
-favourite cloud provider.
+Look for `usethis::edit_r_environ()` to put your passwords into environment
+variables.
