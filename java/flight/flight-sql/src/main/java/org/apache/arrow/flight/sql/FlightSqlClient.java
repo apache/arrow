@@ -424,7 +424,7 @@ public class FlightSqlClient {
           FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType(),
           Any.pack(ActionClosePreparedStatementRequest
               .newBuilder()
-              .setPreparedStatementHandleBytes(preparedStatementResult.getPreparedStatementHandle())
+              .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
               .build())
               .toByteArray()));
       closePreparedStatementResults.forEachRemaining(result -> {
