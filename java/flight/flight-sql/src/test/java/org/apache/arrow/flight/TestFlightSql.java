@@ -545,8 +545,11 @@ public class TestFlightSql {
         "('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)");
     collector.checkThat(insertedCount, is(3L));
 
-    long updatedCount = sqlClient.executeUpdate("UPDATE INTTABLE SET keyName = 'KEYNAME1'");
+    long updatedCount = sqlClient.executeUpdate("UPDATE INTTABLE SET keyName = 'KEYNAME1' " +
+        "WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'");
+    collector.checkThat(updatedCount, is(2L));
+
     long deletedCount = sqlClient.executeUpdate("DELETE FROM INTTABLE WHERE keyName = 'KEYNAME1'");
-    collector.checkThat(deletedCount, is(updatedCount));
+    collector.checkThat(deletedCount, is(3L));
   }
 }
