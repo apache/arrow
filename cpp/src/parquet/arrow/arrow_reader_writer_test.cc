@@ -3798,15 +3798,15 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 TEST(TestArrowWriteDictionary, Statistics) {
   std::vector<std::shared_ptr<::arrow::Array>> test_dictionaries = {
-      ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a"])"),
-      ArrayFromJSON(::arrow::binary(), R"(["d", "c", "b", "a"])"),
-      ArrayFromJSON(::arrow::large_utf8(), R"(["a", "b", "c"])")};
+      ArrayFromJSON(::arrow::utf8(), R"(["b", "c", "d", "a", "b", "c", "d", "a"])"),
+      ArrayFromJSON(::arrow::binary(), R"(["d", "c", "b", "a", "d", "c", "b", "a"])"),
+      ArrayFromJSON(::arrow::large_utf8(), R"(["a", "b", "c", "a", "b", "c"])")};
   std::vector<std::shared_ptr<::arrow::Array>> test_indices = {
-      ArrayFromJSON(::arrow::int32(), R"([0, null, 3])"),
-      ArrayFromJSON(::arrow::int32(), R"([0, 1, 3])"),
-      ArrayFromJSON(::arrow::int32(), R"([null, null])")};
-  // Pairs of (valid, null)
-  std::vector<std::vector<int64_t>> expected_counts = {{2, 1}, {3, 0}, {0, 2}};
+      ArrayFromJSON(::arrow::int32(), R"([0, null, 3, 0, null, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([0, 1, 3, 0, 1, 3])"),
+      ArrayFromJSON(::arrow::int32(), R"([null, null, null, null, null, null])")};
+  // Pairs of (valid, null) counters (per batch so half the total value)
+  std::vector<std::vector<int64_t>> expected_counts = {{2, 1}, {3, 0}, {0, 3}};
   // Pairs of (min, max)
   std::vector<std::vector<std::string>> expected_min_max_ = {
       {"a", "b"}, {"a", "d"}, {"", ""}};
@@ -3822,7 +3822,8 @@ TEST(TestArrowWriteDictionary, Statistics) {
 
     std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
     auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
-    std::shared_ptr<WriterProperties> writer_properties = default_writer_properties();
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder().max_row_group_length(3)->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
                                writer_properties, default_arrow_writer_properties(),
@@ -3836,18 +3837,21 @@ TEST(TestArrowWriteDictionary, Statistics) {
         ParquetFileReader::Open(std::move(buffer_reader));
     std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
 
-    ASSERT_EQ(metadata->num_row_groups(), 1);
-    ASSERT_EQ(metadata->RowGroup(0)->num_columns(), 1);
-    std::shared_ptr<Statistics> stats =
-        metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+    ASSERT_EQ(metadata->num_row_groups(), 2);
 
-    std::vector<int64_t> case_expected_counts = expected_counts[case_index];
-    EXPECT_EQ(stats->num_values(), case_expected_counts[0]);
-    EXPECT_EQ(stats->null_count(), case_expected_counts[1]);
+    for (int row_group_index = 0; row_group_index < 2; row_group_index++) {
+      ASSERT_EQ(metadata->RowGroup(row_group_index)->num_columns(), 1);
+      std::shared_ptr<Statistics> stats =
+          metadata->RowGroup(row_group_index)->ColumnChunk(0)->statistics();
 
-    std::vector<std::string> case_expected_min_max = expected_min_max_[case_index];
-    EXPECT_EQ(stats->EncodeMin(), case_expected_min_max[0]);
-    EXPECT_EQ(stats->EncodeMax(), case_expected_min_max[1]);
+      std::vector<int64_t> case_expected_counts = expected_counts[case_index];
+      EXPECT_EQ(stats->num_values(), case_expected_counts[0]);
+      EXPECT_EQ(stats->null_count(), case_expected_counts[1]);
+
+      std::vector<std::string> case_expected_min_max = expected_min_max_[case_index];
+      EXPECT_EQ(stats->EncodeMin(), case_expected_min_max[0]);
+      EXPECT_EQ(stats->EncodeMax(), case_expected_min_max[1]);
+    }
   }
 }
 

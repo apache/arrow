@@ -1498,15 +1498,20 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
       exec_ctx.set_use_threads(false);
       PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
                               ::arrow::compute::Unique(*indices, &exec_ctx));
-      PARQUET_ASSIGN_OR_THROW(
-          ::arrow::Datum referenced_dictionary,
-          ::arrow::compute::Take(dictionary, referenced_indices,
-                                 ::arrow::compute::TakeOptions(/*boundscheck=*/false),
-                                 &exec_ctx));
+      std::shared_ptr<::arrow::Array> referenced_dictionary;
+      if (referenced_indices.length() == dictionary->length()) {
+        referenced_dictionary = dictionary;
+      } else {
+        PARQUET_ASSIGN_OR_THROW(
+            ::arrow::Datum referenced_dictionary_datum,
+            ::arrow::compute::Take(dictionary, referenced_indices,
+                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                   &exec_ctx));
+        referenced_dictionary = referenced_dictionary_datum.make_array();
+      }
       page_statistics_->IncrementNullCount(indices->null_count());
       page_statistics_->IncrementNumValues(indices->length() - indices->null_count());
-      page_statistics_->Update(*referenced_dictionary.make_array(),
-                               /*update_counts=*/false);
+      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {
