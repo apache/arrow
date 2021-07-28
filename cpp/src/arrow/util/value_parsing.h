@@ -719,7 +719,9 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
 
   static bool Convert(const DATE_TYPE& type, const char* s, size_t length,
                       value_type* out) {
-    if (length != 10) return false;
+    if (ARROW_PREDICT_FALSE(length != 10)) {
+      return false;
+    }
 
     duration_type since_epoch;
     if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &since_epoch))) {
@@ -735,12 +737,36 @@ template <typename TIME_TYPE>
 struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
   using value_type = typename TIME_TYPE::c_type;
 
+  // We allow the following formats for all units:
+  // - "hh:mm"
+  // - "hh:mm:ss"
+  //
+  // We allow the following formats for unit == MILLI, MICRO, or NANO:
+  // - "hh:mm:ss.s{1,3}"
+  //
+  // We allow the following formats for unit == MICRO, or NANO:
+  // - "hh:mm:ss.s{4,6}"
+  //
+  // We allow the following formats for unit == NANO:
+  // - "hh:mm:ss.s{7,9}"
+
   static bool Convert(const TIME_TYPE& type, const char* s, size_t length,
                       value_type* out) {
-    if (length < 8) return false;
-    auto unit = type.unit();
-
+    const auto unit = type.unit();
     std::chrono::seconds since_midnight;
+
+    if (length == 5) {
+      if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s, &since_midnight))) {
+        return false;
+      }
+      *out =
+          static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
+      return true;
+    }
+
+    if (ARROW_PREDICT_FALSE(length < 8)) {
+      return false;
+    }
     if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s, &since_midnight))) {
       return false;
     }
@@ -749,6 +775,10 @@ struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
 
     if (length == 8) {
       return true;
+    }
+
+    if (ARROW_PREDICT_FALSE(s[8] != '.')) {
+      return false;
     }
 
     uint32_t subseconds_count = 0;

@@ -429,6 +429,11 @@ TEST(Date32Conversion, Nulls) {
                                         {{false, true}});
 }
 
+TEST(Date32Conversion, Errors) {
+  AssertConversionError(date32(), {"1945-06-31\n"}, {0});
+  AssertConversionError(date32(), {"2020-13-01\n"}, {0});
+}
+
 TEST(Date64Conversion, Basics) {
   AssertConversion<Date64Type, int64_t>(date64(), {"1945-05-08\n", "2020-03-15\n"},
                                         {{-777945600000LL, 1584230400000LL}});
@@ -437,6 +442,63 @@ TEST(Date64Conversion, Basics) {
 TEST(Date64Conversion, Nulls) {
   AssertConversion<Date64Type, int64_t>(date64(), {"N/A\n", "2020-03-15\n"},
                                         {{0, 1584230400000LL}}, {{false, true}});
+}
+
+TEST(Date64Conversion, Errors) {
+  AssertConversionError(date64(), {"1945-06-31\n"}, {0});
+  AssertConversionError(date64(), {"2020-13-01\n"}, {0});
+}
+
+TEST(Time32Conversion, Seconds) {
+  const auto type = time32(TimeUnit::SECOND);
+
+  AssertConversion<Time32Type, int32_t>(type, {"00:00\n", "00:00:00\n"}, {{0, 0}});
+  AssertConversion<Time32Type, int32_t>(type, {"01:23:45\n", "23:45:43\n"},
+                                        {{5025, 85543}});
+  AssertConversion<Time32Type, int32_t>(type, {"N/A\n", "23:59:59\n"}, {{0, 86399}},
+                                        {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time32Conversion, Millis) {
+  const auto type = time32(TimeUnit::MILLI);
+
+  AssertConversion<Time32Type, int32_t>(type, {"00:00\n", "00:00:00\n"}, {{0, 0}});
+  AssertConversion<Time32Type, int32_t>(type, {"01:23:45.1\n", "23:45:43.789\n"},
+                                        {{5025100, 85543789}});
+  AssertConversion<Time32Type, int32_t>(type, {"N/A\n", "23:59:59.999\n"},
+                                        {{0, 86399999}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, Micros) {
+  const auto type = time64(TimeUnit::MICRO);
+
+  AssertConversion<Time64Type, int64_t>(type, {"00:00\n", "00:00:00\n"}, {{0LL, 0LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"01:23:45.1\n", "23:45:43.456789\n"},
+                                        {{5025100000LL, 85543456789LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"N/A\n", "23:59:59.999999\n"},
+                                        {{0, 86399999999LL}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, Nanos) {
+  const auto type = time64(TimeUnit::NANO);
+
+  AssertConversion<Time64Type, int64_t>(type, {"00:00\n", "00:00:00\n"}, {{0LL, 0LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"01:23:45.1\n", "23:45:43.123456789\n"},
+                                        {{5025100000000LL, 85543123456789LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"N/A\n", "23:59:59.999999999\n"},
+                                        {{0, 86399999999999LL}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
 }
 
 TEST(TimestampConversion, Basics) {

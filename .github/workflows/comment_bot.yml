@@ -79,9 +79,9 @@ jobs:
             echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
           fi
       - name: Ensure clang-format has the appropriate versoin
-        if: env.CMAKE_FORMAT == 'true' || 
-          env.CLANG_FORMAT_CPP == 'true' || 
-          env.CLANG_FORMAT_R == 'true' || 
+        if: env.CMAKE_FORMAT == 'true' ||
+          env.CLANG_FORMAT_CPP == 'true' ||
+          env.CLANG_FORMAT_R == 'true' ||
           endsWith(github.event.comment.body, 'everything')
         run: |
           set -e
@@ -120,6 +120,8 @@ jobs:
         run: |
           source("ci/etc/rprofile")
           install.packages(c("remotes", "roxygen2"))
+          # We currently need dev roxygen2 (> 7.1.1) until they release
+          remotes::install_github("r-lib/roxygen2")
           remotes::install_deps("r")
           roxygen2::roxygenize("r")
       - name: Commit results

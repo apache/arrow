@@ -1089,8 +1089,9 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
 
       // This will be enough scratch space to accommodate 16-bit levels or any
       // value type
+      int value_size = type_traits<DType::type_num>::value_byte_size;
       std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
-          this->pool_, batch_size * type_traits<DType::type_num>::value_byte_size);
+          this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
 
       do {
         batch_size = std::min(batch_size, rows_to_skip);

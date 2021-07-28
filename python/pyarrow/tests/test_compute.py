@@ -119,7 +119,8 @@ def test_option_class_equality():
         pc.MatchSubstringOptions("pattern"),
         pc.PadOptions(5, " "),
         pc.PartitionNthOptions(1),
-        pc.ProjectOptions([b"field", b"names"]),
+        pc.MakeStructOptions(["field", "names"]),
+        pc.DayOfWeekOptions(False, 0),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.SetLookupOptions(value_set=pa.array([1])),
@@ -547,30 +548,40 @@ def test_min_max():
 
 def test_any():
     # ARROW-1846
+
+    options = pc.ScalarAggregateOptions(skip_nulls=False)
     a = pa.array([False, None, True])
     assert pc.any(a).as_py() is True
+    assert pc.any(a, options=options).as_py() is True
 
     a = pa.array([False, None, False])
     assert pc.any(a).as_py() is False
+    assert pc.any(a, options=options).as_py() is None
 
 
 def test_all():
     # ARROW-10301
 
+    options = pc.ScalarAggregateOptions(skip_nulls=False)
     a = pa.array([], type='bool')
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is True
 
     a = pa.array([False, True])
     assert pc.all(a).as_py() is False
+    assert pc.all(a, options=options).as_py() is False
 
     a = pa.array([True, None])
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is None
 
     a = pa.chunked_array([[True], [True, None]])
     assert pc.all(a).as_py() is True
+    assert pc.all(a, options=options).as_py() is None
 
     a = pa.chunked_array([[True], [False]])
     assert pc.all(a).as_py() is False
+    assert pc.all(a, options=options).as_py() is False
 
 
 def test_is_valid():
@@ -1336,6 +1347,11 @@ def test_cast():
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
 
+    arr = pa.array([[1, 2], [3, 4, 5]], type=pa.large_list(pa.int8()))
+    expected = pa.array([["1", "2"], ["3", "4", "5"]],
+                        type=pa.list_(pa.utf8()))
+    assert pc.cast(arr, expected.type) == expected
+
 
 def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
@@ -1344,6 +1360,80 @@ def test_strptime():
     expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
                         type=pa.timestamp('s'))
     assert got == expected
+
+
+def _check_datetime_components(timestamps, timezone=None):
+    from pyarrow.vendored.version import Version
+
+    ts = pd.to_datetime(timestamps).to_series()
+    tsa = pa.array(ts)
+
+    subseconds = ((ts.dt.microsecond * 10**3 +
+                   ts.dt.nanosecond) * 10**-9).round(9)
+    iso_calendar_fields = [
+        pa.field('iso_year', pa.int64()),
+        pa.field('iso_week', pa.int64()),
+        pa.field('iso_day_of_week', pa.int64())
+    ]
+
+    if Version(pd.__version__) < Version("1.1.0"):
+        # https://github.com/pandas-dev/pandas/issues/33206
+        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
+        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
+        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
+    else:
+        # Casting is required because pandas isocalendar returns int32
+        # while arrow isocalendar returns int64.
+        iso_year = ts.dt.isocalendar()["year"].astype("int64")
+        iso_week = ts.dt.isocalendar()["week"].astype("int64")
+        iso_day = ts.dt.isocalendar()["day"].astype("int64")
+
+    iso_calendar = pa.StructArray.from_arrays(
+        [iso_year, iso_week, iso_day],
+        fields=iso_calendar_fields)
+
+    assert pc.year(tsa).equals(pa.array(ts.dt.year))
+    assert pc.month(tsa).equals(pa.array(ts.dt.month))
+    assert pc.day(tsa).equals(pa.array(ts.dt.day))
+    assert pc.day_of_week(tsa).equals(pa.array(ts.dt.dayofweek))
+    assert pc.day_of_year(tsa).equals(pa.array(ts.dt.dayofyear))
+    assert pc.iso_year(tsa).equals(pa.array(iso_year))
+    assert pc.iso_week(tsa).equals(pa.array(iso_week))
+    assert pc.iso_calendar(tsa).equals(iso_calendar)
+    assert pc.quarter(tsa).equals(pa.array(ts.dt.quarter))
+    assert pc.hour(tsa).equals(pa.array(ts.dt.hour))
+    assert pc.minute(tsa).equals(pa.array(ts.dt.minute))
+    assert pc.second(tsa).equals(pa.array(ts.dt.second.values))
+    assert pc.millisecond(tsa).equals(pa.array(ts.dt.microsecond // 10**3))
+    assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10**3))
+    assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
+    assert pc.subsecond(tsa).equals(pa.array(subseconds))
+
+    day_of_week_options = pc.DayOfWeekOptions(
+        one_based_numbering=True, week_start=1)
+    assert pc.day_of_week(tsa, options=day_of_week_options).equals(
+        pa.array(ts.dt.dayofweek+1))
+
+
+@pytest.mark.pandas
+def test_extract_datetime_components():
+    timestamps = ["1970-01-01T00:00:59.123456789",
+                  "2000-02-29T23:23:23.999999999",
+                  "2033-05-18T03:33:20.000000000",
+                  "2020-01-01T01:05:05.001",
+                  "2019-12-31T02:10:10.002",
+                  "2019-12-30T03:15:15.003",
+                  "2009-12-31T04:20:20.004132",
+                  "2010-01-01T05:25:25.005321",
+                  "2010-01-03T06:30:30.006163",
+                  "2010-01-04T07:35:35",
+                  "2006-01-01T08:40:40",
+                  "2005-12-31T09:45:45",
+                  "2008-12-28",
+                  "2008-12-29",
+                  "2012-01-01 01:02:03"]
+
+    _check_datetime_components(timestamps)
 
 
 def test_count():
@@ -1560,3 +1650,29 @@ def test_min_max_element_wise():
     assert result == pa.array([2, 3, None])
     result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([1, 2, None])
+
+
+def test_make_struct():
+    assert pc.make_struct(1, 'a').as_py() == {'0': 1, '1': 'a'}
+
+    assert pc.make_struct(1, 'a', field_names=['i', 's']).as_py() == {
+        'i': 1, 's': 'a'}
+
+    assert pc.make_struct([1, 2, 3],
+                          "a b c".split()) == pa.StructArray.from_arrays([
+                              [1, 2, 3],
+                              "a b c".split()], names='0 1'.split())
+
+    with pytest.raises(ValueError, match="Array arguments must all "
+                                         "be the same length"):
+        pc.make_struct([1, 2, 3, 4], "a b c".split())
+
+    with pytest.raises(ValueError, match="0 arguments but 2 field names"):
+        pc.make_struct(field_names=['one', 'two'])
+
+
+def test_case_when():
+    assert pc.case_when(pc.make_struct([True, False, None],
+                                       [False, True, None]),
+                        [1, 2, 3],
+                        [11, 12, 13]) == pa.array([1, 12, None])

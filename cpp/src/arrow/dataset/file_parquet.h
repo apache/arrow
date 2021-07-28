@@ -86,6 +86,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;
+    arrow::TimeUnit::type coerce_int96_timestamp_unit = arrow::TimeUnit::NANO;
     /// @}
   } reader_options;
 
@@ -352,7 +353,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
       std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
       std::shared_ptr<Schema> physical_schema, std::string base_path,
       ParquetFactoryOptions options,
-      std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids)
+      std::vector<std::pair<std::string, std::vector<int>>> paths_with_row_group_ids)
       : filesystem_(std::move(filesystem)),
         format_(std::move(format)),
         metadata_(std::move(metadata)),
@@ -360,7 +361,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
         physical_schema_(std::move(physical_schema)),
         base_path_(std::move(base_path)),
         options_(std::move(options)),
-        path_to_row_group_ids_(std::move(path_to_row_group_ids)) {}
+        paths_with_row_group_ids_(std::move(paths_with_row_group_ids)) {}
 
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::shared_ptr<ParquetFileFormat> format_;
@@ -369,7 +370,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   std::shared_ptr<Schema> physical_schema_;
   std::string base_path_;
   ParquetFactoryOptions options_;
-  std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids_;
+  std::vector<std::pair<std::string, std::vector<int>>> paths_with_row_group_ids_;
 
  private:
   Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(

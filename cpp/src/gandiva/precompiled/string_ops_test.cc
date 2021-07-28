@@ -69,6 +69,31 @@ TEST(TestStringOps, TestBeginsEnds) {
   EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
 }
 
+TEST(TestStringOps, TestSpace) {
+  // Space - returns a string with 'n' spaces
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  int32_t out_len = 0;
+
+  auto out = space_int32(ctx_ptr, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), " ");
+  out = space_int32(ctx_ptr, 10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "          ");
+  out = space_int32(ctx_ptr, 5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "     ");
+  out = space_int32(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = space_int64(ctx_ptr, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "  ");
+  out = space_int64(ctx_ptr, 9, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "         ");
+  out = space_int64(ctx_ptr, 4, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "    ");
+  out = space_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 TEST(TestStringOps, TestIsSubstr) {
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "world", 5));
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "lo wo", 5));
@@ -190,6 +215,22 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   const char* g_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, g.data(), g_in_out_len, "", 0, &g_in_out_len);
   EXPECT_EQ(std::string(g_str, g_in_out_len), "-ok--valid-");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  std::string h("\xa0\xa1-valid");
+  auto h_in_out_len = static_cast<int>(h.length());
+  const char* h_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, h.data(), h_in_out_len, "", 0, &h_in_out_len);
+  EXPECT_EQ(std::string(h_str, h_in_out_len), "-valid");
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  std::string i("\xa0\xa1-valid-\xa0\xa1-valid-\xa0\xa1");
+  auto i_in_out_len = static_cast<int>(i.length());
+  const char* i_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, i.data(), i_in_out_len, "", 0, &i_in_out_len);
+  EXPECT_EQ(std::string(i_str, i_in_out_len), "-valid--valid-");
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 }

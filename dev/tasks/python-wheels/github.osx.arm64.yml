@@ -1,0 +1,153 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Prerequisits on the host:
+# - brew install bash bison coreutils ninja cmake
+# - sudo arrow/ci/scripts/install_python.sh macos 3.9
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+env:
+  ARROW_FLIGHT: OFF
+  ARROW_JEMALLOC: OFF
+  ARROW_SIMD_LEVEL: NONE
+  CC: "clang"
+  CMAKE_BUILD_TYPE: release
+  CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+  CXX: "clang++"
+  MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
+  PYARROW_BUILD_VERBOSE: 1
+  PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+  PYTHON_VERSION: "{{ python_version }}"
+  PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
+  VCPKG_DEFAULT_TRIPLET: {{ arch }}-osx-static-release
+  VCPKG_FEATURE_FLAGS: "-manifests"
+  VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
+  VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
+  VCPKG_VERSION: "{{ vcpkg_version }}"
+
+jobs:
+  build:
+    name: Build wheel for OS X
+    runs-on: self-hosted
+    steps:
+      - name: Cleanup
+        shell: bash
+        run: rm -rf arrow vcpkg build crossbow-env build-env test-*-env
+
+      {{ macros.github_checkout_arrow()|indent }}
+
+      - name: Add Brew's Bison to PATH
+        shell: bash
+        run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+
+      - name: Install Vcpkg
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: arch -arm64 arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
+
+      - name: Install OpenSSL
+        shell: bash
+        run: arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+
+      {% if arch == "universal2" %}
+      # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
+      # unable to propagate the list of architectures from VCPKG_OSX_ARCHIETCTURES.
+      # In order to prevent link time warnings (which may turn out to be errors)
+      # we compile OpenSSL separately for the two architectures and merge the
+      # binaries into universal2 ones using `lipo`.
+      - name: Create universal binaries for OpenSSL
+        shell: bash
+        run: |
+          for arch in arm64 x64; do
+            VCPKG_DEFAULT_TRIPLET=${arch}-osx-static-release arch -arm64 $VCPKG_ROOT/vcpkg install openssl
+          done
+          for lib in libcrypto libssl; do
+            lipo -create $VCPKG_ROOT/installed/arm64-osx-static-release/lib/${lib}.a \
+                         $VCPKG_ROOT/installed/x64-osx-static-release/lib/${lib}.a \
+                 -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
+          done
+      {% endif %}
+
+      - name: Install Packages
+        run: |
+          arch -arm64 $VCPKG_ROOT/vcpkg install \
+            aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
+            boost-filesystem \
+            brotli \
+            bzip2 \
+            c-ares \
+            curl \
+            flatbuffers \
+            gflags \
+            glog \
+            lz4 \
+            orc \
+            protobuf \
+            rapidjson \
+            re2 \
+            snappy \
+            thrift \
+            utf8proc \
+            zlib \
+            zstd
+
+      - name: Build Wheel
+        shell: bash
+        run: |
+          $PYTHON -m virtualenv build-env
+          source build-env/bin/activate
+          pip install --upgrade pip wheel
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh {{ arch }} $(pwd)/arrow $(pwd)/build
+
+      - name: Test Wheel on ARM64
+        shell: bash
+        run: |
+          $PYTHON -m virtualenv test-arm64-env
+          source test-arm64-env/bin/activate
+          pip install --upgrade pip wheel
+          arch -arm64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+
+      {% if arch == "universal2" %}
+      - name: Test Wheel on AMD64
+        shell: bash
+        run: |
+          $PYTHON -m virtualenv test-amd64-env
+          source test-amd64-env/bin/activate
+          pip install --upgrade pip wheel
+          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+      {% endif %}
+
+      - name: Upload artifacts
+        shell: bash
+        run: |
+          $PYTHON -m virtualenv crossbow-env
+          source crossbow-env/bin/activate
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
+          --queue-path $(pwd) \
+          --queue-remote {{ queue_remote_url }} \
+          upload-artifacts \
+          --sha {{ task.branch }} \
+          --tag {{ task.tag }} \
+          "arrow/python/repaired_wheels/*.whl"
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
+
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

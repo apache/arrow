@@ -129,7 +129,7 @@ class FnOnce<R(A...)> {
 
   template <typename Fn,
             typename = typename std::enable_if<std::is_convertible<
-                typename std::result_of<Fn && (A...)>::type, R>::value>::type>
+                decltype(std::declval<Fn&&>()(std::declval<A>()...)), R>::value>::type>
   FnOnce(Fn fn) : impl_(new FnImpl<Fn>(std::move(fn))) {  // NOLINT runtime/explicit
   }
 

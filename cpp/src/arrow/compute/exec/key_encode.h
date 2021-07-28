@@ -247,11 +247,12 @@ class KeyEncoder {
                    const KeyColumnArray& right, int buffer_id_to_replace);
     /// Create for reading
     KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                   const uint8_t* buffer0, const uint8_t* buffer1,
-                   const uint8_t* buffer2);
+                   const uint8_t* buffer0, const uint8_t* buffer1, const uint8_t* buffer2,
+                   int bit_offset0 = 0, int bit_offset1 = 0);
     /// Create for writing
     KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length, uint8_t* buffer0,
-                   uint8_t* buffer1, uint8_t* buffer2);
+                   uint8_t* buffer1, uint8_t* buffer2, int bit_offset0 = 0,
+                   int bit_offset1 = 0);
     /// Create as a window view of original description that is offset
     /// by a given number of rows.
     /// The number of rows used in offset must be divisible by 8
@@ -269,6 +270,10 @@ class KeyEncoder {
     const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
     const KeyColumnMetadata& metadata() const { return metadata_; }
     int64_t length() const { return length_; }
+    int bit_offset(int i) const {
+      ARROW_DCHECK(i >= 0 && i < max_buffers_);
+      return bit_offset_[i];
+    }
 
    private:
     static constexpr int max_buffers_ = 3;
@@ -276,6 +281,9 @@ class KeyEncoder {
     uint8_t* mutable_buffers_[max_buffers_];
     KeyColumnMetadata metadata_;
     int64_t length_;
+    // Starting bit offset within the first byte (between 0 and 7)
+    // to be used when accessing buffers that store bit vectors.
+    int bit_offset_[max_buffers_ - 1];
   };
 
   void Init(const std::vector<KeyColumnMetadata>& cols, KeyEncoderContext* ctx,

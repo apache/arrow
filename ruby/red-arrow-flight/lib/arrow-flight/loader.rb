@@ -26,6 +26,7 @@ module ArrowFlight
     private
     def post_load(repository, namespace)
       require_libraries
+      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
@@ -33,6 +34,11 @@ module ArrowFlight
       require "arrow-flight/client-options"
       require "arrow-flight/location"
       require "arrow-flight/server-options"
+      require "arrow-flight/ticket"
+    end
+
+    def should_unlock_gvl?(info, klass)
+      true
     end
   end
 end

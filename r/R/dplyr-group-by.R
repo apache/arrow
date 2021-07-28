@@ -24,11 +24,20 @@ group_by.arrow_dplyr_query <- function(.data,
                                        add = .add,
                                        .drop = dplyr::group_by_drop_default(.data)) {
   .data <- arrow_dplyr_query(.data)
-  # ... can contain expressions (i.e. can add (or rename?) columns)
-  # Check for those (they show up as named expressions)
   new_groups <- enquos(...)
-  new_groups <- new_groups[nzchar(names(new_groups))]
+  # ... can contain expressions (i.e. can add (or rename?) columns) and so we
+  # need to identify those and add them on to the query with mutate. Specifically,
+  # we want to mark as new:
+  #   * expressions (named or otherwise)
+  #   * variables that have new names
+  # All others (i.e. simple references to variables) should not be (re)-added
+  new_group_ind <- map_lgl(new_groups, ~!(quo_name(.x) %in% names(.data)))
+  named_group_ind <- map_lgl(names(new_groups), nzchar)
+  new_groups <- new_groups[new_group_ind | named_group_ind]
   if (length(new_groups)) {
+    # now either use the name that was given in ... or if that is "" then use the expr
+    names(new_groups) <- imap_chr(new_groups, ~ ifelse(.y == "", quo_name(.x), .y))
+
     # Add them to the data
     .data <- dplyr::mutate(.data, !!!new_groups)
   }

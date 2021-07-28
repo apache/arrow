@@ -1,11 +1,26 @@
 cffi
 cython
 hypothesis
-numpy==1.19.4; python_version != "3.9" or platform_machine != "aarch64"
-numpy==1.20.1; python_version == "3.9" and platform_machine == "aarch64"
-pandas<1.1.0; python_version < "3.8" and platform_machine != "aarch64"
-pandas; python_version >= "3.8" or platform_machine == "aarch64"
-pickle5; (python_version == "3.6" or python_version == "3.7") and sys_platform != "win32"
+pickle5; platform_system != "Windows" and python_version < "3.8"
 pytest
 pytest-lazy-fixture
 pytz
+
+numpy==1.19.5; platform_system == "Linux"   and platform_machine == "aarch64" and python_version <  "3.7"
+numpy==1.20.3; platform_system == "Linux"   and platform_machine == "aarch64" and python_version >= "3.7"
+numpy==1.19.5; platform_system == "Linux"   and platform_machine != "aarch64" and python_version <  "3.9"
+numpy==1.20.3; platform_system == "Linux"   and platform_machine != "aarch64" and python_version >= "3.9"
+numpy==1.21.0; platform_system == "Darwin"  and platform_machine == "arm64"
+numpy==1.19.5; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version <  "3.9"
+numpy==1.20.3; platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.9"
+numpy==1.19.5; platform_system == "Windows"                                   and python_version <  "3.9"
+numpy==1.20.3; platform_system == "Windows"                                   and python_version >= "3.9"
+
+pandas<1.1.0;  platform_system == "Linux"   and platform_machine != "aarch64" and python_version <  "3.8"
+pandas;        platform_system == "Linux"   and platform_machine != "aarch64" and python_version >= "3.8"
+pandas;        platform_system == "Linux"   and platform_machine == "aarch64"
+pandas<1.1.0;  platform_system == "Darwin"  and platform_machine != "arm64"   and python_version <  "3.8"
+pandas;        platform_system == "Darwin"  and platform_machine != "arm64"   and python_version >= "3.8"
+pandas;        platform_system == "Darwin"  and platform_machine == "arm64"
+pandas<1.1.0;  platform_system == "Windows"                                   and python_version <  "3.8"
+pandas;        platform_system == "Windows"                                   and python_version >= "3.8"

@@ -669,6 +669,25 @@ cdef class FileSystemDataset(Dataset):
     def filesystem(self):
         return FileSystem.wrap(self.filesystem_dataset.filesystem())
 
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+
+        If the FileSystemDataset is created using the ``dataset()`` factory
+        function with a partitioning specified, this will return the
+        finalized Partitioning object from the dataset discovery. In all
+        other cases, this returns None.
+        """
+        c_partitioning = self.filesystem_dataset.partitioning()
+        if c_partitioning.get() == nullptr:
+            return None
+        try:
+            return Partitioning.wrap(c_partitioning)
+        except TypeError:
+            # e.g. type_name "default"
+            return None
+
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
         self.filesystem_dataset = <CFileSystemDataset*> sp.get()
@@ -1378,17 +1397,38 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    coerce_int96_timestamp_unit : str, default None.
+        Cast timestamps that are stored in INT96 format to a particular
+        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+        and therefore INT96 timestamps will be infered as timestamps
+        in nanoseconds.
     """
 
     cdef public:
         set dictionary_columns
+        TimeUnit _coerce_int96_timestamp_unit
 
     # Also see _PARQUET_READ_OPTIONS
-    def __init__(self, dictionary_columns=None):
+    def __init__(self, dictionary_columns=None,
+                 coerce_int96_timestamp_unit=None):
         self.dictionary_columns = set(dictionary_columns or set())
+        self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+
+    @property
+    def coerce_int96_timestamp_unit(self):
+        return timeunit_to_string(self._coerce_int96_timestamp_unit)
+
+    @coerce_int96_timestamp_unit.setter
+    def coerce_int96_timestamp_unit(self, unit):
+        if unit is not None:
+            self._coerce_int96_timestamp_unit = string_to_timeunit(unit)
+        else:
+            self._coerce_int96_timestamp_unit = TimeUnit_NANO
 
     def equals(self, ParquetReadOptions other):
-        return self.dictionary_columns == other.dictionary_columns
+        return (self.dictionary_columns == other.dictionary_columns and
+                self.coerce_int96_timestamp_unit ==
+                other.coerce_int96_timestamp_unit)
 
     def __eq__(self, other):
         try:
@@ -1397,8 +1437,11 @@ cdef class ParquetReadOptions(_Weakrefable):
             return False
 
     def __repr__(self):
-        return (f"<ParquetReadOptions"
-                f" dictionary_columns={self.dictionary_columns}>")
+        return (
+            f"<ParquetReadOptions"
+            f" dictionary_columns={self.dictionary_columns}"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+        )
 
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
@@ -1481,7 +1524,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
 
-cdef set _PARQUET_READ_OPTIONS = {'dictionary_columns'}
+cdef set _PARQUET_READ_OPTIONS = {
+    'dictionary_columns', 'coerce_int96_timestamp_unit'
+}
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -1546,6 +1591,8 @@ cdef class ParquetFileFormat(FileFormat):
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
+        options.coerce_int96_timestamp_unit = \
+            read_options._coerce_int96_timestamp_unit
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -1558,10 +1605,15 @@ cdef class ParquetFileFormat(FileFormat):
     def read_options(self):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
-        return ParquetReadOptions(
+        parquet_read_options = ParquetReadOptions(
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
         )
+        # Read options getter/setter works with strings so setting
+        # the private property which uses the C Type
+        parquet_read_options._coerce_int96_timestamp_unit = \
+            options.coerce_int96_timestamp_unit
+        return parquet_read_options
 
     def make_write_options(self, **kwargs):
         opts = FileFormat.make_write_options(self)
@@ -1706,12 +1758,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.buffer_size == other.buffer_size and
             self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
-            other.enable_parallel_column_conversion)
+            other.enable_parallel_column_conversion
+        )
 
     def __reduce__(self):
         return ParquetFragmentScanOptions, (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.enable_parallel_column_conversion)
+            self.enable_parallel_column_conversion
+        )
 
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
@@ -2083,6 +2137,27 @@ cdef class DirectoryPartitioning(Partitioning):
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If not available, this returns None.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.directory_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                return None
+            res.append(pyarrow_wrap_array(arr))
+        return res
+
 
 cdef class HivePartitioning(Partitioning):
     """
@@ -2213,6 +2288,27 @@ cdef class HivePartitioning(Partitioning):
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
+
+    @property
+    def dictionaries(self):
+        """
+        The unique values for each partition field, if available.
+
+        Those values are only available if the Partitioning object was
+        created through dataset discovery from a PartitioningFactory, or
+        if the dictionaries were manually specified in the constructor.
+        If not available, this returns None.
+        """
+        cdef vector[shared_ptr[CArray]] c_arrays
+        c_arrays = self.hive_partitioning.dictionaries()
+        res = []
+        for arr in c_arrays:
+            if arr.get() == nullptr:
+                # Partitioning object has not been created through
+                # inspected Factory
+                return None
+            res.append(pyarrow_wrap_array(arr))
+        return res
 
 
 cdef class DatasetFactory(_Weakrefable):
@@ -3038,7 +3134,7 @@ def _get_partition_keys(Expression partition_expression):
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
-    is converted to {'part': 'a', 'year': 2016}
+    is converted to {'part': 'A', 'year': 2016}
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
@@ -3053,6 +3149,53 @@ def _get_partition_keys(Expression partition_expression):
     return out
 
 
+ctypedef CParquetFileWriter* _CParquetFileWriterPtr
+
+cdef class WrittenFile(_Weakrefable):
+    """
+    Metadata information about files written as
+    part of a dataset write operation
+    """
+
+    """The full path to the created file"""
+    cdef public str path
+    """
+    If the file is a parquet file this will contain the parquet metadata.
+    This metadata will have the file path attribute set to the path of
+    the written file.
+    """
+    cdef public object metadata
+
+    def __init__(self, path, metadata):
+        self.path = path
+        self.metadata = metadata
+
+cdef void _filesystemdataset_write_visitor(
+        dict visit_args,
+        CFileWriter* file_writer):
+    cdef:
+        str path
+        str base_dir
+        WrittenFile written_file
+        FileMetaData parquet_metadata
+        CParquetFileWriter* parquet_file_writer
+
+    parquet_metadata = None
+    path = frombytes(deref(file_writer).destination().path)
+    if deref(deref(file_writer).format()).type_name() == b"parquet":
+        parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
+        with nogil:
+            metadata = deref(
+                deref(parquet_file_writer).parquet_writer()).metadata()
+        if metadata:
+            base_dir = frombytes(visit_args['base_dir'])
+            parquet_metadata = FileMetaData()
+            parquet_metadata.init(metadata)
+            parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
+    written_file = WrittenFile(path, parquet_metadata)
+    visit_args['file_visitor'](written_file)
+
+
 def _filesystemdataset_write(
     Scanner data not None,
     object base_dir not None,
@@ -3061,6 +3204,7 @@ def _filesystemdataset_write(
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
     int max_partitions,
+    object file_visitor
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -3069,6 +3213,7 @@ def _filesystemdataset_write(
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
+        dict visit_args
 
     c_options.file_write_options = file_options.unwrap()
     c_options.filesystem = filesystem.unwrap()
@@ -3076,6 +3221,13 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
+    if file_visitor is not None:
+        visit_args = {'base_dir': c_options.base_dir,
+                      'file_visitor': file_visitor}
+        # Need to use post_finish because parquet metadata is not available
+        # until after Finish has been called
+        c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+            &_filesystemdataset_write_visitor, visit_args)
 
     c_scanner = data.unwrap()
     with nogil:

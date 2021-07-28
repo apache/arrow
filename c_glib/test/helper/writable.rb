@@ -17,22 +17,26 @@
 
 module Helper
   module Writable
-    def write_table(table, path, type: :file)
-      output = Arrow::FileOutputStream.new(path, false)
+    def write_table(table, output, type: :file)
+      if output.is_a?(Arrow::Buffer)
+        output_stream = Arrow::BufferOutputStream.new(output)
+      else
+        output_stream = Arrow::FileOutputStream.new(output, false)
+      end
       begin
         if type == :file
           writer_class = Arrow::RecordBatchFileWriter
         else
           writer_class = Arrow::RecordBatchStreamWriter
         end
-        writer = writer_class.new(output, table.schema)
+        writer = writer_class.new(output_stream, table.schema)
         begin
           writer.write_table(table)
         ensure
           writer.close
         end
       ensure
-        output.close
+        output_stream.close
       end
     end
   end

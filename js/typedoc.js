@@ -23,6 +23,7 @@ module.exports = {
     excludePrivate: true,
     excludeProtected: true,
     excludeExternals: true,
+    includeVersion: true,
     exclude: [
         'src/fb/*.ts',
         'src/bin/*.ts'

@@ -413,7 +413,7 @@ test_that("FixedSizeBinary", {
 })
 
 test_that("DataType to C-interface", {
-  datatype <- timestamp("ms", timezone = "Asia/Pyongyang")
+  datatype <- timestamp("ms", timezone = "Pacific/Marquesas")
 
   # export the datatype via the C-interface
   ptr <- allocate_arrow_schema()

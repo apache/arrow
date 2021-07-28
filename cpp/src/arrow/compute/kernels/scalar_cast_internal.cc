@@ -29,6 +29,8 @@ namespace internal {
 
 // ----------------------------------------------------------------------
 
+namespace {
+
 template <typename OutT, typename InT>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
 void DoStaticCast(const void* in_data, int64_t in_offset, int64_t length,
@@ -116,6 +118,8 @@ void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
       break;
   }
 }
+
+}  // namespace
 
 void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
                               Datum* out) {

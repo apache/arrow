@@ -26,7 +26,7 @@ import {
 } from '../validate';
 
 import { ArrowIOTestHelper } from '../helpers';
-import { RecordBatchReader } from '../../../Arrow';
+import { RecordBatchReader } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 

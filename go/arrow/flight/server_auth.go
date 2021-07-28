@@ -70,12 +70,12 @@ type ServerAuthHandler interface {
 
 type authCtxKey struct{}
 
-type authWrappedStream struct {
+type wrappedStream struct {
 	grpc.ServerStream
 	ctx context.Context
 }
 
-func (a *authWrappedStream) Context() context.Context { return a.ctx }
+func (a *wrappedStream) Context() context.Context { return a.ctx }
 
 // AuthFromContext will return back whatever object was returned from `IsValid` for a
 // given request context allowing handlers to retrieve identifying information
@@ -136,7 +136,7 @@ func createServerAuthStreamInterceptor(auth ServerAuthHandler) grpc.StreamServer
 			return status.Errorf(codes.Unauthenticated, "auth-error: %s", err)
 		}
 
-		stream = &authWrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, peerIdentity)}
+		stream = &wrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, peerIdentity)}
 		return handler(srv, stream)
 	}
 }
@@ -186,7 +186,7 @@ func createServerBearerTokenStreamInterceptor(validator BasicAuthValidator) grpc
 			}
 		}
 
-		if auth == nil || len(auth) == 0 {
+		if len(auth) == 0 {
 			return status.Error(codes.Unauthenticated, "must authenticate first")
 		}
 
@@ -214,16 +214,36 @@ func createServerBearerTokenStreamInterceptor(validator BasicAuthValidator) grpc
 			if err != nil {
 				return err
 			}
-			return handler(srv, &authWrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, identity)})
+			return handler(srv, &wrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, identity)})
 		}
 		return status.Errorf(codes.Unauthenticated, "Only bearer token auth implemented")
 	}
 }
 
+// CreateServerBearerTokenAuthInterceptors returns grpc interceptors for basic auth handling
+// via bearer tokens. validator cannot be nil
+//
+// Deprecated: use CreateServerBasicAuthMiddleware instead
 func CreateServerBearerTokenAuthInterceptors(validator BasicAuthValidator) (grpc.UnaryServerInterceptor, grpc.StreamServerInterceptor) {
 	if validator == nil {
 		panic("validator cannot be nil")
 	}
 
 	return createServerBearerTokenUnaryInterceptor(validator), createServerBearerTokenStreamInterceptor(validator)
+}
+
+// CreateServerBasicAuthMiddleware returns a ServerMiddleware that can be passed to NewServerWithMiddleware
+// in order to automatically add interceptors which will properly enforce auth validation
+// as per the passed in BasicAuthValidator.
+//
+// validator cannot be nil.
+func CreateServerBasicAuthMiddleware(validator BasicAuthValidator) ServerMiddleware {
+	if validator == nil {
+		panic("validator cannot be nil")
+	}
+
+	return ServerMiddleware{
+		Unary:  createServerBearerTokenUnaryInterceptor(validator),
+		Stream: createServerBearerTokenStreamInterceptor(validator),
+	}
 }

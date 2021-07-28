@@ -27,6 +27,7 @@ Useful links:
 Authors:
 \itemize{
   \item Ian Cook \email{ianmcook@gmail.com}
+  \item Nic Crane \email{thisisnic@gmail.com}
   \item Jonathan Keane \email{jkeane@gmail.com}
   \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jeroen Ooms \email{jeroen@berkeley.edu}

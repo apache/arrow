@@ -1,0 +1,8 @@
+// TypeScript configuration for the TypeScript target's tests
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "es2020"
+  }
+}

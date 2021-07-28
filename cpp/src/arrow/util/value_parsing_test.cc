@@ -264,6 +264,103 @@ TEST(StringConversion, ToDate64) {
   AssertConversion<Date64Type>("0001-01-01", -62135596800000LL);
 }
 
+template <typename T>
+void AssertInvalidTimes(const T& type) {
+  // Invalid time format
+  AssertConversionFails(type, "");
+  AssertConversionFails(type, "00");
+  AssertConversionFails(type, "00:");
+  AssertConversionFails(type, "00:00:");
+  AssertConversionFails(type, "00:00:00:");
+  AssertConversionFails(type, "000000");
+  AssertConversionFails(type, "000000.000");
+
+  // Invalid time value
+  AssertConversionFails(type, "24:00:00");
+  AssertConversionFails(type, "00:60:00");
+  AssertConversionFails(type, "00:00:60");
+}
+
+TEST(StringConversion, ToTime32) {
+  {
+    Time32Type type{TimeUnit::SECOND};
+
+    AssertConversion(type, "00:00", 0);
+    AssertConversion(type, "01:23", 4980);
+    AssertConversion(type, "23:59", 86340);
+
+    AssertConversion(type, "00:00:00", 0);
+    AssertConversion(type, "01:23:45", 5025);
+    AssertConversion(type, "23:45:43", 85543);
+    AssertConversion(type, "23:59:59", 86399);
+
+    AssertInvalidTimes(type);
+    // No subseconds allowed
+    AssertConversionFails(type, "00:00:00.123");
+  }
+  {
+    Time32Type type{TimeUnit::MILLI};
+
+    AssertConversion(type, "00:00", 0);
+    AssertConversion(type, "01:23", 4980000);
+    AssertConversion(type, "23:59", 86340000);
+
+    AssertConversion(type, "00:00:00", 0);
+    AssertConversion(type, "01:23:45", 5025000);
+    AssertConversion(type, "23:45:43", 85543000);
+    AssertConversion(type, "23:59:59", 86399000);
+
+    AssertConversion(type, "00:00:00.123", 123);
+    AssertConversion(type, "01:23:45.000", 5025000);
+    AssertConversion(type, "01:23:45.1", 5025100);
+    AssertConversion(type, "01:23:45.123", 5025123);
+    AssertConversion(type, "01:23:45.999", 5025999);
+
+    AssertInvalidTimes(type);
+    // Invalid subseconds
+    AssertConversionFails(type, "00:00:00.1234");
+  }
+}
+
+TEST(StringConversion, ToTime64) {
+  {
+    Time64Type type{TimeUnit::MICRO};
+
+    AssertConversion(type, "00:00:00", 0LL);
+    AssertConversion(type, "01:23:45", 5025000000LL);
+    AssertConversion(type, "23:45:43", 85543000000LL);
+    AssertConversion(type, "23:59:59", 86399000000LL);
+
+    AssertConversion(type, "00:00:00.123456", 123456LL);
+    AssertConversion(type, "01:23:45.000000", 5025000000LL);
+    AssertConversion(type, "01:23:45.1", 5025100000LL);
+    AssertConversion(type, "01:23:45.123", 5025123000LL);
+    AssertConversion(type, "01:23:45.999999", 5025999999LL);
+
+    AssertInvalidTimes(type);
+    // Invalid subseconds
+    AssertConversionFails(type, "00:00:00.1234567");
+  }
+  {
+    Time64Type type{TimeUnit::NANO};
+
+    AssertConversion(type, "00:00:00", 0LL);
+    AssertConversion(type, "01:23:45", 5025000000000LL);
+    AssertConversion(type, "23:45:43", 85543000000000LL);
+    AssertConversion(type, "23:59:59", 86399000000000LL);
+
+    AssertConversion(type, "00:00:00.123456789", 123456789LL);
+    AssertConversion(type, "01:23:45.000000000", 5025000000000LL);
+    AssertConversion(type, "01:23:45.1", 5025100000000LL);
+    AssertConversion(type, "01:23:45.1234", 5025123400000LL);
+    AssertConversion(type, "01:23:45.999999999", 5025999999999LL);
+
+    AssertInvalidTimes(type);
+    // Invalid subseconds
+    AssertConversionFails(type, "00:00:00.1234567891");
+  }
+}
+
 TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
     TimestampType type{TimeUnit::SECOND};

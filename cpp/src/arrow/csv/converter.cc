@@ -130,7 +130,7 @@ struct ValueDecoder {
 
  protected:
   Trie null_trie_;
-  std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType> type_;
   const ConvertOptions& options_;
 };
 
@@ -191,24 +191,29 @@ struct BinaryValueDecoder : public ValueDecoder {
 };
 
 //
-// Value decoder for integers and floats
+// Value decoder for integers, floats and temporals
 //
 
 template <typename T>
 struct NumericValueDecoder : public ValueDecoder {
   using value_type = typename T::c_type;
 
-  using ValueDecoder::ValueDecoder;
+  explicit NumericValueDecoder(const std::shared_ptr<DataType>& type,
+                               const ConvertOptions& options)
+      : ValueDecoder(type, options), concrete_type_(checked_cast<const T&>(*type)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
     TrimWhiteSpace(&data, &size);
-    if (ARROW_PREDICT_FALSE(
-            !internal::ParseValue<T>(reinterpret_cast<const char*>(data), size, out))) {
+    if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
       return GenericConversionError(type_, data, size);
     }
     return Status::OK();
   }
+
+ protected:
+  const T& concrete_type_;
 };
 
 //
@@ -569,6 +574,8 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
     NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
     NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
+    NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
+    NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
                    (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))

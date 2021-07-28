@@ -29,6 +29,8 @@
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
@@ -42,6 +44,7 @@ namespace internal {
 
 // Visit all physical types for which sorting is implemented.
 #define VISIT_PHYSICAL_TYPES(VISIT) \
+  VISIT(BooleanType)                \
   VISIT(Int8Type)                   \
   VISIT(Int16Type)                  \
   VISIT(Int32Type)                  \
@@ -370,6 +373,24 @@ inline void VisitRawValuesInline(const ArrayType& values,
       [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
+template <typename VisitorNotNull, typename VisitorNull>
+inline void VisitRawValuesInline(const BooleanArray& values,
+                                 VisitorNotNull&& visitor_not_null,
+                                 VisitorNull&& visitor_null) {
+  if (values.null_count() != 0) {
+    const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
+    VisitBitBlocksVoid(
+        values.null_bitmap(), values.offset(), values.length(),
+        [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
+        [&]() { visitor_null(); });
+  } else {
+    // Can avoid GetBit() overhead in the no-nulls case
+    VisitBitBlocksVoid(
+        values.data()->buffers[1], values.offset(), values.length(),
+        [&](int64_t i) { visitor_not_null(true); }, [&]() { visitor_not_null(false); });
+  }
+}
+
 template <typename ArrowType>
 class ArrayCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -477,6 +498,42 @@ class ArrayCountSorter {
   }
 };
 
+using ::arrow::internal::Bitmap;
+
+template <>
+class ArrayCountSorter<BooleanType> {
+ public:
+  ArrayCountSorter() = default;
+
+  // Returns where null starts.
+  // `offset` is used when this is called on a chunk of a chunked array
+  uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
+                 const BooleanArray& values, int64_t offset,
+                 const ArraySortOptions& options) {
+    std::array<int64_t, 2> counts{0, 0};
+
+    const int64_t nulls = values.null_count();
+    const int64_t ones = values.true_count();
+    const int64_t zeros = values.length() - ones - nulls;
+
+    int64_t null_position = values.length() - nulls;
+    int64_t index = offset;
+    const auto nulls_begin = indices_begin + null_position;
+
+    if (options.order == SortOrder::Ascending) {
+      // ones start after zeros
+      counts[1] = zeros;
+    } else {
+      // zeros start after ones
+      counts[0] = ones;
+    }
+    VisitRawValuesInline(
+        values, [&](bool v) { indices_begin[counts[v]++] = index++; },
+        [&]() { indices_begin[null_position++] = index++; });
+    return nulls_begin;
+  }
+};
+
 // Sort integers with counting sort or comparison based sorting algorithm
 // - Use O(n) counting sort if values are in a small range
 // - Use O(nlogn) std::stable_sort otherwise
@@ -528,6 +585,11 @@ template <typename Type, typename Enable = void>
 struct ArraySorter;
 
 template <>
+struct ArraySorter<BooleanType> {
+  ArrayCountSorter<BooleanType> impl;
+};
+
+template <>
 struct ArraySorter<UInt8Type> {
   ArrayCountSorter<UInt8Type> impl;
   ArraySorter() : impl(0, 255) {}
@@ -576,11 +638,17 @@ struct ArraySortIndices {
 
 // Sort indices kernels implemented for
 //
+// * Boolean type
 // * Number types
 // * Base binary types
 
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
+  // bool type
+  base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
+  base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());

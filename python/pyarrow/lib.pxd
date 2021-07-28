@@ -499,7 +499,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
 cdef class Codec(_Weakrefable):
     cdef:
-        unique_ptr[CCodec] wrapped
+        shared_ptr[CCodec] wrapped
 
     cdef inline CCodec* unwrap(self) nogil
 
@@ -525,6 +525,9 @@ cdef shared_ptr[CInputStream] native_transcoding_input_stream(
 
 # Default is allow_none=False
 cpdef DataType ensure_type(object type, bint allow_none=*)
+
+cdef timeunit_to_string(TimeUnit unit)
+cdef TimeUnit string_to_timeunit(unit) except *
 
 # Exceptions may be raised when converting dict values, so need to
 # check exception state on return

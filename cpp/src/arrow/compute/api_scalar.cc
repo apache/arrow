@@ -152,12 +152,13 @@ static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
-static auto kCompareOptionsType =
-    GetFunctionOptionsType<CompareOptions>(DataMember("op", &CompareOptions::op));
-static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
-    DataMember("field_names", &ProjectOptions::field_names),
-    DataMember("field_nullability", &ProjectOptions::field_nullability),
-    DataMember("field_metadata", &ProjectOptions::field_metadata));
+static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
+    DataMember("field_names", &MakeStructOptions::field_names),
+    DataMember("field_nullability", &MakeStructOptions::field_nullability),
+    DataMember("field_metadata", &MakeStructOptions::field_metadata));
+static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
+    DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
+    DataMember("week_start", &DayOfWeekOptions::week_start));
 }  // namespace
 }  // namespace internal
 
@@ -257,26 +258,28 @@ SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
 SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
 
-CompareOptions::CompareOptions(CompareOperator op)
-    : FunctionOptions(internal::kCompareOptionsType), op(op) {}
-CompareOptions::CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
-constexpr char CompareOptions::kTypeName[];
-
-ProjectOptions::ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                               std::vector<std::shared_ptr<const KeyValueMetadata>> m)
-    : FunctionOptions(internal::kProjectOptionsType),
+MakeStructOptions::MakeStructOptions(
+    std::vector<std::string> n, std::vector<bool> r,
+    std::vector<std::shared_ptr<const KeyValueMetadata>> m)
+    : FunctionOptions(internal::kMakeStructOptionsType),
       field_names(std::move(n)),
       field_nullability(std::move(r)),
       field_metadata(std::move(m)) {}
 
-ProjectOptions::ProjectOptions(std::vector<std::string> n)
-    : FunctionOptions(internal::kProjectOptionsType),
+MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
+    : FunctionOptions(internal::kMakeStructOptionsType),
       field_names(std::move(n)),
       field_nullability(field_names.size(), true),
       field_metadata(field_names.size(), NULLPTR) {}
 
-ProjectOptions::ProjectOptions() : ProjectOptions(std::vector<std::string>()) {}
-constexpr char ProjectOptions::kTypeName[];
+MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
+constexpr char MakeStructOptions::kTypeName[];
+
+DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+    : FunctionOptions(internal::kDayOfWeekOptionsType),
+      one_based_numbering(one_based_numbering),
+      week_start(week_start) {}
+constexpr char DayOfWeekOptions::kTypeName[];
 
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
@@ -294,8 +297,8 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kCompareOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kProjectOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
 }
 }  // namespace internal
 
@@ -320,12 +323,17 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
+SCALAR_EAGER_UNARY(Sign, "sign")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
 SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
 SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
+SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
+SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
+SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
   Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
@@ -342,6 +350,9 @@ SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
+SCALAR_EAGER_UNARY(Floor, "floor")
+SCALAR_EAGER_UNARY(Ceil, "ceil")
+SCALAR_EAGER_UNARY(Trunc, "trunc")
 
 Result<Datum> MaxElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
@@ -452,13 +463,20 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
   return CallFunction("if_else", {cond, if_true, if_false}, ctx);
 }
 
+Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
+                       ExecContext* ctx) {
+  std::vector<Datum> args = {cond};
+  args.reserve(cases.size() + 1);
+  args.insert(args.end(), cases.begin(), cases.end());
+  return CallFunction("case_when", args, ctx);
+}
+
 // ----------------------------------------------------------------------
 // Temporal functions
 
 SCALAR_EAGER_UNARY(Year, "year")
 SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Day, "day")
-SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
@@ -471,6 +489,10 @@ SCALAR_EAGER_UNARY(Millisecond, "millisecond")
 SCALAR_EAGER_UNARY(Microsecond, "microsecond")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
+
+Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+  return CallFunction("day_of_week", {arg}, &options, ctx);
+}
 
 }  // namespace compute
 }  // namespace arrow

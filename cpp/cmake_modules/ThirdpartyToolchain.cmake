@@ -239,7 +239,11 @@ macro(resolve_dependency DEPENDENCY_NAME)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
     find_package(PkgConfig QUIET)
     foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
-      pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC ${ARG_PC_PACKAGE_NAME} QUIET)
+      pkg_check_modules(${ARG_PC_PACKAGE_NAME}_PC
+                        ${ARG_PC_PACKAGE_NAME}
+                        NO_CMAKE_PATH
+                        NO_CMAKE_ENVIRONMENT_PATH
+                        QUIET)
       if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
       endif()
@@ -1558,9 +1562,9 @@ if(ARROW_MIMALLOC)
   endif()
 
   set(MIMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/mimalloc_ep/src/mimalloc_ep")
-  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/include")
+  set(MIMALLOC_INCLUDE_DIR "${MIMALLOC_PREFIX}/include/mimalloc-1.7")
   set(MIMALLOC_STATIC_LIB
-      "${MIMALLOC_PREFIX}/lib/mimalloc-1.6/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${MIMALLOC_PREFIX}/lib/mimalloc-1.7/${CMAKE_STATIC_LIBRARY_PREFIX}${MIMALLOC_LIB_BASE_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
   set(MIMALLOC_CMAKE_ARGS
@@ -1833,18 +1837,6 @@ endmacro()
 if(ARROW_BUILD_BENCHMARKS)
   # ArgsProduct() is available since 1.5.2
   set(BENCHMARK_REQUIRED_VERSION 1.5.2)
-  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA" AND "${benchmark_SOURCE}" STREQUAL
-                                                       "SYSTEM")
-    # TODO: Remove this workaround once
-    # https://github.com/google/benchmark/issues/1046 is resolved.
-    #
-    # benchmark doesn't set suitable version when we use released
-    # archive. So the benchmark package on conda-forge isn't report
-    # the real version. We accept all the benchmark package with
-    # conda. Conda users should install benchmark 1.5.2 or later by
-    # ci/conda_env_cpp.txt.
-    set(BENCHMARK_REQUIRED_VERSION 0.0.0)
-  endif()
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
@@ -2084,7 +2076,12 @@ macro(build_zstd)
 endmacro()
 
 if(ARROW_WITH_ZSTD)
-  resolve_dependency(zstd PC_PACKAGE_NAMES libzstd)
+  # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
+  resolve_dependency(zstd
+                     PC_PACKAGE_NAMES
+                     libzstd
+                     REQUIRED_VERSION
+                     1.4.0)
 
   if(TARGET zstd::libzstd)
     set(ARROW_ZSTD_LIBZSTD zstd::libzstd)
@@ -2533,6 +2530,7 @@ macro(build_grpc)
       re2::re2
       c-ares::cares
       ZLIB::ZLIB
+      OpenSSL::SSL
       Threads::Threads)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"

@@ -50,10 +50,11 @@ struct VarStdState {
 
     using SumType =
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
-    SumType sum = arrow::compute::detail::SumArray<CType, SumType>(*array.data());
+    SumType sum =
+        arrow::compute::detail::SumArray<CType, SumType, SimdLevel::NONE>(*array.data());
 
     const double mean = static_cast<double>(sum) / count;
-    const double m2 = arrow::compute::detail::SumArray<CType, double>(
+    const double m2 = arrow::compute::detail::SumArray<CType, double, SimdLevel::NONE>(
         *array.data(), [mean](CType value) {
           const double v = static_cast<double>(value);
           return (v - mean) * (v - mean);
@@ -180,6 +181,34 @@ struct VarStdImpl : public ScalarAggregator {
   VarOrStd return_type;
 };
 
+struct ScalarVarStdImpl : public ScalarAggregator {
+  explicit ScalarVarStdImpl(const VarianceOptions& options)
+      : options(options), seen(false) {}
+
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
+    seen = batch[0].scalar()->is_valid;
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const ScalarVarStdImpl&>(src);
+    seen = seen || other.seen;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (!seen || options.ddof > 0) {
+      out->value = std::make_shared<DoubleScalar>();
+    } else {
+      out->value = std::make_shared<DoubleScalar>(0.0);
+    }
+    return Status::OK();
+  }
+
+  const VarianceOptions options;
+  bool seen;
+};
+
 struct VarStdInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -233,12 +262,21 @@ Result<std::unique_ptr<KernelState>> VarianceInit(KernelContext* ctx,
   return visitor.Create();
 }
 
+Result<std::unique_ptr<KernelState>> ScalarVarStdInit(KernelContext* ctx,
+                                                      const KernelInitArgs& args) {
+  return arrow::internal::make_unique<ScalarVarStdImpl>(
+      static_cast<const VarianceOptions&>(*args.options));
+}
+
 void AddVarStdKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({InputType::Array(ty)}, float64());
     AddAggKernel(std::move(sig), init, func);
+
+    sig = KernelSignature::Make({InputType::Scalar(ty)}, float64());
+    AddAggKernel(std::move(sig), ScalarVarStdInit, func);
   }
 }
 

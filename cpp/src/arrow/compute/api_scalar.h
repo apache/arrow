@@ -218,21 +218,19 @@ enum CompareOperator : int8_t {
   LESS_EQUAL,
 };
 
-class ARROW_EXPORT CompareOptions : public FunctionOptions {
- public:
-  explicit CompareOptions(CompareOperator op);
-  CompareOptions();
-  constexpr static char const kTypeName[] = "CompareOptions";
+struct ARROW_EXPORT CompareOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+  CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
   enum CompareOperator op;
 };
 
-class ARROW_EXPORT ProjectOptions : public FunctionOptions {
+class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
  public:
-  ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                 std::vector<std::shared_ptr<const KeyValueMetadata>> m);
-  explicit ProjectOptions(std::vector<std::string> n);
-  ProjectOptions();
-  constexpr static char const kTypeName[] = "ProjectOptions";
+  MakeStructOptions(std::vector<std::string> n, std::vector<bool> r,
+                    std::vector<std::shared_ptr<const KeyValueMetadata>> m);
+  explicit MakeStructOptions(std::vector<std::string> n);
+  MakeStructOptions();
+  constexpr static char const kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -244,10 +242,23 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
   std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
+struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
+ public:
+  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1);
+  constexpr static char const kTypeName[] = "DayOfWeekOptions";
+  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
+
+  /// Number days from 1 if true and from 0 if false
+  bool one_based_numbering;
+  /// What day does the week start with (Monday=1, Sunday=7)
+  uint32_t week_start;
+};
+
 /// @}
 
-/// \brief Get the absolute value of a value. Array values can be of arbitrary
-/// length. If argument is null the result will be null.
+/// \brief Get the absolute value of a value.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value transformed
 /// \param[in] options arithmetic options (overflow handling), optional
@@ -311,8 +322,9 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Negate a value. Array values can be of arbitrary length. If argument
-/// is null the result will be null.
+/// \brief Negate values.
+///
+/// If argument is null the result will be null.
 ///
 /// \param[in] arg the value negated
 /// \param[in] options arithmetic options (overflow handling), optional
@@ -424,6 +436,84 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
 
+/// \brief Get the natural log of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Ln(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                 ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 10 of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 10
+ARROW_EXPORT
+Result<Datum> Log10(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 2 of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 2
+ARROW_EXPORT
+Result<Datum> Log2(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Get the natural log of (1 + value).
+///
+/// If argument is null the result will be null.
+/// This function may be more accurate than Log(1 + value) for values close to zero.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Round to the nearest integer less than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] ctx the function execution context, optional
+/// \return the rounded value
+ARROW_EXPORT
+Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Round to the nearest integer greater than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] ctx the function execution context, optional
+/// \return the rounded value
+ARROW_EXPORT
+Result<Datum> Ceil(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Get the integral part without fractional digits. Array values can be
+/// of arbitrary length. If argument is null the result will be null.
+///
+/// \param[in] arg the value to truncate
+/// \param[in] ctx the function execution context, optional
+/// \return the truncated value
+ARROW_EXPORT
+Result<Datum> Trunc(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///
@@ -450,6 +540,15 @@ Result<Datum> MinElementWise(
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Get the sign of a value. Array values can be of arbitrary length. If argument
+/// is null the result will be null.
+///
+/// \param[in] arg the value to extract sign from
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise sign function
+ARROW_EXPORT
+Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Compare a numeric array with a scalar.
 ///
 /// \param[in] left datum to compare, must be an Array
@@ -463,6 +562,7 @@ Result<Datum> MinElementWise(
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
 ARROW_EXPORT
 Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
                       ExecContext* ctx = NULLPTR);
@@ -678,6 +778,23 @@ ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
 
+/// \brief CaseWhen behaves like a switch/case or if-else if-else statement: for
+/// each row, select the first value for which the corresponding condition is
+/// true, or (if given) select the 'else' value, else emit null. Note that a
+/// null condition is the same as false.
+///
+/// \param[in] cond Conditions (Boolean)
+/// \param[in] cases Values (any type), along with an optional 'else' value.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
+                       ExecContext* ctx = NULLPTR);
+
 /// \brief Year returns year for each element of `values`
 ///
 /// \param[in] values input to extract year from
@@ -713,15 +830,22 @@ ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfWeek returns number of the day of the week value for each element of
-/// `values`. Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.
+/// `values`.
+///
+/// By default week starts on Monday denoted by 0 and ends on Sunday denoted
+/// by 6. Start day of the week (Monday=1, Sunday=7) and numbering base (0 or 1) can be
+/// set using DayOfWeekOptions
 ///
 /// \param[in] values input to extract number of the day of the week from
+/// \param[in] options for setting start of the week and day numbering
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 5.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values,
+                                     DayOfWeekOptions options = DayOfWeekOptions(),
+                                     ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfYear returns number of day of the year for each element of `values`.
 /// January 1st maps to day number 1, February 1st to 32, etc.

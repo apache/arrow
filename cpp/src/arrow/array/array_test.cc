@@ -111,6 +111,14 @@ TEST_F(TestArray, TestLength) {
   ASSERT_EQ(arr->length(), 100);
 }
 
+TEST_F(TestArray, TestNullToString) {
+  // Invalid NULL buffer
+  auto data = std::make_shared<Buffer>(nullptr, 400);
+
+  std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
+  ASSERT_EQ(arr->ToString(), "<InvalidArray: Missing values buffer in non-empty array>");
+}
+
 TEST_F(TestArray, TestSliceSafe) {
   std::vector<int32_t> original_data{1, 2, 3, 4, 5, 6, 7};
   auto arr = std::make_shared<Int32Array>(7, Buffer::Wrap(original_data));
@@ -322,8 +330,6 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
   ASSERT_EQ(length, result->length());
 }
 
-TEST_F(TestArray, TestCopy) {}
-
 TEST_F(TestArray, TestMakeArrayOfNull) {
   std::shared_ptr<DataType> types[] = {
       // clang-format off
@@ -356,6 +362,10 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), length);
+      for (int64_t i = 0; i < length; ++i) {
+        ASSERT_TRUE(array->IsNull(i));
+        ASSERT_FALSE(array->IsValid(i));
+      }
     }
   }
 }
@@ -423,47 +433,50 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   }
 }
 
+static ScalarVector GetScalars() {
+  auto hello = Buffer::FromString("hello");
+  DayTimeIntervalType::DayMilliseconds daytime{1, 100};
+
+  return {std::make_shared<BooleanScalar>(false),
+          std::make_shared<Int8Scalar>(3),
+          std::make_shared<UInt16Scalar>(3),
+          std::make_shared<Int32Scalar>(3),
+          std::make_shared<UInt64Scalar>(3),
+          std::make_shared<DoubleScalar>(3.0),
+          std::make_shared<Date32Scalar>(10),
+          std::make_shared<Date64Scalar>(11),
+          std::make_shared<Time32Scalar>(1000, time32(TimeUnit::SECOND)),
+          std::make_shared<Time64Scalar>(1111, time64(TimeUnit::MICRO)),
+          std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
+          std::make_shared<MonthIntervalScalar>(1),
+          std::make_shared<DayTimeIntervalScalar>(daytime),
+          std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
+          std::make_shared<BinaryScalar>(hello),
+          std::make_shared<LargeBinaryScalar>(hello),
+          std::make_shared<FixedSizeBinaryScalar>(
+              hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
+          std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
+          std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
+          std::make_shared<StringScalar>(hello),
+          std::make_shared<LargeStringScalar>(hello),
+          std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+          std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
+          std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
+          std::make_shared<StructScalar>(
+              ScalarVector{
+                  std::make_shared<Int32Scalar>(2),
+                  std::make_shared<Int32Scalar>(6),
+              },
+              struct_({field("min", int32()), field("max", int32())}))};
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalar) {
   ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
   ASSERT_OK(null_array->ValidateFull());
   ASSERT_EQ(null_array->length(), 5);
   ASSERT_EQ(null_array->null_count(), 5);
 
-  auto hello = Buffer::FromString("hello");
-  DayTimeIntervalType::DayMilliseconds daytime{1, 100};
-
-  ScalarVector scalars{
-      std::make_shared<BooleanScalar>(false),
-      std::make_shared<Int8Scalar>(3),
-      std::make_shared<UInt16Scalar>(3),
-      std::make_shared<Int32Scalar>(3),
-      std::make_shared<UInt64Scalar>(3),
-      std::make_shared<DoubleScalar>(3.0),
-      std::make_shared<Date32Scalar>(10),
-      std::make_shared<Date64Scalar>(11),
-      std::make_shared<Time32Scalar>(1000, time32(TimeUnit::SECOND)),
-      std::make_shared<Time64Scalar>(1111, time64(TimeUnit::MICRO)),
-      std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
-      std::make_shared<MonthIntervalScalar>(1),
-      std::make_shared<DayTimeIntervalScalar>(daytime),
-      std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
-      std::make_shared<BinaryScalar>(hello),
-      std::make_shared<LargeBinaryScalar>(hello),
-      std::make_shared<FixedSizeBinaryScalar>(
-          hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
-      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
-      std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
-      std::make_shared<StringScalar>(hello),
-      std::make_shared<LargeStringScalar>(hello),
-      std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
-      std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
-      std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
-      std::make_shared<StructScalar>(
-          ScalarVector{
-              std::make_shared<Int32Scalar>(2),
-              std::make_shared<Int32Scalar>(6),
-          },
-          struct_({field("min", int32()), field("max", int32())}))};
+  auto scalars = GetScalars();
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
@@ -471,11 +484,31 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
+
+      // test case for ARROW-13321
+      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+        ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
+        AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
+      }
     }
   }
 
   for (auto scalar : scalars) {
     AssertAppendScalar(pool_, scalar);
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
+  // Regression test for ARROW-13437
+  auto scalars = GetScalars();
+
+  for (auto scalar : scalars) {
+    SCOPED_TRACE(scalar->type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 32));
+    auto sliced = array->Slice(1, 4);
+    ASSERT_EQ(sliced->length(), 4);
+    ASSERT_EQ(sliced->null_count(), 0);
+    ARROW_EXPECT_OK(sliced->ValidateFull());
   }
 }
 

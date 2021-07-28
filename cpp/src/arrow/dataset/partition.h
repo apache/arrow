@@ -172,6 +172,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   Result<std::string> Format(const compute::Expression& expr) const override;
 
+  const ArrayVector& dictionaries() const { return dictionaries_; }
+
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
                        KeyValuePartitioningOptions options)

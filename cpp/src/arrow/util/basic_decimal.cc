@@ -121,218 +121,241 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
+#define BasicDecimal256FromLE(v1, v2, v3, v4) \
+  BasicDecimal256(BitUtil::LittleEndianArray::ToNative<uint64_t, 4>(v1, v2, v3, v4))
+
 static const BasicDecimal256 ScaleMultipliersDecimal256[] = {
-    BasicDecimal256({1ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({100000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({7766279631452241920ULL, 5ULL, 0ULL, 0ULL}),
-    BasicDecimal256({3875820019684212736ULL, 54ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1864712049423024128ULL, 542ULL, 0ULL, 0ULL}),
-    BasicDecimal256({200376420520689664ULL, 5421ULL, 0ULL, 0ULL}),
-    BasicDecimal256({2003764205206896640ULL, 54210ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1590897978359414784ULL, 542101ULL, 0ULL, 0ULL}),
-    BasicDecimal256({15908979783594147840ULL, 5421010ULL, 0ULL, 0ULL}),
-    BasicDecimal256({11515845246265065472ULL, 54210108ULL, 0ULL, 0ULL}),
-    BasicDecimal256({4477988020393345024ULL, 542101086ULL, 0ULL, 0ULL}),
-    BasicDecimal256({7886392056514347008ULL, 5421010862ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5076944270305263616ULL, 54210108624ULL, 0ULL, 0ULL}),
-    BasicDecimal256({13875954555633532928ULL, 542101086242ULL, 0ULL, 0ULL}),
-    BasicDecimal256({9632337040368467968ULL, 5421010862427ULL, 0ULL, 0ULL}),
-    BasicDecimal256({4089650035136921600ULL, 54210108624275ULL, 0ULL, 0ULL}),
-    BasicDecimal256({4003012203950112768ULL, 542101086242752ULL, 0ULL, 0ULL}),
-    BasicDecimal256({3136633892082024448ULL, 5421010862427522ULL, 0ULL, 0ULL}),
-    BasicDecimal256({12919594847110692864ULL, 54210108624275221ULL, 0ULL, 0ULL}),
-    BasicDecimal256({68739955140067328ULL, 542101086242752217ULL, 0ULL, 0ULL}),
-    BasicDecimal256({687399551400673280ULL, 5421010862427522170ULL, 0ULL, 0ULL}),
-    BasicDecimal256({6873995514006732800ULL, 17316620476856118468ULL, 2ULL, 0ULL}),
-    BasicDecimal256({13399722918938673152ULL, 7145508105175220139ULL, 29ULL, 0ULL}),
-    BasicDecimal256({4870020673419870208ULL, 16114848830623546549ULL, 293ULL, 0ULL}),
-    BasicDecimal256({11806718586779598848ULL, 13574535716559052564ULL, 2938ULL, 0ULL}),
-    BasicDecimal256({7386721425538678784ULL, 6618148649623664334ULL, 29387ULL, 0ULL}),
-    BasicDecimal256({80237960548581376ULL, 10841254275107988496ULL, 293873ULL, 0ULL}),
-    BasicDecimal256({802379605485813760ULL, 16178822382532126880ULL, 2938735ULL, 0ULL}),
-    BasicDecimal256({8023796054858137600ULL, 14214271235644855872ULL, 29387358ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE({1ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({100000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({7766279631452241920ULL, 5ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({3875820019684212736ULL, 54ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1864712049423024128ULL, 542ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({200376420520689664ULL, 5421ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({2003764205206896640ULL, 54210ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1590897978359414784ULL, 542101ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({15908979783594147840ULL, 5421010ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({11515845246265065472ULL, 54210108ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({4477988020393345024ULL, 542101086ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({7886392056514347008ULL, 5421010862ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5076944270305263616ULL, 54210108624ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({13875954555633532928ULL, 542101086242ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({9632337040368467968ULL, 5421010862427ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({4089650035136921600ULL, 54210108624275ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({4003012203950112768ULL, 542101086242752ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({3136633892082024448ULL, 5421010862427522ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({12919594847110692864ULL, 54210108624275221ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({68739955140067328ULL, 542101086242752217ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({687399551400673280ULL, 5421010862427522170ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({6873995514006732800ULL, 17316620476856118468ULL, 2ULL, 0ULL}),
+    BasicDecimal256FromLE({13399722918938673152ULL, 7145508105175220139ULL, 29ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {4870020673419870208ULL, 16114848830623546549ULL, 293ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {11806718586779598848ULL, 13574535716559052564ULL, 2938ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {7386721425538678784ULL, 6618148649623664334ULL, 29387ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {80237960548581376ULL, 10841254275107988496ULL, 293873ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {802379605485813760ULL, 16178822382532126880ULL, 2938735ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {8023796054858137600ULL, 14214271235644855872ULL, 29387358ULL, 0ULL}),
+    BasicDecimal256FromLE(
         {6450984253743169536ULL, 13015503840481697412ULL, 293873587ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {9169610316303040512ULL, 1027829888850112811ULL, 2938735877ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {17909126868192198656ULL, 10278298888501128114ULL, 29387358770ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {13070572018536022016ULL, 10549268516463523069ULL, 293873587705ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {1578511669393358848ULL, 13258964796087472617ULL, 2938735877055ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {15785116693933588480ULL, 3462439444907864858ULL, 29387358770557ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {10277214349659471872ULL, 16177650375369096972ULL, 293873587705571ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {10538423128046960640ULL, 14202551164014556797ULL, 2938735877055718ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {13150510911921848320ULL, 12898303124178706663ULL, 29387358770557187ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {2377900603251621888ULL, 18302566799529756941ULL, 293873587705571876ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {5332261958806667264ULL, 17004971331911604867ULL, 2938735877055718769ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {16429131440647569408ULL, 4029016655730084128ULL, 10940614696847636083ULL, 1ULL}),
-    BasicDecimal256({16717361816799281152ULL, 3396678409881738056ULL,
-                     17172426599928602752ULL, 15ULL}),
-    BasicDecimal256({1152921504606846976ULL, 15520040025107828953ULL,
-                     5703569335900062977ULL, 159ULL}),
-    BasicDecimal256({11529215046068469760ULL, 7626447661401876602ULL,
-                     1695461137871974930ULL, 1593ULL}),
-    BasicDecimal256({4611686018427387904ULL, 2477500319180559562ULL,
-                     16954611378719749304ULL, 15930ULL}),
-    BasicDecimal256({9223372036854775808ULL, 6328259118096044006ULL,
-                     3525417123811528497ULL, 159309ULL}),
-    BasicDecimal256({0ULL, 7942358959831785217ULL, 16807427164405733357ULL, 1593091ULL}),
-    BasicDecimal256({0ULL, 5636613303479645706ULL, 2053574980671369030ULL, 15930919ULL}),
-    BasicDecimal256({0ULL, 1025900813667802212ULL, 2089005733004138687ULL, 159309191ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE({16717361816799281152ULL, 3396678409881738056ULL,
+                           17172426599928602752ULL, 15ULL}),
+    BasicDecimal256FromLE({1152921504606846976ULL, 15520040025107828953ULL,
+                           5703569335900062977ULL, 159ULL}),
+    BasicDecimal256FromLE({11529215046068469760ULL, 7626447661401876602ULL,
+                           1695461137871974930ULL, 1593ULL}),
+    BasicDecimal256FromLE({4611686018427387904ULL, 2477500319180559562ULL,
+                           16954611378719749304ULL, 15930ULL}),
+    BasicDecimal256FromLE({9223372036854775808ULL, 6328259118096044006ULL,
+                           3525417123811528497ULL, 159309ULL}),
+    BasicDecimal256FromLE(
+        {0ULL, 7942358959831785217ULL, 16807427164405733357ULL, 1593091ULL}),
+    BasicDecimal256FromLE(
+        {0ULL, 5636613303479645706ULL, 2053574980671369030ULL, 15930919ULL}),
+    BasicDecimal256FromLE(
+        {0ULL, 1025900813667802212ULL, 2089005733004138687ULL, 159309191ULL}),
+    BasicDecimal256FromLE(
         {0ULL, 10259008136678022120ULL, 2443313256331835254ULL, 1593091911ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 10356360998232463120ULL, 5986388489608800929ULL, 15930919111ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 11329889613776873120ULL, 4523652674959354447ULL, 159309191113ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 2618431695511421504ULL, 8343038602174441244ULL, 1593091911132ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 7737572881404663424ULL, 9643409726906205977ULL, 15930919111324ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 3588752519208427776ULL, 4200376900514301694ULL, 159309191113245ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 17440781118374726144ULL, 5110280857723913709ULL, 1593091911132452ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 8387114520361296896ULL, 14209320429820033867ULL, 15930919111324522ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 10084168908774762496ULL, 12965995782233477362ULL, 159309191113245227ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 8607968719199866880ULL, 532749306367912313ULL, 1593091911132452277ULL})};
 
 static const BasicDecimal256 ScaleMultipliersHalfDecimal256[] = {
-    BasicDecimal256({0ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({50000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({500000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
-    BasicDecimal256({13106511852580896768ULL, 2ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1937910009842106368ULL, 27ULL, 0ULL, 0ULL}),
-    BasicDecimal256({932356024711512064ULL, 271ULL, 0ULL, 0ULL}),
-    BasicDecimal256({9323560247115120640ULL, 2710ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1001882102603448320ULL, 27105ULL, 0ULL, 0ULL}),
-    BasicDecimal256({10018821026034483200ULL, 271050ULL, 0ULL, 0ULL}),
-    BasicDecimal256({7954489891797073920ULL, 2710505ULL, 0ULL, 0ULL}),
-    BasicDecimal256({5757922623132532736ULL, 27105054ULL, 0ULL, 0ULL}),
-    BasicDecimal256({2238994010196672512ULL, 271050543ULL, 0ULL, 0ULL}),
-    BasicDecimal256({3943196028257173504ULL, 2710505431ULL, 0ULL, 0ULL}),
-    BasicDecimal256({2538472135152631808ULL, 27105054312ULL, 0ULL, 0ULL}),
-    BasicDecimal256({6937977277816766464ULL, 271050543121ULL, 0ULL, 0ULL}),
-    BasicDecimal256({14039540557039009792ULL, 2710505431213ULL, 0ULL, 0ULL}),
-    BasicDecimal256({11268197054423236608ULL, 27105054312137ULL, 0ULL, 0ULL}),
-    BasicDecimal256({2001506101975056384ULL, 271050543121376ULL, 0ULL, 0ULL}),
-    BasicDecimal256({1568316946041012224ULL, 2710505431213761ULL, 0ULL, 0ULL}),
-    BasicDecimal256({15683169460410122240ULL, 27105054312137610ULL, 0ULL, 0ULL}),
-    BasicDecimal256({9257742014424809472ULL, 271050543121376108ULL, 0ULL, 0ULL}),
-    BasicDecimal256({343699775700336640ULL, 2710505431213761085ULL, 0ULL, 0ULL}),
-    BasicDecimal256({3436997757003366400ULL, 8658310238428059234ULL, 1ULL, 0ULL}),
-    BasicDecimal256({15923233496324112384ULL, 12796126089442385877ULL, 14ULL, 0ULL}),
-    BasicDecimal256({11658382373564710912ULL, 17280796452166549082ULL, 146ULL, 0ULL}),
-    BasicDecimal256({5903359293389799424ULL, 6787267858279526282ULL, 1469ULL, 0ULL}),
-    BasicDecimal256({3693360712769339392ULL, 12532446361666607975ULL, 14693ULL, 0ULL}),
-    BasicDecimal256({40118980274290688ULL, 14643999174408770056ULL, 146936ULL, 0ULL}),
-    BasicDecimal256({401189802742906880ULL, 17312783228120839248ULL, 1469367ULL, 0ULL}),
-    BasicDecimal256({4011898027429068800ULL, 7107135617822427936ULL, 14693679ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE({0ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({50000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({500000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5000000000000000000ULL, 0ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({13106511852580896768ULL, 2ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1937910009842106368ULL, 27ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({932356024711512064ULL, 271ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({9323560247115120640ULL, 2710ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1001882102603448320ULL, 27105ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({10018821026034483200ULL, 271050ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({7954489891797073920ULL, 2710505ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({5757922623132532736ULL, 27105054ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({2238994010196672512ULL, 271050543ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({3943196028257173504ULL, 2710505431ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({2538472135152631808ULL, 27105054312ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({6937977277816766464ULL, 271050543121ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({14039540557039009792ULL, 2710505431213ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({11268197054423236608ULL, 27105054312137ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({2001506101975056384ULL, 271050543121376ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({1568316946041012224ULL, 2710505431213761ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({15683169460410122240ULL, 27105054312137610ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({9257742014424809472ULL, 271050543121376108ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({343699775700336640ULL, 2710505431213761085ULL, 0ULL, 0ULL}),
+    BasicDecimal256FromLE({3436997757003366400ULL, 8658310238428059234ULL, 1ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {15923233496324112384ULL, 12796126089442385877ULL, 14ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {11658382373564710912ULL, 17280796452166549082ULL, 146ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {5903359293389799424ULL, 6787267858279526282ULL, 1469ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {3693360712769339392ULL, 12532446361666607975ULL, 14693ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {40118980274290688ULL, 14643999174408770056ULL, 146936ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {401189802742906880ULL, 17312783228120839248ULL, 1469367ULL, 0ULL}),
+    BasicDecimal256FromLE(
+        {4011898027429068800ULL, 7107135617822427936ULL, 14693679ULL, 0ULL}),
+    BasicDecimal256FromLE(
         {3225492126871584768ULL, 15731123957095624514ULL, 146936793ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {13808177195006296064ULL, 9737286981279832213ULL, 1469367938ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {8954563434096099328ULL, 5139149444250564057ULL, 14693679385ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {15758658046122786816ULL, 14498006295086537342ULL, 146936793852ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {10012627871551455232ULL, 15852854434898512116ULL, 1469367938527ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {7892558346966794240ULL, 10954591759308708237ULL, 14693679385278ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {5138607174829735936ULL, 17312197224539324294ULL, 146936793852785ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {14492583600878256128ULL, 7101275582007278398ULL, 1469367938527859ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {15798627492815699968ULL, 15672523598944129139ULL, 14693679385278593ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {10412322338480586752ULL, 9151283399764878470ULL, 146936793852785938ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {11889503016258109440ULL, 17725857702810578241ULL, 1469367938527859384ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {8214565720323784704ULL, 11237880364719817872ULL, 14693679385278593849ULL, 0ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {8358680908399640576ULL, 1698339204940869028ULL, 17809585336819077184ULL, 7ULL}),
-    BasicDecimal256({9799832789158199296ULL, 16983392049408690284ULL,
-                     12075156704804807296ULL, 79ULL}),
-    BasicDecimal256({5764607523034234880ULL, 3813223830700938301ULL,
-                     10071102605790763273ULL, 796ULL}),
-    BasicDecimal256({2305843009213693952ULL, 1238750159590279781ULL,
-                     8477305689359874652ULL, 7965ULL}),
-    BasicDecimal256({4611686018427387904ULL, 12387501595902797811ULL,
-                     10986080598760540056ULL, 79654ULL}),
-    BasicDecimal256({9223372036854775808ULL, 13194551516770668416ULL,
-                     17627085619057642486ULL, 796545ULL}),
-    BasicDecimal256({0ULL, 2818306651739822853ULL, 10250159527190460323ULL, 7965459ULL}),
-    BasicDecimal256({0ULL, 9736322443688676914ULL, 10267874903356845151ULL, 79654595ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE({9799832789158199296ULL, 16983392049408690284ULL,
+                           12075156704804807296ULL, 79ULL}),
+    BasicDecimal256FromLE({5764607523034234880ULL, 3813223830700938301ULL,
+                           10071102605790763273ULL, 796ULL}),
+    BasicDecimal256FromLE({2305843009213693952ULL, 1238750159590279781ULL,
+                           8477305689359874652ULL, 7965ULL}),
+    BasicDecimal256FromLE({4611686018427387904ULL, 12387501595902797811ULL,
+                           10986080598760540056ULL, 79654ULL}),
+    BasicDecimal256FromLE({9223372036854775808ULL, 13194551516770668416ULL,
+                           17627085619057642486ULL, 796545ULL}),
+    BasicDecimal256FromLE(
+        {0ULL, 2818306651739822853ULL, 10250159527190460323ULL, 7965459ULL}),
+    BasicDecimal256FromLE(
+        {0ULL, 9736322443688676914ULL, 10267874903356845151ULL, 79654595ULL}),
+    BasicDecimal256FromLE(
         {0ULL, 5129504068339011060ULL, 10445028665020693435ULL, 796545955ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 14401552535971007368ULL, 12216566281659176272ULL, 7965459555ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 14888316843743212368ULL, 11485198374334453031ULL, 79654595556ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 1309215847755710752ULL, 4171519301087220622ULL, 796545955566ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 13092158477557107520ULL, 4821704863453102988ULL, 7965459555662ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 1794376259604213888ULL, 11323560487111926655ULL, 79654595556622ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 17943762596042138880ULL, 2555140428861956854ULL, 796545955566226ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 13416929297035424256ULL, 7104660214910016933ULL, 7965459555662261ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 5042084454387381248ULL, 15706369927971514489ULL, 79654595556622613ULL}),
-    BasicDecimal256(
+    BasicDecimal256FromLE(
         {0ULL, 13527356396454709248ULL, 9489746690038731964ULL, 796545955566226138ULL})};
+
+#undef BasicDecimal256FromLE
 
 #ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
@@ -572,20 +595,24 @@ struct uint128_t {
 
 // Multiplies two N * 64 bit unsigned integer types, represented by a uint64_t
 // array into a same sized output. Elements in the array should be in
-// little endian order, and output will be the same. Overflow in multiplication
+// native endian order, and output will be the same. Overflow in multiplication
 // will result in the lower N * 64 bits of the result being set.
 template <int N>
 inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
                                   const std::array<uint64_t, N>& rh,
                                   std::array<uint64_t, N>* result) {
+  const auto lh_le = BitUtil::LittleEndianArray::Make(lh);
+  const auto rh_le = BitUtil::LittleEndianArray::Make(rh);
+  auto result_le = BitUtil::LittleEndianArray::Make(result);
+
   for (int j = 0; j < N; ++j) {
     uint64_t carry = 0;
     for (int i = 0; i < N - j; ++i) {
-      uint128_t tmp(lh[i]);
-      tmp *= uint128_t(rh[j]);
-      tmp += uint128_t((*result)[i + j]);
+      uint128_t tmp(lh_le[i]);
+      tmp *= uint128_t(rh_le[j]);
+      tmp += uint128_t(result_le[i + j]);
       tmp += uint128_t(carry);
-      (*result)[i + j] = tmp.lo();
+      result_le[i + j] = tmp.lo();
       carry = tmp.hi();
     }
   }
@@ -609,22 +636,23 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   return *this;
 }
 
-/// Expands the given little endian array of uint64_t into a big endian array of
+/// Expands the given native endian array of uint64_t into a big endian array of
 /// uint32_t. The value of input array is expected to be non-negative. The result_array
 /// will remove leading zeros from the input array.
-/// \param value_array a little endian array to represent the value
+/// \param value_array a native endian array to represent the value
 /// \param result_array a big endian array of length N*2 to set with the value
 /// \result the output length of the array
 template <size_t N>
 static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
                            uint32_t* result_array) {
+  const auto value_array_le = BitUtil::LittleEndianArray::Make(value_array);
   int64_t next_index = 0;
   // 1st loop to find out 1st non-negative value in input
   int64_t i = N - 1;
   for (; i >= 0; i--) {
-    if (value_array[i] != 0) {
-      if (value_array[i] <= std::numeric_limits<uint32_t>::max()) {
-        result_array[next_index++] = static_cast<uint32_t>(value_array[i]);
+    if (value_array_le[i] != 0) {
+      if (value_array_le[i] <= std::numeric_limits<uint32_t>::max()) {
+        result_array[next_index++] = static_cast<uint32_t>(value_array_le[i]);
         i--;
       }
       break;
@@ -632,8 +660,8 @@ static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
   }
   // 2nd loop to fill in the rest of the array.
   for (int64_t j = i; j >= 0; j--) {
-    result_array[next_index++] = static_cast<uint32_t>(value_array[j] >> 32);
-    result_array[next_index++] = static_cast<uint32_t>(value_array[j]);
+    result_array[next_index++] = static_cast<uint32_t>(value_array_le[j] >> 32);
+    result_array[next_index++] = static_cast<uint32_t>(value_array_le[j]);
   }
   return next_index;
 }
@@ -699,7 +727,7 @@ static int64_t FillInArray(const BasicDecimal256& value, uint32_t* array,
     positive_value.Negate();
     was_negative = true;
   }
-  return FillInArray<4>(positive_value.little_endian_array(), array);
+  return FillInArray<4>(positive_value.native_endian_array(), array);
 }
 
 /// Shift the number in the array left by bits positions.
@@ -743,7 +771,7 @@ static inline void FixDivisionSigns(DecimalClass* result, DecimalClass* remainde
   }
 }
 
-/// \brief Build a little endian array of uint64_t from a big endian array of uint32_t.
+/// \brief Build a native endian array of uint64_t from a big endian array of uint32_t.
 template <size_t N>
 static DecimalStatus BuildFromArray(std::array<uint64_t, N>* result_array,
                                     const uint32_t* array, int64_t length) {
@@ -754,15 +782,16 @@ static DecimalStatus BuildFromArray(std::array<uint64_t, N>* result_array,
   }
   int64_t next_index = length - 1;
   size_t i = 0;
+  auto result_array_le = BitUtil::LittleEndianArray::Make(result_array);
   for (; i < N && next_index >= 0; i++) {
     uint64_t lower_bits = array[next_index--];
-    (*result_array)[i] =
+    result_array_le[i] =
         (next_index < 0)
             ? lower_bits
             : ((static_cast<uint64_t>(array[next_index--]) << 32) + lower_bits);
   }
   for (; i < N; i++) {
-    (*result_array)[i] = 0;
+    result_array_le[i] = 0;
   }
   return DecimalStatus::kSuccess;
 }
@@ -775,7 +804,8 @@ static DecimalStatus BuildFromArray(BasicDecimal128* value, const uint32_t* arra
   if (status != DecimalStatus::kSuccess) {
     return status;
   }
-  *value = {static_cast<int64_t>(result_array[1]), result_array[0]};
+  const auto result_array_le = BitUtil::LittleEndianArray::Make(result_array);
+  *value = {static_cast<int64_t>(result_array_le[1]), result_array_le[0]};
   return DecimalStatus::kSuccess;
 }
 
@@ -1117,25 +1147,17 @@ int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   }
 }
 
-#if ARROW_LITTLE_ENDIAN
 BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
-    : little_endian_array_(
-          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[0],
-                                   reinterpret_cast<const uint64_t*>(bytes)[1],
-                                   reinterpret_cast<const uint64_t*>(bytes)[2],
-                                   reinterpret_cast<const uint64_t*>(bytes)[3]})) {}
-#else
-BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
-    : little_endian_array_(
-          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[3],
-                                   reinterpret_cast<const uint64_t*>(bytes)[2],
-                                   reinterpret_cast<const uint64_t*>(bytes)[1],
-                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {}
-#endif
+    : array_({reinterpret_cast<const uint64_t*>(bytes)[0],
+              reinterpret_cast<const uint64_t*>(bytes)[1],
+              reinterpret_cast<const uint64_t*>(bytes)[2],
+              reinterpret_cast<const uint64_t*>(bytes)[3]}) {}
 
 BasicDecimal256& BasicDecimal256::Negate() {
+  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
   uint64_t carry = 1;
-  for (uint64_t& elem : little_endian_array_) {
+  for (size_t i = 0; i < array_.size(); ++i) {
+    uint64_t& elem = array_le[i];
     elem = ~elem + carry;
     carry &= (elem == 0);
   }
@@ -1150,19 +1172,21 @@ BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
 }
 
 BasicDecimal256& BasicDecimal256::operator+=(const BasicDecimal256& right) {
+  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
+  const auto right_array_le = BitUtil::LittleEndianArray::Make(right.array_);
   uint64_t carry = 0;
-  for (size_t i = 0; i < little_endian_array_.size(); i++) {
-    const uint64_t right_value = right.little_endian_array_[i];
+  for (size_t i = 0; i < array_.size(); i++) {
+    const uint64_t right_value = right_array_le[i];
     uint64_t sum = right_value + carry;
     carry = 0;
     if (sum < right_value) {
       carry += 1;
     }
-    sum += little_endian_array_[i];
-    if (sum < little_endian_array_[i]) {
+    sum += array_le[i];
+    if (sum < array_le[i]) {
       carry += 1;
     }
-    little_endian_array_[i] = sum;
+    array_le[i] = sum;
   }
   return *this;
 }
@@ -1177,23 +1201,22 @@ BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
     return *this;
   }
   int cross_word_shift = bits / 64;
-  if (static_cast<size_t>(cross_word_shift) >= little_endian_array_.size()) {
-    little_endian_array_ = {0, 0, 0, 0};
+  if (static_cast<size_t>(cross_word_shift) >= array_.size()) {
+    array_ = {0, 0, 0, 0};
     return *this;
   }
   uint32_t in_word_shift = bits % 64;
-  for (int i = static_cast<int>(little_endian_array_.size() - 1); i >= cross_word_shift;
-       i--) {
+  auto array_le = BitUtil::LittleEndianArray::Make(&array_);
+  for (int i = static_cast<int>(array_.size() - 1); i >= cross_word_shift; i--) {
     // Account for shifts larger then 64 bits
-    little_endian_array_[i] = little_endian_array_[i - cross_word_shift];
-    little_endian_array_[i] <<= in_word_shift;
+    array_le[i] = array_le[i - cross_word_shift];
+    array_le[i] <<= in_word_shift;
     if (in_word_shift != 0 && i >= cross_word_shift + 1) {
-      little_endian_array_[i] |=
-          little_endian_array_[i - (cross_word_shift + 1)] >> (64 - in_word_shift);
+      array_le[i] |= array_le[i - (cross_word_shift + 1)] >> (64 - in_word_shift);
     }
   }
   for (int i = cross_word_shift - 1; i >= 0; i--) {
-    little_endian_array_[i] = 0;
+    array_le[i] = 0;
   }
   return *this;
 }
@@ -1206,17 +1229,10 @@ std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
 
 void BasicDecimal256::ToBytes(uint8_t* out) const {
   DCHECK_NE(out, nullptr);
-#if ARROW_LITTLE_ENDIAN
-  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[0];
-  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[1];
-  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[2];
-  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[3];
-#else
-  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
-  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
-  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
-  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
-#endif
+  reinterpret_cast<uint64_t*>(out)[0] = array_[0];
+  reinterpret_cast<uint64_t*>(out)[1] = array_[1];
+  reinterpret_cast<uint64_t*>(out)[2] = array_[2];
+  reinterpret_cast<uint64_t*>(out)[3] = array_[3];
 }
 
 BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
@@ -1229,8 +1245,8 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   uint128_t r_hi;
   uint128_t r_lo;
   std::array<uint64_t, 4> res{0, 0, 0, 0};
-  MultiplyUnsignedArray<4>(x.little_endian_array_, y.little_endian_array_, &res);
-  little_endian_array_ = res;
+  MultiplyUnsignedArray<4>(x.array_, y.array_, &res);
+  array_ = res;
   if (negate) {
     Negate();
   }
@@ -1301,12 +1317,13 @@ BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& ri
 }
 
 bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
-  const std::array<uint64_t, 4>& lhs = left.little_endian_array();
-  const std::array<uint64_t, 4>& rhs = right.little_endian_array();
-  return lhs[3] != rhs[3]
-             ? static_cast<int64_t>(lhs[3]) < static_cast<int64_t>(rhs[3])
-             : lhs[2] != rhs[2] ? lhs[2] < rhs[2]
-                                : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
+  const auto lhs_le = BitUtil::LittleEndianArray::Make(left.native_endian_array());
+  const auto rhs_le = BitUtil::LittleEndianArray::Make(right.native_endian_array());
+  return lhs_le[3] != rhs_le[3]
+             ? static_cast<int64_t>(lhs_le[3]) < static_cast<int64_t>(rhs_le[3])
+             : lhs_le[2] != rhs_le[2] ? lhs_le[2] < rhs_le[2]
+                                      : lhs_le[1] != rhs_le[1] ? lhs_le[1] < rhs_le[1]
+                                                               : lhs_le[0] < rhs_le[0];
 }
 
 BasicDecimal256 operator-(const BasicDecimal256& operand) {
@@ -1315,7 +1332,7 @@ BasicDecimal256 operator-(const BasicDecimal256& operand) {
 }
 
 BasicDecimal256 operator~(const BasicDecimal256& operand) {
-  const std::array<uint64_t, 4>& arr = operand.little_endian_array();
+  const std::array<uint64_t, 4>& arr = operand.native_endian_array();
   BasicDecimal256 result({~arr[0], ~arr[1], ~arr[2], ~arr[3]});
   return result;
 }

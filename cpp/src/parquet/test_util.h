@@ -179,6 +179,12 @@ static void InitDictValues(int num_values, int num_dicts, std::vector<T>& values
   }
 }
 
+template <>
+inline void InitDictValues<bool>(int num_values, int num_dicts, std::vector<bool>& values,
+                                 std::vector<uint8_t>& buffer) {
+  // No op for bool
+}
+
 class MockPageReader : public PageReader {
  public:
   explicit MockPageReader(const std::vector<std::shared_ptr<Page>>& pages)
@@ -563,7 +569,7 @@ template <>
 void inline InitValues<bool>(int num_values, std::vector<bool>& values,
                              std::vector<uint8_t>& buffer) {
   values = {};
-  ::arrow::random_is_valid(num_values, 1., &values,
+  ::arrow::random_is_valid(num_values, 0.5, &values,
                            static_cast<int>(::arrow::random_seed()));
 }
 

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
@@ -87,7 +88,7 @@ enum class SortOrder {
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(name), order(order) {}
+      : name(std::move(name)), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
   using util::EqualityComparable<SortKey>::operator==;
@@ -170,6 +171,23 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     MemoryPool* memory_pool = default_memory_pool());
 
 }  // namespace internal
+
+/// \brief ReplaceWithMask replaces each value in the array corresponding
+/// to a true value in the mask with the next element from `replacements`.
+///
+/// \param[in] values Array input to replace
+/// \param[in] mask Array or Scalar of Boolean mask values
+/// \param[in] replacements The replacement values to draw from. There must
+/// be as many replacement values as true values in the mask.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
+                              const Datum& replacements, ExecContext* ctx = NULLPTR);
 
 /// \brief Take from an array of values at indices in another array
 ///

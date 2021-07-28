@@ -15,16 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-===========
 Java Algorithms
-===========
+===============
 
 Arrow's Java library provides algorithms for some commonly-used
 functionalities. The algorithms are provided in the ``org.apache.arrow.algorithm``
 package of the ``algorithm`` module. 
 
 Comparing Vector Elements
-=================
+-------------------------
 
 Comparing vector elements is the basic for many algorithms. Vector 
 elements can be compared in one of the two ways:
@@ -40,7 +39,7 @@ We provide default implementations to compare vector elements. However, users ca
 for customized comparisons. 
 
 Vector Element Search
-====================
+---------------------
 
 A search algorithm tries to find a particular value in a vector. When successful, a vector index is 
 returned; otherwise, a ``-1`` is returned. The following search algorithms are provided:
@@ -64,7 +63,7 @@ range search algorithm tries to find the upper/lower bound of the region in ``O(
 An implementation is provided in ``org.apache.arrow.algorithm.search.VectorRangeSearcher``.
 
 Vector Sorting
-===================
+--------------
 
 Given a vector, a sorting algorithm turns it into a sorted one. The sorting criteria must
 be specified by some ordering comparison operation. The sorting algorithms can be
@@ -88,6 +87,6 @@ smallest value in the vector. Index sorting is supported by ``org.apache.arrow.a
 which runs in ``O(nlog(n))`` time. It is applicable to vectors of any type. 
 
 Other Algorithms
-===================
+----------------
 
 Other algorithms include vector deduplication, dictionary encoding, etc., in the ``algorithm`` module.

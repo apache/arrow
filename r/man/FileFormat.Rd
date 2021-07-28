@@ -52,7 +52,7 @@ It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFile
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 ## Semi-colon delimited files
 # Set up directory for examples
 tf <- tempfile()

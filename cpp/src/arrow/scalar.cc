@@ -18,6 +18,7 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -75,7 +76,8 @@ struct ScalarHashImpl {
 
   Status Visit(const Decimal256Scalar& s) {
     Status status = Status::OK();
-    for (uint64_t elem : s.value.little_endian_array()) {
+    // endianness doesn't affect result
+    for (uint64_t elem : s.value.native_endian_array()) {
       status &= StdHash(elem);
     }
     return status;
@@ -559,6 +561,19 @@ Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
 Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
   auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
   to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
+  return Status::OK();
+}
+
+Status CastImpl(const StructScalar& from, StringScalar* to) {
+  std::stringstream ss;
+  ss << '{';
+  for (int i = 0; static_cast<size_t>(i) < from.value.size(); i++) {
+    if (i > 0) ss << ", ";
+    ss << from.type->field(i)->name() << ':' << from.type->field(i)->type()->ToString()
+       << " = " << from.value[i]->ToString();
+  }
+  ss << '}';
+  to->value = Buffer::FromString(ss.str());
   return Status::OK();
 }
 
