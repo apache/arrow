@@ -1,57 +1,57 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
+# # Licensed to the Apache Software Foundation (ASF) under one
+# # or more contributor license agreements.  See the NOTICE file
+# # distributed with this work for additional information
+# # regarding copyright ownership.  The ASF licenses this file
+# # to you under the Apache License, Version 2.0 (the
+# # "License"); you may not use this file except in compliance
+# # with the License.  You may obtain a copy of the License at
+# #
+# #   http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing,
+# # software distributed under the License is distributed on an
+# # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# # KIND, either express or implied.  See the License for the
+# # specific language governing permissions and limitations
+# # under the License.
 
-name: Documentation
+# name: Documentation
 
-on:
-  push:
+# on:
+#   push:
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v1
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v1
 
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
+#       - name: Set up Python 3.8
+#         uses: actions/setup-python@v2
+#         with:
+#           python-version: 3.8
 
-      - name: Install dependencies
-        run: |
-          pip install -r docs/requirements.txt
-          pip install pyarrow pandas
+#       - name: Install dependencies
+#         run: |
+#           pip install -r docs/requirements.txt
+#           pip install pyarrow pandas
 
-      - name: Build docs
-        shell: bash -l {0}
-        run: |
-          $CONDA/bin/conda install -c conda-forge --file=ci/conda_env_sphinx.txt
-          pushd cpp/apidoc
-          $CONDA/bin/doxygen
-          popd
-          pushd docs
-          make html
-          popd
+#       - name: Build docs
+#         shell: bash -l {0}
+#         run: |
+#           $CONDA/bin/conda install -c conda-forge --file=ci/conda_env_sphinx.txt
+#           pushd cpp/apidoc
+#           $CONDA/bin/doxygen
+#           popd
+#           pushd docs
+#           make html
+#           popd
 
-      - name: Deploy to netlify
-        uses: netlify/actions/cli@master
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        with:
-          args: deploy --dir=docs/_build/html --prod
+#       - name: Deploy to netlify
+#         uses: netlify/actions/cli@master
+#         env:
+#           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+#           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+#         with:
+#           args: deploy --dir=docs/_build/html --prod
