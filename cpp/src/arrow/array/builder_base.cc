@@ -18,6 +18,7 @@
 #include "arrow/array/builder_base.h"
 
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -214,6 +215,7 @@ struct AppendScalarImpl {
   template <typename T>
   Status MakeUnionArray(const T& type) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
+    constexpr bool is_dense = std::is_same<T, DenseUnionType>::value;
 
     auto* builder = internal::checked_cast<BuilderType*>(builder_);
     const auto count = n_repeats_ * (scalars_end_ - scalars_begin_);
@@ -227,18 +229,24 @@ struct AppendScalarImpl {
 
     for (int64_t i = 0; i < n_repeats_; i++) {
       for (const std::shared_ptr<Scalar>* s = scalars_begin_; s != scalars_end_; s++) {
-        // For each scalar, 1. append the type code, 2. append the value to
-        // the corresponding child (and append null to the other children)
+        // For each scalar,
+        //  1. append the type code,
+        //  2. append the value to the corresponding child,
+        //  3. if the union is sparse, append null to the other children.
         const auto& scalar = internal::checked_cast<const UnionScalar&>(**s);
         const auto scalar_field_index = type.child_ids()[scalar.type_code];
         RETURN_NOT_OK(builder->Append(scalar.type_code));
 
         for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
-          if (field_index == scalar_field_index && scalar.is_valid) {
-            RETURN_NOT_OK(
-                builder->child_builder(field_index)->AppendScalar(*scalar.value));
-          } else {
-            RETURN_NOT_OK(builder->child_builder(field_index)->AppendNull());
+          auto* child_builder = builder->child_builder(field_index).get();
+          if (field_index == scalar_field_index) {
+            if (scalar.is_valid) {
+              RETURN_NOT_OK(child_builder->AppendScalar(*scalar.value));
+            } else {
+              RETURN_NOT_OK(child_builder->AppendNull());
+            }
+          } else if (!is_dense) {
+            RETURN_NOT_OK(child_builder->AppendNull());
           }
         }
       }

@@ -111,7 +111,7 @@ struct ScalarFromArraySlotImpl {
     if (value->is_valid) {
       out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, type_code, a.type()));
     } else {
-      out_ = MakeNullScalar(a.type());
+      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(type_code, a.type()));
     }
     return Status::OK();
   }
@@ -126,7 +126,7 @@ struct ScalarFromArraySlotImpl {
     if (value->is_valid) {
       out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, type_code, a.type()));
     } else {
-      out_ = MakeNullScalar(a.type());
+      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(type_code, a.type()));
     }
     return Status::OK();
   }
