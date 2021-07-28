@@ -435,7 +435,8 @@ public class FlightSqlClient {
       try {
         final PutResult read = putListener.read();
         try (final ArrowBuf metadata = read.getApplicationMetadata()) {
-          final FlightSql.DoPutUpdateResult doPutUpdateResult = FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
+          final FlightSql.DoPutUpdateResult doPutUpdateResult =
+              FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
         }
       } catch (InterruptedException | InvalidProtocolBufferException | ExecutionException e) {

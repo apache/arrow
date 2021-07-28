@@ -793,7 +793,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       try {
         final PreparedStatement preparedStatement = statement.getPreparedStatement();
 
-        while(flightStream.next()){
+        while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
 
           final int rowCount = root.getRowCount();
@@ -832,7 +832,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   break;
                 case TINYINT:
                 case UINT1:
-                  if(isNull) {
+                  if (isNull) {
                     preparedStatement.setNull(vectorPosition + 1, Types.TINYINT);
                   } else {
                     preparedStatement.setShort(vectorPosition + 1, (short) object);
@@ -891,6 +891,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                 case LARGELIST:
                 case FIXED_SIZE_LIST:
                   preparedStatement.setArray(vectorPosition + 1, (Array) object);
+                  break;
+                default:
+                  throw new UnsupportedOperationException();
               }
             } catch (SQLException e) {
               throw new RuntimeException(e);

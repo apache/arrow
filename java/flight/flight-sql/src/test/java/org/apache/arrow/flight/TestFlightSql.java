@@ -290,7 +290,8 @@ public class TestFlightSql {
 
   @Test
   public void testSimplePreparedStatementUpdateResults() {
-    final PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value, foreignId ) VALUES (?, ?, ?)");
+    final PreparedStatement prepare = sqlClient
+        .prepare("INSERT INTO INTTABLE (keyName, value, foreignId ) VALUES (?, ?, ?)");
 
     final Schema parameterSchema = prepare.getParameterSchema();
     try (final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator)) {
