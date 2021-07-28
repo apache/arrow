@@ -180,6 +180,9 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 ## Changelog
 
+The following changelog is for the `apache/arrow` repository. For the Rust
+implementation of Apache Arrow, see the [`apache/arrow-rs` changelog][7].
+
 ANNOUNCE
 
 archery release changelog generate ${version} | \
@@ -192,6 +195,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 [4]: https://apache.jfrog.io/artifactory/arrow/python/${version}/
 [5]: https://apache.jfrog.io/artifactory/arrow/ubuntu/
 [6]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
+[7]: https://github.com/apache/arrow-rs/blob/${version}/CHANGELOG.md
 ANNOUNCE
 git add "${announce_file}"
 
