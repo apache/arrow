@@ -29,6 +29,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
+import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
@@ -46,15 +48,20 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
+import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.StringValue;
 
 import io.grpc.Status;
@@ -91,7 +98,20 @@ public class FlightSqlClient {
   public long executeUpdate(String query) {
     final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder();
     builder.setQuery(query);
-    return 0; // TODO
+
+    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+    final SyncPutListener putListener = new SyncPutListener();
+    client.startPut(descriptor, VectorSchemaRoot.of(), putListener);
+
+    try {
+      final PutResult read = putListener.read();
+      try (final ArrowBuf metadata = read.getApplicationMetadata()) {
+        final DoPutUpdateResult doPutUpdateResult = DoPutUpdateResult.parseFrom(metadata.nioBuffer());
+        return doPutUpdateResult.getRecordCount();
+      }
+    } catch (InterruptedException | ExecutionException | InvalidProtocolBufferException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
