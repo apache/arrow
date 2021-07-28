@@ -17,11 +17,14 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
-import java.util.concurrent.BlockingQueue;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Future;
 
 import org.apache.arrow.flight.FlightStream;
 
@@ -31,9 +34,9 @@ import org.apache.arrow.flight.FlightStream;
  * The usage follows this routine:
  * <ol>
  *   <li>Create a <code>FlightStreamQueue</code>;</li>
- *   <li>Call <code>addToQueue(FlightStream)</code> for all streams to be consumed;</li>
+ *   <li>Call <code>enqueue(FlightStream)</code> for all streams to be consumed;</li>
  *   <li>Call <code>next()</code> to get a FlightStream that is ready to consume</li>
- *   <li>Consume the given FlightStream and add it back to the queue - call <code>addToQueue(FlightStream)</code></li>
+ *   <li>Consume the given FlightStream and add it back to the queue - call <code>enqueue(FlightStream)</code></li>
  *   <li>Repeat from (3) until <code>next()</code> returns null.</li>
  * </ol>
  */
@@ -41,16 +44,16 @@ public class FlightStreamQueue implements AutoCloseable {
   private static final int THREAD_POOL_SIZE = 4;
 
   private final ExecutorService executorService;
-  private final BlockingQueue<FlightStream> flightStreamQueue;
-  private final AtomicInteger pendingFutures;
+  private final CompletionService<FlightStream> completionService;
+  private final Collection<Future<?>> futures;
 
   /**
    * Instantiate a new FlightStreamQueue.
    */
   public FlightStreamQueue() {
     executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-    flightStreamQueue = new LinkedBlockingQueue<>();
-    pendingFutures = new AtomicInteger(0);
+    completionService = new ExecutorCompletionService<>(executorService);
+    futures = new HashSet<>();
   }
 
   /**
@@ -60,14 +63,17 @@ public class FlightStreamQueue implements AutoCloseable {
    */
   public FlightStream next() {
     try {
-      while (pendingFutures.getAndDecrement() > 0) {
-        final FlightStream flightStream = flightStreamQueue.take();
+      while (!futures.isEmpty()) {
+        final Future<FlightStream> future = completionService.take();
+        futures.remove(future);
+
+        final FlightStream flightStream = future.get();
         if (flightStream.getRoot().getRowCount() > 0) {
           return flightStream;
         }
       }
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
+    } catch (ExecutionException | InterruptedException e) {
+      return null;
     }
 
     return null;
@@ -76,17 +82,19 @@ public class FlightStreamQueue implements AutoCloseable {
   /**
    * Adds given FlightStream to the queue.
    */
-  public void addToQueue(FlightStream flightStream) {
-    pendingFutures.incrementAndGet();
-    executorService.submit(() -> {
+  public void enqueue(FlightStream flightStream) {
+    final Future<FlightStream> future = completionService.submit(() -> {
       // FlightStream#next will block until new data can be read or stream is over.
       flightStream.next();
-      flightStreamQueue.add(flightStream);
+
+      return flightStream;
     });
+    futures.add(future);
   }
 
   @Override
   public void close() throws Exception {
+    futures.forEach(future -> future.cancel(true));
     this.executorService.shutdown();
   }
 }

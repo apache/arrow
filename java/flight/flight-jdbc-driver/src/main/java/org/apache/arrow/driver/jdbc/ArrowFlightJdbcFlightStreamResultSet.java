@@ -59,7 +59,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
           .getClient()
           .getFlightStreams(signature.sql);
 
-      flightStreams.forEach(flightStreamQueue::addToQueue);
+      flightStreams.forEach(flightStreamQueue::enqueue);
 
       currentFlightStream = flightStreamQueue.next();
       final VectorSchemaRoot root = currentFlightStream.getRoot();
@@ -86,7 +86,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       return next();
     }
 
-    flightStreamQueue.addToQueue(currentFlightStream);
+    flightStreamQueue.enqueue(currentFlightStream);
     currentFlightStream = flightStreamQueue.next();
 
     if (currentFlightStream != null) {
@@ -103,15 +103,6 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     try {
       if (this.currentFlightStream != null) {
         this.currentFlightStream.close();
-      }
-
-      while (true) {
-        FlightStream flightStream = flightStreamQueue.next();
-        if (flightStream == null) {
-          break;
-        }
-
-        flightStream.close();
       }
 
       flightStreamQueue.close();
