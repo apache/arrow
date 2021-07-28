@@ -109,6 +109,17 @@ public class ResultSetTest {
     }
   }
 
+  @Test
+  public void testShouldExecuteQueryNotBlockIfClosedBeforeEnd() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
+
+      for (int i = 0; i < 7500; i++) {
+        assertTrue(resultSet.next());
+      }
+    }
+  }
+
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting
    * to run an invalid query.
