@@ -687,7 +687,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final PreparedStatementContext preparedStatementContext =
           new PreparedStatementContext(connection, preparedStatement);
 
-      final Cache<ByteString, PreparedStatementContext> preparedStatementLoadingCache = this.preparedStatementLoadingCache;
+      final Cache<ByteString, PreparedStatementContext> preparedStatementLoadingCache =
+          this.preparedStatementLoadingCache;
       preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
 
       final Schema parameterSchema =
