@@ -688,7 +688,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           new PreparedStatementContext(connection, preparedStatement);
 
       final Cache<String, PreparedStatementContext> preparedStatementLoadingCache = this.preparedStatementLoadingCache;
-      preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext );
+      preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
 
       final Schema parameterSchema =
           jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
