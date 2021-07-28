@@ -32,7 +32,6 @@ import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -144,23 +143,27 @@ public class TestFlightSql {
     close(client, server, allocator);
   }
 
-  private static boolean matchesGetSqlInfo(final Collection<? extends List<String>> results) {
-    return matchesGetSqlInfo(results, new int[0]);
+  private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {
+    return getNonConformingResultsForGetSqlInfo(results, ALL_SQL_INFO_ARGS);
   }
 
-  private static boolean matchesGetSqlInfo(final Collection<? extends List<String>> results, final int... args) {
-    boolean matches;
-    if (matches = results.size() == args.length) {
-      for (final List<String> result : results) {
+  private static List<List<String>> getNonConformingResultsForGetSqlInfo(
+      final List<? extends List<String>> results,
+      final int... args) {
+    final List<List<String>> nonConformingResults = new ArrayList<>();
+    if (results.size() == args.length) {
+      for (int index = 0; index < results.size(); index++) {
+        final List<String> result = results.get(index);
         final String providedName = result.get(0);
-        final String expectedName = Integer.toString(args[0]);
-        if (!(matches = GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(providedName).equals(result.get(1)) &&
+        final String expectedName = Integer.toString(args[index]);
+        if (!(GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(providedName).equals(result.get(1)) &&
             providedName.equals(expectedName))) {
+          nonConformingResults.add(result);
           break;
         }
       }
     }
-    return matches;
+    return nonConformingResults;
   }
 
   @Test
@@ -391,7 +394,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
+      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream)), is(emptyList()));
     }
   }
 
@@ -401,7 +404,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo(arg);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream), arg), is(true));
+      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), arg), is(emptyList()));
     }
   }
 
@@ -413,7 +416,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream), args), is(true));
+      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), args), is(emptyList()));
     }
   }
 
@@ -426,7 +429,7 @@ public class TestFlightSql {
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream), args), is(true));
+      collector.checkThat(getNonConformingResultsForGetSqlInfo(getResults(stream), args), is(emptyList()));
     }
   }
 
