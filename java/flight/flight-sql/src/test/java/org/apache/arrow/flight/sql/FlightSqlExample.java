@@ -678,8 +678,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       LOGGER.error(format("Failed to close resources: <%s>", t.getMessage()), t);
     }
 
-    AutoCloseables.close(dataSource);
-    AutoCloseables.close(rootAllocator);
+    AutoCloseables.close(dataSource, rootAllocator);
   }
 
   @Override
