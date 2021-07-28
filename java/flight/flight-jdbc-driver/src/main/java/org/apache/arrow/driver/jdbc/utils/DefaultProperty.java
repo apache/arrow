@@ -27,22 +27,26 @@ import javax.annotation.Nullable;
  */
 public enum BaseProperty {
   // TODO These names are up to discussion.
-  HOST("host", "localhost"), PORT("port", 32210), USERNAME("user"), PASSWORD(
-      "password"), ENCRYPT("useTls",
-          false), KEYSTORE_PATH("keyStorePath"), KEYSTORE_PASS("keyStorePass"),
+  HOST("host", "localhost"),
+  PORT("port", 32210),
+  USERNAME("user"),
+  PASSWORD("password"),
+  ENCRYPT("useTls", false),
+  KEYSTORE_PATH("keyStorePath"),
+  KEYSTORE_PASS("keyStorePass"),
   THREAD_POOL_SIZE("threadPoolSize", 1);
 
-  private final String representation;
-  private final Object definition;
+  private final String name;
+  private final Object defaultValue;
 
-  BaseProperty(final String representation, @Nullable final Object definition) {
-    this.representation = representation;
-    this.definition = definition;
+  BaseProperty(final String name, @Nullable final Object defaultValue) {
+    this.name = name;
+    this.defaultValue = defaultValue;
   }
 
-  BaseProperty(final String representation) {
-    this.representation = representation;
-    this.definition = null;
+  BaseProperty(final String name) {
+    this.name = name;
+    this.defaultValue = null;
   }
 
   /**
@@ -63,6 +67,14 @@ public enum BaseProperty {
      *  - 2. What if the default value IS null? (As opposed to null meaning
      *  there is no default value.)
      */
-    return new AbstractMap.SimpleEntry<>(representation, definition);
+    return new AbstractMap.SimpleEntry<>(name, defaultValue);
+  }
+
+  public String getName() {
+    return this.name;
+  }
+
+  public Object getDefaultValue() {
+    return this.defaultValue;
   }
 }

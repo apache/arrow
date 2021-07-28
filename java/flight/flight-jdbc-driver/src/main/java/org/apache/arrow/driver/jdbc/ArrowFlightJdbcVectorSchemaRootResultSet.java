@@ -101,7 +101,9 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
       super.close();
     }
 
-    this.vectorSchemaRoot.close();
+    if (this.vectorSchemaRoot != null) {
+      this.vectorSchemaRoot.close();
+    }
   }
 
   private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(List<Field> fields) {

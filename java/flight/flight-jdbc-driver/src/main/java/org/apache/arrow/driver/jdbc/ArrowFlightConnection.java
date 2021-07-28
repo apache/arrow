@@ -139,8 +139,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   @Nullable
   private Object getPropertyOrDefault(BaseProperty property) {
-    Map.Entry<String, Object> defaults = checkNotNull(property).getEntry();
-    return info.getOrDefault(defaults.getKey(), defaults.getValue());
+    return info.getOrDefault(property.getName(), property.getDefaultValue());
   }
 
   private HeaderCallOption getHeaders() {
