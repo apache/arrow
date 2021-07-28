@@ -16,10 +16,15 @@
   specific language governing permissions and limitations
   under the License.
 -->
-# TODO:
-- runs on ubuntu
-- explain it is used by ursabot builds
-- deal with     PATH=/usr/lib/ccache/:$PATH \
-- deal with ARROW_DEFAULT_MEMORY_POOL
-- deal with ARROW_ENABLE_UNSAFE_MEMORY_ACCESS
-- deal with ARROW_ENABLE_NULL_CHECK_FOR_GET
+## Benchmark Builds Env
+This directory contains 
+- [benchmarks.env](../../dev/conbench_envs/benchmarks.env) - list of env vars used for building Arrow C++/Python/R/Java/JavaScript and running benchmarks using [conbench](https://ursalabs.org/blog/announcing-conbench/)
+- [utils.sh](../../dev/conbench_envs/utils.sh) - utils used by benchmark builds for creating conda env with Arrow C++/Python/R/Java/JavaScript built from source
+
+## How to add or update Arrow build and run env vars used by benchmark builds
+1. Create `apache/arrow` PR
+2. Update or add env var value in [benchmarks.env](../../dev/conbench_envs/benchmarks.env)
+3. Add `@ursabot please benchmark` comment to PR
+4. Once benchmark builds are done, benchmark results can be viewed via compare/runs links in the PR comment where
+- baseline = PR base HEAD commit with default (master branch version) `/dev/conbench_envs/benchmarks.env`
+- contender = PR branch HEAD commit with overridden `/dev/conbench_envs/benchmarks.env`

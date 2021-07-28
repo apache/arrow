@@ -17,6 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
+## These bash utils are used by benchmark builds
+# to create a conda env with Arrow dependencies and building Arrow C++, Python, etc
 create_conda_env_for_benchmark_build() {
   conda create -y -n "${BENCHMARKABLE_TYPE}" -c conda-forge \
   --file ci/conda_env_unix.txt \
