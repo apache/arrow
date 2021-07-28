@@ -26,9 +26,9 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
-: ${PREPARE_DEFAULT:=1}
-: ${PREPARE_VERSION_POST_TAG:=${PREPARE_DEFAULT}}
-: ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
+: ${BUMP_DEFAULT:=1}
+: ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
+: ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
 
 . $SOURCE_DIR/utils-prepare.sh
 
@@ -36,13 +36,13 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
-if [ ${PREPARE_VERSION_POST_TAG} -gt 0 ]; then
+if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
   echo "Updating versions for ${next_version_snapshot}"
   update_versions "${version}" "${next_version}" "snapshot"
   git commit -m "[Release] Update versions for ${next_version_snapshot}"
 fi
 
-if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
+if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
   echo "Updating .deb package names for ${next_version}"
   so_version() {
     local version=$1
