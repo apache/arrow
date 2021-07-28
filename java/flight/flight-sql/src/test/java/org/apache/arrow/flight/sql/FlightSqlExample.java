@@ -775,7 +775,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return () -> {
       try {
 
-        flightStream.next();
+        while (flightStream.next()) {
+          final VectorSchemaRoot root = flightStream.getRoot();
 
         final VectorSchemaRoot root = flightStream.getRoot();
 
@@ -802,6 +803,96 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         ackStream.onCompleted();
       }
     };
+  }
+
+  private void prepareBatch(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount) {
+    IntStream.range(0, rowCount).forEach(i -> {
+      root.getFieldVectors().forEach(vector -> {
+            try {
+              final int vectorPosition = root.getFieldVectors().indexOf(vector);
+              final Object object = vector.getObject(i);
+              boolean isNull = Objects.isNull(object);
+              switch (vector.getMinorType()) {
+                case VARCHAR:
+                case LARGEVARCHAR:
+                  preparedStatement.setString(vectorPosition + 1, String.valueOf(object));
+                  break;
+                case TINYINT:
+                case UINT1:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.TINYINT);
+                  } else {
+                    preparedStatement.setShort(vectorPosition + 1, (short) object);
+                  }
+                  break;
+                case SMALLINT:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.SMALLINT);
+                  } else {
+                    preparedStatement.setByte(vectorPosition + 1, (byte) object);
+                  }
+                  break;
+                case INT:
+                case UINT2:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.INTEGER);
+                  } else {
+                    preparedStatement.setInt(vectorPosition + 1, (int) object);
+                  }
+                  break;
+                case BIGINT:
+                case UINT8:
+                case UINT4:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.BIGINT);
+                  } else {
+                    preparedStatement.setLong(vectorPosition + 1, (long) object);
+                  }
+                  break;
+                case FLOAT4:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.FLOAT);
+                  } else {
+                    preparedStatement.setFloat(vectorPosition + 1, (float) object);
+                  }
+                  break;
+                case FLOAT8:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.DOUBLE);
+                  } else {
+                    preparedStatement.setDouble(vectorPosition + 1, (double) object);
+                  }
+                  break;
+                case BIT:
+                  if (isNull) {
+                    preparedStatement.setNull(vectorPosition + 1, Types.BIT);
+                  } else {
+                    preparedStatement.setBytes(vectorPosition + 1, (byte[]) object);
+                  }
+                  break;
+                case DECIMAL:
+                case DECIMAL256:
+                  preparedStatement.setBigDecimal(vectorPosition + 1, (BigDecimal) object);
+                  break;
+                case LIST:
+                case LARGELIST:
+                case FIXED_SIZE_LIST:
+                  preparedStatement.setArray(vectorPosition + 1, (Array) object);
+                  break;
+                default:
+                  throw new UnsupportedOperationException();
+              }
+            } catch (SQLException e) {
+              throw new RuntimeException(e);
+            }
+          }
+      );
+      try {
+        preparedStatement.addBatch();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   @Override
