@@ -785,7 +785,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
                                                    FlightStream flightStream, StreamListener<PutResult> ackStream) {
     final PreparedStatementContext statement =
-        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle().toStringUtf8());
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
 
     return () -> {
