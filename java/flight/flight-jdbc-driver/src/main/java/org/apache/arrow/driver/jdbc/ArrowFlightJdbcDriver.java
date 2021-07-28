@@ -227,8 +227,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     final Map<Object, Object> resultMap = new HashMap<>();
 
-    resultMap.put(HOST.getEntry().getKey(), matcher.group(1)); // host
-    resultMap.put(PORT.getEntry().getKey(), matcher.group(2)); // port
+    resultMap.put(HOST.getName(), matcher.group(1)); // host
+    resultMap.put(PORT.getName(), matcher.group(2)); // port
 
     final String extraParams = matcher.group(3); // optional params
 
