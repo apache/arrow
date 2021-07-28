@@ -251,11 +251,12 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   @Override
   default void doAction(CallContext context, Action action, StreamListener<Result> listener) {
-    if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
+    final String actionType = action.getType();
+    if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
       final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
-    } else if (action.getType().equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
       final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);

@@ -59,6 +59,7 @@ import org.hamcrest.Matcher;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -75,6 +76,8 @@ public class TestFlightSql {
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
       Field.nullable("VALUE", MinorType.INT.getType()),
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
+  private static final List<List<String>> EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY = ImmutableList.of(
+      asList("1", "one", "1", "1"), asList("2", "zero", "0", "1"), asList("3", "negative one", "-1", "1"));
   private static final Map<String, String> GET_SQL_INFO_EXPECTED_RESULTS_MAP = new LinkedHashMap<>();
   private static final String LOCALHOST = "localhost";
   private static final int[] ALL_SQL_INFO_ARGS = {
@@ -280,12 +283,7 @@ public class TestFlightSql {
                      .getEndpoints()
                      .get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-
-      final List<List<String>> result = getResults(stream);
-      final List<List<String>> expected = asList(
-          asList("1", "one", "1", "1"), asList("2", "zero", "0", "1"), asList("3", "negative one", "-1", "1"));
-
-      collector.checkThat(result, is(expected));
+      collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
     }
   }
 
@@ -490,6 +488,22 @@ public class TestFlightSql {
     Assert.assertEquals(1, results.size());
     for (int i = 0; i < matchers.size(); i++) {
       collector.checkThat(results.get(0).get(i), matchers.get(i));
+    }
+  }
+
+  @Test
+  public void testCreateStatementSchema() {
+    final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
+    collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+  }
+
+  @Test
+  @Ignore
+  public void testCreateStatementResults() throws Exception {
+    try (final FlightStream stream = sqlClient
+        .getStream(sqlClient.execute("SELECT * FROM intTable").getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
+      collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
     }
   }
 

@@ -377,7 +377,10 @@ message ActionClosePreparedStatementRequest {
  */
 message CommandStatementQuery {
   // The SQL syntax.
-  string query = 2;
+  string query = 1;
+
+  // Unique identifier for the instance of the prepared statement to execute.
+  bytes client_execution_handle = 2;
 }
 
 /*

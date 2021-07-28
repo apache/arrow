@@ -30,6 +30,11 @@ import com.google.protobuf.Message;
  * Utilities to work with Flight SQL semantics.
  */
 public final class FlightSqlUtils {
+  public static final ActionType FLIGHT_SQL_CREATE_STATEMENT = new ActionType("CreateStatement",
+      "Creates a statement resource on the server.\n" +
+          "Request Message: ActionCreateStatementRequest\n" +
+          "Response Message: ActionCreateStatementResponse");
+
   public static final ActionType FLIGHT_SQL_CREATEPREPAREDSTATEMENT = new ActionType("CreatePreparedStatement",
           "Creates a reusable prepared statement resource on the server. \n" +
                   "Request Message: ActionCreatePreparedStatementRequest\n" +
