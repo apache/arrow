@@ -586,7 +586,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     try (final ResultSet resultSet =
              commandExecutePreparedStatementLoadingCache
 
-        .get(command.getPreparedStatementHandle())) {
+                 .get(command.getPreparedStatementHandle())) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
         VectorLoader loader = new VectorLoader(vectorSchemaRoot);
