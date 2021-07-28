@@ -289,32 +289,36 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testSimplePreparedStatementUpdateResults() throws Exception {
-    final PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES (?, ?)");
+  public void testSimplePreparedStatementUpdateResults() {
+    final PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value, foreignId ) VALUES (?, ?, ?)");
 
     final Schema parameterSchema = prepare.getParameterSchema();
-    final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(parameterSchema, new RootAllocator());
+    final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator);
 
-    final VarCharVector varCharVector = (VarCharVector) vectorSchemaRoot.getVector(0);
-    final IntVector intVector = (IntVector) vectorSchemaRoot.getVector(1);;
+    final VarCharVector varCharVector = (VarCharVector) insertRoot.getVector(0);
+    final IntVector valueVector = (IntVector) insertRoot.getVector(1);
     final int counter = 10;
-    varCharVector.allocateNew(counter);
-    intVector.allocateNew(counter);
+    insertRoot.allocateNew();
 
     final IntStream range = IntStream.range(0, counter);
 
     range.forEach(i -> {
-      intVector.setSafe(i, i* counter);
+      valueVector.setSafe(i, i* counter);
       varCharVector.setSafe(i, new Text("value" + i ));
     });
-    intVector.setValueCount(counter);
-    varCharVector.setValueCount(counter);
 
-//    final VectorSchemaRoot root = VectorSchemaRoot.of(varCharVector , intVector);
-    vectorSchemaRoot.setRowCount(counter);
-    final long l = prepare.executeUpdate(vectorSchemaRoot);
+    insertRoot.setRowCount(counter);
+    final long updatedRows = prepare.executeUpdate(insertRoot);
 
-    collector.checkThat(l, is(10L));
+    final PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?");
+    final VectorSchemaRoot deleteRoot = VectorSchemaRoot.of(varCharVector);
+    final long deletedRows = deletePrepare.executeUpdate(deleteRoot);
+
+    collector.checkThat(updatedRows, is(10L));
+    collector.checkThat(deletedRows, is(10L));
+
+    deleteRoot.close();
+    insertRoot.close();
   }
 
   @Test
