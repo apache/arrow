@@ -32,12 +32,12 @@ import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.stream.StreamSupport;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
@@ -78,12 +78,22 @@ public class TestFlightSql {
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
   private static final Map<String, String> GET_SQL_INFO_EXPECTED_RESULTS_MAP = new LinkedHashMap<>();
   private static final String LOCALHOST = "localhost";
+  private static final int[] ALL_SQL_INFO_ARGS = {
+      FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+      FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+      FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
+      FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY,
+      FlightSqlProducer.SqlInfo.SQL_DDL_CATALOG,
+      FlightSqlProducer.SqlInfo.SQL_DDL_SCHEMA,
+      FlightSqlProducer.SqlInfo.SQL_DDL_TABLE,
+      FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_CASE,
+      FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
+      FlightSqlProducer.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE};
   private static int port;
   private static BufferAllocator allocator;
   private static FlightServer server;
   private static FlightClient client;
   private static FlightSqlClient sqlClient;
-
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
@@ -108,45 +118,25 @@ public class TestFlightSql {
     sqlClient = new FlightSqlClient(client);
 
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME),
-            "Apache Derby");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[0]), "Apache Derby");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION),
-            "10.14.2.0 - (1828579)");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[1]), "10.14.2.0 - (1828579)");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION),
-            "10.14.2.0 - (1828579)");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[2]), "10.14.2.0 - (1828579)");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY),
-            "0");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[3]), "0");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_CATALOG),
-            "0");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[4]), "0");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_SCHEMA),
-            "1");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[5]), "1");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_DDL_TABLE),
-            "1");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[6]), "1");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_CASE),
-            "UPPERCASE");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[7]), "UPPERCASE");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR),
-            "\"");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[8]), "\"");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSqlProducer.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE),
-            "CASE_INSENSITIVE");
+        .put(Integer.toString(ALL_SQL_INFO_ARGS[9]), "CASE_INSENSITIVE");
   }
 
   @AfterClass
@@ -154,18 +144,20 @@ public class TestFlightSql {
     close(client, server, allocator);
   }
 
-  private static boolean matchesGetSqlInfo(final Iterable<? extends Iterable<String>> results) {
-    return matchesGetSqlInfo(StreamSupport.stream(results.spliterator(), false)
-        .map(Iterable::spliterator)
-        .map(spliterator -> StreamSupport.stream(spliterator, false).toArray(String[]::new))
-        .toArray(String[][]::new));
+  private static boolean matchesGetSqlInfo(final Collection<? extends List<String>> results) {
+    return matchesGetSqlInfo(results, new int[0]);
   }
 
-  private static boolean matchesGetSqlInfo(final String[]... results) {
-    boolean matches = false;
-    for (final String[] result : results) {
-      if (!(matches = GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(result[0]).equals(result[1]))) {
-        break;
+  private static boolean matchesGetSqlInfo(final Collection<? extends List<String>> results, final int... args) {
+    boolean matches;
+    if (matches = results.size() == args.length) {
+      for (final List<String> result : results) {
+        final String providedName = result.get(0);
+        final String expectedName = Integer.toString(args[0]);
+        if (!(matches = GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(providedName).equals(result.get(1)) &&
+            providedName.equals(expectedName))) {
+          break;
+        }
       }
     }
     return matches;
@@ -405,35 +397,36 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithSingleArg() throws Exception {
-    final FlightInfo info = sqlClient.getSqlInfo(FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME);
+    final int arg = FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME;
+    final FlightInfo info = sqlClient.getSqlInfo(arg);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream), arg), is(true));
     }
   }
 
   @Test
   public void testGetSqlInfoResultsWithTwoArgs() throws Exception {
-    final FlightInfo info =
-        sqlClient.getSqlInfo(
-            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
-            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION);
+    final int[] args = {
+        FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+        FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION};
+    final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream), args), is(true));
     }
   }
 
   @Test
   public void testGetSqlInfoResultsWithThreeArgs() throws Exception {
-    final FlightInfo info =
-        sqlClient.getSqlInfo(
-            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
-            FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
-            FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR);
+    final int[] args = {
+        FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+        FlightSqlProducer.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+        FlightSqlProducer.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR};
+    final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
-      collector.checkThat(matchesGetSqlInfo(getResults(stream)), is(true));
+      collector.checkThat(matchesGetSqlInfo(getResults(stream), args), is(true));
     }
   }
 
