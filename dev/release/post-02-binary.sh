@@ -83,6 +83,7 @@ docker_run \
     --trace \
     "${rake_tasks[@]}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
+    ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
     VERSION=${version} \
