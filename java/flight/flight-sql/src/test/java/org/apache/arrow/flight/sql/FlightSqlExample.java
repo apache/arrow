@@ -790,25 +790,25 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     return () -> {
       assert statement != null;
-      try (final PreparedStatement preparedStatement = statement.getPreparedStatement()){
+      try {
+        final PreparedStatement preparedStatement = statement.getPreparedStatement();
 
-        flightStream.next();
+        while(flightStream.next()){
+          final VectorSchemaRoot root = flightStream.getRoot();
 
-        final VectorSchemaRoot root = flightStream.getRoot();
+          final int rowCount = root.getRowCount();
 
-        final int rowCount = root.getRowCount();
+          prepareBatch(preparedStatement, root, rowCount);
 
-        prepareBatch(preparedStatement, root, rowCount);
+          final int[] result = preparedStatement.executeBatch();
 
-        final int[] result = preparedStatement.executeBatch();
+          final FlightSql.DoPutUpdateResult build =
+              FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result.length).build();
 
-        final FlightSql.DoPutUpdateResult build =
-            FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result.length).build();
-
-        try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
-          buffer.writeBytes(build.toByteArray());
-          ackStream.onNext(PutResult.metadata(buffer));
-          ackStream.onCompleted();
+          try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
+            buffer.writeBytes(build.toByteArray());
+            ackStream.onNext(PutResult.metadata(buffer));
+          }
         }
       } catch (SQLException e) {
         ackStream.onError(e);
@@ -893,14 +893,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   preparedStatement.setArray(vectorPosition + 1, (Array) object);
               }
             } catch (SQLException e) {
-              e.printStackTrace();
+              throw new RuntimeException(e);
             }
           }
       );
       try {
         preparedStatement.addBatch();
       } catch (SQLException e) {
-        e.printStackTrace();
+        throw new RuntimeException(e);
       }
     });
   }
