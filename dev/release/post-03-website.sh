@@ -24,7 +24,8 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
 ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
 ARROW_RS_DIR="${ARROW_DIR}/../arrow-rs"
-ARROW_DF_DIR="${ARROW_DIR}/../arrow-datafusion"
+# TODO: add this back in when we have datafusion releases included
+#ARROW_DF_DIR="${ARROW_DIR}/../arrow-datafusion"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <previous-version> <version>"
