@@ -52,7 +52,7 @@ svn add ${tmp_dir}/release/${release_version}
 echo "Keep only the three most recent versions"
 old_releases=$(
   svn ls ${tmp_dir}/release/ | \
-  grep '^arrow-' | \
+  grep -E '^arrow-[0-9\.]+' | \
   sort --version-sort --reverse | \
   tail -n +4
 )
