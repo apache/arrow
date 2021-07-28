@@ -449,15 +449,8 @@ struct Nanosecond {
 // Convert timestamps to a string representation with an arbitrary format
 
 template <typename Duration>
-inline std::string get_timestamp(int64_t arg, const std::locale* locale,
-                                 const time_zone* tz, const std::string* format) {
-  auto zt =
-      arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-  return arrow_vendored::date::format(*locale, *format, zt);
-}
-
-template <typename Duration>
 struct Strftime {
+#ifndef _WIN32
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
@@ -467,11 +460,12 @@ struct Strftime {
     const arrow_vendored::date::time_zone* tz =
         arrow_vendored::date::locate_zone(timezone);
     const StrftimeOptions options = StrftimeState::Get(ctx);
+    const std::locale locale = std::locale(options.locale.c_str());
 
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      *checked_cast<StringScalar*>(out) = StringScalar(
-          get_timestamp<Duration>(in_val, &options.loc, tz, &options.format));
+      *checked_cast<StringScalar*>(out) =
+          StringScalar(strftime(in_val, &locale, tz, &options.format));
     } else {
       out->is_valid = false;
     }
@@ -486,27 +480,43 @@ struct Strftime {
     const arrow_vendored::date::time_zone* tz =
         arrow_vendored::date::locate_zone(timezone);
     const StrftimeOptions options = StrftimeState::Get(ctx);
+    const std::locale locale = std::locale(options.locale.c_str());
 
-    std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), utf8(), &array_builder));
-    StringBuilder* string_builder = checked_cast<StringBuilder*>(array_builder.get());
-    auto expected_string_size = static_cast<int64_t>(
-        ceil(get_timestamp<Duration>(0, &options.loc, tz, &options.format).size() * 1.1));
-    RETURN_NOT_OK(string_builder->Reserve(in.length * expected_string_size));
+    StringBuilder string_builder;
+    auto string_size = static_cast<int64_t>(
+        ceil(strftime(-1, &locale, tz, &options.format).size() * 1.1));
+    RETURN_NOT_OK(string_builder.Reserve(in.length));
+    RETURN_NOT_OK(
+        string_builder.ReserveData((in.length - in.GetNullCount()) * string_size));
 
-    auto visit_null = [&]() { return string_builder->AppendNull(); };
+    auto visit_null = [&]() { return string_builder.AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      return string_builder->Append(
-          get_timestamp<Duration>(arg, &options.loc, tz, &options.format));
+      return string_builder.Append(strftime(arg, &locale, tz, &options.format));
     };
     RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
     std::shared_ptr<Array> out_array;
-    RETURN_NOT_OK(string_builder->Finish(&out_array));
+    RETURN_NOT_OK(string_builder.Finish(&out_array));
     *out = *std::move(out_array->data());
 
     return Status::OK();
   }
+
+ private:
+  static std::string strftime(int64_t arg, const std::locale* locale, const time_zone* tz,
+                              const std::string* format) {
+    auto zt =
+        arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
+    return arrow_vendored::date::format(*locale, *format, zt);
+  }
+#else
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    return Status::NotImplemented("Strftime not yet implemented on windows.");
+  }
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    return Status::NotImplemented("Strftime not yet implemented on windows.");
+  }
+#endif
 };
 
 // ----------------------------------------------------------------------
@@ -814,9 +824,11 @@ const FunctionDoc subsecond_doc{
     {"values"}};
 
 const FunctionDoc strftime_doc{
-    "Convert timestamps to a string representation with an arbitrary format",
-    ("Strftime returns a string representation with an arbitrary format.\n"
-     "The time format string can be set via options."),
+    "Convert timestamp to a string",
+    ("Strftime returns a string representation of a timestmap with a given format "
+     "and locale.\n"
+     "The time format string and locale can be set via options.\n"
+     "Returns an error if timestamp does not have a defined timezone."),
     {"values"},
     "StrftimeOptions"};
 
@@ -890,12 +902,10 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "subsecond", float64(), &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
-#ifndef _WIN32
   static auto default_strftime_options = StrftimeOptions();
   auto strftime = MakeStrftime("strftime", &strftime_doc, default_strftime_options,
                                StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
-#endif
 }
 
 }  // namespace internal

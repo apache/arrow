@@ -241,13 +241,9 @@ StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
 constexpr char StrptimeOptions::kTypeName[];
 
 StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
-    : FunctionOptions(internal::kStrftimeOptionsType), format(std::move(format)) {
-  loc = std::locale(locale.c_str());
-}
-StrftimeOptions::StrftimeOptions(std::string format)
-    : FunctionOptions(internal::kStrftimeOptionsType), format(std::move(format)) {
-  loc = std::locale("C");
-}
+    : FunctionOptions(internal::kStrftimeOptionsType),
+      format(std::move(format)),
+      locale(std::move(locale)) {}
 StrftimeOptions::StrftimeOptions() : StrftimeOptions("%Y-%m-%dT%H:%M:%SZ") {}
 constexpr char StrftimeOptions::kTypeName[];
 

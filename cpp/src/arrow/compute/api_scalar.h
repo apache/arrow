@@ -29,7 +29,6 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -181,15 +180,14 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
  public:
-  explicit StrftimeOptions(std::string format, std::string locale);
-  explicit StrftimeOptions(std::string format);
+  explicit StrftimeOptions(std::string format, std::string locale = "C");
   StrftimeOptions();
   constexpr static char const kTypeName[] = "StrftimeOptions";
 
   /// The desired format string.
   std::string format;
-  /// The desired output locale.
-  std::locale loc;
+  /// The desired output locale string.
+  std::string locale;
 };
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
@@ -1013,10 +1011,11 @@ Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Strftime
+/// \brief Strftime returns formatted time strings as specified by time format string and
+/// locale string for each element of `values`.
 ///
 /// \param[in] values input to print time string from
-/// \param[in] options for setting time format
+/// \param[in] options for setting time format string and locale
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
