@@ -29,7 +29,7 @@
     <Product>Apache Arrow library</Product>
     <Copyright>Copyright 2016-2019 The Apache Software Foundation</Copyright>
     <Company>The Apache Software Foundation</Company>
-    <Version>5.0.0-SNAPSHOT</Version>
+    <Version>6.0.0-SNAPSHOT</Version>
   </PropertyGroup>
 
   <PropertyGroup>
