@@ -21,8 +21,8 @@ set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <version> <next_version> <rc-num>"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <next_version>"
   exit 1
 fi
 
