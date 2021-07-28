@@ -74,17 +74,17 @@ git_ranges=(apache-arrow-${previous_version}..${git_tag} ${previous_version}..${
 
 format_results='
       {person="";
-      for (x=2; x<=NF; x++) {person=person " " $x}; 
-      counts[person]+=$1 } END {for (person in counts) print counts[person], person}' 
+      for (x=2; x<=NF; x++) {person=person " " $x};
+      counts[person]+=$1 } END {for (person in counts) print counts[person], person}'
 
 committers=$(
   for (( i=0; i<${#directories[@]}; i++ ));
   do
     cd ${directories[$i]}
     git shortlog -csn ${git_ranges[$i]}
-  done | 
+  done |
   awk "$format_results" |
-  sort -rn 
+  sort -rn
 )
 
 contributors=$(
@@ -92,9 +92,9 @@ contributors=$(
   do
     cd ${directories[$i]}
     git shortlog -sn ${git_ranges[$i]}
-  done | 
+  done |
   awk "$format_results" |
-  sort -rn 
+  sort -rn
 )
 
 n_commits=0
@@ -105,11 +105,10 @@ do
   n_commits=$((n_commits+commits_here))
 done
 
-n_contributors=$(echo "$contributors" | wc -l)
+n_contributors=$(echo "$contributors" | awk 'END{print NR}')
 
 pushd "${ARROW_DIR}"
 git_tag_hash=$(git log -n 1 --pretty=%H ${git_tag})
-
 popd
 
 pushd "${ARROW_SITE_DIR}"
@@ -163,20 +162,20 @@ ANNOUNCE
 
 echo "${contributors}" >> "${announce_file}"
 
-cat <<ANNOUNCE >> "${announce_file}"
-\`\`\`
+cat <<'ANNOUNCE' >> "${announce_file}"
+```
 
 ## Patch Committers
 
 The following Apache committers merged contributed patches to Arrow repositories.
 
-\`\`\`console
+```console
 ANNOUNCE
 
 echo "${committers}" >> "${announce_file}"
 
-cat <<ANNOUNCE >> "${announce_file}"
-\`\`\`
+cat <<'ANNOUNCE' >> "${announce_file}"
+```
 
 ## Changelog
 
@@ -188,7 +187,7 @@ ANNOUNCE
 archery release changelog generate ${version} | \
   sed -e 's/^#/##/g' >> "${announce_file}"
 
-cat <<ANNOUNCE >> "${announce_file}"
+cat <<'ANNOUNCE' >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
 [2]: https://apache.jfrog.io/artifactory/arrow/centos/
 [3]: https://apache.jfrog.io/artifactory/arrow/debian/
