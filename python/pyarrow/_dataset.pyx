@@ -34,7 +34,6 @@ from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
-from pyarrow._rados import RadosParquetFileFormat
 
 try:
     from pyarrow._rados import SkyhookFileFormat
@@ -846,7 +845,7 @@ cdef class FileFormat(_Weakrefable):
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil:
+    cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
