@@ -24,6 +24,7 @@
     <artifactId>flight-jdbc-driver</artifactId>
     <name>Arrow Flight JDBC Driver</name>
     <description>(Contrib/Experimental)A library for querying data using a JDBC driver for Arrow Flight.</description>
+    <packaging>jar</packaging>
     <url>http://maven.apache.org</url>
 
     <properties>
@@ -186,6 +187,11 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver</mainClass>
+                        </manifest>
+                    </archive>
                 </configuration>
                 <executions>
                     <execution>
