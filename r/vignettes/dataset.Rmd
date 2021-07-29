@@ -125,13 +125,13 @@ have file paths like
 ...
 ```
 
-By providing a character vector to `partitioning`, you're saying that the first
+By providing `c("year", "month")` to the `partitioning` argument, you're saying that the first
 path segment gives the value for `year`, and the second segment is `month`.
 Every row in `2009/01/data.parquet` has a value of 2009 for `year`
 and 1 for `month`, even though those columns may not be present in the file.
 
 Indeed, when you look at the dataset, you can see that in addition to the columns present
-in every file, there are also columns `year` and `month`.
+in every file, there are also columns `year` and `month` even though they are not present in the files themselves.
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds
