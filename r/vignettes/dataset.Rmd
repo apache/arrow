@@ -38,7 +38,7 @@ arrow::arrow_with_s3()
 
 Even with S3 support enabled, network speed will be a bottleneck unless your
 machine is located in the same AWS region as the data. So, for this vignette,
-we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
+we assume that the NYC taxi dataset has been downloaded locally in an "nyc-taxi"
 directory.
 
 ### Retrieving data from a public Amazon S3 bucket
