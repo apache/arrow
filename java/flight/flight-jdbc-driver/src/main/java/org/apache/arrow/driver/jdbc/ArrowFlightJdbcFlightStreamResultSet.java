@@ -52,10 +52,10 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   protected AvaticaResultSet execute() throws SQLException {
     try {
-      flightStreamQueue = new FlightStreamQueue();
+      final ArrowFlightConnection connection = (ArrowFlightConnection) statement.getConnection();
+      flightStreamQueue = new FlightStreamQueue(connection.getExecutorService());
 
-      final List<FlightStream> flightStreams = ((ArrowFlightConnection) statement
-          .getConnection())
+      final List<FlightStream> flightStreams = connection
           .getClient()
           .getFlightStreams(signature.sql);
 
