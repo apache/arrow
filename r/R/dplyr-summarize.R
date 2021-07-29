@@ -52,16 +52,8 @@ do_arrow_summarize <- function(.data, ...) {
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
-  mask <- arrow_mask(.data)
-  # Add aggregation wrappers to arrow_mask somehow
-  # (this is not ideal, would overwrite same-named objects)
-  mask$sum <- function(x, na.rm = FALSE) {
-    list(
-      fun = "sum",
-      data = x,
-      options = list(na.rm = na.rm, na.min_count = 0L)
-    )
-  }
+  mask <- arrow_mask(.data, aggregation = TRUE)
+
   results <- list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
@@ -69,7 +61,10 @@ do_arrow_summarize <- function(.data, ...) {
     new_var <- names(exprs)[i]
     results[[new_var]] <- arrow_eval(exprs[[i]], mask)
     if (inherits(results[[new_var]], "try-error")) {
-      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      msg <- handle_arrow_not_supported(
+        results[[new_var]],
+        as_label(exprs[[i]])
+      )
       stop(msg, call. = FALSE)
     }
     # Put it in the data mask too?

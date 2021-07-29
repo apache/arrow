@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 
+withr::local_options(list(arrow.summarize = TRUE))
+
 library(dplyr)
 library(stringr)
 
@@ -29,7 +31,6 @@ tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side =
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("Can aggregate", {
-  withr::local_options(list(arrow.summarize = TRUE))
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
@@ -45,12 +46,20 @@ test_that("Can aggregate", {
   )
 })
 
-test_that("Group by aggregate on dataset", {
-  withr::local_options(list(arrow.summarize = TRUE))
+test_that("Group by sum on dataset", {
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int * 4, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
@@ -61,6 +70,56 @@ test_that("Group by aggregate on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Group by any/all", {
+  withr::local_options(list(arrow.debug = TRUE))
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(any(lgl, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(all(lgl, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  # na.rm option also is not being passed/received to any/all
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(has_words = nchar(verses) < 0) %>%
+      group_by(some_grouping) %>%
+      summarize(any(has_words)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(has_words = nchar(verses) < 0) %>%
+      group_by(some_grouping) %>%
+      summarize(all(has_words)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  skip("This seems to be calling base::nchar")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(has_words = all(nchar(verses) < 0)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
