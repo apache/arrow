@@ -232,7 +232,6 @@
               <rules>
                 <bannedDependencies>
                   <excludes>
-                    <exclude>commons-logging</exclude>
                     <exclude>javax.servlet:servlet-api</exclude>
                     <exclude>org.mortbay.jetty:servlet-api</exclude>
                     <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
