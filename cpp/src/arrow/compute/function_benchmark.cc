@@ -176,7 +176,8 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
 }
 
 void BM_ExecBatchIterator(benchmark::State& state) {
-  // Measure overhead related to deconstructing vector<Datum> into a sequence of ExecBatch
+  // Measure overhead related to splitting ExecBatch into smaller ExecBatches
+  // for parallelism or more optimal CPU cache affinity
   random::RandomArrayGenerator rag(kSeed);
 
   const int64_t length = 1 << 20;
@@ -197,11 +198,12 @@ void BM_ExecBatchIterator(benchmark::State& state) {
         auto data = batch.values[i].array()->buffers[1]->data();
         benchmark::DoNotOptimize(data);
       }
-      continue;
     }
     benchmark::DoNotOptimize(batch);
   }
-
+  // Provides comparability across blocksizes by looking at the iterations per
+  // second. So 1000 iterations/second means that input splitting associated
+  // with ExecBatchIterator takes up 1ms every time.
   state.SetItemsProcessed(state.iterations());
 }
 
