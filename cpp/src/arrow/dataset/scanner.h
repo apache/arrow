@@ -140,8 +140,6 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   // Return a threaded or serial TaskGroup according to use_threads.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-  // The discovered Schema of the dataset.
-  std::shared_ptr<Schema> dataset_schema;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
