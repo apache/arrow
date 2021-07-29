@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +57,8 @@ import org.apache.calcite.avatica.AvaticaFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.netty.util.concurrent.DefaultThreadFactory;
+
 /**
  * Connection to the Arrow Flight server.
  */
@@ -62,6 +66,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
+  private ExecutorService executorService;
 
   // TODO Use this later to run queries.
   @SuppressWarnings("unused")
@@ -70,19 +75,14 @@ public class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Instantiates a new Arrow Flight Connection.
    *
-   * @param driver
-   *          The JDBC driver to use.
-   * @param factory
-   *          The Avatica Factory to use.
-   * @param url
-   *          The URL to connect to.
-   * @param info
-   *          The properties of this connection.
-   * @throws SQLException
-   *           If the connection cannot be established.
+   * @param driver  The JDBC driver to use.
+   * @param factory The Avatica Factory to use.
+   * @param url     The URL to connect to.
+   * @param info    The properties of this connection.
+   * @throws SQLException If the connection cannot be established.
    */
   protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver,
-      final AvaticaFactory factory, final String url, final Properties info)
+                                  final AvaticaFactory factory, final String url, final Properties info)
       throws SQLException {
     super(driver, factory, url, info);
     allocator = new RootAllocator(Integer.MAX_VALUE);
@@ -102,20 +102,14 @@ public class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Sets {@link #client} based on the properties of this connection.
    *
-   * @throws KeyStoreException
-   *           If an error occurs while trying to retrieve KeyStore information.
-   * @throws NoSuchAlgorithmException
-   *           If a particular cryptographic algorithm is required but does not
-   *           exist.
-   * @throws CertificateException
-   *           If an error occurs while trying to retrieve certificate
-   *           information.
-   * @throws IOException
-   *           If an I/O operation fails.
-   * @throws NumberFormatException
-   *           If the port number to connect to is invalid.
-   * @throws URISyntaxException
-   *           If the URI syntax is invalid.
+   * @throws KeyStoreException        If an error occurs while trying to retrieve KeyStore information.
+   * @throws NoSuchAlgorithmException If a particular cryptographic algorithm is required but does not
+   *                                  exist.
+   * @throws CertificateException     If an error occurs while trying to retrieve certificate
+   *                                  information.
+   * @throws IOException              If an I/O operation fails.
+   * @throws NumberFormatException    If the port number to connect to is invalid.
+   * @throws URISyntaxException       If the URI syntax is invalid.
    */
   private void loadClient() throws SQLException {
 
@@ -165,8 +159,21 @@ public class ArrowFlightConnection extends AvaticaConnection {
     return new HeaderCallOption(headers);
   }
 
+  public ExecutorService getExecutorService() {
+    if (executorService == null) {
+      final int threadPoolSize = getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
+      final DefaultThreadFactory threadFactory = new DefaultThreadFactory(this.getClass().getSimpleName());
+      executorService = Executors.newFixedThreadPool(threadPoolSize, threadFactory);
+    }
+
+    return executorService;
+  }
+
   @Override
   public void close() throws SQLException {
+    if (executorService != null) {
+      executorService.shutdown();
+    }
 
     List<Exception> exceptions = new ArrayList<>();
 
@@ -178,7 +185,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     try {
       Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
-      AutoCloseables.close(childAllocators.toArray(new AutoCloseable[childAllocators.size()]));
+      AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
     } catch (Exception e) {
       exceptions.add(e);
     }
@@ -196,8 +203,8 @@ public class ArrowFlightConnection extends AvaticaConnection {
     }
 
     exceptions
-            .forEach(exception -> LOGGER.error(
-                    exception.getMessage(), exception));
+        .forEach(exception -> LOGGER.error(
+            exception.getMessage(), exception));
   }
 
 }
