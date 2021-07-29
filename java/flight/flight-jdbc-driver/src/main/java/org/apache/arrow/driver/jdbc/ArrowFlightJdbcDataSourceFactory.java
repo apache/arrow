@@ -34,6 +34,9 @@ public class ArrowFlightJdbcDataSourceFactory {
   public static final String DRIVER_CLASS_NAME = ArrowFlightJdbcDriver.class.getName();
   private final Properties properties = new Properties();
 
+  /**
+   * Instantiate a new DataSource.
+   */
   public BasicDataSource createDataSource() throws Exception {
     loadDriver();
 
