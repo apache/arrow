@@ -40,7 +40,7 @@ step. Internally, this calls \code{to_duckdb()} with all of the default argument
 values.
 }
 \examples{
-\dontshow{if (arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 library(dplyr)
 
 ds <- InMemoryDataset$create(mtcars)

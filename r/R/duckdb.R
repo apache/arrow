@@ -40,7 +40,7 @@
 #'
 #' @name to_duckdb
 #' @export
-#' @examplesIf arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && requireNamespace("dplyr", quietly = TRUE)
+#' @examplesIf arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)
 #' library(dplyr)
 #'
 #' ds <- InMemoryDataset$create(mtcars)
