@@ -178,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rtools: [40]
+        rtools: [35, 40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: "-Werror"
@@ -214,10 +214,18 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
+      # We use the makepkg-mingw setup that is included in rtools40 even when
+      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: 40
           r-version: "4.1"
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools == 35 }}
+        with:
+          rtools-version: 35
+          r-version: "3.6"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -252,3 +260,8 @@ jobs:
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

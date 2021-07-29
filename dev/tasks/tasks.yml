@@ -995,10 +995,6 @@ tasks:
     ci: github
     template: r/github.linux.version.compatibility.yml
 
-  test-r-rtools-35:
-    ci: github
-    template: r/github.windows.rtools35.yml
-
   test-r-versions:
     ci: github
     template: r/github.linux.versions.yml
