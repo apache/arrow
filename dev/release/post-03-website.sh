@@ -187,7 +187,7 @@ ANNOUNCE
 archery release changelog generate ${version} | \
   sed -e 's/^#/##/g' >> "${announce_file}"
 
-cat <<'ANNOUNCE' >> "${announce_file}"
+cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
 [2]: https://apache.jfrog.io/artifactory/arrow/centos/
 [3]: https://apache.jfrog.io/artifactory/arrow/debian/
