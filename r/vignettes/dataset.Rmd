@@ -196,7 +196,7 @@ in your query on an Arrow Dataset. In that case, the arrow package raises an err
 for dplyr queries on Arrow Table objects (typically smaller in size than Datasets), the
 package automatically calls `collect()` before processing that dplyr verb.
 
-Here's an example. Suppose that you are curious about tipping behavior among the
+Here's an example: suppose that you are curious about tipping behavior among the
 longest taxi rides. Let's find the median tip percentage for rides with
 fares greater than $100 in 2015, broken down by the number of passengers:
 
