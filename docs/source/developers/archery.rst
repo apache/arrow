@@ -42,26 +42,29 @@ You can inspect Archery usage by passing the ``--help`` flag:
 .. code:: bash
 
    $ archery --help
-   Usage: archery [OPTIONS] COMMAND [ARGS]...
+   UUsage: archery [OPTIONS] COMMAND [ARGS]...
 
-     Apache Arrow developer utilities.
+  Apache Arrow developer utilities.
 
-     See sub-commands help with `archery <cmd> --help`.
+  See sub-commands help with `archery <cmd> --help`.
 
-   Options:
-     --debug      Increase logging with debugging output.
-     --pdb        Invoke pdb on uncaught exception.
-     -q, --quiet  Silence executed commands.
-     --help       Show this message and exit.
+  Options:
+    --debug      Increase logging with debugging output.
+    --pdb        Invoke pdb on uncaught exception.
+    -q, --quiet  Silence executed commands.
+    --help       Show this message and exit.
 
-   Commands:
-     benchmark    Arrow benchmarking.
-     build        Initialize an Arrow C++ build
-     docker       Interact with docker-compose based builds.
-     integration  Execute protocol and Flight integration tests
-     lint         Check Arrow source tree for errors
-     numpydoc     Lint python docstring with NumpyDoc
-     trigger-bot
+  Commands:
+    benchmark    Arrow benchmarking.
+    build        Initialize an Arrow C++ build
+    crossbow     Schedule packaging tasks or nightly builds on CI services.
+    docker       Interact with docker-compose based builds.
+    integration  Execute protocol and Flight integration tests
+    linking      Quick and dirty utilities for checking library linkage.
+    lint         Check Arrow source tree for errors
+    numpydoc     Lint python docstring with NumpyDoc
+    release      Release releated commands.
+    trigger-bot
 
 Archery exposes independent subcommands, each of which provides dedicated
 help output, for example:
@@ -81,4 +84,3 @@ help output, for example:
      images  List the available docker-compose images.
      push    Push the generated docker-compose image.
      run     Execute docker-compose builds.
-
