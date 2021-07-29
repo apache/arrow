@@ -551,6 +551,89 @@ void KeyEncoder::EncoderBinary::DecodeImp(uint32_t start_row, uint32_t num_rows,
       });
 }
 
+void KeyEncoder::EncoderBinary::ColumnMemsetNulls(
+    uint32_t offset_within_row, KeyRowArray* rows, const KeyColumnArray& col,
+    KeyEncoderContext* ctx, KeyColumnArray* temp_vector_16bit, uint8_t byte_value) {
+  using ColumnMemsetNullsImp_t = void (*)(uint32_t, KeyRowArray*, const KeyColumnArray&,
+                                          KeyEncoderContext*, KeyColumnArray*, uint8_t);
+  static const ColumnMemsetNullsImp_t ColumnMemsetNullsImp_fn[] = {
+      ColumnMemsetNullsImp<false, 1>,  ColumnMemsetNullsImp<false, 2>,
+      ColumnMemsetNullsImp<false, 4>,  ColumnMemsetNullsImp<false, 8>,
+      ColumnMemsetNullsImp<false, 16>, ColumnMemsetNullsImp<true, 1>,
+      ColumnMemsetNullsImp<true, 2>,   ColumnMemsetNullsImp<true, 4>,
+      ColumnMemsetNullsImp<true, 8>,   ColumnMemsetNullsImp<true, 16>};
+  uint32_t col_width = col.metadata().fixed_length;
+  int dispatch_const =
+      (rows->metadata().is_fixed_length ? 5 : 0) +
+      (col_width <= 1 ? 0
+                      : col_width == 2 ? 1 : col_width == 4 ? 2 : col_width == 8 ? 3 : 4);
+  ColumnMemsetNullsImp_fn[dispatch_const](offset_within_row, rows, col, ctx,
+                                          temp_vector_16bit, byte_value);
+}
+
+template <bool is_row_fixed_length, uint32_t col_width>
+void KeyEncoder::EncoderBinary::ColumnMemsetNullsImp(
+    uint32_t offset_within_row, KeyRowArray* rows, const KeyColumnArray& col,
+    KeyEncoderContext* ctx, KeyColumnArray* temp_vector_16bit, uint8_t byte_value) {
+  // Nothing to do when there are no nulls
+  if (!col.data(0)) {
+    return;
+  }
+
+  const auto num_rows = static_cast<uint32_t>(col.length());
+
+  // Temp vector needs space for the required number of rows
+  DCHECK(temp_vector_16bit->length() >= num_rows);
+  DCHECK(temp_vector_16bit->metadata().is_fixed_length &&
+         temp_vector_16bit->metadata().fixed_length == sizeof(uint16_t));
+  auto temp_vector = reinterpret_cast<uint16_t*>(temp_vector_16bit->mutable_data(1));
+
+  // Bit vector to index vector of null positions
+  int num_selected;
+  util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, static_cast<int>(col.length()),
+                                 col.data(0), &num_selected, temp_vector,
+                                 col.bit_offset(0));
+
+  for (int i = 0; i < num_selected; ++i) {
+    uint32_t row_id = temp_vector[i];
+
+    // Target binary field pointer
+    uint8_t* dst;
+    if (is_row_fixed_length) {
+      dst = rows->mutable_data(1) + rows->metadata().fixed_length * row_id;
+    } else {
+      dst = rows->mutable_data(2) + rows->offsets()[row_id];
+    }
+    dst += offset_within_row;
+
+    if (col_width == 1) {
+      *dst = byte_value;
+    } else if (col_width == 2) {
+      *reinterpret_cast<uint16_t*>(dst) =
+          (static_cast<uint16_t>(byte_value) * static_cast<uint16_t>(0x0101));
+    } else if (col_width == 4) {
+      *reinterpret_cast<uint32_t*>(dst) =
+          (static_cast<uint32_t>(byte_value) * static_cast<uint32_t>(0x01010101));
+    } else if (col_width == 8) {
+      *reinterpret_cast<uint64_t*>(dst) =
+          (static_cast<uint64_t>(byte_value) * 0x0101010101010101ULL);
+    } else {
+      uint64_t value = (static_cast<uint64_t>(byte_value) * 0x0101010101010101ULL);
+      uint32_t col_width_actual = col.metadata().fixed_length;
+      uint32_t j;
+      for (j = 0; j < col_width_actual / 8; ++j) {
+        reinterpret_cast<uint64_t*>(dst)[j] = value;
+      }
+      int tail = col_width_actual % 8;
+      if (tail) {
+        uint64_t mask = ~0ULL >> (8 * (8 - tail));
+        reinterpret_cast<uint64_t*>(dst)[j] =
+            (reinterpret_cast<const uint64_t*>(dst)[j] & ~mask) | (value & mask);
+      }
+    }
+  }
+}
+
 void KeyEncoder::EncoderBinaryPair::Decode(uint32_t start_row, uint32_t num_rows,
                                            uint32_t offset_within_row,
                                            const KeyRowArray& rows, KeyColumnArray* col1,
@@ -828,15 +911,23 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
   const auto num_cols = static_cast<uint32_t>(cols.size());
 
   // Sort columns.
+  //
   // Columns are sorted based on the size in bytes of their fixed-length part.
   // For the varying-length column, the fixed-length part is the 32-bit field storing
   // cumulative length of varying-length fields.
+  //
   // The rules are:
+  //
   // a) Boolean column, marked with fixed-length 0, is considered to have fixed-length
-  // part of 1 byte. b) Columns with fixed-length part being power of 2 or multiple of row
-  // alignment precede other columns. They are sorted among themselves based on size of
-  // fixed-length part. c) Fixed-length columns precede varying-length columns when both
-  // have the same size fixed-length part.
+  // part of 1 byte.
+  //
+  // b) Columns with fixed-length part being power of 2 or multiple of row
+  // alignment precede other columns. They are sorted in decreasing order of the size of
+  // their fixed-length part.
+  //
+  // c) Fixed-length columns precede varying-length columns when
+  // both have the same size fixed-length part.
+  //
   column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     column_order[i] = i;
