@@ -190,7 +190,7 @@ void BM_ExecBatchIterator(benchmark::State& state) {
   const int64_t blocksize = state.range(0);
   for (auto _ : state) {
     std::unique_ptr<detail::ExecBatchIterator> it =
-      *detail::ExecBatchIterator::Make(args, blocksize);
+        *detail::ExecBatchIterator::Make(args, blocksize);
     ExecBatch batch;
     while (it->Next(&batch)) {
       for (int i = 0; i < num_fields; ++i) {
