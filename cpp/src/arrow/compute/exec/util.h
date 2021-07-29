@@ -156,18 +156,20 @@ class BitUtil {
   template <int bit_to_search, bool filter_input_indexes>
   static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
                                        const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes);
+                                       int* num_indexes, uint16_t* indexes,
+                                       uint16_t base_index = 0);
 
 #if defined(ARROW_HAVE_AVX2)
   static void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
                                    const uint8_t* bits, int* num_indexes,
-                                   uint16_t* indexes);
+                                   uint16_t* indexes, uint16_t base_index = 0);
   static void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
                                        const uint8_t* bits, const uint16_t* input_indexes,
                                        int* num_indexes, uint16_t* indexes);
   template <int bit_to_search>
   static void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                       int* num_indexes, uint16_t* indexes);
+                                       int* num_indexes, uint16_t* indexes,
+                                       uint16_t base_index = 0);
   template <int bit_to_search>
   static void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
                                            const uint16_t* input_indexes,

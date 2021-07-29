@@ -732,7 +732,7 @@ void KeyEncoder::EncoderBinary::ColumnMemsetNulls(
   uint32_t col_width = col.metadata().fixed_length;
   int dispatch_const =
       (rows->metadata().is_fixed_length ? 5 : 0) +
-      (col_width == 1 ? 0
+      (col_width <= 1 ? 0
                       : col_width == 2 ? 1 : col_width == 4 ? 2 : col_width == 8 ? 3 : 4);
   ColumnMemsetNullsImp_fn[dispatch_const](offset_within_row, rows, col, ctx,
                                           temp_vector_16bit, byte_value);
@@ -864,6 +864,17 @@ void KeyEncoder::EncoderBinaryPair::Encode(uint32_t offset_within_row, KeyRowArr
     EncodeImp_fn[dispatch_const](num_processed, offset_within_row, rows, col_prep[0],
                                  col_prep[1]);
   }
+
+  DCHECK(temp1->metadata().is_fixed_length);
+  DCHECK(temp1->length() * temp1->metadata().fixed_length >=
+         col1.length() * static_cast<int64_t>(sizeof(uint16_t)));
+
+  KeyColumnArray temp16bit(KeyColumnMetadata(true, sizeof(uint16_t)), col1.length(),
+                           nullptr, temp1->mutable_data(1), nullptr);
+
+  EncoderBinary::ColumnMemsetNulls(offset_within_row, rows, col1, ctx, &temp16bit, 0xae);
+  EncoderBinary::ColumnMemsetNulls(offset_within_row + col_width1, rows, col2, ctx,
+                                   &temp16bit, 0xae);
 }
 
 template <bool is_row_fixed_length, typename col1_type, typename col2_type>
@@ -1366,8 +1377,8 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
   // a) Boolean column, marked with fixed-length 0, is considered to have fixed-length
   // part of 1 byte. b) Columns with fixed-length part being power of 2 or multiple of row
   // alignment precede other columns. They are sorted among themselves based on size of
-  // fixed-length part. c) Fixed-length columns precede varying-length columns when both
-  // have the same size fixed-length part.
+  // fixed-length part decreasing. c) Fixed-length columns precede varying-length columns
+  // when both have the same size fixed-length part.
   column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     column_order[i] = i;

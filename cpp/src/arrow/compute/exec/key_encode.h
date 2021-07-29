@@ -372,6 +372,9 @@ class KeyEncoder {
                        const KeyRowArray& rows, KeyColumnArray* col,
                        KeyEncoderContext* ctx, KeyColumnArray* temp);
     static bool IsInteger(const KeyColumnMetadata& metadata);
+    static void ColumnMemsetNulls(uint32_t offset_within_row, KeyRowArray* rows,
+                                  const KeyColumnArray& col, KeyEncoderContext* ctx,
+                                  KeyColumnArray* temp_vector_16bit, uint8_t byte_value);
 
    private:
     template <bool is_row_fixed_length, bool is_encoding, class COPY_FN>
@@ -403,9 +406,6 @@ class KeyEncoder {
                                uint32_t offset_within_row, const KeyRowArray& rows,
                                KeyColumnArray* col);
 #endif
-    static void ColumnMemsetNulls(uint32_t offset_within_row, KeyRowArray* rows,
-                                  const KeyColumnArray& col, KeyEncoderContext* ctx,
-                                  KeyColumnArray* temp_vector_16bit, uint8_t byte_value);
     template <bool is_row_fixed_length, uint32_t col_width>
     static void ColumnMemsetNullsImp(uint32_t offset_within_row, KeyRowArray* rows,
                                      const KeyColumnArray& col, KeyEncoderContext* ctx,
