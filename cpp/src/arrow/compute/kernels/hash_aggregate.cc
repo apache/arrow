@@ -372,7 +372,7 @@ struct GrouperImpl : Grouper {
 
   Status PopulateKeyData(const ExecBatch& batch, std::vector<int32_t>* offsets_batch,
                          std::vector<uint8_t>* key_bytes_batch,
-                         std::vector<uint8_t*>* key_buf_ptrs) {
+                         std::vector<uint8_t*>* key_buf_ptrs) const {
     offsets_batch->resize(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(*batch[i].array(), offsets_batch->data());
@@ -435,7 +435,7 @@ struct GrouperImpl : Grouper {
     return Datum(UInt32Array(batch.length, std::move(group_ids)));
   }
 
-  Result<Datum> Find(const ExecBatch& batch) override {
+  Result<Datum> Find(const ExecBatch& batch) const override {
     std::vector<int32_t> offsets_batch;
     std::vector<uint8_t> key_bytes_batch;
     std::vector<uint8_t*> key_buf_ptrs;
@@ -666,7 +666,7 @@ struct GrouperFastImpl : Grouper {
     return Datum(UInt32Array(batch.length, std::move(group_ids)));
   }
 
-  Result<Datum> Find(const ExecBatch& batch) override {
+  Result<Datum> Find(const ExecBatch& batch) const override {
     // todo impl this
     return Result<Datum>();
   }
