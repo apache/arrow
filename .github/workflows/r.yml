@@ -215,8 +215,8 @@ jobs:
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
       - uses: r-lib/actions/setup-r@master
-          if: ${{ matrix.rtools != 35 }}
-          with:
+        if: ${{ matrix.rtools != 35 }}
+        with:
           rtools-version: 40
           r-version: "4.1"
           Ncpus: 2
