@@ -51,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -66,6 +65,7 @@ import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
@@ -105,11 +105,12 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
-import org.apache.arrow.vector.holders.ValueHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -154,11 +155,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
-  private final Map<Object, ValueHolder> valueHolderCache = new HashMap<>();
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
   private final LoadingCache<ByteString, ResultSet> commandExecutePreparedStatementLoadingCache;
-  private final BufferAllocator rootAllocator = new RootAllocator(128);
+  private final BufferAllocator rootAllocator = new RootAllocator();
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
   private final LoadingCache<ByteString, ResultSet> commandExecuteStatementLoadingCache;
@@ -273,44 +273,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
-  /**
-   * Make the provided {@link ServerStreamListener} listen to the provided {@link VectorSchemaRoot}s.
-   *
-   * @param listener the listener.
-   * @param data     data to listen to.
-   */
-  protected static void makeListen(final ServerStreamListener listener, final Iterable<VectorSchemaRoot> data) {
-    makeListen(listener, stream(data.spliterator(), false).toArray(VectorSchemaRoot[]::new));
-  }
-
-  /**
-   * Make the provided {@link ServerStreamListener} listen to the provided {@link VectorSchemaRoot}s.
-   *
-   * @param listener the listener.
-   * @param data     data to listen to.
-   */
-  protected static void makeListen(final ServerStreamListener listener, final VectorSchemaRoot... data) {
-    for (final VectorSchemaRoot datum : data) {
-      listener.start(datum);
-      listener.putNext();
-    }
-  }
-
-  /**
-   * Turns the provided {@link ResultSet} into an {@link Iterator} of {@link VectorSchemaRoot}s.
-   *
-   * @param data      the data to convert.
-   * @param allocator the bufer allocator.
-   * @return an {@code Iterator<VectorSchemaRoot>} representation of the provided data.
-   * @throws SQLException if an error occurs while querying the {@code ResultSet}.
-   * @throws IOException  if an I/O error occurs.
-   */
-  protected static Iterable<VectorSchemaRoot> getVectorsFromData(final ResultSet data, final BufferAllocator allocator)
-      throws SQLException, IOException {
-    final Iterator<VectorSchemaRoot> iterator = sqlToArrowVectorIterator(data, allocator);
-    return () -> iterator;
-  }
-
   private static void saveToVector(final byte typeRegisteredId, final @Nullable String data,
                                    final DenseUnionVector vector, final int index) {
     vectorConsumer(
@@ -398,8 +360,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new VectorSchemaRoot(vectors);
   }
 
-  private static <T extends FieldVector> void saveToVectors(final Map<T, String> vectorToColumnName,
-                                                            final ResultSet data, boolean emptyToNull)
+  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
+                                                           final ResultSet data, boolean emptyToNull)
       throws SQLException {
     checkNotNull(vectorToColumnName);
     checkNotNull(data);
@@ -424,6 +386,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     for (final Entry<T, String> vectorToColumn : entrySet) {
       vectorToColumn.getKey().setValueCount(rows);
     }
+
+    return rows;
   }
 
   private static <T extends FieldVector> void saveToVectors(final Map<T, String> vectorToColumnName,
@@ -613,12 +577,24 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet =
-             commandExecutePreparedStatementLoadingCache.getIfPresent(
-                 command.getPreparedStatementHandle());
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getVectorsFromData(resultSet, allocator));
-    } catch (SQLException | IOException e) {
+    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache
+        .get(command.getPreparedStatementHandle())) {
+      final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
+      try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+        VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+        listener.start(vectorSchemaRoot);
+
+        final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
+        while (iterator.hasNext()) {
+          VectorUnloader unloader = new VectorUnloader(iterator.next());
+          loader.load(unloader.getRecordBatch());
+          listener.putNext();
+          vectorSchemaRoot.clear();
+        }
+
+        listener.putNext();
+      }
+    } catch (SQLException | IOException | ExecutionException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
@@ -822,8 +798,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                 SqlInfo.SQL_IDENTIFIER_CASE, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, SqlInfo.SQL_QUOTED_IDENTIFIER_CASE) :
             command.getInfoList();
     try (final Connection connection = dataSource.getConnection();
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getSqlInfoRoot(connection.getMetaData(), allocator, requestedInfo));
+         final VectorSchemaRoot vectorSchemaRoot = getSqlInfoRoot(connection.getMetaData(), rootAllocator,
+             requestedInfo)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamSqlInfo: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -841,8 +819,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
     try (final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getCatalogsRoot(catalogs, allocator));
+         final VectorSchemaRoot vectorSchemaRoot = getCatalogsRoot(catalogs, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -865,8 +844,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getSchemasRoot(schemas, allocator));
+         final VectorSchemaRoot vectorSchemaRoot = getSchemasRoot(schemas, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamSchemas: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -897,15 +877,13 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
     try (final Connection connection = DriverManager.getConnection(DATABASE_URI);
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      final DatabaseMetaData databaseMetaData = connection.getMetaData();
-      makeListen(
-          listener,
-          getTablesRoot(
-              databaseMetaData,
-              allocator,
-              command.getIncludeSchema(),
-              catalog, schemaFilterPattern, tableFilterPattern, tableTypes));
+         final VectorSchemaRoot vectorSchemaRoot = getTablesRoot(
+             connection.getMetaData(),
+             rootAllocator,
+             command.getIncludeSchema(),
+             catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamTables: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -924,8 +902,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamTableTypes(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
     try (final Connection connection = dataSource.getConnection();
          final ResultSet tableTypes = connection.getMetaData().getTableTypes();
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getTableTypesRoot(tableTypes, allocator));
+         final VectorSchemaRoot vectorSchemaRoot = getTableTypesRoot(tableTypes, rootAllocator)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       LOGGER.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
       listener.error(e);
@@ -951,13 +930,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
 
-      final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-      final VarCharVector catalogNameVector = new VarCharVector("catalog_nam", allocator);
-      final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
-      final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
-      final VarCharVector columnNameVector = new VarCharVector("column_name", allocator);
-      final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
-      final VarCharVector keyNameVector = new VarCharVector("key_name", allocator);
+      final VarCharVector catalogNameVector = new VarCharVector("catalog_name", rootAllocator);
+      final VarCharVector schemaNameVector = new VarCharVector("schema_name", rootAllocator);
+      final VarCharVector tableNameVector = new VarCharVector("table_name", rootAllocator);
+      final VarCharVector columnNameVector = new VarCharVector("column_name", rootAllocator);
+      final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
+      final VarCharVector keyNameVector = new VarCharVector("key_name", rootAllocator);
 
       final List<FieldVector> vectors =
           new ArrayList<>(
@@ -977,11 +955,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         saveToVector(primaryKeys.getString("PK_NAME"), keyNameVector, rows);
       }
 
-      for (final FieldVector vector : vectors) {
-        vector.setValueCount(rows);
-      }
+      try (final VectorSchemaRoot vectorSchemaRoot = new VectorSchemaRoot(vectors)) {
+        vectorSchemaRoot.setRowCount(rows);
 
-      makeListen(listener, singletonList(new VectorSchemaRoot(vectors)));
+        listener.start(vectorSchemaRoot);
+        listener.putNext();
+      }
     } catch (SQLException e) {
       listener.error(e);
     } finally {
@@ -1005,12 +984,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
-         ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table)) {
-
-      final List<FieldVector> vectors = createVectors(keys);
-
-      makeListen(
-          listener, singletonList(new VectorSchemaRoot(vectors)));
+         ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
+         VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       listener.error(e);
     } finally {
@@ -1034,12 +1011,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
-         ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table)) {
-
-      final List<FieldVector> vectors = createVectors(keys);
-
-      makeListen(
-          listener, singletonList(new VectorSchemaRoot(vectors)));
+         ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table);
+         VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+      listener.start(vectorSchemaRoot);
+      listener.putNext();
     } catch (SQLException e) {
       listener.error(e);
     } finally {
@@ -1047,21 +1022,20 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
-  private List<FieldVector> createVectors(ResultSet keys) throws SQLException {
-    final RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", allocator);
-    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", allocator);
-    final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", allocator);
-    final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", allocator);
-    final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", allocator);
-    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", allocator);
-    final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", allocator);
-    final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", allocator);
-    final IntVector keySequenceVector = new IntVector("key_sequence", allocator);
-    final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", allocator);
-    final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", allocator);
-    final IntVector updateRuleVector = new IntVector("update_rule", allocator);
-    final IntVector deleteRuleVector = new IntVector("delete_rule", allocator);
+  private VectorSchemaRoot createVectors(ResultSet keys) throws SQLException {
+    final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", rootAllocator);
+    final VarCharVector pkSchemaNameVector = new VarCharVector("pk_schema_name", rootAllocator);
+    final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", rootAllocator);
+    final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", rootAllocator);
+    final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", rootAllocator);
+    final VarCharVector fkSchemaNameVector = new VarCharVector("fk_schema_name", rootAllocator);
+    final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", rootAllocator);
+    final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", rootAllocator);
+    final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
+    final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", rootAllocator);
+    final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", rootAllocator);
+    final IntVector updateRuleVector = new IntVector("update_rule", rootAllocator);
+    final IntVector deleteRuleVector = new IntVector("delete_rule", rootAllocator);
 
     Map<FieldVector, String> vectorToColumnName = new HashMap<>();
     vectorToColumnName.put(pkCatalogNameVector, "PKTABLE_CAT");
@@ -1078,29 +1052,39 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     vectorToColumnName.put(fkKeyNameVector, "FK_NAME");
     vectorToColumnName.put(pkKeyNameVector, "PK_NAME");
 
-    final List<FieldVector> vectors =
-        new ArrayList<>(
-            ImmutableList.of(
-                pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
-                fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
-                pkKeyNameVector, updateRuleVector, deleteRuleVector));
-    vectors.forEach(FieldVector::allocateNew);
+    final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(
+        pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
+        fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
+        pkKeyNameVector, updateRuleVector, deleteRuleVector);
 
-    saveToVectors(vectorToColumnName, keys, true);
+    vectorSchemaRoot.allocateNew();
+    final int rowCount = saveToVectors(vectorToColumnName, keys, true);
 
-    final int rows =
-        vectors.stream().mapToInt(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
-    vectors.forEach(vector -> vector.setValueCount(rows));
-    return vectors;
+    vectorSchemaRoot.setRowCount(rowCount);
+
+    return vectorSchemaRoot;
   }
 
   @Override
   public void getStreamStatement(final CommandStatementQuery command, final CallContext context, final Ticket ticket,
                                  final ServerStreamListener listener) {
     final ByteString handle = command.getClientExecutionHandle();
-    try (final ResultSet resultSet = checkNotNull(commandExecuteStatementLoadingCache.getIfPresent(handle));
-         final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-      makeListen(listener, getVectorsFromData(resultSet, allocator));
+    try (final ResultSet resultSet = checkNotNull(commandExecuteStatementLoadingCache.getIfPresent(handle))) {
+      final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
+      try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+        VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+        listener.start(vectorSchemaRoot);
+
+        final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
+        while (iterator.hasNext()) {
+          VectorUnloader unloader = new VectorUnloader(iterator.next());
+          loader.load(unloader.getRecordBatch());
+          listener.putNext();
+          vectorSchemaRoot.clear();
+        }
+
+        listener.putNext();
+      }
     } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
