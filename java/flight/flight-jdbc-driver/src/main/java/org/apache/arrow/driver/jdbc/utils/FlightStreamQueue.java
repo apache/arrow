@@ -42,8 +42,6 @@ import org.apache.arrow.flight.FlightStream;
  * </ol>
  */
 public class FlightStreamQueue implements AutoCloseable {
-  private static final int THREAD_POOL_SIZE = 4;
-
   private final ExecutorService executorService;
   private final CompletionService<FlightStream> completionService;
   private final Collection<Future<?>> futures;
@@ -51,9 +49,9 @@ public class FlightStreamQueue implements AutoCloseable {
   /**
    * Instantiate a new FlightStreamQueue.
    */
-  public FlightStreamQueue() {
-    executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-    completionService = new ExecutorCompletionService<>(executorService);
+  public FlightStreamQueue(ExecutorService executorService) {
+    this.executorService = executorService;
+    completionService = new ExecutorCompletionService<>(this.executorService);
     futures = new HashSet<>();
   }
 
@@ -98,6 +96,5 @@ public class FlightStreamQueue implements AutoCloseable {
   @Override
   public void close() throws Exception {
     futures.forEach(future -> future.cancel(true));
-    this.executorService.shutdown();
   }
 }
