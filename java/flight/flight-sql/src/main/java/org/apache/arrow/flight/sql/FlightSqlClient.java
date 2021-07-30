@@ -410,6 +410,8 @@ public class FlightSqlClient {
     /**
      * Executes the prepared statement update on the server.
      *
+     * @param root    a {@link VectorSchemaRoot} with the data from the place holders from the
+     *                query when they exist.
      */
     public long executeUpdate(VectorSchemaRoot root) {
       if (isClosed) {
