@@ -310,8 +310,8 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
   // "Conditionally set or clear bits without branching"
   // NOTE: this seems to confuse Valgrind as it reads from potentially
   // uninitialized memory
-  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
-                 kBitmask[i % 8];
+  bits[i / 8] = (bits[i / 8] & ~kBitmask[i % 8]) |
+                (-static_cast<uint8_t>(bit_is_set) & kBitmask[i % 8]);
 }
 
 /// \brief set or clear a range of bits quickly
