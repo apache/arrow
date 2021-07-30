@@ -24,6 +24,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/io/slow.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -44,8 +45,9 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
   auto index = std::make_shared<std::atomic<int>>(0);
   return [src, index, failing_index]() {
     auto idx = index->fetch_add(1);
-    if (idx >= failing_index) {
-      return Future<T>::MakeFinished(Status::Invalid("XYZ"));
+    if (idx == failing_index) {
+      return src().Then(
+          [](const T& next) -> Result<T> { return Status::Invalid("XYZ"); });
     }
     return src();
   };
@@ -55,6 +57,19 @@ template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
   return MakeMappedGenerator(std::move(source), [](const T& res) {
     return SleepABitAsync().Then([res]() { return res; });
+  });
+}
+
+template <typename T>
+AsyncGenerator<T> MakeJittery(AsyncGenerator<T> source) {
+  auto latency_generator = arrow::io::LatencyGenerator::Make(0.01);
+  return MakeMappedGenerator(std::move(source), [latency_generator](const T& res) {
+    auto out = Future<T>::Make();
+    std::thread([out, res, latency_generator]() mutable {
+      latency_generator->Sleep();
+      out.MarkFinished(res);
+    }).detach();
+    return out;
   });
 }
 
@@ -225,6 +240,15 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
     auto gen = AsyncVectorIt(std::move(wrapped));
     if (IsSlow()) {
       return SlowdownABit(std::move(gen));
+    }
+    return gen;
+  }
+
+  AsyncGenerator<TestInt> MakeJitteryIfSlowSource(const std::vector<TestInt>& items) {
+    std::vector<TestInt> wrapped(items.begin(), items.end());
+    auto gen = AsyncVectorIt(std::move(wrapped));
+    if (IsSlow()) {
+      return MakeJittery(std::move(gen));
     }
     return gen;
   }
@@ -426,10 +450,59 @@ TEST(TestAsyncUtil, MapParallelStress) {
   }
 }
 
-TEST(TestAsyncUtil, MapTaskFail) {
-  std::vector<TestInt> input = {1, 2, 3};
-  auto generator = AsyncVectorIt(input);
-  std::function<Result<TestStr>(const TestInt&)> mapper =
+TEST_P(MapFixture, BasicMapStress) {
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
+  for (int i = 0; i < NTASKS; i++) {
+    auto gen = MakeSource(RangeVector(NITEMS));
+    std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
+      SleepABit();
+      return std::to_string(in.value);
+    };
+    auto mapped = MakeMappedGenerator(std::move(gen), mapper, false);
+    mapped = MakeReadaheadGenerator(mapped, 8);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto collected,
+                                  CollectAsyncGenerator(std::move(mapped)));
+    ASSERT_EQ(NITEMS, collected.size());
+  }
+}
+
+TEST_P(MapFixture, BasicMapFailStress) {
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
+  for (int i = 0; i < NTASKS; i++) {
+    auto gen = FailsAt(MakeJitteryIfSlowSource(RangeVector(NITEMS)), NITEMS / 2);
+    std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
+      return std::to_string(in.value);
+    };
+    auto mapped = MakeMappedGenerator(std::move(gen), mapper, false);
+    auto readahead = MakeReadaheadGenerator(std::move(mapped), 8);
+    ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(std::move(readahead)));
+  }
+}
+
+TEST_P(MapFixture, QueuingMapFailStress) {
+  constexpr int NTASKS = 100;
+  constexpr int NITEMS = 100;
+  for (int i = 0; i < NTASKS; i++) {
+    std::shared_ptr<std::atomic<bool>> done = std::make_shared<std::atomic<bool>>();
+    auto gen = FailsAt(MakeJitteryIfSlowSource(RangeVector(NITEMS)), NITEMS / 2);
+    std::function<TestStr(const TestInt&)> mapper = [done](const TestInt& in) {
+      if (done->load()) {
+        ADD_FAILURE() << "Callback called after generator sent end signal";
+      }
+      return std::to_string(in.value);
+    };
+    auto mapped = MakeMappedGenerator(std::move(gen), mapper, true);
+    auto readahead = MakeReadaheadGenerator(std::move(mapped), 8);
+    ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(std::move(readahead)));
+    done->store(true);
+  }
+}
+
+TEST_P(MapFixture, MapTaskFail) {
+  auto source = MakeSource({1, 2, 3});
+  std::function<Result<TestStr>(const TestInt&)> map_fn =
       [](const TestInt& in) -> Result<TestStr> {
     if (in.value == 2) {
       return Status::Invalid("XYZ");
@@ -1094,6 +1167,49 @@ TEST(TestAsyncUtil, ReadaheadMove) {
   AssertGeneratorExhausted(gen_copy);
 }
 
+TEST(TestAsyncUtil, ReadaheadFailureLifetime) {
+  // The error should not be emitted until all "in-flight" tasks
+  // have wrapped up.  Otherwise, a failure could trigger a cleanup
+  // which can delete resources needed by the "in-flight" tasks.
+  std::shared_ptr<GatingTask> before_err = GatingTask::Make();
+  std::shared_ptr<GatingTask> after_err = GatingTask::Make();
+  // Need to make sure our thread pool is larger than the # of tasks we
+  // are submitting
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> thread_pool,
+                       internal::ThreadPool::Make(4));
+  int counter = 0;
+  AsyncGenerator<TestInt> generator = [&]() -> Future<TestInt> {
+    int iter_count = counter++;
+    if (iter_count == 0) {
+      return DeferNotOk(thread_pool->Submit([&]() -> Result<TestInt> {
+        // Block the error long enough for tasks to be in flight.
+        before_err->Task()();
+        return Status::Invalid("XYZ");
+      }));
+    } else {
+      return DeferNotOk(thread_pool->Submit([&, iter_count]() -> Result<TestInt> {
+        after_err->Task()();
+        return iter_count;
+      }));
+    }
+  };
+
+  AsyncGenerator<TestInt> readahead = MakeReadaheadGenerator(std::move(generator), 3);
+  Future<TestInt> will_fail = readahead();
+  AssertNotFinished(will_fail);
+  // At this point all tasks should be in flight
+  ASSERT_OK(before_err->WaitForRunning(1));
+  ASSERT_OK(after_err->WaitForRunning(3));
+  // Let the error go through
+  ASSERT_OK(before_err->Unlock());
+  SleepABit();
+  // Error cannot complete because tasks are in flight
+  AssertNotFinished(will_fail);
+  // Now the remaining tasks complete and the error can finish
+  ASSERT_OK(after_err->Unlock());
+  ASSERT_FINISHES_AND_RAISES(Invalid, will_fail);
+}
+
 TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
@@ -1125,6 +1241,16 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   // Don't need to know the exact number of successful tasks (and it may vary)
   for (std::size_t i = 0; i < remaining_results.size(); i++) {
     ASSERT_EQ(TestInt(static_cast<int>(i) + 1), remaining_results[i]);
+  }
+}
+
+TEST(TestAsyncUtil, ReadaheadFailedStress) {
+  constexpr int NTASKS = 100;
+  constexpr int NITEMS = 100;
+  for (int i = 0; i < NTASKS; i++) {
+    auto source = FailsAt(MakeJittery(AsyncVectorIt(RangeVector(NITEMS))), NITEMS / 2);
+    auto readahead = MakeReadaheadGenerator(std::move(source), 8);
+    ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(std::move(readahead)));
   }
 }
 

@@ -141,6 +141,84 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
 }
 
 /// \see MakeMappedGenerator
+///
+/// Note: This version forwards async pressure on to the source
+/// Note: There is some pretty excessive locking here that could be probably be trimmed
+/// someday
+template <typename T, typename V>
+class BasicMappingGenerator {
+ public:
+  BasicMappingGenerator(AsyncGenerator<T> source, std::function<Future<V>(const T&)> map)
+      : state_(std::make_shared<State>(std::move(source), std::move(map))) {}
+
+  Future<V> operator()() {
+    if (state_->IsFinished()) {
+      return IterationEnd<V>();
+    }
+    auto state = state_;
+    return state_->source().Then(Callback{state_},
+                                 [state](const Status& err) -> Result<V> {
+                                   state->MarkFailed(err);
+                                   return err;
+                                 });
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source, std::function<Future<V>(const T&)> map)
+        : source(std::move(source)), map(std::move(map)) {}
+
+    void MarkFailed(const Status& failure) {
+      auto guard = mutex.Lock();
+      err = failure;
+      finished = true;
+    }
+
+    bool IsFinished() {
+      auto guard = mutex.Lock();
+      return finished;
+    }
+
+    util::Mutex mutex;
+    bool finished = false;
+    Status err;
+    AsyncGenerator<T> source;
+    std::function<Future<V>(const T&)> map;
+  };
+
+  struct Callback {
+    Future<V> operator()(const T& maybe_next) {
+      if (IsIterationEnd(maybe_next)) {
+        return IterationEnd<V>();
+      }
+      if (state_->IsFinished()) {
+        // In this case some item further in the sequence has failed.  We don't want to
+        // run the callback because we're shutting down but we also don't want to return
+        // end because then we could return something like VALID VALID END ERR END END
+        // which will appear to consumers as a valid ending stream.  So, we swallow the
+        // item and return ERR early
+        return state_->err;
+      }
+      Future<V> mapped_fut = state_->map(maybe_next);
+      auto state = state_;
+      return mapped_fut.Then([](const V& result) { return result; },
+                             [state](const Status& err) -> Result<V> {
+                               state->MarkFailed(err);
+                               return err;
+                             });
+    }
+
+    std::shared_ptr<State> state_;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+/// \see MakeMappedGenerator
+///
+/// Note: This version will queue incoming requests to prevent source
+/// from being pulled async-reentrantly (even if this generator is pulled async
+/// reentrantly).  However, it will still run the map function in parallel.
 template <typename T, typename V>
 class MappingGenerator {
  public:
@@ -221,13 +299,18 @@ class MappingGenerator {
       bool should_trigger;
       {
         auto guard = state->mutex.Lock();
+        bool already_finished = state->finished;
         if (end) {
           should_purge = !state->finished;
           state->finished = true;
         }
-        sink = state->waiting_jobs.front();
-        state->waiting_jobs.pop_front();
-        should_trigger = !end && !state->waiting_jobs.empty();
+        // if already_finished is true then something failed earlier
+        // and waiting_jobs is being purged anyways
+        if (!already_finished) {
+          sink = state->waiting_jobs.front();
+          state->waiting_jobs.pop_front();
+          should_trigger = !end && !state->waiting_jobs.empty();
+        }
       }
       if (should_purge) {
         state->Purge();
@@ -235,16 +318,18 @@ class MappingGenerator {
       if (should_trigger) {
         state->source().AddCallback(Callback{state});
       }
-      if (maybe_next.ok()) {
-        const T& val = maybe_next.ValueUnsafe();
-        if (IsIterationEnd(val)) {
-          sink.MarkFinished(IterationTraits<V>::End());
+      if (sink.is_valid()) {
+        if (maybe_next.ok()) {
+          const T& val = maybe_next.ValueUnsafe();
+          if (IsIterationEnd(val)) {
+            sink.MarkFinished(IterationTraits<V>::End());
+          } else {
+            Future<V> mapped_fut = state->map(val);
+            mapped_fut.AddCallback(MappedCallback{std::move(state), std::move(sink)});
+          }
         } else {
-          Future<V> mapped_fut = state->map(val);
-          mapped_fut.AddCallback(MappedCallback{std::move(state), std::move(sink)});
+          sink.MarkFinished(maybe_next.status());
         }
-      } else {
-        sink.MarkFinished(maybe_next.status());
       }
     }
 
@@ -696,59 +781,102 @@ class ReadaheadGenerator {
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
       : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
 
-  Future<T> AddMarkFinishedContinuation(Future<T> fut) {
-    auto state = state_;
-    return fut.Then(
-        [state](const T& result) -> Result<T> {
-          state->MarkFinishedIfDone(result);
-          return result;
-        },
-        [state](const Status& err) -> Result<T> {
-          state->finished.store(true);
-          return err;
-        });
-  }
-
   Future<T> operator()() {
     if (state_->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
       for (int i = 0; i < state_->max_readahead; i++) {
-        auto next = state_->source_generator();
-        auto next_after_check = AddMarkFinishedContinuation(std::move(next));
-        state_->readahead_queue.push(std::move(next_after_check));
+        state_->readahead_queue.push(state_->Poll());
       }
     }
     // Pop one and add one
     auto result = state_->readahead_queue.front();
     state_->readahead_queue.pop();
-    if (state_->finished.load()) {
-      state_->readahead_queue.push(AsyncGeneratorEnd<T>());
-    } else {
-      auto back_of_queue = state_->source_generator();
-      auto back_of_queue_after_check =
-          AddMarkFinishedContinuation(std::move(back_of_queue));
-      state_->readahead_queue.push(std::move(back_of_queue_after_check));
-    }
-    return result;
+    state_->readahead_queue.push(state_->Poll());
+    return result.Then([](const T& next) { return next; });
   }
 
  private:
-  struct State {
+  struct State : public std::enable_shared_from_this<State> {
     State(AsyncGenerator<T> source_generator, int max_readahead)
         : source_generator(std::move(source_generator)), max_readahead(max_readahead) {
-      finished.store(false);
+      finished_fut = Future<>::Make();
     }
 
-    void MarkFinishedIfDone(const T& next_result) {
-      if (IsIterationEnd(next_result)) {
-        finished.store(true);
+    ~State() { finished_fut.Wait(); }
+
+    Future<T> AddMarkFinishedContinuation(Future<T> fut) {
+      auto self = this->shared_from_this();
+      if (IncrementInFlight()) {
+        return fut.Then(
+            [self](const T& result) -> Result<T> {
+              self->HandleSuccess(result);
+              return result;
+            },
+            [self](const Status& err) -> Future<T> { return self->HandleError(err); });
+      } else {
+        return AsyncGeneratorEnd<T>();
+      }
+    }
+
+    Future<T> Poll() {
+      Future<T> next;
+      {
+        util::Mutex::Guard guard = mutex.Lock();
+        if (finished) {
+          return AsyncGeneratorEnd<T>();
+        } else {
+          next = source_generator();
+        }
+      }
+      return AddMarkFinishedContinuation(std::move(next));
+    }
+
+    void HandleSuccess(const T& next_result) {
+      DecrementInFlight(IsIterationEnd(next_result));
+    }
+
+    Future<T> HandleError(const Status& err) {
+      DecrementInFlight(true);
+      return finished_fut.Then([err]() -> Result<T> { return err; });
+    }
+
+    bool IncrementInFlight() {
+      util::Mutex::Guard guard = mutex.Lock();
+      if (finished) {
+        return false;
+      } else {
+        in_flight++;
+        return true;
+      }
+    }
+
+    void DecrementInFlight(bool end) {
+      bool mark_finished = false;
+      {
+        util::Mutex::Guard guard = mutex.Lock();
+        if (end) {
+          finished = true;
+        }
+        in_flight--;
+        if (finished && in_flight == 0) {
+          mark_finished = true;
+        }
+      }
+      if (mark_finished) {
+        finished_fut.MarkFinished();
       }
     }
 
     AsyncGenerator<T> source_generator;
     int max_readahead;
-    std::atomic<bool> finished;
+    util::Mutex mutex;
+    bool finished = false;
+    bool marked_finished = false;
     std::queue<Future<T>> readahead_queue;
+    // These two fields help signal when all in_flight requests are finished and an
+    // error can return
+    Future<> finished_fut;
+    int in_flight = 0;
   };
 
   std::shared_ptr<State> state_;
@@ -1085,8 +1213,8 @@ class MergedGenerator {
 /// max_subscriptions at a time
 ///
 /// Note: This may deliver items out of sequence. For example, items from the third
-/// AsyncGenerator generated by the source may be emitted before some items from the first
-/// AsyncGenerator generated by the source.
+/// AsyncGenerator generated by the source may be emitted before some items from the
+/// first AsyncGenerator generated by the source.
 ///
 /// This generator will pull from source async-reentrantly unless max_subscriptions is 1
 /// This generator will not pull from the individual subscriptions reentrantly.  Add
@@ -1108,8 +1236,8 @@ AsyncGenerator<T> MakeMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
 ///
 /// This generator may queue 1 instance of T
 ///
-/// TODO: Could potentially make a bespoke implementation instead of MergedGenerator that
-/// forwards async-reentrant requests instead of buffering them (which is what
+/// TODO: Could potentially make a bespoke implementation instead of MergedGenerator
+/// that forwards async-reentrant requests instead of buffering them (which is what
 /// MergedGenerator does)
 template <typename T>
 AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> source) {
@@ -1170,10 +1298,10 @@ class EnumeratingGenerator {
 
 /// Wraps items from a source generator with positional information
 ///
-/// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
-/// processed in a "first-available" fashion and later resequenced which can reduce the
-/// impact of sources with erratic performance (e.g. a filesystem where some items may
-/// take longer to read than others).
+/// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to
+/// be processed in a "first-available" fashion and later resequenced which can reduce
+/// the impact of sources with erratic performance (e.g. a filesystem where some items
+/// may take longer to read than others).
 ///
 /// TODO(ARROW-12371) Would require this generator be async-reentrant
 ///
@@ -1351,12 +1479,13 @@ class BackgroundGenerator {
     util::Mutex mutex;
   };
 
-  // Cleanup task that will be run when all consumer references to the generator are lost
+  // Cleanup task that will be run when all consumer references to the generator are
+  // lost
   struct Cleanup {
     explicit Cleanup(State* state) : state(state) {}
     ~Cleanup() {
-      /// TODO: Once ARROW-13109 is available then we can be force consumers to spawn and
-      /// there is no need to perform this check.
+      /// TODO: Once ARROW-13109 is available then we can be force consumers to spawn
+      /// and there is no need to perform this check.
       ///
       /// It's a deadlock if we enter cleanup from
       /// the worker thread but it can happen if the consumer doesn't transfer away
@@ -1439,10 +1568,10 @@ class BackgroundGenerator {
   }
 
   std::shared_ptr<State> state_;
-  // state_ is held by both the generator and the background thread so it won't be cleaned
-  // up when all consumer references are relinquished.  cleanup_ is only held by the
-  // generator so it will be destructed when the last consumer reference is gone.  We use
-  // this to cleanup / stop the background generator in case the consuming end stops
+  // state_ is held by both the generator and the background thread so it won't be
+  // cleaned up when all consumer references are relinquished.  cleanup_ is only held by
+  // the generator so it will be destructed when the last consumer reference is gone. We
+  // use this to cleanup / stop the background generator in case the consuming end stops
   // listening (e.g. due to a downstream error)
   std::shared_ptr<Cleanup> cleanup_;
 };
@@ -1458,20 +1587,20 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// thread task for every item.  Instead the background thread will run until it fills
 /// up a readahead queue.
 ///
-/// Once the queue has filled up the background thread task will terminate (allowing other
-/// I/O tasks to use the thread).  Once the queue has been drained enough (specified by
-/// q_restart) then the background thread task will be restarted.  If q_restart is too low
-/// then you may exhaust the queue waiting for the background thread task to start running
-/// again.  If it is too high then it will be constantly stopping and restarting the
-/// background queue task
+/// Once the queue has filled up the background thread task will terminate (allowing
+/// other I/O tasks to use the thread).  Once the queue has been drained enough
+/// (specified by q_restart) then the background thread task will be restarted.  If
+/// q_restart is too low then you may exhaust the queue waiting for the background
+/// thread task to start running again.  If it is too high then it will be constantly
+/// stopping and restarting the background queue task
 ///
-/// The "background thread" is a logical thread and will run as tasks on the io_executor.
-/// This thread may stop and start when the queue fills up but there will only be one
-/// active background thread task at any given time.  You MUST transfer away from this
-/// background generator.  Otherwise there could be a race condition if a callback on the
-/// background thread deletes the last consumer reference to the background generator. You
-/// can transfer onto the same executor as the background thread, it is only neccesary to
-/// create a new thread task, not to switch executors.
+/// The "background thread" is a logical thread and will run as tasks on the
+/// io_executor. This thread may stop and start when the queue fills up but there will
+/// only be one active background thread task at any given time.  You MUST transfer away
+/// from this background generator.  Otherwise there could be a race condition if a
+/// callback on the background thread deletes the last consumer reference to the
+/// background generator. You can transfer onto the same executor as the background
+/// thread, it is only neccesary to create a new thread task, not to switch executors.
 ///
 /// This generator is not async-reentrant
 ///
