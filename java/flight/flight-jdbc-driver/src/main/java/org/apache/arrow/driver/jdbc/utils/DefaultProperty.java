@@ -31,7 +31,6 @@ public enum BaseProperty {
   PORT("port", 32210),
   USERNAME("user"),
   PASSWORD("password"),
-  ENCRYPT("useTls", false),
   KEYSTORE_PATH("keyStorePath"),
   KEYSTORE_PASS("keyStorePass"),
   THREAD_POOL_SIZE("threadPoolSize", 1);
