@@ -24,9 +24,9 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/bit_util.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
