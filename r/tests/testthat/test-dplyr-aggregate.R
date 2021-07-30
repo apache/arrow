@@ -127,7 +127,6 @@ test_that("Group by any/all", {
 })
 
 test_that("Filter and aggregate", {
-  skip("ARROW-13498")
   expect_dplyr_equal(
     input %>%
       filter(some_grouping == 2) %>%

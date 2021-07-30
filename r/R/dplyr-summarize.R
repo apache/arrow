@@ -101,8 +101,11 @@ do_exec_plan <- function(.data, group_vars = NULL) {
     })
   }
 
-  # Scan also will filter and select columns, so we don't need to Filter
   start_node <- plan$Scan(.data)
+  # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
+  if (inherits(.data$filtered_rows, "Expression")) {
+    start_node <- start_node$Filter(.data$filtered_rows)
+  }
   # If any columns are derived we need to Project (otherwise this may be no-op)
   project_node <- start_node$Project(.data$selected_columns)
 
