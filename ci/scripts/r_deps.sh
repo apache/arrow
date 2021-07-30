@@ -38,7 +38,7 @@ fi
 # but we want to error/fail the build.
 # options(warn=2) turns warnings into errors
 ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps()"
-# Separately innstall the optional/test dependencies but don't error on them,
+# Separately install the optional/test dependencies but don't error on them,
 # they're not available everywhere and that's ok
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
