@@ -157,6 +157,20 @@ else
         fi
       fi
 
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
+        # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
+        ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
+      fi
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
+        which pkg-config >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          export ARROW_DEPENDENCY_SOURCE=BUNDLED
+          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
+          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+
+        fi
+      fi
+
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
       PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
@@ -173,6 +187,10 @@ else
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
         BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
         PKG_DIRS="-L`pwd`/$LIB_DIR"
+
+        if [ "$ARROW_DEPENDENCY_SOURCE" == "AUTO" ]; then
+          PKG_LIBS = "pkgconfig ${LIB_DIR} $PKG_LIBS"
+        fi
 
         # When using brew's openssl it is not bundled and it is not on the system
         # search path  and so we must add the lib path to BUNDLED_LIBS if we are
@@ -267,11 +285,6 @@ else
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
-fi
-
-
-if [ "$ARROW_DEPENDENCY_SOURCE" == "AUTO" ]; then
-  PKG_LIBS = "pkgconfig ${LIB_DIR} $PKG_LIBS"
 fi
 
 # Write to Makevars
