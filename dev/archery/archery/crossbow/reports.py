@@ -149,6 +149,9 @@ class JsonReport(Report):
         tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
         json_str = json.dumps(tasks)
         return json_str
+        
+    def show(self):
+        return self.get_json_tasks()
 
 
 class EmailReport(Report):

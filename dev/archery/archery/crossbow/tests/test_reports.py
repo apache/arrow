@@ -19,7 +19,7 @@ import textwrap
 
 from archery.crossbow.core import yaml
 from archery.crossbow.reports import CommentReport
-
+from archery.crossbow.reports import JsonReport
 
 def test_crossbow_comment_formatter(load_fixture):
     msg = load_fixture('crossbow-success-message.md')
@@ -34,11 +34,11 @@ def test_crossbow_comment_formatter(load_fixture):
     )
     assert report.show() == textwrap.dedent(expected).strip()
     
-# def test_crossbow_json_COMPLETE_THIS(load_fixture):
-#    msg = load_fixture('crossbow-success-message.md')
-#    job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
-#
-#    report = JsonReport(job)
-#    expected = 'should be json_str'
-#    assert report.show() == 'should be a json type text'
+def test_crossbow_json_COMPLETE(load_fixture):
+   msg = load_fixture('crossbow-success-message.md')
+   job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
+
+   report = JsonReport(job)
+   expected = 'should be json_str'
+   assert report.show() == 'should be a json type text'
 
