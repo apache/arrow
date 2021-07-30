@@ -29,7 +29,7 @@ ${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdc
 
 if [ ${R_BIN} = "RDsan" ]; then
   # To prevent the build from timing out, let's prune some optional deps
-  grep -v duckdb, DESCRIPTION | grep -v DBI, | grep -v dbplyr, | tee DESCRIPTION
+  grep -v duckdb, DESCRIPTION | grep -v DBI, | grep -v dbplyr, | grep -v decor, | grep -v knitr, | grep -v rmarkdown, | grep -v pkgload, | grep -v reticulate, | tee DESCRIPTION
 fi
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
