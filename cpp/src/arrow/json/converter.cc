@@ -167,14 +167,14 @@ class DecimalConverter : public PrimitiveConverter {
     Builder builder(out_type_, pool_);
     RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
 
-    auto visit_valid = [&](string_view repr) {
+    auto visit_valid = [&builder](string_view repr) {
       ARROW_ASSIGN_OR_RAISE(value_type value,
                             TypeTraits<T>::BuilderType::ValueType::FromString(repr));
       builder.UnsafeAppend(value);
       return Status::OK();
     };
 
-    auto visit_null = [&]() {
+    auto visit_null = [&builder]() {
       builder.UnsafeAppendNull();
       return Status::OK();
     };
