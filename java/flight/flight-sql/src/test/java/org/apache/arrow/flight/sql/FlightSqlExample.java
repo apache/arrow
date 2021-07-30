@@ -784,14 +784,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
                                                    FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    final PreparedStatementContext statement =
+    final StatementContext<PreparedStatement> statement =
         preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
 
     return () -> {
       assert statement != null;
       try {
-        final PreparedStatement preparedStatement = statement.getPreparedStatement();
+        final PreparedStatement preparedStatement = statement.getStatement();
 
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
