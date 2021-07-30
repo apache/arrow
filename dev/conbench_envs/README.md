@@ -18,8 +18,8 @@
 -->
 # Benchmark Builds Env and Hooks
 This directory contains: 
-- [benchmarks.env](../../dev/conbench_envs/benchmarks.env) - list of env vars used for building Arrow C++/Python/R/Java/JavaScript and running benchmarks using [conbench](https://ursalabs.org/blog/announcing-conbench/).
-- [utils.sh](../../dev/conbench_envs/utils.sh) - hooks used by <b>@ursabot</b> benchmark builds that are triggered by `@ursabot please benchmark` PR comments. 
+- [benchmarks.env](benchmarks.env) - list of env vars used for building Arrow C++/Python/R/Java/JavaScript and running benchmarks using [conbench](https://ursalabs.org/blog/announcing-conbench/).
+- [hooks.sh](hooks.sh) - hooks used by <b>@ursabot</b> benchmark builds that are triggered by `@ursabot please benchmark` PR comments. 
 
 ## How to add or update Arrow build and run env vars used by `@ursabot` benchmark builds
 1. Create `apache/arrow` PR
@@ -29,20 +29,20 @@ This directory contains:
 - baseline = PR base HEAD commit with unaltered `/dev/conbench_envs/benchmarks.env`
 - contender = PR branch HEAD commit with overridden `/dev/conbench_envs/benchmarks.env`
 
-## Why do`@ursabot` benchmark builds need `utils.sh` hooks?
+## Why do`@ursabot` benchmark builds need `hooks.sh`?
 `@ursabot` benchmark builds are maintained in Ursa's private repo.
-Benchmark builds use `utils.sh` functions as hooks to create conda env with Arrow dependencies and build Arrow C++/Python/R/Java/JavaScript from source for a specific Arrow repo's commit.
+Benchmark builds use `hooks.sh` functions as hooks to create conda env with Arrow dependencies and build Arrow C++/Python/R/Java/JavaScript from source for a specific Arrow repo's commit.
 
-Defining hooks in [utils.sh](../../dev/conbench_envs/utils.sh) in Arrow repo allows benchmark builds for a specific Arrow commit to be always compatible with Arrow's files/scripts used for installing Arrow dependencies and building Arrow, assuming Arrow contributors will update `utils.sh` when they make these changes to files/scripts used by functions in `utils.sh`. 
+Defining hooks in Arrow repo allows benchmark builds for a specific Arrow commit to be always compatible with Arrow's files/scripts used for installing Arrow dependencies and building Arrow, assuming Arrow contributors will update `hooks.sh` when they make these changes to files/scripts used by functions in `hooks.sh`. 
 
-## Can other repos and service use `benchmarks.env` and `utils.sh` hooks?
+## Can other repos and service use `benchmarks.env` and `hooks.sh`?
 
-Yes, other repos and services are welcome to use `benchmarks.env` and `utils.sh` hooks as long as 
-- existing hooks should not be removed and renamed.
+Yes, other repos and services are welcome to use `benchmarks.env` and `hooks.sh` as long as 
+- existing hooks are not removed or renamed.
 - function definitions for exiting hooks can only be updated in the Arrow commit where Arrow build scripts or files with dependencies have been renamed, moved or added.
 
-## How can other repos and services use `benchmarks.env` and `utils.sh` hooks to setup benchmark env?
-Here are steps how `@ursabot` benchmark builds use `utils.sh` hooks to setup benchmarking env on Ubuntu
+## How can other repos and services use `benchmarks.env` and `hooks.sh` to setup benchmark env?
+Here are steps how `@ursabot` benchmark builds use `benchmarks.env` and `hooks.sh` to setup benchmarking env on Ubuntu:
 
 ### 1. Install Arrow dependencies
     sudo su
@@ -148,7 +148,7 @@ Verify that you have at least these versions of `node` and `yarn`:
     pushd arrow
     git fetch -v --prune -- origin "${BENCHMARKABLE}"
     git checkout -f "${BENCHMARKABLE}"
-    source dev/conbench_envs/utils.sh create_conda_env_with_arrow_python
+    source dev/conbench_envs/hooks.sh create_conda_env_with_arrow_python
     popd
     
 ### 7. Install conbench
@@ -180,14 +180,14 @@ Verify that you have at least these versions of `node` and `yarn`:
 
 ### 11. Use `install_archery` hook to setup archery and run C++ benchmarks
     pushd arrow
-    source dev/conbench_envs/utils.sh install_archery
+    source dev/conbench_envs/hooks.sh install_archery
     popd
     cd benchmarks
     conbench cpp-micro --iterations=1
 
 ### 12. Use `build_arrow_r` hook to build Arrow R and run R benchmarks
     pushd arrow
-    source dev/conbench_envs/utils.sh build_arrow_r
+    source dev/conbench_envs/hooks.sh build_arrow_r
     popd
     R -e "remotes::install_github('ursacomputing/arrowbench')"
     cd benchmarks
@@ -195,15 +195,15 @@ Verify that you have at least these versions of `node` and `yarn`:
 
 ### 13. Use `build_arrow_java` and `install_archery` hooks to build Arrow Java and run Java benchmarks
     pushd arrow
-    source dev/conbench_envs/utils.sh build_arrow_java
-    source dev/conbench_envs/utils.sh install_archery
+    source dev/conbench_envs/hooks.sh build_arrow_java
+    source dev/conbench_envs/hooks.sh install_archery
     popd
     cd benchmarks
     conbench java-micro --iterations=1
 
 ### 14. Use `install_java_script_project_dependencies` hook to install Java Script dependencies and run Java Script benchmarks
     pushd arrow
-    source dev/conbench_envs/utils.sh install_java_script_project_dependencies
+    source dev/conbench_envs/hooks.sh install_java_script_project_dependencies
     popd
     cd benchmarks
     conbench js-micro
