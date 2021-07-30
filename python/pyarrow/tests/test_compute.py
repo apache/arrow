@@ -975,6 +975,51 @@ def test_take_null_type():
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_dropnull(ty, values):
+    arr = pa.array(values, type=ty)
+    result = arr.dropnull()
+    result.validate()
+    indices = [i for i in range(len(arr)) if arr[i].is_valid]
+    expected = arr.take(pa.array(indices))
+    assert result.equals(expected)
+
+
+def test_dropnull_chunked_array():
+    arr = pa.chunked_array([["a", None], ["c", "d", None]])
+    expected_drop = pa.chunked_array([["a"], ["c", "d"]])
+    result = arr.dropnull()
+    assert result.equals(expected_drop)
+
+
+def test_dropnull_record_batch():
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", None])], names=["a'"])
+
+    result = batch.dropnull()
+    expected = pa.record_batch([pa.array(["a", "c", "d"])], names=["a'"])
+    assert result.equals(expected)
+
+
+def test_dropnull_table():
+    table = pa.table([pa.array(["a", None, "c", "d", None])], names=["a"])
+    expected = pa.table([pa.array(["a", "c", "d"])], names=["a"])
+    result = table.dropnull()
+    assert result.equals(expected)
+
+
+def test_dropnull_null_type():
+    arr = pa.array([None] * 10)
+    chunked_arr = pa.chunked_array([[None] * 5] * 2)
+    batch = pa.record_batch([arr], names=['a'])
+    table = pa.table({'a': arr})
+
+    assert len(arr.dropnull()) == 0
+    assert len(chunked_arr.dropnull()) == 0
+    assert len(batch.dropnull().column(0)) == 0
+    assert len(table.dropnull().column(0)) == 0
+
+
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_filter(ty, values):
     arr = pa.array(values, type=ty)
 

@@ -397,6 +397,13 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def dropnull(self):
+        """
+        Remove missing values from a chunked array. See pyarrow.compute.dropnull for full
+        usage.
+        """
+        return _pc().dropnull(self)
+
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
         Unify dictionaries across all chunks.
@@ -956,6 +963,13 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def dropnull(self):
+        """
+        Remove missing values from an RecordBatch. See pyarrow.compute.dropnull for full
+        usage.
+        """
+        return _pc().dropnull(self)
+
     def to_pydict(self):
         """
         Convert the RecordBatch to a dict or OrderedDict.
@@ -1318,10 +1332,17 @@ cdef class Table(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an Table. See :func:`pyarrow.compute.take` for full
+        Select records from a Table. See :func:`pyarrow.compute.take` for full
         usage.
         """
         return _pc().take(self, indices)
+
+    def dropnull(self):
+        """
+        Remove missing values from a Table. See :func:`pyarrow.compute.dropnull` for full
+        usage.
+        """
+        return _pc().dropnull(self)
 
     def select(self, object columns):
         """

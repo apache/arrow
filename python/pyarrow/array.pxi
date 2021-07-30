@@ -1117,6 +1117,12 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def dropnull(self):
+        """
+        Remove missing values from an array.
+        """
+        return _pc().dropnull(self)
+
     def filter(self, Array mask, null_selection_behavior='drop'):
         """
         Select values from an array. See pyarrow.compute.filter for full usage.

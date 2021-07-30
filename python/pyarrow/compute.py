@@ -591,6 +591,38 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     return call_function('take', [data, indices], options, memory_pool)
 
 
+def dropnull(data, *, memory_pool=None):
+    """
+    Remove missing values (or records) from array- or table-like.
+
+    The result will be of the same type(s) as the input, with elements taken
+    from the input array (or record batch / table fields) without the nulls.
+
+    Parameters
+    ----------
+    data : Array, ChunkedArray, RecordBatch, or Table
+
+    Returns
+    -------
+    result : depends on inputs
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+    >>> arr.dropnull()
+    <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+    [
+      "a",
+      "b",
+      "c",
+      "e",
+      "f"
+    ]
+    """
+    return call_function('dropnull', [data], memory_pool)
+
+
 def fill_null(values, fill_value):
     """
     Replace each null element in values with fill_value. The fill_value must be
