@@ -159,7 +159,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     return new HeaderCallOption(headers);
   }
 
-  public ExecutorService getExecutorService() {
+  public synchronized ExecutorService getExecutorService() {
     if (executorService == null) {
       final int threadPoolSize = getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
       final DefaultThreadFactory threadFactory = new DefaultThreadFactory(this.getClass().getSimpleName());
