@@ -76,6 +76,11 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   public boolean next() throws SQLException {
     final boolean hasNext = super.next();
+    final int maxRows = statement.getMaxRows();
+    if (maxRows != 0 && this.getRow() > maxRows) {
+      return false;
+    }
+
     if (hasNext) {
       return true;
     }
