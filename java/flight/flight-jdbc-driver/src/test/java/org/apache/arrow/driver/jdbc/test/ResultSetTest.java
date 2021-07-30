@@ -21,7 +21,6 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -50,14 +49,9 @@ import org.junit.rules.ErrorCollector;
 import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetTest {
-  private static Map<BaseProperty, Object> properties;
-
   @ClassRule
   public static FlightServerTestRule rule;
-
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
-
+  private static Map<BaseProperty, Object> properties;
   private static Connection connection;
 
   static {
@@ -69,6 +63,9 @@ public class ResultSetTest {
 
     rule = new FlightServerTestRule(properties);
   }
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   @BeforeClass
   public static void setup() throws SQLException {

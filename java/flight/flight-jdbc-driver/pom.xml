@@ -140,6 +140,11 @@
             <version>3.9.0</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
