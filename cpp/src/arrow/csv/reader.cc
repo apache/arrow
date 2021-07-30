@@ -853,9 +853,10 @@ class StreamingReaderImpl : public ReaderMixin,
     int max_readahead = cpu_executor->GetCapacity();
     auto self = shared_from_this();
 
-    return buffer_generator().Then([self, buffer_generator, max_readahead](
+    return buffer_generator().Then([self, buffer_generator, max_readahead, cpu_executor](
                                        const std::shared_ptr<Buffer>& first_buffer) {
-      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead);
+      return self->InitAfterFirstBuffer(first_buffer, buffer_generator, max_readahead,
+                                        cpu_executor);
     });
   }
 
@@ -876,7 +877,7 @@ class StreamingReaderImpl : public ReaderMixin,
  protected:
   Future<> InitAfterFirstBuffer(const std::shared_ptr<Buffer>& first_buffer,
                                 AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
-                                int max_readahead) {
+                                int max_readahead, internal::Executor* cpu_executor) {
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
@@ -895,6 +896,10 @@ class StreamingReaderImpl : public ReaderMixin,
     auto block_gen = SerialBlockReader::MakeAsyncIterator(
         std::move(buffer_generator), MakeChunker(parse_options_), std::move(after_header),
         read_options_.skip_rows_after_names);
+
+    auto spawning_block_gen = MakeTransferredGenerator(std::move(block_gen), cpu_executor,
+                                                       /*always_spawn=*/true);
+
     auto parsed_block_gen =
         MakeMappedGenerator(std::move(block_gen), std::move(parser_op));
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
@@ -1244,9 +1249,8 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
-  auto cpu_executor = internal::GetCpuThreadPool();
+    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();

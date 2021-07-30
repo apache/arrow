@@ -1326,14 +1326,27 @@ AsyncGenerator<Enumerated<T>> MakeEnumeratedGenerator(AsyncGenerator<T> source) 
 template <typename T>
 class TransferringGenerator {
  public:
-  explicit TransferringGenerator(AsyncGenerator<T> source, internal::Executor* executor)
-      : source_(std::move(source)), executor_(executor) {}
+  explicit TransferringGenerator(AsyncGenerator<T> source, internal::Executor* executor,
+                                 bool always_spawn)
+      : source_(std::move(source)), executor_(executor), always_spawn_(always_spawn) {}
 
-  Future<T> operator()() { return executor_->Transfer(source_()); }
+  Future<T> operator()() {
+    CallbackOptions callback_options;
+    callback_options.executor = executor_;
+    if (always_spawn_) {
+      callback_options.should_schedule = ShouldSchedule::Always;
+    } else {
+      callback_options.should_schedule = ShouldSchedule::IfUnfinished;
+    }
+    return source_().Then([](const T& next) -> Result<T> { return next; },
+                          [](const Status& err) -> Result<T> { return err; },
+                          callback_options);
+  }
 
  private:
   AsyncGenerator<T> source_;
   internal::Executor* executor_;
+  bool always_spawn_;
 };
 
 /// \brief Transfers a future to an underlying executor.
@@ -1345,16 +1358,20 @@ class TransferringGenerator {
 /// completion sources and back on to the CPU executor so the I/O thread can
 /// stay busy and focused on I/O
 ///
-/// Keep in mind that continuations called on an already completed future will
+/// If always_spawn is set to true then continuations will always be spawned
+/// onto new thread tasks, even if the source future is already finished.
+///
+/// Otherwise (the default) continuations called on an already completed future will
 /// always be run synchronously and so no transfer will happen in that case.
 ///
-/// This generator is async reentrant if the source is
+/// This generator is async reentrant and will forward async-reentrant pressure
 ///
 /// This generator will not queue
 template <typename T>
 AsyncGenerator<T> MakeTransferredGenerator(AsyncGenerator<T> source,
-                                           internal::Executor* executor) {
-  return TransferringGenerator<T>(std::move(source), executor);
+                                           internal::Executor* executor,
+                                           bool always_spawn = false) {
+  return TransferringGenerator<T>(std::move(source), executor, always_spawn);
 }
 
 /// \see MakeBackgroundGenerator

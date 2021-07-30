@@ -246,51 +246,62 @@ TEST(AsyncReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, table_factory);
 }
 
-Result<TableReaderFactory> MakeStreamingFactory() {
-  return [](std::shared_ptr<io::InputStream> input_stream)
+Result<TableReaderFactory> MakeStreamingFactory(
+    const std::shared_ptr<internal::ThreadPool>& thread_pool) {
+  return [thread_pool](std::shared_ptr<io::InputStream> input_stream)
              -> Result<std::shared_ptr<TableReader>> {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = 1 << 10;
     read_options.use_threads = true;
     ARROW_ASSIGN_OR_RAISE(
         auto streaming_reader,
-        StreamingReader::Make(io::default_io_context(), input_stream, read_options,
-                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+        StreamingReader::Make(io::default_io_context(), input_stream, thread_pool.get(),
+                              read_options, ParseOptions::Defaults(),
+                              ConvertOptions::Defaults()));
     return std::make_shared<StreamingReaderAsTableReader>(std::move(streaming_reader));
   };
 }
 
-Result<StreamingReaderFactory> MakeStreamingReaderFactory() {
-  return [](std::shared_ptr<io::InputStream> input_stream)
+Result<StreamingReaderFactory> MakeStreamingReaderFactory(
+    const std::shared_ptr<internal::ThreadPool>& thread_pool) {
+  return [thread_pool](std::shared_ptr<io::InputStream> input_stream)
              -> Result<std::shared_ptr<StreamingReader>> {
     auto read_options = ReadOptions::Defaults();
     read_options.block_size = 1 << 10;
     read_options.use_threads = true;
-    return StreamingReader::Make(io::default_io_context(), input_stream, read_options,
+    return StreamingReader::Make(io::default_io_context(), input_stream,
+                                 thread_pool.get(), read_options,
                                  ParseOptions::Defaults(), ConvertOptions::Defaults());
   };
 }
 
 TEST(StreamingReaderTests, Empty) {
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(
+                                             internal::ThreadPool::DefaultCapacity()));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory(thread_pool));
   TestEmptyTable(table_factory);
 }
 TEST(StreamingReaderTests, HeaderOnly) {
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingReaderFactory());
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(
+                                             internal::ThreadPool::DefaultCapacity()));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingReaderFactory(thread_pool));
   TestHeaderOnlyStreaming(table_factory);
 }
 TEST(StreamingReaderTests, Stress) {
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(
+                                             internal::ThreadPool::DefaultCapacity()));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory(thread_pool));
   StressTableReader(table_factory);
 }
 TEST(StreamingReaderTests, StressInvalid) {
-  GTEST_SKIP() << "FIXME-XYZ";
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(
+                                             internal::ThreadPool::DefaultCapacity()));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory(thread_pool));
   StressInvalidTableReader(table_factory);
 }
 TEST(StreamingReaderTests, NestedParallelism) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory(thread_pool));
   TestNestedParallelism(thread_pool, table_factory);
 }
 
@@ -308,8 +319,9 @@ TEST(StreamingReaderTest, BytesRead) {
     read_options.use_threads = false;
     ASSERT_OK_AND_ASSIGN(
         auto streaming_reader,
-        StreamingReader::Make(io::default_io_context(), input, read_options,
-                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+        StreamingReader::Make(io::default_io_context(), input, thread_pool.get(),
+                              read_options, ParseOptions::Defaults(),
+                              ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
     int64_t bytes = 6;  // Size of header (counted during StreamingReader::Make)
     do {
@@ -330,8 +342,9 @@ TEST(StreamingReaderTest, BytesRead) {
     read_options.block_size = 32;
     ASSERT_OK_AND_ASSIGN(
         auto streaming_reader,
-        StreamingReader::Make(io::default_io_context(), input, read_options,
-                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+        StreamingReader::Make(io::default_io_context(), input, thread_pool.get(),
+                              read_options, ParseOptions::Defaults(),
+                              ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
     // The header (6 bytes) and first skipped row (12 bytes) are counted during
     // StreamingReader::Make
@@ -356,8 +369,9 @@ TEST(StreamingReaderTest, BytesRead) {
 
     ASSERT_OK_AND_ASSIGN(
         auto streaming_reader,
-        StreamingReader::Make(io::default_io_context(), input, read_options,
-                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+        StreamingReader::Make(io::default_io_context(), input, thread_pool.get(),
+                              read_options, ParseOptions::Defaults(),
+                              ConvertOptions::Defaults()));
     std::shared_ptr<RecordBatch> batch;
 
     // The header is read as part of StreamingReader::Make

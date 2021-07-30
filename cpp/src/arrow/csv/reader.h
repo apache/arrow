@@ -102,7 +102,8 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
 
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      const ReadOptions&, const ParseOptions&, const ConvertOptions&);
+      internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
+      const ConvertOptions&);
 
   ARROW_DEPRECATED("Use IOContext-based overload")
   static Result<std::shared_ptr<StreamingReader>> Make(
