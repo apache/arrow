@@ -146,7 +146,7 @@ class JsonReport(Report):
         return json_tasks
 
     def get_json_tasks(self):
-        tasks = self.tasks_to_dict(self.today_str(), self.job.tasks.items())
+        tasks = self.tasks_to_dict(self.today_str(), self.job.tasks)
         json_str = json.dumps(tasks)
         return json_str
         
