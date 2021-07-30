@@ -1,6 +1,6 @@
 # Style
 
-This is a style guide for writing documentation for arrow.
+This is a style guide to writing documentation for arrow.
 
 ## Coding style
 
