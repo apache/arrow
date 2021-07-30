@@ -33,7 +33,11 @@ This directory contains:
 `@ursabot` benchmark builds are maintained in Ursa's private repo.
 Benchmark builds use `hooks.sh` functions as hooks to create conda env with Arrow dependencies and build Arrow C++/Python/R/Java/JavaScript from source for a specific Arrow repo's commit.
 
-Defining hooks in Arrow repo allows benchmark builds for a specific Arrow commit to be always compatible with Arrow's files/scripts used for installing Arrow dependencies and building Arrow, assuming Arrow contributors will update `hooks.sh` when they make these changes to files/scripts used by functions in `hooks.sh`. 
+Defining hooks in Arrow repo allows benchmark builds for a specific commit to be
+compatible with the files/scripts *in that commit* which are used for installing Arrow
+dependencies and building Arrow. This allows Arrow contributors to asses the perfomance
+implications of different build options, dependency versions, etc by updating
+`hooks.sh`.
 
 ## Can other repos and services use `benchmarks.env` and `hooks.sh`?
 
