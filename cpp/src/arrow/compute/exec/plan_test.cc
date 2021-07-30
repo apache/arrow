@@ -581,5 +581,33 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
       }))));
 }
 
+TEST(ExecPlanExecution, SourceHashLeftSemiJoin) {
+  // TODO (Niranda) add this!
+  /*  for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+      auto input = MakeGroupableBatches(*/
+  /*multiplicity=*/                    /*parallel ? 100 : 1);
+
+ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+ASSERT_OK_AND_ASSIGN(auto source,
+       MakeTestSourceNode(plan.get(), "source", input,
+                          */
+  /*parallel=*//*parallel, */ /*slow=*//*false));
+ASSERT_OK_AND_ASSIGN(
+auto gby, MakeGroupByNode(source, "gby", */
+  /*keys=*//*{"str"}, */ /*targets=*/  /*{"i32"},
+{{"hash_sum", nullptr}}));
+auto sink_gen = MakeSinkNode(gby, "sink");
+
+ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+{int64(), utf8()},
+parallel ? R"([[800, "alfa"], [1000, "beta"], [400, "gama"]])"
+: R"([[8, "alfa"], [10, "beta"], [4, "gama"]])")}))));
+}*/
+}
+
 }  // namespace compute
 }  // namespace arrow

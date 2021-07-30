@@ -1351,7 +1351,7 @@ struct HashSemiJoinNode : ExecNode {
   // cached_probe_batches, because when probing everyone
   Status BuildSideMerge() {
     ThreadLocalState* state0 = &local_states_[0];
-    for (int i = 1; i < local_states_.size(); ++i) {
+    for (size_t i = 1; i < local_states_.size(); ++i) {
       ThreadLocalState* state = &local_states_[i];
       ARROW_DCHECK(state);
       ARROW_DCHECK(state->grouper);
