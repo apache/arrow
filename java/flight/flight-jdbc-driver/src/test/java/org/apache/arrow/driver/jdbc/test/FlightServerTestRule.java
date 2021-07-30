@@ -40,7 +40,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSourceFactory;
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -111,7 +111,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
-  private final BasicDataSource dataSource;
+  private final ArrowFlightJdbcDataSource dataSource;
 
   FlightServerTestRule(Map<BaseProperty, Object> properties) {
     this(properties, new RootAllocator(Long.MAX_VALUE));
@@ -123,16 +123,11 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     this.allocator = allocator;
 
-    final ArrowFlightJdbcDataSourceFactory dataSourceFactory = new ArrowFlightJdbcDataSourceFactory();
-    dataSourceFactory.setHost((String) getProperty(HOST));
-    dataSourceFactory.setPort((Integer) getProperty(PORT));
-    dataSourceFactory.setUsername((String) getProperty(USERNAME));
-    dataSourceFactory.setPassword((String) getProperty(PASSWORD));
-    try {
-      this.dataSource = dataSourceFactory.createDataSource();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    this.dataSource = new ArrowFlightJdbcDataSource();
+    dataSource.setHost((String) getProperty(HOST));
+    dataSource.setPort((Integer) getProperty(PORT));
+    dataSource.setUsername((String) getProperty(USERNAME));
+    dataSource.setPassword((String) getProperty(PASSWORD));
   }
 
   /**
@@ -396,7 +391,5 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   public void close() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
     AutoCloseables.close(allocator);
-
-    dataSource.close();
   }
 }
