@@ -60,8 +60,7 @@ jobs:
         image:
           - conda-cpp
           - ubuntu-cpp-sanitizer
-          - ubuntu-cpp-cls
-          - ubuntu-python-cls
+          - ubuntu-cpp-skyhook
         include:
           - image: conda-cpp
             title: AMD64 Conda C++
@@ -69,12 +68,9 @@ jobs:
             title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
           - image: |
               -e CPP_MAKE_PARALLELISM=2 \
-              ubuntu-cpp-cls
+              ubuntu-cpp-skyhook
             ubuntu: 20.04
             title: AMD64 Ubuntu 20.04 C++ (Skyhook Format)
-          - image: ubuntu-python-cls
-            ubuntu: 20.04
-            title: AMD64 Ubuntu 20.04 Python (Skyhook Format)
     env:
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
     steps:

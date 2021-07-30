@@ -119,8 +119,8 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
-    - ubuntu-cpp-cls
-    - ubuntu-python-cls
+    - ubuntu-cpp-skyhook
+    - ubuntu-python-skyhook
     - ubuntu-cls-demo
     - ubuntu-c-glib:
       - ubuntu-ruby
@@ -877,10 +877,10 @@ services:
 
   ##############################  Integration #################################
 
-  ubuntu-cpp-cls:
+  ubuntu-cpp-skyhook:
     # Usage:
-    #   docker-compose build ubuntu-cpp-cls
-    #   docker-compose run --rm ubuntu-cpp-cls
+    #   docker-compose build ubuntu-cpp-skyhook
+    #   docker-compose run --rm ubuntu-cpp-skyhook
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   UBUNTU: 16.04, 18.04, 20.04
@@ -903,13 +903,13 @@ services:
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_CLS: "ON"
     volumes: *ubuntu-volumes
-    command: &cpp-cls-command >
+    command: &cpp-skyhook-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_ceph.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
-  ubuntu-python-cls:
+  ubuntu-python-skyhook:
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -926,7 +926,7 @@ services:
       ARROW_CLS: "ON"
       ARROW_RADOS: "ON"
     volumes: *ubuntu-volumes
-    command: &python-cls-command >
+    command: &python-skyhook-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&

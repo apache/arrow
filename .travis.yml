@@ -80,13 +80,13 @@ jobs:
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
     
-    - name: "C++ on ARM (with Rados CLS)"
+    - name: "C++ on ARM (with Skyhook)"
       os: linux
       arch: arm64
       env:
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
-        DOCKER_IMAGE_ID: ubuntu-cpp-cls
+        DOCKER_IMAGE_ID: ubuntu-cpp-skyhook
         # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
         # glog and CMAKE_UNITY_BUILD=ON.
         #

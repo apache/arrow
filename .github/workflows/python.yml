@@ -54,6 +54,7 @@ jobs:
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.7-pandas-latest
+          - ubuntu-python-skyhook
         include:
           - name: conda-python-3.8-nopandas
             cache: conda-python-3.8
@@ -73,6 +74,11 @@ jobs:
             title: AMD64 Conda Python 3.7 Pandas latest
             python: 3.7
             pandas: latest
+          - name: ubuntu-python-skyhook
+            image: ubuntu-python-skyhook
+            title: AMD64 Ubuntu 20.04 Python (Skyhook Format)
+            ubuntu: 20.04
+            python: 3.7
     env:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
