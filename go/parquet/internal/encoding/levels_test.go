@@ -83,7 +83,8 @@ func verifyDecodingLvls(t *testing.T, enc parquet.Encoding, maxLvl int16, input 
 	)
 
 	// decode levels and test with multiple decode calls
-	decoder.SetData(enc, maxLvl, numLevels, buf)
+	_, err := decoder.SetData(enc, maxLvl, numLevels, buf)
+	assert.NoError(t, err)
 	// try multiple decoding on a single setdata call
 	for ct := 0; ct < decodeCount; ct++ {
 		offset := ct * numInnerLevels
@@ -120,7 +121,8 @@ func verifyDecodingMultipleSetData(t *testing.T, enc parquet.Encoding, max int16
 	for ct := 0; ct < setdataCount; ct++ {
 		offset := ct * numLevels
 		assert.Len(t, output, numLevels)
-		decoder.SetData(enc, max, numLevels, buf[ct])
+		_, err := decoder.SetData(enc, max, numLevels, buf[ct])
+		assert.NoError(t, err)
 		lvlCount, _ = decoder.Decode(output)
 		assert.Equal(t, numLevels, lvlCount)
 		assert.Equal(t, input[offset:offset+numLevels], output)
@@ -279,7 +281,9 @@ func TestEncodeDecodeLevels(t *testing.T) {
 	binary.LittleEndian.PutUint32(prefix[:], uint32(len(buf)))
 
 	var decoder encoding.LevelDecoder
-	decoder.SetData(parquet.Encodings.RLE, 1, numToEncode, append(prefix[:], buf...))
+	_, err := decoder.SetData(parquet.Encodings.RLE, 1, numToEncode, append(prefix[:], buf...))
+	assert.NoError(t, err)
+
 	var levelOut [numToEncode]int16
 	total, vals := decoder.Decode(levelOut[:])
 	assert.EqualValues(t, numToEncode, total)

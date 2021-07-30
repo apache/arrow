@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/parquet"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/utils"
+	"golang.org/x/xerrors"
 )
 
 // LevelEncoder is for handling the encoding of Definition and Repetition levels
@@ -87,7 +88,8 @@ func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w io.Writer
 
 // EncodeNoFlush encodes the provided levels in the encoder, but doesn't flush
 // the buffer and return it yet, appending these encoded values. Returns the number
-// of values encoded.
+// of values encoded. A return value that is not equal to len(lvls) indicates a failure
+// or an issue during encoding.
 func (l *LevelEncoder) EncodeNoFlush(lvls []int16) int {
 	nencoded := 0
 	if l.rle == nil && l.bit == nil {
@@ -171,17 +173,19 @@ func (l *LevelEncoder) Len() int {
 // parquet file supporting bit packed and run length encoded values.
 type LevelDecoder struct {
 	bitWidth  int
-	remaining int
+	remaining int // the number of values left to be decoded in the input data
 	maxLvl    int16
 	encoding  format.Encoding
-	rle       *utils.RleDecoder
-	bit       *utils.BitReader
+	// only one of the following should ever be set at a time based on the
+	// encoding format.
+	rle *utils.RleDecoder
+	bit *utils.BitReader
 }
 
 // SetData sets in the data to be decoded by subsequent calls by specifying the encoding type
 // the maximum level (which is what determines the bit width), the number of values expected
 // and the raw bytes to decode. Returns the number of bytes expected to be decoded.
-func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffered int, data []byte) int {
+func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffered int, data []byte) (int, error) {
 	l.maxLvl = maxLvl
 	l.encoding = format.Encoding(encoding)
 	l.remaining = nbuffered
@@ -190,12 +194,12 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 	switch encoding {
 	case parquet.Encodings.RLE:
 		if len(data) < 4 {
-			panic("parquet: received invalid levels (corrupt data page?)")
+			return 0, xerrors.New("parquet: received invalid levels (corrupt data page?)")
 		}
 
 		nbytes := int32(binary.LittleEndian.Uint32(data[:4]))
 		if nbytes < 0 || nbytes > int32(len(data)-4) {
-			panic("parquet: received invalid number of bytes (corrupt data page?)")
+			return 0, xerrors.New("parquet: received invalid number of bytes (corrupt data page?)")
 		}
 
 		buf := data[4:]
@@ -204,33 +208,33 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 		} else {
 			l.rle.Reset(bytes.NewReader(buf), l.bitWidth)
 		}
-		return int(nbytes) + 4
+		return int(nbytes) + 4, nil
 	case parquet.Encodings.BitPacked:
 		nbits, ok := overflow.Mul(nbuffered, l.bitWidth)
 		if !ok {
-			panic("parquet: number of buffered values too large (corrupt data page?)")
+			return 0, xerrors.New("parquet: number of buffered values too large (corrupt data page?)")
 		}
 
 		nbytes := bitutil.BytesForBits(int64(nbits))
 		if nbytes < 0 || nbytes > int64(len(data)) {
-			panic("parquet: recieved invalid number of bytes (corrupt data page?)")
+			return 0, xerrors.New("parquet: recieved invalid number of bytes (corrupt data page?)")
 		}
 		if l.bit == nil {
 			l.bit = utils.NewBitReader(bytes.NewReader(data))
 		} else {
 			l.bit.Reset(bytes.NewReader(data))
 		}
-		return int(nbytes)
+		return int(nbytes), nil
 	default:
-		panic("parquet: unknown encoding type for levels")
+		return 0, xerrors.Errorf("parquet: unknown encoding type for levels '%s'", encoding)
 	}
 }
 
 // SetDataV2 is the same as SetData but only for DataPageV2 pages and only supports
 // run length encoding.
-func (l *LevelDecoder) SetDataV2(nbytes int32, maxLvl int16, nbuffered int, data []byte) {
+func (l *LevelDecoder) SetDataV2(nbytes int32, maxLvl int16, nbuffered int, data []byte) error {
 	if nbytes < 0 {
-		panic("parquet: invalid page header (corrupt data page?)")
+		return xerrors.New("parquet: invalid page header (corrupt data page?)")
 	}
 
 	l.maxLvl = maxLvl
@@ -243,6 +247,7 @@ func (l *LevelDecoder) SetDataV2(nbytes int32, maxLvl int16, nbuffered int, data
 	} else {
 		l.rle.Reset(bytes.NewReader(data), l.bitWidth)
 	}
+	return nil
 }
 
 // Decode decodes the bytes that were set with SetData into the slice of levels
