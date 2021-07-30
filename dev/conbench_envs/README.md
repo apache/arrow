@@ -44,6 +44,7 @@ implications of different build options, dependency versions, etc by updating
 Yes, other repos and services are welcome to use `benchmarks.env` and `hooks.sh` as long as 
 - existing hooks are not removed or renamed.
 - function definitions for exiting hooks can only be updated in the Arrow commit where Arrow build scripts or files with dependencies have been renamed, moved or added.
+- benchmark builds are run using `@ursabot please benchmark` PR comment to confirm that function definition updates do not break benchmark builds.
 
 ## How can other repos and services use `benchmarks.env` and `hooks.sh` to setup benchmark env?
 Here are steps how `@ursabot` benchmark builds use `benchmarks.env` and `hooks.sh` to setup benchmarking env on Ubuntu:
