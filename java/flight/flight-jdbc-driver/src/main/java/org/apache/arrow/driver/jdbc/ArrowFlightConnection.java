@@ -159,6 +159,10 @@ public class ArrowFlightConnection extends AvaticaConnection {
     return new HeaderCallOption(headers);
   }
 
+  /**
+   * Gets the {@link ExecutorService} of this connection.
+   * @return the {@link #executorService}.
+   */
   public synchronized ExecutorService getExecutorService() {
     if (executorService == null) {
       final int threadPoolSize = getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
