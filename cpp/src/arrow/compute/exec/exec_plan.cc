@@ -348,13 +348,14 @@ ExecFactoryRegistry* default_exec_factory_registry() {
 
 struct HashSemiJoinNode : ExecNode {
   HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
-                   std::shared_ptr<Schema> output_schema, ExecContext* ctx,
-                   const std::vector<int>&& index_field_ids)
+                   ExecContext* ctx, const std::vector<int>&& build_index_field_ids,
+                   const std::vector<int>&& probe_index_field_ids)
       : ExecNode(build_input->plan(), std::move(label), {build_input, probe_input},
-                 {"hash_join_build", "hash_join_probe"}, std::move(output_schema),
+                 {"hash_join_build", "hash_join_probe"}, probe_input->output_schema(),
                  /*num_outputs=*/1),
         ctx_(ctx),
-        index_field_ids_(index_field_ids),
+        build_index_field_ids_(build_index_field_ids),
+        probe_index_field_ids_(probe_index_field_ids),
         build_side_complete_(false) {}
 
  private:
@@ -365,15 +366,15 @@ struct HashSemiJoinNode : ExecNode {
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
-    auto input_schema = inputs_[0]->output_schema();
+    auto build_schema = inputs_[0]->output_schema();
 
     if (state->grouper != nullptr) return Status::OK();
 
     // Build vector of key field data types
-    std::vector<ValueDescr> key_descrs(index_field_ids_.size());
-    for (size_t i = 0; i < index_field_ids_.size(); ++i) {
-      auto idx_field_id = index_field_ids_[i];
-      key_descrs[i] = ValueDescr(input_schema->field(idx_field_id)->type());
+    std::vector<ValueDescr> key_descrs(build_index_field_ids_.size());
+    for (size_t i = 0; i < build_index_field_ids_.size(); ++i) {
+      auto build_type = build_schema->field(build_index_field_ids_[i])->type();
+      key_descrs[i] = ValueDescr(build_type);
     }
 
     // Construct grouper
@@ -405,9 +406,9 @@ struct HashSemiJoinNode : ExecNode {
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     // Create a batch with key columns
-    std::vector<Datum> keys(index_field_ids_.size());
-    for (size_t i = 0; i < index_field_ids_.size(); ++i) {
-      keys[i] = batch.values[index_field_ids_[i]];
+    std::vector<Datum> keys(build_index_field_ids_.size());
+    for (size_t i = 0; i < build_index_field_ids_.size(); ++i) {
+      keys[i] = batch.values[build_index_field_ids_[i]];
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
 
@@ -446,9 +447,9 @@ struct HashSemiJoinNode : ExecNode {
     auto* grouper = local_states_[0].grouper.get();
 
     // Create a batch with key columns
-    std::vector<Datum> keys(index_field_ids_.size());
-    for (size_t i = 0; i < index_field_ids_.size(); ++i) {
-      keys[i] = batch.values[index_field_ids_[i]];
+    std::vector<Datum> keys(probe_index_field_ids_.size());
+    for (size_t i = 0; i < probe_index_field_ids_.size(); ++i) {
+      keys[i] = batch.values[probe_index_field_ids_[i]];
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
 
@@ -502,12 +503,12 @@ struct HashSemiJoinNode : ExecNode {
       // if a build input is received when build side is completed, something's wrong!
       ARROW_DCHECK(!build_side_complete_.load());
 
-      if (ErrorIfNotOk(ConsumeBuildBatch(thread_index, std::move(batch)))) return;
+      ErrorIfNotOk(ConsumeBuildBatch(thread_index, std::move(batch)));
     } else {                              // probe input batch is received
       if (build_side_complete_.load()) {  // build side done, continue with probing
-        if (ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)))) return;
+        ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
       } else {  // build side not completed. Cache this batch!
-        if (ErrorIfNotOk(CacheProbeBatch(thread_index, seq, std::move(batch)))) return;
+        ErrorIfNotOk(CacheProbeBatch(thread_index, seq, std::move(batch)));
       }
     }
   }
@@ -586,7 +587,7 @@ struct HashSemiJoinNode : ExecNode {
   Future<> finished_ = Future<>::MakeFinished();
 
   ThreadIndexer get_thread_index_;
-  const std::vector<int> index_field_ids_;
+  const std::vector<int> build_index_field_ids_, probe_index_field_ids_;
 
   AtomicCounter build_counter_, /*probe_counter_,*/ out_counter_;
   std::vector<ThreadLocalState> local_states_;
@@ -597,6 +598,79 @@ struct HashSemiJoinNode : ExecNode {
   // consumed.
   std::atomic<bool> build_side_complete_;
 };
+
+Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,
+                          const std::vector<std::string>& left_keys,
+                          const std::vector<std::string>& right_keys) {
+  if (left_keys.size() != right_keys.size()) {
+    return Status::Invalid("left and right key sizes do not match");
+  }
+
+  const auto& l_schema = left_input->output_schema();
+  const auto& r_schema = right_input->output_schema();
+  for (size_t i = 0; i < left_keys.size(); i++) {
+    auto l_type = l_schema->GetFieldByName(left_keys[i])->type();
+    auto r_type = r_schema->GetFieldByName(right_keys[i])->type();
+
+    if (!l_type->Equals(r_type)) {
+      return Status::Invalid("build and probe types do not match: " + l_type->ToString() +
+                             "!=" + r_type->ToString());
+    }
+  }
+
+  return Status::OK();
+}
+
+Result<std::vector<int>> PopulateKeys(const Schema& schema,
+                                      const std::vector<std::string>& keys) {
+  std::vector<int> key_field_ids(keys.size());
+  // Find input field indices for left key fields
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(keys[i]).FindOne(schema));
+    key_field_ids[i] = match[0];
+  }
+
+  return key_field_ids;
+}
+
+Result<ExecNode*> MakeHashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input,
+                                       std::string label,
+                                       const std::vector<std::string>& build_keys,
+                                       const std::vector<std::string>& probe_keys) {
+  RETURN_NOT_OK(ValidateJoinInputs(build_input, probe_input, build_keys, probe_keys));
+
+  auto build_schema = build_input->output_schema();
+  auto probe_schema = probe_input->output_schema();
+
+  ARROW_ASSIGN_OR_RAISE(auto build_key_ids, PopulateKeys(*build_schema, build_keys));
+  ARROW_ASSIGN_OR_RAISE(auto probe_key_ids, PopulateKeys(*probe_schema, probe_keys));
+
+  //  output schema will be probe schema
+  auto ctx = build_input->plan()->exec_context();
+  ExecPlan* plan = build_input->plan();
+
+  return plan->EmplaceNode<HashSemiJoinNode>(build_input, probe_input, std::move(label),
+                                             ctx, std::move(build_key_ids),
+                                             std::move(probe_key_ids));
+}
+
+Result<ExecNode*> MakeHashLeftSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
+                                           std::string label,
+                                           const std::vector<std::string>& left_keys,
+                                           const std::vector<std::string>& right_keys) {
+  // left join--> build from right and probe from left
+  return MakeHashSemiJoinNode(right_input, left_input, std::move(label), right_keys,
+                              left_keys);
+}
+
+Result<ExecNode*> MakeHashRightSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
+                                            std::string label,
+                                            const std::vector<std::string>& left_keys,
+                                            const std::vector<std::string>& right_keys) {
+  // right join--> build from left and probe from right
+  return MakeHashSemiJoinNode(left_input, right_input, std::move(label), left_keys,
+                              right_keys);
+}
 
 }  // namespace compute
 }  // namespace arrow
