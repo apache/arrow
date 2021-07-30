@@ -21,6 +21,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -117,6 +118,36 @@ public class ResultSetTest {
     }
   }
 
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
+   * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
+   *
+   * @throws Exception If the connection fails to be established.
+   */
+  @Test
+  public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+
+      final int maxRowsLimit = 3;
+      statement.setMaxRows(maxRowsLimit);
+
+      collector.checkThat(statement.getMaxRows(), is(maxRowsLimit));
+
+      int count = 0;
+      int columns = 6;
+      for (; resultSet.next(); count++) {
+        for (int column = 1; column <= columns; column++) {
+          resultSet.getObject(column);
+        }
+        collector.checkThat("Test Name #" + count, is(resultSet.getString(2)));
+      }
+
+      collector.checkThat(maxRowsLimit, is(count));
+    }
+  }
+
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting
    * to run an invalid query.
@@ -129,5 +160,34 @@ public class ResultSetTest {
     Statement statement = connection.createStatement();
     ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL");
     fail();
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
+   * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setLargeMaxRows(long)} (int)}.
+   *
+   * @throws Exception If the connection fails to be established.
+   */
+  @Test
+  public void testShouldRunSelectQuerySettingLargeMaxRowLimit() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
+
+      collector.checkThat(statement.getLargeMaxRows(), is(maxRowsLimit));
+
+      int count = 0;
+      int columns = 6;
+      for (; resultSet.next(); count++) {
+        for (int column = 1; column <= columns; column++) {
+          resultSet.getObject(column);
+        }
+        assertEquals("Test Name #" + count, resultSet.getString(2));
+      }
+
+      assertEquals(maxRowsLimit, count);
+    }
   }
 }
