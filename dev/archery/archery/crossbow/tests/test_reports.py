@@ -33,3 +33,12 @@ def test_crossbow_comment_formatter(load_fixture):
         status='has been succeeded.'
     )
     assert report.show() == textwrap.dedent(expected).strip()
+    
+# def test_crossbow_json_COMPLETE_THIS(load_fixture):
+#    msg = load_fixture('crossbow-success-message.md')
+#    job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
+#
+#    report = JsonReport(job)
+#    expected = 'should be json_str'
+#    assert report.show() == 'should be a json type text'
+
