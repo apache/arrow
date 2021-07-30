@@ -346,10 +346,10 @@ ExecFactoryRegistry* default_exec_factory_registry() {
   return &instance;
 }
 
-struct HashSemiIndexJoinNode : ExecNode {
-  HashSemiIndexJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
-                        std::shared_ptr<Schema> output_schema, ExecContext* ctx,
-                        const std::vector<int>&& index_field_ids)
+struct HashSemiJoinNode : ExecNode {
+  HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
+                   std::shared_ptr<Schema> output_schema, ExecContext* ctx,
+                   const std::vector<int>&& index_field_ids)
       : ExecNode(build_input->plan(), std::move(label), {build_input, probe_input},
                  {"hash_join_build", "hash_join_probe"}, std::move(output_schema),
                  /*num_outputs=*/1),
@@ -360,9 +360,9 @@ struct HashSemiIndexJoinNode : ExecNode {
  private:
   struct ThreadLocalState;
 
-  const char* kind_name() override { return "HashSemiIndexJoinNode"; }
-
  public:
+  const char* kind_name() override { return "HashSemiJoinNode"; }
+
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
     // Get input schema
     auto input_schema = inputs_[0]->output_schema();
@@ -428,99 +428,12 @@ struct HashSemiIndexJoinNode : ExecNode {
     return Status::OK();
   }
 
-  Status Finalize() {
-    ThreadLocalState* state = &local_states_[0];
-
-    ExecBatch out_data{{}, state->grouper->num_groups()};
-    out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
-
-    // Aggregate fields come before key fields to match the behavior of GroupBy function
-    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      KernelContext batch_ctx{ctx_};
-      batch_ctx.SetState(state->agg_states[i].get());
-      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
-      state->agg_states[i].reset();
-    }
-
-    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
-    std::move(out_keys.values.begin(), out_keys.values.end(),
-              out_data.values.begin() + agg_kernels_.size());
-    state->grouper.reset();
-
-    if (output_counter_.SetTotal(
-            static_cast<int>(BitUtil::CeilDiv(out_data.length, output_batch_size())))) {
-      // this will be hit if out_data.length == 0
-      finished_.MarkFinished();
-    }
-    return out_data;
-  }
-
-  Status OutputNthBatch(int n) {
-    ARROW_DCHECK(output_started_.load());
-
-    // Check finished flag
-    if (finished_.is_finished()) {
-      return Status::OK();
-    }
-
-    // Slice arrays
-    int64_t batch_size = output_batch_size();
-    int64_t batch_start = n * batch_size;
-    int64_t batch_length = std::min(batch_size, num_out_groups_ - batch_start);
-    std::vector<Datum> output_slices(out_data_.size());
-    for (size_t out_field_id = 0; out_field_id < out_data_.size(); ++out_field_id) {
-      output_slices[out_field_id] =
-          out_data_[out_field_id]->Slice(batch_start, batch_length);
-    }
-
-    ARROW_ASSIGN_OR_RAISE(ExecBatch output_batch, ExecBatch::Make(output_slices));
-    outputs_[0]->InputReceived(this, n, output_batch);
-
-    uint32_t num_output_batches_processed =
-        1 + num_output_batches_processed_.fetch_add(1);
-    if (num_output_batches_processed * batch_size >= num_out_groups_) {
-      finished_.MarkFinished();
-    }
-
-    return Status::OK();
-  }
-
-  Status OutputResult() {
-    bool expected = false;
-    if (!output_started_.compare_exchange_strong(expected, true)) {
-      return Status::OK();
-    }
-
-    RETURN_NOT_OK(Finalize());
-
-    int batch_size = output_batch_size();
-    int num_result_batches = (num_out_groups_ + batch_size - 1) / batch_size;
-    outputs_[0]->InputFinished(this, num_result_batches);
-
-    auto executor = arrow::internal::GetCpuThreadPool();
-    for (int i = 0; i < num_result_batches; ++i) {
-      // Check finished flag
-      if (finished_.is_finished()) {
-        break;
-      }
-
-      RETURN_NOT_OK(executor->Spawn([this, i]() {
-        Status status = OutputNthBatch(i);
-        if (!status.ok()) {
-          ErrorReceived(inputs_[0], status);
-        }
-      }));
-    }
-
-    return Status::OK();
-  }
-
   Status ConsumeCachedProbeBatches(const size_t thread_index) {
     ThreadLocalState* state = &local_states_[thread_index];
 
     // TODO (niranda) check if this is the best way to move batches
-    for (ExecBatch batch : state->cached_probe_batches) {
-      RETURN_NOT_OK(ConsumeProbeBatch(std::move(batch)));
+    for (auto cached : state->cached_probe_batches) {
+      RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
     }
     state->cached_probe_batches.clear();
 
@@ -529,7 +442,7 @@ struct HashSemiIndexJoinNode : ExecNode {
 
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[0] which have been merged with all others.
-  Status ConsumeProbeBatch(ExecBatch batch) {
+  Status ConsumeProbeBatch(int seq, ExecBatch batch) {
     auto* grouper = local_states_[0].grouper.get();
 
     // Create a batch with key columns
@@ -544,24 +457,34 @@ struct HashSemiIndexJoinNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Datum group_ids, grouper->Find(key_batch));
     auto group_ids_data = *group_ids.array();
 
-    auto filter_arr =
-        std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
-                                       /*null_bitmap=*/nullptr, /*null_count=*/0,
-                                       /*offset=*/group_ids_data.offset);
-    Filter();
+    if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
+      auto filter_arr =
+          std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
+                                         /*null_bitmap=*/nullptr, /*null_count=*/0,
+                                         /*offset=*/group_ids_data.offset);
+      ARROW_ASSIGN_OR_RAISE(auto rec_batch,
+                            batch.ToRecordBatch(output_schema_, ctx_->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          auto filtered,
+          Filter(rec_batch, filter_arr,
+                 /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
+      auto out_batch = ExecBatch(*filtered.record_batch());
+      outputs_[0]->InputReceived(this, seq, std::move(out_batch));
+    } else {  // all values are valid for output
+      outputs_[0]->InputReceived(this, seq, std::move(batch));
+    }
 
-    probe_counter_.Increment();
+    out_counter_.Increment();
     return Status::OK();
   }
 
-  Status CacheProbeBatch(const size_t thread_index, ExecBatch batch) {
+  Status CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
     ThreadLocalState* state = &local_states_[thread_index];
-    state->cached_probe_batches.push_back(std::move(batch));
+    state->cached_probe_batches.emplace_back(seq_num, std::move(batch));
     return Status::OK();
   }
 
   inline bool IsBuildInput(ExecNode* input) { return input == inputs_[0]; }
-  inline bool IsProbeInput(ExecNode* input) { return input == inputs_[1]; }
 
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
@@ -582,9 +505,9 @@ struct HashSemiIndexJoinNode : ExecNode {
       if (ErrorIfNotOk(ConsumeBuildBatch(thread_index, std::move(batch)))) return;
     } else {                              // probe input batch is received
       if (build_side_complete_.load()) {  // build side done, continue with probing
-        if (ErrorIfNotOk(ConsumeProbeBatch(std::move(batch)))) return;
+        if (ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)))) return;
       } else {  // build side not completed. Cache this batch!
-        if (ErrorIfNotOk(CacheProbeBatch(thread_index, std::move(batch)))) return;
+        if (ErrorIfNotOk(CacheProbeBatch(thread_index, seq, std::move(batch)))) return;
       }
     }
   }
@@ -611,10 +534,13 @@ struct HashSemiIndexJoinNode : ExecNode {
 
     // set total for probe input. If it returns that probe side has completed, nothing to
     // do, because probing inputs will be streamed to the output
-    probe_counter_.SetTotal(num_total);
+    // probe_counter_.SetTotal(num_total);
 
     // output will be streamed from the probe side. So, they will have the same total.
-    out_counter_.SetTotal(num_total);
+    if (out_counter_.SetTotal(num_total)) {
+      // if out_counter has completed, the future is finished!
+      finished_.MarkFinished();
+    }
   }
 
   Status StartProducing() override {
@@ -629,9 +555,9 @@ struct HashSemiIndexJoinNode : ExecNode {
   void ResumeProducing(ExecNode* output) override {}
 
   void StopProducing(ExecNode* output) override {
-    // DCHECK_EQ(output, outputs_[0]);
+    DCHECK_EQ(output, outputs_[0]);
 
-    if (build_counter_.Cancel() || probe_counter_.Cancel() || out_counter_.Cancel()) {
+    if (build_counter_.Cancel() || /*probe_counter_.Cancel() ||*/ out_counter_.Cancel()) {
       finished_.MarkFinished();
     }
 
@@ -650,17 +576,10 @@ struct HashSemiIndexJoinNode : ExecNode {
   Future<> finished() override { return finished_; }
 
  private:
-  int output_batch_size() const {
-    int result = static_cast<int>(ctx_->exec_chunksize());
-    if (result < 0) {
-      result = 32 * 1024;
-    }
-    return result;
-  }
 
   struct ThreadLocalState {
     std::unique_ptr<internal::Grouper> grouper;
-    std::vector<ExecBatch> cached_probe_batches{};
+    std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
   };
 
   ExecContext* ctx_;
@@ -669,7 +588,7 @@ struct HashSemiIndexJoinNode : ExecNode {
   ThreadIndexer get_thread_index_;
   const std::vector<int> index_field_ids_;
 
-  AtomicCounter build_counter_, probe_counter_, out_counter_;
+  AtomicCounter build_counter_, /*probe_counter_,*/ out_counter_;
   std::vector<ThreadLocalState> local_states_;
 
   // need a separate atomic bool to track if the build side complete. Can't use the flag
@@ -677,8 +596,6 @@ struct HashSemiIndexJoinNode : ExecNode {
   // all the build batches. So, while merging, we need to prevent probe batches, being
   // consumed.
   std::atomic<bool> build_side_complete_;
-
-  ExecBatch out_data_;
 };
 
 }  // namespace compute
