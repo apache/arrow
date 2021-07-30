@@ -1249,6 +1249,18 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  auto reader_fut =
+      MakeStreamingReader(io_context, std::move(input), internal::GetCpuThreadPool(),
+                          read_options, parse_options, convert_options);
+  auto reader_result = reader_fut.result();
+  ARROW_ASSIGN_OR_RAISE(auto reader, reader_result);
+  return reader;
+}
+
+Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     internal::Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
