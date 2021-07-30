@@ -56,7 +56,6 @@ TEST(GetTakeIndices, Basics) {
   };
 
   // Drop null cases
-  // TODO: aocsa
   CheckCase("[]", "[]", FilterOptions::DROP);
   CheckCase("[null]", "[]", FilterOptions::DROP);
   CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]", FilterOptions::DROP);
@@ -1733,6 +1732,198 @@ TEST(TestTake, RandomString) {
 TEST(TestTake, RandomFixedSizeBinary) {
   TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(0));
   TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(16));
+}
+
+// ----------------------------------------------------------------------
+// DropNull tests
+
+void AssertDropNullArrays(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, DropNull(*values));
+  ValidateOutput(actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+
+Status DropNullJSON(const std::shared_ptr<DataType>& type, const std::string& values,
+                std::shared_ptr<Array>* out) {
+  return DropNull(*ArrayFromJSON(type, values)).Value(out);
+}
+
+
+void CheckDropNull(const std::shared_ptr<DataType>& type, const std::string& values, const std::string& expected) {
+  std::shared_ptr<Array> actual;
+
+  ASSERT_OK(DropNullJSON(type, values, &actual));
+  ValidateOutput(actual);
+  AssertArraysEqual(*ArrayFromJSON(type, expected), *actual, /*verbose=*/true);
+}
+
+struct TestDropNullKernel : public ::testing::Test {
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<Array>& values) {
+    ASSERT_EQ(values->null_count(), 0);
+    auto expected = (*DropNull(values)).make_array();
+
+    auto new_values = MakeArray(values->data()->Copy());
+    new_values->data()->buffers[0].reset();
+    new_values->data()->null_count = kUnknownNullCount;
+    auto result = (*DropNull(new_values)).make_array();
+    AssertArraysEqual(*expected, *result);
+  }
+
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<DataType>& type,
+                                               const std::string& values) {
+    TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values));
+  }
+};
+
+TEST_F(TestDropNullKernel, DropNull) {
+  CheckDropNull(null(), "[null, null, null]", "[]");
+  CheckDropNull(null(), "[null]", "[]");
+}
+
+TEST_F(TestDropNullKernel, DropNullBoolean) {
+  CheckDropNull(boolean(), "[true, false, true]", "[true, false, true]");
+  CheckDropNull(boolean(), "[null, false, true]", "[false, true]");
+
+  TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]");
+}
+
+template <typename ArrowType>
+class TestDropNullKernelTyped : public TestDropNullKernel {};
+
+template <typename ArrowType>
+class TestDropNullKernelWithNumeric : public TestDropNullKernelTyped<ArrowType> {
+ protected:
+  void AssertDropNull(const std::string& values,
+                  const std::string& expected) {
+    CheckDropNull(type_singleton(), values, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+};
+
+TYPED_TEST_SUITE(TestDropNullKernelWithNumeric, NumericArrowTypes);
+TYPED_TEST(TestDropNullKernelWithNumeric, DropNullNumeric) {
+  this->AssertDropNull("[7, 8, 9]", "[7, 8, 9]");
+  this->AssertDropNull("[null, 8, 9]", "[8, 9]");
+  this->AssertDropNull("[null, null, null]", "[]");
+}
+
+template <typename TypeClass>
+class TestDropNullKernelWithString : public TestDropNullKernelTyped<TypeClass> {
+ public:
+  std::shared_ptr<DataType> value_type() {
+    return TypeTraits<TypeClass>::type_singleton();
+  }
+
+  void AssertDropNull(const std::string& values, const std::string& expected) {
+    CheckDropNull(value_type(), values, expected);
+  }
+
+  void AssertDropNullDictionary(const std::string& dictionary_values,
+                            const std::string& dictionary_indices,
+                            const std::string& expected_indices) {
+    auto dict = ArrayFromJSON(value_type(), dictionary_values);
+    auto type = dictionary(int8(), value_type());
+    ASSERT_OK_AND_ASSIGN(auto values,
+                         DictionaryArray::FromArrays(
+                             type, ArrayFromJSON(int8(), dictionary_indices), dict));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
+    AssertDropNullArrays(values, expected);
+  }
+};
+
+TYPED_TEST_SUITE(TestDropNullKernelWithString, BinaryTypes);
+
+TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
+  this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");
+  this->AssertDropNull(R"([null, "b", "c"])", "[\"b\", \"c\"]");
+  this->AssertDropNull(R"(["a", "b", null])", R"(["a", "b"])");
+
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])");
+}
+
+TYPED_TEST(TestDropNullKernelWithString, DropNullDictionary) {
+  auto dict = R"(["a", "b", "c", "d", "e"])";
+  this->AssertDropNullDictionary(dict, "[3, 4, 2]", "[3, 4, 2]");
+  this->AssertDropNullDictionary(dict, "[null, 4, 2]", "[4, 2]");
+}
+
+
+class TestDropNullKernelFSB : public TestDropNullKernelTyped<FixedSizeBinaryType> {
+ public:
+  std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
+
+  void AssertDropNull(const std::string& values, const std::string& expected) {
+    CheckDropNull(value_type(), values, expected);
+  }
+};
+
+TEST_F(TestDropNullKernelFSB, DropNullFixedSizeBinary) {
+  this->AssertDropNull(R"(["aaa", "bbb", "ccc"])", R"(["aaa", "bbb", "ccc"])");
+  this->AssertDropNull(R"([null, "bbb", "ccc"])", "[\"bbb\", \"ccc\"]");
+  
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(),
+                                                R"(["aaa", "bbb", "ccc"])");
+}
+
+class TestDropNullKernelWithList : public TestDropNullKernelTyped<ListType> {};
+
+TEST_F(TestDropNullKernelWithList, DropNullListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  CheckDropNull(list(int32()), list_json,  "[[], [1,2], [3]]");
+  this->TestNoValidityBitmapButUnknownNullCount(list(int32()), "[[], [1,2], [3]]");
+}
+
+TEST_F(TestDropNullKernelWithList, DropNullListListInt32) {
+  std::string list_json = R"([
+    [],
+    [[1], [2, null, 2], []],
+    null,
+    [[3, null], null]
+  ])";
+  auto type = list(list(int32()));
+  CheckDropNull(type, list_json, R"([
+    [],
+    [[1], [2, null, 2], []],
+    [[3, null], null]
+  ])");
+
+  this->TestNoValidityBitmapButUnknownNullCount(type, "[[[1], [2, null, 2], []], [[3, null]]]");
+}
+
+class TestDropNullKernelWithLargeList : public TestDropNullKernelTyped<LargeListType> {};
+
+TEST_F(TestDropNullKernelWithLargeList, DropNullLargeListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  CheckDropNull(large_list(int32()), list_json, "[[], [1,2],  [3]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
+                                                "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
+}
+
+class TestDropNullKernelWithFixedSizeList : public TestDropNullKernelTyped<FixedSizeListType> {};
+
+TEST_F(TestDropNullKernelWithFixedSizeList, DropNullFixedSizeListInt32) {
+  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
+  CheckDropNull(fixed_size_list(int32(), 3), list_json, "[1, 3, 4, 5, 6, 7, 8]");
+}
+
+class TestDropNullKernelWithMap : public TestDropNullKernelTyped<MapType> {};
+
+TEST_F(TestDropNullKernelWithMap, DropNullMapStringToInt32) {
+  std::string map_json = R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])";
+  CheckDropNull(map(utf8(), int32()), map_json, "[]");
 }
 
 }  // namespace compute

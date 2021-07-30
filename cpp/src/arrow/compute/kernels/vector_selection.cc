@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <set>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
@@ -1988,7 +1989,7 @@ class FilterMetaFunction : public MetaFunction {
 
 Result<std::shared_ptr<Array>> TakeAA(const Array& values, const Array& indices,
                                       const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
+    ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("array_take", {values, indices}, &options, ctx));
   return result.make_array();
 }
@@ -2148,6 +2149,142 @@ class TakeMetaFunction : public MetaFunction {
 
 // ----------------------------------------------------------------------
 
+std::shared_ptr<arrow::Array> GetNotNullIndices(const std::shared_ptr<Array>& column, MemoryPool* memory_pool) {
+  std::shared_ptr<arrow::Array> indices;
+  arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
+  for (int64_t i = 0; i < column->length(); i++) {
+    if (column->IsValid(i)){
+      builder.Append(i);
+    }
+  }
+  builder.Finish(&indices);
+  return indices;
+} 
+
+std::shared_ptr<arrow::Array> GetNotNullIndices(const std::shared_ptr<ChunkedArray>& chunks, MemoryPool* memory_pool) {
+  std::shared_ptr<arrow::Array> indices;
+  arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
+  int64_t relative_index = 0;
+  for (int64_t chunk_index = 0; chunk_index < chunks->num_chunks(); ++chunk_index) {
+    auto column_chunk = chunks->chunk(chunk_index);
+    for (int64_t col_index = 0; col_index < column_chunk->length(); col_index++) {
+      if (column_chunk->IsValid(col_index)){
+        builder.Append(relative_index + col_index);
+      }
+    }
+    relative_index += column_chunk->length();
+  }
+  builder.Finish(&indices);
+  return indices;
+}
+
+Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch, ExecContext* ctx) {
+  int64_t length_count = 0;
+  std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    auto indices = GetNotNullIndices(batch.column(i), ctx->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),
+                                          TakeOptions::NoBoundsCheck(), ctx));
+    columns[i] = out.make_array();
+    length_count += columns[i]->length();
+  }
+  return RecordBatch::Make(batch.schema(), length_count, std::move(columns));
+}
+
+Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ctx) {
+  if (table.num_rows() == 0) {
+    return Table::Make(table.schema(), table.columns(), 0);
+  }
+  const int num_columns = table.num_columns();
+  std::vector<ArrayVector> inputs(num_columns);
+
+  // Fetch table columns
+  for (int i = 0; i < num_columns; ++i) {
+    inputs[i] = table.column(i)->chunks();
+  }
+  std::set<int32_t> notnull_indices;
+  // Rechunk inputs to allow consistent iteration over their respective chunks
+  inputs = arrow::internal::RechunkArraysConsistently(inputs);
+  
+  const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
+  for (int col = 0; col < num_columns; ++col) {
+    int64_t relative_index = 0;
+    for (int64_t chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
+      const auto& column_chunk = inputs[col][chunk_index];
+      for (int64_t i = 0; i < column_chunk->length(); ++i) {
+        if (!column_chunk->IsValid(i)) {
+          notnull_indices.insert(relative_index + i);
+        }
+      }
+      relative_index += column_chunk->length();
+    }
+  }
+  std::shared_ptr<arrow::Array> indices;
+  arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
+  for (int64_t row_index = 0; row_index < table.num_rows(); ++row_index) {
+    if (notnull_indices.find(row_index) == notnull_indices.end()) {
+      builder.Append(row_index);
+    }
+  }
+  builder.Finish(&indices);
+  return TakeTA(table, *indices, TakeOptions::Defaults(), ctx);
+}
+
+const FunctionDoc dropnull_doc(
+    "DropNull kernel",
+    ("The output is populated with values from the input without the null values"),
+    {"input"});
+
+class DropNullMetaFunction : public MetaFunction {
+ public:
+  DropNullMetaFunction()
+      : MetaFunction("dropnull", Arity::Unary(), &dropnull_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    switch (args[0].kind()) {
+      case Datum::ARRAY: 
+        {
+          const auto values = args[0].make_array();
+          auto indices = GetNotNullIndices(values, ctx->memory_pool());
+          return TakeAA(*values, *indices, TakeOptions::Defaults(), ctx);
+        }
+        break;
+      case Datum::CHUNKED_ARRAY:
+        {
+          const auto values = args[0].chunked_array();
+          // TODO @aocsa: create a chunked indices!
+          auto indices = GetNotNullIndices(values, ctx->memory_pool());
+          return TakeCA(*values, *indices, TakeOptions::Defaults(), ctx);
+        }
+        break;
+      case Datum::RECORD_BATCH:
+        {
+          ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<RecordBatch> out_batch,
+            DropNullRecordBatch(*args[0].record_batch(), ctx));
+          return Datum(out_batch);
+        }
+        break;
+      case  Datum::TABLE:
+        {
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
+                                DropNullTable(*args[0].table(), ctx));
+          return Datum(out_table);
+        }
+        break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for dropnull operation: "
+        "values=", args[0].ToString());
+  }
+};
+
+// ----------------------------------------------------------------------
+
 template <typename Impl>
 Status FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // TODO: where are the values and filter length equality checked?
@@ -2261,6 +2398,9 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       take_kernel_descrs, &kDefaultTakeOptions, registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
+
+  // DropNull kernel
+  DCHECK_OK(registry->AddFunction(std::make_shared<DropNullMetaFunction>()));
 }
 
 }  // namespace internal
