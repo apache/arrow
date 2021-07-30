@@ -255,13 +255,23 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
               indexOnBatch++;
               if (indexOnBatch == batchSize) {
                 root.setRowCount(indexOnBatch);
+
+                if (listener.isCancelled()) {
+                  return;
+                }
+
                 listener.putNext();
                 root.allocateNew();
                 indexOnBatch = 0;
               }
             }
+            if (listener.isCancelled()) {
+              return;
+            }
+
             root.setRowCount(indexOnBatch);
             listener.putNext();
+          } finally {
             listener.completed();
           }
         } else if (METADATA_QUERY_TICKETS.contains(ticketString)) {
@@ -273,7 +283,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
             root.setRowCount(1);
             listener.start(root);
             listener.putNext();
-            listener.putNext();
+          } finally {
             listener.completed();
           }
         } else {
