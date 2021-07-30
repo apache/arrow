@@ -49,6 +49,9 @@ const packageTask = ((cache) => memoizeTask(cache, function bundle(target, forma
 module.exports = packageTask;
 module.exports.packageTask = packageTask;
 
+// FIXME: set this to false when we have no side effects
+const sideEffects = true;
+
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
     bin: orig.bin,
@@ -67,7 +70,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
-    sideEffects: false,
+    sideEffects: sideEffects,
     esm: { mode: `all`, sourceMap: true }
 });
 
@@ -79,7 +82,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
     type: "module",
-    sideEffects: false,
+    sideEffects: sideEffects,
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/flatbuffers': '*',
@@ -108,7 +111,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "module" if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: format === 'esm' ? false : undefined,
+            sideEffects: format === 'esm' ? sideEffects : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" (for TypeScript/VSCode)
