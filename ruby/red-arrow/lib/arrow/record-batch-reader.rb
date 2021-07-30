@@ -15,25 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "info-generator"
-
-module Helper
-  class Server < ArrowFlight::Server
-    type_register
-
-    private
-    def virtual_do_list_flights(context, criteria)
-      generator = InfoGenerator.new
-      [generator.page_view]
-    end
-
-    def virtual_do_do_get(context, ticket)
-      generator = InfoGenerator.new
-      if ticket.data.to_s != generator.page_view_ticket
-        raise Arrow::Error::Invalid.new("invalid ticket")
+module Arrow
+  class RecordBatchReader
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when ::Array
+          return nil if value.empty?
+          if value.all? {|v| v.is_a?(RecordBatch)}
+            new(value)
+          else
+            nil
+          end
+        when RecordBatch
+          new([value])
+        when Table
+          TableBatchReader.new(value)
+        else
+          nil
+        end
       end
-      table = generator.page_view_table
-      ArrowFlight::RecordBatchStream.new(table)
     end
   end
 end

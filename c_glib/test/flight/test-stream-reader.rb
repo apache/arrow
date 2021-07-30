@@ -15,20 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFlightClient < Test::Unit::TestCase
+class TestFlightStreamReader < Test::Unit::TestCase
   include Helper::Omittable
 
   def setup
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
     omit("Unstable on Windows") if Gem.win_platform?
-    require_gi_bindings(3, 4, 7)
+    require_gi_bindings(3, 4, 5)
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")
     options = ArrowFlight::ServerOptions.new(location)
     @server.listen(options)
-    @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
+    location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
+    client = ArrowFlight::Client.new(location)
+    @generator = Helper::FlightInfoGenerator.new
+    @reader = client.do_get(@generator.page_view_ticket)
   end
 
   def teardown
@@ -36,29 +39,31 @@ class TestFlightClient < Test::Unit::TestCase
     @server.shutdown
   end
 
-  def test_list_flights
-    client = ArrowFlight::Client.new(@location)
-    generator = Helper::FlightInfoGenerator.new
-    assert_equal([generator.page_view],
-                 client.list_flights)
+  def test_read_next
+    chunks = []
+    loop do
+      chunk = @reader.read_next
+      break if chunk.nil?
+      chunks << chunk
+    end
+    chunks_content = chunks.collect do |chunk|
+      [
+        chunk.data,
+        chunk.metadata&.data&.to_s,
+      ]
+    end
+    table_batch_reader = Arrow::TableBatchReader.new(@generator.page_view_table)
+    assert_equal([
+                   [
+                     table_batch_reader.read_next,
+                     nil,
+                   ],
+                 ],
+                 chunks_content)
   end
 
-  sub_test_case("#do_get") do
-    def test_success
-      client = ArrowFlight::Client.new(@location)
-      info = client.list_flights.first
-      endpoint = info.endpoints.first
-      generator = Helper::FlightInfoGenerator.new
-      reader = client.do_get(endpoint.ticket)
-      assert_equal(generator.page_view_table,
-                   reader.read_all)
-    end
-
-    def test_error
-      client = ArrowFlight::Client.new(@location)
-      assert_raise(Arrow::Error::Invalid) do
-        client.do_get(ArrowFlight::Ticket.new("invalid"))
-      end
-    end
+  def test_read_all
+    assert_equal(@generator.page_view_table,
+                 @reader.read_all)
   end
 end

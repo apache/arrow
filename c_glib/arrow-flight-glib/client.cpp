@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <arrow-glib/error.hpp>
+#include <arrow-glib/arrow-glib.hpp>
 
 #include <arrow-flight-glib/client.hpp>
 #include <arrow-flight-glib/common.hpp>
@@ -30,6 +30,9 @@ G_BEGIN_DECLS
  * @title: Client related classes
  * @include: arrow-flight-glib/arrow-flight-glib.h
  *
+ * #GAFlightStreamReader is a class for reading record batches from a
+ * server.
+ *
  * #GAFlightCallOptions is a class for options of each call.
  *
  * #GAFlightClientOptions is a class for options of each client.
@@ -38,6 +41,20 @@ G_BEGIN_DECLS
  *
  * Since: 5.0.0
  */
+
+G_DEFINE_TYPE(GAFlightStreamReader,
+              gaflight_stream_reader,
+              GAFLIGHT_TYPE_RECORD_BATCH_READER)
+
+static void
+gaflight_stream_reader_init(GAFlightStreamReader *object)
+{
+}
+
+static void
+gaflight_stream_reader_class_init(GAFlightStreamReaderClass *klass)
+{
+}
 
 typedef struct GAFlightCallOptionsPrivate_ {
   arrow::flight::FlightCallOptions options;
@@ -251,31 +268,31 @@ gaflight_client_new(GAFlightLocation *location,
 /**
  * gaflight_client_list_flights:
  * @client: A #GAFlightClient.
- * @options: (nullable): A #GAFlightCallOptions.
  * @criteria: (nullable): A #GAFlightCriteria.
+ * @options: (nullable): A #GAFlightCallOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (element-type GAFlightInfo) (transfer full):
- *   The returned list of #GAFlightInfo, %NULL on error.
+ *   The returned list of #GAFlightInfo on success, %NULL on error.
  *
  * Since: 5.0.0
  */
 GList *
 gaflight_client_list_flights(GAFlightClient *client,
-                             GAFlightCallOptions *options,
                              GAFlightCriteria *criteria,
+                             GAFlightCallOptions *options,
                              GError **error)
 {
   auto flight_client = gaflight_client_get_raw(client);
-  arrow::flight::FlightCallOptions flight_default_options;
-  const auto *flight_options = &flight_default_options;
-  if (options) {
-    flight_options = gaflight_call_options_get_raw(options);
-  }
   arrow::flight::Criteria flight_default_criteria;
-  const auto *flight_criteria = &flight_default_criteria;
+  auto flight_criteria = &flight_default_criteria;
   if (criteria) {
     flight_criteria = gaflight_criteria_get_raw(criteria);
+  }
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
   }
   std::unique_ptr<arrow::flight::FlightListing> flight_listing;
   auto status = flight_client->ListFlights(*flight_options,
@@ -305,9 +322,58 @@ gaflight_client_list_flights(GAFlightClient *client,
   return g_list_reverse(listing);
 }
 
+/**
+ * gaflight_client_do_get:
+ * @client: A #GAFlightClient.
+ * @ticket: A #GAFlightTicket.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The #GAFlightStreamReader to read record batched from the server
+ *   on success, %NULL on error.
+ *
+ * Since: 6.0.0
+ */
+GAFlightStreamReader *
+gaflight_client_do_get(GAFlightClient *client,
+                       GAFlightTicket *ticket,
+                       GAFlightCallOptions *options,
+                       GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  const auto flight_ticket = gaflight_ticket_get_raw(ticket);
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  std::unique_ptr<arrow::flight::FlightStreamReader> flight_reader;
+  auto status = flight_client->DoGet(*flight_options,
+                                     *flight_ticket,
+                                     &flight_reader);
+  if (garrow::check(error,
+                    status,
+                    "[flight-client][do-get]")) {
+    return gaflight_stream_reader_new_raw(flight_reader.release());
+  } else {
+    return NULL;
+  }
+}
+
 
 G_END_DECLS
 
+
+GAFlightStreamReader *
+gaflight_stream_reader_new_raw(
+  arrow::flight::FlightStreamReader *flight_reader)
+{
+  return GAFLIGHT_STREAM_READER(
+    g_object_new(GAFLIGHT_TYPE_STREAM_READER,
+                 "reader", flight_reader,
+                 NULL));
+}
 
 arrow::flight::FlightCallOptions *
 gaflight_call_options_get_raw(GAFlightCallOptions *options)

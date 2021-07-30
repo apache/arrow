@@ -24,6 +24,8 @@
 #include <arrow-flight-glib/common.h>
 
 
+GAFlightCriteria *
+gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria);
 arrow::flight::Criteria *
 gaflight_criteria_get_raw(GAFlightCriteria *criteria);
 
@@ -36,6 +38,8 @@ gaflight_descriptor_new_raw(
 arrow::flight::FlightDescriptor *
 gaflight_descriptor_get_raw(GAFlightDescriptor *descriptor);
 
+GAFlightTicket *
+gaflight_ticket_new_raw(const arrow::flight::Ticket *flight_ticket);
 arrow::flight::Ticket *
 gaflight_ticket_get_raw(GAFlightTicket *ticket);
 
@@ -49,3 +53,11 @@ GAFlightInfo *
 gaflight_info_new_raw(arrow::flight::FlightInfo *flight_info);
 arrow::flight::FlightInfo *
 gaflight_info_get_raw(GAFlightInfo *info);
+
+GAFlightStreamChunk *
+gaflight_stream_chunk_new_raw(arrow::flight::FlightStreamChunk *flight_chunk);
+arrow::flight::FlightStreamChunk *
+gaflight_stream_chunk_get_raw(GAFlightStreamChunk *chunk);
+
+arrow::flight::MetadataRecordBatchReader *
+gaflight_record_batch_reader_get_raw(GAFlightRecordBatchReader *reader);

@@ -41,6 +41,12 @@ struct _GArrowRecordBatchReaderClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowRecordBatchReader *
+garrow_record_batch_reader_new(GList *record_batches,
+                               GArrowSchema *schema,
+                               GError **error);
+
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);
 #ifndef GARROW_DISABLE_DEPRECATED
@@ -58,7 +64,10 @@ GArrowRecordBatch *garrow_record_batch_reader_read_next_record_batch(
 GArrowRecordBatch *garrow_record_batch_reader_read_next(
   GArrowRecordBatchReader *reader,
   GError **error);
-
+GARROW_AVAILABLE_IN_6_0
+GArrowTable *
+garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
+                                    GError **error);
 
 #define GARROW_TYPE_TABLE_BATCH_READER (garrow_table_batch_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTableBatchReader,

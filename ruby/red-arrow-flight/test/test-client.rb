@@ -35,4 +35,12 @@ class TestClient < Test::Unit::TestCase
     assert_equal([generator.page_view],
                  client.list_flights)
   end
+
+  def test_do_get
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    reader = client.do_get(generator.page_view_ticket)
+    assert_equal(generator.page_view_table,
+                 reader.read_all)
+  end
 end

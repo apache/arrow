@@ -34,14 +34,17 @@ module Helper
       ArrowFlight::PathDescriptor.new(["page-view"])
     end
 
+    def page_view_ticket
+      ArrowFlight::Ticket.new("page-view")
+    end
+
     def page_view_endpoints
       locations = [
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10000"),
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10001"),
       ]
       [
-        ArrowFlight::Endpoint.new(ArrowFlight::Ticket.new("page-view"),
-                                  locations),
+        ArrowFlight::Endpoint.new(page_view_ticket, locations),
       ]
     end
 
