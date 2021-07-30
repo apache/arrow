@@ -15,16 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
 import pytest
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 
 skip = False
 try:
     import pyarrow.dataset as ds
-    from pyarrow.rados import SplittedParquetWriter
 except ModuleNotFoundError:
     skip = True
 
@@ -102,24 +99,3 @@ def test_with_partition_pruning():
         columns=projection_cols, filter=filter_expression).to_pandas()
 
     assert skyhook_parquet_df.equals(parquet_df) == 1
-
-
-@pytest.mark.rados
-def test_splitted_parquet_writer():
-    if skip:
-        return
-    os.system("wget "
-              "https://raw.githubusercontent.com/"
-              "JayjeetAtGithub/zips/main/largefile.parquet")
-    chunksize = 4 * 1024 * 1024  # 4MB
-    writer = SplittedParquetWriter("largefile.parquet", 'mydataset', chunksize)
-    writer.write()
-    assert len(os.listdir('mydataset')) == 8
-
-    original_file_rows = pq.read_table('largefile.parquet').num_rows
-    splitted_files_rows = 0
-    files = os.listdir('mydataset')
-    for file in files:
-        splitted_files_rows += pq.read_metadata(f"mydataset/{file}").num_rows
-
-    assert splitted_files_rows == original_file_rows
