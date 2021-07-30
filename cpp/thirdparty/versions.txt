@@ -43,7 +43,7 @@ ARROW_LZ4_BUILD_VERSION=v1.9.3
 # mimalloc 1.6.7 didn't build on Visual Studio 2015
 # https://github.com/microsoft/mimalloc/issues/353
 ARROW_MIMALLOC_BUILD_VERSION=v1.7.2
-ARROW_ORC_BUILD_VERSION=1.6.6
+ARROW_ORC_BUILD_VERSION=1.6.9
 ARROW_PROTOBUF_BUILD_VERSION=v3.14.0
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
 # a pre-release version of RapidJSON to build with GCC 8 without
