@@ -24,21 +24,20 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/json/rapidjson_defs.h"
-#include "rapidjson/document.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/reader.h"
-#include "rapidjson/writer.h"
-
 #include "arrow/io/memory.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
+#include "arrow/json/rapidjson_defs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
+#include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/reader.h"
+#include "rapidjson/writer.h"
 
 namespace arrow {
 
@@ -190,6 +189,14 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
   RETURN_NOT_OK(BlockParser::Make(options, &parser));
   RETURN_NOT_OK(parser->Parse(src));
   return parser->Finish(parsed);
+}
+
+inline static Status ParseFromString(ParseOptions options, string_view src_str,
+                                     std::shared_ptr<StructArray>* parsed) {
+  std::shared_ptr<Array> parsed_non_struct;
+  RETURN_NOT_OK(ParseFromString(options, src_str, &parsed_non_struct));
+  *parsed = internal::checked_pointer_cast<StructArray>(parsed_non_struct);
+  return Status::OK();
 }
 
 static inline std::string PrettyPrint(string_view one_line) {
