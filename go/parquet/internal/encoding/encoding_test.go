@@ -294,7 +294,7 @@ func (b *BaseEncodingTestSuite) initData(nvalues, repeats int) {
 	b.draws, b.decodeBuf = initdata(b.typ, b.inputBytes.Buf(), b.outputBytes.Buf(), nvalues, repeats, b.heap)
 }
 
-func (b *BaseEncodingTestSuite) encodeTestData(e parquet.Encoding) encoding.Buffer {
+func (b *BaseEncodingTestSuite) encodeTestData(e parquet.Encoding) (encoding.Buffer, error) {
 	enc := encoding.NewEncoder(testutils.TypeToParquetType(b.typ), e, false, b.descr, memory.DefaultAllocator)
 	b.Equal(e, enc.Encoding())
 	b.Equal(b.descr.PhysicalType(), enc.Type())
@@ -313,7 +313,7 @@ func (b *BaseEncodingTestSuite) decodeTestData(e parquet.Encoding, buf []byte) {
 	b.Equal(reflect.ValueOf(b.draws).Slice(0, b.nvalues).Interface(), reflect.ValueOf(b.decodeBuf).Slice(0, b.nvalues).Interface())
 }
 
-func (b *BaseEncodingTestSuite) encodeTestDataSpaced(e parquet.Encoding, validBits []byte, validBitsOffset int64) encoding.Buffer {
+func (b *BaseEncodingTestSuite) encodeTestDataSpaced(e parquet.Encoding, validBits []byte, validBitsOffset int64) (encoding.Buffer, error) {
 	enc := encoding.NewEncoder(testutils.TypeToParquetType(b.typ), e, false, b.descr, memory.DefaultAllocator)
 	encodeSpaced(enc, reflect.ValueOf(b.draws).Slice(0, b.nvalues).Interface(), validBits, validBitsOffset)
 	return enc.FlushValues()
@@ -335,13 +335,13 @@ func (b *BaseEncodingTestSuite) decodeTestDataSpaced(e parquet.Encoding, nullCou
 }
 
 func (b *BaseEncodingTestSuite) checkRoundTrip(e parquet.Encoding) {
-	buf := b.encodeTestData(e)
+	buf, _ := b.encodeTestData(e)
 	defer buf.Release()
 	b.decodeTestData(e, buf.Bytes())
 }
 
 func (b *BaseEncodingTestSuite) checkRoundTripSpaced(e parquet.Encoding, validBits []byte, validBitsOffset int64) {
-	buf := b.encodeTestDataSpaced(e, validBits, validBitsOffset)
+	buf, _ := b.encodeTestDataSpaced(e, validBits, validBitsOffset)
 	defer buf.Release()
 
 	nullCount := 0
@@ -468,7 +468,7 @@ func (d *DictionaryEncodingTestSuite) encodeTestDataDict(e parquet.Encoding) (di
 	dictBuffer = memory.NewResizableBuffer(d.mem)
 	dictBuffer.Resize(enc.DictEncodedSize())
 	enc.WriteDict(dictBuffer.Bytes())
-	indices = enc.FlushValues()
+	indices, _ = enc.FlushValues()
 	numEntries = enc.NumEntries()
 	return
 }
@@ -481,7 +481,7 @@ func (d *DictionaryEncodingTestSuite) encodeTestDataDictSpaced(e parquet.Encodin
 	dictBuffer = memory.NewResizableBuffer(d.mem)
 	dictBuffer.Resize(enc.DictEncodedSize())
 	enc.WriteDict(dictBuffer.Bytes())
-	indices = enc.FlushValues()
+	indices, _ = enc.FlushValues()
 	numEntries = enc.NumEntries()
 	return
 }
@@ -557,7 +557,7 @@ func TestWriteDeltaBitPackedInt32(t *testing.T) {
 			enc := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
 
 			enc.(encoding.Int32Encoder).Put(tt.toencode)
-			buf := enc.FlushValues()
+			buf, _ := enc.FlushValues()
 			defer buf.Release()
 
 			assert.Equal(t, tt.expected, buf.Bytes())
@@ -577,7 +577,7 @@ func TestWriteDeltaBitPackedInt32(t *testing.T) {
 
 		enc := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
 		enc.(encoding.Int32Encoder).Put(values)
-		buf := enc.FlushValues()
+		buf, _ := enc.FlushValues()
 		defer buf.Release()
 
 		dec := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
@@ -608,7 +608,7 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 			enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
 
 			enc.(encoding.Int64Encoder).Put(tt.toencode)
-			buf := enc.FlushValues()
+			buf, _ := enc.FlushValues()
 			defer buf.Release()
 
 			assert.Equal(t, tt.expected, buf.Bytes())
@@ -628,7 +628,7 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 
 		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
 		enc.(encoding.Int64Encoder).Put(values)
-		buf := enc.FlushValues()
+		buf, _ := enc.FlushValues()
 		defer buf.Release()
 
 		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
@@ -651,7 +651,7 @@ func TestDeltaLengthByteArrayEncoding(t *testing.T) {
 
 	enc := encoding.NewEncoder(parquet.Types.ByteArray, parquet.Encodings.DeltaLengthByteArray, false, column, memory.DefaultAllocator)
 	enc.(encoding.ByteArrayEncoder).Put(test)
-	buf := enc.FlushValues()
+	buf, _ := enc.FlushValues()
 	defer buf.Release()
 
 	assert.Equal(t, expected, buf.Bytes())
@@ -670,7 +670,7 @@ func TestDeltaByteArrayEncoding(t *testing.T) {
 
 	enc := encoding.NewEncoder(parquet.Types.ByteArray, parquet.Encodings.DeltaByteArray, false, nil, nil)
 	enc.(encoding.ByteArrayEncoder).Put(test)
-	buf := enc.FlushValues()
+	buf, _ := enc.FlushValues()
 	defer buf.Release()
 
 	assert.Equal(t, expected, buf.Bytes())

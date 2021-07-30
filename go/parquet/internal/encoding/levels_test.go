@@ -60,12 +60,12 @@ func encodeLevels(t *testing.T, enc parquet.Encoding, maxLvl int16, numLevels in
 		buf.SetOffset(arrow.Int32SizeBytes)
 		// leave space to write the rle length value
 		encoder.Init(enc, maxLvl, buf)
-		lvlCount = encoder.Encode(input)
+		lvlCount, _ = encoder.Encode(input)
 		buf.SetOffset(0)
 		arrow.Int32Traits.CastFromBytes(buf.Bytes())[0] = int32(encoder.Len())
 	} else {
 		encoder.Init(enc, maxLvl, buf)
-		lvlCount = encoder.Encode(input)
+		lvlCount, _ = encoder.Encode(input)
 	}
 
 	assert.Equal(t, numLevels, lvlCount)
@@ -219,7 +219,7 @@ func TestMinimumBufferSize(t *testing.T) {
 
 	var encoder encoding.LevelEncoder
 	encoder.Init(parquet.Encodings.RLE, 1, output)
-	count := encoder.Encode(levels)
+	count, _ := encoder.Encode(levels)
 	assert.Equal(t, numToEncode, count)
 }
 
@@ -249,7 +249,7 @@ func TestMinimumBufferSize2(t *testing.T) {
 
 		var encoder encoding.LevelEncoder
 		encoder.Init(parquet.Encodings.RLE, bitWidth, output)
-		count := encoder.Encode(levels)
+		count, _ := encoder.Encode(levels)
 		assert.Equal(t, numToEncode, count)
 	}
 }
@@ -272,7 +272,7 @@ func TestEncodeDecodeLevels(t *testing.T) {
 
 	var encoder encoding.LevelEncoder
 	encoder.Init(parquet.Encodings.RLE, 1, output)
-	count := encoder.Encode(levels)
+	count, _ := encoder.Encode(levels)
 	assert.Equal(t, numToEncode, count)
 	encoder.Flush()
 

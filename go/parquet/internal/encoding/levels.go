@@ -88,10 +88,9 @@ func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w io.Writer
 
 // EncodeNoFlush encodes the provided levels in the encoder, but doesn't flush
 // the buffer and return it yet, appending these encoded values. Returns the number
-// of values encoded. A return value that is not equal to len(lvls) indicates a failure
-// or an issue during encoding.
-func (l *LevelEncoder) EncodeNoFlush(lvls []int16) int {
-	nencoded := 0
+// of values encoded and any error encountered or nil. If err is not nil, nencoded
+// will be the number of values encoded before the error was encountered
+func (l *LevelEncoder) EncodeNoFlush(lvls []int16) (nencoded int, err error) {
 	if l.rle == nil && l.bit == nil {
 		panic("parquet: level encoders are not initialized")
 	}
@@ -99,20 +98,20 @@ func (l *LevelEncoder) EncodeNoFlush(lvls []int16) int {
 	switch l.encoding {
 	case format.Encoding_RLE:
 		for _, level := range lvls {
-			if !l.rle.Put(uint64(level)) {
-				break
+			if err = l.rle.Put(uint64(level)); err != nil {
+				return
 			}
 			nencoded++
 		}
 	default:
 		for _, level := range lvls {
-			if l.bit.WriteValue(uint64(level), uint(l.bitWidth)) != nil {
-				break
+			if err = l.bit.WriteValue(uint64(level), uint(l.bitWidth)); err != nil {
+				return
 			}
 			nencoded++
 		}
 	}
-	return nencoded
+	return
 }
 
 // Flush flushes out any encoded data to the underlying writer.
@@ -132,31 +131,31 @@ func (l *LevelEncoder) Flush() {
 // Encode encodes the slice of definition or repetition levels based on
 // the currently configured encoding type and returns the number of
 // values that were encoded.
-func (l *LevelEncoder) Encode(lvls []int16) int {
-	nencoded := 0
+func (l *LevelEncoder) Encode(lvls []int16) (nencoded int, err error) {
 	if l.rle == nil && l.bit == nil {
 		panic("parquet: level encoders are not initialized")
 	}
 
 	switch l.encoding {
 	case format.Encoding_RLE:
+		defer func() { l.rleLen = l.rle.Flush() }()
 		for _, level := range lvls {
-			if !l.rle.Put(uint64(level)) {
-				break
+			if err = l.rle.Put(uint64(level)); err != nil {
+				return
 			}
 			nencoded++
 		}
-		l.rleLen = l.rle.Flush()
+
 	default:
+		defer l.bit.Flush(false)
 		for _, level := range lvls {
-			if l.bit.WriteValue(uint64(level), uint(l.bitWidth)) != nil {
-				break
+			if err = l.bit.WriteValue(uint64(level), uint(l.bitWidth)); err != nil {
+				return
 			}
 			nencoded++
 		}
-		l.bit.Flush(false)
 	}
-	return nencoded
+	return
 }
 
 // Len returns the number of bytes that were written as Run Length encoded

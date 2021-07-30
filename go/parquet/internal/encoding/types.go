@@ -63,7 +63,8 @@ type TypedEncoder interface {
 	EstimatedDataEncodedSize() int64
 	// FlushValues finishes up any unwritten data and returns the buffer of data passing
 	// ownership to the caller, Release needs to be called on the Buffer to free the memory
-	FlushValues() Buffer
+	// if error is nil
+	FlushValues() (Buffer, error)
 	// Encoding returns the type of encoding that this encoder operates with
 	Encoding() parquet.Encoding
 	// Allocator returns the allocator that was used when creating this encoder
@@ -78,7 +79,7 @@ type DictEncoder interface {
 	TypedEncoder
 	// WriteIndices populates the byte slice with the final indexes of data and returns
 	// the number of bytes written
-	WriteIndices(out []byte) int
+	WriteIndices(out []byte) (int, error)
 	// DictEncodedSize returns the current size of the encoded dictionary index.
 	DictEncodedSize() int
 	// BitWidth returns the bitwidth needed to encode all of the index values based

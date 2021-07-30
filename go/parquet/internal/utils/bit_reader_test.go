@@ -239,7 +239,7 @@ func (r *RLETestSuite) ValidateRle(vals []uint64, width int, expected []byte, ex
 
 		enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(buf), width)
 		for _, val := range vals {
-			r.True(enc.Put(val))
+			r.NoError(enc.Put(val))
 		}
 		encoded := enc.Flush()
 		if explen != -1 {
@@ -468,7 +468,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 	res := r.Run("encode values", func() {
 		enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(buf), width)
 		for idx, val := range vals {
-			r.Require().Truef(enc.Put(val), "encoding idx: %d", idx)
+			r.Require().NoErrorf(enc.Put(val), "encoding idx: %d", idx)
 		}
 		encoded = enc.Flush()
 	})
@@ -503,7 +503,7 @@ func (r *RLERandomSuite) checkRoundTripSpaced(vals array.Interface, width int) {
 	case *array.Int32:
 		for i := 0; i < v.Len(); i++ {
 			if v.IsValid(i) {
-				r.Require().True(encoder.Put(uint64(v.Value(i))))
+				r.Require().NoError(encoder.Put(uint64(v.Value(i))))
 			}
 		}
 	}

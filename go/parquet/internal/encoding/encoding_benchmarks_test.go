@@ -49,7 +49,8 @@ func BenchmarkPlainEncodingBoolean(b *testing.B) {
 			b.SetBytes(int64(len(values)))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
-				encoder.FlushValues().Release()
+				buf, _ := encoder.FlushValues()
+				buf.Release()
 			}
 		})
 	}
@@ -68,7 +69,8 @@ func BenchmarkPlainEncodingInt32(b *testing.B) {
 			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
-				encoder.FlushValues().Release()
+				buf, _ := encoder.FlushValues()
+				buf.Release()
 			}
 		})
 	}
@@ -87,7 +89,8 @@ func BenchmarkPlainEncodingInt64(b *testing.B) {
 			b.SetBytes(int64(len(values) * arrow.Int64SizeBytes))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
-				encoder.FlushValues().Release()
+				buf, _ := encoder.FlushValues()
+				buf.Release()
 			}
 		})
 	}
@@ -106,7 +109,8 @@ func BenchmarkPlainEncodingFloat32(b *testing.B) {
 			b.SetBytes(int64(len(values) * arrow.Float32SizeBytes))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
-				encoder.FlushValues().Release()
+				buf, _ := encoder.FlushValues()
+				buf.Release()
 			}
 		})
 	}
@@ -125,7 +129,8 @@ func BenchmarkPlainEncodingFloat64(b *testing.B) {
 			b.SetBytes(int64(len(values) * arrow.Float64SizeBytes))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
-				encoder.FlushValues().Release()
+				buf, _ := encoder.FlushValues()
+				buf.Release()
 			}
 		})
 	}
@@ -142,7 +147,7 @@ func BenchmarkPlainDecodingBoolean(b *testing.B) {
 			encoder := encoding.NewEncoder(parquet.Types.Boolean, parquet.Encodings.Plain,
 				false, nil, memory.DefaultAllocator).(encoding.BooleanEncoder)
 			encoder.Put(values)
-			buf := encoder.FlushValues()
+			buf, _ := encoder.FlushValues()
 			defer buf.Release()
 
 			decoder := encoding.NewDecoder(parquet.Types.Boolean, parquet.Encodings.Plain, nil, memory.DefaultAllocator)
@@ -167,7 +172,7 @@ func BenchmarkPlainDecodingInt32(b *testing.B) {
 			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.Plain,
 				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
 			encoder.Put(values)
-			buf := encoder.FlushValues()
+			buf, _ := encoder.FlushValues()
 			defer buf.Release()
 
 			decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.Plain, nil, memory.DefaultAllocator)
