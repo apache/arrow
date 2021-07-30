@@ -17,9 +17,9 @@
 
 #include "arrow/json/converter.h"
 
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <string>
 
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
@@ -94,6 +94,28 @@ TEST(ConverterTest, LargeString) {
 TEST(ConverterTest, Timestamp) {
   std::string src = R"([null, "1970-01-01", "2018-11-13 17:11:10"])";
   AssertConvert(timestamp(TimeUnit::SECOND), src, src);
+}
+
+TEST(ConverterTest, Decimal128) {
+  std::string src = R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])";
+
+  AssertConvert(decimal128(38, 10), src, src);
+}
+
+TEST(ConverterTest, Decimal256) {
+  std::string src = R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])";
+
+  AssertConvert(decimal256(38, 10), src, src);
 }
 
 }  // namespace json
