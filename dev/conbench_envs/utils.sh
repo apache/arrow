@@ -75,6 +75,10 @@ install_archery() {
   pip install -e dev/archery
 }
 
+install_java_script_project_dependencies() {
+  (cd js; yarn;)
+}
+
 create_conda_env_with_arrow_python() {
   create_conda_env_for_benchmark_build
   activate_conda_env_for_benchmark_build
