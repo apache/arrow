@@ -25,7 +25,7 @@ source_dir=${1}/r
 pushd ${source_dir}
 
 # Install R package dependencies
-${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys'))"
-${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
+${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys'))"
+${R_BIN} -e "options(warn=2); remotes::install_deps(dependencies = TRUE)"
 
 popd
