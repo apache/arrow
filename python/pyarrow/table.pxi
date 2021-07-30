@@ -399,8 +399,8 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def dropnull(self):
         """
-        Remove missing values from a chunked array. See pyarrow.compute.dropnull for full
-        usage.
+        Remove missing values from a chunked array. 
+        See pyarrow.compute.dropnull for full usage.
         """
         return _pc().dropnull(self)
 
@@ -965,8 +965,8 @@ cdef class RecordBatch(_PandasConvertible):
 
     def dropnull(self):
         """
-        Remove missing values from an RecordBatch. See pyarrow.compute.dropnull for full
-        usage.
+        Remove missing values from an RecordBatch. 
+        See pyarrow.compute.dropnull for full usage.
         """
         return _pc().dropnull(self)
 
@@ -1339,8 +1339,8 @@ cdef class Table(_PandasConvertible):
 
     def dropnull(self):
         """
-        Remove missing values from a Table. See :func:`pyarrow.compute.dropnull` for full
-        usage.
+        Remove missing values from a Table.
+        See :func:`pyarrow.compute.dropnull` for full usage.
         """
         return _pc().dropnull(self)
 

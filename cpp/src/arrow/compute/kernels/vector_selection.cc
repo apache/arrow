@@ -2148,41 +2148,46 @@ class TakeMetaFunction : public MetaFunction {
 };
 
 // ----------------------------------------------------------------------
+// DropNull Implementation
 
-std::shared_ptr<arrow::Array> GetNotNullIndices(const std::shared_ptr<Array>& column, MemoryPool* memory_pool) {
+Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
+    const std::shared_ptr<Array>& column, MemoryPool* memory_pool) {
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
   for (int64_t i = 0; i < column->length(); i++) {
-    if (column->IsValid(i)){
-      builder.Append(i);
+    if (column->IsValid(i)) {
+      builder.Append(static_cast<int32_t>(i));
     }
   }
-  builder.Finish(&indices);
+  RETURN_NOT_OK(builder.Finish(&indices));
   return indices;
-} 
+}
 
-std::shared_ptr<arrow::Array> GetNotNullIndices(const std::shared_ptr<ChunkedArray>& chunks, MemoryPool* memory_pool) {
+Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
+    const std::shared_ptr<ChunkedArray>& chunks, MemoryPool* memory_pool) {
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
   int64_t relative_index = 0;
   for (int64_t chunk_index = 0; chunk_index < chunks->num_chunks(); ++chunk_index) {
     auto column_chunk = chunks->chunk(chunk_index);
     for (int64_t col_index = 0; col_index < column_chunk->length(); col_index++) {
-      if (column_chunk->IsValid(col_index)){
-        builder.Append(relative_index + col_index);
+      if (column_chunk->IsValid(col_index)) {
+        builder.Append(static_cast<int32_t>(relative_index + col_index));
       }
     }
     relative_index += column_chunk->length();
   }
-  builder.Finish(&indices);
+  RETURN_NOT_OK(builder.Finish(&indices));
   return indices;
 }
 
-Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch, ExecContext* ctx) {
+Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch,
+                                                         ExecContext* ctx) {
   int64_t length_count = 0;
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
   for (int i = 0; i < batch.num_columns(); ++i) {
-    auto indices = GetNotNullIndices(batch.column(i), ctx->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          GetNotNullIndices(batch.column(i), ctx->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),
                                           TakeOptions::NoBoundsCheck(), ctx));
     columns[i] = out.make_array();
@@ -2205,7 +2210,7 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   std::set<int32_t> notnull_indices;
   // Rechunk inputs to allow consistent iteration over their respective chunks
   inputs = arrow::internal::RechunkArraysConsistently(inputs);
-  
+
   const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
   for (int col = 0; col < num_columns; ++col) {
     int64_t relative_index = 0;
@@ -2223,10 +2228,10 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
   for (int64_t row_index = 0; row_index < table.num_rows(); ++row_index) {
     if (notnull_indices.find(row_index) == notnull_indices.end()) {
-      builder.Append(row_index);
+      builder.Append(static_cast<int32_t>(row_index));
     }
   }
-  builder.Finish(&indices);
+  RETURN_NOT_OK(builder.Finish(&indices));
   return TakeTA(table, *indices, TakeOptions::Defaults(), ctx);
 }
 
@@ -2237,49 +2242,41 @@ const FunctionDoc dropnull_doc(
 
 class DropNullMetaFunction : public MetaFunction {
  public:
-  DropNullMetaFunction()
-      : MetaFunction("dropnull", Arity::Unary(), &dropnull_doc) {}
+  DropNullMetaFunction() : MetaFunction("dropnull", Arity::Unary(), &dropnull_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     switch (args[0].kind()) {
-      case Datum::ARRAY: 
-        {
-          const auto values = args[0].make_array();
-          auto indices = GetNotNullIndices(values, ctx->memory_pool());
-          return TakeAA(*values, *indices, TakeOptions::Defaults(), ctx);
-        }
-        break;
-      case Datum::CHUNKED_ARRAY:
-        {
-          const auto values = args[0].chunked_array();
-          // TODO @aocsa: create a chunked indices!
-          auto indices = GetNotNullIndices(values, ctx->memory_pool());
-          return TakeCA(*values, *indices, TakeOptions::Defaults(), ctx);
-        }
-        break;
-      case Datum::RECORD_BATCH:
-        {
-          ARROW_ASSIGN_OR_RAISE(
-            std::shared_ptr<RecordBatch> out_batch,
-            DropNullRecordBatch(*args[0].record_batch(), ctx));
-          return Datum(out_batch);
-        }
-        break;
-      case  Datum::TABLE:
-        {
-          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
-                                DropNullTable(*args[0].table(), ctx));
-          return Datum(out_table);
-        }
-        break;
+      case Datum::ARRAY: {
+        const auto values = args[0].make_array();
+        ARROW_ASSIGN_OR_RAISE(auto indices,
+                              GetNotNullIndices(values, ctx->memory_pool()));
+        return TakeAA(*values, *indices, TakeOptions::Defaults(), ctx);
+      } break;
+      case Datum::CHUNKED_ARRAY: {
+        const auto values = args[0].chunked_array();
+        ARROW_ASSIGN_OR_RAISE(auto indices,
+                              GetNotNullIndices(values, ctx->memory_pool()));
+        return TakeCA(*values, *indices, TakeOptions::Defaults(), ctx);
+      } break;
+      case Datum::RECORD_BATCH: {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,
+                              DropNullRecordBatch(*args[0].record_batch(), ctx));
+        return Datum(out_batch);
+      } break;
+      case Datum::TABLE: {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
+                              DropNullTable(*args[0].table(), ctx));
+        return Datum(out_table);
+      } break;
       default:
         break;
     }
     return Status::NotImplemented(
         "Unsupported types for dropnull operation: "
-        "values=", args[0].ToString());
+        "values=",
+        args[0].ToString());
   }
 };
 
