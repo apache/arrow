@@ -371,10 +371,26 @@ TEST(TestAsyncUtil, Collect) {
   ASSERT_EQ(expected, collected_val);
 }
 
-TEST(TestAsyncUtil, Map) {
-  std::vector<TestInt> input = {1, 2, 3};
-  auto generator = AsyncVectorIt(input);
-  std::function<TestStr(const TestInt&)> mapper = [](const TestInt& in) {
+class MapFixture : public GeneratorTestFixture {
+ public:
+  AsyncGenerator<TestInt> MakeSlowSource(std::atomic<uint64_t>* count,
+                                         std::shared_ptr<GatingTask> gating_task) {
+    // Slow source
+    return [count, gating_task]() -> Future<TestInt> {
+      uint64_t val = (*count)++;
+      return gating_task->AsyncTask().Then([val]() -> Result<TestInt> {
+        if (val < 2) {
+          return val;
+        }
+        return IterationEnd<TestInt>();
+      });
+    };
+  }
+};
+
+TEST_P(MapFixture, SyncMapFn) {
+  AsyncGenerator<TestInt> source = this->MakeSource({1, 2, 3});
+  std::function<TestStr(const TestInt&)> map_fn = [](const TestInt& in) {
     return std::to_string(in.value);
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
