@@ -37,7 +37,7 @@ test_that("Can aggregate", {
       collect(),
     tbl
   )
-  skip("This is failing because the default is na.rm = FALSE")
+  skip("ARROW-13497: This is failing because the default is na.rm = FALSE")
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int)) %>%
@@ -65,7 +65,7 @@ test_that("Group by sum on dataset", {
     tbl
   )
 
-  skip("This is failing because the default is na.rm = FALSE")
+  skip("ARROW-13497: This is failing because the default is na.rm = FALSE")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
@@ -95,7 +95,7 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-  # na.rm option also is not being passed/received to any/all
+  # ARROW-13497: na.rm option also is not being passed/received to any/all
 
   expect_dplyr_equal(
     input %>%
@@ -120,6 +120,45 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(has_words = all(nchar(verses) < 0)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Filter and aggregate", {
+  skip("ARROW-13498")
+  expect_dplyr_equal(
+    input %>%
+      filter(some_grouping == 2) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 5) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(some_grouping == 2) %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 5) %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
