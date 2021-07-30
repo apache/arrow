@@ -165,7 +165,7 @@ class BitmapWordReader {
     if (nwords_ > 0) {
       current_data.word_ = load<Word>(bitmap_);
     } else if (length > 0) {
-      current_data.byte_ = load<uint8_t>(bitmap_);
+      current_data.epi.byte_ = load<uint8_t>(bitmap_);
     }
   }
 
@@ -213,12 +213,12 @@ class BitmapWordReader {
     } else {
       ++bitmap_;
       const uint8_t next_byte = load<uint8_t>(bitmap_);
-      byte = current_data.byte_;
+      byte = current_data.epi.byte_;
       if (may_have_byte_offset && offset_) {
         byte >>= offset_;
         byte |= next_byte << (8 - offset_);
       }
-      current_data.byte_ = next_byte;
+      current_data.epi.byte_ = next_byte;
       trailing_bits_ -= 8;
       trailing_bytes_--;
       valid_bits = 8;
@@ -244,7 +244,7 @@ class BitmapWordReader {
       uint8_t padding_bytes_[sizeof(Word) - 1];
 #endif
       uint8_t byte_;
-    };
+    } epi;
   } current_data;
 
   template <typename DType>

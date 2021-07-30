@@ -193,7 +193,7 @@ class BitmapWordWriter {
       if (length >= static_cast<int>(sizeof(Word) * 8)) {
         current_data.word_ = load<Word>(bitmap_);
       } else if (length > 0) {
-        current_data.byte_ = load<uint8_t>(bitmap_);
+        current_data.epi.byte_ = load<uint8_t>(bitmap_);
       }
     }
   }
@@ -229,11 +229,11 @@ class BitmapWordWriter {
       if (may_have_byte_offset && offset_) {
         byte = (byte << offset_) | (byte >> (8 - offset_));
         uint8_t next_byte = load<uint8_t>(bitmap_ + 1);
-        current_data.byte_ = (current_data.byte_ & mask_) | (byte & ~mask_);
+        current_data.epi.byte_ = (current_data.epi.byte_ & mask_) | (byte & ~mask_);
         next_byte = (next_byte & ~mask_) | (byte & mask_);
-        store<uint8_t>(bitmap_, current_data.byte_);
+        store<uint8_t>(bitmap_, current_data.epi.byte_);
         store<uint8_t>(bitmap_ + 1, next_byte);
-        current_data.byte_ = next_byte;
+        current_data.epi.byte_ = next_byte;
       } else {
         store<uint8_t>(bitmap_, byte);
       }
@@ -265,7 +265,7 @@ class BitmapWordWriter {
       uint8_t padding_bytes_[sizeof(Word) - 1];
 #endif
       uint8_t byte_;
-    };
+    } epi;
   } current_data;
 
   template <typename DType>
