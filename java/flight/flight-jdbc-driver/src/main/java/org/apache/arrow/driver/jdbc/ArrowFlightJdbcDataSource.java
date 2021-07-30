@@ -29,13 +29,20 @@ import java.util.logging.Logger;
 import javax.sql.DataSource;
 
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.org.apache.http.client.utils.URIBuilder;
 
+/**
+ * {@link DataSource} implementation for Arrow Flight JDBC Driver.
+ */
 public class ArrowFlightJdbcDataSource implements DataSource {
   private String url;
   private final Properties properties;
   private PrintWriter logWriter;
 
+  /**
+   * Instantiates a new DataSource.
+   */
   public ArrowFlightJdbcDataSource() {
     this.properties = new Properties();
   }
@@ -53,11 +60,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     properties.put(BaseProperty.USERNAME.getName(), username);
     properties.put(BaseProperty.PASSWORD.getName(), password);
 
-    final String connectionUrl = getUrl();
-    if (url == null) {
-      throw new SQLException("Connection URL not set on ArrowFlightJdbcDataSource");
-    }
-
+    final String connectionUrl = Preconditions.checkNotNull(getUrl());
     return driver.connect(connectionUrl, properties);
   }
 
@@ -74,6 +77,10 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     }
   }
 
+  /**
+   * Set the connection URL.
+   * Setting the URL will also update host and port properties.
+   */
   public void setUrl(String url) {
     this.url = url;
     try {
@@ -85,6 +92,9 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     }
   }
 
+  /**
+   * Returns the JDBC connection url property.
+   */
   public String getUrl() {
     return this.url;
   }
@@ -97,61 +107,90 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     return this.properties.getOrDefault(host.getName(), host.getDefaultValue());
   }
 
+  /**
+   * Sets the host used in this DataSource connections.
+   * This will also update the connection URL.
+   */
   public void setHost(String host) {
     this.setProperty(BaseProperty.HOST, host);
     this.updateUrl();
   }
 
-
+  /**
+   * Returns the host used in this DataSource connections.
+   */
   public String getHost() {
     return (String) getPropertyOrDefault(BaseProperty.HOST);
   }
 
+  /**
+   * Sets the port used in this DataSource connections.
+   * This will also update the connection URL.
+   */
   public void setPort(int port) {
     this.setProperty(BaseProperty.PORT, port);
     this.updateUrl();
   }
 
+  /**
+   * Returns the port used in this DataSource connections.
+   */
   public int getPort() {
     return (int) getPropertyOrDefault(BaseProperty.PORT);
   }
 
+  /**
+   * Sets the username used to authenticate the connections.
+   */
   public void setUsername(String username) {
     this.setProperty(BaseProperty.USERNAME, username);
   }
 
+  /**
+   * Returns the username used to authenticate the connections.
+   */
   public String getUsername() {
     return (String) getPropertyOrDefault(BaseProperty.USERNAME);
   }
 
+  /**
+   * Sets the password used to authenticate the connections.
+   */
   public void setPassword(String password) {
     this.setProperty(BaseProperty.PASSWORD, password);
   }
 
+  /**
+   * Returns the password used to authenticate the connections.
+   */
   public String getPassword() {
     return (String) getPropertyOrDefault(BaseProperty.PASSWORD);
   }
 
-  public void setEncrypt(boolean encrypt) {
-    this.setProperty(BaseProperty.PASSWORD, String.valueOf(encrypt));
-  }
-
-  public boolean getEncrypt() {
-    return Boolean.parseBoolean((String) getPropertyOrDefault(BaseProperty.ENCRYPT));
-  }
-
+  /**
+   * Sets the key store path containing the trusted TLS certificates for the FlightClient.
+   */
   public void setKeyStorePath(String keyStorePath) {
     this.setProperty(BaseProperty.KEYSTORE_PATH, keyStorePath);
   }
 
+  /**
+   * Returns the key store path containing the trusted TLS certificates for the FlightClient.
+   */
   public String getKeyStorePath() {
     return (String) getPropertyOrDefault(BaseProperty.KEYSTORE_PATH);
   }
 
+  /**
+   * Sets the key store password containing the trusted TLS certificates for the FlightClient.
+   */
   public void setKeyStorePass(String keyStorePass) {
     this.setProperty(BaseProperty.KEYSTORE_PASS, keyStorePass);
   }
 
+  /**
+   * Returns the key store password containing the trusted TLS certificates for the FlightClient.
+   */
   public String getKeyStorePass() {
     return (String) getPropertyOrDefault(BaseProperty.KEYSTORE_PASS);
   }
