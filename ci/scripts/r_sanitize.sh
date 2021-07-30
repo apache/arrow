@@ -22,12 +22,15 @@ set -ex
 
 source_dir=${1}/r
 
-${R_BIN} CMD INSTALL ${source_dir}
-pushd ${source_dir}/tests
+pushd ${source_dir}
+
+${R_BIN} CMD INSTALL .
 
 export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
-${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+
+${R_BIN} < tests/testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
 if grep -q "runtime error" testthat.out; then
