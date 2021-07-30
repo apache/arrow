@@ -35,7 +35,7 @@ Benchmark builds use `hooks.sh` functions as hooks to create conda env with Arro
 
 Defining hooks in Arrow repo allows benchmark builds for a specific Arrow commit to be always compatible with Arrow's files/scripts used for installing Arrow dependencies and building Arrow, assuming Arrow contributors will update `hooks.sh` when they make these changes to files/scripts used by functions in `hooks.sh`. 
 
-## Can other repos and service use `benchmarks.env` and `hooks.sh`?
+## Can other repos and services use `benchmarks.env` and `hooks.sh`?
 
 Yes, other repos and services are welcome to use `benchmarks.env` and `hooks.sh` as long as 
 - existing hooks are not removed or renamed.
@@ -143,7 +143,7 @@ Verify that you have at least these versions of `node` and `yarn`:
     export CONBENCH_PASSWORD=...
     export MACHINE=...
 
-### 6. Use `create_conda_env_with_arrow_python` hook to create conda env with Arrow C++ and Arrow Python built
+### 6. Use `create_conda_env_with_arrow_python` hook to create conda env and build Arrow C++ and Arrow Python
     git clone "${ARROW_REPO}"
     pushd arrow
     git fetch -v --prune -- origin "${BENCHMARKABLE}"
