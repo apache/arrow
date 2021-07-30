@@ -230,7 +230,6 @@ Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
 ARROW_EXPORT
 Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
 
-
 /// \brief DropNull with Array inputs and output
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);

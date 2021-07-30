@@ -2154,9 +2154,12 @@ Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
     const std::shared_ptr<Array>& column, MemoryPool* memory_pool) {
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
+  builder.Reserve(column->length() - column->null_count());
+
+  std::vector<int32_t> values;
   for (int64_t i = 0; i < column->length(); i++) {
     if (column->IsValid(i)) {
-      builder.Append(static_cast<int32_t>(i));
+      builder.UnsafeAppend(static_cast<int32_t>(i));
     }
   }
   RETURN_NOT_OK(builder.Finish(&indices));
@@ -2167,12 +2170,13 @@ Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
     const std::shared_ptr<ChunkedArray>& chunks, MemoryPool* memory_pool) {
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
+  builder.Reserve(chunks->length() - chunks->null_count());
   int64_t relative_index = 0;
   for (int64_t chunk_index = 0; chunk_index < chunks->num_chunks(); ++chunk_index) {
     auto column_chunk = chunks->chunk(chunk_index);
     for (int64_t col_index = 0; col_index < column_chunk->length(); col_index++) {
       if (column_chunk->IsValid(col_index)) {
-        builder.Append(static_cast<int32_t>(relative_index + col_index));
+        builder.UnsafeAppend(static_cast<int32_t>(relative_index + col_index));
       }
     }
     relative_index += column_chunk->length();
@@ -2226,9 +2230,10 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   }
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
+  builder.Reserve(static_cast<int64_t>(table.num_rows() - notnull_indices.size()));
   for (int64_t row_index = 0; row_index < table.num_rows(); ++row_index) {
     if (notnull_indices.find(row_index) == notnull_indices.end()) {
-      builder.Append(static_cast<int32_t>(row_index));
+      builder.UnsafeAppend(static_cast<int32_t>(row_index));
     }
   }
   RETURN_NOT_OK(builder.Finish(&indices));

@@ -1909,8 +1909,12 @@ class TestDropNullKernelWithFixedSizeList
     : public TestDropNullKernelTyped<FixedSizeListType> {};
 
 TEST_F(TestDropNullKernelWithFixedSizeList, DropNullFixedSizeListInt32) {
-  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, null, null]]";
-  CheckDropNull(fixed_size_list(int32(), 3), list_json, "[[1, 3, 4], [5, 6, 7]]");
+  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
+  CheckDropNull(fixed_size_list(int32(), 3), list_json,
+                "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(
+      fixed_size_list(int32(), 3), "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
 }
 
 class TestDropNullKernelWithMap : public TestDropNullKernelTyped<MapType> {};
@@ -1922,7 +1926,47 @@ TEST_F(TestDropNullKernelWithMap, DropNullMapStringToInt32) {
     [["cap", 8]],
     []
   ])";
-  CheckDropNull(map(utf8(), int32()), map_json, "[]");
+  std::string expected_json = R"([
+    [["joe", 0], ["mark", null]],
+    [["cap", 8]],
+    []
+  ])";
+  CheckDropNull(map(utf8(), int32()), map_json, expected_json);
+}
+
+class TestDropNullKernelWithStruct : public TestDropNullKernelTyped<StructType> {};
+
+TEST_F(TestDropNullKernelWithStruct, DropNullStruct) {
+  auto struct_type = struct_({field("a", int32()), field("b", utf8())});
+  auto struct_json = R"([
+    null,
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  auto expected_struct_json = R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  CheckDropNull(struct_type, struct_json, expected_struct_json);
+  this->TestNoValidityBitmapButUnknownNullCount(struct_type, expected_struct_json);
+}
+
+class TestDropNullKernelWithUnion : public TestDropNullKernelTyped<UnionType> {};
+
+TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
+  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
+  auto union_json = R"([
+      [2, null],
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      [2, null],
+      [2, 111],
+      [5, null]
+    ])";
+  CheckDropNull(union_type, union_json, union_json);
 }
 
 }  // namespace compute
