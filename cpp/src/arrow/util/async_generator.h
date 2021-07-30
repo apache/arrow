@@ -296,7 +296,7 @@ class MappingGenerator {
       Future<V> sink;
       bool end = !maybe_next.ok() || IsIterationEnd(*maybe_next);
       bool should_purge = false;
-      bool should_trigger;
+      bool should_trigger = false;
       {
         auto guard = state->mutex.Lock();
         bool already_finished = state->finished;
@@ -802,7 +802,11 @@ class ReadaheadGenerator {
       finished_fut = Future<>::Make();
     }
 
-    ~State() { finished_fut.Wait(); }
+    ~State() {
+      if (in_flight > 0) {
+        finished_fut.Wait();
+      }
+    }
 
     Future<T> AddMarkFinishedContinuation(Future<T> fut) {
       auto self = this->shared_from_this();

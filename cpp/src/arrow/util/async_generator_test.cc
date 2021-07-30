@@ -482,8 +482,8 @@ TEST_P(MapFixture, BasicMapFailStress) {
 }
 
 TEST_P(MapFixture, QueuingMapFailStress) {
-  constexpr int NTASKS = 100;
-  constexpr int NITEMS = 100;
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
   for (int i = 0; i < NTASKS; i++) {
     std::shared_ptr<std::atomic<bool>> done = std::make_shared<std::atomic<bool>>();
     auto gen = FailsAt(MakeJitteryIfSlowSource(RangeVector(NITEMS)), NITEMS / 2);
@@ -1103,6 +1103,14 @@ TEST(TestAsyncUtil, SerialReadaheadStressFailing) {
   }
 }
 
+TEST(TestAsyncUtil, ReadaheadEmpty) {
+  // The readahead generator waits for all in-flight tasks to finish when it
+  // terminates so this test just makes sure we don't hang waiting for nothing
+  // when nothing was started
+  auto source = AsyncVectorIt<TestInt>({});
+  auto readahead = MakeReadaheadGenerator(std::move(source), 8);
+}
+
 TEST(TestAsyncUtil, Readahead) {
   int num_delivered = 0;
   auto source = [&num_delivered]() {
@@ -1245,8 +1253,8 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailedStress) {
-  constexpr int NTASKS = 100;
-  constexpr int NITEMS = 100;
+  constexpr int NTASKS = 10;
+  constexpr int NITEMS = 10;
   for (int i = 0; i < NTASKS; i++) {
     auto source = FailsAt(MakeJittery(AsyncVectorIt(RangeVector(NITEMS))), NITEMS / 2);
     auto readahead = MakeReadaheadGenerator(std::move(source), 8);
