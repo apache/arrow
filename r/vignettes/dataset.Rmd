@@ -112,8 +112,15 @@ Other supported formats include:
 * `"csv"` (comma-delimited files) and `"tsv"` (tab-delimited files)
 * `"text"` (generic text-delimited files - use the `delimiter` argument to specify which to use)
 
-For text files, you can pass any parsing options (`delim`, `quote`, etc.) to 
-`open_dataset()` that you would otherwise pass to `read_csv_arrow()`.
+For text files, you can pass the following parsing options to `open_dataset()`:
+
+* `delim`
+* `quote`
+* `escape_double`
+* `escape_backslash`
+* `skip_empty_rows`
+
+For more information on the usage of these parameters, see `?read_delim_arrow()`.
 
 The `partitioning` argument lets you specify how the file paths provide information
 about how the dataset is chunked into different files. The files in this example
