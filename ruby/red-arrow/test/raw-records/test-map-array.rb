@@ -15,60 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module RawRecordsSparseUnionArrayTests
-  def build_schema(type, type_codes)
-    field_description = {}
-    if type.is_a?(Hash)
-      field_description = field_description.merge(type)
-    else
-      field_description[:type] = type
-    end
+module RawRecordsMapArrayTests
+  def build_schema(type)
     {
       column: {
-        type: :sparse_union,
-        fields: [
-          field_description.merge(name: "0"),
-          field_description.merge(name: "1"),
-        ],
-        type_codes: type_codes,
+        type: :map,
+        key: :string,
+        item: type
       },
     }
   end
 
-  # TODO: Use Arrow::RecordBatch.new(build_schema(type, type_codes), records)
-  def build_record_batch(type, records)
-    type_codes = [0, 1]
-    schema = Arrow::Schema.new(build_schema(type, type_codes))
-    type_ids = []
-    arrays = schema.fields[0].data_type.fields.collect do |field|
-      sub_schema = Arrow::Schema.new([field])
-      sub_records = records.collect do |record|
-        [record[0].nil? ? nil : record[0][field.name]]
-      end
-      sub_record_batch = Arrow::RecordBatch.new(sub_schema,
-                                                sub_records)
-      sub_record_batch.columns[0].data
-    end
-    records.each do |record|
-      column = record[0]
-      if column.key?("0")
-        type_ids << type_codes[0]
-      elsif column.key?("1")
-        type_ids << type_codes[1]
-      end
-    end
-    union_array = Arrow::SparseUnionArray.new(schema.fields[0].data_type,
-                                              Arrow::Int8Array.new(type_ids),
-                                              arrays)
-    schema = Arrow::Schema.new(column: union_array.value_data_type)
-    Arrow::RecordBatch.new(schema,
-                           records.size,
-                           [union_array])
-  end
-
   def test_null
     records = [
-      [{"0" => nil}],
+      [{"Key1" => nil}],
+      [nil],
     ]
     target = build(:null, records)
     assert_equal(records, target.raw_records)
@@ -76,8 +37,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_boolean
     records = [
-      [{"0" => true}],
-      [{"1" => nil}],
+      [{"Key1" => true}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:boolean, records)
     assert_equal(records, target.raw_records)
@@ -85,8 +47,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_int8
     records = [
-      [{"0" => -(2 ** 7)}],
-      [{"1" => nil}],
+      [{"Key1" => -(2 ** 7)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:int8, records)
     assert_equal(records, target.raw_records)
@@ -94,8 +57,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_uint8
     records = [
-      [{"0" => (2 ** 8) - 1}],
-      [{"1" => nil}],
+      [{"Key1" => (2 ** 8) - 1}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:uint8, records)
     assert_equal(records, target.raw_records)
@@ -103,8 +67,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_int16
     records = [
-      [{"0" => -(2 ** 15)}],
-      [{"1" => nil}],
+      [{"Key1" => -(2 ** 15)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:int16, records)
     assert_equal(records, target.raw_records)
@@ -112,8 +77,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_uint16
     records = [
-      [{"0" => (2 ** 16) - 1}],
-      [{"1" => nil}],
+      [{"Key1" => (2 ** 16) - 1}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:uint16, records)
     assert_equal(records, target.raw_records)
@@ -121,8 +87,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_int32
     records = [
-      [{"0" => -(2 ** 31)}],
-      [{"1" => nil}],
+      [{"Key1" => -(2 ** 31)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:int32, records)
     assert_equal(records, target.raw_records)
@@ -130,8 +97,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_uint32
     records = [
-      [{"0" => (2 ** 32) - 1}],
-      [{"1" => nil}],
+      [{"Key1" => (2 ** 32) - 1}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:uint32, records)
     assert_equal(records, target.raw_records)
@@ -139,8 +107,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_int64
     records = [
-      [{"0" => -(2 ** 63)}],
-      [{"1" => nil}],
+      [{"Key1" => -(2 ** 63)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:int64, records)
     assert_equal(records, target.raw_records)
@@ -148,8 +117,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_uint64
     records = [
-      [{"0" => (2 ** 64) - 1}],
-      [{"1" => nil}],
+      [{"Key1" => (2 ** 64) - 1}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:uint64, records)
     assert_equal(records, target.raw_records)
@@ -157,8 +127,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_float
     records = [
-      [{"0" => -1.0}],
-      [{"1" => nil}],
+      [{"Key1" => -1.0}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:float, records)
     assert_equal(records, target.raw_records)
@@ -166,8 +137,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_double
     records = [
-      [{"0" => -1.0}],
-      [{"1" => nil}],
+      [{"Key1" => -1.0}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:double, records)
     assert_equal(records, target.raw_records)
@@ -175,8 +147,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_binary
     records = [
-      [{"0" => "\xff".b}],
-      [{"1" => nil}],
+      [{"Key1" => "\xff".b}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:binary, records)
     assert_equal(records, target.raw_records)
@@ -184,8 +157,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_string
     records = [
-      [{"0" => "Ruby"}],
-      [{"1" => nil}],
+      [{"Key1" => "Ruby"}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:string, records)
     assert_equal(records, target.raw_records)
@@ -193,8 +167,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_date32
     records = [
-      [{"0" => Date.new(1960, 1, 1)}],
-      [{"1" => nil}],
+      [{"Key1" => Date.new(1960, 1, 1)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:date32, records)
     assert_equal(records, target.raw_records)
@@ -202,8 +177,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_date64
     records = [
-      [{"0" => DateTime.new(1960, 1, 1, 2, 9, 30)}],
-      [{"1" => nil}],
+      [{"Key1" => DateTime.new(1960, 1, 1, 2, 9, 30)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build(:date64, records)
     assert_equal(records, target.raw_records)
@@ -211,8 +187,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_timestamp_second
     records = [
-      [{"0" => Time.parse("1960-01-01T02:09:30Z")}],
-      [{"1" => nil}],
+      [{"Key1" => Time.parse("1960-01-01T02:09:30Z")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -224,8 +201,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_timestamp_milli
     records = [
-      [{"0" => Time.parse("1960-01-01T02:09:30.123Z")}],
-      [{"1" => nil}],
+      [{"Key1" => Time.parse("1960-01-01T02:09:30.123Z")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -237,8 +215,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_timestamp_micro
     records = [
-      [{"0" => Time.parse("1960-01-01T02:09:30.123456Z")}],
-      [{"1" => nil}],
+      [{"Key1" => Time.parse("1960-01-01T02:09:30.123456Z")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -250,8 +229,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_timestamp_nano
     records = [
-      [{"0" => Time.parse("1960-01-01T02:09:30.123456789Z")}],
-      [{"1" => nil}],
+      [{"Key1" => Time.parse("1960-01-01T02:09:30.123456789Z")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -265,8 +245,9 @@ module RawRecordsSparseUnionArrayTests
     unit = Arrow::TimeUnit::SECOND
     records = [
       # 00:10:00
-      [{"0" => Arrow::Time.new(unit, 60 * 10)}],
-      [{"1" => nil}],
+      [{"Key1" => Arrow::Time.new(unit, 60 * 10)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time32,
@@ -280,8 +261,9 @@ module RawRecordsSparseUnionArrayTests
     unit = Arrow::TimeUnit::MILLI
     records = [
       # 00:10:00.123
-      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
-      [{"1" => nil}],
+      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time32,
@@ -295,8 +277,9 @@ module RawRecordsSparseUnionArrayTests
     unit = Arrow::TimeUnit::MICRO
     records = [
       # 00:10:00.123456
-      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
-      [{"1" => nil}],
+      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time64,
@@ -310,8 +293,9 @@ module RawRecordsSparseUnionArrayTests
     unit = Arrow::TimeUnit::NANO
     records = [
       # 00:10:00.123456789
-      [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
-      [{"1" => nil}],
+      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time64,
@@ -323,8 +307,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_decimal128
     records = [
-      [{"0" => BigDecimal("92.92")}],
-      [{"1" => nil}],
+      [{"Key1" => BigDecimal("92.92")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :decimal128,
@@ -337,8 +322,9 @@ module RawRecordsSparseUnionArrayTests
 
   def test_decimal256
     records = [
-      [{"0" => BigDecimal("92.92")}],
-      [{"1" => nil}],
+      [{"Key1" => BigDecimal("92.92")}],
+      [nil],
+      [{"Key3" => nil}],
     ]
     target = build({
                      type: :decimal256,
@@ -351,13 +337,14 @@ module RawRecordsSparseUnionArrayTests
 
   def test_list
     records = [
-      [{"0" => [true, nil, false]}],
-      [{"1" => nil}],
+      [{"Key1" => [true, nil, false]}],
+      [nil],
+      [{"Key2" => nil}],
     ]
     target = build({
                      type: :list,
                      field: {
-                       name: :sub_element,
+                       name: :element,
                        type: :boolean,
                      },
                    },
@@ -367,15 +354,16 @@ module RawRecordsSparseUnionArrayTests
 
   def test_struct
     records = [
-      [{"0" => {"sub_field" => true}}],
-      [{"1" => nil}],
-      [{"0" => {"sub_field" => nil}}],
+      [{"Key1" => {"field" => true}}],
+      [nil],
+      [{"Key3" => nil}],
+      [{"Key3" => {"field" => nil}}],
     ]
     target = build({
                      type: :struct,
                      fields: [
                        {
-                         name: :sub_field,
+                         name: :field,
                          type: :boolean,
                        },
                      ],
@@ -386,9 +374,10 @@ module RawRecordsSparseUnionArrayTests
 
   def test_map
     records = [
-      [{"0" => {"sub_key1" => true}}],
-      [{"1" => nil}],
-      [{"0" => {"sub_key2" => nil}}],
+      [{"Key1" => {"sub_key1" => true}}],
+      [nil],
+      [{"Key3" => nil}],
+      [{"Key3" => {"sub_key2" => nil}}],
     ]
     target = build({
                      type: :map,
@@ -402,9 +391,10 @@ module RawRecordsSparseUnionArrayTests
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     records = [
-      [{"0" => {"field1" => true}}],
-      [{"1" => nil}],
-      [{"0" => {"field2" => nil}}],
+      [{"Key1" => {"field1" => true}}],
+      [nil],
+      [{"Key3" => nil}],
+      [{"Key4" => {"field2" => nil}}],
     ]
     target = build({
                      type: :sparse_union,
@@ -427,9 +417,10 @@ module RawRecordsSparseUnionArrayTests
   def test_dense_union
     omit("Need to add support for DenseUnionArrayBuilder")
     records = [
-      [{"0" => {"field1" => true}}],
-      [{"1" => nil}],
-      [{"0" => {"field2" => nil}}],
+      [{"Key1" => {"field1" => true}}],
+      [nil],
+      [{"Key3" => nil}],
+      [{"Key4" => {"field2" => nil}}],
     ]
     target = build({
                      type: :dense_union,
@@ -452,9 +443,10 @@ module RawRecordsSparseUnionArrayTests
   def test_dictionary
     omit("Need to add support for DictionaryArrayBuilder")
     records = [
-      [{"0" => "Ruby"}],
-      [{"1" => nil}],
-      [{"0" => "GLib"}],
+      [{"Key1" => "Ruby"}],
+      [nil],
+      [{"Key3" => nil}],
+      [{"Key4" => "GLib"}],
     ]
     dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
@@ -468,18 +460,18 @@ module RawRecordsSparseUnionArrayTests
   end
 end
 
-class RawRecordsRecordBatchSparseUnionArrayTest < Test::Unit::TestCase
-  include RawRecordsSparseUnionArrayTests
+class RawRecordsRecordBatchMapArrayTest < Test::Unit::TestCase
+  include RawRecordsMapArrayTests
 
   def build(type, records)
-    build_record_batch(type, records)
+    Arrow::RecordBatch.new(build_schema(type), records)
   end
 end
 
-class RawRecordsTableSparseUnionArrayTest < Test::Unit::TestCase
-  include RawRecordsSparseUnionArrayTests
+class RawRecordsTableMapArrayTest < Test::Unit::TestCase
+  include RawRecordsMapArrayTests
 
   def build(type, records)
-    build_record_batch(type, records).to_table
+    Arrow::Table.new(build_schema(type), records)
   end
 end

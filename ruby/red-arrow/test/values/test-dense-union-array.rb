@@ -382,6 +382,21 @@ module ValuesDenseUnionArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_map
+    values = [
+      {"0" => {"sub_key1" => true}},
+      {"1" => nil},
+      {"0" => {"sub_key2" => nil}},
+    ]
+    target = build({
+                     type: :map,
+                     key: :string,
+                     item: :boolean,
+                   },
+                   values)
+    assert_equal(values, target.values)
+  end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [

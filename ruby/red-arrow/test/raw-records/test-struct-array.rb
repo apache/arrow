@@ -381,6 +381,22 @@ module RawRecordsStructArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_map
+    records = [
+      [{"field" => {"sub_key1" => true}}],
+      [nil],
+      [{"field" => nil}],
+      [{"field" => {"sub_key2" => nil}}],
+    ]
+    target = build({
+                     type: :map,
+                     key: :string,
+                     item: :boolean,
+                   },
+                   records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     records = [

@@ -394,6 +394,21 @@ module RawRecordsDenseUnionArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_map
+    records = [
+      [{"0" => {"sub_key1" => true}}],
+      [{"1" => nil}],
+      [{"0" => {"sub_key2" => nil}}],
+    ]
+    target = build({
+                     type: :map,
+                     key: :string,
+                     item: :boolean,
+                   },
+                   records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     records = [
