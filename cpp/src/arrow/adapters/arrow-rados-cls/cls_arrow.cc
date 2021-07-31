@@ -51,6 +51,8 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
     chunks_ = std::vector<ceph::bufferlist*>();
   }
 
+  ~RandomAccessObject() { Close(); }
+
   /// Check if the file stream is closed.
   arrow::Status CheckClosed() const {
     if (closed_) {
@@ -70,9 +72,12 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
     return arrow::Status::OK();
   }
 
-  arrow::Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) { return 0; }
+  arrow::Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
+    return arrow::Status::NotImplemented(
+      "ReadAt has not been implemented in RandomAccessObject");
+  }
 
-  /// Read at a specified number of bytes from a specified position.
+  /// Read a specified number of bytes from a specified position.
   arrow::Result<std::shared_ptr<arrow::Buffer>> ReadAt(int64_t position, int64_t nbytes) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
@@ -159,7 +164,7 @@ static arrow::Status ScanIpcObject(cls_method_context_t hctx,
                                    arrow::compute::Expression partition_expression,
                                    std::shared_ptr<arrow::Schema> projection_schema,
                                    std::shared_ptr<arrow::Schema> dataset_schema,
-                                   std::shared_ptr<arrow::Table>& result_table,
+                                   std::shared_ptr<arrow::Table>* result_table,
                                    int64_t object_size) {
   auto file = std::make_shared<RandomAccessObject>(hctx, object_size);
   arrow::dataset::FileSource source(file, arrow::Compression::LZ4_FRAME);
@@ -174,12 +179,12 @@ static arrow::Status ScanIpcObject(cls_method_context_t hctx,
 
   ARROW_RETURN_NOT_OK(builder->Filter(filter));
   ARROW_RETURN_NOT_OK(builder->Project(projection_schema->field_names()));
-  ARROW_RETURN_NOT_OK(builder->UseThreads(false));
+  ARROW_RETURN_NOT_OK(builder->UseThreads(true));
 
   ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
   ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
 
-  result_table = table;
+  *result_table = table;
 
   ARROW_RETURN_NOT_OK(file->Close());
   return arrow::Status::OK();
@@ -199,7 +204,7 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
                                        arrow::compute::Expression partition_expression,
                                        std::shared_ptr<arrow::Schema> projection_schema,
                                        std::shared_ptr<arrow::Schema> dataset_schema,
-                                       std::shared_ptr<arrow::Table>& result_table,
+                                       std::shared_ptr<arrow::Table>* result_table,
                                        int64_t object_size) {
   auto file = std::make_shared<RandomAccessObject>(hctx, object_size);
   arrow::dataset::FileSource source(file);
@@ -217,13 +222,13 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
 
   ARROW_RETURN_NOT_OK(builder->Filter(filter));
   ARROW_RETURN_NOT_OK(builder->Project(projection_schema->field_names()));
-  ARROW_RETURN_NOT_OK(builder->UseThreads(false));
+  ARROW_RETURN_NOT_OK(builder->UseThreads(true));
   ARROW_RETURN_NOT_OK(builder->FragmentScanOptions(fragment_scan_options));
 
   ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
   ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
 
-  result_table = table;
+  *result_table = table;
 
   ARROW_RETURN_NOT_OK(file->Close());
   return arrow::Status::OK();
