@@ -163,16 +163,16 @@ class BitmapWordReader {
     trailing_bytes_ = static_cast<int>(BitUtil::BytesForBits(trailing_bits_));
 
     if (nwords_ > 0) {
-      current_word_ = load<Word>(bitmap_);
+      current_data.word_ = load<Word>(bitmap_);
     } else if (length > 0) {
-      current_byte_ = load<uint8_t>(bitmap_);
+      current_data.epi.byte_ = load<uint8_t>(bitmap_);
     }
   }
 
   Word NextWord() {
     bitmap_ += sizeof(Word);
     const Word next_word = load<Word>(bitmap_);
-    Word word = current_word_;
+    Word word = current_data.word_;
     if (may_have_byte_offset && offset_) {
       // combine two adjacent words into one word
       // |<------ next ----->|<---- current ---->|
@@ -188,7 +188,7 @@ class BitmapWordReader {
       word >>= offset_;
       word |= next_word << (sizeof(Word) * 8 - offset_);
     }
-    current_word_ = next_word;
+    current_data.word_ = next_word;
     return word;
   }
 
@@ -213,12 +213,12 @@ class BitmapWordReader {
     } else {
       ++bitmap_;
       const uint8_t next_byte = load<uint8_t>(bitmap_);
-      byte = current_byte_;
+      byte = current_data.epi.byte_;
       if (may_have_byte_offset && offset_) {
         byte >>= offset_;
         byte |= next_byte << (8 - offset_);
       }
-      current_byte_ = next_byte;
+      current_data.epi.byte_ = next_byte;
       trailing_bits_ -= 8;
       trailing_bytes_--;
       valid_bits = 8;
@@ -238,14 +238,14 @@ class BitmapWordReader {
   int trailing_bits_;
   int trailing_bytes_;
   union {
-    Word current_word_;
+    Word word_;
     struct {
 #if ARROW_LITTLE_ENDIAN == 0
       uint8_t padding_bytes_[sizeof(Word) - 1];
 #endif
-      uint8_t current_byte_;
-    };
-  };
+      uint8_t byte_;
+    } epi;
+  } current_data;
 
   template <typename DType>
   DType load(const uint8_t* bitmap) {
