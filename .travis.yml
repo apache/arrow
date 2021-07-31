@@ -79,44 +79,6 @@ jobs:
         ARCH: arm64v8
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
-    
-    - name: "C++ on ARM (with Skyhook)"
-      os: linux
-      arch: arm64
-      env:
-        ARCH: arm64v8
-        ARROW_CI_MODULES: "CPP"
-        DOCKER_IMAGE_ID: ubuntu-cpp-skyhook
-        # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
-        # glog and CMAKE_UNITY_BUILD=ON.
-        #
-        # Disable ARROW_S3 because it often causes "No output has
-        # been received in the last 10m0s, this potentially indicates
-        # a stalled build or something wrong with the build itself."
-        # on Travis CI.
-        DOCKER_RUN_ARGS: >-
-          "
-          -e ARROW_BUILD_STATIC=OFF
-          -e ARROW_ORC=OFF
-          -e ARROW_RADOS=ON
-          -e ARROW_S3=OFF
-          -e ARROW_USE_GLOG=OFF
-          -e CMAKE_UNITY_BUILD=ON
-          "
-        # We need to use smaller build when cache doesn't exist
-        # because Travis CI has "No output has been received in the
-        # last 10m0s" limitation. If we build many modules, we reach
-        # the limitation.
-        DOCKER_RUN_ARGS_NO_CACHE: >-
-          "
-          -e ARROW_BUILD_TESTS=OFF
-          -e ARROW_GANDIVA=OFF
-          -e ARROW_PARQUET=OFF
-          "
-        # The LLVM's APT repository provides only arm64 binaries.
-        # We should use LLVM provided by Ubuntu.
-        LLVM: "10"
-        UBUNTU: "20.04"
 
     - name: "C++ on s390x"
       os: linux
