@@ -35,7 +35,9 @@ unset ARROW_R_DEV
 export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
 
-${R_BIN} < tests/testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+pushd tests
+${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+popd
 ${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
