@@ -979,7 +979,17 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
+        LTO: true
       run: ubuntu-r-valgrind
+
+  test-r-lto:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      env:
+        ARROW_R_DEV: "TRUE"
+        UBUNTU: 18.04
+      run: ubuntu-r-lto
 
   test-r-linux-rchk:
     ci: github

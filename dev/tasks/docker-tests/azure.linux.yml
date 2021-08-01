@@ -45,6 +45,15 @@ jobs:
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 
+  # only needed for r-lto job to use until https://github.com/wch/r-debug/pull/22 is merged
+  - script: |
+      git clone https://github.com/nealrichardson/r-debug.git
+      git checkout lto
+      cd r-debug
+      ./buildall.sh
+    condition: contains(variables['LTO'], 'true')
+    displayName: build r-debug
+
   - script: pip install -e arrow/dev/archery[docker]
     displayName: Setup Archery
 
