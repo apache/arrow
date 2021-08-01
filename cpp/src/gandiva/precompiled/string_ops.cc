@@ -1642,6 +1642,35 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
   return value;
 }
 
+// Calculate the levenshtein distance between two string values
+FORCE_INLINE
+gdv_int32 levenshtein_utf8_utf8(int64_t context, const char* in1, int32_t in1_len,
+                           const char* in2, int32_t in2_len) {
+  if (in1_len < 0 || in2_len < 0) {
+    gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
+    return 0;
+  }
+  int a, b, c, aux;
+  // dist[i][j] represents the Levenstein distance between the strings
+  int dist[in1_len + 1][in2_len + 1];
+  for (int i = 0; i <= in1_len; i++) dist[i][0] = i;
+  for (int j = 1; j <= in2_len; j++) dist[0][j] = j;
+  for (int j = 0; j < in2_len; j++) {
+    for (int i = 0; i < in1_len; i++) {
+      if (in1[i] == in2[j]) {
+        dist[i + 1][j + 1] = dist[i][j];
+      } else {
+        a = dist[i][j + 1] + 1;
+        b = dist[i + 1][j] + 1;
+        c = dist[i][j] + 1;
+        aux = (a < b ? a : b);
+        dist[i + 1][j + 1] = (aux < c ? aux : c);
+      }
+    }
+  }
+  return dist[in1_len][in2_len];
+}
+
 // Search for a string within another string
 // Same as "locate(substr, str)", except for the reverse order of the arguments.
 FORCE_INLINE

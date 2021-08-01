@@ -912,6 +912,35 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLevenshtein) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "kitten", 6, "sitting", 7), 3);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "book", 4, "back", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "", 0, "a", 1), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "test", 4, "task", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "cat", 3, "coat", 4), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "coat", 4, "coat", 4), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein_utf8_utf8(ctx_ptr, "book", -5, "back", 4), 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("String length must be greater than 0"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestLtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
