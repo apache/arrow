@@ -24,6 +24,8 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
+# Unity builds were causing the CI job to run out of memory
+export CMAKE_UNITY_BUILD=OFF
 # Make installation verbose so that the CI job doesn't time out due to silence
 export ARROW_R_DEV=TRUE
 ${R_BIN} CMD INSTALL .
