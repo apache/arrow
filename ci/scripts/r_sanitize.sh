@@ -22,12 +22,23 @@ set -ex
 
 source_dir=${1}/r
 
-${R_BIN} CMD INSTALL ${source_dir}
-pushd ${source_dir}/tests
+pushd ${source_dir}
+
+# Unity builds were causing the CI job to run out of memory
+export CMAKE_UNITY_BUILD=OFF
+# Make installation verbose so that the CI job doesn't time out due to silence
+export ARROW_R_DEV=TRUE
+${R_BIN} CMD INSTALL .
+# But unset the env var so that it doesn't cause us to run extra dev tests
+unset ARROW_R_DEV
 
 export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
+
+pushd tests
 ${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
+popd
+${R_BIN} -e 'library(arrow); testthat::test_examples(".")' >> testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
 if grep -q "runtime error" testthat.out; then
