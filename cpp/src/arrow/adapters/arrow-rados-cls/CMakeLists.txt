@@ -19,10 +19,10 @@ add_custom_target(cls_arrow)
 arrow_install_all_headers("arrow/adapters/arrow-rados-cls")
 
 # cls_arrow
-set(ARROW_CLS_SRCS cls_arrow.cc)
+set(ARROW_SKYHOOK_SRCS cls_arrow.cc)
 
-set(ARROW_CLS_LINK_STATIC arrow_dataset_static)
-set(ARROW_CLS_LINK_SHARED arrow_dataset_shared)
+set(ARROW_SKYHOOK_LINK_STATIC arrow_dataset_static)
+set(ARROW_SKYHOOK_LINK_SHARED arrow_dataset_shared)
 
 find_package(librados REQUIRED)
 include_directories(${LIBRADOS_INCLUDE_DIR})
@@ -33,15 +33,15 @@ add_arrow_lib(cls_arrow
               PKG_CONFIG_NAME
               arrow-cls
               OUTPUTS
-              ARROW_CLS_LIBRARIES
+              ARROW_SKYHOOK_LIBRARIES
               SOURCES
-              ${ARROW_CLS_SRCS}
+              ${ARROW_SKYHOOK_SRCS}
               PRIVATE_INCLUDES
-              ${ARROW_CLS_PRIVATE_INCLUDES}
+              ${ARROW_SKYHOOK_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
-              ${ARROW_CLS_LINK_SHARED}
+              ${ARROW_SKYHOOK_LINK_SHARED}
               STATIC_LINK_LIBS
-              ${ARROW_CLS_LINK_STATIC})
+              ${ARROW_SKYHOOK_LINK_STATIC})
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})

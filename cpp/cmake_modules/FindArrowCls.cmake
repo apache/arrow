@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(DEFINED ARROW_RADOS_CLS_FOUND)
+if(DEFINED ARROW_SKYHOOK_FOUND)
   return()
 endif()
 
@@ -34,41 +34,42 @@ find_package(ArrowDataset ${find_package_arguments})
 find_package(Parquet ${find_package_arguments})
 
 if(ARROW_DATASET_FOUND AND PARQUET_FOUND)
-  arrow_find_package(ARROW_CLS
+  arrow_find_package(ARROW_SKYHOOK
                      "${ARROW_HOME}"
                      cls_arrow
                      ArrowCls
                      arrow-cls)
-  if(NOT ARROW_CLS_VERSION)
-    set(ARROW_CLS_VERSION "${ARROW_VERSION}")
+  if(NOT ARROW_SKYHOOK_VERSION)
+    set(ARROW_SKYHOOK_VERSION "${ARROW_VERSION}")
   endif()
 endif()
 
-if("${ARROW_CLS_VERSION}" VERSION_EQUAL "${ARROW_VERSION}")
-  set(ARROW_CLS_VERSION_MATCH TRUE)
+if("${ARROW_SKYHOOK_VERSION}" VERSION_EQUAL "${ARROW_VERSION}")
+  set(ARROW_SKYHOOK_VERSION_MATCH TRUE)
 else()
-  set(ARROW_CLS_VERSION_MATCH FALSE)
+  set(ARROW_SKYHOOK_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_CLS_IMPORT_LIB
-                 ARROW_CLS_INCLUDE_DIR
-                 ARROW_CLS_LIBS
-                 ARROW_CLS_LIB_DIR
-                 ARROW_CLS_SHARED_IMP_LIB
-                 ARROW_CLS_SHARED_LIB
-                 ARROW_CLS_STATIC_LIB
-                 ARROW_CLS_VERSION
-                 ARROW_CLS_VERSION_MATCH)
+mark_as_advanced(ARROW_SKYHOOK_IMPORT_LIB
+                 ARROW_SKYHOOK_INCLUDE_DIR
+                 ARROW_SKYHOOK_LIBS
+                 ARROW_SKYHOOK_LIB_DIR
+                 ARROW_SKYHOOK_SHARED_IMP_LIB
+                 ARROW_SKYHOOK_SHARED_LIB
+                 ARROW_SKYHOOK_STATIC_LIB
+                 ARROW_SKYHOOK_VERSION
+                 ARROW_SKYHOOK_VERSION_MATCH)
 
 find_package_handle_standard_args(
   ArrowCls
-  REQUIRED_VARS ARROW_CLS_INCLUDE_DIR ARROW_CLS_LIB_DIR ARROW_CLS_VERSION_MATCH
-  VERSION_VAR ARROW_CLS_VERSION)
-set(ARROW_RADOS_CLS_FOUND ${ArrowCls_FOUND})
+  REQUIRED_VARS ARROW_SKYHOOK_INCLUDE_DIR ARROW_SKYHOOK_LIB_DIR
+                ARROW_SKYHOOK_VERSION_MATCH
+  VERSION_VAR ARROW_SKYHOOK_VERSION)
+set(ARROW_SKYHOOK_FOUND ${ArrowCls_FOUND})
 
 if(ArrowCls_FOUND AND NOT ArrowCls_FIND_QUIETLY)
-  message(STATUS "Found the Arrow Cls by ${ARROW_CLS_FIND_APPROACH}")
-  message(STATUS "Found the Arrow Cls shared library: ${ARROW_CLS_SHARED_LIB}")
-  message(STATUS "Found the Arrow Cls import library: ${ARROW_CLS_IMPORT_LIB}")
-  message(STATUS "Found the Arrow Cls static library: ${ARROW_CLS_STATIC_LIB}")
+  message(STATUS "Found the Arrow Cls by ${ARROW_SKYHOOK_FIND_APPROACH}")
+  message(STATUS "Found the Arrow Cls shared library: ${ARROW_SKYHOOK_SHARED_LIB}")
+  message(STATUS "Found the Arrow Cls import library: ${ARROW_SKYHOOK_IMPORT_LIB}")
+  message(STATUS "Found the Arrow Cls static library: ${ARROW_SKYHOOK_STATIC_LIB}")
 endif()

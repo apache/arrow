@@ -901,7 +901,7 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
-      ARROW_CLS: "ON"
+      ARROW_SKYHOOK: "ON"
     volumes: *ubuntu-volumes
     command: &cpp-skyhook-command >
       /bin/bash -c "
@@ -923,8 +923,7 @@ services:
     environment:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS:  # inherit
-      ARROW_CLS: "ON"
-      ARROW_RADOS: "ON"
+      ARROW_SKYHOOK: "ON"
     volumes: *ubuntu-volumes
     command: &python-skyhook-command >
       /bin/bash -c "
@@ -1410,8 +1409,7 @@ services:
       <<: *ccache
       ARROW_CUDA: "ON"
       ARROW_GLIB_GTK_DOC: "true"
-      ARROW_CLS: "ON"
-      ARROW_RADOS: "ON"
+      ARROW_SKYHOOK: "ON"
     volumes: *ubuntu-volumes
     command: &docs-command >
       /bin/bash -c "

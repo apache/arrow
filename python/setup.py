@@ -145,7 +145,8 @@ class build_ext(_build_ext):
                                          'release').lower()
         self.boost_namespace = os.environ.get('PYARROW_BOOST_NAMESPACE',
                                               'boost')
-        self.with_rados = strtobool(os.environ.get('PYARROW_WITH_RADOS', '0'))
+        self.with_rados = strtobool(
+            os.environ.get('PYARROW_WITH_SKYHOOK', '0'))
 
         self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
 
@@ -255,7 +256,7 @@ class build_ext(_build_ext):
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            append_cmake_bool(self.with_rados, 'PYARROW_BUILD_RADOS')
+            append_cmake_bool(self.with_rados, 'PYARROW_BUILD_SKYHOOK')
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
             append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')

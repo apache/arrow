@@ -28,6 +28,6 @@
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/scanner.h"
 
-#ifdef ARROW_RADOS
+#ifdef ARROW_SKYHOOK
 #include "arrow/dataset/file_skyhook.h"
 #endif

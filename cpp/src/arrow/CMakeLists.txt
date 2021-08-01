@@ -724,7 +724,7 @@ if(ARROW_ORC)
   add_subdirectory(adapters/orc)
 endif()
 
-if(ARROW_CLS)
+if(ARROW_SKYHOOK)
   add_subdirectory(adapters/arrow-rados-cls)
 endif()
 

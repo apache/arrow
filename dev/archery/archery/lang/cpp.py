@@ -228,7 +228,7 @@ class CppConfiguration:
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_PYTHON", truthifier(self.with_python))
         yield ("ARROW_S3", truthifier(self.with_s3))
-        yield ("ARROW_RADOS", truthifier(self.with_rados))
+        yield ("ARROW_SKYHOOK", truthifier(self.with_rados))
 
         # Compressions
         yield ("ARROW_WITH_BROTLI", truthifier(self.with_brotli))

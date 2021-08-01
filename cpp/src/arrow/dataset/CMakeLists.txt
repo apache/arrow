@@ -31,7 +31,7 @@ set(ARROW_DATASET_SRCS
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
-if(ARROW_RADOS)
+if(ARROW_SKYHOOK)
   find_package(librados REQUIRED)
   include_directories(${LIBRADOS_INCLUDE_DIR})
 
@@ -131,7 +131,7 @@ if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
 endif()
 
-if(ARROW_RADOS)
+if(ARROW_SKYHOOK)
   add_arrow_dataset_test(file_skyhook_test)
 endif()
 
