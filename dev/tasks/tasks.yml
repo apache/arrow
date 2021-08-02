@@ -979,7 +979,6 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
-        LTO: true
       run: ubuntu-r-valgrind
 
   test-r-lto:
@@ -989,6 +988,7 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
+        LTO: true
       run: ubuntu-r-lto
 
   test-r-linux-rchk:
