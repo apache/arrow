@@ -82,7 +82,7 @@ import com.google.common.collect.ImmutableList;
 public class TestFlightSql {
 
   protected static final Schema SCHEMA_INT_TABLE = new Schema(asList(
-      new Field("ID", new FieldType(true, MinorType.INT.getType(), null), null),
+      new Field("ID", new FieldType(false, MinorType.INT.getType(), null), null),
       Field.nullable("KEYNAME", MinorType.VARCHAR.getType()),
       Field.nullable("VALUE", MinorType.INT.getType()),
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
