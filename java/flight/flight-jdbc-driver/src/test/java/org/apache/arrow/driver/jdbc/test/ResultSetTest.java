@@ -22,6 +22,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
