@@ -71,7 +71,7 @@ Install
 The following guide depends on GitHub, but theoretically any git
 server can be used.
 
-If you are not using the `ursacomputing/crossbow <https://github.com/ursacomputing/crossbow>`
+If you are not using the `ursacomputing/crossbow <https://github.com/ursacomputing/crossbow>`_
 repository, you will need to complete the first two steps, otherwise procede
 to step 3:
 
