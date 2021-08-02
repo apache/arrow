@@ -42,6 +42,8 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - name: Install pkg-config
+        run: sudo apt install pkg-config
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
