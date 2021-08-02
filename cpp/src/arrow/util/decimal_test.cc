@@ -146,20 +146,20 @@ class DecimalFromStringTest : public ::testing::Test {
       int32_t expected_precision;
       int32_t expected_scale;
     };
-    for (const TestValue tv : std::vector<TestValue>{{"12.3", 123LL, 3, 1},
-                                                     {"0.00123", 123LL, 5, 5},
-                                                     {"1.23E-8", 123LL, 3, 10},
-                                                     {"-1.23E-8", -123LL, 3, 10},
-                                                     {"1.23E+3", 1230LL, 4, 0},
-                                                     {"-1.23E+3", -1230LL, 4, 0},
-                                                     {"1.23E+5", 123000LL, 6, 0},
-                                                     {"1.2345E+7", 12345000LL, 8, 0},
-                                                     {"1.23e-8", 123LL, 3, 10},
-                                                     {"-1.23e-8", -123LL, 3, 10},
-                                                     {"1.23e+3", 1230LL, 4, 0},
-                                                     {"-1.23e+3", -1230LL, 4, 0},
-                                                     {"1.23e+5", 123000LL, 6, 0},
-                                                     {"1.2345e+7", 12345000LL, 8, 0}}) {
+    for (const auto& tv : std::vector<TestValue>{{"12.3", 123LL, 3, 1},
+                                                 {"0.00123", 123LL, 5, 5},
+                                                 {"1.23E-8", 123LL, 3, 10},
+                                                 {"-1.23E-8", -123LL, 3, 10},
+                                                 {"1.23E+3", 1230LL, 4, 0},
+                                                 {"-1.23E+3", -1230LL, 4, 0},
+                                                 {"1.23E+5", 123000LL, 6, 0},
+                                                 {"1.2345E+7", 12345000LL, 8, 0},
+                                                 {"1.23e-8", 123LL, 3, 10},
+                                                 {"-1.23e-8", -123LL, 3, 10},
+                                                 {"1.23e+3", 1230LL, 4, 0},
+                                                 {"-1.23e+3", -1230LL, 4, 0},
+                                                 {"1.23e+5", 123000LL, 6, 0},
+                                                 {"1.2345e+7", 12345000LL, 8, 0}}) {
       ARROW_SCOPED_TRACE("s = '", tv.s, "'");
       AssertDecimalFromString(tv.s, DecimalType(tv.expected), tv.expected_precision,
                               tv.expected_scale);
@@ -571,17 +571,17 @@ class DecimalFromIntegerTest : public ::testing::Test {
   }
 
   void TestConstructibleFromAnyIntegerType() {
-    CheckConstructFrom<char>();
-    CheckConstructFrom<signed char>();
-    CheckConstructFrom<unsigned char>();
-    CheckConstructFrom<short>();
-    CheckConstructFrom<unsigned short>();
-    CheckConstructFrom<int>();
-    CheckConstructFrom<unsigned int>();
-    CheckConstructFrom<long>();
-    CheckConstructFrom<unsigned long>();
-    CheckConstructFrom<long long>();
-    CheckConstructFrom<unsigned long long>();
+    CheckConstructFrom<char>();                // NOLINT
+    CheckConstructFrom<signed char>();         // NOLINT
+    CheckConstructFrom<unsigned char>();       // NOLINT
+    CheckConstructFrom<short>();               // NOLINT
+    CheckConstructFrom<unsigned short>();      // NOLINT
+    CheckConstructFrom<int>();                 // NOLINT
+    CheckConstructFrom<unsigned int>();        // NOLINT
+    CheckConstructFrom<long>();                // NOLINT
+    CheckConstructFrom<unsigned long>();       // NOLINT
+    CheckConstructFrom<long long>();           // NOLINT
+    CheckConstructFrom<unsigned long long>();  // NOLINT
   }
 
   void TestConstructibleFromBool() {
