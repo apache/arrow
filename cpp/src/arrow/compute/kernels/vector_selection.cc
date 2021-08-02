@@ -1989,7 +1989,7 @@ class FilterMetaFunction : public MetaFunction {
 
 Result<std::shared_ptr<Array>> TakeAA(const Array& values, const Array& indices,
                                       const TakeOptions& options, ExecContext* ctx) {
-    ARROW_ASSIGN_OR_RAISE(Datum result,
+  ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("array_take", {values, indices}, &options, ctx));
   return result.make_array();
 }
@@ -2150,54 +2150,86 @@ class TakeMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
-    const std::shared_ptr<Array>& column, MemoryPool* memory_pool) {
-  std::shared_ptr<arrow::Array> indices;
-  arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
-  builder.Reserve(column->length() - column->null_count());
-
-  std::vector<int32_t> values;
-  for (int64_t i = 0; i < column->length(); i++) {
-    if (column->IsValid(i)) {
-      builder.UnsafeAppend(static_cast<int32_t>(i));
-    }
-  }
-  RETURN_NOT_OK(builder.Finish(&indices));
-  return indices;
+Status GetDropNullFilter(const Array& values, MemoryPool* memory_pool,
+                         std::shared_ptr<arrow::BooleanArray>* out_array) {
+  auto bitmap_buffer = values.null_bitmap();
+  *out_array = std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
+                                              values.offset());
+  return Status::OK();
 }
 
-Result<std::shared_ptr<arrow::Array>> GetNotNullIndices(
-    const std::shared_ptr<ChunkedArray>& chunks, MemoryPool* memory_pool) {
-  std::shared_ptr<arrow::Array> indices;
-  arrow::NumericBuilder<arrow::Int32Type> builder(memory_pool);
-  builder.Reserve(chunks->length() - chunks->null_count());
-  int64_t relative_index = 0;
-  for (int64_t chunk_index = 0; chunk_index < chunks->num_chunks(); ++chunk_index) {
-    auto column_chunk = chunks->chunk(chunk_index);
-    for (int64_t col_index = 0; col_index < column_chunk->length(); col_index++) {
-      if (column_chunk->IsValid(col_index)) {
-        builder.UnsafeAppend(static_cast<int32_t>(relative_index + col_index));
-      }
-    }
-    relative_index += column_chunk->length();
+Status CreateEmptyArray(std::shared_ptr<DataType> type, MemoryPool* memory_pool,
+                        std::shared_ptr<Array>* output_array) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  ARROW_ASSIGN_OR_RAISE(*output_array, builder->Finish());
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& values,
+                                             ExecContext* ctx) {
+  if (values->null_count() == 0) {
+    return values;
   }
-  RETURN_NOT_OK(builder.Finish(&indices));
-  return indices;
+  std::shared_ptr<BooleanArray> dropnull_filter;
+  RETURN_NOT_OK(GetDropNullFilter(*values, ctx->memory_pool(), &dropnull_filter));
+
+  if (dropnull_filter->null_count() == dropnull_filter->length()) {
+    std::shared_ptr<Array> empty_array;
+    RETURN_NOT_OK(CreateEmptyArray(values->type(), ctx->memory_pool(), &empty_array));
+    return empty_array;
+  }
+  auto options = FilterOptions::Defaults();
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result,
+      CallFunction("array_filter", {Datum(*values), Datum(*dropnull_filter)}, &options,
+                   ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(const ChunkedArray& values,
+                                                           ExecContext* ctx) {
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  for (int i = 0; i < num_chunks; i++) {
+    ARROW_ASSIGN_OR_RAISE(new_chunks[i], DropNullArray(values.chunk(i), ctx));
+  }
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
 Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch,
                                                          ExecContext* ctx) {
-  int64_t length_count = 0;
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
-  for (int i = 0; i < batch.num_columns(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto indices,
-                          GetNotNullIndices(batch.column(i), ctx->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),
-                                          TakeOptions::NoBoundsCheck(), ctx));
-    columns[i] = out.make_array();
-    length_count += columns[i]->length();
+  std::set<int32_t> notnull_indices;
+
+  for (int col_index = 0; col_index < batch.num_columns(); ++col_index) {
+    const auto& column = batch.column(col_index);
+    for (int64_t i = 0; i < column->length(); ++i) {
+      if (!column->IsValid(i)) {
+        notnull_indices.insert(static_cast<int32_t>(i));
+      }
+    }
   }
-  return RecordBatch::Make(batch.schema(), length_count, std::move(columns));
+  if (static_cast<int64_t>(notnull_indices.size()) == batch.num_rows()) {
+    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
+    for (int i = 0; i < batch.num_columns(); i++) {
+      RETURN_NOT_OK(
+          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
+    }
+    return RecordBatch::Make(batch.schema(), 0, empty_batch);
+  }
+  std::shared_ptr<arrow::Array> indices;
+  arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
+  RETURN_NOT_OK(
+      builder.Reserve(static_cast<int64_t>(batch.num_rows() - notnull_indices.size())));
+  for (int64_t row_index = 0; row_index < batch.num_rows(); ++row_index) {
+    if (notnull_indices.find(static_cast<int32_t>(row_index)) == notnull_indices.end()) {
+      builder.UnsafeAppend(static_cast<int32_t>(row_index));
+    }
+  }
+  RETURN_NOT_OK(builder.Finish(&indices));
+  return TakeRA(batch, *indices, TakeOptions::Defaults(), ctx);
 }
 
 Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ctx) {
@@ -2222,17 +2254,28 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
       const auto& column_chunk = inputs[col][chunk_index];
       for (int64_t i = 0; i < column_chunk->length(); ++i) {
         if (!column_chunk->IsValid(i)) {
-          notnull_indices.insert(relative_index + i);
+          notnull_indices.insert(static_cast<int32_t>(relative_index + i));
         }
       }
       relative_index += column_chunk->length();
     }
   }
+  if (static_cast<int64_t>(notnull_indices.size()) == table.num_rows()) {
+    std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
+    for (int i = 0; i < table.num_columns(); i++) {
+      std::shared_ptr<Array> empty_array;
+      RETURN_NOT_OK(
+          CreateEmptyArray(table.column(i)->type(), ctx->memory_pool(), &empty_array));
+      empty_table[i] = std::make_shared<ChunkedArray>(ArrayVector{empty_array});
+    }
+    return Table::Make(table.schema(), empty_table, 0);
+  }
   std::shared_ptr<arrow::Array> indices;
   arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
-  builder.Reserve(static_cast<int64_t>(table.num_rows() - notnull_indices.size()));
+  RETURN_NOT_OK(
+      builder.Reserve(static_cast<int64_t>(table.num_rows() - notnull_indices.size())));
   for (int64_t row_index = 0; row_index < table.num_rows(); ++row_index) {
-    if (notnull_indices.find(row_index) == notnull_indices.end()) {
+    if (notnull_indices.find(static_cast<int32_t>(row_index)) == notnull_indices.end()) {
       builder.UnsafeAppend(static_cast<int32_t>(row_index));
     }
   }
@@ -2254,16 +2297,11 @@ class DropNullMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     switch (args[0].kind()) {
       case Datum::ARRAY: {
-        const auto values = args[0].make_array();
-        ARROW_ASSIGN_OR_RAISE(auto indices,
-                              GetNotNullIndices(values, ctx->memory_pool()));
-        return TakeAA(*values, *indices, TakeOptions::Defaults(), ctx);
+        auto input_array = args[0].make_array();
+        return DropNullArray(input_array, ctx);
       } break;
       case Datum::CHUNKED_ARRAY: {
-        const auto values = args[0].chunked_array();
-        ARROW_ASSIGN_OR_RAISE(auto indices,
-                              GetNotNullIndices(values, ctx->memory_pool()));
-        return TakeCA(*values, *indices, TakeOptions::Defaults(), ctx);
+        return DropNullChunkedArray(*args[0].chunked_array(), ctx);
       } break;
       case Datum::RECORD_BATCH: {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,

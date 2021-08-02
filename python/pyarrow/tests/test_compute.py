@@ -994,15 +994,36 @@ def test_dropnull_chunked_array():
 def test_dropnull_record_batch():
     batch = pa.record_batch(
         [pa.array(["a", None, "c", "d", None])], names=["a'"])
-
     result = batch.dropnull()
     expected = pa.record_batch([pa.array(["a", "c", "d"])], names=["a'"])
+    assert result.equals(expected)
+
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", None]),
+         pa.array([None, None, "c", None, "e"])], names=["a'", "b'"])
+
+    result = batch.dropnull()
+    expected = pa.record_batch(
+        [pa.array(["c"]), pa.array(["c"])], names=["a'", "b'"])
+    print(result["a'"])
+    print(expected["a'"])
     assert result.equals(expected)
 
 
 def test_dropnull_table():
     table = pa.table([pa.array(["a", None, "c", "d", None])], names=["a"])
     expected = pa.table([pa.array(["a", "c", "d"])], names=["a"])
+    result = table.dropnull()
+    assert result.equals(expected)
+
+    table = pa.table([pa.chunked_array([["a", None], ["c", "d", None]]),
+                      pa.chunked_array([["a", None], [None, "d", None]]),
+                      pa.chunked_array([["a"], ["b"], [None], ["d", None]])],
+                     names=["a", "b", "c"])
+    expected = pa.table([pa.array(["a", "d"]),
+                         pa.array(["a", "d"]),
+                         pa.array(["a", "d"])],
+                        names=["a", "b", "c"])
     result = table.dropnull()
     assert result.equals(expected)
 
