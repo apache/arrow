@@ -80,7 +80,7 @@ elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_DIRS="-L$LIB_DIR"
 else
-  # Use pkg-config if available and allowed
+  # Use pkg-config to find libarrow if available and allowed
   pkg-config --version >/dev/null 2>&1
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     # Set the search paths and compile flags
@@ -188,7 +188,7 @@ else
         BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
-        # Use pkg-config to do static linking 
+        # Use pkg-config to do static linking of libarrow's dependencies
         if [ "$ARROW_DEPENDENCY_SOURCE" = "auto" ]; then
           PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR} pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
