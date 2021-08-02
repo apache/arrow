@@ -894,8 +894,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             throw new UnsupportedOperationException();
         }
       }
-
-      preparedStatement.setByte(-1, (byte) 1);
       preparedStatement.addBatch();
     }
   }
