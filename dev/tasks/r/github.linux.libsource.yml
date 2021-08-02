@@ -56,7 +56,7 @@ jobs:
         run: cd arrow && docker-compose build r
       - name: Docker Run
         shell: bash
-        run: cd arrow && docker-compose run r
+        run: cd arrow && docker-compose run r -e ARROW_DEPENDENCY_SOURCE="$ARROW_DEPENDENCY_SOURCE"
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
