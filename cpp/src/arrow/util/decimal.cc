@@ -535,7 +535,7 @@ Status DecimalFromString(const char* type_name, const util::string_view& s, Deci
 
   if (out != nullptr) {
     static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
-    std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array = {0, 0};
+    std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
