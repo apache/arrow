@@ -71,6 +71,10 @@ Install
 The following guide depends on GitHub, but theoretically any git
 server can be used.
 
+If you are not using the `ursacomputing/crossbow <https://github.com/ursacomputing/crossbow>`_
+repository, you will need to complete the first two steps, otherwise procede
+to step 3:
+
 1. `Create the queue repository`_
 
 2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
@@ -78,7 +82,8 @@ server can be used.
 
    -  turn off Travis’ `auto cancellation`_ feature on branches
 
-3. Clone the newly created repository next to the arrow repository:
+3. Clone either ursacomputing/crossbow if you are using that, or the newly
+   created repository next to the arrow repository:
 
    By default the scripts looks for ``crossbow`` next to arrow repository, but
    this can configured through command line arguments.
@@ -127,7 +132,7 @@ server can be used.
 
    .. code:: bash
 
-      pip install -e arrow/dev/archery[crossbow]
+      pip install -e "arrow/dev/archery[crossbow]"
 
 9. Try running it:
 
