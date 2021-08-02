@@ -257,7 +257,6 @@ def disable_aws_metadata(monkeypatch):
 # TODO(kszucs): move the following fixtures to test_fs.py once the previous
 # parquet dataset implementation and hdfs implementation are removed.
 
-@pytest.mark.hdfs
 @pytest.fixture(scope='session')
 def hdfs_connection():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
@@ -266,7 +265,6 @@ def hdfs_connection():
     return host, port, user
 
 
-@pytest.mark.s3
 @pytest.fixture(scope='session')
 def s3_connection():
     host, port = 'localhost', find_free_port()
