@@ -62,6 +62,7 @@ class ARROW_EXPORT BasicDecimal128 {
 #endif
 
   /// \brief Create a BasicDecimal256 from the two's complement representation.
+  ///
   /// Input array is assumed to be in native endianness.
 #if ARROW_LITTLE_ENDIAN
   constexpr BasicDecimal128(const std::array<uint64_t, 2>& array) noexcept
@@ -71,7 +72,9 @@ class ARROW_EXPORT BasicDecimal128 {
       : high_bits_(static_cast<int64_t>(array[0])), low_bits_(array[1]) {}
 #endif
 
-  // XXX
+  /// \brief Create a BasicDecimal256 from the two's complement representation.
+  ///
+  /// Input array is assumed to be in little endianness, with native endian elements.
   BasicDecimal128(LittleEndianArrayTag, const std::array<uint64_t, 2>& array) noexcept
       : BasicDecimal128(BitUtil::LittleEndianArray::ToNative(array)) {}
 
@@ -142,6 +145,30 @@ class ARROW_EXPORT BasicDecimal128 {
 
   /// \brief Get the low bits of the two's complement representation of the number.
   inline constexpr uint64_t low_bits() const { return low_bits_; }
+
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The 2 elements are in native endian order. The bits within each uint64_t element
+  /// are in native endian order. For example, on a little endian machine,
+  /// BasicDecimal128(123).native_endian_array() = {123, 0};
+  /// but on a big endian machine,
+  /// BasicDecimal128(123).native_endian_array() = {0, 123};
+  inline std::array<uint64_t, 2> native_endian_array() const {
+#if ARROW_LITTLE_ENDIAN
+    return {low_bits_, static_cast<uint64_t>(high_bits_)};
+#else
+    return {static_cast<uint64_t>(high_bits_), low_bits_};
+#endif
+  }
+
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The 2 elements are in little endian order. However, the bits within each
+  /// uint64_t element are in native endian order.
+  /// For example, BasicDecimal128(123).little_endian_array() = {123, 0};
+  inline std::array<uint64_t, 2> little_endian_array() const {
+    return {low_bits_, static_cast<uint64_t>(high_bits_)};
+  }
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
@@ -232,11 +259,14 @@ class ARROW_EXPORT BasicDecimal256 {
   static constexpr LittleEndianArrayTag LittleEndianArray{};
 
   /// \brief Create a BasicDecimal256 from the two's complement representation.
+  ///
   /// Input array is assumed to be in native endianness.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& array) noexcept
       : array_(array) {}
 
-  // XXX
+  /// \brief Create a BasicDecimal256 from the two's complement representation.
+  ///
+  /// Input array is assumed to be in little endianness, with native endian elements.
   BasicDecimal256(LittleEndianArrayTag, const std::array<uint64_t, 4>& array) noexcept
       : BasicDecimal256(BitUtil::LittleEndianArray::ToNative(array)) {}
 
@@ -276,13 +306,27 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Subtract a number from this one. The result is truncated to 256 bits.
   BasicDecimal256& operator-=(const BasicDecimal256& right);
 
-  /// \brief Get the bits of the two's complement representation of the number. The 4
-  /// elements are in native endian order. The bits within each uint64_t element are in
-  /// native endian order. For example, on a little endian machine,
-  /// BasicDecimal256(123).native_endian_array() = {123, 0, 0, 0};
-  /// BasicDecimal256(-2).native_endian_array() = {0xFF...FE, 0xFF...FF, 0xFF...FF,
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The 4 elements are in native endian order. The bits within each uint64_t element
+  /// are in native endian order. For example, on a little endian machine,
+  ///   BasicDecimal256(123).native_endian_array() = {123, 0, 0, 0};
+  ///   BasicDecimal256(-2).native_endian_array() = {0xFF...FE, 0xFF...FF, 0xFF...FF,
   /// 0xFF...FF}.
+  /// while on a big endian machine,
+  ///   BasicDecimal256(123).native_endian_array() = {0, 0, 0, 123};
+  ///   BasicDecimal256(-2).native_endian_array() = {0xFF...FF, 0xFF...FF, 0xFF...FF,
+  /// 0xFF...FE}.
   inline const std::array<uint64_t, 4>& native_endian_array() const { return array_; }
+
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The 4 elements are in little endian order. However, the bits within each
+  /// uint64_t element are in native endian order.
+  /// For example, BasicDecimal256(123).little_endian_array() = {123, 0};
+  inline const std::array<uint64_t, 4> little_endian_array() const {
+    return BitUtil::LittleEndianArray::FromNative(array_);
+  }
 
   /// \brief Get the lowest bits of the two's complement representation of the number.
   inline uint64_t low_bits() const { return BitUtil::LittleEndianArray::Make(array_)[0]; }
