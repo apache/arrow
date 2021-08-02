@@ -188,8 +188,7 @@ else
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
         # Use pkg-config to do static linking 
-        if [ "$ARROW_DEPENDENCY_SOURCE" == "AUTO" ]; then
-          #PKG_LIBS = "pkgconfig ${LIB_DIR} $PKG_LIBS"
+        if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ]; then
           PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR} pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
