@@ -42,5 +42,4 @@ ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran
 # they're not available everywhere and that's ok
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
-
 popd
