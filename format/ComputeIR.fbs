@@ -31,7 +31,7 @@
 /// * Array: logically, a field in a Table
 /// * Scalar: a single value, which is broadcastable to Array as needed
 ///
-/// This IR deliberately does not provide for query planning or physical
+/// This IR specifically does not provide for query planning or physical
 /// execution details. It also aims to be as comprehensive as possible in
 /// capturing compute operations expressible in different query engines or data
 /// frame libraries. Engines are not expected to implement everything here.
@@ -47,13 +47,18 @@ include "Schema.fbs";
 namespace org.apache.arrow.flatbuf.computeir;
 
 /// ----------------------------------------------------------------------
-/// Data serialization for literal (constant / scalar) values
+/// Data serialization for literal (constant / scalar) values. This assumes
+/// that the consumer has basic knowledge of the Arrow format and data types
+/// such that the binary scalar data that is encoded here can be unpacked into
+/// an appropriate literal value object. For example, if the Type for a Literal
+/// is FloatingPoint with Precision::DOUBLE, then we would expect to have a
+/// PrimitiveLiteralData with an 8-byte value.
 
 /// Serialized data which, given a data type, can be unpacked into a scalar
 /// value data structure.
 ///
-/// NB(wesm): This is simpler from an IDL perspective than having a separate
-/// data type for each Arrow type.
+/// NB(wesm): This is simpler from a Flatbuffers perspective than having a
+/// separate data type for each Arrow type. Alternative proposals welcome.
 union LiteralData {
   NullLiteralData,
   PrimitiveLiteralData,
@@ -66,8 +71,9 @@ union LiteralData {
 /// non-Null type.
 table NullLiteralData {}
 
-/// For all data types represented as fixed-size-binary value. Boolean values
-/// are to be represented as a single byte with value 1 (true) or 0 (false).
+/// For all data types represented as fixed-size-binary value (numeric and
+/// binary/string types included). Boolean values are to be represented as a
+/// single byte with value 1 (true) or 0 (false).
 table PrimitiveLiteralData {
   data:[ubyte] (required);
 }
@@ -77,12 +83,12 @@ table ListLiteralData {
   data:[LiteralData] (required);
 }
 
-/// For Struct.
+/// For Struct
 table StructLiteralData {
   data:[LiteralData] (required);
 }
 
-/// For Union.
+/// For Union
 table UnionLiteralData {
   /// The type code (referencing the Union type) needed to reconstruct the
   /// correct literal value.
@@ -112,44 +118,43 @@ table NamedLiteral {
 }
 
 /// ----------------------------------------------------------------------
-/// One-dimensional operations (array/scalar input and output) and ArrayExpr
+/// One-dimensional operations (array/scalar input and output) and ArrayExpr,
+/// which is an operation plus a name and output type.
 
-///
+/// A reference to an antecedent table schema in an expression tree
 table TableReference {
   ///
   name:string (required);
 }
 
-///
+/// A reference to an antecedent column from a table schema in an expression
+/// tree.
 table ColumnReference {
   name:string (required);
 
-  ///
+  /// Optional reference to antecedent table in tree. Required when there is
+  /// referential ambiguity.
   table:TableReference;
 }
 
 /// Operation checks if values are null
 table IsNull {
-  expr: ArrayExpr (required);
+  input:ArrayExpr (required);
 }
 
 /// Operation checks if values are not null
 table IsNotNull {
-  expr: ArrayExpr (required);
+  input:ArrayExpr (required);
 }
 
+/// Operation flips true/false values in boolean expression
 table Not {}
 
-/// Expected built-in binary operations
-enum UnaryOpType : int {
-  /// Not flips true/false in a boolean expression
-  NOT = 0,
+/// Operation flips sign of numeric expression
+table Negate {}
 
-  /// Unary negation flips sign of numeric input
-  NEGATE = 1,
-}
-
-/// Expected built-in binary operations
+/// Built-in binary operations. Other binary operations can be implemented
+/// using ArrayFunction/FunctionDescr
 enum BinaryOpType : int {
   ADD = 0,
   SUBTRACT = 1,
@@ -181,9 +186,10 @@ enum FunctionType : int {
 }
 
 /// A general-purpose descriptor for a built-in or user-defined
-/// function. Producers of the IR are encouraged to reuse Function objects (by
-/// reusing the Flatbuffers offset) when a particular function appears multiple
-/// times in an expression.
+/// function. Producers of the IR are encouraged to reuse FunctionDescr objects
+/// (by reusing the Flatbuffers offset) when a particular function appears
+/// multiple times in an expression. Arguments to a particular function call
+/// are supplied in ArrayFunction.
 table FunctionDescr {
   /// Function name from list of available function names. Built-in functions
   /// are expected to be chosen from a list of "canonical" or "unambiguous"
@@ -202,6 +208,10 @@ table FunctionDescr {
   data:[ubyte];
 }
 
+/// Auxiliary data structure providing parameters for a window function
+/// expression, as in the SQL OVER expression or in time series databases.
+///
+/// TODO: Finish this data type
 table WindowFrame {
   order_by:[SortKey];
 
@@ -224,7 +234,9 @@ table ArrayFunction {
   /// to be built-in in a generic IR consumer.
   options:[NamedLiteral];
 
-  /// Optional window expression for window functions only
+  /// Optional window expression for window functions only.
+  ///
+  /// TODO: Decide if window functions should be specified in a different way.
   window:WindowFrame;
 }
 
@@ -253,12 +265,13 @@ table IsIn {
   input:ArrayExpr (required);
   in_exprs:[ArrayExpr] (required);
 
-  /// If true, the checks are inequality rather than equality
+  /// If true, check whether values are not equal to any of the provided
+  /// expressions.
   negated:bool = false;
 }
 
 /// Boolean operation checking whether input is bounded by the left and right
-/// expressions.
+/// expressions. Convenience for specifying the compound predicate manually.
 ///
 /// input BETWEEN left_bound AND right_bound
 /// is the same as
@@ -286,7 +299,9 @@ union ArrayOperation {
 table ArrayExpr {
   op:ArrayOperation (required);
 
-  /// Optional name for array operation
+  /// Optional name for array operation. If not provided, may be inferred from
+  /// antecedent inputs. IR producers are recommended to provide names to avoid
+  /// ambiguity.
   name:string;
 
   /// Expected output type of the array operation. While optional, IR producers
@@ -295,16 +310,21 @@ table ArrayExpr {
 }
 
 /// ----------------------------------------------------------------------
-/// Table operations and TableExpr
+/// Table operations and TableExpr, which is a table operation plus an optional
+/// name and indicative output schema, and potentially other metadata.
 
 /// A named table which the IR producers expects the IR consumer to be able to
 /// access. A "table" in this context is anything that can produce
-/// Arrow-formatted data with the given schema.
+/// Arrow-formatted data with the given schema. There is no notion of the
+/// physical layout of the data or its segmentation into multiple Arrow record
+/// batches.
 table ExternalTable {
-  ///
+  /// The unique name to identify the data source.
   name:string (required);
 
-  ///
+  /// The schema of the data source. This may be a partial schema (ignoring
+  /// unused fields), but it at least asserts the fields and types that are
+  /// expected to exist in the data source.
   schema:Schema (required);
 
   /// Optional opaque table serialization data, for passing engine-specific
@@ -313,13 +333,14 @@ table ExternalTable {
   serde_data:[ubyte];
 }
 
-/// An instruction to "include all columns" in the projection, sparing the IR
-/// producer
+/// An auxiliary helper instruction to "include all columns" in the projection,
+/// sparing the IR producer the need to enumerate all column references in a
+/// projection.
 table StarSelection {
   ref:TableReference;
 }
 
-/// A helper union to permit the "SELECT *, $expr0, ..." concept from SQL.
+/// A helper union to permit the "SELECT *, $expr0, ..." construct from SQL.
 union ProjectionExpr {
   ArrayExpr,
   StarSelection
@@ -328,12 +349,18 @@ union ProjectionExpr {
 /// Computes a new table given a set of column selections or array expressions.
 table Projection {
   input:TableExpr (required);
+
+  /// Each expression must reference fields foudn in the input table
+  /// expression.
   exprs:[ProjectionExpr] (required);
 }
 
-/// Select rows from table for
+/// Select rows from table for given boolean condition.
 table Filter {
   input:TableExpr (required);
+
+  /// Array expression using input table expression yielding boolean output
+  /// type.
   condition:ArrayExpr (required);
 }
 
@@ -347,11 +374,18 @@ table Aggregate {
   /// operation yields a table with a single row.
   group_exprs:[ArrayExpr];
 
+  /// A filter condition for the aggregation which may include aggregate
+  /// functions.
   having:[ArrayExpr];
 }
 
+/// Select up to the indicated number of rows from the input expression based
+/// on the first-emitted rows when evaluating the input expression. Generally,
+/// no particular order is guaranteed unless combined with a sort expression.
 table Limit {
   input:TableExpr;
+
+  /// Number of logical rows to select from input.
   limit:long;
 }
 
@@ -365,12 +399,24 @@ enum RelationalJoinType : int {
 }
 
 /// A standard relational / SQL-style equijoin.
+///
+/// Providing no left/right columns produces the cross product of the two
+/// tables.
 table EqualityJoin {
   // TODO: complete and document
   type:RelationalJoinType = INNER;
-  left:TableExpr;
-  right:TableExpr;
-  left_columns:[ColumnReference];
+
+  left:TableExpr (required);
+  right:TableExpr (required);
+
+  /// The columns from the left expression to use when joining
+  left_columns:[ColumnReference] (required);
+
+  /// The columns from the right expression to use when joining. Must have the
+  /// same length as left_columns.
+  ///
+  /// If omitted, the names provided in left_columns must match the names in
+  /// the right expression.
   right_columns:[ColumnReference];
 }
 
@@ -379,24 +425,29 @@ table EqualityJoin {
 table NonEqualityJoin {
   // TODO: complete and document
   type:RelationalJoinType = INNER;
-  left:TableExpr;
-  right:TableExpr;
+  left:TableExpr (required);
+  right:TableExpr (required);
   left_exprs:[ArrayExpr];
   right_exprs:[ArrayExpr];
 }
 
 /// A temporal join type
+///
+/// TODO: complete and document
 table AsOfJoin {
-  // TODO: complete and document
-  left:TableExpr;
+  left:TableExpr (required);
   right:TableExpr;
 
+  /// The column in the left expression to use for data ordering to determine
+  /// the "as of" time.
   left_asof:ColumnReference (required);
 
-  /// If the column name is the same as left_asof, may be omitted.
+  /// The column in the right expression to use for data ordering to determine
+  /// the "as of" time. If the column name is the same as left_asof, may be
+  /// omitted.
   right_asof:ColumnReference;
 
-  ///
+  /// TODO: Define means of providing time deltas in this IR.
   tolerance:Literal;
 
   /// If true, the
@@ -404,7 +455,7 @@ table AsOfJoin {
 }
 
 /// An extension of as-of join which allows applying an aggregate function to
-/// the data falling within the indicated time interval
+/// the data falling within the indicated time interval.
 ///
 /// TODO: Define semantics of "identity" window where all elements of window
 /// become a List<T> element in the result.
@@ -412,17 +463,28 @@ table WindowJoin {
   // TODO
 }
 
+/// An expression to use for sorting. The key expression determines the values
+/// to be used for ordering the table's rows.
 table SortKey {
-  key:ColumnReference (required);
+  key:ArrayExpr (required);
   ascending:bool = true;
 }
 
+/// A (possibly hierarchical) sort operation with one or more sort keys.
 table Sort {
   // TODO
+  keys:[SortKey] (required);
 }
 
+/// A table-generating function.
+///
+/// TODO
 table TableFunction {
   descr:FunctionDescr (required);
+
+  /// An optional output schema for the table function. If not provided, must
+  /// be determined by the IR consumer.
+  out_schema:Schema;
 }
 
 union TableOperation {
@@ -437,12 +499,14 @@ union TableOperation {
   TableFunction
 }
 
+/// An expression
 table TableExpr {
-  /// The operation that yields
+  /// The operation that yields data.
   op:TableOperation (required);
 
   /// An optional explicit name for this table expression, to enable
-  /// unambiguous column references.
+  /// unambiguous column references. If not set, the name can be inherited from
+  /// an antecedent table in some cases.
   name:string;
 
   /// Optional output schema. A schema can be serialized here for informational
@@ -452,4 +516,6 @@ table TableExpr {
   out_schema:Schema;
 }
 
+// While the root message is TableExpr, applications are able to use just
+// ArrayExpr or other table types depending on their particular needs.
 root_type TableExpr;
