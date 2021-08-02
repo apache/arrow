@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dep_source: ["AUTO", "BUNDLED"]
+        dep_source: [AUTO, BUNDLED]
     env:
       ARROW_R_DEV: "TRUE"
       ARROW_DEPENDENCY_SOURCE: {{ "${{ matrix.dep_source }}" }}
