@@ -981,16 +981,6 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-valgrind
 
-  test-r-lto:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      env:
-        ARROW_R_DEV: "TRUE"
-        UBUNTU: 18.04
-        LTO: true
-      run: ubuntu-r-lto
-
   test-r-linux-rchk:
     ci: github
     template: r/github.linux.rchk.yml
@@ -1024,7 +1014,8 @@ tasks:
                                  ("rstudio", "r-base", "3.6-bionic"),
                                  ("rstudio", "r-base", "3.6-centos8"),
                                  ("rstudio", "r-base", "3.6-opensuse15"),
-                                 ("rstudio", "r-base", "3.6-opensuse42")] %}
+                                 ("rstudio", "r-base", "3.6-opensuse42"),
+                                 ("rhub", "debian-gcc-devel-lto", "latest")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml

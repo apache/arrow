@@ -134,7 +134,6 @@ x-hierarchy:
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
-  - ubuntu-r-lto
   - python-sdist
   - r
   - r-revdepcheck
@@ -1146,29 +1145,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_valgrind.sh /arrow"
-
-  ubuntu-r-lto:
-    # Only 18.04 and amd64 supported
-    # Usage:
-    #   docker-compose build ubuntu-r-lto
-    #   docker-compose run ubuntu-r-lto
-    image: ${REPO}:amd64-ubuntu-18.04-r-lto
-    build:
-      context: .
-      dockerfile: ci/docker/linux-r.dockerfile
-      cache_from:
-        - ${REPO}:amd64-ubuntu-18.04-r-lto
-      args:
-        base: wch1/r-debug
-        r_bin: RDlto
-        tz: ${TZ}
-    environment:
-      <<: *ccache
-      ARROW_R_DEV: ${ARROW_R_DEV}
-    volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        /arrow/ci/scripts/r_test.sh /arrow"
 
   r-revdepcheck:
     # Usage:
