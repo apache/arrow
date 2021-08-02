@@ -23,7 +23,7 @@ access that buffer as a \code{raw} vector in R.
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # The default format is "stream"
-write_to_raw(mtcars)
-write_to_raw(mtcars, format = "file")
+mtcars_raw <- write_to_raw(mtcars)
+mtcars_raw_file <- write_to_raw(mtcars, format = "file")
 \dontshow{\}) # examplesIf}
 }
