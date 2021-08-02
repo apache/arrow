@@ -259,6 +259,7 @@ String Transforms
    ascii_rpad
    ascii_rtrim
    ascii_rtrim_whitespace
+   ascii_swapcase
    ascii_trim
    ascii_upper
    binary_length
