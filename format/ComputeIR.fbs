@@ -24,15 +24,30 @@
 /// query fragments for various purposes. For example, a system could use this
 /// to serialize array expressions for transmitting filters/predicates.
 ///
+/// The three main types of data objects dealt with in this IR are:
+///
+/// * Table: a data source having an Arrow schema, resolvable algebraically to
+///   a collection of Arrow record batches
+/// * Array: logically, a field in a Table
+/// * Scalar: a single value, which is broadcastable to Array as needed
+///
 /// This IR deliberately does not provide for query planning or physical
-/// execution details.
+/// execution details. It also aims to be as comprehensive as possible in
+/// capturing compute operations expressible in different query engines or data
+/// frame libraries. Engines are not expected to implement everything here.
+///
+/// One of the most common areas of divergence in query engines are the names
+/// and semantics of functions that operation on scalar or array
+/// inputs. Efforts to standardize function names and their expected semantics
+/// will happen outside of the serialized IR format defined here.
 
+// We use the IPC Schema types to represent data typesa
 include "Schema.fbs";
 
-namespace org.apache.arrow.flatbuf.cir;
+namespace org.apache.arrow.flatbuf.computeir;
 
 /// ----------------------------------------------------------------------
-/// Scalar value serialization for literal data
+/// Data serialization for literal (constant / scalar) values
 
 /// Serialized data which, given a data type, can be unpacked into a scalar
 /// value data structure.
@@ -100,17 +115,17 @@ table NamedLiteral {
 /// One-dimensional operations (array/scalar input and output) and ArrayExpr
 
 ///
-table TableRef {
+table TableReference {
   ///
   name:string (required);
 }
 
 ///
-table Column {
+table ColumnReference {
   name:string (required);
 
   ///
-  table:TableRef;
+  table:TableReference;
 }
 
 /// Operation checks if values are null
@@ -187,6 +202,12 @@ table FunctionDescr {
   data:[ubyte];
 }
 
+table WindowFrame {
+  order_by:[SortKey];
+
+  partition_by:[ArrayExpr];
+}
+
 /// A general array function call, which may be built-in or user-defined.
 ///
 /// It is recommended to put the function output type when using in an
@@ -202,6 +223,9 @@ table ArrayFunction {
   /// It is recommended to limit use of options for functions that are expected
   /// to be built-in in a generic IR consumer.
   options:[NamedLiteral];
+
+  /// Optional window expression for window functions only
+  window:WindowFrame;
 }
 
 /// Conditional if-then-else operation, selecting values from the then- or
@@ -246,7 +270,7 @@ table Between {
 }
 
 union ArrayOperation {
-  Column,
+  ColumnReference,
   Literal,
   BinaryOp,
   ArrayFunction,
@@ -271,59 +295,63 @@ table ArrayExpr {
 }
 
 /// ----------------------------------------------------------------------
-/// Operators that can apply either in an Array or Table context
-
-union ArrayOrTable {
-  ArrayExpr,
-  TableExpr
-}
-
-///
-table Filter {
-  input:ArrayOrTable;
-}
-
-/// ----------------------------------------------------------------------
 /// Table operations and TableExpr
 
-union TableOperation {
-  ExternalTable,
-  Projection,
-  Filter,
-  Aggregate,
-  Limit,
-  Sort,
-  EqualityJoin,
-  NonEqualityJoin,
-  TableFunction
-}
-
-/// A named table which is expected to be available
+/// A named table which the IR producers expects the IR consumer to be able to
+/// access. A "table" in this context is anything that can produce
+/// Arrow-formatted data with the given schema.
 table ExternalTable {
   ///
   name:string (required);
 
   ///
-  schema:org.apache.arrow.flatbuf.Schema (required);
+  schema:Schema (required);
 
-  /// Optional table
-  type:string;
-  data:[ubyte];
+  /// Optional opaque table serialization data, for passing engine-specific
+  /// instructions to enable the data to be accessed.
+  serde_type:string;
+  serde_data:[ubyte];
 }
 
-///
+/// An instruction to "include all columns" in the projection, sparing the IR
+/// producer
+table StarSelection {
+  ref:TableReference;
+}
+
+/// A helper union to permit the "SELECT *, $expr0, ..." concept from SQL.
+union ProjectionExpr {
+  ArrayExpr,
+  StarSelection
+}
+
+/// Computes a new table given a set of column selections or array expressions.
 table Projection {
-  input:TableExpr;
+  input:TableExpr (required);
+  exprs:[ProjectionExpr] (required);
 }
 
+/// Select rows from table for
+table Filter {
+  input:TableExpr (required);
+  condition:ArrayExpr (required);
+}
+
+/// A "group by" table aggregation: data is grouped using the group
+/// expressions, and the aggregate expressions are evaluated within each group.
 table Aggregate {
   input:TableExpr;
+  aggregate_exprs:[ArrayExpr] (required);
+
+  /// Expressions to use as group keys. If not provided, then the aggregate
+  /// operation yields a table with a single row.
   group_exprs:[ArrayExpr];
-  aggregate_exprs:[ArrayExpr];
+
+  having:[ArrayExpr];
 }
 
 table Limit {
-  input:ArrayOrTable;
+  input:TableExpr;
   limit:long;
 }
 
@@ -338,16 +366,18 @@ enum RelationalJoinType : int {
 
 /// A standard relational / SQL-style equijoin.
 table EqualityJoin {
+  // TODO: complete and document
   type:RelationalJoinType = INNER;
   left:TableExpr;
   right:TableExpr;
-  left_columns:[Column];
-  right_columns:[Column];
+  left_columns:[ColumnReference];
+  right_columns:[ColumnReference];
 }
 
 /// A relational non-equijoin containing expressions which may include
 /// inequality or range conditions.
 table NonEqualityJoin {
+  // TODO: complete and document
   type:RelationalJoinType = INNER;
   left:TableExpr;
   right:TableExpr;
@@ -355,23 +385,71 @@ table NonEqualityJoin {
   right_exprs:[ArrayExpr];
 }
 
-table Sort {
+/// A temporal join type
+table AsOfJoin {
+  // TODO: complete and document
+  left:TableExpr;
+  right:TableExpr;
 
+  left_asof:ColumnReference (required);
+
+  /// If the column name is the same as left_asof, may be omitted.
+  right_asof:ColumnReference;
+
+  ///
+  tolerance:Literal;
+
+  /// If true, the
+  allow_equal:bool = true;
+}
+
+/// An extension of as-of join which allows applying an aggregate function to
+/// the data falling within the indicated time interval
+///
+/// TODO: Define semantics of "identity" window where all elements of window
+/// become a List<T> element in the result.
+table WindowJoin {
+  // TODO
+}
+
+table SortKey {
+  key:ColumnReference (required);
+  ascending:bool = true;
+}
+
+table Sort {
+  // TODO
 }
 
 table TableFunction {
   descr:FunctionDescr (required);
 }
 
+union TableOperation {
+  ExternalTable,
+  Projection,
+  Filter,
+  Aggregate,
+  Limit,
+  Sort,
+  EqualityJoin,
+  NonEqualityJoin,
+  TableFunction
+}
+
 table TableExpr {
   /// The operation that yields
   op:TableOperation (required);
+
+  /// An optional explicit name for this table expression, to enable
+  /// unambiguous column references.
+  name:string;
 
   /// Optional output schema. A schema can be serialized here for informational
   /// purposes, or to provide a checkpoint/assertion to the IR consumer about
   /// what you expect the schema to be at this point. Always requiring it would
   /// increase the on-wire size of a Table
-  out_schema:org.apache.arrow.flatbuf.Schema;
+  out_schema:Schema;
 }
 
 root_type TableExpr;
