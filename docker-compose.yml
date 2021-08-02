@@ -905,7 +905,7 @@ services:
     command: &cpp-skyhook-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_ceph.sh /build &&
+        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-python-skyhook:
@@ -928,7 +928,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_ceph.sh /build &&
+        /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/python_test.sh /arrow"
 
   conda-python-pandas:
