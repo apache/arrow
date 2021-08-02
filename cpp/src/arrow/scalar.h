@@ -420,10 +420,15 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Scalar>;
-  ValueType value;
 
-  UnionScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  ValueType value;
+  int8_t type_code;
+
+  UnionScalar(int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false), type_code(type_code) {}
+
+  UnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(value)), type_code(type_code) {}
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {

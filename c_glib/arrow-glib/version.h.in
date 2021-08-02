@@ -117,7 +117,7 @@
  *
  * Since: 6.0.0
  */
-#define GARROW_VERSION_6_0 G_ENCODE_VERSION(6 , 0)
+#define GARROW_VERSION_6_0 G_ENCODE_VERSION(6, 0)
 
 /**
  * GARROW_VERSION_5_0:
