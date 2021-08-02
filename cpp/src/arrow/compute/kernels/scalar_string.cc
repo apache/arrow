@@ -4041,7 +4041,8 @@ const FunctionDoc ascii_lower_doc(
     {"strings"});
 
 const FunctionDoc ascii_swapcase_doc(
-    "Transform ASCII input lowercase characters to uppercase and uppercase characters to lowercase",
+    "Transform ASCII input lowercase characters to uppercase and uppercase characters to "
+    "lowercase",
     ("For each string in `strings`, return a string with opposite casing.\n\n"
      "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_swapcase\" instead."),
@@ -4079,8 +4080,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
                                          MemAllocation::NO_PREALLOCATE);
-  MakeUnaryStringBatchKernel<AsciiSwapCase>("ascii_swapcase", registry, &ascii_swapcase_doc,
-                                         MemAllocation::NO_PREALLOCATE);
+  MakeUnaryStringBatchKernel<AsciiSwapCase>(
+      "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
