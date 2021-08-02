@@ -437,6 +437,9 @@ cdef class ConvertOptions(_Weakrefable):
     false_values: list, optional
         A sequence of strings that denote false booleans in the data
         (defaults are appropriate in most cases).
+    decimal_point: 1-character string, optional (default '.')
+        The character used as decimal point in floating-point and decimal
+        data.
     timestamp_parsers: list, optional
         A sequence of strptime()-compatible format strings, tried in order
         when attempting to infer or convert timestamp values (the special
@@ -483,7 +486,7 @@ cdef class ConvertOptions(_Weakrefable):
             new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
 
     def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
-                 true_values=None, false_values=None,
+                 true_values=None, false_values=None, decimal_point=None,
                  strings_can_be_null=None, quoted_strings_can_be_null=None,
                  include_columns=None, include_missing_columns=None,
                  auto_dict_encode=None, auto_dict_max_cardinality=None,
@@ -498,6 +501,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.true_values = true_values
         if false_values is not None:
             self.false_values = false_values
+        if decimal_point is not None:
+            self.decimal_point = decimal_point
         if strings_can_be_null is not None:
             self.strings_can_be_null = strings_can_be_null
         if quoted_strings_can_be_null is not None:
@@ -606,6 +611,18 @@ cdef class ConvertOptions(_Weakrefable):
     @false_values.setter
     def false_values(self, value):
         deref(self.options).false_values = [tobytes(x) for x in value]
+
+    @property
+    def decimal_point(self):
+        """
+        The character used as decimal point in floating-point and decimal
+        data.
+        """
+        return chr(deref(self.options).decimal_point)
+
+    @decimal_point.setter
+    def decimal_point(self, value):
+        deref(self.options).decimal_point = _single_char(value)
 
     @property
     def auto_dict_encode(self):
@@ -717,6 +734,7 @@ cdef class ConvertOptions(_Weakrefable):
             self.null_values == other.null_values and
             self.true_values == other.true_values and
             self.false_values == other.false_values and
+            self.decimal_point == other.decimal_point and
             self.timestamp_parsers == other.timestamp_parsers and
             self.strings_can_be_null == other.strings_can_be_null and
             self.quoted_strings_can_be_null ==
@@ -730,17 +748,19 @@ cdef class ConvertOptions(_Weakrefable):
 
     def __getstate__(self):
         return (self.check_utf8, self.column_types, self.null_values,
-                self.true_values, self.false_values, self.timestamp_parsers,
-                self.strings_can_be_null, self.quoted_strings_can_be_null,
-                self.auto_dict_encode, self.auto_dict_max_cardinality,
-                self.include_columns, self.include_missing_columns)
+                self.true_values, self.false_values, self.decimal_point,
+                self.timestamp_parsers, self.strings_can_be_null,
+                self.quoted_strings_can_be_null, self.auto_dict_encode,
+                self.auto_dict_max_cardinality, self.include_columns,
+                self.include_missing_columns)
 
     def __setstate__(self, state):
         (self.check_utf8, self.column_types, self.null_values,
-         self.true_values, self.false_values, self.timestamp_parsers,
-         self.strings_can_be_null, self.quoted_strings_can_be_null,
-         self.auto_dict_encode, self.auto_dict_max_cardinality,
-         self.include_columns, self.include_missing_columns) = state
+         self.true_values, self.false_values, self.decimal_point,
+         self.timestamp_parsers, self.strings_can_be_null,
+         self.quoted_strings_can_be_null, self.auto_dict_encode,
+         self.auto_dict_max_cardinality, self.include_columns,
+         self.include_missing_columns) = state
 
     def __eq__(self, other):
         try:
