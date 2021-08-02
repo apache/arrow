@@ -41,6 +41,8 @@ ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
 LIBARROW_DOWNLOAD=`echo $LIBARROW_DOWNLOAD | tr '[:upper:]' '[:lower:]'`
 NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
+ARROW_DEPENDENCY_SOURCE=`echo $ARROW_DEPENDENCY_SOURCE | tr '[:upper:]' '[:lower:]'`
+
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
@@ -160,10 +162,10 @@ else
         # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
         ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
       fi
-      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
-        which pkg-config >/dev/null 2>&1
+      if [ "${ARROW_DEPENDENCY_SOURCE}" = "auto" ]; then
+        pkg-config --version >/dev/null 2>&1
         if [ $? -eq 0 ]; then
-          export ARROW_DEPENDENCY_SOURCE=BUNDLED
+          export ARROW_DEPENDENCY_SOURCE="bundled"
           echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
           echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
 
@@ -188,7 +190,7 @@ else
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
         # Use pkg-config to do static linking 
-        if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ]; then
+        if [ "$ARROW_DEPENDENCY_SOURCE" = "auto" ]; then
           PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR} pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
