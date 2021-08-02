@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
@@ -85,32 +86,22 @@ struct VarStdState {
       valid_count -= count;
 
       if (count > 0) {
-        int64_t sum = 0;
-        int128_t square_sum = 0;
+        IntegerVarStd<ArrowType> var_std;
         const ArrayData& data = *slice->data();
         const CType* values = data.GetValues<CType>(1);
         VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
                                 const auto value = values[pos + i];
-                                sum += value;
-                                square_sum += static_cast<uint64_t>(value) * value;
+                                var_std.ConsumeOne(value);
                               }
                             });
 
-        const double mean = static_cast<double>(sum) / count;
-        // calculate m2 = square_sum - sum * sum / count
-        // decompose `sum * sum / count` into integers and fractions
-        const int128_t sum_square = static_cast<int128_t>(sum) * sum;
-        const int128_t integers = sum_square / count;
-        const double fractions = static_cast<double>(sum_square % count) / count;
-        const double m2 = static_cast<double>(square_sum - integers) - fractions;
-
         // merge variance
         ThisType state;
-        state.count = count;
-        state.mean = mean;
-        state.m2 = m2;
+        state.count = var_std.count;
+        state.mean = var_std.mean();
+        state.m2 = var_std.m2();
         this->MergeFrom(state);
       }
     }
@@ -128,20 +119,14 @@ struct VarStdState {
       this->m2 = state.m2;
       return;
     }
-    double mean = (this->mean * this->count + state.mean * state.count) /
-                  (this->count + state.count);
-    this->m2 += state.m2 + this->count * (this->mean - mean) * (this->mean - mean) +
-                state.count * (state.mean - mean) * (state.mean - mean);
-    this->count += state.count;
-    this->mean = mean;
+    MergeVarStd(this->count, this->mean, state.count, state.mean, state.m2, &this->count,
+                &this->mean, &this->m2);
   }
 
   int64_t count = 0;
   double mean = 0;
   double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
 };
-
-enum class VarOrStd : bool { Var, Std };
 
 template <typename ArrowType>
 struct VarStdImpl : public ScalarAggregator {
