@@ -212,7 +212,7 @@ BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
-BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(2)->Range(256, 32768);
+BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
 
 }  // namespace compute
 }  // namespace arrow
