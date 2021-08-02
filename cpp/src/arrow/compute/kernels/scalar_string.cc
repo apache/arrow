@@ -81,6 +81,51 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
                                                               : utf8_code_unit;
 }
 
+static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'a') && (ascii_character <= 'z');
+}
+
+static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'A') && (ascii_character <= 'Z');
+}
+
+static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  return IsLowerCaseCharacterAscii(ascii_character) ||
+         IsUpperCaseCharacterAscii(ascii_character);
+}
+
+static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
+  return IsCasedCharacterAscii(ascii_character);  // same
+}
+
+static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9')) ||
+         ((ascii_character >= 'a') && (ascii_character <= 'z')) ||
+         ((ascii_character >= 'A') && (ascii_character <= 'Z'));
+}
+
+static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9'));
+}
+
+static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
+         (ascii_character == ' ');
+}
+
+static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= ' ') && (ascii_character <= '~'));
+}
+
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
+
 template <typename T>
 static inline bool IsAsciiCharacter(T character) {
   return character < 128;
@@ -440,6 +485,17 @@ template <typename Type>
 struct AsciiLower {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiLower, out);
+  }
+};
+
+void TransformAsciiSwapCase(const uint8_t* input, int64_t length, uint8_t* output) {
+  std::transform(input, input + length, output, ascii_swapcase);
+}
+
+template <typename Type>
+struct AsciiSwapCase {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return StringDataTransform<Type>(ctx, batch, TransformAsciiSwapCase, out);
   }
 };
 
@@ -1457,42 +1513,6 @@ static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
 }
 
 #endif
-
-static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'a') && (ascii_character <= 'z');
-}
-
-static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'A') && (ascii_character <= 'Z');
-}
-
-static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
-  return IsLowerCaseCharacterAscii(ascii_character) ||
-         IsUpperCaseCharacterAscii(ascii_character);
-}
-
-static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
-}
-
-static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= '0') && (ascii_character <= '9')) ||
-         ((ascii_character >= 'a') && (ascii_character <= 'z')) ||
-         ((ascii_character >= 'A') && (ascii_character <= 'Z'));
-}
-
-static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= '0') && (ascii_character <= '9'));
-}
-
-static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
-         (ascii_character == ' ');
-}
-
-static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= ' ') && (ascii_character <= '~'));
-}
 
 template <typename Derived, bool allow_empty = false>
 struct CharacterPredicateUnicode {
@@ -4020,6 +4040,13 @@ const FunctionDoc ascii_lower_doc(
      "non-ASCII characters, use \"utf8_lower\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_swapcase_doc(
+    "Transform ASCII input lowercase characters to uppercase and uppercase characters to lowercase",
+    ("For each string in `strings`, return a string with opposite casing.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_swapcase\" instead."),
+    {"strings"});
+
 const FunctionDoc utf8_upper_doc(
     "Transform input to uppercase",
     ("For each string in `strings`, return an uppercase version."), {"strings"});
@@ -4051,6 +4078,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
+                                         MemAllocation::NO_PREALLOCATE);
+  MakeUnaryStringBatchKernel<AsciiSwapCase>("ascii_swapcase", registry, &ascii_swapcase_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);

@@ -395,6 +395,12 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiSwapCase) {
+  this->CheckUnary("ascii_swapcase", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_swapcase", "[\"aAazZæÆ&\", null, \"\", \"BbB\"]", this->type(),
+                   "[\"AaAZzæÆ&\", null, \"\", \"bBb\"]");
+}
+
 TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
