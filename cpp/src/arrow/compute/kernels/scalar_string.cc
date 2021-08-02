@@ -3022,8 +3022,9 @@ struct UTF8TrimTransform : public StringTransformBase {
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
     const uint8_t* begin_trimmed = begin;
+    const auto& codepoints = state_.codepoints_;
 
-    auto predicate = [&](uint32_t c) { return !state_.codepoints_[c]; };
+    auto predicate = [&](uint32_t c) { return c >= codepoints.size() || !codepoints[c]; };
     if (TrimLeft && !ARROW_PREDICT_TRUE(
                         arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
       return kTransformError;
@@ -3111,8 +3112,9 @@ struct AsciiTrimTransform : public StringTransformBase {
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
     const uint8_t* begin_trimmed = begin;
+    const auto& characters = state_.characters_;
 
-    auto predicate = [&](uint8_t c) { return !state_.characters_[c]; };
+    auto predicate = [&](uint8_t c) { return !characters[c]; };
     if (TrimLeft) {
       begin_trimmed = std::find_if(begin, end, predicate);
     }
