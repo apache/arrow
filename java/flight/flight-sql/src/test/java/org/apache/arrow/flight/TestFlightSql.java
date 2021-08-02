@@ -290,35 +290,34 @@ public class TestFlightSql {
 
   @Test
   public void testSimplePreparedStatementUpdateResults() {
-    final PreparedStatement prepare = sqlClient
+    try (PreparedStatement prepare = sqlClient
         .prepare("INSERT INTO INTTABLE (keyName, value, foreignId ) VALUES (?, ?, ?)");
+        PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?")) {
+      final Schema parameterSchema = prepare.getParameterSchema();
+      try (final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator)) {
+        final VarCharVector varCharVector = (VarCharVector) insertRoot.getVector(0);
+        final IntVector valueVector = (IntVector) insertRoot.getVector(1);
+        final int counter = 10;
+        insertRoot.allocateNew();
 
-    final Schema parameterSchema = prepare.getParameterSchema();
-    try (final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator)) {
-      final VarCharVector varCharVector = (VarCharVector) insertRoot.getVector(0);
-      final IntVector valueVector = (IntVector) insertRoot.getVector(1);
-      final int counter = 10;
-      insertRoot.allocateNew();
+        final IntStream range = IntStream.range(0, counter);
 
-      final IntStream range = IntStream.range(0, counter);
+        range.forEach(i -> {
+          valueVector.setSafe(i, i * counter);
+          varCharVector.setSafe(i, new Text("value" + i ));
+        });
 
-      range.forEach(i -> {
-        valueVector.setSafe(i, i * counter);
-        varCharVector.setSafe(i, new Text("value" + i ));
-      });
+        insertRoot.setRowCount(counter);
+        final long updatedRows = prepare.executeUpdate(insertRoot);
 
-      insertRoot.setRowCount(counter);
-      final long updatedRows = prepare.executeUpdate(insertRoot);
+        final long deletedRows;
+        try (final VectorSchemaRoot deleteRoot = VectorSchemaRoot.of(varCharVector)) {
+          deletedRows = deletePrepare.executeUpdate(deleteRoot);
+        }
 
-      final PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?");
-
-      final long deletedRows;
-      try (final VectorSchemaRoot deleteRoot = VectorSchemaRoot.of(varCharVector)) {
-        deletedRows = deletePrepare.executeUpdate(deleteRoot);
+        collector.checkThat(updatedRows, is(10L));
+        collector.checkThat(deletedRows, is(10L));
       }
-
-      collector.checkThat(updatedRows, is(10L));
-      collector.checkThat(deletedRows, is(10L));
     }
   }
 
