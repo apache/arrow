@@ -3684,14 +3684,15 @@ struct BinaryJoinElementWise {
     const size_t num_args = batch.values.size();
     if (num_args == 1) {
       // Only separator, no values
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
       output->is_valid = batch.values[0].scalar()->is_valid;
+      if (output->is_valid) {
+        ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
+      }
       return Status::OK();
     }
 
     int64_t final_size = CalculateRowSize(options, batch, 0);
     if (final_size < 0) {
-      ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(0));
       output->is_valid = false;
       return Status::OK();
     }

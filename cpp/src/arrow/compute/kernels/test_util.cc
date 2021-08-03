@@ -83,6 +83,7 @@ ScalarVector GetScalars(const DatumVector& inputs, int64_t index) {
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
+  ValidateOutput(out);
   if (!out.scalar()->Equals(expected)) {
     std::string summary = func_name + "(";
     for (const auto& input : inputs) {
@@ -230,6 +231,8 @@ void ValidateOutput(const Table& output) {
   }
 }
 
+void ValidateOutput(const Scalar& output) { ASSERT_OK(output.ValidateFull()); }
+
 }  // namespace
 
 void ValidateOutput(const Datum& output) {
@@ -245,6 +248,9 @@ void ValidateOutput(const Datum& output) {
       break;
     case Datum::TABLE:
       ValidateOutput(*output.table());
+      break;
+    case Datum::SCALAR:
+      ValidateOutput(*output.scalar());
       break;
     default:
       break;

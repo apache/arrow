@@ -80,6 +80,21 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   std::string ToString() const;
 
+  /// \brief Perform cheap validation checks
+  ///
+  /// This is O(k) where k is the number of descendents.
+  ///
+  /// \return Status
+  Status Validate() const;
+
+  /// \brief Perform extensive data validation checks
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the length of descendents (if list scalars are involved).
+  ///
+  /// \return Status
+  Status ValidateFull() const;
+
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
                                                util::string_view repr);
 
@@ -462,6 +477,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
+
+  // TODO complete this
 };
 
 /// @}

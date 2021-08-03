@@ -487,7 +487,7 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestFilterKernelWithString, BinaryTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, BinaryArrowTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
@@ -1097,7 +1097,7 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, BinaryTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, BinaryArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");

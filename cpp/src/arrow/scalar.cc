@@ -33,6 +33,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/time.h"
+#include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
 
@@ -51,6 +52,7 @@ bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) cons
 
 namespace {
 
+// Implementation of Scalar::hash()
 struct ScalarHashImpl {
   Status Visit(const NullScalar& s) { return Status::OK(); }
 
@@ -152,9 +154,260 @@ struct ScalarHashImpl {
   size_t hash_;
 };
 
+// Implementation of Scalar::Validate() and Scalar::ValidateFull()
+struct ScalarValidateImpl {
+  const bool full_validation_;
+
+  explicit ScalarValidateImpl(bool full_validation) : full_validation_(full_validation) {
+    ::arrow::util::InitializeUTF8();
+  }
+
+  Status Validate(const Scalar& scalar) {
+    if (!scalar.type) {
+      return Status::Invalid("scalar lacks a type");
+    }
+    return VisitScalarInline(scalar, this);
+  }
+
+  Status Visit(const NullScalar& s) {
+    if (s.is_valid) {
+      return Status::Invalid("null scalar should have is_valid = false");
+    }
+    return Status::OK();
+  }
+
+  template <typename T>
+  Status Visit(const internal::PrimitiveScalar<T>& s) {
+    return Status::OK();
+  }
+
+  Status Visit(const BaseBinaryScalar& s) { return ValidateBinaryScalar(s); }
+
+  Status Visit(const StringScalar& s) { return ValidateStringScalar(s); }
+
+  Status Visit(const LargeStringScalar& s) { return ValidateStringScalar(s); }
+
+  Status Visit(const FixedSizeBinaryScalar& s) {
+    RETURN_NOT_OK(ValidateBinaryScalar(s));
+    if (s.is_valid) {
+      const auto& byte_width =
+          checked_cast<const FixedSizeBinaryType&>(*s.type).byte_width();
+      if (s.value->size() != byte_width) {
+        return Status::Invalid(s.type->ToString(), " scalar should have a value of size ",
+                               byte_width, ", got ", s.value->size());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Scalar& s) {
+    // XXX validate precision?
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Scalar& s) {
+    // XXX validate precision?
+    return Status::OK();
+  }
+
+  Status Visit(const BaseListScalar& s) { return ValidateBaseListScalar(s); }
+
+  Status Visit(const FixedSizeListScalar& s) {
+    RETURN_NOT_OK(ValidateBaseListScalar(s));
+    if (s.is_valid) {
+      const auto& list_type = checked_cast<const FixedSizeListType&>(*s.type);
+      if (s.value->length() != list_type.list_size()) {
+        return Status::Invalid(s.type->ToString(),
+                               " scalar should have a child value of length ",
+                               list_type.list_size(), ", got ", s.value->length());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const StructScalar& s) {
+    if (!s.is_valid) {
+      if (!s.value.empty()) {
+        return Status::Invalid(s.type->ToString(),
+                               " scalar is marked null but has child values");
+      }
+      return Status::OK();
+    }
+    const int num_fields = s.type->num_fields();
+    const auto& fields = s.type->fields();
+    if (fields.size() != s.value.size()) {
+      return Status::Invalid("non-null ", s.type->ToString(), " scalar should have ",
+                             num_fields, " child values, got ", s.value.size());
+    }
+    for (int i = 0; i < num_fields; ++i) {
+      if (!s.value[i]) {
+        return Status::Invalid("non-null ", s.type->ToString(),
+                               " scalar has missing child value at index ", i);
+      }
+      const auto st = Validate(*s.value[i]);
+      if (!st.ok()) {
+        return st.WithMessage(s.type->ToString(),
+                              " scalar fails validation for child at index ", i, ": ",
+                              st.message());
+      }
+      if (!s.value[i]->type->Equals(*fields[i]->type())) {
+        return Status::Invalid(
+            s.type->ToString(), " scalar should have a child value of type ",
+            fields[i]->type()->ToString(), "at index ", i, ", got ", s.value[i]->type);
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryScalar& s) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(*s.type);
+    // Validate index
+    if (!s.value.index) {
+      return Status::Invalid(s.type->ToString(), " scalar doesn't have an index value");
+    }
+    {
+      const auto st = Validate(*s.value.index);
+      if (!st.ok()) {
+        return st.WithMessage(s.type->ToString(),
+                              " scalar fails validation for index value: ", st.message());
+      }
+    }
+    if (!s.value.index->type->Equals(*dict_type.index_type())) {
+      return Status::Invalid(
+          s.type->ToString(), " scalar should have an index value of type ",
+          dict_type.index_type()->ToString(), ", got ", s.value.index->type->ToString());
+    }
+    if (s.is_valid != s.value.index->is_valid) {
+      if (s.is_valid) {
+        return Status::Invalid("non-null ", s.type->ToString(),
+                               " scalar has null index value");
+      } else {
+        return Status::Invalid("null ", s.type->ToString(),
+                               " scalar has non-null index value");
+      }
+    }
+
+    // Validate dictionary
+    if (!s.value.dictionary) {
+      return Status::Invalid(s.type->ToString(),
+                             " scalar doesn't have a dictionary value");
+    }
+    {
+      const auto st = full_validation_ ? s.value.dictionary->ValidateFull()
+                                       : s.value.dictionary->Validate();
+      if (!st.ok()) {
+        return st.WithMessage(
+            s.type->ToString(),
+            " scalar fails validation for dictionary value: ", st.message());
+      }
+    }
+    if (!s.value.dictionary->type()->Equals(*dict_type.value_type())) {
+      return Status::Invalid(s.type->ToString(),
+                             " scalar should have a dictionary value of type ",
+                             dict_type.value_type()->ToString(), ", got ",
+                             s.value.dictionary->type()->ToString());
+    }
+
+    // XXX check index is in bounds?
+    return Status::OK();
+  }
+
+  Status Visit(const UnionScalar& s) {
+    RETURN_NOT_OK(ValidateOptionalValue(s));
+    const int type_code = s.type_code;  // avoid 8-bit int types for priting
+    const auto& union_type = checked_cast<const UnionType&>(*s.type);
+    const auto& child_ids = union_type.child_ids();
+    if (type_code < 0 || type_code >= static_cast<int64_t>(child_ids.size()) ||
+        child_ids[type_code] == UnionType::kInvalidChildId) {
+      return Status::Invalid(s.type->ToString(), " scalar has invalid type code ",
+                             type_code);
+    }
+    if (s.is_valid) {
+      const auto& field_type = *union_type.field(child_ids[type_code])->type();
+      if (!field_type.Equals(*s.value->type)) {
+        return Status::Invalid(s.type->ToString(), " scalar with type code ", type_code,
+                               " should have an underlying value of type ",
+                               field_type.ToString(), ", got ",
+                               s.value->type->ToString());
+      }
+      const auto st = Validate(*s.value);
+      if (!st.ok()) {
+        return st.WithMessage(
+            s.type->ToString(),
+            " scalar fails validation for underlying value: ", st.message());
+      }
+    }
+    return Status::OK();
+  }
+
+  // TODO
+  Status Visit(const ExtensionScalar& s) { return Status::OK(); }
+
+  Status ValidateStringScalar(const BaseBinaryScalar& s) {
+    RETURN_NOT_OK(ValidateBinaryScalar(s));
+    if (s.is_valid && full_validation_) {
+      if (!::arrow::util::ValidateUTF8(s.value->data(), s.value->size())) {
+        return Status::Invalid(s.type->ToString(), " scalar contains invalid UTF8 data");
+      }
+    }
+    return Status::OK();
+  }
+
+  Status ValidateBinaryScalar(const BaseBinaryScalar& s) {
+    return ValidateOptionalValue(s);
+  }
+
+  Status ValidateBaseListScalar(const BaseListScalar& s) {
+    RETURN_NOT_OK(ValidateOptionalValue(s));
+    if (s.is_valid) {
+      const auto st = full_validation_ ? s.value->ValidateFull() : s.value->Validate();
+      if (!st.ok()) {
+        return st.WithMessage(s.type->ToString(),
+                              " scalar fails validation for value: ", st.message());
+      }
+
+      const auto& list_type = checked_cast<const BaseListType&>(*s.type);
+      const auto& value_type = *list_type.value_type();
+      if (!s.value->type()->Equals(value_type)) {
+        return Status::Invalid(
+            list_type.ToString(), " scalar should have a value of type ",
+            value_type.ToString(), ", got ", s.value->type()->ToString());
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename ScalarType>
+  Status ValidateOptionalValue(const ScalarType& s) {
+    return ValidateOptionalValue(s, s.value, "value");
+  }
+
+  template <typename ScalarType, typename ValueType>
+  Status ValidateOptionalValue(const ScalarType& s, const ValueType& value,
+                               const char* value_desc) {
+    if (s.is_valid && !s.value) {
+      return Status::Invalid(s.type->ToString(),
+                             " scalar is marked valid but doesn't have a ", value_desc);
+    }
+    if (!s.is_valid && s.value) {
+      return Status::Invalid(s.type->ToString(), " scalar is marked null but has a ",
+                             value_desc);
+    }
+    return Status::OK();
+  }
+};
+
 }  // namespace
 
 size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
+
+Status Scalar::Validate() const {
+  return ScalarValidateImpl(/*full_validation=*/false).Validate(*this);
+}
+
+Status Scalar::ValidateFull() const {
+  return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
+}
 
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
