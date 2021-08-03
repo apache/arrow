@@ -141,7 +141,8 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   public synchronized void close() {
     try {
-      AutoCloseables.close(flightStreamQueue, isNull(currentFlightStream) ? null : currentFlightStream);
+      final FlightStream currentStream = getCurrentFlightStream();
+      AutoCloseables.close(flightStreamQueue, isNull(currentStream) ? null : currentStream);
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {

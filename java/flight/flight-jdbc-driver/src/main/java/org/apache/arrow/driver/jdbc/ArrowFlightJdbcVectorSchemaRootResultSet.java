@@ -127,12 +127,10 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     } catch (final SQLException e) {
       exceptions.add(e);
     }
-    if (!isNull(vectorSchemaRoot)) {
-      try {
-        AutoCloseables.close(vectorSchemaRoot);
-      } catch (final Exception e) {
-        exceptions.add(e);
-      }
+    try {
+      AutoCloseables.close(vectorSchemaRoot);
+    } catch (final Exception e) {
+      exceptions.add(e);
     }
     if (!isNull(statement)) {
       try {

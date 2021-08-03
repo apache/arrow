@@ -114,7 +114,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final Map<String, Supplier<Stream<String>>> queryTickets = generateQueryTickets(
       new SimpleImmutableEntry<>(REGULAR_TEST_SQL_CMD, 10),
       new SimpleImmutableEntry<>(METADATA_TEST_SQL_CMD, 3),
-      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, Integer.MAX_VALUE - 1));
+      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 1000));
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
