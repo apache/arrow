@@ -76,25 +76,25 @@ public class FlightStreamQueue implements AutoCloseable {
    */
   public FlightStream next() throws Exception {
     checkOpen();
-    if (futures.isEmpty()) {
-      return null;
-    }
-    Optional<FlightStream> loadedStream = Optional.empty();
-    try {
-      final Future<FlightStream> future = completionService.take();
-      futures.remove(future);
-      loadedStream = Optional.ofNullable(future.get());
-      final FlightStream stream = loadedStream.orElseThrow(NoSuchElementException::new);
-      if (stream.getRoot().getRowCount() > 0) {
-        return stream;
+    FlightStream result = null; // If empty.
+    while (!futures.isEmpty()) {
+      Optional<FlightStream> loadedStream = Optional.empty();
+      try {
+        final Future<FlightStream> future = completionService.take();
+        futures.remove(future);
+        loadedStream = Optional.ofNullable(future.get());
+        final FlightStream stream = loadedStream.orElseThrow(NoSuchElementException::new);
+        if (stream.getRoot().getRowCount() > 0) {
+          result = stream;
+          break;
+        }
+      } catch (final ExecutionException | InterruptedException | CancellationException e) {
+        final Consumer<FlightStream> cancelStream = stream -> stream.cancel(e.getMessage(), e);
+        loadedStream.ifPresent(cancelStream);
+        unpreparedStreams.forEach(cancelStream);
       }
-    } catch (final ExecutionException | InterruptedException | CancellationException e) {
-      final Consumer<FlightStream> cancelStream = stream -> stream.cancel(e.getMessage(), e);
-      loadedStream.ifPresent(cancelStream);
-      unpreparedStreams.forEach(cancelStream);
     }
-    // Reaching this point means looping until `futures` is empty.
-    return next();
+    return result;
   }
 
   /**
