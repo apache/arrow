@@ -17,15 +17,20 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static java.util.Objects.isNull;
+
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -78,35 +83,6 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     return resultSet;
   }
 
-  @Override
-  protected AvaticaResultSet execute() throws SQLException {
-    throw new RuntimeException();
-  }
-
-  void execute(VectorSchemaRoot vectorSchemaRoot) {
-    final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
-    List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
-    signature.columns.clear();
-    signature.columns.addAll(columns);
-
-    this.vectorSchemaRoot = vectorSchemaRoot;
-    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
-  }
-
-  @Override
-  public void close() {
-    if (this.statement != null) {
-      // An ArrowFlightResultSet will have a null statement when it is created by
-      // ArrowFlightResultSet#fromVectorSchemaRoot. In this case it must skip calling AvaticaResultSet#close,
-      // as it expects that statement is not null
-      super.close();
-    }
-
-    if (this.vectorSchemaRoot != null) {
-      this.vectorSchemaRoot.close();
-    }
-  }
-
   private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(List<Field> fields) {
     return Stream.iterate(0, Math::incrementExact).limit(fields.size())
         .map(index -> {
@@ -124,6 +100,48 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
           return ColumnMetaData.fromProto(builder.build());
         }).collect(Collectors.toList());
+  }
+
+  @Override
+  protected AvaticaResultSet execute() throws SQLException {
+    throw new RuntimeException();
+  }
+
+  void execute(VectorSchemaRoot vectorSchemaRoot) {
+    final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
+    List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
+    signature.columns.clear();
+    signature.columns.addAll(columns);
+
+    this.vectorSchemaRoot = vectorSchemaRoot;
+    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+  }
+
+  @Override
+  public void close() {
+    final Set<Exception> exceptions = new HashSet<>();
+    try {
+      if (isClosed()) {
+        return;
+      }
+    } catch (final SQLException e) {
+      exceptions.add(e);
+    }
+    try {
+      AutoCloseables.close(vectorSchemaRoot);
+    } catch (final Exception e) {
+      exceptions.add(e);
+    }
+    if (!isNull(statement)) {
+      try {
+        super.close();
+      } catch (final Exception e) {
+        exceptions.add(e);
+      }
+    }
+    exceptions.parallelStream().forEach(e -> {
+      throw new RuntimeException(e);
+    });
   }
 
 }

@@ -17,15 +17,19 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static java.lang.String.format;
+import static java.util.Collections.synchronizedSet;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -35,13 +39,17 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFlightStreamResultSet;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
-import org.hamcrest.CoreMatchers;
+import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -54,6 +62,7 @@ import com.google.common.collect.ImmutableSet;
 import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetTest {
+  private static final Random RANDOM = new Random(10);
   @ClassRule
   public static FlightServerTestRule rule;
   private static Map<BaseProperty, Object> properties;
@@ -101,7 +110,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
       int count = 0;
       int expectedRows = 50000;
 
@@ -109,12 +118,12 @@ public class ResultSetTest {
           IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
 
       for (; resultSet.next(); count++) {
-        collector.checkThat(resultSet.getObject(1), CoreMatchers.instanceOf(Long.class));
+        collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
         collector.checkThat(testNames.remove(resultSet.getString(2)), CoreMatchers.is(true));
-        collector.checkThat(resultSet.getObject(3), CoreMatchers.instanceOf(Integer.class));
-        collector.checkThat(resultSet.getObject(4), CoreMatchers.instanceOf(Double.class));
-        collector.checkThat(resultSet.getObject(5), CoreMatchers.instanceOf(Date.class));
-        collector.checkThat(resultSet.getObject(6), CoreMatchers.instanceOf(Timestamp.class));
+        collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
+        collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
+        collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
+        collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
       }
 
       collector.checkThat(testNames.isEmpty(), CoreMatchers.is(true));
@@ -125,7 +134,7 @@ public class ResultSetTest {
   @Test
   public void testShouldExecuteQueryNotBlockIfClosedBeforeEnd() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
 
       for (int i = 0; i < 7500; i++) {
         assertTrue(resultSet.next());
@@ -209,7 +218,7 @@ public class ResultSetTest {
   public void testColumnCountShouldRemainConsistentForResultSetThroughoutEntireDuration() throws SQLException {
     final Set<Integer> counts = new HashSet<>();
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
+         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
       while (resultSet.next()) {
         counts.add(resultSet.getMetaData().getColumnCount());
       }
@@ -270,8 +279,134 @@ public class ResultSetTest {
       statement.setLargeMaxRows(maxRowsLimit);
 
       resultSetNextUntilDone(resultSet);
-
       collector.checkThat(statement.isClosed(), is(false));
+      collector.checkThat(resultSet.isClosed(), is(true));
+      collector.checkThat(resultSet, is(instanceOf(ArrowFlightJdbcFlightStreamResultSet.class)));
+      /*
+       * TODO Remove reflection for accessing package-protected fields.
+       * `ArrowFlightJdbcFlightStreamResultSet#getFlightStreamQueue` is package-protected and should
+       * not be accessed by reflection; in the future, the package `org.apache.arrow.driver.jdbc.test`
+       * should be changed so as to remove the subpackage `test` and allow package-protected fields to
+       * be tested directly.
+       */
+      final Method getFlightStreamQueue =
+          ArrowFlightJdbcFlightStreamResultSet.class.getDeclaredMethod("getFlightStreamQueue");
+      getFlightStreamQueue.setAccessible(true);
+      final FlightStreamQueue queue = (FlightStreamQueue) getFlightStreamQueue.invoke(resultSet);
+      //collector.checkThat(queue.isClosed(), is(true));
+      Optional<Exception> expectedExceptionForClosedResultSet = Optional.empty();
+      try {
+        resultSet.next();
+      } catch (final SQLException e) {
+        expectedExceptionForClosedResultSet = Optional.of(e);
+      }
+      collector.checkThat(expectedExceptionForClosedResultSet.isPresent(), is(true));
+      collector.checkThat(
+          expectedExceptionForClosedResultSet.orElse(new Exception()).getMessage(),
+          is(format("%s closed", ResultSet.class.getSimpleName())));
+      Optional<Exception> expectedExceptionForClosedQueue = Optional.empty();
+      try {
+        queue.checkOpen();
+      } catch (final IllegalStateException e) {
+        expectedExceptionForClosedQueue = Optional.of(e);
+      }
+      collector.checkThat(expectedExceptionForClosedQueue.isPresent(), is(true));
+      collector.checkThat(
+          expectedExceptionForClosedQueue.orElse(new Exception()).getMessage(),
+          is(format("%s closed", queue.getClass().getSimpleName())));
+    }
+  }
+
+  @Test
+  public void testShouldCancelQueryUponCancelAfterQueryingResultSet() throws SQLException {
+    try (final Statement statement = connection.createStatement();
+         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+      final int column = RANDOM.nextInt(resultSet.getMetaData().getColumnCount()) + 1;
+      collector.checkThat(resultSet.isClosed(), is(false));
+      collector.checkThat(resultSet.next(), is(true));
+      collector.checkSucceeds(() -> resultSet.getObject(column));
+      statement.cancel();
+      collector.checkThat(statement.isClosed(), is(false));
+      collector.checkThat(resultSet.isClosed(), is(true));
+      Optional<Exception> expectedException = Optional.empty();
+      try {
+        resultSet.getObject(column);
+      } catch (final SQLException e) {
+        expectedException = Optional.of(e);
+      }
+      collector.checkThat(expectedException.isPresent(), is(true));
+      collector.checkThat(
+          expectedException.orElse(new Exception()).getMessage(),
+          is(format("%s closed", ResultSet.class.getSimpleName())));
+    }
+  }
+
+  @Test
+  public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidQuerying()
+      throws SQLException, InterruptedException {
+    try (final Statement statement = connection.createStatement()) {
+      final CountDownLatch latch = new CountDownLatch(1);
+      final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
+      new Thread(() -> {
+        try (final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+          final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
+          Thread.sleep(300);
+          while (resultSet.next()) {
+            resultSet.getObject(RANDOM.nextInt(cachedColumnCount) + 1);
+          }
+        } catch (final SQLException | InterruptedException e) {
+          exceptions.add(e);
+        } finally {
+          latch.countDown();
+        }
+      }).start();
+      statement.cancel();
+      latch.await();
+      collector.checkThat(
+          exceptions.stream()
+              .map(Exception::getMessage)
+              .map(StringBuilder::new)
+              .reduce(StringBuilder::append)
+              .orElseThrow(IllegalArgumentException::new)
+              .toString(),
+          is("Statement canceled"));
+    }
+  }
+
+  @Test
+  public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
+      throws SQLException, InterruptedException {
+    final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
+    try (final Statement statement = connection.createStatement()) {
+      final CountDownLatch latch = new CountDownLatch(1);
+      final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
+      final Thread thread = new Thread(() -> {
+        try (final ResultSet resultSet = statement.executeQuery(query)) {
+          while (resultSet.next()) {
+            resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
+          }
+        } catch (final SQLException e) {
+          exceptions.add(e);
+        } finally {
+          latch.countDown();
+        }
+      });
+      thread.setName("Test Case: interrupt query execution mid-process");
+      thread.setPriority(Thread.MAX_PRIORITY);
+      thread.start();
+      Thread.sleep(RANDOM.nextInt(300));
+      statement.cancel();
+      latch.await();
+      collector.checkThat(
+          exceptions.stream()
+              .map(Exception::getMessage)
+              .map(StringBuilder::new)
+              .reduce(StringBuilder::append)
+              .orElseThrow(IllegalStateException::new)
+              .toString(),
+          is(format(
+              "Error while executing SQL \"%s\": %s closed",
+              query, FlightStreamQueue.class.getSimpleName())));
     }
   }
 }
