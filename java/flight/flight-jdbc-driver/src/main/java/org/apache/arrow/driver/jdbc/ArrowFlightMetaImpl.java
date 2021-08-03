@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -123,6 +124,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       final MetaResultSet metaResultSet = MetaResultSet.create(handle.connectionId, handle.id,
           false, signature, null);
       return new ExecuteResult(Collections.singletonList(metaResultSet));
+    } catch (SQLTimeoutException e) {
+      // So far AvaticaStatement(executeInternal) only handles NoSuchStatement and Runtime Exceptions.
+      throw new RuntimeException(e);
     } catch (SQLException e) {
       throw new NoSuchStatementException(handle);
     }
