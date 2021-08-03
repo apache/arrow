@@ -154,6 +154,7 @@ constexpr uint32_t kMaxCodepointLookup =
     0xffff;  // up to this codepoint is in a lookup table
 std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
+std::vector<uint32_t> lut_swapcase_codepoint;
 std::vector<utf8proc_category_t> lut_category;
 std::once_flag flag_case_luts;
 
@@ -161,10 +162,19 @@ void EnsureLookupTablesFilled() {
   std::call_once(flag_case_luts, []() {
     lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
     lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
+    lut_swapcase_codepoint.reserve(kMaxCodepointLookup + 1);
     for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
       lut_upper_codepoint.push_back(utf8proc_toupper(i));
       lut_lower_codepoint.push_back(utf8proc_tolower(i));
       lut_category.push_back(utf8proc_category(i));
+
+      if (utf8proc_islower(i)) {
+        lut_swapcase_codepoint.push_back(utf8proc_toupper(i));
+      } else if (utf8proc_isupper(i)) {
+        lut_swapcase_codepoint.push_back(utf8proc_tolower(i));
+      } else {
+        lut_swapcase_codepoint.push_back(i);
+      }
     }
   });
 }
@@ -362,6 +372,26 @@ struct UTF8LowerTransform : public CaseMappingTransform {
 
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
+
+struct UTF8SwapCaseTransform : public CaseMappingTransform {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
+    if (codepoint <= kMaxCodepointLookup) {
+      return lut_swapcase_codepoint[codepoint];
+    } else {
+      if (utf8proc_islower(codepoint)) {
+        return utf8proc_toupper(codepoint);
+      } else if (utf8proc_isupper(codepoint)) {
+        return utf8proc_tolower(codepoint);
+      } else {
+        return codepoint;
+      }
+    }
+  }
+};
+
+template <typename Type>
+using UTF8SwapCase =
+    StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -4056,6 +4086,11 @@ const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
 
+const FunctionDoc utf8_swapcase_doc(
+    "Transform input lowercase characters to uppercase and uppercase characters to "
+    "lowercase",
+    ("For each string in `strings`, return an opposite case version."), {"strings"});
+
 const FunctionDoc ascii_reverse_doc(
     "Reverse ASCII input",
     ("For each ASCII string in `strings`, return a reversed version.\n\n"
@@ -4125,6 +4160,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, &utf8_upper_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
+  MakeUnaryStringUTF8TransformKernel<UTF8SwapCase>("utf8_swapcase", registry,
+                                                   &utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,

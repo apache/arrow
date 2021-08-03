@@ -277,6 +277,7 @@ String Transforms
    utf8_rpad
    utf8_rtrim
    utf8_rtrim_whitespace
+   utf8_swapcase
    utf8_trim
    utf8_upper
 

@@ -499,6 +499,23 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
                                   CallFunction("utf8_lower", {invalid_input}));
 }
 
+TYPED_TEST(TestStringKernels, Utf8SwapCase) {
+  this->CheckUnary("utf8_swapcase", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
+                   "[\"AaAZzÆæ&\", null, \"\", \"B\"]");
+
+  // test varying encoding lengths and thus changing indices/offsets
+  this->CheckUnary("utf8_swapcase", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->type(),
+                   "[\"ɑⱤɽOw\", null, \"Ii\", \"b\"]");
+
+  // test maximum buffer growth
+  this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
+
+  // Test invalid data
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+                                  CallFunction("utf8_swapcase", {invalid_input}));
+}
+
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
   // U+08BE (utf8: 	\xE0\xA2\xBE) is undefined, but utf8proc things it is
   // UTF8PROC_CATEGORY_LO
