@@ -303,15 +303,23 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<internal::Aggregate>& aggregates,
                                    bool use_threads, ExecContext* ctx);
 
-/// \brief
-Result<ExecNode*> MakeHashLeftSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
-                                           std::string label,
-                                           const std::vector<std::string>& left_keys,
-                                           const std::vector<std::string>& right_keys);
+/// \brief Make a node which joins batches from two other nodes based on key fields
+enum JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,        // Not Implemented
+  LEFT_OUTER,   // Not Implemented
+  RIGHT_OUTER,  // Not Implemented
+  FULL_OUTER    // Not Implemented
+};
+
 ARROW_EXPORT
-Result<ExecNode*> MakeHashRightSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
-                                            std::string label,
-                                            const std::vector<std::string>& left_keys,
-                                            const std::vector<std::string>& right_keys);
+Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
+                                   ExecNode* right_input, std::string label,
+                                   const std::vector<std::string>& left_keys,
+                                   const std::vector<std::string>& right_keys);
+
 }  // namespace compute
 }  // namespace arrow

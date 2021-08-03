@@ -371,7 +371,8 @@ if(ARROW_COMPUTE)
        compute/cast.cc
        compute/exec.cc
        compute/exec/exec_plan.cc
-       compute/exec/expression.cc
+          compute/exec/exec_utils.cc
+          compute/exec/expression.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc

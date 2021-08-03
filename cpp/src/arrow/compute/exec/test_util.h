@@ -24,6 +24,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -40,6 +41,27 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
 ARROW_TESTING_EXPORT
 ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
                             util::string_view json);
+
+struct BatchesWithSchema {
+  std::vector<ExecBatch> batches;
+  std::shared_ptr<Schema> schema;
+};
+
+ARROW_TESTING_EXPORT
+Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
+                                     BatchesWithSchema batches_with_schema, bool parallel,
+                                     bool slow);
+
+ARROW_TESTING_EXPORT
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen);
+
+ARROW_TESTING_EXPORT
+BatchesWithSchema MakeBasicBatches();
+
+ARROW_TESTING_EXPORT
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches = 10, int batch_size = 4);
 
 }  // namespace compute
 }  // namespace arrow

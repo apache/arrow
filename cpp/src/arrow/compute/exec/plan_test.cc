@@ -18,21 +18,16 @@
 #include <gmock/gmock-matchers.h>
 
 #include <functional>
-#include <memory>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/thread_pool.h"
-#include "arrow/util/vector.h"
 
 using testing::ElementsAre;
 using testing::HasSubstr;
@@ -193,88 +188,6 @@ TEST(ExecPlan, DummyStartProducingError) {
   // Nodes that started successfully were stopped in reverse order
   ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
 }
-
-namespace {
-
-struct BatchesWithSchema {
-  std::vector<ExecBatch> batches;
-  std::shared_ptr<Schema> schema;
-};
-
-Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
-                                     BatchesWithSchema batches_with_schema, bool parallel,
-                                     bool slow) {
-  DCHECK_GT(batches_with_schema.batches.size(), 0);
-
-  auto opt_batches = ::arrow::internal::MapVector(
-      [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
-      std::move(batches_with_schema.batches));
-
-  AsyncGenerator<util::optional<ExecBatch>> gen;
-
-  if (parallel) {
-    // emulate batches completing initial decode-after-scan on a cpu thread
-    ARROW_ASSIGN_OR_RAISE(
-        gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
-                                     ::arrow::internal::GetCpuThreadPool()));
-
-    // ensure that callbacks are not executed immediately on a background thread
-    gen = MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
-  } else {
-    gen = MakeVectorGenerator(std::move(opt_batches));
-  }
-
-  if (slow) {
-    gen = MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
-      SleepABit();
-      return batch;
-    });
-  }
-
-  return MakeSourceNode(plan, label, std::move(batches_with_schema.schema),
-                        std::move(gen));
-}
-
-Future<std::vector<ExecBatch>> StartAndCollect(
-    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
-
-  auto collected_fut = CollectAsyncGenerator(gen);
-
-  return AllComplete({plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        return ::arrow::internal::MapVector(
-            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
-            std::move(collected));
-      });
-}
-
-BatchesWithSchema MakeBasicBatches() {
-  BatchesWithSchema out;
-  out.batches = {
-      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
-      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
-  out.schema = schema({field("i32", int32()), field("bool", boolean())});
-  return out;
-}
-
-BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                    int num_batches = 10, int batch_size = 4) {
-  BatchesWithSchema out;
-
-  random::RandomArrayGenerator rng(42);
-  out.batches.resize(num_batches);
-
-  for (int i = 0; i < num_batches; ++i) {
-    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
-    // add a tag scalar to ensure the batches are unique
-    out.batches[i].values.emplace_back(i);
-  }
-  return out;
-}
-}  // namespace
 
 TEST(ExecPlanExecution, SourceSink) {
   for (bool slow : {false, true}) {
@@ -579,61 +492,6 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
                              ValueDescr::Scalar(float64())},
                             "[[6, 33, 5.5]]"),
       }))));
-}
-
-void GenerateBatchesFromString(const std::shared_ptr<Schema>& schema,
-                               const std::vector<util::string_view>& json_strings,
-                               BatchesWithSchema* out_batches) {
-  std::vector<ValueDescr> descrs;
-  for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
-  }
-
-  for (auto&& s : json_strings) {
-    out_batches->batches.push_back(ExecBatchFromJSON(descrs, s));
-  }
-
-  out_batches->schema = schema;
-}
-
-TEST(ExecPlanExecution, SourceHashLeftSemiJoin) {
-  BatchesWithSchema l_batches, r_batches, exp_batches;
-
-  GenerateBatchesFromString(schema({field("l_i32", int32()), field("l_str", utf8())}),
-                            {R"([[0,"d"], [1,"b"]])", R"([[2,"d"], [3,"a"], [4,"a"]])",
-                             R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
-                            &l_batches);
-
-  GenerateBatchesFromString(
-      schema({field("r_str", utf8()), field("r_i32", int32())}),
-      {R"([["f", 0], ["b", 1], ["b", 2]])", R"([["c", 3], ["g", 4]])", R"([["e", 5]])"},
-      &r_batches);
-
-  SCOPED_TRACE("serial");
-
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-
-  ASSERT_OK_AND_ASSIGN(auto l_source,
-                       MakeTestSourceNode(plan.get(), "l_source", l_batches,
-                                          /*parallel=*/false,
-                                          /*slow=*/false));
-  ASSERT_OK_AND_ASSIGN(auto r_source,
-                       MakeTestSourceNode(plan.get(), "r_source", r_batches,
-                                          /*parallel=*/false,
-                                          /*slow=*/false));
-
-  ASSERT_OK_AND_ASSIGN(
-      auto semi_join,
-      MakeHashLeftSemiJoinNode(l_source, r_source, "l_semi_join",
-                               /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}));
-  auto sink_gen = MakeSinkNode(semi_join, "sink");
-
-  GenerateBatchesFromString(
-      schema({field("l_i32", int32()), field("l_str", utf8())}),
-      {R"([[1,"b"]])", R"([])", R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"}, &exp_batches);
-
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
 }
 
 }  // namespace compute

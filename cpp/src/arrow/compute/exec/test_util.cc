@@ -35,6 +35,7 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
@@ -152,6 +153,80 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   }
 
   return batch;
+}
+
+Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
+                                     BatchesWithSchema batches_with_schema, bool parallel,
+                                     bool slow) {
+  DCHECK_GT(batches_with_schema.batches.size(), 0);
+
+  auto opt_batches = ::arrow::internal::MapVector(
+      [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+      std::move(batches_with_schema.batches));
+
+  AsyncGenerator<util::optional<ExecBatch>> gen;
+
+  if (parallel) {
+    // emulate batches completing initial decode-after-scan on a cpu thread
+    ARROW_ASSIGN_OR_RAISE(
+        gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
+                                     ::arrow::internal::GetCpuThreadPool()));
+
+    // ensure that callbacks are not executed immediately on a background thread
+    gen = MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
+  } else {
+    gen = MakeVectorGenerator(std::move(opt_batches));
+  }
+
+  if (slow) {
+    gen = MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
+      SleepABit();
+      return batch;
+    });
+  }
+
+  return MakeSourceNode(plan, std::move(label), std::move(batches_with_schema.schema),
+                        std::move(gen));
+}
+
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(gen);
+
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return ::arrow::internal::MapVector(
+            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
+}
+
+BatchesWithSchema MakeBasicBatches() {
+  BatchesWithSchema out;
+  out.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+  out.schema = schema({field("i32", int32()), field("bool", boolean())});
+  return out;
+}
+
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches, int batch_size) {
+  BatchesWithSchema out;
+
+  random::RandomArrayGenerator rng(42);
+  out.batches.resize(num_batches);
+
+  for (int i = 0; i < num_batches; ++i) {
+    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
+    // add a tag scalar to ensure the batches are unique
+    out.batches[i].values.emplace_back(i);
+  }
+  return out;
 }
 
 }  // namespace compute

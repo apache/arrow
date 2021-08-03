@@ -15,14 +15,51 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+
+#include "arrow/util/thread_pool.h"
+
 namespace arrow {
 namespace compute {
 
-enum JoinType {
-  LEFT_SEMI_JOIN,
-  RIGHT_SEMI_JOIN,
-  LEFT_ANTI_SEMI_JOIN,
-  RIGHT_ANTI_SEMI_JOIN
+class ThreadIndexer {
+ public:
+  size_t operator()();
+
+  static size_t Capacity();
+
+ private:
+  static size_t Check(size_t thread_index);
+
+  std::mutex mutex_;
+  std::unordered_map<std::thread::id, size_t> id_to_index_;
+};
+
+class AtomicCounter {
+ public:
+  AtomicCounter() = default;
+
+  int count() const;
+
+  util::optional<int> total() const;
+
+  // return true if the counter is complete
+  bool Increment();
+
+  // return true if the counter is complete
+  bool SetTotal(int total);
+
+  // return true if the counter has not already been completed
+  bool Cancel();
+
+ private:
+  // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+  bool DoneOnce();
+
+  std::atomic<int> count_{0}, total_{-1};
+  std::atomic<bool> complete_{false};
 };
 
 }  // namespace compute
