@@ -377,6 +377,7 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   const int64_t union_length = 10;
   auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
   ASSERT_EQ(s_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
@@ -388,8 +389,23 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
     }
   }
 
+  s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {2, 7});
+  ASSERT_OK_AND_ASSIGN(s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
+  ASSERT_OK(s_union_nulls->ValidateFull());
+  ASSERT_EQ(s_union_nulls->null_count(), 0);
+  {
+    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+
+    // Check type codes are all 2
+    for (int i = 0; i < union_length; ++i) {
+      ASSERT_EQ(typed_union.raw_type_codes()[i], 2);
+    }
+  }
+
   auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
   ASSERT_OK_AND_ASSIGN(auto d_union_nulls, MakeArrayOfNull(d_union_ty, union_length));
+  ASSERT_OK(d_union_nulls->ValidateFull());
   ASSERT_EQ(d_union_nulls->null_count(), 0);
   {
     const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);

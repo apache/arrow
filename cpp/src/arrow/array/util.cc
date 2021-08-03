@@ -442,9 +442,18 @@ class NullArrayFactory {
     // First buffer is always null
     out_->buffers[0] = nullptr;
 
-    // Type codes are all zero, so we can use buffer_ which has had it's memory
-    // zeroed
     out_->buffers[1] = buffer_;
+    // buffer_ is zeroed, but 0 may not be a valid type code
+    if (type.type_codes()[0] != 0) {
+      std::memset(buffer_->mutable_data(), type.type_codes()[0], buffer_->size());
+    }
+
+    // We can't reuse the buffer unless it's zeroed
+    std::shared_ptr<Buffer> child_buffer = buffer_;
+    if (type.type_codes()[0] != 0) {
+      ARROW_ASSIGN_OR_RAISE(child_buffer, AllocateBuffer(buffer_->size(), pool_));
+      std::memset(child_buffer->mutable_data(), 0, child_buffer->size());
+    }
 
     // For sparse unions, we now create children with the same length as the
     // parent
@@ -453,12 +462,13 @@ class NullArrayFactory {
       // For dense unions, we set the offsets to all zero and create children
       // with length 1
       out_->buffers.resize(3);
-      out_->buffers[2] = buffer_;
+      out_->buffers[2] = child_buffer;
 
       child_length = 1;
     }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i],
+                            CreateChild(i, child_length, child_buffer));
     }
     return Status::OK();
   }
@@ -474,9 +484,10 @@ class NullArrayFactory {
     return Status::NotImplemented("construction of all-null ", type);
   }
 
-  Result<std::shared_ptr<ArrayData>> CreateChild(int i, int64_t length) {
+  Result<std::shared_ptr<ArrayData>> CreateChild(
+      int i, int64_t length, const std::shared_ptr<Buffer>& buffer = nullptr) {
     NullArrayFactory child_factory(pool_, type_->field(i)->type(), length);
-    child_factory.buffer_ = buffer_;
+    child_factory.buffer_ = buffer ? buffer : buffer_;
     return child_factory.Create();
   }
 

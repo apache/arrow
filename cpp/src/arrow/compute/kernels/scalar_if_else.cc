@@ -18,6 +18,7 @@
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/builder_time.h>
+#include <arrow/array/builder_union.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
@@ -1778,6 +1779,55 @@ struct GetAppenders {
     return Status::OK();
   }
 
+  Status Visit(const DenseUnionType& ty) {
+    const auto& union_ty = checked_cast<const UnionType&>(ty);
+    std::vector<ArrayAppenderFunc> appenders(union_ty.num_fields());
+    for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
+      RETURN_NOT_OK(GetValueAppenders(*union_ty.field(i)->type(), &appenders[i]));
+    }
+    array_appender = [=](ArrayBuilder* raw_builder,
+                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                         const int64_t length) {
+      auto builder = checked_cast<DenseUnionBuilder*>(raw_builder);
+      const int8_t* type_codes = array->GetValues<int8_t>(1);
+      for (int64_t row = offset; row < offset + length; row++) {
+        const int8_t type_code = type_codes[row];
+        const int child_id =
+            checked_cast<const UnionType&>(*builder->type()).child_ids()[type_code];
+        const int32_t union_offset = array->GetValues<int32_t>(2)[row];
+        RETURN_NOT_OK(builder->Append(type_code));
+        RETURN_NOT_OK(appenders[child_id](builder->child_builder(child_id).get(),
+                                          array->child_data[child_id], union_offset,
+                                          /*length=*/1));
+      }
+      return Status::OK();
+    };
+    return Status::OK();
+  }
+
+  Status Visit(const SparseUnionType& ty) {
+    const auto& union_ty = checked_cast<const UnionType&>(ty);
+    std::vector<ArrayAppenderFunc> appenders(union_ty.num_fields());
+    for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
+      RETURN_NOT_OK(GetValueAppenders(*union_ty.field(i)->type(), &appenders[i]));
+    }
+    array_appender = [=](ArrayBuilder* raw_builder,
+                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
+                         const int64_t length) {
+      auto builder = checked_cast<SparseUnionBuilder*>(raw_builder);
+      for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
+        RETURN_NOT_OK(appenders[i](builder->child_builder(i).get(), array->child_data[i],
+                                   array->offset + offset, length));
+      }
+      const int8_t* type_codes = array->GetValues<int8_t>(1);
+      for (int64_t row = offset; row < offset + length; row++) {
+        RETURN_NOT_OK(builder->Append(type_codes[row]));
+      }
+      return Status::OK();
+    };
+    return Status::OK();
+  }
+
   Status Visit(const DataType& ty) {
     return Status::NotImplemented("Appender for type ", ty);
   }
@@ -1788,7 +1838,7 @@ struct GetAppenders {
 };
 
 static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_appender) {
-  // TODO: should cover scalars too
+  // We could extend this to cover scalars too, avoiding a type check in AppendScalar
   GetAppenders get_appenders;
   RETURN_NOT_OK(VisitTypeInline(type, &get_appenders));
   *array_appender = std::move(get_appenders.array_appender);
@@ -1967,6 +2017,45 @@ struct CaseWhenFunctor<FixedSizeListType> {
               ->value_builder()
               ->Reserve(children);
         },
+        // AppendScalar
+        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
+          return raw_builder->AppendScalar(scalar);
+        },
+        // AppendArray
+        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
+            const int64_t row) {
+          return array_appender(raw_builder, array, row, /*length=*/1);
+        });
+  }
+};
+
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_union<Type>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecScalar(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return ExecVarWidthScalarCaseWhen(
+        ctx, batch, out,
+        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
+          *output = source;
+          return Status::OK();
+        });
+  }
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ArrayAppenderFunc array_appender;
+    RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) { return Status::OK(); },
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
@@ -2544,6 +2633,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
     AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
     AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
+    AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
+    AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
