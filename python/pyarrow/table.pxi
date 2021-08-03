@@ -646,16 +646,13 @@ cdef class RecordBatch(_PandasConvertible):
                 try:
                     v = mapping[field.name]
                 except KeyError:
-                    try:
-                        v = mapping[tobytes(field.name)]
-                    except KeyError:
-                        present = mapping.keys()
-                        missing = [n for n in schema.names if n not in present]
-                        raise KeyError(
-                            "The passed mapping doesn't contain the "
-                            "following field(s) of the schema: {}".
-                            format(', '.join(missing))
-                        )
+                    present = mapping.keys()
+                    missing = [n for n in schema.names if n not in present]
+                    raise KeyError(
+                        "The passed mapping doesn't contain the "
+                        "following field(s) of the schema: {}".
+                        format(', '.join(missing))
+                    )
                 arrays.append(asarray(v, type=field.type))
             # Will raise if metadata is not None
             return RecordBatch.from_arrays(
