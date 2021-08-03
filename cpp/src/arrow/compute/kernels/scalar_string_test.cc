@@ -399,6 +399,8 @@ TYPED_TEST(TestStringKernels, AsciiSwapCase) {
   this->CheckUnary("ascii_swapcase", "[]", this->type(), "[]");
   this->CheckUnary("ascii_swapcase", "[\"aAazZæÆ&\", null, \"\", \"BbB\"]", this->type(),
                    "[\"AaAZzæÆ&\", null, \"\", \"bBb\"]");
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiReverse) {
@@ -509,6 +511,9 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
 
   // test maximum buffer growth
   this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
+
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 
   // Test invalid data
   auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
