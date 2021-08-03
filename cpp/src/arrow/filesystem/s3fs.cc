@@ -483,6 +483,30 @@ std::string FormatRange(int64_t start, int64_t length) {
   return ss.str();
 }
 
+// An AWS RetryStrategy that wraps a provided arrow::fs::S3RetryStrategy
+class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
+ public:
+  explicit WrappedRetryStrategy(const std::shared_ptr<S3RetryStrategy>& s3_retry_strategy)
+      : s3_retry_strategy_(s3_retry_strategy) {}
+
+  bool ShouldRetry(const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
+                   long attempted_retries) const override {  // NOLINT
+    Status status = ErrorToStatus(error);
+    return s3_retry_strategy_->ShouldRetry(status, attempted_retries);
+  }
+
+  long CalculateDelayBeforeNextRetry(  // NOLINT
+      const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
+      long attempted_retries) const override {  // NOLINT
+    Status status = ErrorToStatus(error);
+    return s3_retry_strategy_->CalculateDelayBeforeNextRetry(
+        status, attempted_retries);
+  }
+
+ private:
+  std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
+};
+
 class S3Client : public Aws::S3::S3Client {
  public:
   using Aws::S3::S3Client::S3Client;
@@ -565,7 +589,12 @@ class ClientBuilder {
     } else {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
-    client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    if (options_.retry_strategy) {
+      client_config_.retryStrategy = std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
+    }
+    else {
+      client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    }
     if (!internal::global_options.tls_ca_file_path.empty()) {
       client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
     }
