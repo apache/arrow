@@ -19,6 +19,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 
 #include <mutex>
+#include <unordered_map>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
@@ -135,8 +136,8 @@ class SinkNode : public ExecNode {
     }
   }
 
- private:
-  void Finish() {
+ protected:
+  virtual void Finish() {
     if (producer_.Close()) {
       finished_.MarkFinished();
     }
@@ -148,7 +149,72 @@ class SinkNode : public ExecNode {
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
+// A node that reorders inputs according to a tag. To be paired with OrderByNode.
+struct ReorderNode final : public SinkNode {
+  ReorderNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+              AsyncGenerator<util::optional<ExecBatch>>* generator)
+      : SinkNode(plan, std::move(inputs), generator) {}
+
+  const char* kind_name() override { return "ReorderNode"; }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "ReorderNode"));
+
+    const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
+    return plan->EmplaceNode<ReorderNode>(plan, std::move(inputs),
+                                          sink_options.generator);
+  }
+
+  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    if (input_counter_.Increment()) {
+      Finish();
+      return;
+    }
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto& tag_scalar = *batch.values.back().scalar();
+    const int64_t tag = checked_cast<const Int64Scalar&>(tag_scalar).value;
+    batch.values.pop_back();
+    PushAvailable();
+    if (tag == next_batch_index_) {
+      next_batch_index_++;
+      producer_.Push(std::move(batch));
+    } else {
+      batches_.emplace(tag, std::move(batch));
+    }
+  }
+
+ protected:
+  void PushAvailable() {
+    decltype(batches_)::iterator it;
+    while ((it = batches_.find(next_batch_index_)) != batches_.end()) {
+      auto batch = std::move(it->second);
+      bool did_push = producer_.Push(std::move(batch));
+      batches_.erase(it);
+      // producer was Closed already
+      if (!did_push) return;
+      next_batch_index_++;
+    }
+  }
+
+  void Finish() override {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      PushAvailable();
+    }
+    SinkNode::Finish();
+  }
+
+ private:
+  std::unordered_map<int64_t, ExecBatch> batches_;
+  std::mutex mutex_;
+  int64_t next_batch_index_ = 0;
+};
+
 ExecFactoryRegistry::AddOnLoad kRegisterSink("sink", SinkNode::Make);
+ExecFactoryRegistry::AddOnLoad kRegisterReorder("reorder", ReorderNode::Make);
 
 }  // namespace
 }  // namespace compute

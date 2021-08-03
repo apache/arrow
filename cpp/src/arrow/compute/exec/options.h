@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/util/optional.h"
@@ -61,6 +62,19 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
       : filter_expression(std::move(filter_expression)) {}
 
   Expression filter_expression;
+};
+
+/// \brief Make a node which sorts rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then sorted, by the given
+/// fields. Then sorted batches will be pushed to the next node, along a tag
+/// indicating the absolute order of the batches.
+class ARROW_EXPORT OrderByNodeOptions : public ExecNodeOptions {
+ public:
+  explicit OrderByNodeOptions(SortOptions sort_options)
+      : sort_options(std::move(sort_options)) {}
+
+  SortOptions sort_options;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
