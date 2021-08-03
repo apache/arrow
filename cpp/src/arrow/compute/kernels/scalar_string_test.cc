@@ -403,6 +403,13 @@ TYPED_TEST(TestStringKernels, AsciiSwapCase) {
                    "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiCapitalize) {
+  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_capitalize",
+                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"one word\"]", this->type(),
+                   "[\"AAazZæÆ&\", null, \"\", \"BBB\", \"One word\"]");
+}
+
 TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),

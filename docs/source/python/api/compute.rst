@@ -250,6 +250,7 @@ String Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_capitalize
    ascii_center
    ascii_lpad
    ascii_ltrim
