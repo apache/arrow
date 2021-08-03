@@ -1417,9 +1417,8 @@ struct CaseWhenFunctor<NullType> {
   }
 };
 
-template <typename CopyArray>
 static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch,
-                                         Datum* out, CopyArray copy_array) {
+                                         Datum* out) {
   const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
   Datum result;
   for (size_t i = 0; i < batch.values.size() - 1; i++) {
@@ -1450,9 +1449,7 @@ static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& ba
                                                           ctx->memory_pool()));
     *output = *array->data();
   } else {
-    // Copy offsets/data
-    const ArrayData& source = *result.array();
-    RETURN_NOT_OK(copy_array(ctx, source, output));
+    *output = *result.array();
   }
   return Status::OK();
 }
@@ -1522,35 +1519,9 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
-  }
-
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          output->length = source.length;
-          output->SetNullCount(source.null_count);
-          if (source.MayHaveNulls()) {
-            ARROW_ASSIGN_OR_RAISE(
-                output->buffers[0],
-                arrow::internal::CopyBitmap(ctx->memory_pool(), source.buffers[0]->data(),
-                                            source.offset, source.length));
-          }
-          ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                                ctx->Allocate(sizeof(offset_type) * (source.length + 1)));
-          const offset_type* in_offsets = source.GetValues<offset_type>(1);
-          offset_type* out_offsets = output->GetMutableValues<offset_type>(1);
-          std::transform(in_offsets, in_offsets + source.length + 1, out_offsets,
-                         [&](offset_type offset) { return offset - in_offsets[0]; });
-          auto data_length = out_offsets[output->length] - out_offsets[0];
-          ARROW_ASSIGN_OR_RAISE(output->buffers[2], ctx->Allocate(data_length));
-          std::memcpy(output->buffers[2]->mutable_data(),
-                      source.buffers[2]->data() + in_offsets[0], data_length);
-          return Status::OK();
-        });
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1854,19 +1825,11 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          *output = source;
-          return Status::OK();
-        });
-  }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& ty = checked_cast<const Type&>(*out->type());
     ArrayAppenderFunc array_appender;
@@ -1912,19 +1875,11 @@ struct CaseWhenFunctor<MapType> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          *output = source;
-          return Status::OK();
-        });
-  }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayAppenderFunc array_appender;
     RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
@@ -1951,19 +1906,11 @@ struct CaseWhenFunctor<StructType> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          *output = source;
-          return Status::OK();
-        });
-  }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayAppenderFunc array_appender;
     RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
@@ -1990,19 +1937,11 @@ struct CaseWhenFunctor<FixedSizeListType> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          *output = source;
-          return Status::OK();
-        });
-  }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& ty = checked_cast<const FixedSizeListType&>(*out->type());
     const int64_t width = ty.list_size();
@@ -2036,19 +1975,11 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
       return Status::Invalid("cond struct must not have outer nulls");
     }
     if (batch[0].is_scalar()) {
-      return ExecScalar(ctx, batch, out);
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
     return ExecArray(ctx, batch, out);
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthScalarCaseWhen(
-        ctx, batch, out,
-        [](KernelContext* ctx, const ArrayData& source, ArrayData* output) {
-          *output = source;
-          return Status::OK();
-        });
-  }
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayAppenderFunc array_appender;
     RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
