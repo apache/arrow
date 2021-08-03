@@ -1018,7 +1018,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO -e ARROW_SOURCE_HOME="/arrow" -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
