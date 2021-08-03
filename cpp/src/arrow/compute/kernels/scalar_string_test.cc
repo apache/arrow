@@ -406,8 +406,9 @@ TYPED_TEST(TestStringKernels, AsciiSwapCase) {
 TYPED_TEST(TestStringKernels, AsciiCapitalize) {
   this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("ascii_capitalize",
-                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"one word\"]", this->type(),
-                   "[\"AAazZæÆ&\", null, \"\", \"BBB\", \"One word\"]");
+                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\"]",
+                   this->type(),
+                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, world!\", \"$. a3\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiReverse) {
@@ -469,7 +470,7 @@ TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"AAAZZÆÆ&\", null, \"\", \"B\"]");
 
-  // test varying encoding lenghts and thus changing indices/offsets
+  // test varying encoding lengths and thus changing indices/offsets
   this->CheckUnary("utf8_upper", "[\"ɑɽⱤoW\", null, \"ıI\", \"b\"]", this->type(),
                    "[\"ⱭⱤⱤOW\", null, \"II\", \"B\"]");
 
@@ -526,6 +527,16 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
   auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_swapcase", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8Capitalize) {
+  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_capitalize",
+                   "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
+                   "\"hEllO, WoRld!\", \"$. A3\"]",
+                   this->type(),
+                   "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
+                   "\"Hello, world!\", \"$. a3\"]");
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

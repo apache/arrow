@@ -267,6 +267,7 @@ String Transforms
    binary_replace_slice
    replace_substring
    replace_substring_regex
+   utf8_capitalize
    utf8_center
    utf8_length
    utf8_lower
