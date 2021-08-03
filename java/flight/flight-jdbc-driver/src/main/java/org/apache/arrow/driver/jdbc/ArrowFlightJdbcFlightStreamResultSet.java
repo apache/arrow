@@ -89,7 +89,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       currentFlightStream.getRoot().clear();
       if (currentFlightStream.next()) {
         execute(currentFlightStream.getRoot());
-      return next();
+        continue;
     }
 
     flightStreamQueue.enqueue(currentFlightStream);
@@ -97,8 +97,8 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
 
     if (currentFlightStream != null) {
       execute(currentFlightStream.getRoot());
-        continue;
-      }
+      continue;
+    }
       return false;
     }
   }
