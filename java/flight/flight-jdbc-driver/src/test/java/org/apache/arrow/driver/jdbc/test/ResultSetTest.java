@@ -122,37 +122,6 @@ public class ResultSetTest {
     }
   }
 
-
-  /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
-   * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
-   *
-   * @throws Exception If the connection fails to be established.
-   */
-  @Test
-  public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
-    try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
-
-      final int maxRowsLimit = 3;
-      statement.setMaxRows(maxRowsLimit);
-
-      collector.checkThat(statement.getMaxRows(), is(maxRowsLimit));
-
-      int count = 0;
-      int columns = 6;
-      for (; resultSet.next(); count++) {
-        for (int column = 1; column <= columns; column++) {
-          resultSet.getObject(column);
-        }
-        collector.checkThat("Test Name #" + count, is(resultSet.getString(2)));
-      }
-
-      collector.checkThat(maxRowsLimit, is(count));
-    }
-  }
-
-
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
    * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
@@ -242,21 +211,23 @@ public class ResultSetTest {
    * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
-  */
+   */
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletion() throws Exception {
-      Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
 
-      final long maxRowsLimit = 3;
-      statement.setLargeMaxRows(maxRowsLimit);
-      statement.closeOnCompletion();
+    final long maxRowsLimit = 3;
+    statement.setLargeMaxRows(maxRowsLimit);
+    statement.closeOnCompletion();
 
-      int columns = 6;
-      while (resultSet.next())
-          for (int column = 1; column <= columns; column++)
-              resultSet.getObject(column);
+    int columns = 6;
+    while (resultSet.next()) {
+      for (int column = 1; column <= columns; column++) {
+        resultSet.getObject(column);
+      }
+    }
 
-      collector.checkThat(statement.isClosed(), is(Boolean.TRUE));
+    collector.checkThat(statement.isClosed(), is(Boolean.TRUE));
   }
 }
