@@ -398,6 +398,18 @@ TEST(FloatingPointConversion, Whitespace) {
                                        {{12., 0.}, {34.5, -1e100}});
 }
 
+TEST(FloatingPointConversion, CustomDecimalPoint) {
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '/';
+
+  AssertConversion<FloatType, float>(float32(), {"1/5\n", "-1e10\n", "N/A\n"},
+                                     {{1.5, -1e10f, 0.}}, {{true, true, false}}, options);
+  AssertConversion<DoubleType, double>(float64(), {"1/5\n", "-1e10\n", "N/A\n"},
+                                       {{1.5, -1e10, 0.}}, {{true, true, false}},
+                                       options);
+  AssertConversionError(float32(), {"1.5\n"}, {0}, options);
+}
+
 TEST(BooleanConversion, Basics) {
   // XXX we may want to accept more bool-like values
   AssertConversion<BooleanType, bool>(boolean(), {"true,false\n", "1,0\n"},
@@ -582,6 +594,17 @@ TEST(DecimalConversion, CustomNulls) {
       {{true, false}, {false, true}}, options);
 }
 
+TEST(DecimalConversion, CustomDecimalPoint) {
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '/';
+
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(14, 3), {"1/5,0/\n", ",-1e3\n"},
+      {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
+      {{true, false}, {true, true}}, options);
+  AssertConversionError(decimal128(14, 3), {"1.5\n"}, {0}, options);
+}
+
 TEST(DecimalConversion, Whitespace) {
   AssertConversion<Decimal128Type, Decimal128>(
       decimal(5, 1), {" 12.00,34.5\n", " 0 ,-1e2 \n"},
@@ -723,6 +746,21 @@ TEST(TestDecimalDictConverter, Basics) {
 
   AssertDictConversion("1.234\n456.789\nN/A\n4.56789e2\n", expected_indices,
                        expected_dict);
+}
+
+TEST(TestDecimalDictConverter, CustomDecimalPoint) {
+  auto value_type = decimal(9, 3);
+
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '\'';
+
+  auto expected_dict = ArrayFromJSON(value_type, R"(["1.234", "456.789"])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 1]");
+
+  AssertDictConversion("1'234\n456'789\nN/A\n4'56789e2\n", expected_indices,
+                       expected_dict, -1, options);
+
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "1.234\n", -1, options));
 }
 
 TEST(TestDecimalDictConverter, Errors) {

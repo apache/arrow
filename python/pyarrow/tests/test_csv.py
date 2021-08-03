@@ -226,6 +226,7 @@ def test_convert_options():
         cls, check_utf8=[True, False],
         strings_can_be_null=[False, True],
         quoted_strings_can_be_null=[True, False],
+        decimal_point=['.', ','],
         include_columns=[[], ['def', 'abc']],
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
@@ -235,10 +236,14 @@ def test_convert_options():
         cls, check_utf8=False,
         strings_can_be_null=True,
         quoted_strings_can_be_null=False,
+        decimal_point=',',
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
         timestamp_parsers=[ISO8601, '%y-%m'])
+
+    with pytest.raises(ValueError):
+        opts.decimal_point = '..'
 
     assert opts.auto_dict_max_cardinality > 0
     opts.auto_dict_max_cardinality = 99999
@@ -805,6 +810,31 @@ class BaseTestCSVRead(BaseTestCSV):
             'd': [None, None, None],
             'e': [b"3", b"nan", b"\xff"],
             'f': [None, True, False],
+        }
+
+    def test_decimal_point(self):
+        # Infer floats with a custom decimal point
+        parse_options = ParseOptions(delimiter=';')
+        rows = b"a;b\n1.25;2,5\nNA;-3\n-4;NA"
+
+        table = self.read_bytes(rows, parse_options=parse_options)
+        schema = pa.schema([('a', pa.float64()),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [1.25, None, -4.0],
+            'b': ["2,5", "-3", "NA"],
+        }
+
+        convert_options = ConvertOptions(decimal_point=',')
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.float64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["1.25", "NA", "-4"],
+            'b': [2.5, -3.0, None],
         }
 
     def test_simple_timestamps(self):
