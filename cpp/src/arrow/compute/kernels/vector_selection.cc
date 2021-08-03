@@ -2172,6 +2172,9 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
   if (values->null_count() == 0) {
     return values;
   }
+  if (values->type()->Equals(arrow::null())) {
+    return std::make_shared<NullArray>(0);
+  }
   std::shared_ptr<BooleanArray> dropnull_filter;
   RETURN_NOT_OK(GetDropNullFilter(*values, ctx->memory_pool(), &dropnull_filter));
 
