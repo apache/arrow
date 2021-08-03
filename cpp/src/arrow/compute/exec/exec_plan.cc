@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <iostream>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -1329,6 +1330,8 @@ struct HashSemiJoinNode : ExecNode {
   const char* kind_name() override { return "HashSemiJoinNode"; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
+    std::cout << "init" << "\n";
+
     // Get input schema
     auto build_schema = inputs_[0]->output_schema();
 
@@ -1351,11 +1354,15 @@ struct HashSemiJoinNode : ExecNode {
   // cached_probe_batches, because when probing everyone. Note: Only one thread
   // should execute this out of the pool!
   Status BuildSideMerge() {
+    std::cout << "build side merge" << "\n";
+
     ThreadLocalState* state0 = &local_states_[0];
     for (size_t i = 1; i < local_states_.size(); ++i) {
       ThreadLocalState* state = &local_states_[i];
       ARROW_DCHECK(state);
-      ARROW_DCHECK(state->grouper);
+      if (!state->grouper) {
+        continue;
+      }
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
       ARROW_ASSIGN_OR_RAISE(Datum _, state0->grouper->Consume(other_keys));
       state->grouper.reset();
@@ -1367,6 +1374,8 @@ struct HashSemiJoinNode : ExecNode {
   // total reached at the end of consumption, all the local states will be merged, before
   // incrementing the total batches
   Status ConsumeBuildBatch(const size_t thread_index, ExecBatch batch) {
+    std::cout << "ConsumeBuildBatch " << thread_index << " " << batch.length << "\n";
+
     auto state = &local_states_[thread_index];
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
@@ -1397,6 +1406,8 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   Status ConsumeCachedProbeBatches(const size_t thread_index) {
+    std::cout << "ConsumeCachedProbeBatches " << thread_index << "\n";
+
     ThreadLocalState* state = &local_states_[thread_index];
 
     // TODO (niranda) check if this is the best way to move batches
@@ -1413,6 +1424,8 @@ struct HashSemiJoinNode : ExecNode {
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[0] which have been merged with all others.
   Status ConsumeProbeBatch(int seq, ExecBatch batch) {
+    std::cout << "ConsumeProbeBatch " << seq << "\n";
+
     auto* grouper = local_states_[0].grouper.get();
 
     // Create a batch with key columns
@@ -1439,8 +1452,10 @@ struct HashSemiJoinNode : ExecNode {
           Filter(rec_batch, filter_arr,
                  /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
       auto out_batch = ExecBatch(*filtered.record_batch());
+      std::cout << "output " << seq << " " << out_batch.ToString() << "\n";
       outputs_[0]->InputReceived(this, seq, std::move(out_batch));
     } else {  // all values are valid for output
+      std::cout << "output " << seq << " " << batch.ToString() << "\n";
       outputs_[0]->InputReceived(this, seq, std::move(batch));
     }
 
@@ -1458,6 +1473,9 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    std::cout << "input received " << IsBuildInput(input) << " " << seq << " "
+              << batch.length << "\n";
+
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
     size_t thread_index = get_thread_index_();
@@ -1486,6 +1504,7 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    std::cout << "error received " << error.ToString() << "\n";
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -1493,15 +1512,25 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
+    std::cout << "input finished " << IsBuildInput(input) << " " << num_total << "\n";
+
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
+    size_t thread_index = get_thread_index_();
+
     // set total for build input
     if (IsBuildInput(input) && build_counter_.SetTotal(num_total)) {
+      // while incrementing, if the total is reached, merge all the groupers to 0'th one
+      ErrorIfNotOk(BuildSideMerge());
+
+      // enable flag that build side is completed
+      hash_table_built_.store(true);
+
       // only build side has completed! so process cached probe batches (of this thread)
-      ErrorIfNotOk(ConsumeCachedProbeBatches(get_thread_index_()));
+      ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
       return;
     }
 
@@ -1512,11 +1541,14 @@ struct HashSemiJoinNode : ExecNode {
     // output will be streamed from the probe side. So, they will have the same total.
     if (out_counter_.SetTotal(num_total)) {
       // if out_counter has completed, the future is finished!
+      ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
       finished_.MarkFinished();
     }
+    outputs_[0]->InputFinished(this, num_total);
   }
 
   Status StartProducing() override {
+    std::cout << "start prod \n";
     finished_ = Future<>::Make();
 
     local_states_.resize(ThreadIndexer::Capacity());
@@ -1528,6 +1560,8 @@ struct HashSemiJoinNode : ExecNode {
   void ResumeProducing(ExecNode* output) override {}
 
   void StopProducing(ExecNode* output) override {
+    std::cout << "stop prod from node\n";
+
     DCHECK_EQ(output, outputs_[0]);
 
     if (build_counter_.Cancel()) {
@@ -1543,15 +1577,18 @@ struct HashSemiJoinNode : ExecNode {
 
   // TODO(niranda) couldn't there be multiple outputs for a Node?
   void StopProducing() override {
+    std::cout << "stop prod \n";
     for (auto&& output : outputs_) {
       StopProducing(output);
     }
   }
 
-  Future<> finished() override { return finished_; }
+  Future<> finished() override {
+    std::cout << "finished? " << finished_.is_finished() << "\n";
+    return finished_;
+  }
 
  private:
-
   struct ThreadLocalState {
     std::unique_ptr<internal::Grouper> grouper;
     std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
