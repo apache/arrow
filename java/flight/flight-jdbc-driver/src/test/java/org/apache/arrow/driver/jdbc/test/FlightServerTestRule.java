@@ -77,14 +77,18 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.PrimitiveType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -114,7 +118,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final Map<String, Supplier<Stream<String>>> queryTickets = generateQueryTickets(
       new SimpleImmutableEntry<>(REGULAR_TEST_SQL_CMD, 10),
       new SimpleImmutableEntry<>(METADATA_TEST_SQL_CMD, 3),
-      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 1000));
+      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 3000));
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
@@ -353,8 +357,45 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
               },
               ticket -> ticket.equals(CANCELLATION_TEST_SQL_CMD),
               (ticketEntry, listener) -> {
-                // will keep loading for enough time for the thread to be cancelled later
+                // will keep loading for enough time for the query execution to be cancelled later
                 readilyGetTickets(CANCELLATION_TEST_SQL_CMD).forEach(LOGGER::debug);
+                // just in case -- generate irrelevant query results
+                final String irrelevantByte = "irrelevant_byte";
+                final String irrelevantInt = "irrelevant_int";
+                final String irrelevantLong = "irrelevant_long";
+                final String irrelevantFloat = "irrelevant_float";
+                final String irrelevantDouble = "irrelevant_double";
+                final String irrelevantString = "irrelevant_string";
+                final String irrelevantBool = "irrelevant_bool";
+
+                final Schema cancellationSchema = new Schema(ImmutableList.of(
+                    Field.nullablePrimitive(irrelevantByte, (PrimitiveType) MinorType.TINYINT.getType()),
+                    Field.nullablePrimitive(irrelevantInt, (PrimitiveType) MinorType.INT.getType()),
+                    Field.nullablePrimitive(irrelevantLong, (PrimitiveType) MinorType.BIGINT.getType()),
+                    Field.nullablePrimitive(irrelevantFloat, (PrimitiveType) MinorType.FLOAT4.getType()),
+                    Field.nullablePrimitive(irrelevantDouble, (PrimitiveType) MinorType.FLOAT8.getType()),
+                    Field.nullablePrimitive(irrelevantString, (PrimitiveType) MinorType.VARCHAR.getType()),
+                    Field.nullablePrimitive(irrelevantBool, (PrimitiveType) MinorType.BIT.getType())));
+                try (final VectorSchemaRoot root = VectorSchemaRoot.create(cancellationSchema, allocator)) {
+                  final int rows = Integer.MAX_VALUE - 1;
+                  for (int rowCount = 0; rowCount < rows; rowCount++) {
+                    final byte[] placeholder = new byte[Byte.MAX_VALUE];
+                    RANDOM.nextBytes(placeholder);
+                    ((TinyIntVector) root.getVector(irrelevantByte))
+                        .setSafe(rowCount, (byte) RANDOM.nextInt(Byte.MAX_VALUE));
+                    ((IntVector) root.getVector(irrelevantInt))
+                        .setSafe(rowCount, RANDOM.nextInt());
+                    ((BigIntVector) root.getVector(irrelevantLong))
+                        .setSafe(rowCount, RANDOM.nextLong());
+                    ((Float4Vector) root.getVector(irrelevantFloat))
+                        .setSafe(rowCount, RANDOM.nextFloat());
+                    ((Float8Vector) root.getVector(irrelevantDouble))
+                        .setSafe(rowCount, RANDOM.nextDouble());
+                    ((VarCharVector) root.getVector(irrelevantString))
+                        .setSafe(rowCount, placeholder);
+                    root.getVector(irrelevantBool);
+                  }
+                }
               });
 
       @Override
