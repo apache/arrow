@@ -22,11 +22,13 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
@@ -147,6 +149,41 @@ class NumericConverter : public PrimitiveConverter {
   const T& numeric_type_;
 };
 
+template <typename T>
+class DecimalConverter : public PrimitiveConverter {
+ public:
+  using value_type = typename TypeTraits<T>::BuilderType::ValueType;
+
+  DecimalConverter(MemoryPool* pool, const std::shared_ptr<DataType>& type)
+      : PrimitiveConverter(pool, type) {}
+
+  Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
+    if (in->type_id() == Type::NA) {
+      return MakeArrayOfNull(out_type_, in->length(), pool_).Value(out);
+    }
+    const auto& dict_array = GetDictionaryArray(in);
+
+    using Builder = typename TypeTraits<T>::BuilderType;
+    Builder builder(out_type_, pool_);
+    RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
+
+    auto visit_valid = [&builder](string_view repr) {
+      ARROW_ASSIGN_OR_RAISE(value_type value,
+                            TypeTraits<T>::BuilderType::ValueType::FromString(repr));
+      builder.UnsafeAppend(value);
+      return Status::OK();
+    };
+
+    auto visit_null = [&builder]() {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
+    return builder.Finish(out);
+  }
+};
+
 template <typename DateTimeType>
 class DateTimeConverter : public PrimitiveConverter {
  public:
@@ -250,6 +287,8 @@ Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool
     CONVERTER_CASE(Type::STRING, BinaryConverter<StringType>);
     CONVERTER_CASE(Type::LARGE_BINARY, BinaryConverter<LargeBinaryType>);
     CONVERTER_CASE(Type::LARGE_STRING, BinaryConverter<LargeStringType>);
+    CONVERTER_CASE(Type::DECIMAL128, DecimalConverter<Decimal128Type>);
+    CONVERTER_CASE(Type::DECIMAL256, DecimalConverter<Decimal256Type>);
     default:
       return Status::NotImplemented("JSON conversion to ", *out_type,
                                     " is not supported");

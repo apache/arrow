@@ -112,6 +112,29 @@ In general, a Python file object will have the worst read performance, while a
 string file path or an instance of :class:`~.NativeFile` (especially memory
 maps) will perform the best.
 
+.. _parquet_mmap:
+
+Reading Parquet and Memory Mapping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Because Parquet data needs to be decoded from the Parquet format 
+and compression, it can't be directly mapped from disk.
+Thus the ``memory_map`` option might perform better on some systems
+but won't help much with resident memory consumption.
+
+.. code-block:: python
+
+      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=True)
+      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+      RSS: 4299MB
+
+      >>> pq_array = pa.parquet.read_table("area1.parquet", memory_map=False)
+      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+      RSS: 4299MB   
+
+If you need to deal with Parquet data bigger than memory, 
+the :ref:`dataset` and partitioning is probably what you are looking for.
+
 Parquet file writing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

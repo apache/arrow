@@ -192,8 +192,8 @@ struct GetOutputType<Decimal256Type> {
 // Iteration / value access utilities
 
 template <typename T, typename R = void>
-using enable_if_has_c_type_not_boolean =
-    enable_if_t<has_c_type<T>::value && !is_boolean_type<T>::value, R>;
+using enable_if_c_number_or_decimal = enable_if_t<
+    (has_c_type<T>::value && !is_boolean_type<T>::value) || is_decimal_type<T>::value, R>;
 
 // Iterator over various input array types, yielding a GetViewType<Type>
 
@@ -201,8 +201,8 @@ template <typename Type, typename Enable = void>
 struct ArrayIterator;
 
 template <typename Type>
-struct ArrayIterator<Type, enable_if_has_c_type_not_boolean<Type>> {
-  using T = typename Type::c_type;
+struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
   const T* values;
 
   explicit ArrayIterator(const ArrayData& data) : values(data.GetValues<T>(1)) {}
@@ -247,26 +247,14 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_decimal<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
-  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
-  const endian_agnostic* values;
-
-  explicit ArrayIterator(const ArrayData& data)
-      : values(data.GetValues<endian_agnostic>(1)) {}
-
-  T operator()() { return T{values++->data()}; }
-};
-
 // Iterator over various output array types, taking a GetOutputType<Type>
 
 template <typename Type, typename Enable = void>
 struct OutputArrayWriter;
 
 template <typename Type>
-struct OutputArrayWriter<Type, enable_if_has_c_type_not_boolean<Type>> {
-  using T = typename Type::c_type;
+struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
   T* values;
 
   explicit OutputArrayWriter(ArrayData* data) : values(data->GetMutableValues<T>(1)) {}
@@ -277,23 +265,9 @@ struct OutputArrayWriter<Type, enable_if_has_c_type_not_boolean<Type>> {
   // with Write / WriteNull calls
   void WriteNull() { *values++ = T{}; }
 
-  void WriteAllNull(int64_t length) { std::memset(values, 0, sizeof(T) * length); }
-};
-
-template <typename Type>
-struct OutputArrayWriter<Type, enable_if_decimal<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
-  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
-  endian_agnostic* values;
-
-  explicit OutputArrayWriter(ArrayData* data)
-      : values(data->GetMutableValues<endian_agnostic>(1)) {}
-
-  void Write(T value) { value.ToBytes(values++->data()); }
-
-  void WriteNull() { T{}.ToBytes(values++->data()); }
-
-  void WriteAllNull(int64_t length) { std::memset(values, 0, sizeof(T) * length); }
+  void WriteAllNull(int64_t length) {
+    std::memset(static_cast<void*>(values), 0, sizeof(T) * length);
+  }
 };
 
 // (Un)box Scalar to / from C++ value
@@ -551,11 +525,13 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
 };
 
 template <typename Type>
-struct OutputAdapter<Type, enable_if_has_c_type_not_boolean<Type>> {
+struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+
   template <typename Generator>
   static Status Write(KernelContext*, Datum* out, Generator&& generator) {
     ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<typename Type::c_type>(1);
+    auto out_data = out_arr->GetMutableValues<T>(1);
     // TODO: Is this as fast as a more explicitly inlined function?
     for (int64_t i = 0; i < out_arr->length; ++i) {
       *out_data++ = generator();
@@ -569,22 +545,6 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   template <typename Generator>
   static Status Write(KernelContext* ctx, Datum* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
-  }
-};
-
-template <typename Type>
-struct OutputAdapter<Type, enable_if_decimal<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
-  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
-
-  template <typename Generator>
-  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
-    ArrayData* out_arr = out->mutable_array();
-    auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
-    for (int64_t i = 0; i < out_arr->length; ++i) {
-      generator().ToBytes(out_data++->data());
-    }
-    return Status::OK();
   }
 };
 
@@ -667,8 +627,7 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<
-      Type, enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value>> {
+  struct ArrayExec<Type, enable_if_c_number_or_decimal<Type>> {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                        Datum* out) {
       Status st = Status::OK();
@@ -731,31 +690,6 @@ struct ScalarUnaryNotNullStateful {
             out_writer.Next();
           });
       out_writer.Finish();
-      return st;
-    }
-  };
-
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_decimal<Type>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
-      using endian_agnostic =
-          std::array<uint8_t, sizeof(typename TypeTraits<Type>::ScalarType::ValueType)>;
-      auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)
-                .ToBytes(out_data++->data());
-          },
-          [&]() {
-            // null
-            std::memset(out_data, 0, sizeof(*out_data));
-            ++out_data;
-          });
       return st;
     }
   };

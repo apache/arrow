@@ -21,53 +21,64 @@ set -e
 set -x
 set -o pipefail
 
-case $# in
-  1) KIND="$1"
-     case $KIND in
-       imports|unittests) ;;
-       *) echo "Invalid argument: '${KIND}', valid options are 'imports', 'unittests'"
-          exit 1
-          ;;
-     esac
-     ;;
-  *) echo "Usage: $0 imports|unittests"
-     exit 1
-     ;;
-esac
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <arrow-src-dir>"
+  exit 1
+fi
+
+source_dir=${1}
+
+: ${ARROW_FLIGHT:=ON}
+: ${ARROW_S3:=ON}
+: ${CHECK_IMPORTS:=ON}
+: ${CHECK_UNITTESTS:=ON}
+: ${INSTALL_PYARROW:=ON}
 
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
+export PYARROW_TEST_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_TEST_GANDIVA=OFF
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
 export PYARROW_TEST_PANDAS=ON
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PLASMA=ON
-export PYARROW_TEST_S3=ON
+export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
-export PYARROW_TEST_FLIGHT=ON
 
-export ARROW_TEST_DATA=/arrow/testing/data
-export PARQUET_TEST_DATA=/arrow/submodules/parquet-testing/data
+export ARROW_TEST_DATA=${source_dir}/testing/data
+export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 
-# Install the built wheels
-pip install /arrow/python/repaired_wheels/*.whl
+if [ "${INSTALL_PYARROW}" == "ON" ]; then
+  # Install the built wheels
+  pip install ${source_dir}/python/repaired_wheels/*.whl
+fi
 
-if [ "${KIND}" == "imports" ]; then
+if [ "${CHECK_IMPORTS}" == "ON" ]; then
   # Test that the modules are importable
   python -c "
 import pyarrow
 import pyarrow._hdfs
-import pyarrow._s3fs
 import pyarrow.csv
 import pyarrow.dataset
-import pyarrow.flight
 import pyarrow.fs
 import pyarrow.json
 import pyarrow.orc
 import pyarrow.parquet
-import pyarrow.plasma"
-elif [ "${KIND}" == "unittests" ]; then
+import pyarrow.plasma
+"
+  if [ "${PYARROW_TEST_S3}" == "ON" ]; then
+    python -c "import pyarrow._s3fs"
+  fi
+  if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
+    python -c "import pyarrow.flight"
+  fi
+fi
+
+if [ "${CHECK_UNITTESTS}" == "ON" ]; then
+  # Install testing dependencies
+  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
   # Execute unittest, test dependencies must be installed
+  python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   pytest -r s --pyargs pyarrow
 fi

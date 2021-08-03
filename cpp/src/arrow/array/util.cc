@@ -34,6 +34,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -613,16 +614,83 @@ class RepeatedArrayFactory {
     return Status::OK();
   }
 
+  Status Visit(const SparseUnionType& type) {
+    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
+    const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
+    const auto scalar_type_code = union_scalar.type_code;
+    const auto scalar_child_id = union_type.child_ids()[scalar_type_code];
+
+    // Create child arrays: most of them are all-null, except for the child array
+    // for the given type code (if the scalar is valid).
+    ArrayVector fields;
+    for (int i = 0; i < type.num_fields(); ++i) {
+      fields.emplace_back();
+      if (i == scalar_child_id && scalar_.is_valid) {
+        ARROW_ASSIGN_OR_RAISE(fields.back(),
+                              MakeArrayFromScalar(*union_scalar.value, length_, pool_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            fields.back(), MakeArrayOfNull(union_type.field(i)->type(), length_, pool_));
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto type_codes_buffer, CreateUnionTypeCodes(scalar_type_code));
+
+    out_ = std::make_shared<SparseUnionArray>(scalar_.type, length_, std::move(fields),
+                                              std::move(type_codes_buffer));
+    return Status::OK();
+  }
+
+  Status Visit(const DenseUnionType& type) {
+    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
+    const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
+    const auto scalar_type_code = union_scalar.type_code;
+    const auto scalar_child_id = union_type.child_ids()[scalar_type_code];
+
+    // Create child arrays: all of them are empty, except for the child array
+    // for the given type code (if length > 0).
+    ArrayVector fields;
+    for (int i = 0; i < type.num_fields(); ++i) {
+      fields.emplace_back();
+      if (i == scalar_child_id && length_ > 0) {
+        if (scalar_.is_valid) {
+          // One valid element (will be referenced by multiple offsets)
+          ARROW_ASSIGN_OR_RAISE(fields.back(),
+                                MakeArrayFromScalar(*union_scalar.value, 1, pool_));
+        } else {
+          // One null element (will be referenced by multiple offsets)
+          ARROW_ASSIGN_OR_RAISE(fields.back(),
+                                MakeArrayOfNull(union_type.field(i)->type(), 1, pool_));
+        }
+      } else {
+        // Zero element (will not be referenced by any offset)
+        ARROW_ASSIGN_OR_RAISE(fields.back(),
+                              MakeArrayOfNull(union_type.field(i)->type(), 0, pool_));
+      }
+    }
+
+    // Create an offsets buffer with all offsets equal to 0
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          AllocateBuffer(length_ * sizeof(int32_t), pool_));
+    memset(offsets_buffer->mutable_data(), 0, offsets_buffer->size());
+
+    ARROW_ASSIGN_OR_RAISE(auto type_codes_buffer, CreateUnionTypeCodes(scalar_type_code));
+
+    out_ = std::make_shared<DenseUnionArray>(scalar_.type, length_, std::move(fields),
+                                             std::move(type_codes_buffer),
+                                             std::move(offsets_buffer));
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& type) {
     return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }
 
-  Status Visit(const DenseUnionType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
-  }
-
-  Status Visit(const SparseUnionType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  Result<std::shared_ptr<Buffer>> CreateUnionTypeCodes(int8_t type_code) {
+    TypedBufferBuilder<int8_t> builder(pool_);
+    RETURN_NOT_OK(builder.Resize(length_));
+    builder.UnsafeAppend(length_, type_code);
+    return builder.Finish();
   }
 
   template <typename OffsetType>

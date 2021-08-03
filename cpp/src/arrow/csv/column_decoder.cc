@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/csv/column_decoder.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
-#include "arrow/csv/column_decoder.h"
 #include "arrow/csv/converter.h"
 #include "arrow/csv/inference_internal.h"
 #include "arrow/csv/options.h"
@@ -52,10 +51,12 @@ class ConcreteColumnDecoder : public ColumnDecoder {
   // XXX useful?
   virtual std::shared_ptr<DataType> type() const = 0;
 
-  Status WrapConversionError(const Status& st) {
-    if (st.ok()) {
-      return st;
+  Result<std::shared_ptr<Array>> WrapConversionError(
+      const Result<std::shared_ptr<Array>>& result) {
+    if (ARROW_PREDICT_TRUE(result.ok())) {
+      return result;
     } else {
+      const auto& st = result.status();
       std::stringstream ss;
       ss << "In CSV column #" << col_index_ << ": " << st.message();
       return st.WithMessage(ss.str());
@@ -87,7 +88,7 @@ class NullColumnDecoder : public ConcreteColumnDecoder {
 Future<std::shared_ptr<Array>> NullColumnDecoder::Decode(
     const std::shared_ptr<BlockParser>& parser) {
   DCHECK_GE(parser->num_rows(), 0);
-  return MakeArrayOfNull(type_, parser->num_rows(), pool_);
+  return WrapConversionError(MakeArrayOfNull(type_, parser->num_rows(), pool_));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -124,7 +125,7 @@ Future<std::shared_ptr<Array>> TypedColumnDecoder::Decode(
     const std::shared_ptr<BlockParser>& parser) {
   DCHECK_NE(converter_, nullptr);
   return Future<std::shared_ptr<Array>>::MakeFinished(
-      converter_->Convert(*parser, col_index_));
+      WrapConversionError(converter_->Convert(*parser, col_index_)));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -210,7 +211,7 @@ Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
   return first_inference_run_.Then([this, parser] {
     DCHECK(type_frozen_);
     auto maybe_array = converter_->Convert(*parser, col_index_);
-    return converter_->Convert(*parser, col_index_);
+    return WrapConversionError(converter_->Convert(*parser, col_index_));
   });
 }
 

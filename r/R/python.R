@@ -212,7 +212,8 @@ maybe_py_to_r <- function(x) {
 #' @export
 install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
   if (nightly) {
-    reticulate::py_install("pyarrow", envname = envname, ...,
+    reticulate::py_install("pyarrow",
+      envname = envname, ...,
       # Nightly for pip
       pip_options = "--extra-index-url https://repo.fury.io/arrow-nightlies/ --pre --upgrade",
       # Nightly for conda

@@ -51,8 +51,8 @@
   ],
   "dependencies": {
     "@types/flatbuffers": "^1.10.0",
-    "@types/node": "^15.6.1",
-    "command-line-args": "5.1.1",
+    "@types/node": "^16.4.0",
+    "command-line-args": "5.1.3",
     "command-line-usage": "6.1.1",
     "flatbuffers": "1.12.0",
     "json-bignum": "^0.0.3",
@@ -60,19 +60,19 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@openpgp/web-stream-tools": "0.0.5",
-    "@types/glob": "7.1.3",
-    "@types/jest": "26.0.23",
+    "@openpgp/web-stream-tools": "0.0.6",
+    "@types/glob": "7.1.4",
+    "@types/jest": "26.0.24",
     "@types/randomatic": "3.1.2",
-    "@typescript-eslint/eslint-plugin": "4.25.0",
-    "@typescript-eslint/parser": "4.25.0",
+    "@typescript-eslint/eslint-plugin": "4.28.4",
+    "@typescript-eslint/parser": "4.28.4",
     "async-done": "1.3.2",
     "benny": "3.6.15",
     "cpy": "8.1.2",
     "cross-env": "7.0.3",
-    "del-cli": "4.0.0",
-    "eslint": "7.27.0",
-    "eslint-plugin-jest": "24.3.6",
+    "del-cli": "4.0.1",
+    "eslint": "7.31.0",
+    "eslint-plugin-jest": "24.3.7",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
     "glob": "7.1.7",
     "google-closure-compiler": "20210601.0.0",
@@ -92,8 +92,8 @@
     "randomatic": "3.1.1",
     "rxjs": "7.2.0",
     "ts-jest": "27.0.3",
-    "ts-node": "10.0.0",
-    "typedoc": "0.20.36",
+    "ts-node": "10.1.0",
+    "typedoc": "0.21.4",
     "typescript": "4.0.2",
     "web-streams-polyfill": "3.0.3",
     "xml2js": "0.4.23"
@@ -101,5 +101,5 @@
   "engines": {
     "node": ">=12.0"
   },
-  "version": "5.0.0-SNAPSHOT"
+  "version": "6.0.0-SNAPSHOT"
 }

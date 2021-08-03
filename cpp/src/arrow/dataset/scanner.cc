@@ -456,6 +456,12 @@ Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
                              });
 }
 
+const FieldVector kAugmentedFields{
+    field("__fragment_index", int32()),
+    field("__batch_index", int32()),
+    field("__last_in_fragment", boolean()),
+};
+
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
                                         FragmentGenerator fragment_gen,
                                         std::shared_ptr<ScanOptions> options) {
@@ -496,12 +502,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         return batch;
       });
 
-  auto augmented_fields = options->dataset_schema->fields();
-  augmented_fields.push_back(field("__fragment_index", int32()));
-  augmented_fields.push_back(field("__batch_index", int32()));
-  augmented_fields.push_back(field("__last_in_fragment", boolean()));
-  return compute::MakeSourceNode(plan, "dataset_scan",
-                                 schema(std::move(augmented_fields)), std::move(gen));
+  auto fields = options->dataset_schema->fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
+  return compute::MakeSourceNode(plan, "dataset_scan", schema(std::move(fields)),
+                                 std::move(gen));
 }
 
 class OneShotScanTask : public ScanTask {
@@ -776,24 +782,13 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
   });
 }
 
-namespace {
-Result<int64_t> GetSelectionSize(const Datum& selection, int64_t length) {
-  if (length == 0) return 0;
-
-  if (selection.is_scalar()) {
-    if (!selection.scalar()->is_valid) return 0;
-    if (!selection.scalar_as<BooleanScalar>().value) return 0;
-    return length;
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto count, compute::Sum(selection));
-  return static_cast<int64_t>(count.scalar_as<UInt64Scalar>().value);
-}
-}  // namespace
-
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+
+  auto cpu_executor = scan_options_->use_threads ? internal::GetCpuThreadPool() : nullptr;
+  compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   // Drop projection since we only need to count rows
   auto options = std::make_shared<ScanOptions>(*scan_options_);
   RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
@@ -802,7 +797,7 @@ Result<int64_t> AsyncScanner::CountRows() {
 
   fragment_gen = MakeMappedGenerator(
       std::move(fragment_gen), [&](const std::shared_ptr<Fragment>& fragment) {
-        return fragment->CountRows(scan_options_->filter, scan_options_)
+        return fragment->CountRows(options->filter, options)
             .Then([&, fragment](util::optional<int64_t> fast_count) mutable
                   -> std::shared_ptr<Fragment> {
               if (fast_count) {
@@ -825,24 +820,20 @@ Result<int64_t> AsyncScanner::CountRows() {
       auto get_selection,
       compute::MakeProjectNode(scan, "get_selection", {options->filter}));
 
+  ARROW_ASSIGN_OR_RAISE(
+      auto sum_selection,
+      compute::MakeScalarAggregateNode(get_selection, "sum_selection",
+                                       {compute::internal::Aggregate{"sum", nullptr}}));
+
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
-      compute::MakeSinkNode(get_selection, "sink");
+      compute::MakeSinkNode(sum_selection, "sink");
 
   RETURN_NOT_OK(plan->StartProducing());
-
-  RETURN_NOT_OK(
-      VisitAsyncGenerator(std::move(sink_gen),
-                          [&](const util::optional<compute::ExecBatch>& batch) {
-                            // TODO replace with scalar aggregation node
-                            ARROW_ASSIGN_OR_RAISE(
-                                int64_t slow_count,
-                                GetSelectionSize(batch->values[0], batch->length));
-                            total += slow_count;
-                            return Status::OK();
-                          })
-          .status());
-
+  auto maybe_slow_count = sink_gen().result();
   plan->finished().Wait();
+
+  ARROW_ASSIGN_OR_RAISE(auto slow_count, maybe_slow_count);
+  total += slow_count->values[0].scalar_as<UInt64Scalar>().value;
 
   return total.load();
 }
@@ -1157,6 +1148,25 @@ Result<int64_t> SyncScanner::CountRows() {
 Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
                                         std::shared_ptr<Dataset> dataset,
                                         std::shared_ptr<ScanOptions> scan_options) {
+  if (scan_options->dataset_schema == nullptr) {
+    scan_options->dataset_schema = dataset->schema();
+  }
+
+  if (!scan_options->filter.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
+                          scan_options->filter.Bind(*dataset->schema()));
+  }
+
+  if (!scan_options->projection.IsBound()) {
+    auto fields = dataset->schema()->fields();
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(scan_options->projection,
+                          scan_options->projection.Bind(Schema(std::move(fields))));
+  }
+
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
@@ -1175,9 +1185,9 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
     }
   }
 
-  for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-    exprs.push_back(compute::field_ref(aug_name));
-    names.emplace_back(aug_name);
+  for (const auto& aug_field : kAugmentedFields) {
+    exprs.push_back(compute::field_ref(aug_field->name()));
+    names.push_back(aug_field->name());
   }
   return compute::MakeProjectNode(input, std::move(label), std::move(exprs),
                                   std::move(names));

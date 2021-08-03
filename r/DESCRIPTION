@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 4.0.1.9000
+Version: 5.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -40,9 +40,12 @@ Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.1.1.9001
 VignetteBuilder: knitr
 Suggests:
+    DBI,
+    dbplyr,
     decor,
     distro,
     dplyr,
+    duckdb,
     hms,
     knitr,
     lubridate,
@@ -93,6 +96,7 @@ Collate:
     'record-batch.R'
     'table.R'
     'dplyr.R'
+    'duckdb.R'
     'feather.R'
     'field.R'
     'filesystem.R'

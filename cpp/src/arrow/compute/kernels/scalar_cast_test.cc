@@ -1676,56 +1676,51 @@ TEST(Cast, ListToPrimitive) {
       Cast(*ArrayFromJSON(list(binary()), R"([["1", "2"], ["3", "4"]])"), utf8()));
 }
 
-TEST(Cast, ListToList) {
-  using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
-  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
-    auto list_int32 =
-        ArrayFromJSON(make_list(int32()),
-                      "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]")
-            ->data();
+using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
 
-    auto list_int64 = list_int32->Copy();
-    list_int64->type = make_list(int64());
-    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
-    ValidateOutput(*list_int64);
+static const auto list_factories = std::vector<make_list_t*>{&list, &large_list};
 
-    auto list_float32 = list_int32->Copy();
-    list_float32->type = make_list(float32());
-    list_float32->child_data[0] = Cast(list_int32->child_data[0], float32())->array();
-    ValidateOutput(*list_float32);
-
-    CheckCast(MakeArray(list_int32), MakeArray(list_float32));
-    CheckCast(MakeArray(list_float32), MakeArray(list_int64));
-    CheckCast(MakeArray(list_int64), MakeArray(list_float32));
-
-    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
-    CheckCast(MakeArray(list_float32), MakeArray(list_int32));
-    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
-  }
-
-  // No nulls (ARROW-12568)
-  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
-    auto list_int32 = ArrayFromJSON(make_list(int32()),
-                                    "[[0], [1], [2, 3, 4], [5, 6], [], [7], [8, 9]]")
-                          ->data();
-    auto list_int64 = list_int32->Copy();
-    list_int64->type = make_list(int64());
-    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
-    ValidateOutput(*list_int64);
-
-    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
-    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
+static void CheckListToList(const std::vector<std::shared_ptr<DataType>>& value_types,
+                            const std::string& json_data) {
+  for (auto make_src_list : list_factories) {
+    for (auto make_dest_list : list_factories) {
+      for (const auto& src_value_type : value_types) {
+        for (const auto& dest_value_type : value_types) {
+          const auto src_type = make_src_list(src_value_type);
+          const auto dest_type = make_dest_list(dest_value_type);
+          ARROW_SCOPED_TRACE("src_type = ", src_type->ToString(),
+                             ", dest_type = ", dest_type->ToString());
+          CheckCast(ArrayFromJSON(src_type, json_data),
+                    ArrayFromJSON(dest_type, json_data));
+        }
+      }
+    }
   }
 }
 
+TEST(Cast, ListToList) {
+  CheckListToList({int32(), float32(), int64()},
+                  "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]");
+}
+
+TEST(Cast, ListToListNoNulls) {
+  // ARROW-12568
+  CheckListToList({int32(), float32(), int64()},
+                  "[[0], [1], [2, 3, 4], [5, 6], [], [7], [8, 9]]");
+}
+
 TEST(Cast, ListToListOptionsPassthru) {
-  auto list_int32 = ArrayFromJSON(list(int32()), "[[87654321]]");
+  for (auto make_src_list : list_factories) {
+    for (auto make_dest_list : list_factories) {
+      auto list_int32 = ArrayFromJSON(make_src_list(int32()), "[[87654321]]");
 
-  auto options = CastOptions::Safe(list(int16()));
-  CheckCastFails(list_int32, options);
+      auto options = CastOptions::Safe(make_dest_list(int16()));
+      CheckCastFails(list_int32, options);
 
-  options.allow_int_overflow = true;
-  CheckCast(list_int32, ArrayFromJSON(list(int16()), "[[32689]]"), options);
+      options.allow_int_overflow = true;
+      CheckCast(list_int32, ArrayFromJSON(make_dest_list(int16()), "[[32689]]"), options);
+    }
+  }
 }
 
 TEST(Cast, IdentityCasts) {

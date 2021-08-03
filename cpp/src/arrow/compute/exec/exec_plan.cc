@@ -22,21 +22,29 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
+#include "arrow/util/unreachable.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
+using BitUtil::CountLeadingZeros;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -237,6 +245,15 @@ Status ExecNode::Validate() const {
   return Status::OK();
 }
 
+bool ExecNode::ErrorIfNotOk(Status status) {
+  if (status.ok()) return false;
+
+  for (auto out : outputs_) {
+    out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
+  }
+  return true;
+}
+
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::string label, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<util::optional<ExecBatch>> generator)
@@ -247,8 +264,7 @@ struct SourceNode : ExecNode {
   const char* kind_name() override { return "SourceNode"; }
 
   [[noreturn]] static void NoInputs() {
-    DCHECK(false) << "no inputs; this should never be called";
-    std::abort();
+    Unreachable("no inputs; this should never be called");
   }
   [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
   [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
@@ -377,10 +393,7 @@ struct FilterNode : ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_filtered = DoFilter(std::move(batch));
-    if (!maybe_filtered.ok()) {
-      outputs_[0]->ErrorReceived(this, maybe_filtered.status());
-      return;
-    }
+    if (ErrorIfNotOk(maybe_filtered.status())) return;
 
     maybe_filtered->guarantee = batch.guarantee;
     outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
@@ -456,10 +469,7 @@ struct ProjectNode : ExecNode {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_projected = DoProject(std::move(batch));
-    if (!maybe_projected.ok()) {
-      outputs_[0]->ErrorReceived(this, maybe_projected.status());
-      return;
-    }
+    if (ErrorIfNotOk(maybe_projected.status())) return;
 
     maybe_projected->guarantee = batch.guarantee;
     outputs_[0]->InputReceived(this, seq, maybe_projected.MoveValueUnsafe());
@@ -519,6 +529,47 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
       input, std::move(label), schema(std::move(fields)), std::move(exprs));
 }
 
+class AtomicCounter {
+ public:
+  AtomicCounter() = default;
+
+  int count() const { return count_.load(); }
+
+  util::optional<int> total() const {
+    int total = total_.load();
+    if (total == -1) return {};
+    return total;
+  }
+
+  // return true if the counter is complete
+  bool Increment() {
+    DCHECK_NE(count_.load(), total_.load());
+    int count = count_.fetch_add(1) + 1;
+    if (count != total_.load()) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter is complete
+  bool SetTotal(int total) {
+    total_.store(total);
+    if (count_.load() != total) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter has not already been completed
+  bool Cancel() { return DoneOnce(); }
+
+ private:
+  // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+  bool DoneOnce() {
+    bool expected = false;
+    return complete_.compare_exchange_strong(expected, true);
+  }
+
+  std::atomic<int> count_{0}, total_{-1};
+  std::atomic<bool> complete_{false};
+};
+
 struct SinkNode : ExecNode {
   SinkNode(ExecNode* input, std::string label,
            AsyncGenerator<util::optional<ExecBatch>>* generator)
@@ -543,8 +594,7 @@ struct SinkNode : ExecNode {
 
   // sink nodes have no outputs from which to feel backpressure
   [[noreturn]] static void NoOutputs() {
-    DCHECK(false) << "no outputs; this should never be called";
-    std::abort();
+    Unreachable("no outputs; this should never be called");
   }
   [[noreturn]] void ResumeProducing(ExecNode* output) override { NoOutputs(); }
   [[noreturn]] void PauseProducing(ExecNode* output) override { NoOutputs(); }
@@ -560,37 +610,31 @@ struct SinkNode : ExecNode {
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (finished_.is_finished()) return;
+    bool did_push = producer_.Push(std::move(batch));
+    if (!did_push) return;  // producer_ was Closed already
 
-    ++num_received_;
-    if (num_received_ == emit_stop_) {
-      lock.unlock();
-      producer_.Push(std::move(batch));
+    if (auto total = input_counter_.total()) {
+      DCHECK_LE(seq_num, *total);
+    }
+
+    if (input_counter_.Increment()) {
       Finish();
-      return;
     }
-
-    if (emit_stop_ != -1) {
-      DCHECK_LE(seq_num, emit_stop_);
-    }
-
-    lock.unlock();
-    producer_.Push(std::move(batch));
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
+
     producer_.Push(std::move(error));
-    Finish();
+
+    if (input_counter_.Cancel()) {
+      Finish();
+    }
     inputs_[0]->StopProducing(this);
   }
 
   void InputFinished(ExecNode* input, int seq_stop) override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    emit_stop_ = seq_stop;
-    if (num_received_ == emit_stop_) {
-      lock.unlock();
+    if (input_counter_.SetTotal(seq_stop)) {
       Finish();
     }
   }
@@ -602,10 +646,7 @@ struct SinkNode : ExecNode {
     }
   }
 
-  std::mutex mutex_;
-
-  int num_received_ = 0;
-  int emit_stop_ = -1;
+  AtomicCounter input_counter_;
   Future<> finished_ = Future<>::MakeFinished();
 
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
@@ -646,6 +687,34 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
   return out;
 }
 
+class ThreadIndexer {
+ public:
+  size_t operator()() {
+    auto id = std::this_thread::get_id();
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
+
+    return Check(id_index.second);
+  }
+
+  static size_t Capacity() {
+    static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity();
+    return max_size;
+  }
+
+ private:
+  size_t Check(size_t thread_index) {
+    DCHECK_LT(thread_index, Capacity()) << "thread index " << thread_index
+                                        << " is out of range [0, " << Capacity() << ")";
+
+    return thread_index;
+  }
+
+  std::mutex mutex_;
+  std::unordered_map<std::thread::id, size_t> id_to_index_;
+};
+
 struct ScalarAggregateNode : ExecNode {
   ScalarAggregateNode(ExecNode* input, std::string label,
                       std::shared_ptr<Schema> output_schema,
@@ -663,6 +732,7 @@ struct ScalarAggregateNode : ExecNode {
     for (size_t i = 0; i < kernels_.size(); ++i) {
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
+
       ExecBatch single_column_batch{{batch.values[i]}, batch.length};
       RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
     }
@@ -672,24 +742,12 @@ struct ScalarAggregateNode : ExecNode {
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    auto it =
-        thread_indices_.emplace(std::this_thread::get_id(), thread_indices_.size()).first;
-    auto thread_index = it->second;
+    auto thread_index = get_thread_index_();
 
-    lock.unlock();
+    if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
 
-    Status st = DoConsume(std::move(batch), thread_index);
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
-      return;
-    }
-
-    lock.lock();
-    ++num_received_;
-    st = MaybeFinish(&lock);
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
+    if (input_counter_.Increment()) {
+      ErrorIfNotOk(Finish());
     }
   }
 
@@ -698,14 +756,11 @@ struct ScalarAggregateNode : ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int seq) override {
+  void InputFinished(ExecNode* input, int num_total) override {
     DCHECK_EQ(input, inputs_[0]);
-    std::unique_lock<std::mutex> lock(mutex_);
-    num_total_ = seq;
-    Status st = MaybeFinish(&lock);
 
-    if (!st.ok()) {
-      outputs_[0]->ErrorReceived(this, std::move(st));
+    if (input_counter_.SetTotal(num_total)) {
+      ErrorIfNotOk(Finish());
     }
   }
 
@@ -726,18 +781,16 @@ struct ScalarAggregateNode : ExecNode {
   }
 
   void StopProducing() override {
+    if (input_counter_.Cancel()) {
+      finished_.MarkFinished();
+    }
     inputs_[0]->StopProducing(this);
-    finished_.MarkFinished();
   }
 
   Future<> finished() override { return finished_; }
 
  private:
-  Status MaybeFinish(std::unique_lock<std::mutex>* lock) {
-    if (num_received_ != num_total_) return Status::OK();
-
-    if (states_.empty()) return Status::OK();
-
+  Status Finish() {
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
 
@@ -747,21 +800,19 @@ struct ScalarAggregateNode : ExecNode {
                                              kernels_[i], &ctx, std::move(states_[i])));
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
-    states_.clear();
-    lock->unlock();
 
-    outputs_[0]->InputReceived(this, 0, batch);
-
+    outputs_[0]->InputReceived(this, 0, std::move(batch));
     finished_.MarkFinished();
     return Status::OK();
   }
 
   Future<> finished_ = Future<>::MakeFinished();
   std::vector<const ScalarAggregateKernel*> kernels_;
+
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
-  std::unordered_map<std::thread::id, size_t> thread_indices_;
-  std::mutex mutex_;
-  int num_received_ = 0, num_total_ = -1;
+
+  ThreadIndexer get_thread_index_;
+  AtomicCounter input_counter_;
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
@@ -797,7 +848,7 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
     }
 
     KernelContext kernel_ctx{exec_ctx};
-    states[i].resize(exec_ctx->executor() ? exec_ctx->executor()->GetCapacity() : 1);
+    states[i].resize(ThreadIndexer::Capacity());
     RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
                                   KernelInitArgs{kernels[i],
                                                  {
@@ -817,6 +868,427 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
   return input->plan()->EmplaceNode<ScalarAggregateNode>(
       input, std::move(label), schema(std::move(fields)), std::move(kernels),
       std::move(states));
+}
+
+namespace internal {
+
+Result<std::vector<const HashAggregateKernel*>> GetKernels(
+    ExecContext* ctx, const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+
+Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
+    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
+    const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+
+Result<FieldVector> ResolveKernels(
+    const std::vector<internal::Aggregate>& aggregates,
+    const std::vector<const HashAggregateKernel*>& kernels,
+    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
+    const std::vector<ValueDescr>& descrs);
+
+}  // namespace internal
+
+struct GroupByNode : ExecNode {
+  GroupByNode(ExecNode* input, std::string label, std::shared_ptr<Schema> output_schema,
+              ExecContext* ctx, const std::vector<int>&& key_field_ids,
+              const std::vector<int>&& agg_src_field_ids,
+              const std::vector<internal::Aggregate>&& aggs,
+              const std::vector<const HashAggregateKernel*>&& agg_kernels)
+      : ExecNode(input->plan(), std::move(label), {input}, {"groupby"},
+                 std::move(output_schema), /*num_outputs=*/1),
+        ctx_(ctx),
+        key_field_ids_(std::move(key_field_ids)),
+        agg_src_field_ids_(std::move(agg_src_field_ids)),
+        aggs_(std::move(aggs)),
+        agg_kernels_(std::move(agg_kernels)) {}
+
+  const char* kind_name() override { return "GroupByNode"; }
+
+  Status Consume(ExecBatch batch) {
+    size_t thread_index = get_thread_index_();
+    if (thread_index >= local_states_.size()) {
+      return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
+                                local_states_.size(), ")");
+    }
+
+    auto state = &local_states_[thread_index];
+    RETURN_NOT_OK(InitLocalStateIfNeeded(state));
+
+    // Create a batch with key columns
+    std::vector<Datum> keys(key_field_ids_.size());
+    for (size_t i = 0; i < key_field_ids_.size(); ++i) {
+      keys[i] = batch.values[key_field_ids_[i]];
+    }
+    ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
+
+    // Create a batch with group ids
+    ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
+
+    // Execute aggregate kernels
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      KernelContext kernel_ctx{ctx_};
+      kernel_ctx.SetState(state->agg_states[i].get());
+
+      ARROW_ASSIGN_OR_RAISE(
+          auto agg_batch,
+          ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch}));
+
+      RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
+      RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
+    }
+
+    return Status::OK();
+  }
+
+  Status Merge() {
+    ThreadLocalState* state0 = &local_states_[0];
+    for (size_t i = 1; i < local_states_.size(); ++i) {
+      ThreadLocalState* state = &local_states_[i];
+      if (!state->grouper) {
+        continue;
+      }
+
+      ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
+      ARROW_ASSIGN_OR_RAISE(Datum transposition, state0->grouper->Consume(other_keys));
+      state->grouper.reset();
+
+      for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+        KernelContext batch_ctx{ctx_};
+        DCHECK(state0->agg_states[i]);
+        batch_ctx.SetState(state0->agg_states[i].get());
+
+        RETURN_NOT_OK(agg_kernels_[i]->resize(&batch_ctx, state0->grouper->num_groups()));
+        RETURN_NOT_OK(agg_kernels_[i]->merge(&batch_ctx, std::move(*state->agg_states[i]),
+                                             *transposition.array()));
+        state->agg_states[i].reset();
+      }
+    }
+    return Status::OK();
+  }
+
+  Result<ExecBatch> Finalize() {
+    ThreadLocalState* state = &local_states_[0];
+
+    ExecBatch out_data{{}, state->grouper->num_groups()};
+    out_data.values.resize(agg_kernels_.size() + key_field_ids_.size());
+
+    // Aggregate fields come before key fields to match the behavior of GroupBy function
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      KernelContext batch_ctx{ctx_};
+      batch_ctx.SetState(state->agg_states[i].get());
+      RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
+      state->agg_states[i].reset();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
+    std::move(out_keys.values.begin(), out_keys.values.end(),
+              out_data.values.begin() + agg_kernels_.size());
+    state->grouper.reset();
+
+    if (output_counter_.SetTotal(
+            static_cast<int>(BitUtil::CeilDiv(out_data.length, output_batch_size())))) {
+      // this will be hit if out_data.length == 0
+      finished_.MarkFinished();
+    }
+    return out_data;
+  }
+
+  void OutputNthBatch(int n) {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
+    int64_t batch_size = output_batch_size();
+    outputs_[0]->InputReceived(this, n, out_data_.Slice(batch_size * n, batch_size));
+
+    if (output_counter_.Increment()) {
+      finished_.MarkFinished();
+    }
+  }
+
+  Status OutputResult() {
+    RETURN_NOT_OK(Merge());
+    ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
+
+    int num_output_batches = *output_counter_.total();
+    outputs_[0]->InputFinished(this, num_output_batches);
+
+    auto executor = ctx_->executor();
+    for (int i = 0; i < num_output_batches; ++i) {
+      if (executor) {
+        // bail if StopProducing was called
+        if (finished_.is_finished()) break;
+
+        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
+      } else {
+        OutputNthBatch(i);
+      }
+    }
+
+    return Status::OK();
+  }
+
+  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
+    DCHECK_EQ(input, inputs_[0]);
+
+    if (ErrorIfNotOk(Consume(std::move(batch)))) return;
+
+    if (input_counter_.Increment()) {
+      ErrorIfNotOk(OutputResult());
+    }
+  }
+
+  void ErrorReceived(ExecNode* input, Status error) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    outputs_[0]->ErrorReceived(this, std::move(error));
+  }
+
+  void InputFinished(ExecNode* input, int num_total) override {
+    // bail if StopProducing was called
+    if (finished_.is_finished()) return;
+
+    DCHECK_EQ(input, inputs_[0]);
+
+    if (input_counter_.SetTotal(num_total)) {
+      ErrorIfNotOk(OutputResult());
+    }
+  }
+
+  Status StartProducing() override {
+    finished_ = Future<>::Make();
+
+    local_states_.resize(ThreadIndexer::Capacity());
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    DCHECK_EQ(output, outputs_[0]);
+
+    if (input_counter_.Cancel()) {
+      finished_.MarkFinished();
+    } else if (output_counter_.Cancel()) {
+      finished_.MarkFinished();
+    }
+    inputs_[0]->StopProducing(this);
+  }
+
+  void StopProducing() override { StopProducing(outputs_[0]); }
+
+  Future<> finished() override { return finished_; }
+
+ private:
+  struct ThreadLocalState {
+    std::unique_ptr<internal::Grouper> grouper;
+    std::vector<std::unique_ptr<KernelState>> agg_states;
+  };
+
+  ThreadLocalState* GetLocalState() {
+    size_t thread_index = get_thread_index_();
+    return &local_states_[thread_index];
+  }
+
+  Status InitLocalStateIfNeeded(ThreadLocalState* state) {
+    // Get input schema
+    auto input_schema = inputs_[0]->output_schema();
+
+    if (state->grouper != nullptr) return Status::OK();
+
+    // Build vector of key field data types
+    std::vector<ValueDescr> key_descrs(key_field_ids_.size());
+    for (size_t i = 0; i < key_field_ids_.size(); ++i) {
+      auto key_field_id = key_field_ids_[i];
+      key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
+    }
+
+    // Construct grouper
+    ARROW_ASSIGN_OR_RAISE(state->grouper, internal::Grouper::Make(key_descrs, ctx_));
+
+    // Build vector of aggregate source field data types
+    std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());
+    for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      auto agg_src_field_id = agg_src_field_ids_[i];
+      agg_src_descrs[i] =
+          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        state->agg_states,
+        internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+
+    return Status::OK();
+  }
+
+  int output_batch_size() const {
+    int result = static_cast<int>(ctx_->exec_chunksize());
+    if (result < 0) {
+      result = 32 * 1024;
+    }
+    return result;
+  }
+
+  ExecContext* ctx_;
+  Future<> finished_ = Future<>::MakeFinished();
+
+  const std::vector<int> key_field_ids_;
+  const std::vector<int> agg_src_field_ids_;
+  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<const HashAggregateKernel*> agg_kernels_;
+
+  ThreadIndexer get_thread_index_;
+  AtomicCounter input_counter_, output_counter_;
+
+  std::vector<ThreadLocalState> local_states_;
+  ExecBatch out_data_;
+};
+
+Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
+                                  std::vector<std::string> keys,
+                                  std::vector<std::string> agg_srcs,
+                                  std::vector<internal::Aggregate> aggs) {
+  // Get input schema
+  auto input_schema = input->output_schema();
+
+  // Find input field indices for key fields
+  std::vector<int> key_field_ids(keys.size());
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(keys[i]).FindOne(*input_schema));
+    key_field_ids[i] = match[0];
+  }
+
+  // Find input field indices for aggregates
+  std::vector<int> agg_src_field_ids(aggs.size());
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(agg_srcs[i]).FindOne(*input_schema));
+    agg_src_field_ids[i] = match[0];
+  }
+
+  // Build vector of aggregate source field data types
+  DCHECK_EQ(agg_srcs.size(), aggs.size());
+  std::vector<ValueDescr> agg_src_descrs(aggs.size());
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    auto agg_src_field_id = agg_src_field_ids[i];
+    agg_src_descrs[i] =
+        ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+  }
+
+  auto ctx = input->plan()->exec_context();
+
+  // Construct aggregates
+  ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
+                        internal::GetKernels(ctx, aggs, agg_src_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(auto agg_states,
+                        internal::InitKernels(agg_kernels, ctx, aggs, agg_src_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(
+      FieldVector agg_result_fields,
+      internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_descrs));
+
+  // Build field vector for output schema
+  FieldVector output_fields{keys.size() + aggs.size()};
+
+  // Aggregate fields come before key fields to match the behavior of GroupBy function
+  for (size_t i = 0; i < aggs.size(); ++i) {
+    output_fields[i] = agg_result_fields[i];
+  }
+  size_t base = aggs.size();
+  for (size_t i = 0; i < keys.size(); ++i) {
+    int key_field_id = key_field_ids[i];
+    output_fields[base + i] = input_schema->field(key_field_id);
+  }
+
+  auto aggs_copy = aggs;
+
+  return input->plan()->EmplaceNode<GroupByNode>(
+      input, std::move(label), schema(std::move(output_fields)), ctx,
+      std::move(key_field_ids), std::move(agg_src_field_ids), std::move(aggs),
+      std::move(agg_kernels));
+}
+
+Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                   const std::vector<Datum>& keys,
+                                   const std::vector<internal::Aggregate>& aggregates,
+                                   bool use_threads, ExecContext* ctx) {
+  using arrow::compute::detail::ExecBatchIterator;
+
+  FieldVector scan_fields(arguments.size() + keys.size());
+  std::vector<std::string> keys_str(keys.size());
+  std::vector<std::string> arguments_str(arguments.size());
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    arguments_str[i] = std::string("agg_") + std::to_string(i);
+    scan_fields[i] = field(arguments_str[i], arguments[i].type());
+  }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    keys_str[i] = std::string("key_") + std::to_string(i);
+    scan_fields[arguments.size() + i] = field(keys_str[i], keys[i].type());
+  }
+
+  std::vector<ExecBatch> scan_batches;
+  std::vector<Datum> inputs;
+  for (const auto& argument : arguments) {
+    inputs.push_back(argument);
+  }
+  for (const auto& key : keys) {
+    inputs.push_back(key);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
+                        ExecBatchIterator::Make(inputs, ctx->exec_chunksize()));
+  ExecBatch batch;
+  while (batch_iterator->Next(&batch)) {
+    if (batch.length == 0) continue;
+    scan_batches.push_back(batch);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
+  auto source = MakeSourceNode(
+      plan.get(), "source", schema(std::move(scan_fields)),
+      MakeVectorGenerator(arrow::internal::MapVector(
+          [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+          std::move(scan_batches))));
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto gby, MakeGroupByNode(source, "gby", keys_str, arguments_str, aggregates));
+  auto sink_gen = MakeSinkNode(gby, "sink");
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(sink_gen);
+
+  auto start_and_collect =
+      AllComplete({plan->finished(), Future<>(collected_fut)})
+          .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+            ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+            return ::arrow::internal::MapVector(
+                [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+                std::move(collected));
+          });
+
+  std::vector<ExecBatch> output_batches =
+      start_and_collect.MoveResult().MoveValueUnsafe();
+
+  ArrayDataVector out_data(arguments.size() + keys.size());
+  for (size_t i = 0; i < arguments.size() + keys.size(); ++i) {
+    std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      arrays[j] = output_batches[j].values[i].make_array();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_array, Concatenate(arrays));
+    out_data[i] = concatenated_array->data();
+  }
+
+  int64_t length = out_data[0]->length;
+  return ArrayData::Make(struct_(gby->output_schema()->fields()), length,
+                         {/*null_bitmap=*/nullptr}, std::move(out_data),
+                         /*null_count=*/0);
 }
 
 }  // namespace compute

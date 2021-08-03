@@ -104,7 +104,7 @@ jobs:
           $PYTHON -m virtualenv test-env
           source test-env/bin/activate
           pip install --upgrade pip wheel
-          arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

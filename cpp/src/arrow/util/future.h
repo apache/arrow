@@ -28,6 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
@@ -47,8 +48,17 @@ struct is_future : std::false_type {};
 template <typename T>
 struct is_future<Future<T>> : std::true_type {};
 
+template <typename Signature, typename Enable = void>
+struct result_of;
+
+template <typename Fn, typename... A>
+struct result_of<Fn(A...),
+                 internal::void_t<decltype(std::declval<Fn>()(std::declval<A>()...))>> {
+  using type = decltype(std::declval<Fn>()(std::declval<A>()...));
+};
+
 template <typename Signature>
-using result_of_t = typename std::result_of<Signature>::type;
+using result_of_t = typename result_of<Signature>::type;
 
 // Helper to find the synchronous counterpart for a Future
 template <typename T>

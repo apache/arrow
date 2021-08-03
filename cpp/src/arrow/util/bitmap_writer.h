@@ -191,9 +191,9 @@ class BitmapWordWriter {
         mask_((1U << offset_) - 1) {
     if (offset_) {
       if (length >= static_cast<int>(sizeof(Word) * 8)) {
-        current_word_ = load<Word>(bitmap_);
+        current_data.word_ = load<Word>(bitmap_);
       } else if (length > 0) {
-        current_byte_ = load<uint8_t>(bitmap_);
+        current_data.epi.byte_ = load<uint8_t>(bitmap_);
       }
     }
   }
@@ -213,11 +213,11 @@ class BitmapWordWriter {
       // |<------ next ----->|<---- current ---->|
       word = (word << offset_) | (word >> (sizeof(Word) * 8 - offset_));
       Word next_word = load<Word>(bitmap_ + sizeof(Word));
-      current_word_ = (current_word_ & mask_) | (word & ~mask_);
+      current_data.word_ = (current_data.word_ & mask_) | (word & ~mask_);
       next_word = (next_word & ~mask_) | (word & mask_);
-      store<Word>(bitmap_, current_word_);
+      store<Word>(bitmap_, current_data.word_);
       store<Word>(bitmap_ + sizeof(Word), next_word);
-      current_word_ = next_word;
+      current_data.word_ = next_word;
     } else {
       store<Word>(bitmap_, word);
     }
@@ -229,11 +229,11 @@ class BitmapWordWriter {
       if (may_have_byte_offset && offset_) {
         byte = (byte << offset_) | (byte >> (8 - offset_));
         uint8_t next_byte = load<uint8_t>(bitmap_ + 1);
-        current_byte_ = (current_byte_ & mask_) | (byte & ~mask_);
+        current_data.epi.byte_ = (current_data.epi.byte_ & mask_) | (byte & ~mask_);
         next_byte = (next_byte & ~mask_) | (byte & mask_);
-        store<uint8_t>(bitmap_, current_byte_);
+        store<uint8_t>(bitmap_, current_data.epi.byte_);
         store<uint8_t>(bitmap_ + 1, next_byte);
-        current_byte_ = next_byte;
+        current_data.epi.byte_ = next_byte;
       } else {
         store<uint8_t>(bitmap_, byte);
       }
@@ -259,14 +259,14 @@ class BitmapWordWriter {
   const uint8_t* bitmap_end_;
   uint64_t mask_;
   union {
-    Word current_word_;
+    Word word_;
     struct {
 #if ARROW_LITTLE_ENDIAN == 0
       uint8_t padding_bytes_[sizeof(Word) - 1];
 #endif
-      uint8_t current_byte_;
-    };
-  };
+      uint8_t byte_;
+    } epi;
+  } current_data;
 
   template <typename DType>
   DType load(const uint8_t* bitmap) {

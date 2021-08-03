@@ -378,6 +378,9 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
 
+  /// The logical type code of the value at index.
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
     return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];

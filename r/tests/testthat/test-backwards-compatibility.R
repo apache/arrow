@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# nolint start
 # To write a new version of a test file for a current version:
 # write_parquet(example_with_metadata, test_path("golden-files/data-arrow_2.0.0.parquet"))
 
@@ -30,17 +31,18 @@
 # # get example data into the global env
 # write_parquet(example_with_metadata, "arrow/r/tests/testthat/golden-files/data-arrow_1.0.1.parquet")
 # quit()/exit
+# nolint end
 
 skip_if(getRversion() < "3.5.0", "The serialization format changed in 3.5")
 
 expect_identical_with_metadata <- function(object, expected, ..., top_level = TRUE) {
   attrs_to_keep <- c("names", "class", "row.names")
   if (!top_level) {
-      # remove not-tbl and not-data.frame attributes
-      for (attribute in names(attributes(expected))) {
-        if (attribute %in% attrs_to_keep) next
-        attributes(expected)[[attribute]] <- NULL
-      }
+    # remove not-tbl and not-data.frame attributes
+    for (attribute in names(attributes(expected))) {
+      if (attribute %in% attrs_to_keep) next
+      attributes(expected)[[attribute]] <- NULL
+    }
   }
   expect_identical(object, expected, ...)
 }
@@ -76,13 +78,15 @@ test_that("reading a known Parquet file to dataframe with 1.0.1", {
 })
 
 for (comp in c("lz4", "uncompressed", "zstd")) {
+  # nolint start
   # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_lz4.feather"), compression = "lz4")
   # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_uncompressed.feather"), compression = "uncompressed")
   # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_zstd.feather"), compression = "zstd")
+  # nolint end
   test_that("reading a known Feather file to dataframe with 2.0.0", {
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
-    feather_file <- test_path(paste0("golden-files/data-arrow_2.0.0_", comp,".feather"))
+    feather_file <- test_path(paste0("golden-files/data-arrow_2.0.0_", comp, ".feather"))
 
     df <- read_feather(feather_file)
     expect_identical_with_metadata(df, example_with_metadata)
@@ -91,7 +95,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   test_that("reading a known Feather file to dataframe with 1.0.1", {
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
-    feather_file <- test_path(paste0("golden-files/data-arrow_1.0.1_", comp,".feather"))
+    feather_file <- test_path(paste0("golden-files/data-arrow_1.0.1_", comp, ".feather"))
 
     df <- read_feather(feather_file)
     # 1.0.1 didn't save top-level metadata, so we need to remove it.
@@ -101,7 +105,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   test_that("reading a known Feather file to dataframe with 0.17.0", {
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
-    feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp,".feather"))
+    feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp, ".feather"))
 
     df <- read_feather(feather_file)
     # the metadata from 0.17.0 doesn't have the top level, the special class is

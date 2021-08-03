@@ -601,6 +601,7 @@ def test_partition_keys_with_underscores(tempdir, use_legacy_dataset):
     assert result.column("year_week").to_pylist() == string_keys
 
 
+@pytest.mark.s3
 @parametrize_legacy_dataset
 def test_read_s3fs(s3_example_s3fs, use_legacy_dataset):
     fs, path = s3_example_s3fs
@@ -614,6 +615,7 @@ def test_read_s3fs(s3_example_s3fs, use_legacy_dataset):
     assert result.equals(table)
 
 
+@pytest.mark.s3
 @parametrize_legacy_dataset
 def test_read_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
     fs, directory = s3_example_s3fs
@@ -653,6 +655,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
 @parametrize_legacy_dataset
 def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
     fs, path = s3_example_s3fs
@@ -1352,6 +1355,7 @@ def test_write_to_dataset_pathlib_nonlocal(
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
 @parametrize_legacy_dataset
 def test_write_to_dataset_with_partitions_s3fs(
     s3_example_s3fs, use_legacy_dataset
@@ -1363,6 +1367,7 @@ def test_write_to_dataset_with_partitions_s3fs(
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
 @parametrize_legacy_dataset
 def test_write_to_dataset_no_partitions_s3fs(
     s3_example_s3fs, use_legacy_dataset

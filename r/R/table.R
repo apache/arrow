@@ -94,7 +94,8 @@
 #' tab[["cyl"]]
 #' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 #' @export
-Table <- R6Class("Table", inherit = ArrowTabular,
+Table <- R6Class("Table",
+  inherit = ArrowTabular,
   public = list(
     column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
@@ -136,7 +137,6 @@ Table <- R6Class("Table", inherit = ArrowTabular,
       super$invalidate()
     }
   ),
-
   active = list(
     num_columns = function() Table__num_columns(self),
     num_rows = function() Table__num_rows(self),
@@ -166,16 +166,16 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  
+
   if (all_record_batches(dots)) {
     return(Table__from_record_batches(dots, schema))
   }
 
-  # If any arrays are length 1, recycle them  
+  # If any arrays are length 1, recycle them
   dots <- recycle_scalars(dots)
 
   out <- Table__from_dots(dots, schema, option_use_threads())
-  
+
   # Preserve any grouping
   if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
     out <- dplyr::group_by(out, !!!dplyr::groups(dots[[1]]))

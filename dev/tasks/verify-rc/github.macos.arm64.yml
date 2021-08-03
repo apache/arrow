@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate macOS {{ artifact }}"
-    runs-on: macos-latest
+    runs-on: {{ github_runner }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
@@ -31,20 +31,18 @@ jobs:
     {% endif %}
 
     steps:
+      - name: Cleanup
+        shell: bash
+        run: rm -rf arrow
+
       {{ macros.github_checkout_arrow()|indent }}
 
-      - name: Install System Dependencies
-        shell: bash
-        run: |
-          brew update
-          brew bundle --file=arrow/cpp/Brewfile
-          brew bundle --file=arrow/c_glib/Brewfile
-      - uses: actions/setup-node@v2-beta
-        with:
-          node-version: '14'
       - name: Run verification
         shell: bash
         run: |
-          arrow/dev/release/verify-release-candidate.sh \
+          export PATH="$(brew --prefix node@14)/bin:$PATH"
+          export PATH="$(brew --prefix ruby)/bin:$PATH"
+          export PKG_CONFIG_PATH="$(brew --prefix ruby)/lib/pkgconfig"
+          arch -{{ arch_emulation|default("arm64") }} arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
             {{ release|default("1.0.0") }} {{ rc|default("0") }}

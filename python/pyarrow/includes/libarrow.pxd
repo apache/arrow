@@ -1020,6 +1020,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
         shared_ptr[CScalar] value
+        int8_t type_code
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
 
@@ -1606,6 +1607,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
         c_bool auto_dict_encode
         int32_t auto_dict_max_cardinality
+        unsigned char decimal_point
 
         vector[c_string] include_columns
         c_bool include_missing_columns

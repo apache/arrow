@@ -384,11 +384,13 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('s3fs'),
-        id='S3FileSystem'
+        id='S3FileSystem',
+        marks=pytest.mark.s3
     ),
     pytest.param(
         pytest.lazy_fixture('hdfs'),
-        id='HadoopFileSystem'
+        id='HadoopFileSystem',
+        marks=pytest.mark.hdfs
     ),
     pytest.param(
         pytest.lazy_fixture('mockfs'),
@@ -412,7 +414,8 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('py_fsspec_s3fs'),
-        id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))'
+        id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
+        marks=pytest.mark.s3
     ),
 ])
 def filesystem_config(request):

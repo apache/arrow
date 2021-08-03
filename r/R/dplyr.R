@@ -42,7 +42,7 @@ arrow_dplyr_query <- function(.data) {
       )
     ))
   }
-  
+
   structure(
     list(
       .data = if (inherits(.data, "Dataset")) {

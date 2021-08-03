@@ -625,6 +625,9 @@ struct _GArrowUnionScalarClass
   GArrowScalarClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+gint8
+garrow_union_scalar_get_type_code(GArrowUnionScalar *scalar);
 GARROW_AVAILABLE_IN_5_0
 GArrowScalar *
 garrow_union_scalar_get_value(GArrowUnionScalar *scalar);
@@ -644,6 +647,7 @@ struct _GArrowSparseUnionScalarClass
 GARROW_AVAILABLE_IN_5_0
 GArrowSparseUnionScalar *
 garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
+                               gint8 type_code,
                                GArrowScalar *value);
 
 
@@ -661,6 +665,7 @@ struct _GArrowDenseUnionScalarClass
 GARROW_AVAILABLE_IN_5_0
 GArrowDenseUnionScalar *
 garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
+                              gint8 type_code,
                               GArrowScalar *value);
 
 

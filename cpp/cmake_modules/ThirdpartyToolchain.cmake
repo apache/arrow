@@ -1837,18 +1837,6 @@ endmacro()
 if(ARROW_BUILD_BENCHMARKS)
   # ArgsProduct() is available since 1.5.2
   set(BENCHMARK_REQUIRED_VERSION 1.5.2)
-  if("${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA" AND "${benchmark_SOURCE}" STREQUAL
-                                                       "SYSTEM")
-    # TODO: Remove this workaround once
-    # https://github.com/google/benchmark/issues/1046 is resolved.
-    #
-    # benchmark doesn't set suitable version when we use released
-    # archive. So the benchmark package on conda-forge isn't report
-    # the real version. We accept all the benchmark package with
-    # conda. Conda users should install benchmark 1.5.2 or later by
-    # ci/conda_env_cpp.txt.
-    set(BENCHMARK_REQUIRED_VERSION 0.0.0)
-  endif()
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
@@ -2542,6 +2530,7 @@ macro(build_grpc)
       re2::re2
       c-ares::cares
       ZLIB::ZLIB
+      OpenSSL::SSL
       Threads::Threads)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"

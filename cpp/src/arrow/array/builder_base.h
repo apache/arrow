@@ -50,8 +50,9 @@ class ARROW_EXPORT ArrayBuilder {
  public:
   explicit ArrayBuilder(MemoryPool* pool) : pool_(pool), null_bitmap_builder_(pool) {}
 
-  virtual ~ArrayBuilder() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ArrayBuilder);
+
+  virtual ~ArrayBuilder() = default;
 
   /// For nested types. Since the objects are owned by this class instance, we
   /// skip shared pointers and just return a raw pointer

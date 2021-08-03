@@ -186,6 +186,12 @@ else
   fi
 fi
 
+# If on Raspberry Pi, need to manually link against latomic
+# See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
+if grep raspbian /etc/os-release >/dev/null 2>&1; then
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+fi
+
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"

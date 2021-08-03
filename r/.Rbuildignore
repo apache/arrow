@@ -25,4 +25,4 @@ clang_format.sh
 ^.*\.Rhistory$
 ^extra-tests
 STYLE.md
-
+^.lintr

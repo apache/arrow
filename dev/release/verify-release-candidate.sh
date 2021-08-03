@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.11
+# - Go >= 1.15
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -449,7 +449,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.14.1
+  local VERSION=1.15.14
   local ARCH=amd64
 
   if [ "$(uname)" == "Darwin" ]; then
@@ -474,39 +474,6 @@ test_go() {
   go get -v ./...
   go test ./...
   go clean -modcache
-
-  popd
-}
-
-test_rust() {
-  # install rust toolchain in a similar fashion like test-miniconda
-  export RUSTUP_HOME=$PWD/test-rustup
-  export CARGO_HOME=$PWD/test-rustup
-
-  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
-
-  export PATH=$RUSTUP_HOME/bin:$PATH
-  source $RUSTUP_HOME/env
-
-  # build and test rust
-  pushd rust
-
-  # raises on any formatting errors
-  rustup component add rustfmt --toolchain stable
-  cargo +stable fmt --all -- --check
-  rustup default stable
-
-  # use local modules because we don't publish modules to crates.io yet
-  sed \
-    -i.bak \
-    -E \
-    -e 's/^arrow = "([^"]*)"/arrow = { version = "\1", path = "..\/arrow" }/g' \
-    -e 's/^parquet = "([^"]*)"/parquet = { version = "\1", path = "..\/parquet" }/g' \
-    */Cargo.toml
-
-  # raises on any warnings
-  RUSTFLAGS="-D warnings" cargo build
-  cargo test
 
   popd
 }
@@ -588,9 +555,6 @@ test_source_distribution() {
   if [ ${TEST_GO} -gt 0 ]; then
     test_go
   fi
-  if [ ${TEST_RUST} -gt 0 ]; then
-    test_rust
-  fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
   fi
@@ -608,29 +572,6 @@ test_binary_distribution() {
   fi
 }
 
-check_python_imports() {
-   python << IMPORT_TESTS
-import platform
-
-import pyarrow
-import pyarrow.parquet
-import pyarrow.plasma
-import pyarrow.fs
-import pyarrow._hdfs
-import pyarrow.dataset
-import pyarrow.flight
-
-if platform.system() == "Darwin":
-    macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
-    check_s3fs = macos_version >= (10, 13)
-else:
-    check_s3fs = True
-
-if check_s3fs:
-    import pyarrow._s3fs
-IMPORT_TESTS
-}
-
 test_linux_wheels() {
   local py_arches="3.6m 3.7m 3.8 3.9"
   local manylinuxes="2010 2014"
@@ -644,12 +585,7 @@ test_linux_wheels() {
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
-      check_python_imports
-
-      # install test requirements and execute the tests
-      pip install -r ${ARROW_DIR}/python/requirements-test.txt
-      python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-      pytest --pyargs pyarrow
+      INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
     done
 
     conda deactivate
@@ -658,7 +594,23 @@ test_linux_wheels() {
 
 test_macos_wheels() {
   local py_arches="3.6m 3.7m 3.8 3.9"
+  local macos_version=$(sw_vers -productVersion)
+  local macos_short_version=${macos_version:0:5}
 
+  local check_s3=ON
+  local check_flight=ON
+
+  # macOS version <= 10.13
+  if [ $(echo "${macos_short_version}\n10.14" | sort -V | head -n1) == "${macos_short_version}" ]; then
+    local check_s3=OFF
+  fi
+  # apple silicon processor
+  if [ "$(uname -m)" = "arm64" ]; then
+    local py_arches="3.8 3.9"
+    local check_flight=OFF
+  fi
+
+  # verify arch-native wheels inside an arch-native conda environment
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
@@ -667,15 +619,42 @@ test_macos_wheels() {
 
     # check the mandatory and optional imports
     pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    check_python_imports
-
-    # install test requirements and execute the tests
-    pip install -r ${ARROW_DIR}/python/requirements-test.txt
-    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-    pytest --pyargs pyarrow
+    INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+      ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
     conda deactivate
   done
+
+  # verify arm64 and universal2 wheels using an universal2 python binary
+  # the interpreter should be installed from python.org:
+  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
+  if [ "$(uname -m)" = "arm64" ]; then
+    for py_arch in "3.9"; do
+      local pyver=${py_arch//m/}
+      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
+
+      # create and activate a virtualenv for testing as arm64
+      for arch in "arm64" "x86_64"; do
+        local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"
+        $python -m virtualenv $venv
+        source $venv/bin/activate
+        pip install -U pip
+
+        # install pyarrow's universal2 wheel
+        pip install \
+            --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
+            --target $(python -c 'import site; print(site.getsitepackages()[0])') \
+            --platform macosx_11_0_universal2 \
+            --only-binary=:all: \
+            pyarrow==${VERSION}
+        # check the imports and execute the unittests
+        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+
+        deactivate
+      done
+    done
+  fi
 }
 
 test_wheels() {
@@ -736,7 +715,6 @@ fi
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
 : ${TEST_JS:=${TEST_DEFAULT}}
 : ${TEST_GO:=${TEST_DEFAULT}}
-: ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
 if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
   TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}

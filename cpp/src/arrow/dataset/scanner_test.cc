@@ -1175,6 +1175,22 @@ DatasetAndBatches MakeBasicDataset() {
 
   return {dataset, batches};
 }
+
+compute::Expression Materialize(std::vector<std::string> names,
+                                bool include_aug_fields = false) {
+  if (include_aug_fields) {
+    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+      names.emplace_back(aug_name);
+    }
+  }
+
+  std::vector<compute::Expression> exprs;
+  for (const auto& name : names) {
+    exprs.push_back(field_ref(name));
+  }
+
+  return project(exprs, names);
+}
 }  // namespace
 
 TEST(ScanNode, Schema) {
@@ -1184,7 +1200,7 @@ TEST(ScanNode, Schema) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  options->projection = Materialize({});  // set an empty projection
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1192,6 +1208,8 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
+  // output_schema is *always* the full augmented dataset schema, regardless of projection
+  // (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());
 }
 
@@ -1202,7 +1220,8 @@ TEST(ScanNode, Trivial) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
   auto sink_gen = MakeSinkNode(scan, "sink");
@@ -1220,9 +1239,9 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK_AND_ASSIGN(options->filter,
-                       less(field_ref("c"), literal(30)).Bind(*basic.dataset->schema()));
+  options->filter = less(field_ref("c"), literal(30));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1245,10 +1264,9 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK_AND_ASSIGN(
-      options->filter,
-      greater(field_ref("a"), literal(4)).Bind(*basic.dataset->schema()));
+  options->filter = greater(field_ref("a"), literal(4));
+  // ensure all fields are materialized
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1270,8 +1288,7 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
-  ASSERT_OK(SetProjection(options.get(), {field_ref("b")}, {"b"}));
+  options->projection = Materialize({"b"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
@@ -1298,16 +1315,14 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
 
   auto options = std::make_shared<ScanOptions>();
   options->use_async = true;
-  options->dataset_schema = basic.dataset->schema();
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
   ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
 
   ASSERT_OK_AND_ASSIGN(
       auto project,
-      compute::MakeProjectNode(
-          scan, "project",
-          {field_ref("a"), field_ref("b"), field_ref("c"), field_ref("__fragment_index"),
-           field_ref("__batch_index"), field_ref("__last_in_fragment")}));
+      dataset::MakeAugmentedProjectNode(
+          scan, "project", {field_ref("a"), field_ref("b"), field_ref("c")}));
 
   auto sink_gen = MakeSinkNode(project, "sink");
 
@@ -1352,16 +1367,12 @@ TEST(ScanNode, MinimalEndToEnd) {
   auto options = std::make_shared<ScanOptions>();
   // sync scanning is not supported by ScanNode
   options->use_async = true;
-  // for now, we must replicate the dataset schema here
-  options->dataset_schema = dataset->schema();
   // specify the filter
   compute::Expression b_is_true = field_ref("b");
-  ASSERT_OK_AND_ASSIGN(b_is_true, b_is_true.Bind(*dataset->schema()));
   options->filter = b_is_true;
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*dataset->schema()));
   options->projection =
       call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
 
@@ -1388,12 +1399,14 @@ TEST(ScanNode, MinimalEndToEnd) {
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
       schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
 
-  // start the ExecPlan then wait 1s for completion
+  // start the ExecPlan
   ASSERT_OK(plan->StartProducing());
-  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   // collect sink_reader into a Table
   ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(schema({field("a * 2", int32())}), {
                                                                        R"([
@@ -1401,7 +1414,166 @@ TEST(ScanNode, MinimalEndToEnd) {
                                                {"a * 2": null},
                                                {"a * 2": null}
                                           ])"});
+  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+}
 
+TEST(ScanNode, MinimalScalarAggEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  options->projection =
+      call("make_struct", {a_times_2}, compute::MakeStructOptions{{"a * 2"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
+                       dataset::MakeScanNode(plan.get(), dataset, options));
+
+  // pipe the scan node into a filter node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
+                       compute::MakeFilterNode(scan, "filter", b_is_true));
+
+  // pipe the filter node into a project node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * project,
+                       compute::MakeProjectNode(filter, "project", {a_times_2}));
+
+  // pipe the projection into a scalar aggregate node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * sum,
+      compute::MakeScalarAggregateNode(project, "scalar_agg",
+                                       {compute::internal::Aggregate{"sum", nullptr}}));
+
+  // finally, pipe the project node into a sink node
+  auto sink_gen = compute::MakeSinkNode(sum, "sink");
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("sum", int64())}), std::move(sink_gen), exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  auto expected = TableFromJSON(schema({field("sum", int64())}), {
+                                                                     R"([
+                                               {"sum": 4}
+                                          ])"});
+  AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
+}
+
+TEST(ScanNode, MinimalGroupedAggEndToEnd) {
+  // NB: This test is here for didactic purposes
+
+  // Specify a MemoryPool and ThreadPool for the ExecPlan
+  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+
+  // A ScanNode is constructed from an ExecPlan (into which it is inserted),
+  // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
+  // predicate pushdown, a projection to skip materialization of unnecessary columns, ...)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       compute::ExecPlan::Make(&exec_context));
+
+  std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
+      TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
+                    {
+                        R"([{"a": 1,    "b": null},
+                            {"a": 2,    "b": true}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 3,    "b": false}])",
+                        R"([{"a": null, "b": true},
+                            {"a": 4,    "b": false}])",
+                        R"([{"a": 5,    "b": null},
+                            {"a": 6,    "b": false},
+                            {"a": 7,    "b": false}])",
+                    }));
+
+  auto options = std::make_shared<ScanOptions>();
+  // sync scanning is not supported by ScanNode
+  options->use_async = true;
+  // specify the filter
+  compute::Expression b_is_true = field_ref("b");
+  options->filter = b_is_true;
+  // for now, specify the projection as the full project expression (eventually this can
+  // just be a list of materialized field names)
+  compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
+  compute::Expression b = field_ref("b");
+  options->projection =
+      call("make_struct", {a_times_2, b}, compute::MakeStructOptions{{"a * 2", "b"}});
+
+  // construct the scan node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * scan,
+                       dataset::MakeScanNode(plan.get(), dataset, options));
+
+  // pipe the scan node into a project node
+  ASSERT_OK_AND_ASSIGN(
+      compute::ExecNode * project,
+      compute::MakeProjectNode(scan, "project", {a_times_2, b}, {"a * 2", "b"}));
+
+  // pipe the projection into a grouped aggregate node
+  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sum,
+                       compute::MakeGroupByNode(
+                           project, "grouped_agg", /*keys=*/{"b"}, /*targets=*/{"a * 2"},
+                           {compute::internal::Aggregate{"hash_sum", nullptr}}));
+
+  // finally, pipe the project node into a sink node
+  auto sink_gen = compute::MakeSinkNode(sum, "sink");
+
+  // translate sink_gen (async) to sink_reader (sync)
+  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      schema({field("hash_sum", int64()), field("b", boolean())}), std::move(sink_gen),
+      exec_context.memory_pool());
+
+  // start the ExecPlan
+  ASSERT_OK(plan->StartProducing());
+
+  // collect sink_reader into a Table
+  ASSERT_OK_AND_ASSIGN(auto collected, Table::FromRecordBatchReader(sink_reader.get()));
+
+  // wait 1s for completion
+  ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
+
+  auto expected =
+      TableFromJSON(schema({field("hash_sum", int64()), field("b", boolean())}), {
+                                                                                     R"([
+                                               {"hash_sum": 12, "b": null},
+                                               {"hash_sum": 4,  "b": true},
+                                               {"hash_sum": 40, "b": false}
+                                          ])"});
   AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
 }
 

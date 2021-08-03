@@ -90,7 +90,7 @@ test_that("SubTreeFilesystem", {
   )
 
   # FIXME windows has a trailing slash for one but not the other
-  # expect_identical(normalizePath(st_fs$base_path), normalizePath(td))
+  # expect_identical(normalizePath(st_fs$base_path), normalizePath(td)) # nolint
 
   st_fs$CreateDir("test")
   st_fs$CopyFile("DESCRIPTION", "DESC.txt")

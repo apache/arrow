@@ -6142,9 +6142,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DICTIONARY:
       {
-        const auto& dict_type =
-          arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
-        switch (dict_type.value_type()->id()) {
+        auto dict_type =
+          std::static_pointer_cast<arrow::DictionaryType>(arrow_builder->type());
+        switch (dict_type->value_type()->id()) {
           case arrow::Type::type::BINARY:
             type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
             break;

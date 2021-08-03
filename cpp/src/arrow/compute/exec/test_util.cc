@@ -17,6 +17,9 @@
 
 #include "arrow/compute/exec/test_util.h"
 
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -26,9 +29,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include <gmock/gmock-matchers.h>
-#include <gtest/gtest.h>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"

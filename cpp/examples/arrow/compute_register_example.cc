@@ -46,7 +46,7 @@ class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   }
   // optional: support for serialization
   // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
-  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer& buffer) const override;
+  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer&) const override;
 };
 
 cp::FunctionOptionsType* GetExampleFunctionOptionsType() {
@@ -74,8 +74,8 @@ const cp::FunctionDoc func_doc{
 int main(int argc, char** argv) {
   const std::string name = "compute_register_example";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc);
-  func->AddKernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
-                  ExampleFunctionImpl);
+  ABORT_ON_FAILURE(func->AddKernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
+                                   ExampleFunctionImpl));
 
   auto registry = cp::GetFunctionRegistry();
   ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
@@ -90,8 +90,8 @@ int main(int argc, char** argv) {
 
   std::cout << maybe_result->make_array()->ToString() << std::endl;
 
-  // Expression serialization will raise NotImplemented if an expression includes FunctionOptions
-  // for which serialization is not supported.
+  // Expression serialization will raise NotImplemented if an expression includes
+  // FunctionOptions for which serialization is not supported.
   auto expr = cp::call(name, {}, options);
   auto maybe_serialized = cp::Serialize(expr);
   std::cerr << maybe_serialized.status().ToString() << std::endl;

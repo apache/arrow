@@ -18,7 +18,8 @@
 #' Write Arrow IPC stream format
 #'
 #' Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather. `write_ipc_stream()`
 #' and [write_feather()] write those formats, respectively.
 #'
@@ -35,7 +36,7 @@
 #' serialize data to a buffer.
 #' [RecordBatchWriter] for a lower-level interface.
 #' @export
-#' @examplesIf arrow_available() 
+#' @examplesIf arrow_available()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_ipc_stream(mtcars, tf)
@@ -83,7 +84,8 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' Read Arrow IPC stream format
 #'
 #' Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather. `read_ipc_stream()`
 #' and [read_feather()] read those formats, respectively.
 #'

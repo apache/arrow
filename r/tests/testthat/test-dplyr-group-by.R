@@ -33,7 +33,7 @@ test_that("group_by groupings are recorded", {
   )
 })
 
-test_that("group_by doesn't yet support creating/renaming", {
+test_that("group_by supports creating/renaming", {
   expect_dplyr_equal(
     input %>%
       group_by(chr, numbers = int) %>%
@@ -43,6 +43,12 @@ test_that("group_by doesn't yet support creating/renaming", {
   expect_dplyr_equal(
     input %>%
       group_by(chr, numbers = int * 4) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(int > 4, lgl, foo = int > 5) %>%
       collect(),
     tbl
   )

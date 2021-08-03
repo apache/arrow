@@ -63,7 +63,7 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   .data <- arrow_dplyr_query(.data)
 
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
+  map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
 
   # Create a mask for evaluating expressions in tidyselect helpers
   mask <- new_environment(.cache$functions, parent = caller_env())
