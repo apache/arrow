@@ -1606,4 +1606,43 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestFormatNumberHive) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::float64());
+  auto field1 = field("f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_format_number = field("output", arrow::utf8());
+
+  // Build expression
+  auto format_number_expr =
+      TreeExprBuilder::MakeExpression("format_number", {field0, field1}, field_format_number);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {format_number_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayFloat64({10123.4444, 123456789.1234, 987654321.987654, -987654321.987654},
+                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({2, 3, 0, 4},
+                                    {true, true, true, true});
+  // expected output
+  auto exp_format_number = MakeArrowArrayUtf8({"10,123.44", "123,456,789.123", "987,654,321", "-987,654,321.9876"},
+                                              {true, true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_format_number, outputs.at(0));
+}
+
 }  // namespace gandiva
