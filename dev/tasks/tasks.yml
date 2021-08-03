@@ -1021,7 +1021,7 @@ tasks:
         r_org: rocker
         r_image: r-base
         r_tag: latest
-        flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
+        flags: '-e DEPENDENCY_SOURCE=AUTO'
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
