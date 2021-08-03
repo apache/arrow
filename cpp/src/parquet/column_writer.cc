@@ -1488,9 +1488,9 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     }
 
     if (page_statistics_ != nullptr) {
-      // TODO(PARQUET-2068) This approach makes two copies.  First, a copy of the indices
-      // array to a (hopefully smaller) referenced indices array.  Second, a copy of the
-      // values array to a (probably not smaller) referenced values array.
+      // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
+      // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
+      // of the values array to a (probably not smaller) referenced values array.
       //
       // Once the MinMax kernel supports all data types we should use that kernel instead
       // as it does not make any copies.
