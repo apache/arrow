@@ -102,6 +102,11 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         execute(currentFlightStream.getRoot());
         continue;
       }
+
+      if (statement.isCloseOnCompletion()) {
+        statement.close();
+      }
+
       return false;
     }
   }
