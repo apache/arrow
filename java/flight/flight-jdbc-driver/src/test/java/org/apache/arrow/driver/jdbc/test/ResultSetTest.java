@@ -53,7 +53,6 @@ import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -375,14 +374,14 @@ public class ResultSetTest {
   }
 
   @Test
-  @Ignore // TODO FIXME Query keeps hanging even with request to cancel
   public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
       throws SQLException, InterruptedException {
+    final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
     try (final Statement statement = connection.createStatement()) {
       final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
-        try (final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.CANCELLATION_TEST_SQL_CMD)) {
+        try (final ResultSet resultSet = statement.executeQuery(query)) {
           while (resultSet.next()) {
             resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
           }
@@ -392,6 +391,7 @@ public class ResultSetTest {
           latch.countDown();
         }
       });
+      thread.setName("Test Case: interrupt query execution mid-process");
       thread.setPriority(Thread.MAX_PRIORITY);
       thread.start();
       Thread.sleep(RANDOM.nextInt(300));
@@ -402,9 +402,11 @@ public class ResultSetTest {
               .map(Exception::getMessage)
               .map(StringBuilder::new)
               .reduce(StringBuilder::append)
-              .orElseThrow(IllegalArgumentException::new)
+              .orElseThrow(IllegalStateException::new)
               .toString(),
-          is("Statement canceled"));
+          is(format(
+              "Error while executing SQL \"%s\": %s closed",
+              query, FlightStreamQueue.class.getSimpleName())));
     }
   }
 }
