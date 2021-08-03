@@ -43,12 +43,16 @@ import org.apache.calcite.avatica.Meta.Frame;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.proto.Common;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ResultSet} implementation used to access a {@link VectorSchemaRoot}.
  */
 public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(ArrowFlightJdbcVectorSchemaRootResultSet.class);
   VectorSchemaRoot vectorSchemaRoot;
 
   ArrowFlightJdbcVectorSchemaRootResultSet(final AvaticaStatement statement, final QueryState state,
@@ -139,7 +143,8 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
         exceptions.add(e);
       }
     }
-    exceptions.parallelStream().forEach(e -> {
+    exceptions.parallelStream().forEach(e -> LOGGER.error(e.getMessage(), e));
+    exceptions.stream().findAny().ifPresent(e -> {
       throw new RuntimeException(e);
     });
   }
