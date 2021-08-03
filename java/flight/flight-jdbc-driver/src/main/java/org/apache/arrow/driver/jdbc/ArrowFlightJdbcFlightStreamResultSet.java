@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static java.util.Objects.isNull;
 import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueue;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
@@ -141,8 +140,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   public synchronized void close() {
     try {
-      final FlightStream currentStream = getCurrentFlightStream();
-      AutoCloseables.close(flightStreamQueue, isNull(currentStream) ? null : currentStream);
+      AutoCloseables.close(getFlightStreamQueue(), getCurrentFlightStream());
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
