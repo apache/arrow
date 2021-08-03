@@ -1269,15 +1269,23 @@ TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
 }
 
 TYPED_TEST(TestStringKernels, TrimUTF8) {
-  TrimOptions options{"ȺA"};
-  this->CheckUnary("utf8_trim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"foo\", null, \"bar\", \"fooȺAȺbar\"]", &options);
-  this->CheckUnary("utf8_ltrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"fooȺAȺ\", null, \"barȺAȺ\", \"fooȺAȺbarA\"]",
-                   &options);
-  this->CheckUnary("utf8_rtrim", "[\"ȺȺfooȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺbarA\"]",
-                   this->type(), "[\"ȺȺfoo\", null, \"bar\", \"ȺAȺfooȺAȺbar\"]",
-                   &options);
+  auto options = TrimOptions{"ab"};
+  this->CheckUnary("utf8_trim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"zȺz矢\", null, \"\", \"zȺz\"]", &options);
+  this->CheckUnary("utf8_ltrim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"zȺz矢ba\", null, \"\", \"zȺz\"]", &options);
+  this->CheckUnary("utf8_rtrim", "[\"azȺz矢ba\", null, \"bab\", \"zȺz\"]", this->type(),
+                   "[\"azȺz矢\", null, \"\", \"zȺz\"]", &options);
+
+  options = TrimOptions{"ȺA"};
+  this->CheckUnary("utf8_trim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+                   this->type(), "[\"foo矢\", null, \"bar\", \"fooȺAȺ矢bar\"]", &options);
+  this->CheckUnary(
+      "utf8_ltrim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+      this->type(), "[\"foo矢ȺAȺ\", null, \"barȺAȺ\", \"fooȺAȺ矢barA\"]", &options);
+  this->CheckUnary(
+      "utf8_rtrim", "[\"ȺȺfoo矢ȺAȺ\", null, \"barȺAȺ\", \"ȺAȺfooȺAȺ矢barA\"]",
+      this->type(), "[\"ȺȺfoo矢\", null, \"bar\", \"ȺAȺfooȺAȺ矢bar\"]", &options);
 
   TrimOptions options_invalid{"ɑa\xFFɑ"};
   auto input = ArrayFromJSON(this->type(), "[\"foo\"]");
