@@ -3798,7 +3798,7 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
 
 class TestArrowWriteDictionary : public ::testing::TestWithParam<ParquetDataPageVersion> {
  public:
-  ParquetDataPageVersion ParquetDataPageVersion() { return GetParam(); }
+  ParquetDataPageVersion GetParquetDataPageVersion() { return GetParam(); }
 };
 
 TEST_P(TestArrowWriteDictionary, Statistics) {
@@ -3836,11 +3836,13 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 
     std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
     auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
-    std::shared_ptr<WriterProperties> writer_properties = WriterProperties::Builder()
-                                                              .max_row_group_length(3)
-                                                              ->write_batch_size(2)
-                                                              ->data_pagesize(2)
-                                                              ->build();
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder()
+            .max_row_group_length(3)
+            ->data_page_version(this->GetParquetDataPageVersion())
+            ->write_batch_size(2)
+            ->data_pagesize(2)
+            ->build();
     std::unique_ptr<FileWriter> writer;
     ASSERT_OK(FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
                                writer_properties, default_arrow_writer_properties(),
