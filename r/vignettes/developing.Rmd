@@ -420,6 +420,19 @@ There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arr
   * `*** Proceed without C++` dependencies (this is an error and the package will not work, but if you see this message you know the previous steps have not succeeded/were not enabled)
 * `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built. (If you're looking at this script, and you've gotten this far, it should look _incredibly_ familiar: it's basically the contents of this guide in script form — with a few important changes)
 
+## Styling and linting of the R code in the R package
+
+The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
+
+To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run `lintr::lint_package("arrow/r")`.
+
+One can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package. There are two ways to do this:
+
+1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR and commit it back to the branch.
+2. Locally, with the command `styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))` note the two excluded files which should not be styled.
+
+The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler.
+
 ## Editing C++ code in the R package
 
 The `arrow` package uses some customized tools on top of `cpp11` to prepare its

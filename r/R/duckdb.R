@@ -40,7 +40,8 @@
 #'
 #' @name to_duckdb
 #' @export
-#' @examplesIf arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)
+#' @examplesIf { arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) &&
+#'   packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE) }
 #' library(dplyr)
 #'
 #' ds <- InMemoryDataset$create(mtcars)
@@ -56,10 +57,9 @@
 #'   filter(mpg < 30) %>%
 #'   group_by(cyl) %>%
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
-#'
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
-                      table_name =  unique_arrow_tablename(),
+                      table_name = unique_arrow_tablename(),
                       auto_disconnect = TRUE) {
   .data <- arrow_dplyr_query(.data)
   duckdb::duckdb_register_arrow(con, table_name, .data)
@@ -108,7 +108,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 
     # and there are no more tables, so we can safely shutdown
     if (length(DBI::dbListTables(con)) == 0) {
-      DBI::dbDisconnect(con, shutdown=TRUE)
+      DBI::dbDisconnect(con, shutdown = TRUE)
     }
   })
   environment()

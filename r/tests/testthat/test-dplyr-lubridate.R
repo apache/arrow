@@ -31,7 +31,6 @@ test_df <- tibble::tibble(date = test_date)
 
 # We can support this feature after ARROW-12980 is merged
 test_that("timezone aware timestamps are not supported", {
-
   tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
 
@@ -44,8 +43,7 @@ test_that("timezone aware timestamps are not supported", {
 })
 
 # We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported",{
-
+test_that("date32 objects are not supported", {
   date <- ymd("2017-01-01")
   df <- tibble::tibble(date = date)
 
@@ -114,7 +112,7 @@ test_that("extract day from date", {
 })
 
 test_that("extract wday from date", {
- expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = wday(date)) %>%
       collect(),
@@ -142,7 +140,6 @@ test_that("extract wday from date", {
     nse_funcs$wday(x, label = TRUE),
     "Label argument not supported by Arrow"
   )
-
 })
 
 test_that("extract yday from date", {
@@ -164,7 +161,7 @@ test_that("extract hour from date", {
 })
 
 test_that("extract minute from date", {
-   expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = minute(date)) %>%
       collect(),

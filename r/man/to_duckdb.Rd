@@ -39,22 +39,3 @@ that starts with an Arrow object to use DuckDB to calculate the summarization
 step. Internally, this calls \code{to_duckdb()} with all of the default argument
 values.
 }
-\examples{
-\dontshow{if (arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-library(dplyr)
-
-ds <- InMemoryDataset$create(mtcars)
-
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  to_duckdb() \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE))
-
-# the same query can be simplified using .engine = "duckdb"
-ds \%>\%
-  filter(mpg < 30) \%>\%
-  group_by(cyl) \%>\%
-  summarize(mean_mpg = mean(mpg, na.rm = TRUE), .engine = "duckdb")
-\dontshow{\}) # examplesIf}
-}

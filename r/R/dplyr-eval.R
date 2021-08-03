@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_eval <- function (expr, mask) {
+arrow_eval <- function(expr, mask) {
   # filter(), mutate(), etc. work by evaluating the quoted `exprs` to generate Expressions
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
@@ -51,10 +51,10 @@ handle_arrow_not_supported <- function(err, lab) {
   # Look for informative message from the Arrow function version (see above)
   if (inherits(err, "arrow-try-error")) {
     # Include it if found
-    paste0('In ', lab, ', ', as.character(err))
+    paste0("In ", lab, ", ", as.character(err))
   } else {
     # Otherwise be opaque (the original error is probably not useful)
-    paste('Expression', lab, 'not supported in Arrow')
+    paste("Expression", lab, "not supported in Arrow")
   }
 }
 
@@ -65,7 +65,7 @@ i18ize_error_messages <- function() {
     obj = tryCatch(eval(parse(text = "X_____X")), error = function(e) conditionMessage(e)),
     fun = tryCatch(eval(parse(text = "X_____X()")), error = function(e) conditionMessage(e))
   )
-  paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
+  paste(map(out, ~ sub("X_____X", ".*", .)), collapse = "|")
 }
 
 # Helper to raise a common error
@@ -87,7 +87,7 @@ arrow_mask <- function(.data) {
   }
 
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
+  map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
 
   # Add the column references and make the mask
   out <- new_data_mask(

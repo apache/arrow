@@ -36,7 +36,7 @@ expect_r6_class <- function(object, class) {
 expect_equivalent <- function(object, expected, ...) {
   # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
   # They look spurious, like:
-  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)`
+  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)` # nolint
   if (tibble::is_tibble(object)) {
     class(object) <- "data.frame"
   }
@@ -57,7 +57,7 @@ expect_type_equal <- function(object, expected, ...) {
   expect_equal(object, expected, ..., label = object$ToString(), expected.label = expected$ToString())
 }
 
-expect_match_arg_error <- function(object, values=c()) {
+expect_match_arg_error <- function(object, values = c()) {
   expect_error(object, paste0("'arg' .*", paste(dQuote(values), collapse = ", ")))
 }
 
@@ -129,7 +129,7 @@ expect_dplyr_equal <- function(expr,
 }
 
 expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
-                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               tbl, # A tbl/df as reference, will make RB/Table with
                                ...) {
   # ensure we have supplied tbl
   force(tbl)
@@ -137,7 +137,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) {
+    error = function(e) {
       msg <- conditionMessage(e)
 
       # The error here is of the form:
@@ -180,11 +180,11 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
 }
 
 expect_vector_equal <- function(expr, # A vectorized R expression containing `input` as its input
-                               vec,  # A vector as reference, will make Array/ChunkedArray with
-                               skip_array = NULL, # Msg, if should skip Array test
-                               skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
-                               ignore_attr = FALSE, # ignore attributes?
-                               ...) {
+                                vec, # A vector as reference, will make Array/ChunkedArray with
+                                skip_array = NULL, # Msg, if should skip Array test
+                                skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                                ignore_attr = FALSE, # ignore attributes?
+                                ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
   skip_msg <- NULL
@@ -218,16 +218,15 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
 }
 
 expect_vector_error <- function(expr, # A vectorized R expression containing `input` as its input
-                                vec,  # A vector as reference, will make Array/ChunkedArray with
+                                vec, # A vector as reference, will make Array/ChunkedArray with
                                 skip_array = NULL, # Msg, if should skip Array test
                                 skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
                                 ...) {
-
   expr <- rlang::enquo(expr)
 
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec))),
-    error = function (e) {
+    error = function(e) {
       msg <- conditionMessage(e)
 
       pattern <- i18ize_error_messages()
@@ -244,7 +243,6 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   skip_msg <- NULL
 
   if (is.null(skip_array)) {
-
     expect_error(
       rlang::eval_tidy(
         expr,
