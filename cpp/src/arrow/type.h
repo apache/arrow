@@ -1297,6 +1297,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   struct DayMilliseconds {
     int32_t days = 0;
     int32_t milliseconds = 0;
+    DayMilliseconds() = default;
+    DayMilliseconds(int32_t days, int32_t milliseconds)
+        : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
