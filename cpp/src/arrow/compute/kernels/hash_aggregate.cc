@@ -1396,7 +1396,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   }
 
   std::shared_ptr<DataType> out_type() const override {
-    return fixed_size_list(float64(), options_.q.size());
+    return fixed_size_list(float64(), static_cast<int32_t>(options_.q.size()));
   }
 
   TDigestOptions options_;
