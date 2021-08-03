@@ -1014,7 +1014,7 @@ tasks:
     ci: github
     template: r/github.devdocs.yml
     
-  test-r-depsource:
+  test-r-depsource-auto:
     ci: github
     template: r/github.linux.libsource.yml
 
