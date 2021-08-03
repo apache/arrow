@@ -94,6 +94,20 @@ public class FlightStreamQueue implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    futures.forEach(future -> future.cancel(true));
+    if (isClosed()) {
+      return;
+    }
+    try {
+      synchronized (unpreparedStreams) {
+        unpreparedStreams.parallelStream().forEach(AutoCloseables::closeNoChecked);
+      }
+      synchronized (futures) {
+        futures.parallelStream().forEach(future -> future.cancel(true));
+      }
+    } finally {
+      unpreparedStreams.clear();
+      futures.clear();
+      closed = true;
+    }
   }
 }
