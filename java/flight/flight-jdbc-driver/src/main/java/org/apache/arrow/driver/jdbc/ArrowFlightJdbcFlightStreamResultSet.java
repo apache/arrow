@@ -17,15 +17,19 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static java.util.Objects.isNull;
+import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueue;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
+
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.List;
+import java.util.Optional;
 import java.util.TimeZone;
 
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
@@ -49,27 +53,46 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
+  protected FlightStreamQueue getFlightStreamQueue() {
+    return flightStreamQueue;
+  }
+
+  private void loadNewQueue() {
+    final Optional<FlightStreamQueue> oldQueue = Optional.ofNullable(getFlightStreamQueue());
+    try {
+      flightStreamQueue =
+          checkNotNull(createNewQueue(((ArrowFlightConnection) getStatement().getConnection()).getExecutorService()));
+    } catch (final SQLException e) {
+      throw new RuntimeException(e);
+    } finally {
+      oldQueue.ifPresent(AutoCloseables::closeNoChecked);
+    }
+  }
+
+  public FlightStream getCurrentFlightStream() {
+    return currentFlightStream;
+  }
+
+  private void loadNewFlightStream() {
+    final Optional<FlightStream> oldQueue = Optional.ofNullable(getCurrentFlightStream());
+    try {
+      this.currentFlightStream = checkNotNull(getFlightStreamQueue().next());
+    } catch (final Exception e) {
+      throw new RuntimeException(e);
+    } finally {
+      oldQueue.ifPresent(AutoCloseables::closeNoChecked);
+    }
+  }
+
   @Override
   protected AvaticaResultSet execute() throws SQLException {
-    try {
-      final ArrowFlightConnection connection = (ArrowFlightConnection) statement.getConnection();
-      flightStreamQueue = new FlightStreamQueue(connection.getExecutorService());
-
-      final List<FlightStream> flightStreams = connection
-          .getClient()
-          .getFlightStreams(signature.sql);
-
-      flightStreams.forEach(flightStreamQueue::enqueue);
-
-      currentFlightStream = flightStreamQueue.next();
-      final VectorSchemaRoot root = currentFlightStream.getRoot();
-      execute(root);
-    } catch (SQLException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
-
+    loadNewQueue();
+    getFlightStreamQueue().enqueue(
+        ((ArrowFlightConnection) getStatement().getConnection())
+            .getClient().lazilyGetFlightStreams(signature.sql));
+    loadNewFlightStream();
+    // Ownership of the root will be passed onto the cursor.
+    execute(currentFlightStream.getRoot());
     return this;
   }
 
@@ -96,7 +119,11 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       }
 
       flightStreamQueue.enqueue(currentFlightStream);
-      currentFlightStream = flightStreamQueue.next();
+      try {
+        currentFlightStream = flightStreamQueue.next();
+      } catch (final Exception e) {
+        throw new SQLException(e);
+      }
 
       if (currentFlightStream != null) {
         execute(currentFlightStream.getRoot());
@@ -112,17 +139,14 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   }
 
   @Override
-  public void close() {
-    super.close();
-
+  public synchronized void close() {
     try {
-      if (this.currentFlightStream != null) {
-        this.currentFlightStream.close();
-      }
-
-      flightStreamQueue.close();
-    } catch (Exception e) {
+      final FlightStream currentStream = getCurrentFlightStream();
+      AutoCloseables.close(flightStreamQueue, isNull(currentStream) ? null : currentStream);
+    } catch (final Exception e) {
       throw new RuntimeException(e);
+    } finally {
+      super.close();
     }
   }
 }
