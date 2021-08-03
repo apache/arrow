@@ -1015,11 +1015,13 @@ tasks:
     template: r/github.devdocs.yml
     
   test-r-depsource-auto:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO -e ARROW_SOURCE_HOME="/arrow" -e LIBARROW_BUILD=TRUE'
-      image: ubuntu-r
+      ci: azure
+      template: r/azure.linux.yml
+      params:
+        r_org: rocker
+        r_image: r-base
+        r_tag: latest
+        flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),

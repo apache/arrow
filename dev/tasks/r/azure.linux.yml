@@ -52,6 +52,7 @@ jobs:
           # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
           docker-compose run \
             {{ flags|default("") }} \
+            -e DEPENDENCY_SOURCE= {{ dependency_source|default("") }} \
             -e ARROW_DATASET={{ arrow_dataset|default("") }} \
             -e ARROW_PARQUET={{ arrow_parquet|default("") }} \
             -e ARROW_S3={{ arrow_s3|default("") }} \
