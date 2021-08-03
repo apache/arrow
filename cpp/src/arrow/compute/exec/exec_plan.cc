@@ -356,7 +356,7 @@ struct HashSemiJoinNode : ExecNode {
         ctx_(ctx),
         build_index_field_ids_(build_index_field_ids),
         probe_index_field_ids_(probe_index_field_ids),
-        build_side_complete_(false) {}
+        hash_table_built_(false) {}
 
  private:
   struct ThreadLocalState;
@@ -384,7 +384,8 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   // merge all other groupers to grouper[0]. nothing needs to be done on the
-  // cached_probe_batches, because when probing everyone
+  // cached_probe_batches, because when probing everyone. Note: Only one thread
+  // should execute this out of the pool!
   Status BuildSideMerge() {
     ThreadLocalState* state0 = &local_states_[0];
     for (size_t i = 1; i < local_states_.size(); ++i) {
@@ -416,11 +417,13 @@ struct HashSemiJoinNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
 
     if (build_counter_.Increment()) {
+      // only a single thread would come inside this if-block!
+
       // while incrementing, if the total is reached, merge all the groupers to 0'th one
       RETURN_NOT_OK(BuildSideMerge());
 
       // enable flag that build side is completed
-      build_side_complete_.store(true);
+      hash_table_built_.store(true);
 
       // since the build side is completed, consume cached probe batches
       RETURN_NOT_OK(ConsumeCachedProbeBatches(thread_index));
@@ -433,10 +436,12 @@ struct HashSemiJoinNode : ExecNode {
     ThreadLocalState* state = &local_states_[thread_index];
 
     // TODO (niranda) check if this is the best way to move batches
-    for (auto cached : state->cached_probe_batches) {
-      RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
+    if (!state->cached_probe_batches.empty()) {
+      for (auto cached : state->cached_probe_batches) {
+        RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
+      }
+      state->cached_probe_batches.clear();
     }
-    state->cached_probe_batches.clear();
 
     return Status::OK();
   }
@@ -479,10 +484,9 @@ struct HashSemiJoinNode : ExecNode {
     return Status::OK();
   }
 
-  Status CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
+  void CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
     ThreadLocalState* state = &local_states_[thread_index];
     state->cached_probe_batches.emplace_back(seq_num, std::move(batch));
-    return Status::OK();
   }
 
   inline bool IsBuildInput(ExecNode* input) { return input == inputs_[0]; }
@@ -501,14 +505,18 @@ struct HashSemiJoinNode : ExecNode {
 
     if (IsBuildInput(input)) {  // build input batch is received
       // if a build input is received when build side is completed, something's wrong!
-      ARROW_DCHECK(!build_side_complete_.load());
+      ARROW_DCHECK(!hash_table_built_.load());
 
       ErrorIfNotOk(ConsumeBuildBatch(thread_index, std::move(batch)));
-    } else {                              // probe input batch is received
-      if (build_side_complete_.load()) {  // build side done, continue with probing
+    } else {                           // probe input batch is received
+      if (hash_table_built_.load()) {  // build side done, continue with probing
+        // consume cachedProbeBatches if available (for this thread)
+        ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
+
+        // consume this probe batch
         ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
       } else {  // build side not completed. Cache this batch!
-        ErrorIfNotOk(CacheProbeBatch(thread_index, seq, std::move(batch)));
+        CacheProbeBatch(thread_index, seq, std::move(batch));
       }
     }
   }
@@ -558,7 +566,9 @@ struct HashSemiJoinNode : ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
 
-    if (build_counter_.Cancel() || /*probe_counter_.Cancel() ||*/ out_counter_.Cancel()) {
+    if (build_counter_.Cancel()) {
+      finished_.MarkFinished();
+    } else if (out_counter_.Cancel()) {
       finished_.MarkFinished();
     }
 
@@ -589,14 +599,14 @@ struct HashSemiJoinNode : ExecNode {
   ThreadIndexer get_thread_index_;
   const std::vector<int> build_index_field_ids_, probe_index_field_ids_;
 
-  AtomicCounter build_counter_, /*probe_counter_,*/ out_counter_;
+  AtomicCounter build_counter_, out_counter_;
   std::vector<ThreadLocalState> local_states_;
 
   // need a separate atomic bool to track if the build side complete. Can't use the flag
   // inside the AtomicCounter, because we need to merge the build groupers once we receive
   // all the build batches. So, while merging, we need to prevent probe batches, being
   // consumed.
-  std::atomic<bool> build_side_complete_;
+  std::atomic<bool> hash_table_built_;
 };
 
 Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,

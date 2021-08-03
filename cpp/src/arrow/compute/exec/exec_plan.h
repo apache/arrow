@@ -398,8 +398,8 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
 /// \brief
 Result<ExecNode*> MakeHashLeftSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
                                            std::string label,
-                                           std::vector<std::string> left_keys,
-                                           std::vector<std::string> right_keys);
+                                           const std::vector<std::string>& left_keys,
+                                           const std::vector<std::string>& right_keys);
 ARROW_EXPORT
 Result<ExecNode*> MakeHashRightSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
                                             std::string label,
