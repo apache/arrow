@@ -29,7 +29,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
   ))
   .data <- dplyr::select(.data, vars_to_keep)
   if (match.arg(.engine) == "duckdb") {
-      dplyr::summarise(to_duckdb(.data), ...)
+    dplyr::summarise(to_duckdb(.data), ...)
   } else if (isTRUE(getOption("arrow.summarize", FALSE))) {
     # Try stuff, if successful return()
     out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
@@ -68,7 +68,7 @@ do_arrow_summarize <- function(.data, ...) {
       stop(msg, call. = FALSE)
     }
     # Put it in the data mask too?
-    #mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
+    # mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
   # Now, from that, split out the data (expressions) and options

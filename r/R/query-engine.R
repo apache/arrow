@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
+ExecPlan <- R6Class("ExecPlan",
+  inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
       # Handle arrow_dplyr_query
@@ -25,8 +26,10 @@ ExecPlan <- R6Class("ExecPlan", inherit = ArrowObject,
           filter <- Expression$scalar(TRUE)
         }
         # Use FieldsInExpression to find all from dataset$selected_columns
-        colnames <- unique(unlist(map(dataset$selected_columns,
-          field_names_in_expression)))
+        colnames <- unique(unlist(map(
+          dataset$selected_columns,
+          field_names_in_expression
+        )))
         dataset <- dataset$.data
       } else {
         if (inherits(dataset, "ArrowTabular")) {
@@ -51,7 +54,8 @@ ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }
 
-ExecNode <- R6Class("ExecNode", inherit = ArrowObject,
+ExecNode <- R6Class("ExecNode",
+  inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       assert_is_list_of(cols, "Expression")
