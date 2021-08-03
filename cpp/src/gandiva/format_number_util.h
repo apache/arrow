@@ -39,10 +39,10 @@ class GANDIVA_EXPORT FormatNumberUtil {
                                            char decimalSep = '.',
                                            char sourceDecimalSep = '.') {
     {
-      int len = value.length();
-      int negative = ((len && value[0] == '-') ? 1 : 0);
+      size_t len = value.length();
+      size_t negative = ((len && value[0] == '-') ? 1 : 0);
       size_t dpos = value.find_last_of(sourceDecimalSep);
-      int dlen = 3 + (dpos == std::string::npos ? 0 : (len - dpos));
+      size_t dlen = 3 + (dpos == std::string::npos ? 0 : (len - dpos));
 
       if (dpos != std::string::npos && decimalSep != sourceDecimalSep) {
         value[dpos] = decimalSep;

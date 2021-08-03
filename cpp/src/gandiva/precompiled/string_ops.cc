@@ -16,6 +16,8 @@
 // under the License.
 
 // String functions
+#include <complex>
+
 #include "arrow/util/value_parsing.h"
 #include "gandiva/format_number_util.h"
 
@@ -2206,7 +2208,7 @@ const char* format_number(gdv_int64 context, gdv_float64 number, gdv_int32 decim
     return "";
   }
 
-  gdv_int32 decimal_adjust = std::pow(10, decimal_points);
+  gdv_float64 decimal_adjust = std::pow(10, decimal_points);
 
   gdv_float64 fromatted_number = std::trunc(number * decimal_adjust) / decimal_adjust;
 
@@ -2221,7 +2223,7 @@ const char* format_number(gdv_int64 context, gdv_float64 number, gdv_int32 decim
 
   formatted_string = gandiva::FormatNumberUtil::AddThousandSeparators(formatted_string);
 
-  gdv_int64 formatted_string_len = strlen(formatted_string.c_str());
+  int32_t formatted_string_len = static_cast<int32_t>(strlen(formatted_string.c_str()));
 
   char* ret = reinterpret_cast<gdv_binary>(
       gdv_fn_context_arena_malloc(context, formatted_string_len));
