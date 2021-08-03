@@ -17,16 +17,28 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
+import static java.lang.String.format;
+import static java.util.Collections.synchronizedSet;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
+import static org.apache.arrow.util.Preconditions.checkState;
+
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.util.AutoCloseables;
 
 /**
  * Auxiliary class used to handle consuming of multiple {@link FlightStream}.
@@ -41,17 +53,20 @@ import org.apache.arrow.flight.FlightStream;
  * </ol>
  */
 public class FlightStreamQueue implements AutoCloseable {
-  private final ExecutorService executorService;
   private final CompletionService<FlightStream> completionService;
-  private final Collection<Future<?>> futures;
+  private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
+  private final Set<FlightStream> unpreparedStreams = synchronizedSet(new HashSet<>());
+  private boolean closed;
 
   /**
    * Instantiate a new FlightStreamQueue.
    */
-  public FlightStreamQueue(ExecutorService executorService) {
-    this.executorService = executorService;
-    completionService = new ExecutorCompletionService<>(this.executorService);
-    futures = new HashSet<>();
+  protected FlightStreamQueue(final CompletionService<FlightStream> executorService) {
+    completionService = checkNotNull(executorService);
+  }
+
+  public static FlightStreamQueue createNewQueue(final ExecutorService service) {
+    return new FlightStreamQueue(new ExecutorCompletionService<>(service));
   }
 
   /**
@@ -59,37 +74,70 @@ public class FlightStreamQueue implements AutoCloseable {
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next() {
+  public FlightStream next() throws Exception {
+    checkOpen();
+    FlightStream result = null; // If empty.
     while (!futures.isEmpty()) {
+      Optional<FlightStream> loadedStream = Optional.empty();
       try {
         final Future<FlightStream> future = completionService.take();
         futures.remove(future);
-
-        final FlightStream flightStream = future.get();
-        if (flightStream.getRoot().getRowCount() > 0) {
-          return flightStream;
+        loadedStream = Optional.ofNullable(future.get());
+        final FlightStream stream = loadedStream.orElseThrow(NoSuchElementException::new);
+        if (stream.getRoot().getRowCount() > 0) {
+          result = stream;
+          break;
         }
-      } catch (ExecutionException e) {
-        // Try next stream
-      } catch (InterruptedException | CancellationException e) {
-        return null;
+      } catch (final ExecutionException | InterruptedException | CancellationException e) {
+        final Consumer<FlightStream> cancelStream = stream -> stream.cancel(e.getMessage(), e);
+        loadedStream.ifPresent(cancelStream);
+        unpreparedStreams.forEach(cancelStream);
       }
     }
-
-    return null;
+    return result;
   }
 
   /**
-   * Adds given FlightStream to the queue.
+   * Checks if this queue is open.
    */
-  public void enqueue(FlightStream flightStream) {
-    final Future<FlightStream> future = completionService.submit(() -> {
-      // FlightStream#next will block until new data can be read or stream is over.
-      flightStream.next();
+  public void checkOpen() {
+    checkState(/*!isClosed()*/ true, format("%s closed", this.getClass().getSimpleName()));
+  }
 
+  /**
+   * Lazily adds given {@link FlightStream}s to the queue.
+   */
+  public void enqueue(final Stream<FlightStream> flightStreams) {
+    flightStreams.forEach(this::enqueue);
+  }
+
+  /**
+   * Readily adds given {@link FlightStream}s to the queue.
+   */
+  public void enqueue(final Collection<FlightStream> flightStreams) {
+    enqueue(flightStreams.stream());
+  }
+
+  /**
+   * Readily adds given {@link FlightStream}s to the queue.
+   */
+  public void enqueue(final FlightStream... flightStreams) {
+    enqueue(Arrays.asList(flightStreams));
+  }
+
+  /**
+   * Adds given {@link FlightStream} to the queue.
+   */
+  public void enqueue(final FlightStream flightStream) {
+    checkNotNull(flightStream);
+    checkOpen();
+    checkState(unpreparedStreams.add(flightStream));
+    checkState(futures.add(completionService.submit(() -> {
+      // `FlightStream#next` will block until new data can be read or stream is over.
+      checkState(flightStream.next());
+      checkState(unpreparedStreams.remove(flightStream));
       return flightStream;
-    });
-    futures.add(future);
+    })));
   }
 
   @Override
