@@ -12,8 +12,6 @@ The arrow R package provides a [dplyr](https://dplyr.tidyverse.org/) interface t
 and other tools for interactive exploration of Arrow data.
 
 This vignette introduces Datasets and shows how to use dplyr to analyze them.
-It describes both what is possible to do with Arrow now
-and what is on the immediate development roadmap.
 
 ## Example: NYC taxi data
 
