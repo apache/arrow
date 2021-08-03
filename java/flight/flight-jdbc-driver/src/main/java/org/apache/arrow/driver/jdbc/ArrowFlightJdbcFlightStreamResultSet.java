@@ -89,7 +89,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     loadNewQueue();
     getFlightStreamQueue().enqueue(
         ((ArrowFlightConnection) getStatement().getConnection())
-            .getClient().lazilyGetFlightStreams(signature.sql));
+            .getClient().readilyGetFlightStreams(signature.sql));
     loadNewFlightStream();
     // Ownership of the root will be passed onto the cursor.
     execute(currentFlightStream.getRoot());
