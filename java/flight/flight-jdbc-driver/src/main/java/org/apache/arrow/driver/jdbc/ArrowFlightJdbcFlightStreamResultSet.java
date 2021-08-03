@@ -79,6 +79,8 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       final boolean hasNext = super.next();
       final int maxRows = statement.getMaxRows();
       if (maxRows != 0 && this.getRow() > maxRows) {
+        if (statement.isCloseOnCompletion())
+          statement.close();
         return false;
       }
 
