@@ -382,10 +382,10 @@ struct UTF8SwapCaseTransform : public CaseMappingTransform {
         return utf8proc_toupper(codepoint);
       } else if (utf8proc_isupper(codepoint)) {
         return utf8proc_tolower(codepoint);
-      } else {
-        return codepoint;
       }
     }
+
+    return codepoint;
   }
 };
 
