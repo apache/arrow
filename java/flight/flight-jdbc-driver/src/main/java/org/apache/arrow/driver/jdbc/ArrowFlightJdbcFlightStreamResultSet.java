@@ -90,15 +90,15 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       if (currentFlightStream.next()) {
         execute(currentFlightStream.getRoot());
         continue;
-    }
+      }
 
-    flightStreamQueue.enqueue(currentFlightStream);
-    currentFlightStream = flightStreamQueue.next();
+      flightStreamQueue.enqueue(currentFlightStream);
+      currentFlightStream = flightStreamQueue.next();
 
-    if (currentFlightStream != null) {
-      execute(currentFlightStream.getRoot());
-      continue;
-    }
+      if (currentFlightStream != null) {
+        execute(currentFlightStream.getRoot());
+        continue;
+      }
       return false;
     }
   }
