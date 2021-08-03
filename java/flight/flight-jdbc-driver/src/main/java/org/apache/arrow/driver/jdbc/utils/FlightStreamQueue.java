@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
@@ -105,17 +104,10 @@ public class FlightStreamQueue implements AutoCloseable {
   }
 
   /**
-   * Lazily adds given {@link FlightStream}s to the queue.
-   */
-  public void enqueue(final Stream<FlightStream> flightStreams) {
-    flightStreams.forEach(this::enqueue);
-  }
-
-  /**
    * Readily adds given {@link FlightStream}s to the queue.
    */
   public void enqueue(final Collection<FlightStream> flightStreams) {
-    enqueue(flightStreams.stream());
+    flightStreams.forEach(this::enqueue);
   }
 
   /**
