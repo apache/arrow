@@ -236,4 +236,27 @@ public class ResultSetTest {
     }
     collector.checkThat(counts, is(ImmutableSet.of(6)));
   }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet
+   * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
+   *
+   * @throws Exception If the connection fails to be established.
+  */
+  @Test
+  public void testShouldCloseStatementWhenIsCloseOnCompletion() throws Exception {
+      Statement statement = connection.createStatement();
+      ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
+      statement.closeOnCompletion();
+
+      int columns = 6;
+      while (resultSet.next())
+          for (int column = 1; column <= columns; column++)
+              resultSet.getObject(column);
+
+      collector.checkThat(statement.isClosed(), is(Boolean.TRUE));
+  }
 }
