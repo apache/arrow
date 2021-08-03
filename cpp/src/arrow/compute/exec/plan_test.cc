@@ -746,7 +746,7 @@ void GenerateBatchesFromString(const std::shared_ptr<Schema>& schema,
 }
 
 TEST(ExecPlanExecution, SourceHashLeftSemiJoin) {
-  BatchesWithSchema l_batches, r_batches;
+  BatchesWithSchema l_batches, r_batches, exp_batches;
 
   GenerateBatchesFromString(schema({field("l_i32", int32()), field("l_str", utf8())}),
                             {R"([[0,"d"], [1,"b"]])", R"([[2,"d"], [3,"a"], [4,"a"]])",
@@ -777,10 +777,12 @@ TEST(ExecPlanExecution, SourceHashLeftSemiJoin) {
                                /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}));
   auto sink_gen = MakeSinkNode(semi_join, "sink");
 
-  ASSERT_THAT(
-      StartAndCollect(plan.get(), sink_gen),
-      Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
-          {int64(), utf8()}, R"([[1,"b"], [5,"b"], [6,"c"], [7,"e"], [8,"e"]])")}))));
+  GenerateBatchesFromString(
+      schema({field("l_i32", int32()), field("l_str", utf8())}),
+      {R"([[1,"b"]])", R"([])", R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"}, &exp_batches);
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
 }
 
 }  // namespace compute
