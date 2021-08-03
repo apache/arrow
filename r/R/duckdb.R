@@ -89,6 +89,16 @@ arrow_duck_connection <- function() {
   con
 }
 
+# helper function to determine if duckdb examples should run
+# see: https://github.com/r-lib/roxygen2/issues/1242
+run_duckdb_examples <- function() {
+  arrow_with_dataset() &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    packageVersion("duckdb") > "0.2.7" &&
+    requireNamespace("dplyr", quietly = TRUE) &&
+    requireNamespace("dbplyr", quietly = TRUE)
+}
+
 # Adapted from dbplyr
 unique_arrow_tablename <- function() {
   i <- getOption("arrow_table_name", 0) + 1
