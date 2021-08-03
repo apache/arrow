@@ -1017,8 +1017,9 @@ tasks:
   test-r-depsource-auto:
     ci: github
     template: docker-tests/github.linux.yml
-    flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
-    image: ubuntu-r-only-r
+    params:
+      flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
+      image: ubuntu-r-only-r
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
