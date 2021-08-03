@@ -158,6 +158,109 @@ std::vector<uint32_t> lut_swapcase_codepoint;
 std::vector<utf8proc_category_t> lut_category;
 std::once_flag flag_case_luts;
 
+// IsAlpha/Digit etc
+
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
+  utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
+                                             ? lut_category[codepoint]
+                                             : utf8proc_category(codepoint);
+  uint32_t general_category_bit = 1 << general_category;
+  // for e.g. undefined (but valid) codepoints, general_category == 0 ==
+  // UTF8PROC_CATEGORY_CN
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
+         ((general_category_bit & mask) != 0);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, mask | (1 << category), categories...);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, static_cast<uint32_t>(1u << category),
+                                      categories...);
+}
+
+static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
+         ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) ||
+          (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint));
+}
+
+static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
+  // although this trick seems to work for upper case, this is not enough for lower case
+  // testing, see https://github.com/JuliaStrings/utf8proc/issues/195 . But currently the
+  // best we can do
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) == codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
+}
+
+static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
+  // this seems to be a good workaround for utf8proc not having case information
+  // https://github.com/JuliaStrings/utf8proc/issues/195
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) == codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
+}
+
+static inline bool IsAlphaNumericCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(
+      codepoint, UTF8PROC_CATEGORY_LU, UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO, UTF8PROC_CATEGORY_ND,
+      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
+static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+                                      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
+}
+
+static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
+  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
+  // utf8proc has no support for this, this is the best we can do:
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
+  // Formally this is not correct, but utf8proc does not allow us to query for Numerical
+  // properties, e.g. Numeric_Value and Numeric_Type
+  // Python defines Numeric as Numeric_Type=Digit, Numeric_Type=Decimal or
+  // Numeric_Type=Numeric.
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
+                                      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
+static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
+  auto property = utf8proc_get_property(codepoint);
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ZS) ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_WS ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_B ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_S;
+}
+
+static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
+  uint32_t general_category = utf8proc_category(codepoint);
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
+                                       UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
+                                       UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
+                                       UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
+}
+
 void EnsureLookupTablesFilled() {
   std::call_once(flag_case_luts, []() {
     lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
@@ -168,9 +271,9 @@ void EnsureLookupTablesFilled() {
       lut_lower_codepoint.push_back(utf8proc_tolower(i));
       lut_category.push_back(utf8proc_category(i));
 
-      if (utf8proc_islower(i)) {
+      if (IsLowerCaseCharacterUnicode(i)) {
         lut_swapcase_codepoint.push_back(utf8proc_toupper(i));
-      } else if (utf8proc_isupper(i)) {
+      } else if (IsUpperCaseCharacterUnicode(i)) {
         lut_swapcase_codepoint.push_back(utf8proc_tolower(i));
       } else {
         lut_swapcase_codepoint.push_back(i);
@@ -378,9 +481,9 @@ struct UTF8SwapCaseTransform : public CaseMappingTransform {
     if (codepoint <= kMaxCodepointLookup) {
       return lut_swapcase_codepoint[codepoint];
     } else {
-      if (utf8proc_islower(codepoint)) {
+      if (IsLowerCaseCharacterUnicode(codepoint)) {
         return utf8proc_toupper(codepoint);
-      } else if (utf8proc_isupper(codepoint)) {
+      } else if (IsUpperCaseCharacterUnicode(codepoint)) {
         return utf8proc_tolower(codepoint);
       }
     }
@@ -1436,113 +1539,6 @@ void AddSlice(FunctionRegistry* registry) {
                             SliceCodeunitsTransform::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
-
-// IsAlpha/Digit etc
-
-#ifdef ARROW_WITH_UTF8PROC
-
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
-  utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
-                                             ? lut_category[codepoint]
-                                             : utf8proc_category(codepoint);
-  uint32_t general_category_bit = 1 << general_category;
-  // for e.g. undefined (but valid) codepoints, general_category == 0 ==
-  // UTF8PROC_CATEGORY_CN
-  return (general_category != UTF8PROC_CATEGORY_CN) &&
-         ((general_category_bit & mask) != 0);
-}
-
-template <typename... Categories>
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask,
-                                                utf8proc_category_t category,
-                                                Categories... categories) {
-  return HasAnyUnicodeGeneralCategory(codepoint, mask | (1 << category), categories...);
-}
-
-template <typename... Categories>
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
-                                                utf8proc_category_t category,
-                                                Categories... categories) {
-  return HasAnyUnicodeGeneralCategory(codepoint, static_cast<uint32_t>(1u << category),
-                                      categories...);
-}
-
-static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
-                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
-         ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) ||
-          (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint));
-}
-
-static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
-  // although this trick seems to work for upper case, this is not enough for lower case
-  // testing, see https://github.com/JuliaStrings/utf8proc/issues/195 . But currently the
-  // best we can do
-  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL) ||
-          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) &&
-           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) == codepoint))) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
-}
-
-static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
-  // this seems to be a good workaround for utf8proc not having case information
-  // https://github.com/JuliaStrings/utf8proc/issues/195
-  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
-          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) == codepoint) &&
-           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint))) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
-}
-
-static inline bool IsAlphaNumericCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(
-      codepoint, UTF8PROC_CATEGORY_LU, UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
-      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO, UTF8PROC_CATEGORY_ND,
-      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
-}
-
-static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
-                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
-                                      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
-}
-
-static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
-}
-
-static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
-  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
-  // utf8proc has no support for this, this is the best we can do:
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
-}
-
-static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
-  // Formally this is not correct, but utf8proc does not allow us to query for Numerical
-  // properties, e.g. Numeric_Value and Numeric_Type
-  // Python defines Numeric as Numeric_Type=Digit, Numeric_Type=Decimal or
-  // Numeric_Type=Numeric.
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
-                                      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
-}
-
-static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
-  auto property = utf8proc_get_property(codepoint);
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ZS) ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_WS ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_B ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_S;
-}
-
-static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
-  uint32_t general_category = utf8proc_category(codepoint);
-  return (general_category != UTF8PROC_CATEGORY_CN) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
-                                       UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
-                                       UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
-                                       UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
-}
-
-#endif
 
 template <typename Derived, bool allow_empty = false>
 struct CharacterPredicateUnicode {
