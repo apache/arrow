@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
@@ -244,7 +243,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private List<String> readilyGetTickets(final String query) {
     checkArgument(queryTickets.containsKey(query), "Query is not supported");
-    return synchronizedList(lazilyGetTickets(query).collect(toList()));
+    return lazilyGetTickets(query).collect(toList());
   }
 
   private FlightProducer getFlightProducer() {
