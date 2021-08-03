@@ -507,7 +507,8 @@ struct Utf8CapitalizeTransform : public StringTransformBase {
       if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&i, &codepoint))) {
         return kTransformError;
       }
-      int64_t codepoint_ncodeunits = std::min(i - input, input_string_ncodeunits);
+      int64_t codepoint_ncodeunits =
+          std::min(static_cast<int64_t>(i - input), input_string_ncodeunits);
       if (ARROW_PREDICT_FALSE(
               !util::UTF8Transform(input, input + codepoint_ncodeunits, &output,
                                    UTF8UpperTransform::TransformCodepoint))) {
