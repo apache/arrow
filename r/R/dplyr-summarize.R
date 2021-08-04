@@ -42,7 +42,11 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
 
-do_arrow_summarize <- function(.data, ...) {
+do_arrow_summarize <- function(.data, ..., .groups = NULL) {
+  if (!is.null(.groups)) {
+    # ARROW-13550
+    abort("`summarize()` with `.groups` argument not supported in Arrow")
+  }
   exprs <- quos(...)
   # Check for unnamed expressions and fix if any
   unnamed <- !nzchar(names(exprs))
