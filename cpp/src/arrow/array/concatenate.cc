@@ -482,9 +482,4 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   return MakeArray(std::move(out_data));
 }
 
-Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
-                   std::shared_ptr<Array>* out) {
-  return Concatenate(arrays, pool).Value(out);
-}
-
 }  // namespace arrow

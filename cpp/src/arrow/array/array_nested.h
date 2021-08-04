@@ -390,12 +390,6 @@ class ARROW_EXPORT UnionArray : public Array {
 
   UnionMode::type mode() const { return union_type_->mode(); }
 
-  // Return the given field as an individual array.
-  // For sparse unions, the returned array has its offset, length and null
-  // count adjusted.
-  ARROW_DEPRECATED("Deprecated in 1.0.0. Use field(pos)")
-  std::shared_ptr<Array> child(int pos) const;
-
   /// \brief Return the given field as an individual array.
   ///
   /// For sparse unions, the returned array has its offset, length and null

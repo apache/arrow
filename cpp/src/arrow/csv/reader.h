@@ -53,7 +53,9 @@ class ARROW_EXPORT TableReader {
                                                    const ParseOptions&,
                                                    const ConvertOptions&);
 
-  ARROW_DEPRECATED("Use MemoryPool-less variant (the IOContext holds a pool already)")
+  ARROW_DEPRECATED(
+      "Deprecated in 4.0.0. "
+      "Use MemoryPool-less variant (the IOContext holds a pool already)")
   static Result<std::shared_ptr<TableReader>> Make(
       MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
@@ -104,7 +106,7 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
 
-  ARROW_DEPRECATED("Use IOContext-based overload")
+  ARROW_DEPRECATED("Deprecated in 4.0.0. Use IOContext-based overload")
   static Result<std::shared_ptr<StreamingReader>> Make(
       MemoryPool* pool, std::shared_ptr<io::InputStream> input,
       const ReadOptions& read_options, const ParseOptions& parse_options,
