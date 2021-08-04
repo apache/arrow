@@ -33,7 +33,8 @@ public enum BaseProperty {
   PASSWORD("password"),
   KEYSTORE_PATH("keyStorePath"),
   KEYSTORE_PASS("keyStorePass"),
-  THREAD_POOL_SIZE("threadPoolSize", 1);
+  THREAD_POOL_SIZE("threadPoolSize", 1),
+  USE_TLS("useTls", false);
 
   private final String name;
   private final Object defaultValue;

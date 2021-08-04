@@ -75,10 +75,6 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     }
   }
 
-  private void setProperty(BaseProperty property, Object value) {
-    this.properties.put(property.getName(), value);
-  }
-
   private Object getPropertyOrDefault(BaseProperty host) {
     return this.properties.getOrDefault(host.getName(), host.getDefaultValue());
   }
@@ -88,7 +84,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * This will also update the connection URL.
    */
   public void setHost(String host) {
-    this.setProperty(BaseProperty.HOST, host);
+    this.properties.put(BaseProperty.HOST.getName(), host);
   }
 
   /**
@@ -103,7 +99,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * This will also update the connection URL.
    */
   public void setPort(int port) {
-    this.setProperty(BaseProperty.PORT, port);
+    this.properties.put(BaseProperty.PORT.getName(), port);
   }
 
   /**
@@ -117,7 +113,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * Sets the username used to authenticate the connections.
    */
   public void setUsername(String username) {
-    this.setProperty(BaseProperty.USERNAME, username);
+    this.properties.put(BaseProperty.USERNAME.getName(), username);
   }
 
   /**
@@ -131,7 +127,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * Sets the password used to authenticate the connections.
    */
   public void setPassword(String password) {
-    this.setProperty(BaseProperty.PASSWORD, password);
+    this.properties.put(BaseProperty.PASSWORD.getName(), password);
   }
 
   /**
@@ -142,10 +138,25 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   }
 
   /**
+   * Enable or disable usage of TLS on FlightClient.
+   */
+  public void setUseTls(boolean useTls) {
+    this.properties.put(BaseProperty.USE_TLS.getName(), useTls);
+  }
+
+  /**
+   * Returns if usage of TLS is enabled on FlightClient.
+   */
+  public boolean getUseTls() {
+    return (boolean) getPropertyOrDefault(BaseProperty.USE_TLS);
+  }
+
+  /**
    * Sets the key store path containing the trusted TLS certificates for the FlightClient.
    */
   public void setKeyStorePath(String keyStorePath) {
-    this.setProperty(BaseProperty.KEYSTORE_PATH, keyStorePath);
+    this.properties.put(BaseProperty.KEYSTORE_PATH.getName(), keyStorePath);
+    this.setUseTls(true);
   }
 
   /**
@@ -159,7 +170,7 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * Sets the key store password containing the trusted TLS certificates for the FlightClient.
    */
   public void setKeyStorePass(String keyStorePass) {
-    this.setProperty(BaseProperty.KEYSTORE_PASS, keyStorePass);
+    this.properties.put(BaseProperty.KEYSTORE_PASS.getName(), keyStorePass);
   }
 
   /**
