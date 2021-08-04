@@ -185,7 +185,7 @@ would have been detected automatically.
 
 ## Querying the dataset
 
-Up to this point, you haven't loaded any data.  You've walked directories to find
+Up to this point, you haven't loaded any data. You've walked directories to find
 files, you've parsed file paths to identify partitions, and you've read the
 headers of the Parquet files to inspect their schemas so that you can make sure
 they all are as expected.
