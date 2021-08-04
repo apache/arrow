@@ -26,7 +26,7 @@
 namespace arrow {
 namespace compute {
 
-const int64_t elems = 1024 * 1024;
+const int64_t kNumItems = 1024 * 1024;
 
 template <typename Type, typename Enable = void>
 struct SetBytesProcessed {};
@@ -282,35 +282,69 @@ static void CoalesceNonNullBench64(benchmark::State& state) {
   return CoalesceBench<Int64Type>(state);
 }
 
-BENCHMARK(IfElseBench32)->Args({elems, 0});
-BENCHMARK(IfElseBench64)->Args({elems, 0});
+template <typename Type>
+static void ChooseBench(benchmark::State& state) {
+  constexpr int kNumChoices = 5;
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
 
-BENCHMARK(IfElseBench32)->Args({elems, 99});
-BENCHMARK(IfElseBench64)->Args({elems, 99});
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
 
-BENCHMARK(IfElseBench32Contiguous)->Args({elems, 0});
-BENCHMARK(IfElseBench64Contiguous)->Args({elems, 0});
+  random::RandomArrayGenerator rand(/*seed=*/0);
 
-BENCHMARK(IfElseBench32Contiguous)->Args({elems, 99});
-BENCHMARK(IfElseBench64Contiguous)->Args({elems, 99});
+  std::vector<Datum> arguments;
+  arguments.emplace_back(
+      rand.Int64(len, /*min=*/0, /*max=*/kNumChoices - 1, /*null_probability=*/0.1)
+          ->Slice(offset));
+  for (int i = 0; i < kNumChoices; i++) {
+    arguments.emplace_back(
+        rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
+  }
 
-BENCHMARK(IfElseBenchString32)->Args({elems, 0});
-BENCHMARK(IfElseBenchString64)->Args({elems, 0});
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("choose", arguments));
+  }
 
-BENCHMARK(IfElseBenchString32Contiguous)->Args({elems, 99});
-BENCHMARK(IfElseBenchString64Contiguous)->Args({elems, 99});
+  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+}
 
-BENCHMARK(CaseWhenBench64)->Args({elems, 0});
-BENCHMARK(CaseWhenBench64)->Args({elems, 99});
+static void ChooseBench64(benchmark::State& state) {
+  return ChooseBench<Int64Type>(state);
+}
 
-BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
-BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 99});
+BENCHMARK(IfElseBench32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBench64)->Args({kNumItems, 0});
 
-BENCHMARK(CoalesceBench64)->Args({elems, 0});
-BENCHMARK(CoalesceBench64)->Args({elems, 99});
+BENCHMARK(IfElseBench32)->Args({kNumItems, 99});
+BENCHMARK(IfElseBench64)->Args({kNumItems, 99});
 
-BENCHMARK(CoalesceNonNullBench64)->Args({elems, 0});
-BENCHMARK(CoalesceNonNullBench64)->Args({elems, 99});
+BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 0});
+
+BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 99});
+BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 99});
+
+BENCHMARK(IfElseBenchString32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchString64)->Args({kNumItems, 0});
+
+BENCHMARK(IfElseBenchString32Contiguous)->Args({kNumItems, 99});
+BENCHMARK(IfElseBenchString64Contiguous)->Args({kNumItems, 99});
+
+BENCHMARK(CaseWhenBench64)->Args({kNumItems, 0});
+BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
+
+BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
+
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 0});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 99});
+
+BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 0});
+BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 99});
+
+BENCHMARK(ChooseBench64)->Args({kNumItems, 0});
+BENCHMARK(ChooseBench64)->Args({kNumItems, 99});
 
 }  // namespace compute
 }  // namespace arrow

@@ -895,25 +895,27 @@ Structural transforms
 +==========================+============+===================================================+=====================+=========+
 | case_when                | Varargs    | Struct of Boolean (Arg 0), Any fixed-width (rest) | Input type          | \(1)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| coalesce                 | Varargs    | Any                                               | Input type          | \(2)    |
+| choose                   | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(3)    |
+| coalesce                 | Varargs    | Any                                               | Input type          | \(3)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(4)    |
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(4)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_finite                | Unary      | Float, Double                                     | Boolean             | \(5)    |
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(5)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_inf                   | Unary      | Float, Double                                     | Boolean             | \(6)    |
+| is_finite                | Unary      | Float, Double                                     | Boolean             | \(6)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                     | Boolean             | \(7)    |
+| is_inf                   | Unary      | Float, Double                                     | Boolean             | \(7)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                               | Boolean             | \(8)    |
+| is_nan                   | Unary      | Float, Double                                     | Boolean             | \(8)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                               | Boolean             | \(9)    |
+| is_null                  | Unary      | Any                                               | Boolean             | \(9)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                         | Int32 or Int64      | \(10)   |
+| is_valid                 | Unary      | Any                                               | Boolean             | \(10)   |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| make_struct              | Varargs    | Any                                               | Struct              | \(11)   |
+| list_value_length        | Unary      | List-like                                         | Int32 or Int64      | \(11)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| make_struct              | Varargs    | Any                                               | Struct              | \(12)   |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL 'case when' statement or switch-case. The
@@ -925,14 +927,22 @@ Structural transforms
   the first value datum for which the corresponding Boolean is true, or the
   corresponding value from the 'default' input, or null otherwise.
 
-* \(2) Each row of the output will be the corresponding value of the first
+* \(2) The first input must be an integral type. The rest of the arguments can be
+  any type, but must all be the same type or promotable to a common type. Each
+  value of the first input (the 'index') is used as a zero-based index into the
+  remaining arguments (i.e. index 0 is the second argument, index 1 is the third
+  argument, etc.), and the value of the output for that row will be the
+  corresponding value of the selected input at that row. If the index is null,
+  then the output will also be null.
+
+* \(3) Each row of the output will be the corresponding value of the first
   input which is non-null for that row, otherwise null.
 
-* \(3) First input must be an array, second input a scalar of the same type.
+* \(4) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(4) First input must be a Boolean scalar or array. Second and third inputs
+* \(5) First input must be a Boolean scalar or array. Second and third inputs
   could be scalars or arrays and must be of the same type. Output is an array
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the
@@ -940,21 +950,21 @@ Structural transforms
 
   Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
-* \(5) Output is true iff the corresponding input element is finite (not Infinity,
+* \(6) Output is true iff the corresponding input element is finite (not Infinity,
   -Infinity, or NaN).
 
-* \(6) Output is true iff the corresponding input element is Infinity/-Infinity.
+* \(7) Output is true iff the corresponding input element is Infinity/-Infinity.
 
-* \(7) Output is true iff the corresponding input element is NaN.
+* \(8) Output is true iff the corresponding input element is NaN.
 
-* \(8) Output is true iff the corresponding input element is null.
+* \(9) Output is true iff the corresponding input element is null.
 
-* \(9) Output is true iff the corresponding input element is non-null.
+* \(10) Output is true iff the corresponding input element is non-null.
 
-* \(10) Each output element is the length of the corresponding input element
+* \(11) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
-* \(11) The output struct's field types are the types of its arguments. The
+* \(12) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.
