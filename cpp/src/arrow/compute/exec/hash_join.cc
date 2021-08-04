@@ -35,7 +35,8 @@ struct HashSemiJoinNode : ExecNode {
         build_index_field_ids_(build_index_field_ids),
         probe_index_field_ids_(probe_index_field_ids),
         build_result_index(-1),
-        hash_table_built_(false) {}
+        hash_table_built_(false),
+        cached_probe_batches_consumed(false) {}
 
  private:
   struct ThreadLocalState;
@@ -44,7 +45,7 @@ struct HashSemiJoinNode : ExecNode {
   const char* kind_name() override { return "HashSemiJoinNode"; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
-    ARROW_LOG(DEBUG) << "init ";
+    ARROW_LOG(DEBUG) << "init state";
 
     // Get input schema
     auto build_schema = inputs_[0]->output_schema();
@@ -80,10 +81,14 @@ struct HashSemiJoinNode : ExecNode {
     ARROW_LOG(DEBUG) << "build_result_index " << build_result_index;
   }
 
-  // Performs the housekeeping work after the build-side is completed. Note: this method
-  // should be called ONLY ONCE!
+  // Performs the housekeeping work after the build-side is completed.
+  // Note: this method is not thread safe, and hence should be guaranteed that it is
+  // not accessed concurrently!
   Status BuildSideCompleted() {
     ARROW_LOG(DEBUG) << "build side merge";
+
+    // if the hash table has already been built, return
+    if (hash_table_built_) return Status::OK();
 
     CalculateBuildResultIndex();
 
@@ -131,22 +136,27 @@ struct HashSemiJoinNode : ExecNode {
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
 
-    // Create a batch with group ids TODO(niranda) replace with void consume method
+    // Create a batch with group ids
+    // TODO(niranda) replace with void consume method
     ARROW_ASSIGN_OR_RAISE(Datum _, state->grouper->Consume(key_batch));
 
     if (build_counter_.Increment()) {
-      // while incrementing, if the total is reached, call BuildSideCompleted
+      // only one thread would get inside this block!
+      // while incrementing, if the total is reached, call BuildSideCompleted.
       RETURN_NOT_OK(BuildSideCompleted());
     }
 
     return Status::OK();
   }
 
-  // consumes cached probe batches by invoking executor::Spawn. This should be called by a
-  // single thread. Note: this method should be called ONLY ONCE!
+  // consumes cached probe batches by invoking executor::Spawn.
   Status ConsumeCachedProbeBatches() {
     ARROW_LOG(DEBUG) << "ConsumeCachedProbeBatches tid:" << get_thread_index_()
                      << " len:" << cached_probe_batches.size();
+
+    // acquire the mutex to access cached_probe_batches, because while consuming, other
+    // batches should not be cached!
+    std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
 
     if (!cached_probe_batches.empty()) {
       auto executor = ctx_->executor();
@@ -167,6 +177,9 @@ struct HashSemiJoinNode : ExecNode {
       // lambdas
       cached_probe_batches.clear();
     }
+
+    // set flag
+    cached_probe_batches_consumed = true;
     return Status::OK();
   }
 
@@ -214,12 +227,19 @@ struct HashSemiJoinNode : ExecNode {
     return Status::OK();
   }
 
-  //  void CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
-  void CacheProbeBatch(int seq_num, ExecBatch batch) {
+  // Attempt to cache a probe batch. If it is not cached, return false.
+  // if cached_probe_batches_consumed is true, by the time a thread acquires
+  // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
+  //  directly consumed!
+  bool AttemptToCacheProbeBatch(int seq_num, ExecBatch* batch) {
     ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " seq:" << seq_num
-                     << " len:" << batch.length;
+                     << " len:" << batch->length;
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
-    cached_probe_batches.emplace_back(seq_num, std::move(batch));
+    if (cached_probe_batches_consumed) {
+      return false;
+    }
+    cached_probe_batches.emplace_back(seq_num, std::move(*batch));
+    return true;
   }
 
   inline bool IsBuildInput(ExecNode* input) { return input == inputs_[0]; }
@@ -241,15 +261,18 @@ struct HashSemiJoinNode : ExecNode {
       ARROW_DCHECK(!hash_table_built_);
 
       ErrorIfNotOk(ConsumeBuildBatch(std::move(batch)));
-    } else {                    // probe input batch is received
-      if (hash_table_built_) {  // build side done, continue with probing
-        // consume cachedProbeBatches if available (for this thread)
-        ErrorIfNotOk(ConsumeCachedProbeBatches());
+    } else {  // probe input batch is received
+      if (hash_table_built_) {
+        // build side done, continue with probing. when hash_table_built_ is set, it is
+        // guaranteed that some thread has already called the ConsumeCachedProbeBatches
 
         // consume this probe batch
         ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
       } else {  // build side not completed. Cache this batch!
-        CacheProbeBatch(seq, std::move(batch));
+        if (!AttemptToCacheProbeBatch(seq, &batch)) {
+          // if the cache attempt fails, consume the batch
+          ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
+        }
       }
     }
   }
@@ -273,7 +296,8 @@ struct HashSemiJoinNode : ExecNode {
 
     // set total for build input
     if (IsBuildInput(input) && build_counter_.SetTotal(num_total)) {
-      // while incrementing, if the total is reached, call BuildSideCompleted()
+      // only one thread would get inside this block!
+      // while incrementing, if the total is reached, call BuildSideCompleted.
       ErrorIfNotOk(BuildSideCompleted());
       return;
     }
@@ -288,9 +312,9 @@ struct HashSemiJoinNode : ExecNode {
       ErrorIfNotOk(ConsumeCachedProbeBatches());
       outputs_[0]->InputFinished(this, num_total);
       finished_.MarkFinished();
+    } else {
+      outputs_[0]->InputFinished(this, num_total);
     }
-    outputs_[0]->InputFinished(this, num_total);
-    ARROW_LOG(DEBUG) << "output set:" << num_total;
   }
 
   Status StartProducing() override {
@@ -324,9 +348,7 @@ struct HashSemiJoinNode : ExecNode {
   // TODO(niranda) couldn't there be multiple outputs for a Node?
   void StopProducing() override {
     ARROW_LOG(DEBUG) << "stop prod ";
-    for (auto&& output : outputs_) {
-      StopProducing(output);
-    }
+    outputs_[0]->StopProducing();
   }
 
   Future<> finished() override {
@@ -348,9 +370,9 @@ struct HashSemiJoinNode : ExecNode {
   AtomicCounter build_counter_, out_counter_;
   std::vector<ThreadLocalState> local_states_;
 
-  // we have no guarantee which threads would be coming from the build side. so, out of
-  // the thread local states, we need to find an appropriate index which could accumulate
-  // all build indices (ideally, the grouper which has the highest # of elems)
+  // There's no guarantee on which threads would be coming from the build side. so, out of
+  // the thread local states, an appropriate state needs to be chosen to accumulate
+  // all built results (ideally, the grouper which has the highest # of elems)
   int32_t build_result_index;
 
   // need a separate bool to track if the build side complete. Can't use the flag
@@ -361,6 +383,11 @@ struct HashSemiJoinNode : ExecNode {
 
   std::mutex cached_probe_batches_mutex;
   std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
+  // a flag is required to indicate if the cached probe batches have already been
+  // consumed! if cached_probe_batches_consumed is true, by the time a thread aquires
+  // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
+  // directly consumed!
+  bool cached_probe_batches_consumed;
 };
 
 Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,
