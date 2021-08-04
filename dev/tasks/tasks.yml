@@ -980,14 +980,18 @@ tasks:
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
-{% for debian_version in ["10", "11"] %}
-  test-debian-{{ debian_version }}-cpp:
+{% for arch, flags in [("amd64", ""), ("i386", "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF")] %}
+  {% for debian_version in [("10", "11"] %}
+  test-debian-{{ debian_version }}-cpp-{{ arch }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCH: "{{ arch }}"
         DEBIAN: "{{ debian_version }}"
+      flags: "{{ flags }}"
       image: debian-cpp
+  {% endfor %}
 {% endfor %}
 
   test-fedora-33-cpp:

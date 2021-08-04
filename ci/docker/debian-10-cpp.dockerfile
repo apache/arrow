@@ -72,7 +72,13 @@ RUN apt-get update -y -q && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
+<<<<<<< HEAD
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+=======
+RUN if [ "${arch}" != "i386" ]; then \
+      /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local; \
+    fi
+>>>>>>> 35114b428 (debian i386)
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
