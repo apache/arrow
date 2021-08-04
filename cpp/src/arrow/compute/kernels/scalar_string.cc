@@ -81,6 +81,51 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
                                                               : utf8_code_unit;
 }
 
+static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'a') && (ascii_character <= 'z');
+}
+
+static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
+  return (ascii_character >= 'A') && (ascii_character <= 'Z');
+}
+
+static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  return IsLowerCaseCharacterAscii(ascii_character) ||
+         IsUpperCaseCharacterAscii(ascii_character);
+}
+
+static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
+  return IsCasedCharacterAscii(ascii_character);  // same
+}
+
+static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9')) ||
+         ((ascii_character >= 'a') && (ascii_character <= 'z')) ||
+         ((ascii_character >= 'A') && (ascii_character <= 'Z'));
+}
+
+static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= '0') && (ascii_character <= '9'));
+}
+
+static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
+         (ascii_character == ' ');
+}
+
+static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
+  return ((ascii_character >= ' ') && (ascii_character <= '~'));
+}
+
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
+
 template <typename T>
 static inline bool IsAsciiCharacter(T character) {
   return character < 128;
@@ -109,17 +154,130 @@ constexpr uint32_t kMaxCodepointLookup =
     0xffff;  // up to this codepoint is in a lookup table
 std::vector<uint32_t> lut_upper_codepoint;
 std::vector<uint32_t> lut_lower_codepoint;
+std::vector<uint32_t> lut_swapcase_codepoint;
 std::vector<utf8proc_category_t> lut_category;
 std::once_flag flag_case_luts;
+
+// IsAlpha/Digit etc
+
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
+  utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
+                                             ? lut_category[codepoint]
+                                             : utf8proc_category(codepoint);
+  uint32_t general_category_bit = 1 << general_category;
+  // for e.g. undefined (but valid) codepoints, general_category == 0 ==
+  // UTF8PROC_CATEGORY_CN
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
+         ((general_category_bit & mask) != 0);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, mask | (1 << category), categories...);
+}
+
+template <typename... Categories>
+static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
+                                                utf8proc_category_t category,
+                                                Categories... categories) {
+  return HasAnyUnicodeGeneralCategory(codepoint, static_cast<uint32_t>(1u << category),
+                                      categories...);
+}
+
+static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
+         ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) ||
+          (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint));
+}
+
+static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
+  // although this trick seems to work for upper case, this is not enough for lower case
+  // testing, see https://github.com/JuliaStrings/utf8proc/issues/195 . But currently the
+  // best we can do
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) == codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
+}
+
+static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
+  // this seems to be a good workaround for utf8proc not having case information
+  // https://github.com/JuliaStrings/utf8proc/issues/195
+  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
+          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) == codepoint) &&
+           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint))) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
+}
+
+static inline bool IsAlphaNumericCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(
+      codepoint, UTF8PROC_CATEGORY_LU, UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO, UTF8PROC_CATEGORY_ND,
+      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
+static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
+                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
+                                      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
+}
+
+static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
+  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
+  // utf8proc has no support for this, this is the best we can do:
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
+}
+
+static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
+  // Formally this is not correct, but utf8proc does not allow us to query for Numerical
+  // properties, e.g. Numeric_Value and Numeric_Type
+  // Python defines Numeric as Numeric_Type=Digit, Numeric_Type=Decimal or
+  // Numeric_Type=Numeric.
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
+                                      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
+}
+
+static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
+  auto property = utf8proc_get_property(codepoint);
+  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ZS) ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_WS ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_B ||
+         property->bidi_class == UTF8PROC_BIDI_CLASS_S;
+}
+
+static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
+  uint32_t general_category = utf8proc_category(codepoint);
+  return (general_category != UTF8PROC_CATEGORY_CN) &&
+         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
+                                       UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
+                                       UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
+                                       UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
+}
 
 void EnsureLookupTablesFilled() {
   std::call_once(flag_case_luts, []() {
     lut_upper_codepoint.reserve(kMaxCodepointLookup + 1);
     lut_lower_codepoint.reserve(kMaxCodepointLookup + 1);
+    lut_swapcase_codepoint.reserve(kMaxCodepointLookup + 1);
     for (uint32_t i = 0; i <= kMaxCodepointLookup; i++) {
       lut_upper_codepoint.push_back(utf8proc_toupper(i));
       lut_lower_codepoint.push_back(utf8proc_tolower(i));
       lut_category.push_back(utf8proc_category(i));
+
+      if (IsLowerCaseCharacterUnicode(i)) {
+        lut_swapcase_codepoint.push_back(utf8proc_toupper(i));
+      } else if (IsUpperCaseCharacterUnicode(i)) {
+        lut_swapcase_codepoint.push_back(utf8proc_tolower(i));
+      } else {
+        lut_swapcase_codepoint.push_back(i);
+      }
     }
   });
 }
@@ -318,6 +476,26 @@ struct UTF8LowerTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
+struct UTF8SwapCaseTransform : public CaseMappingTransform {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
+    if (codepoint <= kMaxCodepointLookup) {
+      return lut_swapcase_codepoint[codepoint];
+    } else {
+      if (IsLowerCaseCharacterUnicode(codepoint)) {
+        return utf8proc_toupper(codepoint);
+      } else if (IsUpperCaseCharacterUnicode(codepoint)) {
+        return utf8proc_tolower(codepoint);
+      }
+    }
+
+    return codepoint;
+  }
+};
+
+template <typename Type>
+using UTF8SwapCase =
+    StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
+
 #endif  // ARROW_WITH_UTF8PROC
 
 struct AsciiReverseTransform : public StringTransformBase {
@@ -440,6 +618,17 @@ template <typename Type>
 struct AsciiLower {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiLower, out);
+  }
+};
+
+void TransformAsciiSwapCase(const uint8_t* input, int64_t length, uint8_t* output) {
+  std::transform(input, input + length, output, ascii_swapcase);
+}
+
+template <typename Type>
+struct AsciiSwapCase {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return StringDataTransform<Type>(ctx, batch, TransformAsciiSwapCase, out);
   }
 };
 
@@ -1349,149 +1538,6 @@ void AddSlice(FunctionRegistry* registry) {
   DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec,
                             SliceCodeunitsTransform::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-// IsAlpha/Digit etc
-
-#ifdef ARROW_WITH_UTF8PROC
-
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask) {
-  utf8proc_category_t general_category = codepoint <= kMaxCodepointLookup
-                                             ? lut_category[codepoint]
-                                             : utf8proc_category(codepoint);
-  uint32_t general_category_bit = 1 << general_category;
-  // for e.g. undefined (but valid) codepoints, general_category == 0 ==
-  // UTF8PROC_CATEGORY_CN
-  return (general_category != UTF8PROC_CATEGORY_CN) &&
-         ((general_category_bit & mask) != 0);
-}
-
-template <typename... Categories>
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint, uint32_t mask,
-                                                utf8proc_category_t category,
-                                                Categories... categories) {
-  return HasAnyUnicodeGeneralCategory(codepoint, mask | (1 << category), categories...);
-}
-
-template <typename... Categories>
-static inline bool HasAnyUnicodeGeneralCategory(uint32_t codepoint,
-                                                utf8proc_category_t category,
-                                                Categories... categories) {
-  return HasAnyUnicodeGeneralCategory(codepoint, static_cast<uint32_t>(1u << category),
-                                      categories...);
-}
-
-static inline bool IsCasedCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
-                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT) ||
-         ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) ||
-          (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint));
-}
-
-static inline bool IsLowerCaseCharacterUnicode(uint32_t codepoint) {
-  // although this trick seems to work for upper case, this is not enough for lower case
-  // testing, see https://github.com/JuliaStrings/utf8proc/issues/195 . But currently the
-  // best we can do
-  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LL) ||
-          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) != codepoint) &&
-           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) == codepoint))) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
-}
-
-static inline bool IsUpperCaseCharacterUnicode(uint32_t codepoint) {
-  // this seems to be a good workaround for utf8proc not having case information
-  // https://github.com/JuliaStrings/utf8proc/issues/195
-  return (HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU) ||
-          ((static_cast<uint32_t>(utf8proc_toupper(codepoint)) == codepoint) &&
-           (static_cast<uint32_t>(utf8proc_tolower(codepoint)) != codepoint))) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LT);
-}
-
-static inline bool IsAlphaNumericCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(
-      codepoint, UTF8PROC_CATEGORY_LU, UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
-      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO, UTF8PROC_CATEGORY_ND,
-      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
-}
-
-static inline bool IsAlphaCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_LU,
-                                      UTF8PROC_CATEGORY_LL, UTF8PROC_CATEGORY_LT,
-                                      UTF8PROC_CATEGORY_LM, UTF8PROC_CATEGORY_LO);
-}
-
-static inline bool IsDecimalCharacterUnicode(uint32_t codepoint) {
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
-}
-
-static inline bool IsDigitCharacterUnicode(uint32_t codepoint) {
-  // Python defines this as Numeric_Type=Digit or Numeric_Type=Decimal.
-  // utf8proc has no support for this, this is the best we can do:
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND);
-}
-
-static inline bool IsNumericCharacterUnicode(uint32_t codepoint) {
-  // Formally this is not correct, but utf8proc does not allow us to query for Numerical
-  // properties, e.g. Numeric_Value and Numeric_Type
-  // Python defines Numeric as Numeric_Type=Digit, Numeric_Type=Decimal or
-  // Numeric_Type=Numeric.
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ND,
-                                      UTF8PROC_CATEGORY_NL, UTF8PROC_CATEGORY_NO);
-}
-
-static inline bool IsSpaceCharacterUnicode(uint32_t codepoint) {
-  auto property = utf8proc_get_property(codepoint);
-  return HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_ZS) ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_WS ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_B ||
-         property->bidi_class == UTF8PROC_BIDI_CLASS_S;
-}
-
-static inline bool IsPrintableCharacterUnicode(uint32_t codepoint) {
-  uint32_t general_category = utf8proc_category(codepoint);
-  return (general_category != UTF8PROC_CATEGORY_CN) &&
-         !HasAnyUnicodeGeneralCategory(codepoint, UTF8PROC_CATEGORY_CC,
-                                       UTF8PROC_CATEGORY_CF, UTF8PROC_CATEGORY_CS,
-                                       UTF8PROC_CATEGORY_CO, UTF8PROC_CATEGORY_ZS,
-                                       UTF8PROC_CATEGORY_ZL, UTF8PROC_CATEGORY_ZP);
-}
-
-#endif
-
-static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'a') && (ascii_character <= 'z');
-}
-
-static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
-  return (ascii_character >= 'A') && (ascii_character <= 'Z');
-}
-
-static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
-  return IsLowerCaseCharacterAscii(ascii_character) ||
-         IsUpperCaseCharacterAscii(ascii_character);
-}
-
-static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
-}
-
-static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= '0') && (ascii_character <= '9')) ||
-         ((ascii_character >= 'a') && (ascii_character <= 'z')) ||
-         ((ascii_character >= 'A') && (ascii_character <= 'Z'));
-}
-
-static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= '0') && (ascii_character <= '9'));
-}
-
-static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
-         (ascii_character == ' ');
-}
-
-static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= ' ') && (ascii_character <= '~'));
 }
 
 template <typename Derived, bool allow_empty = false>
@@ -4020,6 +4066,14 @@ const FunctionDoc ascii_lower_doc(
      "non-ASCII characters, use \"utf8_lower\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_swapcase_doc(
+    "Transform ASCII input lowercase characters to uppercase and uppercase characters to "
+    "lowercase",
+    ("For each string in `strings`, return a string with opposite casing.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_swapcase\" instead."),
+    {"strings"});
+
 const FunctionDoc utf8_upper_doc(
     "Transform input to uppercase",
     ("For each string in `strings`, return an uppercase version."), {"strings"});
@@ -4027,6 +4081,11 @@ const FunctionDoc utf8_upper_doc(
 const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
+
+const FunctionDoc utf8_swapcase_doc(
+    "Transform input lowercase characters to uppercase and uppercase characters to "
+    "lowercase",
+    ("For each string in `strings`, return an opposite case version."), {"strings"});
 
 const FunctionDoc ascii_reverse_doc(
     "Reverse ASCII input",
@@ -4052,6 +4111,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
                                          MemAllocation::NO_PREALLOCATE);
+  MakeUnaryStringBatchKernel<AsciiSwapCase>(
+      "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
@@ -4095,6 +4156,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
   MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, &utf8_upper_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
+  MakeUnaryStringUTF8TransformKernel<UTF8SwapCase>("utf8_swapcase", registry,
+                                                   &utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,

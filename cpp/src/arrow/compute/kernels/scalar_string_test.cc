@@ -395,6 +395,14 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiSwapCase) {
+  this->CheckUnary("ascii_swapcase", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_swapcase", "[\"aAazZæÆ&\", null, \"\", \"BbB\"]", this->type(),
+                   "[\"AaAZzæÆ&\", null, \"\", \"bBb\"]");
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
+}
+
 TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
@@ -491,6 +499,26 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
   auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_lower", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8SwapCase) {
+  this->CheckUnary("utf8_swapcase", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
+                   "[\"AaAZzÆæ&\", null, \"\", \"B\"]");
+
+  // test varying encoding lengths and thus changing indices/offsets
+  this->CheckUnary("utf8_swapcase", "[\"ⱭɽⱤoW\", null, \"ıI\", \"B\"]", this->type(),
+                   "[\"ɑⱤɽOw\", null, \"Ii\", \"b\"]");
+
+  // test maximum buffer growth
+  this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
+
+  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+                   "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
+
+  // Test invalid data
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+                                  CallFunction("utf8_swapcase", {invalid_input}));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
