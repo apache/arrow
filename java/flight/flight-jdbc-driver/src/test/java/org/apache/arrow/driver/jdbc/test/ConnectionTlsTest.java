@@ -87,8 +87,6 @@ public class ConnectionTlsTest {
     });
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
-
-    Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
 
   @After
