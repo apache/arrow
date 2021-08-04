@@ -48,6 +48,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(is_substr, {}),
 
       BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
+      BINARY_UNSAFE_NULL_IF_NULL(strpos, {}, utf8, int32),
 
       UNARY_OCTET_LEN_FN(octet_length, {}), UNARY_OCTET_LEN_FN(bit_length, {}),
 

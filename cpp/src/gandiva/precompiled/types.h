@@ -434,6 +434,9 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len);
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
                            const char* str, gdv_int32 str_len);
 
+gdv_int32 strpos_utf8_utf8(gdv_int64 context, const char* str, gdv_int32 str_len,
+                           const char* sub_str, gdv_int32 sub_str_len);
+
 gdv_int32 locate_utf8_utf8_int32(gdv_int64 context, const char* sub_str,
                                  gdv_int32 sub_str_len, const char* str,
                                  gdv_int32 str_len, gdv_int32 start_pos);

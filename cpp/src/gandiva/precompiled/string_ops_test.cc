@@ -1399,6 +1399,50 @@ TEST(TestStringOps, TestByteSubstr) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestStrPos) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  int pos;
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "TestString", 10, "String", 6);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "abcabc", 6, "abc", 3);
+  EXPECT_EQ(pos, 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "s†å†emçåå†d", 21, "çåå", 6);
+  EXPECT_EQ(pos, 7);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "†barbar", 9, "bar", 3);
+  EXPECT_EQ(pos, 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "", 0, "sub", 3);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = strpos_utf8_utf8(ctx_ptr, "str", 3, "", 0);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "a\xff"
+      "c");
+  pos = strpos_utf8_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), "c", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestReplace) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
