@@ -2023,7 +2023,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
   ExecContext* ctx_;
   MemoryPool* pool_;
-  uint32_t num_groups_;
+  int64_t num_groups_;
   std::unique_ptr<Grouper> grouper_;
 };
 
