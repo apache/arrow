@@ -282,8 +282,8 @@ namespace compute {
 Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
                               int expected_num_inputs, const char* kind_name) {
   if (static_cast<int>(inputs.size()) != expected_num_inputs) {
-    return Status::Invalid(kind_name, " node requires ", expected_num_inputs, " but got ",
-                           inputs.size());
+    return Status::Invalid(kind_name, " node requires ", expected_num_inputs,
+                           " inputs but got ", inputs.size());
   }
 
   for (auto input : inputs) {

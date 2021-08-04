@@ -22,7 +22,9 @@
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
+#include <arrow/compute/exec/options.h>
 #include <arrow/table.h>
+#include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
@@ -42,13 +44,25 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   return plan;
 }
 
+std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
+    const std::string& factory_name, compute::ExecPlan* plan,
+    std::vector<compute::ExecNode*> inputs, const compute::ExecNodeOptions& options) {
+  return std::shared_ptr<compute::ExecNode>(
+      ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
+      [](...) {
+        // empty destructor: ExecNode lifetime is managed by an ExecPlan
+      });
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
-  auto sink_gen = compute::MakeSinkNode(final_node.get(), "sink");
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                     compute::SinkNodeOptions{&sink_gen});
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
@@ -58,13 +72,6 @@ std::shared_ptr<arrow::Table> ExecPlan_run(
 
   plan->finished().Wait();
   return ValueOrStop(arrow::Table::FromRecordBatchReader(sink_reader.get()));
-}
-
-std::shared_ptr<compute::ExecNode> ExecNodeOrStop(
-    arrow::Result<compute::ExecNode*> maybe_node) {
-  return std::shared_ptr<compute::ExecNode>(ValueOrStop(maybe_node), [](...) {
-    // empty destructor: ExecNode lifetime is managed by an ExecPlan
-  });
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -98,7 +105,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
                        compute::MakeStructOptions{std::move(materialized_field_names)})
                       .Bind(*dataset->schema()));
 
-  return ExecNodeOrStop(arrow::dataset::MakeScanNode(plan.get(), dataset, options));
+  return MakeExecNodeOrStop("scan", plan.get(), {},
+                            arrow::dataset::ScanNodeOptions{dataset, options});
 }
 
 #endif
@@ -107,8 +115,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 std::shared_ptr<compute::ExecNode> ExecNode_Filter(
     const std::shared_ptr<compute::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
-  return ExecNodeOrStop(
-      compute::MakeFilterNode(input.get(), /*label=*/"filter", *filter));
+  return MakeExecNodeOrStop("filter", input->plan(), {input.get()},
+                            compute::FilterNodeOptions{*filter});
 }
 
 // [[arrow::export]]
@@ -121,14 +129,16 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
   for (auto expr : exprs) {
     expressions.push_back(*expr);
   }
-  return ExecNodeOrStop(compute::MakeProjectNode(
-      input.get(), /*label=*/"project", std::move(expressions), std::move(names)));
+  return MakeExecNodeOrStop(
+      "project", input->plan(), {input.get()},
+      compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
 // [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
+std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
-    std::vector<std::string> target_names, std::vector<std::string> out_field_names) {
+    std::vector<std::string> target_names, std::vector<std::string> out_field_names,
+    std::vector<std::string> key_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
   std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
 
@@ -141,37 +151,17 @@ std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(
     keep_alives.push_back(std::move(opts));
   }
 
-  std::vector<arrow::FieldRef> targets;
+  std::vector<arrow::FieldRef> targets, keys;
   for (auto&& name : target_names) {
     targets.emplace_back(std::move(name));
   }
-  return ExecNodeOrStop(compute::MakeScalarAggregateNode(
-      input.get(), /*label=*/"scalar_agg", std::move(aggregates), std::move(targets),
-      std::move(out_field_names)));
-}
-
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_GroupByAggregate(
-    const std::shared_ptr<compute::ExecNode>& input, std::vector<std::string> group_vars,
-    std::vector<std::string> agg_srcs, cpp11::list aggregations) {
-  std::vector<arrow::compute::internal::Aggregate> aggs;
-  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
-
-  for (cpp11::list name_opts : aggregations) {
-    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
-    auto opts = make_compute_options(name, name_opts[1]);
-
-    aggs.push_back(arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-    keep_alives.push_back(std::move(opts));
+  for (auto&& name : key_names) {
+    keys.emplace_back(std::move(name));
   }
-
-  return ExecNodeOrStop(compute::MakeGroupByNode(input.get(), /*label=*/"group_agg",
-                                                 /*keys=*/std::move(group_vars),
-                                                 std::move(agg_srcs), std::move(aggs)));
+  return MakeExecNodeOrStop(
+      "aggregate", input->plan(), {input.get()},
+      compute::AggregateNodeOptions{std::move(aggregates), std::move(targets),
+                                    std::move(out_field_names), std::move(keys)});
 }
 
-// Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
-//                                   std::vector<std::string> keys,
-//                                   std::vector<std::string> agg_srcs,
-//                                   std::vector<internal::Aggregate> aggs);
 #endif
