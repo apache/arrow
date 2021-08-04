@@ -163,7 +163,7 @@ os_release <- function() {
       out$codename <- vals[["VERSION_CODENAME"]]
     } else {
       # This probably isn't right, maybe could extract codename from pretty name?
-      out$codename = vals[["PRETTY_NAME"]]
+      out$codename <- vals[["PRETTY_NAME"]]
     }
     out
   } else {
@@ -410,14 +410,16 @@ cmake_version <- function(cmd = "cmake") {
       which_line <- grep(pat, raw_version)
       package_version(sub(pat, "\\1", raw_version[which_line]))
     },
-    error = function(e) return(0)
+    error = function(e) {
+      return(0)
+    }
   )
 }
 
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   # but if ARROW_S3=OFF explicitly, we are definitely off, so override
-  if (toupper(Sys.getenv("ARROW_S3")) == "OFF" ) {
+  if (toupper(Sys.getenv("ARROW_S3")) == "OFF") {
     arrow_s3 <- FALSE
   }
   if (arrow_s3) {
@@ -441,7 +443,7 @@ with_s3_support <- function(env_vars) {
 with_mimalloc <- function(env_vars) {
   arrow_mimalloc <- toupper(Sys.getenv("ARROW_MIMALLOC")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_mimalloc) {
-  # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
+    # User wants mimalloc. If they're using gcc, let's make sure the version is >= 4.9
     if (isTRUE(cmake_gcc_version(env_vars) < "4.9")) {
       cat("**** mimalloc support not available for gcc < 4.9; building with ARROW_MIMALLOC=OFF\n")
       arrow_mimalloc <- FALSE
@@ -515,6 +517,6 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
       cat("*** Proceeding without C++ dependencies\n")
     }
   } else {
-   cat("*** Proceeding without C++ dependencies\n")
+    cat("*** Proceeding without C++ dependencies\n")
   }
 }

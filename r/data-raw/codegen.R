@@ -238,8 +238,8 @@ r_functions <- arrow_exports %>%
     }
 
     glue::glue('
-    {name} <- function({list_params}){{
-        {call}
+    {name} <- function({list_params}) {{
+      {call}
     }}
 
     ',
