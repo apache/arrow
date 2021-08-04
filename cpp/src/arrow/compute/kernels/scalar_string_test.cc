@@ -501,9 +501,6 @@ TYPED_TEST(TestStringKernels, Utf8Lower) {
                                   CallFunction("utf8_lower", {invalid_input}));
 }
 
-// Older versions of utf8proc fail
-#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
-
 TYPED_TEST(TestStringKernels, Utf8SwapCase) {
   this->CheckUnary("utf8_swapcase", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
                    "[\"AaAZzÆæ&\", null, \"\", \"B\"]");
@@ -523,8 +520,6 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
                                   CallFunction("utf8_swapcase", {invalid_input}));
 }
-
-#endif  // UTF8PROC_VERSION_MINOR >= 5
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
   // U+08BE (utf8: 	\xE0\xA2\xBE) is undefined, but utf8proc things it is
