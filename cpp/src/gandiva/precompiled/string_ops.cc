@@ -2052,6 +2052,69 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   return ret;
 }
 
+#define CAST_INT_BIGINT_VARBINARY(OUT_TYPE, TYPE_NAME)                                 \
+  FORCE_INLINE                                                                         \
+  OUT_TYPE                                                                             \
+  cast##TYPE_NAME##_varbinary(gdv_int64 context, const char* in, int32_t in_len) {     \
+    if (in_len == 0) {                                                                 \
+      gdv_fn_context_set_error_msg(context, "Can't cast an empty string.");            \
+      return -1;                                                                       \
+    }                                                                                  \
+    char sign = in[0];                                                                 \
+                                                                                       \
+    bool negative = false;                                                             \
+    if (sign == '-') {                                                                 \
+      negative = true;                                                                 \
+      /* Ignores the sign char in the hexadecimal string */                            \
+      in++;                                                                            \
+      in_len--;                                                                        \
+    }                                                                                  \
+                                                                                       \
+    if (negative && in_len == 0) {                                                     \
+      gdv_fn_context_set_error_msg(context,                                            \
+                                   "Can't cast hexadecimal with only a minus sign.");  \
+      return -1;                                                                       \
+    }                                                                                  \
+                                                                                       \
+    OUT_TYPE result = 0;                                                               \
+    int digit;                                                                         \
+                                                                                       \
+    int read_index = 0;                                                                \
+    while (read_index < in_len) {                                                      \
+      char c1 = in[read_index];                                                        \
+      if (isxdigit(c1)) {                                                              \
+        digit = to_binary_from_hex(c1);                                                \
+                                                                                       \
+        OUT_TYPE next = result * 16 - digit;                                           \
+                                                                                       \
+        if (next > result) {                                                           \
+          gdv_fn_context_set_error_msg(context, "Integer overflow.");                  \
+          return -1;                                                                   \
+        }                                                                              \
+        result = next;                                                                 \
+        read_index++;                                                                  \
+      } else {                                                                         \
+        gdv_fn_context_set_error_msg(context,                                          \
+                                     "The hexadecimal given has invalid characters."); \
+        return -1;                                                                     \
+      }                                                                                \
+    }                                                                                  \
+    if (!negative) {                                                                   \
+      result *= -1;                                                                    \
+                                                                                       \
+      if (result < 0) {                                                                \
+        gdv_fn_context_set_error_msg(context, "Integer overflow.");                    \
+        return -1;                                                                     \
+      }                                                                                \
+    }                                                                                  \
+    return result;                                                                     \
+  }
+
+CAST_INT_BIGINT_VARBINARY(int32_t, INT)
+CAST_INT_BIGINT_VARBINARY(int64_t, BIGINT)
+
+#undef CAST_INT_BIGINT_VARBINARY
+
 // Produces the binary representation of a string y characters long derived by starting
 // at offset 'x' and considering the defined length 'y'. Notice that the offset index
 // may be a negative number (starting from the end of the string), or a positive number

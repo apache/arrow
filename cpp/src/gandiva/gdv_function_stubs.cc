@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/util/base64.h"
+#include "arrow/util/double_conversion.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
@@ -364,10 +365,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
+#define CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)  \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
-                                         int32_t len) {                              \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
+                                                 int32_t len) {                      \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
     int32_t trimmed_len;                                                             \
@@ -388,12 +389,25 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return val;                                                                      \
   }
 
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME) \
+  CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, utf8)
+
 CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
 CAST_NUMERIC_FROM_STRING(int64_t, arrow::Int64Type, BIGINT)
 CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
 CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
+
+#define CAST_NUMERIC_FROM_VARBINARY(OUT_TYPE, ARROW_TYPE, TYPE_NAME) \
+  CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, varbinary)
+
+CAST_NUMERIC_FROM_VARBINARY(int32_t, arrow::Int32Type, INT)
+CAST_NUMERIC_FROM_VARBINARY(int64_t, arrow::Int64Type, BIGINT)
+CAST_NUMERIC_FROM_VARBINARY(float, arrow::FloatType, FLOAT4)
+CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
+
+#undef CAST_NUMERIC_STRING
 
 #define GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(IN_TYPE, CAST_NAME, ARROW_TYPE)      \
   GANDIVA_EXPORT                                                                  \
@@ -1055,6 +1069,36 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_castVARCHAR_float64_int64", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_castVARCHAR_float64_int64));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castINT_varbinary", types->i32_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castINT_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castBIGINT_varbinary", types->i64_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castBIGINT_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT4_varbinary", types->float_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT4_varbinary));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_varbinary", types->double_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT8_varbinary));
 
   // gdv_fn_sha1_int8
   args = {
