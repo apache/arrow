@@ -84,9 +84,6 @@ public class ConnectionTest {
             .build());
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getLocalhost() + ":" + this.server.getPort();
-
-    // TODO Double-check this later.
-    Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
 
   @After
