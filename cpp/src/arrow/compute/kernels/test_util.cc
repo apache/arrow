@@ -174,10 +174,10 @@ void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expecte
   }
 }
 
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
-                      std::shared_ptr<Array> expected, const FunctionOptions* options) {
-  ArrayVector input_vector = {input};
-  CheckScalar(std::move(func_name), GetDatums(input_vector), expected, options);
+void CheckScalarUnary(std::string func_name, Datum input, Datum expected,
+                      const FunctionOptions* options) {
+  std::vector<Datum> input_vector = {std::move(input)};
+  CheckScalar(std::move(func_name), input_vector, expected, options);
 }
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
@@ -185,11 +185,6 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_expected, const FunctionOptions* options) {
   CheckScalarUnary(std::move(func_name), ArrayFromJSON(in_ty, json_input),
                    ArrayFromJSON(out_ty, json_expected), options);
-}
-
-void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
-                      std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
-  CheckScalar(std::move(func_name), {input}, expected, options);
 }
 
 void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
@@ -200,27 +195,9 @@ void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array>
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
-                       std::shared_ptr<Scalar> right_input,
-                       std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
-  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
-}
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
-                       std::shared_ptr<Array> right_input,
-                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
-  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
-}
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
-                       std::shared_ptr<Scalar> right_input,
-                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
-  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
-}
-
-void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
-                       std::shared_ptr<Array> right_input,
-                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
+void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
+                       Datum expected, const FunctionOptions* options) {
+  std::cout << "Option 1" << std::endl;
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
