@@ -299,7 +299,7 @@ same directory, you can provide a file path or a vector of multiple file paths
 to `open_dataset()`. This is useful if, for example, you have a single CSV file 
 that is too big to read into memory. You could pass the file path to 
 `open_dataset()`, use `group_by()` to partition the Dataset into manageable chunks, 
-then use `write_dataset()` to write each chunk to a separate Parquet file - all 
+then use `write_dataset()` to write each chunk to a separate Parquet file—all 
 without needing to read the full CSV file into R.
 
 ### Explicitly declare column names and data types
