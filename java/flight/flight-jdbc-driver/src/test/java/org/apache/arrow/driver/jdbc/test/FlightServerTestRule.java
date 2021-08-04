@@ -27,6 +27,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -40,7 +41,6 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.function.Function;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -160,7 +160,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     final String url = "jdbc:arrow-flight://" + getProperty(HOST) + ":" + getProperty(PORT);
 
-    return (new ArrowFlightJdbcDriver()).connect(url, props);
+    return DriverManager.getConnection(url, props);
   }
 
   @Override
