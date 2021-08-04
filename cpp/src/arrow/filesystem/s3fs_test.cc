@@ -985,6 +985,45 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   AssertFileInfo(fs.get(), path, FileType::File, 8);
 }
 
+// Simple retry strategy that records errors encountered and its emitted retry delays
+class TestRetryStrategy : public S3RetryStrategy {
+ public:
+  bool ShouldRetry(Status& error, long attempted_retries) final {
+    errors_encountered_.emplace_back(error);
+    constexpr long MAX_RETRIES = 2;
+    return attempted_retries <= MAX_RETRIES;
+  }
+
+  long CalculateDelayBeforeNextRetry(Status& error, long attempted_retries) final {
+    long delay = attempted_retries;
+    retry_delays_.emplace_back(delay);
+    return delay;
+  }
+
+  std::vector<Status> GetErrorsEncountered() { return errors_encountered_; }
+  std::vector<long> GetRetryDelays() { return retry_delays_; }
+
+ private:
+  std::vector<Status> errors_encountered_;
+  std::vector<long> retry_delays_;
+};
+
+TEST_F(TestS3FS, CustomRetryStrategy) {
+  auto retry_strategy = std::make_shared<TestRetryStrategy>();
+  options_.retry_strategy = retry_strategy;
+  MakeFileSystem();
+  // Attempt to open file that doesn't exist. Should hit TestRetryStrategy::ShouldRetry()
+  // 3 times before bubbling back up here.
+  ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-bucket/somefile"));
+  ASSERT_EQ(retry_strategy->GetErrorsEncountered().size(), 3);
+  for (const Status& status : retry_strategy->GetErrorsEncountered()) {
+    ASSERT_EQ(StatusCode::IOError, status.code());
+  }
+  std::vector<long> expected_retry_delays = {0, 1};
+  ASSERT_EQ(retry_strategy->GetRetryDelays(), expected_retry_delays);
+}
+
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic S3 tests
 
