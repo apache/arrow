@@ -86,6 +86,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
   void execute(VectorSchemaRoot vectorSchemaRoot) {
     final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
     List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
+    signature.columns.clear();
     signature.columns.addAll(columns);
 
     this.vectorSchemaRoot = vectorSchemaRoot;
