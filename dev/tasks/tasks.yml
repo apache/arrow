@@ -863,7 +863,7 @@ tasks:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
-      image: conda-cpp-valgrind
+      run: conda-cpp-valgrind
 
 {% for ubuntu_version in ["18.04", "20.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
