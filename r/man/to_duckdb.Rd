@@ -40,11 +40,7 @@ step. Internally, this calls \code{to_duckdb()} with all of the default argument
 values.
 }
 \examples{
-<<<<<<< HEAD
 \dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-=======
-\dontshow{if (arrow:::run_duckdb_examples()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
->>>>>>> 1097ab1a2 (Gate duckdb tests more strictly)
 library(dplyr)
 
 ds <- InMemoryDataset$create(mtcars)
