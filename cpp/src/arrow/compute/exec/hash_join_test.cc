@@ -49,51 +49,100 @@ void GenerateBatchesFromString(const std::shared_ptr<Schema>& schema,
   out_batches->schema = schema;
 }
 
-void RunTest(JoinType type, bool parallel) {
-  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
-  auto r_schema = schema({field("r_str", utf8()), field("r_i32", int32())});
-  BatchesWithSchema l_batches, r_batches, exp_batches;
-
-  GenerateBatchesFromString(l_schema,
-                            {R"([[0,"d"], [1,"b"]])", R"([[2,"d"], [3,"a"], [4,"a"]])",
-                             R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
-                            &l_batches, /*multiplicity=*/parallel ? 100 : 1);
-
-  GenerateBatchesFromString(
-      r_schema,
-      {R"([["f", 0], ["b", 1], ["b", 2]])", R"([["c", 3], ["g", 4]])", R"([["e", 5]])"},
-      &r_batches, /*multiplicity=*/parallel ? 100 : 1);
-
+void CheckRunOutput(JoinType type, BatchesWithSchema l_batches,
+                    BatchesWithSchema r_batches,
+                    const std::vector<std::string>& left_keys,
+                    const std::vector<std::string>& right_keys,
+                    const BatchesWithSchema& exp_batches, bool parallel = false) {
   SCOPED_TRACE("serial");
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
   ASSERT_OK_AND_ASSIGN(auto l_source,
-                       MakeTestSourceNode(plan.get(), "l_source", l_batches,
+                       MakeTestSourceNode(plan.get(), "l_source", std::move(l_batches),
                                           /*parallel=*/parallel,
                                           /*slow=*/false));
   ASSERT_OK_AND_ASSIGN(auto r_source,
-                       MakeTestSourceNode(plan.get(), "r_source", r_batches,
+                       MakeTestSourceNode(plan.get(), "r_source", std::move(r_batches),
                                           /*parallel=*/parallel,
                                           /*slow=*/false));
 
   ASSERT_OK_AND_ASSIGN(
       auto semi_join,
-      MakeHashJoinNode(type, l_source, r_source, "l_semi_join",
-                       /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}));
+      MakeHashJoinNode(type, l_source, r_source, "hash_join", left_keys, right_keys));
   auto sink_gen = MakeSinkNode(semi_join, "sink");
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
+}
+
+void RunNonEmptyTest(JoinType type, bool parallel) {
+  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
+  auto r_schema = schema({field("r_str", utf8()), field("r_i32", int32())});
+  BatchesWithSchema l_batches, r_batches, exp_batches;
+
+  int multiplicity = parallel ? 100 : 1;
+
+  GenerateBatchesFromString(l_schema,
+                            {R"([[0,"d"], [1,"b"]])", R"([[2,"d"], [3,"a"], [4,"a"]])",
+                             R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
+                            &l_batches, multiplicity);
+
+  GenerateBatchesFromString(
+      r_schema,
+      {R"([["f", 0], ["b", 1], ["b", 2]])", R"([["c", 3], ["g", 4]])", R"([["e", 5]])"},
+      &r_batches, multiplicity);
 
   if (type == JoinType::LEFT_SEMI) {
     GenerateBatchesFromString(
         l_schema, {R"([[1,"b"]])", R"([])", R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
-        &exp_batches, /*multiplicity=*/parallel ? 100 : 1);
+        &exp_batches, multiplicity);
   } else if (type == JoinType::RIGHT_SEMI) {
     GenerateBatchesFromString(
         r_schema, {R"([["b", 1], ["b", 2]])", R"([["c", 3]])", R"([["e", 5]])"},
-        &exp_batches, /*multiplicity=*/parallel ? 100 : 1);
+        &exp_batches, multiplicity);
   }
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
+
+  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
+                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
+                 parallel);
+}
+
+void RunEmptyTest(JoinType type, bool parallel) {
+  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
+  auto r_schema = schema({field("r_str", utf8()), field("r_i32", int32())});
+  BatchesWithSchema l_batches, r_batches, exp_batches;
+
+  int multiplicity = parallel ? 100 : 1;
+
+  if (type == JoinType::LEFT_SEMI) {
+    GenerateBatchesFromString(l_schema, {R"([])"}, &exp_batches, multiplicity);
+  } else if (type == JoinType::RIGHT_SEMI) {
+    GenerateBatchesFromString(r_schema, {R"([])"}, &exp_batches, multiplicity);
+  }
+
+  // both empty
+  GenerateBatchesFromString(l_schema, {R"([])"}, &l_batches, multiplicity);
+  GenerateBatchesFromString(r_schema, {R"([])"}, &r_batches, multiplicity);
+  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
+                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
+                 parallel);
+
+  // left empty
+  GenerateBatchesFromString(l_schema, {R"([])"}, &l_batches, multiplicity);
+  GenerateBatchesFromString(r_schema, {R"([["f", 0], ["b", 1], ["b", 2]])"}, &r_batches,
+                            multiplicity);
+  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
+                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
+                 parallel);
+
+  // right empty
+  GenerateBatchesFromString(l_schema, {R"([[0,"d"], [1,"b"]])"}, &l_batches,
+                            multiplicity);
+  GenerateBatchesFromString(r_schema, {R"([])"}, &r_batches, multiplicity);
+  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
+                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
+                 parallel);
 }
 
 class HashJoinTest : public testing::TestWithParam<std::tuple<JoinType, bool>> {};
@@ -104,7 +153,11 @@ INSTANTIATE_TEST_SUITE_P(HashJoinTest, HashJoinTest,
                                             ::testing::Values(false, true)));
 
 TEST_P(HashJoinTest, TestSemiJoins) {
-  RunTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
+  RunNonEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
+}
+
+TEST_P(HashJoinTest, TestSemiJoinsLeftEmpty) {
+  RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
 }
 
 }  // namespace compute
