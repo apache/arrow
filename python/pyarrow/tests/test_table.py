@@ -1339,8 +1339,15 @@ def test_from_arrays_schema(data, klass):
         pa.Table.from_arrays(data, schema=schema, metadata={b'foo': b'bar'})
 
 
-def test_table_from_pydict():
-    table = pa.Table.from_pydict({})
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_from_pydict(cls):
+    table = cls.from_pydict({})
     assert table.num_columns == 0
     assert table.num_rows == 0
     assert table.schema == pa.schema([])
@@ -1351,7 +1358,7 @@ def test_table_from_pydict():
     # With lists as values
     data = OrderedDict([('strs', ['', 'foo', 'bar']),
                         ('floats', [4.5, 5, None])])
-    table = pa.Table.from_pydict(data)
+    table = cls.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3
     assert table.schema == schema
@@ -1360,29 +1367,29 @@ def test_table_from_pydict():
     # With metadata and inferred schema
     metadata = {b'foo': b'bar'}
     schema = schema.with_metadata(metadata)
-    table = pa.Table.from_pydict(data, metadata=metadata)
+    table = cls.from_pydict(data, metadata=metadata)
     assert table.schema == schema
     assert table.schema.metadata == metadata
     assert table.to_pydict() == data
 
     # With explicit schema
-    table = pa.Table.from_pydict(data, schema=schema)
+    table = cls.from_pydict(data, schema=schema)
     assert table.schema == schema
     assert table.schema.metadata == metadata
     assert table.to_pydict() == data
 
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
-        pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+        cls.from_pydict(data, schema=schema, metadata=metadata)
 
     # Non-convertible values given schema
     with pytest.raises(TypeError):
-        pa.Table.from_pydict({'c0': [0, 1, 2]},
-                             schema=pa.schema([("c0", pa.string())]))
+        cls.from_pydict({'c0': [0, 1, 2]},
+                        schema=pa.schema([("c0", pa.string())]))
 
     # Missing schema fields from the passed mapping
     with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
-        pa.Table.from_pydict(
+        cls.from_pydict(
             {'a': [1, 2, 3], 'b': [3, 4, 5]},
             schema=pa.schema([
                 ('a', pa.int64()),
@@ -1393,7 +1400,7 @@ def test_table_from_pydict():
 
     # Passed wrong schema type
     with pytest.raises(TypeError):
-        pa.Table.from_pydict({'a': [1, 2, 3]}, schema={})
+        cls.from_pydict({'a': [1, 2, 3]}, schema={})
 
 
 @pytest.mark.parametrize('data, klass', [
