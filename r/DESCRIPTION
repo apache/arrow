@@ -115,3 +115,4 @@ Collate:
     'reexports-tidyselect.R'
     'schema.R'
     'util.R'
+UseLTO: false
