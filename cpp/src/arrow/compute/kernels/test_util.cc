@@ -197,7 +197,6 @@ void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array>
 
 void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
                        Datum expected, const FunctionOptions* options) {
-  std::cout << "Option 1" << std::endl;
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
