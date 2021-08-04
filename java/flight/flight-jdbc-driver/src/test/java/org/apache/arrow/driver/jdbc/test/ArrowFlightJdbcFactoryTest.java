@@ -54,9 +54,6 @@ public class ArrowFlightJdbcFactoryTest {
 
   @Before
   public void setUp() throws Exception {
-    // TODO Replace this.
-    Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
-
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     final UrlSample url = UrlSample.CONFORMING;
