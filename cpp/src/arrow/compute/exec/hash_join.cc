@@ -37,6 +37,7 @@ struct HashSemiJoinNode : ExecNode {
         ctx_(ctx),
         build_index_field_ids_(build_index_field_ids),
         probe_index_field_ids_(probe_index_field_ids),
+        build_result_index(-1),
         hash_table_built_(false) {}
 
  private:
@@ -46,8 +47,7 @@ struct HashSemiJoinNode : ExecNode {
   const char* kind_name() override { return "HashSemiJoinNode"; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
-    std::cout << "init"
-              << "\n";
+    //    std::cout << "init \n";
 
     // Get input schema
     auto build_schema = inputs_[0]->output_schema();
@@ -67,32 +67,62 @@ struct HashSemiJoinNode : ExecNode {
     return Status::OK();
   }
 
-  // merge all other groupers to grouper[0]. nothing needs to be done on the
-  // cached_probe_batches, because when probing everyone. Note: Only one thread
-  // should execute this out of the pool!
-  Status BuildSideMerge() {
-    std::cout << "build side merge"
-              << "\n";
+  // Finds an appropriate index which could accumulate all build indices (i.e. the grouper
+  // which has the highest # of groups)
+  void CalculateBuildResultIndex() {
+    uint32_t curr_max = 0;
+    for (int i = 0; i < static_cast<int>(local_states_.size()); i++) {
+      auto* state = &local_states_[i];
+      ARROW_DCHECK(state);
+      if (state->grouper && curr_max < state->grouper->num_groups()) {
+        curr_max = state->grouper->num_groups();
+        build_result_index = i;
+      }
+    }
+    ARROW_DCHECK(build_result_index > -1);
+    //    std::cout << "build_result_index " << build_result_index << "\n";
+  }
 
-    ThreadLocalState* state0 = &local_states_[0];
-    for (size_t i = 1; i < local_states_.size(); ++i) {
+  // Performs the housekeeping work after the build-side is completed. Note: this method
+  // should be called ONLY ONCE!
+  Status BuildSideCompleted() {
+    //    std::cout << "build side merge \n";
+
+    CalculateBuildResultIndex();
+
+    // merge every group into the build_result_index grouper
+    ThreadLocalState* result_state = &local_states_[build_result_index];
+    for (int i = 0; i < static_cast<int>(local_states_.size()); ++i) {
       ThreadLocalState* state = &local_states_[i];
       ARROW_DCHECK(state);
-      if (!state->grouper) {
+      if (i == build_result_index || !state->grouper) {
         continue;
       }
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
-      ARROW_ASSIGN_OR_RAISE(Datum _, state0->grouper->Consume(other_keys));
+
+      // TODO(niranda) replace with void consume method
+      ARROW_ASSIGN_OR_RAISE(Datum _, result_state->grouper->Consume(other_keys));
       state->grouper.reset();
     }
+
+    // enable flag that build side is completed
+    hash_table_built_ = true;
+
+    // since the build side is completed, consume cached probe batches
+    RETURN_NOT_OK(ConsumeCachedProbeBatches());
+
     return Status::OK();
   }
 
   // consumes a build batch and increments the build_batches count. if the build batches
   // total reached at the end of consumption, all the local states will be merged, before
   // incrementing the total batches
-  Status ConsumeBuildBatch(const size_t thread_index, ExecBatch batch) {
-    std::cout << "ConsumeBuildBatch " << thread_index << " " << batch.length << "\n";
+  Status ConsumeBuildBatch(ExecBatch batch) {
+    //    std::cout << "ConsumeBuildBatch tid:" << thread_index << " len:" << batch.length
+    //              << "\n";
+
+    size_t thread_index = get_thread_index_();
+    ARROW_DCHECK(thread_index < local_states_.size());
 
     auto state = &local_states_[thread_index];
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
@@ -104,47 +134,51 @@ struct HashSemiJoinNode : ExecNode {
     }
     ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(keys));
 
-    // Create a batch with group ids
-    ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
+    // Create a batch with group ids TODO(niranda) replace with void consume method
+    ARROW_ASSIGN_OR_RAISE(Datum _, state->grouper->Consume(key_batch));
 
     if (build_counter_.Increment()) {
-      // only a single thread would come inside this if-block!
-
-      // while incrementing, if the total is reached, merge all the groupers to 0'th one
-      RETURN_NOT_OK(BuildSideMerge());
-
-      // enable flag that build side is completed
-      hash_table_built_.store(true);
-
-      // since the build side is completed, consume cached probe batches
-      RETURN_NOT_OK(ConsumeCachedProbeBatches(thread_index));
+      // while incrementing, if the total is reached, call BuildSideCompleted
+      RETURN_NOT_OK(BuildSideCompleted());
     }
 
     return Status::OK();
   }
 
-  Status ConsumeCachedProbeBatches(const size_t thread_index) {
-    std::cout << "ConsumeCachedProbeBatches " << thread_index << "\n";
+  // consumes cached probe batches by invoking executor::Spawn. This should be called by a
+  // single thread. Note: this method should be called ONLY ONCE!
+  Status ConsumeCachedProbeBatches() {
+    //    std::cout << "ConsumeCachedProbeBatches tid:" << thread_index
+    //              << " len:" << cached_probe_batches.size() << "\n";
 
-    ThreadLocalState* state = &local_states_[thread_index];
+    if (!cached_probe_batches.empty()) {
+      auto executor = ctx_->executor();
+      for (auto&& cached : cached_probe_batches) {
+        if (executor) {
+          Status lambda_status;
+          RETURN_NOT_OK(executor->Spawn([&] {
+            lambda_status = ConsumeProbeBatch(cached.first, std::move(cached.second));
+          }));
 
-    // TODO (niranda) check if this is the best way to move batches
-    if (!state->cached_probe_batches.empty()) {
-      for (auto cached : state->cached_probe_batches) {
-        RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
+          // if the lambda execution failed internally, return status
+          RETURN_NOT_OK(lambda_status);
+        } else {
+          RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
+        }
       }
-      state->cached_probe_batches.clear();
+      // cached vector will be cleared. exec batches are expected to be moved to the
+      // lambdas
+      cached_probe_batches.clear();
     }
-
     return Status::OK();
   }
 
   // consumes a probe batch and increment probe batches count. Probing would query the
-  // grouper[0] which have been merged with all others.
+  // grouper[build_result_index] which have been merged with all others.
   Status ConsumeProbeBatch(int seq, ExecBatch batch) {
-    std::cout << "ConsumeProbeBatch " << seq << "\n";
+    //    std::cout << "ConsumeProbeBatch seq:" << seq << "\n";
 
-    auto* grouper = local_states_[0].grouper.get();
+    auto& final_grouper = *local_states_[build_result_index].grouper;
 
     // Create a batch with key columns
     std::vector<Datum> keys(probe_index_field_ids_.size());
@@ -155,7 +189,7 @@ struct HashSemiJoinNode : ExecNode {
 
     // Query the grouper with key_batch. If no match was found, returning group_ids would
     // have null.
-    ARROW_ASSIGN_OR_RAISE(Datum group_ids, grouper->Find(key_batch));
+    ARROW_ASSIGN_OR_RAISE(Datum group_ids, final_grouper.Find(key_batch));
     auto group_ids_data = *group_ids.array();
 
     if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
@@ -170,20 +204,25 @@ struct HashSemiJoinNode : ExecNode {
           Filter(rec_batch, filter_arr,
                  /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
       auto out_batch = ExecBatch(*filtered.record_batch());
-      std::cout << "output " << seq << " " << out_batch.ToString() << "\n";
+      //      std::cout << "output seq:" << seq << " " << out_batch.length << "\n";
       outputs_[0]->InputReceived(this, seq, std::move(out_batch));
     } else {  // all values are valid for output
-      std::cout << "output " << seq << " " << batch.ToString() << "\n";
+              //      std::cout << "output seq:" << seq << " " << batch.length << "\n";
       outputs_[0]->InputReceived(this, seq, std::move(batch));
     }
 
-    out_counter_.Increment();
+    if (out_counter_.Increment()) {
+      finished_.MarkFinished();
+    }
     return Status::OK();
   }
 
-  void CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
-    ThreadLocalState* state = &local_states_[thread_index];
-    state->cached_probe_batches.emplace_back(seq_num, std::move(batch));
+  //  void CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
+  void CacheProbeBatch(int seq_num, ExecBatch batch) {
+    //    std::cout << "cache tid:" << thread_index << " seq:" << seq_num
+    //              << " len:" << batch.length << "\n";
+    std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
+    cached_probe_batches.emplace_back(seq_num, std::move(batch));
   }
 
   inline bool IsBuildInput(ExecNode* input) { return input == inputs_[0]; }
@@ -191,13 +230,10 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    std::cout << "input received " << IsBuildInput(input) << " " << seq << " "
-              << batch.length << "\n";
+    //    std::cout << "input received input:" << (IsBuildInput(input) ? "b" : "p")
+    //              << " seq:" << seq << " len:" << batch.length << "\n";
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
-
-    size_t thread_index = get_thread_index_();
-    ARROW_DCHECK(thread_index < local_states_.size());
 
     if (finished_.is_finished()) {
       return;
@@ -205,24 +241,24 @@ struct HashSemiJoinNode : ExecNode {
 
     if (IsBuildInput(input)) {  // build input batch is received
       // if a build input is received when build side is completed, something's wrong!
-      ARROW_DCHECK(!hash_table_built_.load());
+      ARROW_DCHECK(!hash_table_built_);
 
-      ErrorIfNotOk(ConsumeBuildBatch(thread_index, std::move(batch)));
-    } else {                           // probe input batch is received
-      if (hash_table_built_.load()) {  // build side done, continue with probing
+      ErrorIfNotOk(ConsumeBuildBatch(std::move(batch)));
+    } else {                    // probe input batch is received
+      if (hash_table_built_) {  // build side done, continue with probing
         // consume cachedProbeBatches if available (for this thread)
-        ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
+        ErrorIfNotOk(ConsumeCachedProbeBatches());
 
         // consume this probe batch
         ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
       } else {  // build side not completed. Cache this batch!
-        CacheProbeBatch(thread_index, seq, std::move(batch));
+        CacheProbeBatch(seq, std::move(batch));
       }
     }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    std::cout << "error received " << error.ToString() << "\n";
+    //    std::cout << "error received " << error.ToString() << "\n";
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -230,25 +266,18 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
-    std::cout << "input finished " << IsBuildInput(input) << " " << num_total << "\n";
+    //    std::cout << "input finished input:" << (IsBuildInput(input) ? "b" : "p")
+    //              << " tot:" << num_total << "\n";
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
-    size_t thread_index = get_thread_index_();
-
     // set total for build input
     if (IsBuildInput(input) && build_counter_.SetTotal(num_total)) {
-      // while incrementing, if the total is reached, merge all the groupers to 0'th one
-      ErrorIfNotOk(BuildSideMerge());
-
-      // enable flag that build side is completed
-      hash_table_built_.store(true);
-
-      // only build side has completed! so process cached probe batches (of this thread)
-      ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
+      // while incrementing, if the total is reached, call BuildSideCompleted()
+      ErrorIfNotOk(BuildSideCompleted());
       return;
     }
 
@@ -259,14 +288,16 @@ struct HashSemiJoinNode : ExecNode {
     // output will be streamed from the probe side. So, they will have the same total.
     if (out_counter_.SetTotal(num_total)) {
       // if out_counter has completed, the future is finished!
-      ErrorIfNotOk(ConsumeCachedProbeBatches(thread_index));
+      ErrorIfNotOk(ConsumeCachedProbeBatches());
+      outputs_[0]->InputFinished(this, num_total);
       finished_.MarkFinished();
     }
     outputs_[0]->InputFinished(this, num_total);
+    //    std::cout << "output set:" << num_total << "\n";
   }
 
   Status StartProducing() override {
-    std::cout << "start prod \n";
+    //    std::cout << "start prod \n";
     finished_ = Future<>::Make();
 
     local_states_.resize(ThreadIndexer::Capacity());
@@ -278,7 +309,7 @@ struct HashSemiJoinNode : ExecNode {
   void ResumeProducing(ExecNode* output) override {}
 
   void StopProducing(ExecNode* output) override {
-    std::cout << "stop prod from node\n";
+    //    std::cout << "stop prod from node\n";
 
     DCHECK_EQ(output, outputs_[0]);
 
@@ -295,21 +326,20 @@ struct HashSemiJoinNode : ExecNode {
 
   // TODO(niranda) couldn't there be multiple outputs for a Node?
   void StopProducing() override {
-    std::cout << "stop prod \n";
+    //    std::cout << "stop prod \n";
     for (auto&& output : outputs_) {
       StopProducing(output);
     }
   }
 
   Future<> finished() override {
-    std::cout << "finished? " << finished_.is_finished() << "\n";
+    //    std::cout << "finished? " << finished_.is_finished() << "\n";
     return finished_;
   }
 
  private:
   struct ThreadLocalState {
     std::unique_ptr<internal::Grouper> grouper;
-    std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
   };
 
   ExecContext* ctx_;
@@ -321,11 +351,19 @@ struct HashSemiJoinNode : ExecNode {
   AtomicCounter build_counter_, out_counter_;
   std::vector<ThreadLocalState> local_states_;
 
-  // need a separate atomic bool to track if the build side complete. Can't use the flag
+  // we have no guarantee which threads would be coming from the build side. so, out of
+  // the thread local states, we need to find an appropriate index which could accumulate
+  // all build indices (ideally, the grouper which has the highest # of elems)
+  int32_t build_result_index;
+
+  // need a separate bool to track if the build side complete. Can't use the flag
   // inside the AtomicCounter, because we need to merge the build groupers once we receive
   // all the build batches. So, while merging, we need to prevent probe batches, being
   // consumed.
-  std::atomic<bool> hash_table_built_;
+  bool hash_table_built_;
+
+  std::mutex cached_probe_batches_mutex;
+  std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
 };
 
 Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,
