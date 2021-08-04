@@ -256,7 +256,7 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   EXPECT_EQ(std::string(out_str, out_len), "false");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
+  castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
   ctx.Reset();
@@ -1441,13 +1441,13 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
-                                                5, &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5, 5,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 
-  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
-                                                &out_len);
+  replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                      &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
   ctx.Reset();
 }
