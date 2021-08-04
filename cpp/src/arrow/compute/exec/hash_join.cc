@@ -68,12 +68,13 @@ struct HashSemiJoinNode : ExecNode {
   // Finds an appropriate index which could accumulate all build indices (i.e. the grouper
   // which has the highest # of groups)
   void CalculateBuildResultIndex() {
-    uint32_t curr_max = 0;
+    int32_t curr_max = -1;
     for (int i = 0; i < static_cast<int>(local_states_.size()); i++) {
       auto* state = &local_states_[i];
       ARROW_DCHECK(state);
-      if (state->grouper && curr_max < state->grouper->num_groups()) {
-        curr_max = state->grouper->num_groups();
+      if (state->grouper &&
+          curr_max < static_cast<int32_t>(state->grouper->num_groups())) {
+        curr_max = static_cast<int32_t>(state->grouper->num_groups());
         build_result_index = i;
       }
     }
