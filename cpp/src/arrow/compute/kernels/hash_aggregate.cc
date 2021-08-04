@@ -1962,6 +1962,70 @@ struct GroupedAllImpl : public GroupedBooleanAggregator<GroupedAllImpl> {
                                  num_groups, /*out_offset=*/0, no_nulls);
   }
 };
+
+// ----------------------------------------------------------------------
+// CountDistinct/Distinct implementation
+
+struct GroupedCountDistinctImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    ctx_ = ctx;
+    pool_ = ctx->memory_pool();
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    if (!grouper_) {
+      ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make(batch.GetDescriptors(), ctx_));
+    }
+    return grouper_->Consume(batch).status();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedCountDistinctImpl*>(&raw_other);
+
+    // Get (group_id, value) pairs, then translate the group IDs and consume them
+    // ourselves
+    ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
+
+    const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
+    auto* other_g = uniques[1].array()->GetMutableValues<uint32_t>(1);
+    for (int64_t i = 0; i < uniques.length; i++) {
+      other_g[i] = g_mapping[other_g[i]];
+    }
+
+    return Consume(std::move(uniques));
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(num_groups_ * sizeof(int64_t), pool_));
+    int64_t* counts = reinterpret_cast<int64_t*>(values->mutable_data());
+    std::fill(counts, counts + num_groups_, 0);
+
+    ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
+    auto* g = uniques[1].array()->GetValues<uint32_t>(1);
+    for (int64_t i = 0; i < uniques.length; i++) {
+      counts[g[i]]++;
+    }
+
+    return ArrayData::Make(int64(), num_groups_, {nullptr, std::move(values)},
+                           /*null_count=*/0);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return int64(); }
+
+  ExecContext* ctx_;
+  MemoryPool* pool_;
+  uint32_t num_groups_;
+  std::unique_ptr<Grouper> grouper_;
+};
+
 }  // namespace
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -2289,6 +2353,11 @@ const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
                                ("Null values are ignored."),
                                {"array", "group_id_array"},
                                "ScalarAggregateOptions"};
+
+const FunctionDoc hash_count_distinct_doc{
+    "Count the distinct values in each group",
+    ("Nulls are counted. NaNs and signed zeroes are not normalized."),
+    {"array", "group_id_array"}};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -2410,6 +2479,14 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_all", Arity::Binary(), &hash_all_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAllImpl>)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc);
+    DCHECK_OK(func->AddKernel(
+        MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }

@@ -1239,6 +1239,126 @@ TEST(GroupBy, AnyAndAll) {
   }
 }
 
+TEST(GroupBy, CountDistinct) {
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1,    1],
+    [1,    1]
+])",
+                                                                                      R"([
+    [0,    2],
+    [null, 3]
+])",
+                                                                                      R"([
+    [4,    null],
+    [1,    3]
+])",
+                                                                                      R"([
+    [0,    2],
+    [-1,   2]
+])",
+                                                                                      R"([
+    [1,    null],
+    [NaN,  3]
+  ])",
+                                                                                      R"([
+    [2,    null],
+    [3,    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_count_distinct", nullptr},
+                             },
+                             use_threads));
+
+    {
+      // Order is not stable
+      EXPECT_EQ(4, aggregated_and_grouped.length());
+      const int64_t* counts =
+          aggregated_and_grouped.array()->child_data[0]->GetValues<int64_t>(1);
+      const uint8_t* keys_valid =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
+      const int64_t* keys =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
+      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
+        if (BitUtil::GetBit(keys_valid, i)) {
+          EXPECT_EQ(keys[i], counts[i]);
+        } else {
+          EXPECT_EQ(4, counts[i]);
+        }
+      }
+    }
+
+    table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    [null,   3]
+])",
+                                                                                   R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                   R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                   R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_count_distinct", nullptr},
+                             },
+                             use_threads));
+
+    {
+      // Order is not stable
+      EXPECT_EQ(4, aggregated_and_grouped.length());
+      const int64_t* counts =
+          aggregated_and_grouped.array()->child_data[0]->GetValues<int64_t>(1);
+      const uint8_t* keys_valid =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
+      const int64_t* keys =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
+      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
+        if (BitUtil::GetBit(keys_valid, i)) {
+          EXPECT_EQ(keys[i], counts[i]);
+        } else {
+          EXPECT_EQ(4, counts[i]);
+        }
+      }
+    }
+  }
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
