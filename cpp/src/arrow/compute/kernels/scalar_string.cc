@@ -81,6 +81,22 @@ static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
                                                               : utf8_code_unit;
 }
 
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
+
+// IsAlpha/Digit etc
+
+template <typename T>
+static inline bool IsAsciiCharacter(T character) {
+  return character < 128;
+}
+
 static inline bool IsLowerCaseCharacterAscii(uint8_t ascii_character) {
   return (ascii_character >= 'a') && (ascii_character <= 'z');
 }
@@ -115,20 +131,6 @@ static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
 
 static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
   return ((ascii_character >= ' ') && (ascii_character <= '~'));
-}
-
-static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
-  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit -= 32;
-  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit += 32;
-  }
-  return utf8_code_unit;
-}
-
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
-  return character < 128;
 }
 
 struct BinaryLength {
@@ -676,6 +678,31 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
+
+struct AsciiTitleTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, uint8_t* output) {
+    uint8_t* c = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    while (c <= end) {
+      uint8_t* c_;
+      // Uppercase first caseable character of current word
+      while ((c_ = c++) <= end) {
+        if (IsCasedCharacterAscii(*c_)) {
+          *c_ = ascii_toupper(*c_);
+          break;
+        }
+      }
+      // Lowercase characters until a whitespace is found
+      while ((c_ = c++) <= end) {
+        if (IsSpaceCharacterAscii(*c_)) {
+          break;
+        }
+        *c_ = ascii_tolower(*c_);
+      }
+    }
+    return input_string_ncodeunits;
+  }
+};
 
 // ----------------------------------------------------------------------
 // exact pattern detection
