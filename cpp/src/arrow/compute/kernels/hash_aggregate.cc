@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
@@ -2026,6 +2027,49 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   std::unique_ptr<Grouper> grouper_;
 };
 
+struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> offsets_buffer,
+                          AllocateBuffer((num_groups_ + 1) * sizeof(int32_t), pool_));
+    int32_t* offsets = reinterpret_cast<int32_t*>(offsets_buffer->mutable_data());
+    ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
+
+    // Assemble the final list by concatenating slices
+    std::vector<std::vector<std::shared_ptr<Array>>> grouped_slices(num_groups_);
+    std::vector<std::shared_ptr<Array>> all_slices;
+    all_slices.reserve(uniques.length);
+
+    const auto values = uniques[0].make_array();
+    auto* g = uniques[1].array()->GetValues<uint32_t>(1);
+    for (int64_t i = 0; i < uniques.length; i++) {
+      grouped_slices[g[i]].push_back(values->Slice(i, /*length=*/1));
+    }
+    offsets[0] = 0;
+    for (size_t i = 0; i < grouped_slices.size(); i++) {
+      all_slices.insert(all_slices.end(),
+                        std::make_move_iterator(grouped_slices[i].begin()),
+                        std::make_move_iterator(grouped_slices[i].end()));
+      offsets[i + 1] = static_cast<int32_t>(all_slices.size());
+    }
+    ARROW_ASSIGN_OR_RAISE(auto child_array, Concatenate(all_slices, ctx_->memory_pool()));
+
+    return ArrayData::Make(out_type(), num_groups_, {nullptr, std::move(offsets_buffer)},
+                           {child_array->data()},
+                           /*null_count=*/0);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
+
+  std::shared_ptr<DataType> out_type_;
+};
+
+Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
+                                                         const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedDistinctImpl>(ctx, args));
+  static_cast<GroupedDistinctImpl*>(impl.get())->out_type_ = args.inputs[0].type;
+  return std::move(impl);
+}
+
 }  // namespace
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -2358,6 +2402,11 @@ const FunctionDoc hash_count_distinct_doc{
     "Count the distinct values in each group",
     ("Nulls are counted. NaNs and signed zeroes are not normalized."),
     {"array", "group_id_array"}};
+
+const FunctionDoc hash_distinct_doc{
+    "Keep the distinct values in each group",
+    ("Nulls are kept. NaNs and signed zeroes are not normalized."),
+    {"array", "group_id_array"}};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -2487,6 +2536,13 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountDistinctImpl>)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_distinct", Arity::Binary(),
+                                                        &hash_distinct_doc);
+    DCHECK_OK(func->AddKernel(MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }

@@ -1359,6 +1359,91 @@ TEST(GroupBy, CountDistinct) {
   }
 }
 
+TEST(GroupBy, Distinct) {
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    [null,   3]
+])",
+                                                                                   R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                   R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                   R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_distinct", nullptr},
+                             },
+                             use_threads));
+
+    {
+      // Order is not stable
+      EXPECT_EQ(4, aggregated_and_grouped.length());
+      const auto uniques = std::static_pointer_cast<ListArray>(
+          aggregated_and_grouped.array_as<StructArray>()->GetFieldByName(
+              "hash_distinct"));
+      const uint8_t* keys_valid =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
+      const int64_t* keys =
+          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
+      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
+        auto values = std::static_pointer_cast<StringArray>(uniques->value_slice(i));
+        std::vector<util::string_view> c_values;
+        for (int i = 0; i < values->length(); i++) {
+          if (values->IsValid(i)) {
+            c_values.push_back(values->GetView(i));
+          }
+        }
+
+        if (BitUtil::GetBit(keys_valid, i)) {
+          EXPECT_EQ(keys[i], values->length());
+          if (keys[i] == 1) {
+            EXPECT_EQ(0, values->null_count());
+            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"foo"}));
+          } else if (keys[i] == 2) {
+            EXPECT_EQ(0, values->null_count());
+            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"bar", "spam"}));
+          } else if (keys[i] == 3) {
+            EXPECT_EQ(1, values->null_count());
+            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"foo", "ham"}));
+          }
+        } else {
+          EXPECT_EQ(4, values->length());
+          EXPECT_EQ(0, values->null_count());
+          EXPECT_THAT(c_values,
+                      ::testing::UnorderedElementsAreArray({"a", "b", "baz", "eggs"}));
+        }
+      }
+    }
+  }
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
