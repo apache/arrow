@@ -222,6 +222,7 @@ abandon_ship <- function(call, .data, msg) {
     stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
   }
   # else, collect and call dplyr method
+  msg <- sub("\\n$", "", msg)
   warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
   call$.data <- dplyr::collect(.data)
   call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))

@@ -17,8 +17,6 @@
 
 skip_if_not_available("dataset")
 
-withr::local_options(list(arrow.summarize = TRUE))
-
 library(dplyr)
 library(stringr)
 
@@ -30,7 +28,27 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
 tbl$some_grouping <- rep(c(1, 2), 5)
 
-test_that("Can aggregate", {
+test_that("summarize", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int)),
+    tbl,
+    warning = TRUE
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int) / 2),
+    tbl,
+    warning = TRUE
+  )
+})
+
+test_that("Can aggregate in Arrow", {
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%

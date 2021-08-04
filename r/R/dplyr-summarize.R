@@ -30,7 +30,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
   .data <- dplyr::select(.data, vars_to_keep)
   if (match.arg(.engine) == "duckdb") {
     dplyr::summarise(to_duckdb(.data), ...)
-  } else if (isTRUE(getOption("arrow.summarize", FALSE))) {
+  } else {
     # Try stuff, if successful return()
     out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
     if (inherits(out, "try-error")) {
@@ -38,9 +38,6 @@ summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb
     } else {
       return(out)
     }
-  } else {
-    # If unsuccessful or if option not set, do the work in R
-    dplyr::summarise(dplyr::collect(.data), ...)
   }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
