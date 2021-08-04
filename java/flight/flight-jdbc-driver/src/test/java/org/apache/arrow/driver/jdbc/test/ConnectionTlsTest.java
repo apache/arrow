@@ -137,12 +137,12 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientAuthenticated(
-            allocator, address.getHost(), address.getPort(),
-            null, credentials.getUserName(), credentials.getPassword(),
-            keyStorePath,
-            keyStorePass)) {
+    try (ArrowFlightClientHandler client =
+           ArrowFlightClientHandler
+             .getClient(
+                allocator, address.getHost(), address.getPort(),
+                credentials.getUserName(), credentials.getPassword(),
+                null, true, keyStorePath, keyStorePass)) {
 
       assertNotNull(client);
     }
