@@ -17,20 +17,23 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
+import static java.util.Collections.synchronizedSet;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightClient.Builder;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
@@ -38,7 +41,7 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
-import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware.Factory;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -49,8 +52,7 @@ import org.apache.arrow.util.AutoCloseables;
  */
 public class ArrowFlightClientHandler implements FlightClientHandler {
 
-  private final Deque<AutoCloseable> resources =
-      new ArrayDeque<>();
+  private final Set<AutoCloseable> resources = synchronizedSet(new HashSet<>());
   private final FlightClient client;
 
   @Nullable
@@ -122,16 +124,9 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   }
 
   @Override
-  public List<FlightStream> getFlightStreams(final String query) {
-    final FlightInfo flightInfo = getInfo(query);
-    final List<FlightEndpoint> endpoints = flightInfo.getEndpoints();
-
-    final List<FlightStream> streams =
-        endpoints.stream().map(flightEndpoint -> client.getStream(flightEndpoint.getTicket(), token))
-            .collect(Collectors.toList());
-    streams.forEach(resources::addFirst);
-
-    return streams;
+  public Stream<FlightStream> lazilyGetFlightStreams(final String query) {
+    final List<FlightEndpoint> endpoints = getInfo(query).getEndpoints();
+    return endpoints.stream().map(flightEndpoint -> client.getStream(flightEndpoint.getTicket(), token));
   }
 
   @Override
@@ -175,7 +170,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
      * Do NOT resort to creating labels and breaking from them! A better
      * alternative would be splitting this method into smaller ones.
      */
-    final FlightClient.Builder builder = FlightClient.builder()
+    final Builder builder = FlightClient.builder()
         .allocator(allocator);
 
     ArrowFlightClientHandler handler;
@@ -205,7 +200,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
       // Build an unauthenticated client.
       handler = new ArrowFlightClientHandler(client, properties);
     } else {
-      final ClientIncomingAuthHeaderMiddleware.Factory factory = new ClientIncomingAuthHeaderMiddleware.Factory(
+      final Factory factory = new Factory(
           new ClientBearerHeaderHandler());
 
       builder.intercept(factory);
@@ -218,7 +213,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
           properties);
     }
 
-    handler.resources.addLast(client);
+    handler.resources.add(client);
     return handler;
   }
 
