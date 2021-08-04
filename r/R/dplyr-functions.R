@@ -784,8 +784,8 @@ nse_funcs$case_when <- function(...) {
 # @param data Expression (these are all currently a single field)
 # @param options list of function options, as passed to call_function
 # For group-by aggregation, `hash_` gets prepended to the function name.
-# So to see a list of available hash aggregation functions, do
-# list_compute_functions("^hash_")
+# So to see a list of available hash aggregation functions,
+# you can use list_compute_functions("^hash_")
 agg_funcs <- list()
 agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(

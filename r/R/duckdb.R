@@ -96,7 +96,9 @@ run_duckdb_examples <- function() {
     requireNamespace("duckdb", quietly = TRUE) &&
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
-    requireNamespace("dbplyr", quietly = TRUE)
+    requireNamespace("dbplyr", quietly = TRUE) &&
+    # These examples are flaking: https://github.com/duckdb/duckdb/issues/2100
+    FALSE
 }
 
 # Adapted from dbplyr
@@ -121,8 +123,4 @@ duckdb_disconnector <- function(con, tbl_name) {
     }
   })
   environment()
-}
-
-run_duckdb_examples <- function() {
-  arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)
 }

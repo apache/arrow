@@ -69,7 +69,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       stop(msg, call. = FALSE)
     }
     # Put it in the data mask too?
-    # mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
+    # Should we: mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
   # Now, from that, split out the data (expressions) and options

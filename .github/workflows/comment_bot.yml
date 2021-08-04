@@ -133,7 +133,7 @@ jobs:
           # only grab the .R files under r/
           changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
           # remove latin1 which is unstylable due to encoding and codegen.R which is unique
-          changed_files <- changed_files[!changed_files %in% c("r/tests/testthat/latin1.R", "r/data-raw/codegen.R")]
+          changed_files <- changed_files[!changed_files %in% file.path("r", source("r/.styler_excludes.R")$value)]
           source("ci/etc/rprofile")
           install.packages(c("remotes", "styler"))
           remotes::install_deps("r")

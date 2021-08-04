@@ -39,4 +39,3 @@ write_feather(example_with_metadata_v1, "extra-tests/files/ex_data_v1.feather", 
 write_ipc_stream(example_with_metadata, "extra-tests/files/ex_data.stream")
 
 write_parquet(example_with_extra_metadata, "extra-tests/files/ex_data_extra_metadata.parquet")
-

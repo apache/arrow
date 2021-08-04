@@ -19,7 +19,13 @@ VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
 ARROW_R_DEV="TRUE"
 ARROW_LARGE_MEMORY_TESTS=$(ARROW_R_DEV)
 
-doc:
+style:
+	R -s -e 'setwd(".."); if (requireNamespace("styler")) styler::style_file(setdiff(system("git diff --name-only | grep r/.*R$$", intern = TRUE), file.path("r", source("r/.styler_excludes.R")$$value)))'
+
+style-all:
+	R -s -e 'styler::style_file(setdiff(dir(pattern = "R$$", recursive = TRUE), source(".styler_excludes.R")$$value))'
+
+doc: style
 	R -s -e 'roxygen2::roxygenize()'
 	-git add --all man/*.Rd
 
