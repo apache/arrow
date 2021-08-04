@@ -69,7 +69,6 @@ write_ipc_stream <- function(x, sink, ...) {
 #' @examplesIf arrow_available()
 #' # The default format is "stream"
 #' mtcars_raw <- write_to_raw(mtcars)
-#' mtcars_raw_file <- write_to_raw(mtcars, format = "file")
 #' @export
 write_to_raw <- function(x, format = c("stream", "file")) {
   sink <- BufferOutputStream$create()
