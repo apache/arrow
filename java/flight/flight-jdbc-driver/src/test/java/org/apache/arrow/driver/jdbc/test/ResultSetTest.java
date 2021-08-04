@@ -19,7 +19,10 @@ package org.apache.arrow.driver.jdbc.test;
 
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.*;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertTrue;
@@ -476,7 +479,7 @@ public class ResultSetTest {
     final String timeoutUnit = "SECONDS";
     try (final Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutValue);
-      final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
+      final Set<Exception> exceptions = new HashSet<>(1);
       try (final ResultSet resultSet = statement.executeQuery(query)) {
         while (resultSet.next()) {
           resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
