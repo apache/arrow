@@ -180,7 +180,7 @@ public class ResultSetTest {
       collector.checkThat(statement.getLargeMaxRows(), is(maxRowsLimit));
 
       int count = 0;
-      int columns = 6;
+      int columns = resultSet.getMetaData().getColumnCount();
       for (; resultSet.next(); count++) {
         for (int column = 1; column <= columns; column++) {
           resultSet.getObject(column);
