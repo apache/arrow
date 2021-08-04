@@ -464,14 +464,14 @@ Result<ExecNode*> MakeHashRightSemiJoinNode(ExecNode* left_input, ExecNode* righ
                               right_keys);
 }
 
-static std::string JoinTypeToString[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
-                                         "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
-                                         "RIGHT_OUTER", "FULL_OUTER"};
-
 Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
                                    ExecNode* right_input, std::string label,
                                    const std::vector<std::string>& left_keys,
                                    const std::vector<std::string>& right_keys) {
+  static std::string join_type_string[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
+                                           "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
+                                           "RIGHT_OUTER", "FULL_OUTER"};
+
   switch (join_type) {
     case LEFT_SEMI:
       // left join--> build from right and probe from left
@@ -487,7 +487,7 @@ Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
     case LEFT_OUTER:
     case RIGHT_OUTER:
     case FULL_OUTER:
-      return Status::NotImplemented(JoinTypeToString[join_type] +
+      return Status::NotImplemented(join_type_string[join_type] +
                                     " joins not implemented!");
     default:
       return Status::Invalid("invalid join type");
