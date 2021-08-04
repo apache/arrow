@@ -55,12 +55,13 @@ test_that("Can aggregate in Arrow", {
       collect(),
     tbl
   )
-  skip("ARROW-13497: This is failing because the default is na.rm = FALSE")
   expect_dplyr_equal(
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
-    tbl
+    tbl,
+    # ARROW-13497: This is failing because the default is na.rm = FALSE
+    warning = TRUE
   )
 })
 
@@ -83,14 +84,15 @@ test_that("Group by sum on dataset", {
     tbl
   )
 
-  skip("ARROW-13497: This is failing because the default is na.rm = FALSE")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int)) %>%
       arrange(some_grouping) %>%
       collect(),
-    tbl
+    tbl,
+    # ARROW-13497: This is failing because the default is na.rm = FALSE
+    warning = TRUE
   )
 })
 
@@ -119,7 +121,7 @@ test_that("Group by any/all", {
     input %>%
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
-      summarize(any(has_words)) %>%
+      summarize(any(has_words, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
@@ -128,7 +130,7 @@ test_that("Group by any/all", {
     input %>%
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
-      summarize(all(has_words)) %>%
+      summarize(all(has_words, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl

@@ -713,7 +713,7 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
     return(Expression$create("log10_checked", x))
   }
   # ARROW-13345
-  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
+  arrow_not_supported("`base` values other than exp(1), 2 and 10")
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
@@ -791,20 +791,28 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = arrow_na_rm(na.rm = na.rm)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = arrow_na_rm(na.rm)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = arrow_na_rm(na.rm)
   )
+}
+
+arrow_na_rm <- function(na.rm) {
+  if (!isTRUE(na.rm)) {
+    # TODO: ARROW-13497
+    arrow_not_supported(paste("na.rm =", na.rm))
+  }
+  list(na.rm = na.rm, na.min_count = 0L)
 }

@@ -1036,7 +1036,7 @@ test_that("log functions", {
 
   expect_error(
     nse_funcs$log(Expression$scalar(x), base = 5),
-    "`base` values other than exp(1), 2 and 10 not supported in Arrow",
+    "`base` values other than exp(1), 2 and 10 not supported by Arrow",
     fixed = TRUE
   )
 
