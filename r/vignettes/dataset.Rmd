@@ -241,7 +241,7 @@ cat("
 ```
 
 You've just selected a subset out of a dataset with around 2 billion rows, computed
-a new column, and aggregated it in under 2 seconds on most modern laptops. How does
+a new column, and aggregated it in under 2 seconds on a modern laptop. How does
 this work?
 
 First, `mutate()`/`transmute()`, `select()`/`rename()`/`relocate()`, `filter()`, 
