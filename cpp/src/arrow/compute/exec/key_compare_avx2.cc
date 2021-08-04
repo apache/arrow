@@ -385,249 +385,283 @@ inline uint64_t Compare8_Binary_avx2(uint32_t length, const uint8_t* left_base,
   }
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right);
 
-  // Non-zero length guarantees no underflow
-  int32_t num_loops_less_one = (static_cast<int32_t>(length) + 31) / 32 - 1;
+  template <bool use_selection, class COMPARE8_FN>
+  uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
+      uint32_t offset_within_row, uint32_t num_rows_to_compare,
+      const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+      KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+      const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector,
+      COMPARE8_FN compare8_fn) {
+    bool is_fixed_length = rows.metadata().is_fixed_length;
+    if (is_fixed_length) {
+      uint32_t fixed_length = rows.metadata().fixed_length;
+      const uint8_t* rows_left = col.data(1);
+      const uint8_t* rows_right = rows.data(1);
+      constexpr uint32_t unroll = 8;
+      __m256i irow_left = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+      for (uint32_t i = 0; i < num_rows_to_compare / unroll; ++i) {
+        if (use_selection) {
+          irow_left = _mm256_cvtepu16_epi32(
+              _mm_loadu_si128(reinterpret_cast<const __m128i*>(sel_left_maybe_null) + i));
+        }
+        __m256i irow_right;
+        if (use_selection) {
+          irow_right =
+              _mm256_i32gather_epi32((const int*)left_to_right_map, irow_left, 4);
+        } else {
+          irow_right =
+              _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
+        }
 
-  __m256i tail_mask = set_first_n_bytes_avx2(length - num_loops_less_one * 32);
+        __m256i tail_mask = set_first_n_bytes_avx2(length - num_loops_less_one * 32);
 
-  uint64_t result = 0;
-  for (uint32_t irow = 0; irow < 8; ++irow) {
-    const __m256i* key_left_ptr = reinterpret_cast<const __m256i*>(
-        left_base +
-        (use_selection ? irow_left_array[irow] : irow_left_first + irow) * length);
-    const __m256i* key_right_ptr =
-        reinterpret_cast<const __m256i*>(right_base + offset_right_array[irow]);
-    __m256i result_or = _mm256_setzero_si256();
-    int32_t i;
-    // length cannot be zero
-    for (i = 0; i < num_loops_less_one; ++i) {
-      __m256i key_left = _mm256_loadu_si256(key_left_ptr + i);
-      __m256i key_right = _mm256_loadu_si256(key_right_ptr + i);
-      result_or = _mm256_or_si256(result_or, _mm256_xor_si256(key_left, key_right));
-    }
-    __m256i key_left = _mm256_loadu_si256(key_left_ptr + i);
-    __m256i key_right = _mm256_loadu_si256(key_right_ptr + i);
-    result_or = _mm256_or_si256(
-        result_or, _mm256_and_si256(tail_mask, _mm256_xor_si256(key_left, key_right)));
-    uint64_t result_single = _mm256_testz_si256(result_or, result_or) * 0xff;
-    result |= result_single << (8 * irow);
-  }
-  return result;
-}
-
-template <bool use_selection>
-uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
-    uint32_t offset_within_row, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
-  uint32_t col_width = col.metadata().fixed_length;
-  if (col_width == 0) {
-    int bit_offset = col.bit_offset(1);
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [bit_offset](const uint8_t* left_base, const uint8_t* right_base,
-                     uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
-          if (use_selection) {
-            return CompareSelected8_avx2<0>(left_base, right_base, irow_left,
-                                            offset_right, bit_offset);
-          } else {
-            return Compare8_avx2<0>(left_base, right_base, irow_left_base, offset_right,
-                                    bit_offset);
+        uint64_t result = 0;
+        for (uint32_t irow = 0; irow < 8; ++irow) {
+          const __m256i* key_left_ptr = reinterpret_cast<const __m256i*>(
+              left_base +
+              (use_selection ? irow_left_array[irow] : irow_left_first + irow) * length);
+          const __m256i* key_right_ptr =
+              reinterpret_cast<const __m256i*>(right_base + offset_right_array[irow]);
+          __m256i result_or = _mm256_setzero_si256();
+          int32_t i;
+          // length cannot be zero
+          for (i = 0; i < num_loops_less_one; ++i) {
+            __m256i key_left = _mm256_loadu_si256(key_left_ptr + i);
+            __m256i key_right = _mm256_loadu_si256(key_right_ptr + i);
+            result_or = _mm256_or_si256(result_or, _mm256_xor_si256(key_left, key_right));
           }
-        });
-  } else if (col_width == 1) {
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
-          if (use_selection) {
-            return CompareSelected8_avx2<1>(left_base, right_base, irow_left,
-                                            offset_right);
-          } else {
-            return Compare8_avx2<1>(left_base, right_base, irow_left_base, offset_right);
-          }
-        });
-  } else if (col_width == 2) {
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
-          if (use_selection) {
-            return CompareSelected8_avx2<2>(left_base, right_base, irow_left,
-                                            offset_right);
-          } else {
-            return Compare8_avx2<2>(left_base, right_base, irow_left_base, offset_right);
-          }
-        });
-  } else if (col_width == 4) {
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
-          if (use_selection) {
-            return CompareSelected8_avx2<4>(left_base, right_base, irow_left,
-                                            offset_right);
-          } else {
-            return Compare8_avx2<4>(left_base, right_base, irow_left_base, offset_right);
-          }
-        });
-  } else if (col_width == 8) {
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left_base,
-           __m256i irow_left, __m256i offset_right) {
-          return Compare8_64bit_avx2<use_selection>(left_base, right_base, irow_left,
-                                                    irow_left_base, offset_right);
-        });
-  } else {
-    return CompareBinaryColumnToRowHelper_avx2<use_selection>(
-        offset_within_row, num_rows_to_compare, sel_left_maybe_null, left_to_right_map,
-        ctx, col, rows, match_bytevector,
-        [&col](const uint8_t* left_base, const uint8_t* right_base,
-               uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
-          uint32_t length = col.metadata().fixed_length;
-          return Compare8_Binary_avx2<use_selection>(
-              length, left_base, right_base, irow_left, irow_left_base, offset_right);
-        });
-  }
-}
-
-// Overwrites the match_bytevector instead of updating it
-template <bool use_selection, bool is_first_varbinary_col>
-void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
-    uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
-  const uint32_t* offsets_left = col.offsets();
-  const uint32_t* offsets_right = rows.offsets();
-  const uint8_t* rows_left = col.data(2);
-  const uint8_t* rows_right = rows.data(2);
-  for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
-    uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
-    uint32_t irow_right = left_to_right_map[irow_left];
-    uint32_t begin_left = offsets_left[irow_left];
-    uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
-    uint32_t begin_right = offsets_right[irow_right];
-    uint32_t length_right;
-    uint32_t offset_within_row;
-    if (!is_first_varbinary_col) {
-      rows.metadata().nth_varbinary_offset_and_length(
-          rows_right + begin_right, id_varbinary_col, &offset_within_row, &length_right);
-    } else {
-      rows.metadata().first_varbinary_offset_and_length(
-          rows_right + begin_right, &offset_within_row, &length_right);
-    }
-    begin_right += offset_within_row;
-
-    __m256i result_or = _mm256_setzero_si256();
-    uint32_t length = std::min(length_left, length_right);
-    if (length > 0) {
-      const __m256i* key_left_ptr =
-          reinterpret_cast<const __m256i*>(rows_left + begin_left);
-      const __m256i* key_right_ptr =
-          reinterpret_cast<const __m256i*>(rows_right + begin_right);
-      int32_t j;
-      // length can be zero
-      for (j = 0; j < (static_cast<int32_t>(length) + 31) / 32 - 1; ++j) {
-        __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
-        __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
-        result_or = _mm256_or_si256(result_or, _mm256_xor_si256(key_left, key_right));
+          __m256i key_left = _mm256_loadu_si256(key_left_ptr + i);
+          __m256i key_right = _mm256_loadu_si256(key_right_ptr + i);
+          result_or = _mm256_or_si256(
+              result_or,
+              _mm256_and_si256(tail_mask, _mm256_xor_si256(key_left, key_right)));
+          uint64_t result_single = _mm256_testz_si256(result_or, result_or) * 0xff;
+          result |= result_single << (8 * irow);
+        }
+        return result;
       }
 
-      __m256i tail_mask = set_first_n_bytes_avx2(length - j * 32);
+      template <bool use_selection>
+      uint32_t KeyCompare::CompareBinaryColumnToRowImp_avx2(
+          uint32_t offset_within_row, uint32_t num_rows_to_compare,
+          const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+          KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+          const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+        uint32_t col_width = col.metadata().fixed_length;
+        if (col_width == 0) {
+          int bit_offset = col.bit_offset(1);
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [bit_offset](const uint8_t* left_base, const uint8_t* right_base,
+                           uint32_t irow_left_base, __m256i irow_left,
+                           __m256i offset_right) {
+                if (use_selection) {
+                  return CompareSelected8_avx2<0>(left_base, right_base, irow_left,
+                                                  offset_right, bit_offset);
+                } else {
+                  return Compare8_avx2<0>(left_base, right_base, irow_left_base,
+                                          offset_right, bit_offset);
+                }
+              });
+        } else if (col_width == 1) {
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [](const uint8_t* left_base, const uint8_t* right_base,
+                 uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                if (use_selection) {
+                  return CompareSelected8_avx2<1>(left_base, right_base, irow_left,
+                                                  offset_right);
+                } else {
+                  return Compare8_avx2<1>(left_base, right_base, irow_left_base,
+                                          offset_right);
+                }
+              });
+        } else if (col_width == 2) {
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [](const uint8_t* left_base, const uint8_t* right_base,
+                 uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                if (use_selection) {
+                  return CompareSelected8_avx2<2>(left_base, right_base, irow_left,
+                                                  offset_right);
+                } else {
+                  return Compare8_avx2<2>(left_base, right_base, irow_left_base,
+                                          offset_right);
+                }
+              });
+        } else if (col_width == 4) {
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [](const uint8_t* left_base, const uint8_t* right_base,
+                 uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                if (use_selection) {
+                  return CompareSelected8_avx2<4>(left_base, right_base, irow_left,
+                                                  offset_right);
+                } else {
+                  return Compare8_avx2<4>(left_base, right_base, irow_left_base,
+                                          offset_right);
+                }
+              });
+        } else if (col_width == 8) {
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [](const uint8_t* left_base, const uint8_t* right_base,
+                 uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                return Compare8_64bit_avx2<use_selection>(
+                    left_base, right_base, irow_left, irow_left_base, offset_right);
+              });
+        } else {
+          return CompareBinaryColumnToRowHelper_avx2<use_selection>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector,
+              [&col](const uint8_t* left_base, const uint8_t* right_base,
+                     uint32_t irow_left_base, __m256i irow_left, __m256i offset_right) {
+                uint32_t length = col.metadata().fixed_length;
+                return Compare8_Binary_avx2<use_selection>(length, left_base, right_base,
+                                                           irow_left, irow_left_base,
+                                                           offset_right);
+              });
+        }
+      }
 
-      __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
-      __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
-      result_or = _mm256_or_si256(
-          result_or, _mm256_and_si256(tail_mask, _mm256_xor_si256(key_left, key_right)));
-    }
-    int result = _mm256_testz_si256(result_or, result_or) * 0xff;
-    result *= (length_left == length_right ? 1 : 0);
-    match_bytevector[i] = result;
-  }
-}
+      // Overwrites the match_bytevector instead of updating it
+      template <bool use_selection, bool is_first_varbinary_col>
+      void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
+          uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
+          const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+          KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+          const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+        const uint32_t* offsets_left = col.offsets();
+        const uint32_t* offsets_right = rows.offsets();
+        const uint8_t* rows_left = col.data(2);
+        const uint8_t* rows_right = rows.data(2);
+        for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
+          uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
+          uint32_t irow_right = left_to_right_map[irow_left];
+          uint32_t begin_left = offsets_left[irow_left];
+          uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
+          uint32_t begin_right = offsets_right[irow_right];
+          uint32_t length_right;
+          uint32_t offset_within_row;
+          if (!is_first_varbinary_col) {
+            rows.metadata().nth_varbinary_offset_and_length(
+                rows_right + begin_right, id_varbinary_col, &offset_within_row,
+                &length_right);
+          } else {
+            rows.metadata().first_varbinary_offset_and_length(
+                rows_right + begin_right, &offset_within_row, &length_right);
+          }
+          begin_right += offset_within_row;
 
-uint32_t KeyCompare::AndByteVectors_avx2(uint32_t num_elements, uint8_t* bytevector_A,
-                                         const uint8_t* bytevector_B) {
-  constexpr int unroll = 32;
-  for (uint32_t i = 0; i < num_elements / unroll; ++i) {
-    __m256i result = _mm256_and_si256(
-        _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bytevector_A) + i),
-        _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bytevector_B) + i));
-    _mm256_storeu_si256(reinterpret_cast<__m256i*>(bytevector_A) + i, result);
-  }
-  return (num_elements - (num_elements % unroll));
-}
+          __m256i result_or = _mm256_setzero_si256();
+          uint32_t length = std::min(length_left, length_right);
+          if (length > 0) {
+            const __m256i* key_left_ptr =
+                reinterpret_cast<const __m256i*>(rows_left + begin_left);
+            const __m256i* key_right_ptr =
+                reinterpret_cast<const __m256i*>(rows_right + begin_right);
+            int32_t j;
+            // length can be zero
+            for (j = 0; j < (static_cast<int32_t>(length) + 31) / 32 - 1; ++j) {
+              __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
+              __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
+              result_or =
+                  _mm256_or_si256(result_or, _mm256_xor_si256(key_left, key_right));
+            }
 
-uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
-    bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
-  if (use_selection) {
-    return NullUpdateColumnToRowImp_avx2<true>(id_col, num_rows_to_compare,
-                                               sel_left_maybe_null, left_to_right_map,
-                                               ctx, col, rows, match_bytevector);
-  } else {
-    return NullUpdateColumnToRowImp_avx2<false>(id_col, num_rows_to_compare,
-                                                sel_left_maybe_null, left_to_right_map,
-                                                ctx, col, rows, match_bytevector);
-  }
-}
+            __m256i tail_mask = set_first_n_bytes_avx2(length - j * 32);
 
-uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
-    bool use_selection, uint32_t offset_within_row, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
-  if (use_selection) {
-    return CompareBinaryColumnToRowImp_avx2<true>(offset_within_row, num_rows_to_compare,
-                                                  sel_left_maybe_null, left_to_right_map,
-                                                  ctx, col, rows, match_bytevector);
-  } else {
-    return CompareBinaryColumnToRowImp_avx2<false>(offset_within_row, num_rows_to_compare,
-                                                   sel_left_maybe_null, left_to_right_map,
-                                                   ctx, col, rows, match_bytevector);
-  }
-}
+            __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
+            __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
+            result_or = _mm256_or_si256(
+                result_or,
+                _mm256_and_si256(tail_mask, _mm256_xor_si256(key_left, key_right)));
+          }
+          int result = _mm256_testz_si256(result_or, result_or) * 0xff;
+          result *= (length_left == length_right ? 1 : 0);
+          match_bytevector[i] = result;
+        }
+      }
 
-void KeyCompare::CompareVarBinaryColumnToRow_avx2(
-    bool use_selection, bool is_first_varbinary_col, uint32_t id_varlen_col,
-    uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
-    const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
-    const KeyEncoder::KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
-    uint8_t* match_bytevector) {
-  if (use_selection) {
-    if (is_first_varbinary_col) {
-      CompareVarBinaryColumnToRowImp_avx2<true, true>(
-          id_varlen_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
-          col, rows, match_bytevector);
-    } else {
-      CompareVarBinaryColumnToRowImp_avx2<true, false>(
-          id_varlen_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
-          col, rows, match_bytevector);
-    }
-  } else {
-    if (is_first_varbinary_col) {
-      CompareVarBinaryColumnToRowImp_avx2<false, true>(
-          id_varlen_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
-          col, rows, match_bytevector);
-    } else {
-      CompareVarBinaryColumnToRowImp_avx2<false, false>(
-          id_varlen_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
-          col, rows, match_bytevector);
-    }
-  }
-}
+      uint32_t KeyCompare::AndByteVectors_avx2(
+          uint32_t num_elements, uint8_t * bytevector_A, const uint8_t* bytevector_B) {
+        constexpr int unroll = 32;
+        for (uint32_t i = 0; i < num_elements / unroll; ++i) {
+          __m256i result = _mm256_and_si256(
+              _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bytevector_A) + i),
+              _mm256_loadu_si256(reinterpret_cast<const __m256i*>(bytevector_B) + i));
+          _mm256_storeu_si256(reinterpret_cast<__m256i*>(bytevector_A) + i, result);
+        }
+        return (num_elements - (num_elements % unroll));
+      }
+
+      uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
+          bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
+          const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+          KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+          const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+        if (use_selection) {
+          return NullUpdateColumnToRowImp_avx2<true>(
+              id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
+              col, rows, match_bytevector);
+        } else {
+          return NullUpdateColumnToRowImp_avx2<false>(
+              id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx,
+              col, rows, match_bytevector);
+        }
+      }
+
+      uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
+          bool use_selection, uint32_t offset_within_row, uint32_t num_rows_to_compare,
+          const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+          KeyEncoder::KeyEncoderContext* ctx, const KeyEncoder::KeyColumnArray& col,
+          const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+        if (use_selection) {
+          return CompareBinaryColumnToRowImp_avx2<true>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector);
+        } else {
+          return CompareBinaryColumnToRowImp_avx2<false>(
+              offset_within_row, num_rows_to_compare, sel_left_maybe_null,
+              left_to_right_map, ctx, col, rows, match_bytevector);
+        }
+      }
+
+      void KeyCompare::CompareVarBinaryColumnToRow_avx2(
+          bool use_selection, bool is_first_varbinary_col, uint32_t id_varlen_col,
+          uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
+          const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
+          const KeyEncoder::KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
+          uint8_t* match_bytevector) {
+        if (use_selection) {
+          if (is_first_varbinary_col) {
+            CompareVarBinaryColumnToRowImp_avx2<true, true>(
+                id_varlen_col, num_rows_to_compare, sel_left_maybe_null,
+                left_to_right_map, ctx, col, rows, match_bytevector);
+          } else {
+            CompareVarBinaryColumnToRowImp_avx2<true, false>(
+                id_varlen_col, num_rows_to_compare, sel_left_maybe_null,
+                left_to_right_map, ctx, col, rows, match_bytevector);
+          }
+        } else {
+          if (is_first_varbinary_col) {
+            CompareVarBinaryColumnToRowImp_avx2<false, true>(
+                id_varlen_col, num_rows_to_compare, sel_left_maybe_null,
+                left_to_right_map, ctx, col, rows, match_bytevector);
+          } else {
+            CompareVarBinaryColumnToRowImp_avx2<false, false>(
+                id_varlen_col, num_rows_to_compare, sel_left_maybe_null,
+                left_to_right_map, ctx, col, rows, match_bytevector);
+          }
+        }
+      }
 
 #endif
 
-}  // namespace compute
-}  // namespace arrow
+    }  // namespace compute
+  }    // namespace arrow
