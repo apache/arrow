@@ -685,7 +685,7 @@ struct AsciiTitleTransform : public StringTransformBase {
     const uint8_t* end = input + input_string_ncodeunits;
     while (c <= end) {
       uint8_t* c_;
-      // Uppercase first caseable character of current word
+      // Uppercase first alpha character of current word
       while ((c_ = c++) <= end) {
         if (IsCasedCharacterAscii(*c_)) {
           *c_ = ascii_toupper(*c_);
@@ -703,6 +703,9 @@ struct AsciiTitleTransform : public StringTransformBase {
     return input_string_ncodeunits;
   }
 };
+
+template <typename Type>
+using AsciiTitle = StringTransformExec<Type, AsciiTitleTransform>;
 
 // ----------------------------------------------------------------------
 // exact pattern detection
@@ -4154,6 +4157,13 @@ const FunctionDoc ascii_capitalize_doc(
      "non-ASCII characters, use \"utf8_capitalize\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_title_doc(
+    "Transform ASCII input to a string where the first alpha character in each word is uppercase and all other characters are lowercase",
+    ("For each string in `strings`, return a title version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_title\" instead."),
+    {"strings"});
+
 const FunctionDoc ascii_reverse_doc(
     "Reverse ASCII input",
     ("For each ASCII string in `strings`, return a reversed version.\n\n"
@@ -4201,6 +4211,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
                                               &ascii_capitalize_doc);
+  MakeUnaryStringBatchKernel<AsciiTitle>("ascii_title", registry, &ascii_title_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
