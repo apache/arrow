@@ -33,6 +33,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/time.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
@@ -154,6 +155,28 @@ struct ScalarHashImpl {
   size_t hash_;
 };
 
+struct ScalarBoundsCheckImpl {
+  int64_t min_value;
+  int64_t max_value;
+  int64_t actual_value = -1;
+  bool ok = true;
+
+  ScalarBoundsCheckImpl(int64_t min_value, int64_t max_value)
+      : min_value(min_value), max_value(max_value) {}
+
+  Status Visit(const Scalar&) {
+    Unreachable();
+    return Status::NotImplemented("");
+  }
+
+  template <typename ScalarType, typename Type = typename ScalarType::TypeClass>
+  enable_if_integer<Type, Status> Visit(const ScalarType& scalar) {
+    actual_value = static_cast<int64_t>(scalar.value);
+    ok = (actual_value >= min_value && actual_value <= max_value);
+    return Status::OK();
+  }
+};
+
 // Implementation of Scalar::Validate() and Scalar::ValidateFull()
 struct ScalarValidateImpl {
   const bool full_validation_;
@@ -261,6 +284,7 @@ struct ScalarValidateImpl {
 
   Status Visit(const DictionaryScalar& s) {
     const auto& dict_type = checked_cast<const DictionaryType&>(*s.type);
+
     // Validate index
     if (!s.value.index) {
       return Status::Invalid(s.type->ToString(), " scalar doesn't have an index value");
@@ -277,14 +301,13 @@ struct ScalarValidateImpl {
           s.type->ToString(), " scalar should have an index value of type ",
           dict_type.index_type()->ToString(), ", got ", s.value.index->type->ToString());
     }
-    if (s.is_valid != s.value.index->is_valid) {
-      if (s.is_valid) {
-        return Status::Invalid("non-null ", s.type->ToString(),
-                               " scalar has null index value");
-      } else {
-        return Status::Invalid("null ", s.type->ToString(),
-                               " scalar has non-null index value");
-      }
+    if (s.is_valid && !s.value.index->is_valid) {
+      return Status::Invalid("non-null ", s.type->ToString(),
+                             " scalar has null index value");
+    }
+    if (!s.is_valid && s.value.index->is_valid) {
+      return Status::Invalid("null ", s.type->ToString(),
+                             " scalar has non-null index value");
     }
 
     // Validate dictionary
@@ -308,13 +331,21 @@ struct ScalarValidateImpl {
                              s.value.dictionary->type()->ToString());
     }
 
-    // XXX check index is in bounds?
+    // Check index is in bounds
+    if (full_validation_ && s.value.index->is_valid) {
+      ScalarBoundsCheckImpl bounds_checker{0, s.value.dictionary->length() - 1};
+      RETURN_NOT_OK(VisitScalarInline(*s.value.index, &bounds_checker));
+      if (!bounds_checker.ok) {
+        return Status::Invalid(s.type->ToString(), " scalar index value out of bounds: ",
+                               bounds_checker.actual_value);
+      }
+    }
     return Status::OK();
   }
 
   Status Visit(const UnionScalar& s) {
     RETURN_NOT_OK(ValidateOptionalValue(s));
-    const int type_code = s.type_code;  // avoid 8-bit int types for priting
+    const int type_code = s.type_code;  // avoid 8-bit int types for printing
     const auto& union_type = checked_cast<const UnionType&>(*s.type);
     const auto& child_ids = union_type.child_ids();
     if (type_code < 0 || type_code >= static_cast<int64_t>(child_ids.size()) ||

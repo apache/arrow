@@ -1243,6 +1243,17 @@ TEST(TestDictionaryScalar, ValidateErrors) {
   AssertValidationFails(scalar);
   scalar.is_valid = false;
   ASSERT_OK(scalar.ValidateFull());
+
+  // Index value out of bounds
+  for (int64_t index : {-1, 3}) {
+    DictionaryScalar::ValueType invalid;
+    ASSERT_OK_AND_ASSIGN(invalid.index, MakeScalar(index_ty, index));
+    invalid.dictionary = dict;
+
+    scalar = DictionaryScalar(invalid, dictionary(index_ty, value_ty));
+    ASSERT_OK(scalar.Validate());
+    ASSERT_RAISES(Invalid, scalar.ValidateFull());
+  }
 }
 
 TEST(TestDictionaryScalar, Cast) {
