@@ -33,6 +33,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,6 +48,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+
+import com.google.common.collect.ImmutableSet;
 
 import me.alexpanov.net.FreePortFinder;
 
@@ -190,5 +193,17 @@ public class ResultSetTest {
 
       assertEquals(maxRowsLimit, count);
     }
+  }
+
+  @Test
+  public void testColumnCountShouldRemainConsistentForResultSetThroughoutEntireDuration() throws SQLException {
+    final Set<Integer> counts = new HashSet<>();
+    try (final Statement statement = connection.createStatement();
+         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.QUERY_STRING)) {
+      while (resultSet.next()) {
+        counts.add(resultSet.getMetaData().getColumnCount());
+      }
+    }
+    collector.checkThat(counts, is(ImmutableSet.of(6)));
   }
 }
