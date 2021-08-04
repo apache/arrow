@@ -50,19 +50,11 @@ class ARROW_EXPORT TableReader {
   /// Read the entire JSON file and convert it to a Arrow Table
   virtual Result<std::shared_ptr<Table>> Read() = 0;
 
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status Read(std::shared_ptr<Table>* out);
-
   /// Create a TableReader instance
   static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
                                                    std::shared_ptr<io::InputStream> input,
                                                    const ReadOptions&,
                                                    const ParseOptions&);
-
-  ARROW_DEPRECATED("Use Result-returning version")
-  static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                     const ReadOptions&, const ParseOptions&,
-                     std::shared_ptr<TableReader>* out);
 };
 
 ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,

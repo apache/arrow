@@ -508,13 +508,6 @@ class ARROW_EXPORT SparseTensor {
     return ToTensor(default_memory_pool());
   }
 
-  /// \brief Status-return version of ToTensor().
-  ARROW_DEPRECATED("Use Result-returning version")
-  Status ToTensor(std::shared_ptr<Tensor>* out) const { return ToTensor().Value(out); }
-  Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const {
-    return ToTensor(pool).Value(out);
-  }
-
  protected:
   // Constructor with all attributes
   SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
