@@ -197,8 +197,7 @@ TEST(Cast, CanCast) {
 
   ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
   ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
-  // ExpectCannotCast(timestamp(TimeUnit::MICRO),
-  //                 kBaseBinaryTypes);  // no formatting supported
+  ExpectCannotCast(timestamp(TimeUnit::MICRO), {binary(), large_binary()});  // no formatting supported
 
   ExpectCannotCast(fixed_size_binary(3),
                    {fixed_size_binary(3)});  // FIXME missing identity cast
@@ -211,6 +210,11 @@ TEST(Cast, CanCast) {
 
   ExpectCanCast(date32(), {utf8(), large_utf8()});
   ExpectCanCast(date64(), {utf8(), large_utf8()});
+  ExpectCanCast(timestamp(TimeUnit::NANO), {utf8(), large_utf8()});
+  ExpectCanCast(timestamp(TimeUnit::MICRO), {utf8(), large_utf8()});
+  ExpectCanCast(time32(TimeUnit::MILLI), {utf8(), large_utf8()});
+  ExpectCanCast(time64(TimeUnit::NANO), {utf8(), large_utf8()});
+  //ExpectCanCast(duration(TimeUnit::SECOND), {utf8(), large_utf8()}); //FIXME
 }
 
 TEST(Cast, SameTypeZeroCopy) {
