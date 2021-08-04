@@ -19,13 +19,9 @@ package org.apache.arrow.driver.jdbc.test;
 
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.*;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -33,6 +29,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -362,6 +359,33 @@ public class ResultSetTest {
               .orElseThrow(IllegalStateException::new)
               .toString(),
           is(format("Error while executing SQL \"%s\": Query canceled", query)));
+    }
+  }
+
+  @Test
+  public void testShouldInterruptFlightStreamsIfQueryTimeoutIsOver() throws SQLException {
+    final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
+    final int timeoutValue = 2;
+    final String timeoutUnit = "SECONDS";
+    try (final Statement statement = connection.createStatement()) {
+      statement.setQueryTimeout(timeoutValue);
+      final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
+      try (final ResultSet resultSet = statement.executeQuery(query)) {
+        while (resultSet.next()) {
+          resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
+        }
+      } catch (final Exception e) {
+        exceptions.add(e);
+      }
+      final Throwable comparisonCause = exceptions.stream()
+          .findFirst()
+          .orElseThrow(RuntimeException::new)
+          .getCause()
+          .getCause();
+      collector.checkThat(comparisonCause,
+          is(instanceOf(SQLTimeoutException.class)));
+      collector.checkThat(comparisonCause.getMessage(),
+          is(String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit)));
     }
   }
 }
