@@ -20,9 +20,9 @@ package org.apache.arrow.driver.jdbc.test;
 import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertTrue;
@@ -388,6 +388,33 @@ public class ResultSetTest {
           is(instanceOf(SQLTimeoutException.class)));
       collector.checkThat(comparisonCause.getMessage(),
           is(String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit)));
+    }
+  }
+
+  @Test
+  public void testFlightStreamsQueryShouldNotTimeout() throws SQLException {
+    final String query = FlightServerTestRule.REGULAR_TEST_SQL_CMD;
+    final int timeoutValue = 2;
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(query)) {
+      statement.setQueryTimeout(timeoutValue);
+      int count = 0;
+      int expectedRows = 50000;
+
+      Set<String> testNames =
+          IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
+
+      for (; resultSet.next(); count++) {
+        collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
+        collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
+        collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
+        collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
+        collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
+        collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
+      }
+
+      collector.checkThat(testNames.isEmpty(), is(true));
+      collector.checkThat(expectedRows, is(count));
     }
   }
 }
