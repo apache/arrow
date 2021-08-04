@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.io.PrintWriter;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -36,7 +35,6 @@ import org.apache.calcite.avatica.org.apache.http.client.utils.URIBuilder;
  * {@link DataSource} implementation for Arrow Flight JDBC Driver.
  */
 public class ArrowFlightJdbcDataSource implements DataSource {
-  private String url;
   private final Properties properties;
   private PrintWriter logWriter;
 
@@ -64,9 +62,9 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     return driver.connect(connectionUrl, properties);
   }
 
-  private void updateUrl() {
+  private String getUrl() {
     try {
-      this.url = new URIBuilder()
+      return new URIBuilder()
           .setScheme("jdbc:arrow-flight")
           .setHost(getHost())
           .setPort(getPort())
@@ -75,28 +73,6 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  /**
-   * Set the connection URL.
-   * Setting the URL will also update host and port properties.
-   */
-  public void setUrl(String url) {
-    this.url = url;
-    try {
-      final URI uri = new URI(this.url);
-      this.setProperty(BaseProperty.HOST, uri.getHost());
-      this.setProperty(BaseProperty.PORT, uri.getPort());
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Returns the JDBC connection url property.
-   */
-  public String getUrl() {
-    return this.url;
   }
 
   private void setProperty(BaseProperty property, Object value) {
@@ -113,7 +89,6 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    */
   public void setHost(String host) {
     this.setProperty(BaseProperty.HOST, host);
-    this.updateUrl();
   }
 
   /**
@@ -129,7 +104,6 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    */
   public void setPort(int port) {
     this.setProperty(BaseProperty.PORT, port);
-    this.updateUrl();
   }
 
   /**
