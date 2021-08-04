@@ -19,10 +19,9 @@
 #include <arrow/compute/api.h>
 #include <arrow/util/logging.h>
 
-#include <iostream>
-
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/exec_utils.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -47,7 +46,7 @@ struct HashSemiJoinNode : ExecNode {
   const char* kind_name() override { return "HashSemiJoinNode"; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
-    //    std::cout << "init \n";
+    ARROW_LOG(DEBUG) << "init ";
 
     // Get input schema
     auto build_schema = inputs_[0]->output_schema();
@@ -80,13 +79,13 @@ struct HashSemiJoinNode : ExecNode {
       }
     }
     ARROW_DCHECK(build_result_index > -1);
-    //    std::cout << "build_result_index " << build_result_index << "\n";
+    ARROW_LOG(DEBUG) << "build_result_index " << build_result_index;
   }
 
   // Performs the housekeeping work after the build-side is completed. Note: this method
   // should be called ONLY ONCE!
   Status BuildSideCompleted() {
-    //    std::cout << "build side merge \n";
+    ARROW_LOG(DEBUG) << "build side merge";
 
     CalculateBuildResultIndex();
 
@@ -118,11 +117,11 @@ struct HashSemiJoinNode : ExecNode {
   // total reached at the end of consumption, all the local states will be merged, before
   // incrementing the total batches
   Status ConsumeBuildBatch(ExecBatch batch) {
-    //    std::cout << "ConsumeBuildBatch tid:" << thread_index << " len:" << batch.length
-    //              << "\n";
-
     size_t thread_index = get_thread_index_();
     ARROW_DCHECK(thread_index < local_states_.size());
+
+    ARROW_LOG(DEBUG) << "ConsumeBuildBatch tid:" << thread_index
+                     << " len:" << batch.length;
 
     auto state = &local_states_[thread_index];
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
@@ -148,8 +147,8 @@ struct HashSemiJoinNode : ExecNode {
   // consumes cached probe batches by invoking executor::Spawn. This should be called by a
   // single thread. Note: this method should be called ONLY ONCE!
   Status ConsumeCachedProbeBatches() {
-    //    std::cout << "ConsumeCachedProbeBatches tid:" << thread_index
-    //              << " len:" << cached_probe_batches.size() << "\n";
+    ARROW_LOG(DEBUG) << "ConsumeCachedProbeBatches tid:" << get_thread_index_()
+                     << " len:" << cached_probe_batches.size();
 
     if (!cached_probe_batches.empty()) {
       auto executor = ctx_->executor();
@@ -176,7 +175,7 @@ struct HashSemiJoinNode : ExecNode {
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[build_result_index] which have been merged with all others.
   Status ConsumeProbeBatch(int seq, ExecBatch batch) {
-    //    std::cout << "ConsumeProbeBatch seq:" << seq << "\n";
+    ARROW_LOG(DEBUG) << "ConsumeProbeBatch seq:" << seq;
 
     auto& final_grouper = *local_states_[build_result_index].grouper;
 
@@ -204,10 +203,10 @@ struct HashSemiJoinNode : ExecNode {
           Filter(rec_batch, filter_arr,
                  /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
       auto out_batch = ExecBatch(*filtered.record_batch());
-      //      std::cout << "output seq:" << seq << " " << out_batch.length << "\n";
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
       outputs_[0]->InputReceived(this, seq, std::move(out_batch));
     } else {  // all values are valid for output
-              //      std::cout << "output seq:" << seq << " " << batch.length << "\n";
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
       outputs_[0]->InputReceived(this, seq, std::move(batch));
     }
 
@@ -219,8 +218,8 @@ struct HashSemiJoinNode : ExecNode {
 
   //  void CacheProbeBatch(const size_t thread_index, int seq_num, ExecBatch batch) {
   void CacheProbeBatch(int seq_num, ExecBatch batch) {
-    //    std::cout << "cache tid:" << thread_index << " seq:" << seq_num
-    //              << " len:" << batch.length << "\n";
+    ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " seq:" << seq_num
+                     << " len:" << batch.length;
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
     cached_probe_batches.emplace_back(seq_num, std::move(batch));
   }
@@ -230,8 +229,8 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    //    std::cout << "input received input:" << (IsBuildInput(input) ? "b" : "p")
-    //              << " seq:" << seq << " len:" << batch.length << "\n";
+    //    //std::cout << "input received input:" << (IsBuildInput(input) ? "b" : "p")
+    //                  << " seq:" << seq << " len:" << batch.length ;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
@@ -258,7 +257,7 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    //    std::cout << "error received " << error.ToString() << "\n";
+    ARROW_LOG(DEBUG) << "error received " << error.ToString();
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -266,8 +265,8 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
-    //    std::cout << "input finished input:" << (IsBuildInput(input) ? "b" : "p")
-    //              << " tot:" << num_total << "\n";
+    ARROW_LOG(DEBUG) << "input finished input:" << (IsBuildInput(input) ? "b" : "p")
+                     << " tot:" << num_total;
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -293,11 +292,11 @@ struct HashSemiJoinNode : ExecNode {
       finished_.MarkFinished();
     }
     outputs_[0]->InputFinished(this, num_total);
-    //    std::cout << "output set:" << num_total << "\n";
+    ARROW_LOG(DEBUG) << "output set:" << num_total;
   }
 
   Status StartProducing() override {
-    //    std::cout << "start prod \n";
+    ARROW_LOG(DEBUG) << "start prod";
     finished_ = Future<>::Make();
 
     local_states_.resize(ThreadIndexer::Capacity());
@@ -309,7 +308,7 @@ struct HashSemiJoinNode : ExecNode {
   void ResumeProducing(ExecNode* output) override {}
 
   void StopProducing(ExecNode* output) override {
-    //    std::cout << "stop prod from node\n";
+    ARROW_LOG(DEBUG) << "stop prod from node";
 
     DCHECK_EQ(output, outputs_[0]);
 
@@ -326,14 +325,14 @@ struct HashSemiJoinNode : ExecNode {
 
   // TODO(niranda) couldn't there be multiple outputs for a Node?
   void StopProducing() override {
-    //    std::cout << "stop prod \n";
+    ARROW_LOG(DEBUG) << "stop prod ";
     for (auto&& output : outputs_) {
       StopProducing(output);
     }
   }
 
   Future<> finished() override {
-    //    std::cout << "finished? " << finished_.is_finished() << "\n";
+    ARROW_LOG(DEBUG) << "finished? " << finished_.is_finished();
     return finished_;
   }
 
