@@ -128,7 +128,7 @@ write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FA
 
 # View files - you can see the partitioning means that files have been written
 # to folders based on Month/Day values
-list.files(tf3, recursive = TRUE)
+tf3_files <- list.files(tf3, recursive = TRUE)
 
 # With no partitioning specified, dataset contains all files but doesn't include
 # directory names as field names

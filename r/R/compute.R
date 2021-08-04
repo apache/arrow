@@ -89,9 +89,8 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
 #' @examplesIf arrow_available()
-#' list_compute_functions()
-#' list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
-#' list_compute_functions(pattern = "^is", invert = TRUE)
+#' available_funcs <- list_compute_functions()
+#' utf8_funcs <- list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 #' @export
 list_compute_functions <- function(pattern = NULL, ...) {
   funcs <- compute__GetFunctionNames()
@@ -284,7 +283,7 @@ is_in <- function(x, table, ...) {
 #' `Int64`.
 #' @examplesIf arrow_available()
 #' cyl_vals <- Array$create(mtcars$cyl)
-#' value_counts(cyl_vals)
+#' counts <- value_counts(cyl_vals)
 #' @export
 value_counts <- function(x) {
   call_function("value_counts", x)

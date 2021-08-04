@@ -68,8 +68,7 @@ write_ipc_stream <- function(x, sink, ...) {
 #' @return A `raw` vector containing the bytes of the IPC serialized data.
 #' @examplesIf arrow_available()
 #' # The default format is "stream"
-#' write_to_raw(mtcars)
-#' write_to_raw(mtcars, format = "file")
+#' mtcars_raw <- write_to_raw(mtcars)
 #' @export
 write_to_raw <- function(x, format = c("stream", "file")) {
   sink <- BufferOutputStream$create()
