@@ -118,6 +118,8 @@ jobs:
 
       - name: Test Wheel on ARM64
         shell: bash
+        env:
+          PYTEST_ARGS: -k "not test_cancellation"
         run: |
           $PYTHON -m virtualenv test-arm64-env
           source test-arm64-env/bin/activate
@@ -127,6 +129,8 @@ jobs:
       {% if arch == "universal2" %}
       - name: Test Wheel on AMD64
         shell: bash
+        env:
+          PYTEST_ARGS: -k "not test_cancellation"
         run: |
           $PYTHON -m virtualenv test-amd64-env
           source test-amd64-env/bin/activate
