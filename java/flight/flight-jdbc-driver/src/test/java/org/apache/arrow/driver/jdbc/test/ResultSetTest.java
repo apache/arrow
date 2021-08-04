@@ -82,6 +82,13 @@ public class ResultSetTest {
     connection.close();
   }
 
+  private static void resultSetNextUntilDone(ResultSet resultSet) throws SQLException {
+    while (resultSet.next()) {
+      // TODO: implement resultSet.last()
+      // Pass to the next until resultSet is done
+    }
+  }
+
   private static void setMaxRowsLimit(int maxRowsLimit, Statement statement) throws SQLException {
     statement.setLargeMaxRows(maxRowsLimit);
   }
@@ -223,10 +230,7 @@ public class ResultSetTest {
 
     statement.closeOnCompletion();
 
-    while (resultSet.next()) {
-      // TODO: implement resultSet.last()
-      // Pass to the next until resultSet is done
-    }
+    resultSetNextUntilDone(resultSet);
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -242,13 +246,11 @@ public class ResultSetTest {
     Statement statement = connection.createStatement();
     ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
 
-    setMaxRowsLimit(3, statement);
+    final long maxRowsLimit = 3;
+    statement.setLargeMaxRows(maxRowsLimit);
     statement.closeOnCompletion();
 
-    while (resultSet.next()) {
-      // TODO: implement resultSet.last()
-      // Pass to the next until resultSet is done
-    }
+    resultSetNextUntilDone(resultSet);
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -264,12 +266,10 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
 
-      setMaxRowsLimit(3, statement);
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
 
-      while (resultSet.next()) {
-        // TODO: implement resultSet.last()
-        // Pass to the next until resultSet is done
-      }
+      resultSetNextUntilDone(resultSet);
 
       collector.checkThat(statement.isClosed(), is(false));
     }
