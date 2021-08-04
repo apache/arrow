@@ -77,7 +77,7 @@ class SwissTable {
   /// Group ids are bit packed using that maximum to determine the necessary number of
   /// bits.
   inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
-                                   uint64_t group_id_mask);
+                                   uint64_t group_id_mask) const;
 
   inline uint64_t next_slot_to_visit(uint64_t block_index, int slot, int match_found);
 

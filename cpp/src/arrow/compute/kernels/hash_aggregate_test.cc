@@ -1293,6 +1293,9 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
                                            {
                                                {"hash_sum", nullptr},
                                            }));
+    if (key_type->Equals(utf8())) {
+      SortBy({"key_0"}, &aggregated_and_grouped);
+    }
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("hash_sum", float64()),
