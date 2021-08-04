@@ -39,7 +39,7 @@ arrow_eval <- function(expr, mask) {
     }
 
     out <- structure(msg, class = "try-error", condition = e)
-    if (grepl("not supported.*Arrow", msg)) {
+    if (grepl("not supported.*Arrow", msg) || getOption("arrow.debug", FALSE)) {
       # One of ours. Mark it so that consumers can handle it differently
       class(out) <- c("arrow-try-error", class(out))
     }
@@ -75,7 +75,7 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data) {
+arrow_mask <- function(.data, aggregation = FALSE) {
   f_env <- new_environment(.cache$functions)
 
   # Add functions that need to error hard and clear.
@@ -84,6 +84,10 @@ arrow_mask <- function(.data) {
   fail <- function(...) stop("Not implemented")
   for (f in c("mean", "sd")) {
     f_env[[f]] <- fail
+  }
+
+  if (aggregation) {
+    f_env <- new_environment(agg_funcs, parent = f_env)
   }
 
   # Assign the schema to the expressions

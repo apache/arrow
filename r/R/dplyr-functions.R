@@ -713,7 +713,7 @@ nse_funcs$log <- nse_funcs$logb <- function(x, base = exp(1)) {
     return(Expression$create("log10_checked", x))
   }
   # ARROW-13345
-  stop("`base` values other than exp(1), 2 and 10 not supported in Arrow", call. = FALSE)
+  arrow_not_supported("`base` values other than exp(1), 2 and 10")
 }
 
 nse_funcs$if_else <- function(condition, true, false, missing = NULL) {
@@ -776,4 +776,43 @@ nse_funcs$case_when <- function(...) {
       value
     )
   )
+}
+
+# Aggregation functions
+# These all return a list of:
+# @param fun string function name
+# @param data Expression (these are all currently a single field)
+# @param options list of function options, as passed to call_function
+# For group-by aggregation, `hash_` gets prepended to the function name.
+# So to see a list of available hash aggregation functions, do
+# list_compute_functions("^hash_")
+agg_funcs <- list()
+agg_funcs$sum <- function(x, na.rm = FALSE) {
+  list(
+    fun = "sum",
+    data = x,
+    options = arrow_na_rm(na.rm = na.rm)
+  )
+}
+agg_funcs$any <- function(x, na.rm = FALSE) {
+  list(
+    fun = "any",
+    data = x,
+    options = arrow_na_rm(na.rm)
+  )
+}
+agg_funcs$all <- function(x, na.rm = FALSE) {
+  list(
+    fun = "all",
+    data = x,
+    options = arrow_na_rm(na.rm)
+  )
+}
+
+arrow_na_rm <- function(na.rm) {
+  if (!isTRUE(na.rm)) {
+    # TODO: ARROW-13497
+    arrow_not_supported(paste("na.rm =", na.rm))
+  }
+  list(na.rm = na.rm, na.min_count = 0L)
 }

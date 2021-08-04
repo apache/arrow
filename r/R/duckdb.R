@@ -40,8 +40,7 @@
 #'
 #' @name to_duckdb
 #' @export
-#' @examplesIf { arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) &&
-#'   packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE) }
+#' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
 #' library(dplyr)
 #'
 #' ds <- InMemoryDataset$create(mtcars)
@@ -112,4 +111,8 @@ duckdb_disconnector <- function(con, tbl_name) {
     }
   })
   environment()
+}
+
+run_duckdb_examples <- function() {
+  arrow_with_dataset() && requireNamespace("duckdb", quietly = TRUE) && packageVersion("duckdb") > "0.2.7" && requireNamespace("dplyr", quietly = TRUE)
 }

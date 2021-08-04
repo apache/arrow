@@ -816,14 +816,15 @@ Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto scan,
                         MakeScanNode(plan.get(), std::move(fragment_gen), options));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto get_selection,
-      compute::MakeProjectNode(scan, "get_selection", {options->filter}));
+  ARROW_ASSIGN_OR_RAISE(auto get_selection,
+                        compute::MakeProjectNode(scan, "get_selection", {options->filter},
+                                                 {"selection_mask"}));
 
   ARROW_ASSIGN_OR_RAISE(
       auto sum_selection,
       compute::MakeScalarAggregateNode(get_selection, "sum_selection",
-                                       {compute::internal::Aggregate{"sum", nullptr}}));
+                                       {compute::internal::Aggregate{"sum", nullptr}},
+                                       {"selection_mask"}, {"sum"}));
 
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen =
       compute::MakeSinkNode(sum_selection, "sink");

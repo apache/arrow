@@ -69,24 +69,6 @@ See $.data for the source Arrow object',
   )
 })
 
-test_that("summarize", {
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int) / 2),
-    tbl
-  )
-})
-
 test_that("Empty select returns no columns", {
   expect_dplyr_equal(
     input %>% select() %>% collect(),
@@ -1054,7 +1036,7 @@ test_that("log functions", {
 
   expect_error(
     nse_funcs$log(Expression$scalar(x), base = 5),
-    "`base` values other than exp(1), 2 and 10 not supported in Arrow",
+    "`base` values other than exp(1), 2 and 10 not supported by Arrow",
     fixed = TRUE
   )
 

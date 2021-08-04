@@ -638,12 +638,15 @@ test_that("Creating UnionDataset", {
 test_that("map_batches", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
-  expect_equivalent(
-    ds %>%
-      filter(int > 5) %>%
-      select(int, lgl) %>%
-      map_batches(~ summarize(., min_int = min(int))),
-    tibble(min_int = c(6L, 101L))
+  expect_warning(
+    expect_equivalent(
+      ds %>%
+        filter(int > 5) %>%
+        select(int, lgl) %>%
+        map_batches(~ summarize(., min_int = min(int))),
+      tibble(min_int = c(6L, 101L))
+    ),
+    "pulling data into R" # ARROW-13502
   )
 })
 
@@ -986,17 +989,6 @@ test_that("dplyr method not implemented messages", {
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
-  # One explicit test of the full message
-  expect_error(
-    ds %>% summarize(mean(int)),
-    "summarize() is not currently implemented for Arrow Datasets. Call collect() first to pull data into R.",
-    fixed = TRUE
-  )
-  # Helper for everything else
-  expect_not_implemented <- function(x) {
-    expect_error(x, "is not currently implemented for Arrow Datasets")
-  }
-  expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
 test_that("Dataset and query print methods", {

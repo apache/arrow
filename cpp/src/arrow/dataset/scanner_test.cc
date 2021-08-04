@@ -1471,14 +1471,16 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * sum,
       compute::MakeScalarAggregateNode(project, "scalar_agg",
-                                       {compute::internal::Aggregate{"sum", nullptr}}));
+                                       {compute::internal::Aggregate{"sum", nullptr}},
+                                       {a_times_2.ToString()}, {"a*2 sum"}));
 
   // finally, pipe the project node into a sink node
   auto sink_gen = compute::MakeSinkNode(sum, "sink");
 
   // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      schema({field("sum", int64())}), std::move(sink_gen), exec_context.memory_pool());
+  std::shared_ptr<RecordBatchReader> sink_reader =
+      compute::MakeGeneratorReader(schema({field("a*2 sum", int64())}),
+                                   std::move(sink_gen), exec_context.memory_pool());
 
   // start the ExecPlan
   ASSERT_OK(plan->StartProducing());
@@ -1489,9 +1491,9 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // wait 1s for completion
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
-  auto expected = TableFromJSON(schema({field("sum", int64())}), {
-                                                                     R"([
-                                               {"sum": 4}
+  auto expected = TableFromJSON(schema({field("a*2 sum", int64())}), {
+                                                                         R"([
+                                               {"a*2 sum": 4}
                                           ])"});
   AssertTablesEqual(*expected, *collected, /*same_chunk_layout=*/false);
 }

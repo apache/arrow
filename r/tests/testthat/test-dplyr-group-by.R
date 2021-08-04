@@ -29,7 +29,8 @@ test_that("group_by groupings are recorded", {
       select(int, chr) %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
-    tbl
+    tbl,
+    warning = TRUE
   )
 })
 
@@ -62,7 +63,8 @@ test_that("ungroup", {
       ungroup() %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
-    tbl
+    tbl,
+    warning = TRUE
   )
 })
 

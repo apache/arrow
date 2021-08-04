@@ -719,11 +719,13 @@ struct ScalarAggregateNode : ExecNode {
   ScalarAggregateNode(ExecNode* input, std::string label,
                       std::shared_ptr<Schema> output_schema,
                       std::vector<const ScalarAggregateKernel*> kernels,
+                      std::vector<int> argument_indices,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(input->plan(), std::move(label), {input}, {"target"},
                  /*output_schema=*/std::move(output_schema),
                  /*num_outputs=*/1),
         kernels_(std::move(kernels)),
+        argument_indices_(std::move(argument_indices)),
         states_(std::move(states)) {}
 
   const char* kind_name() override { return "ScalarAggregateNode"; }
@@ -733,7 +735,7 @@ struct ScalarAggregateNode : ExecNode {
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
-      ExecBatch single_column_batch{{batch.values[i]}, batch.length};
+      ExecBatch single_column_batch{{batch[argument_indices_[i]]}, batch.length};
       RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
     }
     return Status::OK();
@@ -807,7 +809,8 @@ struct ScalarAggregateNode : ExecNode {
   }
 
   Future<> finished_ = Future<>::MakeFinished();
-  std::vector<const ScalarAggregateKernel*> kernels_;
+  const std::vector<const ScalarAggregateKernel*> kernels_;
+  const std::vector<int> argument_indices_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
@@ -816,11 +819,17 @@ struct ScalarAggregateNode : ExecNode {
 };
 
 Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
-                                          std::vector<internal::Aggregate> aggregates) {
-  if (input->output_schema()->num_fields() != static_cast<int>(aggregates.size())) {
-    return Status::Invalid("Provided ", aggregates.size(),
-                           " aggregates, expected one for each field of ",
-                           input->output_schema()->ToString());
+                                          std::vector<internal::Aggregate> aggregates,
+                                          std::vector<FieldRef> arguments,
+                                          std::vector<std::string> out_field_names) {
+  if (aggregates.size() != arguments.size()) {
+    return Status::Invalid("Provided ", aggregates.size(), " aggregates but ",
+                           arguments.size(), " arguments.");
+  }
+
+  if (aggregates.size() != out_field_names.size()) {
+    return Status::Invalid("Provided ", aggregates.size(), " aggregates but ",
+                           out_field_names.size(), " field names for the output.");
   }
 
   auto exec_ctx = input->plan()->exec_context();
@@ -828,8 +837,16 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
   std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
   std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
   FieldVector fields(kernels.size());
+  std::vector<int> argument_indices(kernels.size());
 
   for (size_t i = 0; i < kernels.size(); ++i) {
+    if (!arguments[i].IsName()) {
+      return Status::NotImplemented("Non name field refs");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          arguments[i].FindOneOrNone(*input->output_schema()));
+    argument_indices[i] = match[0];
+
     ARROW_ASSIGN_OR_RAISE(auto function,
                           exec_ctx->func_registry()->GetFunction(aggregates[i].function));
 
@@ -862,12 +879,12 @@ Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
     ARROW_ASSIGN_OR_RAISE(
         auto descr, kernels[i]->signature->out_type().Resolve(&kernel_ctx, {in_type}));
 
-    fields[i] = field(aggregates[i].function, std::move(descr.type));
+    fields[i] = field(std::move(out_field_names[i]), std::move(descr.type));
   }
 
   return input->plan()->EmplaceNode<ScalarAggregateNode>(
       input, std::move(label), schema(std::move(fields)), std::move(kernels),
-      std::move(states));
+      std::move(argument_indices), std::move(states));
 }
 
 namespace internal {
