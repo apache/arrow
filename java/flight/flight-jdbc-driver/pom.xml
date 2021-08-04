@@ -151,7 +151,7 @@
     <build>
         <resources>
             <resource>
-                <directory>src/main/resources/properties</directory>
+                <directory>src/main/resources</directory>
             </resource>
         </resources>
         <plugins>
@@ -187,11 +187,6 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <archive>
-                        <manifest>
-                            <mainClass>org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver</mainClass>
-                        </manifest>
-                    </archive>
                 </configuration>
                 <executions>
                     <execution>
