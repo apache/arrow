@@ -235,6 +235,33 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestRepeat) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = repeat_utf8_int32(ctx_ptr, "abc", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcabc");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "aaaaa");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "", -20, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = repeat_utf8_int32(ctx_ptr, "a", 1, -10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastBoolToVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

@@ -275,6 +275,9 @@ gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
+const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
+                              gdv_int32 repeat_times, gdv_int32* out_len);
+
 const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,
                                     gdv_int32 in_len, gdv_int64 offset64,
                                     gdv_int64 length, gdv_int32* out_len);

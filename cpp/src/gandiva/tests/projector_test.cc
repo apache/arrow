@@ -1288,6 +1288,44 @@ TEST_F(TestProjector, TestIfElseOpt) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestRepeat) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_repeat = field("repeat", arrow::utf8());
+
+  // Build expression
+  auto repeat_expr =
+      TreeExprBuilder::MakeExpression("repeat", {field0, field1}, field_repeat);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {repeat_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 =
+      MakeArrowArrayUtf8({"ab", "a", "car", "valid", ""}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({2, 1, 3, 2, 10}, {true, true, true, true, true});
+  // expected output
+  auto exp_repeat = MakeArrowArrayUtf8({"abab", "a", "carcarcar", "validvalid", ""},
+                                       {true, true, true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_repeat, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestLpad) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
