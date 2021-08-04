@@ -668,7 +668,7 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
                     uint8_t* output) {
     if (input_string_ncodeunits > 0) {
       TransformAsciiUpper(input, 1, output);
-      TransformAsciiLower(input + 1, input_string_ncodeunits, output + 1);
+      TransformAsciiLower(input + 1, input_string_ncodeunits - 1, output + 1);
     }
     return input_string_ncodeunits;
   }
