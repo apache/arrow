@@ -24,4 +24,5 @@ clang_format.sh
 ^apache-arrow.rb$
 ^.*\.Rhistory$
 ^extra-tests
+STYLE.md
 ^.lintr
