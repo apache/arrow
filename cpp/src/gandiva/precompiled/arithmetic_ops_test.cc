@@ -137,4 +137,44 @@ TEST(TestArithmeticOps, TestBitwiseOps) {
   EXPECT_EQ(bitwise_not_int64(0x0000000000000000), 0xFFFFFFFFFFFFFFFF);
 }
 
+TEST(TestArithmeticOps, TestIntCastFloatDouble) {
+  // castINT from floats
+  EXPECT_EQ(castINT_float32(6.6f), 7);
+  EXPECT_EQ(castINT_float32(-6.6f), -7);
+  EXPECT_EQ(castINT_float32(-6.3f), -6);
+  EXPECT_EQ(castINT_float32(0.0f), 0);
+  EXPECT_EQ(castINT_float32(-0), 0);
+
+  // castINT from doubles
+  EXPECT_EQ(castINT_float64(6.6), 7);
+  EXPECT_EQ(castINT_float64(-6.6), -7);
+  EXPECT_EQ(castINT_float64(-6.3), -6);
+  EXPECT_EQ(castINT_float64(0.0), 0);
+  EXPECT_EQ(castINT_float64(-0), 0);
+  EXPECT_EQ(castINT_float64(999999.99999999999999999999999), 1000000);
+  EXPECT_EQ(castINT_float64(-999999.99999999999999999999999), -1000000);
+  EXPECT_EQ(castINT_float64(INT32_MAX), 2147483647);
+  EXPECT_EQ(castINT_float64(-2147483647), -2147483647);
+}
+
+TEST(TestArithmeticOps, TestBigIntCastFloatDouble) {
+  // castINT from floats
+  EXPECT_EQ(castBIGINT_float32(6.6f), 7);
+  EXPECT_EQ(castBIGINT_float32(-6.6f), -7);
+  EXPECT_EQ(castBIGINT_float32(-6.3f), -6);
+  EXPECT_EQ(castBIGINT_float32(0.0f), 0);
+  EXPECT_EQ(castBIGINT_float32(-0), 0);
+
+  // castINT from doubles
+  EXPECT_EQ(castBIGINT_float64(6.6), 7);
+  EXPECT_EQ(castBIGINT_float64(-6.6), -7);
+  EXPECT_EQ(castBIGINT_float64(-6.3), -6);
+  EXPECT_EQ(castBIGINT_float64(0.0), 0);
+  EXPECT_EQ(castBIGINT_float64(-0), 0);
+  EXPECT_EQ(castBIGINT_float64(999999.99999999999999999999999), 1000000);
+  EXPECT_EQ(castBIGINT_float64(-999999.99999999999999999999999), -1000000);
+  EXPECT_EQ(castBIGINT_float64(INT32_MAX), 2147483647);
+  EXPECT_EQ(castBIGINT_float64(-2147483647), -2147483647);
+}
+
 }  // namespace gandiva

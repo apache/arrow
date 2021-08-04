@@ -42,6 +42,7 @@ using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
 using gdv_binary = char*;
 using gdv_day_time_interval = int64_t;
+using gdv_month_interval = int32_t;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
