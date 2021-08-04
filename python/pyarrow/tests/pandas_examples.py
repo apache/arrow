@@ -16,7 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
-from datetime import date, time
+from datetime import date, time, datetime
 
 import numpy as np
 import pandas as pd
@@ -143,13 +143,27 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
         None,
         [time(0, 0, 0), time(18, 0, 2), time(12, 7, 3)]
     ]
+    datetime_data = [
+        [datetime(2015, 1, 5, 12, 0, 0), datetime(2020, 8, 22, 10, 5, 0)],
+        [datetime(2024, 5, 5, 5, 49, 1), datetime(2015, 12, 24, 22, 10, 17)],
+        [datetime(1996, 4, 30, 2, 38, 11)],
+        None,
+        [datetime(1987, 1, 27, 8, 21, 59)]
+    ]
+    pandas_timestamp_data = [
+        list(map(pd.Timestamp, x)) if x else None for x in datetime_data
+    ]
 
     temporal_pairs = [
         (pa.date32(), date_data),
         (pa.date64(), date_data),
         (pa.time32('s'), time_data),
         (pa.time32('ms'), time_data),
-        (pa.time64('us'), time_data)
+        (pa.time64('us'), time_data),
+        (pa.timestamp('s'), datetime_data),
+        (pa.timestamp('ms'), datetime_data),
+        (pa.timestamp('us'), datetime_data),
+        (pa.timestamp('ns'), pandas_timestamp_data),
     ]
     if not parquet_compatible:
         temporal_pairs += [
