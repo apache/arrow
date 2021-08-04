@@ -73,13 +73,13 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   }
 
   private void loadNewFlightStream() {
-    final Optional<FlightStream> oldQueue = Optional.ofNullable(getCurrentFlightStream());
+    final Optional<FlightStream> oldStream = Optional.ofNullable(getCurrentFlightStream());
     try {
       this.currentFlightStream = checkNotNull(getFlightStreamQueue().next());
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
-      oldQueue.ifPresent(AutoCloseables::closeNoChecked);
+      oldStream.ifPresent(AutoCloseables::closeNoChecked);
     }
   }
 
