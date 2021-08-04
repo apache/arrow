@@ -217,6 +217,29 @@ public class ResultSetTest {
     Statement statement = connection.createStatement();
     ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
 
+    statement.closeOnCompletion();
+
+    int columns = 6;
+    while (resultSet.next()) {
+      for (int column = 1; column <= columns; column++) {
+        resultSet.getObject(column);
+      }
+    }
+
+    collector.checkThat(statement.isClosed(), is(true));
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet with max rows limit
+   * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
+   *
+   * @throws Exception If the connection fails to be established.
+   */
+  @Test
+  public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+
     final long maxRowsLimit = 3;
     statement.setLargeMaxRows(maxRowsLimit);
     statement.closeOnCompletion();
@@ -228,6 +251,31 @@ public class ResultSetTest {
       }
     }
 
-    collector.checkThat(statement.isClosed(), is(Boolean.TRUE));
+    collector.checkThat(statement.isClosed(), is(true));
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} not close the statement after complete ResultSet with max rows
+   * limit when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
+   *
+   * @throws Exception If the connection fails to be established.
+   */
+  @Test
+  public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
+
+      int columns = 6;
+      while (resultSet.next()) {
+        for (int column = 1; column <= columns; column++) {
+          resultSet.getObject(column);
+        }
+      }
+
+      collector.checkThat(statement.isClosed(), is(false));
+    }
   }
 }
