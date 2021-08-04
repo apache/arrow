@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
-#include <arrow/compute/api.h>
-#include <arrow/util/logging.h>
-
+#include "arrow/api.h"
+#include "arrow/compute/api.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/exec_utils.h"
 #include "arrow/util/logging.h"
@@ -229,8 +227,8 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    //    //std::cout << "input received input:" << (IsBuildInput(input) ? "b" : "p")
-    //                  << " seq:" << seq << " len:" << batch.length ;
+    ARROW_LOG(DEBUG) << "input received input:" << (IsBuildInput(input) ? "b" : "p")
+                     << " seq:" << seq << " len:" << batch.length;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
