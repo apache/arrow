@@ -142,7 +142,7 @@ public class ConnectionTlsTest {
              .getClient(
                 allocator, address.getHost(), address.getPort(),
                 credentials.getUserName(), credentials.getPassword(),
-                null, keyStorePath, keyStorePass)) {
+                null, true, keyStorePath, keyStorePass)) {
 
       assertNotNull(client);
     }

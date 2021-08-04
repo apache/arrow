@@ -23,6 +23,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PATH;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USE_TLS;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
@@ -119,12 +120,18 @@ public class ArrowFlightConnection extends AvaticaConnection {
     }
 
     try {
-      client = ArrowFlightClientHandler.getClient(allocator, getPropertyAsString(HOST),
-          getPropertyAsInteger(PORT), getPropertyAsString(USERNAME), getPropertyAsString(PASSWORD),
-          getHeaders(), getPropertyAsString(KEYSTORE_PATH), getPropertyAsString(KEYSTORE_PASS));
+      client = ArrowFlightClientHandler.getClient(allocator,
+          getPropertyAsString(HOST), getPropertyAsInteger(PORT),
+          getPropertyAsString(USERNAME), getPropertyAsString(PASSWORD),
+          getHeaders(),
+          getPropertyAsBoolean(USE_TLS), getPropertyAsString(KEYSTORE_PATH), getPropertyAsString(KEYSTORE_PASS));
     } catch (GeneralSecurityException | IOException e) {
       throw new SQLException("Failed to connect to the Arrow Flight client.", e);
     }
+  }
+
+  private boolean getPropertyAsBoolean(BaseProperty property) {
+    return Boolean.parseBoolean(Objects.toString(getPropertyOrDefault(checkNotNull(property))));
   }
 
   @Nullable
@@ -160,6 +167,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   /**
    * Gets the {@link ExecutorService} of this connection.
+   *
    * @return the {@link #executorService}.
    */
   public synchronized ExecutorService getExecutorService() {
