@@ -57,14 +57,12 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   }
 
   private void loadNewQueue() {
-    final Optional<FlightStreamQueue> oldQueue = Optional.ofNullable(getFlightStreamQueue());
+    Optional.ofNullable(getFlightStreamQueue()).ifPresent(AutoCloseables::closeNoChecked);
     try {
       flightStreamQueue =
-          checkNotNull(createNewQueue(((ArrowFlightConnection) getStatement().getConnection()).getExecutorService()));
+          createNewQueue(((ArrowFlightConnection) getStatement().getConnection()).getExecutorService());
     } catch (final SQLException e) {
       throw new RuntimeException(e);
-    } finally {
-      oldQueue.ifPresent(AutoCloseables::closeNoChecked);
     }
   }
 
@@ -73,13 +71,11 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   }
 
   private void loadNewFlightStream() {
-    final Optional<FlightStream> oldStream = Optional.ofNullable(getCurrentFlightStream());
+    Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
     try {
       this.currentFlightStream = checkNotNull(getFlightStreamQueue().next());
     } catch (final Exception e) {
       throw new RuntimeException(e);
-    } finally {
-      oldStream.ifPresent(AutoCloseables::closeNoChecked);
     }
   }
 
