@@ -19,7 +19,7 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++)
+set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
