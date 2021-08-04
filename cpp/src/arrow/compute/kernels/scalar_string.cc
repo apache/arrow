@@ -446,10 +446,10 @@ struct StringTransformCodepoint : public StringTransformBase {
 // struct CaseMappingMixin {
 struct CaseMappingTransform {
   static int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
-    // Section 5.18 of the Unicode spec claim that the number of codepoints for case
+    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // in bytes iss actually only at max 3/2 (as covered by the unittest).
+    // in bytes is actually only at max 3/2 (as covered by the unittest).
     // Note that rounding down the 3/2 is ok, since only codepoints encoded by
     // two code units (even) can grow to 3 code units.
     return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
@@ -495,6 +495,37 @@ struct UTF8SwapCaseTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8SwapCase =
     StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
+
+struct Utf8CapitalizeTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    if (input_string_ncodeunits > 0) {
+      // Get number of code units in first code point
+      uint32_t codepoint = 0;
+      const uint8_t* i = input;
+      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&i, &codepoint))) {
+        return kTransformError;
+      }
+      int64_t codepoint_ncodeunits =
+          std::min(static_cast<int64_t>(i - input), input_string_ncodeunits);
+      if (ARROW_PREDICT_FALSE(
+              !util::UTF8Transform(input, input + codepoint_ncodeunits, &output,
+                                   UTF8UpperTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
+      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+              input + codepoint_ncodeunits, input + input_string_ncodeunits, &output,
+              UTF8LowerTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
+    }
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -631,6 +662,20 @@ struct AsciiSwapCase {
     return StringDataTransform<Type>(ctx, batch, TransformAsciiSwapCase, out);
   }
 };
+
+struct AsciiCapitalizeTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    if (input_string_ncodeunits > 0) {
+      *output = ascii_toupper(*input);
+      TransformAsciiLower(input + 1, input_string_ncodeunits - 1, output + 1);
+    }
+    return input_string_ncodeunits;
+  }
+};
+
+template <typename Type>
+using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 
 // ----------------------------------------------------------------------
 // exact pattern detection
@@ -4074,6 +4119,20 @@ const FunctionDoc ascii_swapcase_doc(
      "non-ASCII characters, use \"utf8_swapcase\" instead."),
     {"strings"});
 
+const FunctionDoc ascii_capitalize_doc(
+    "Capitalize the first character of ASCII input",
+    ("For each string in `strings`, return a capitalized version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_capitalize\" instead."),
+    {"strings"});
+
+const FunctionDoc ascii_reverse_doc(
+    "Reverse ASCII input",
+    ("For each ASCII string in `strings`, return a reversed version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_reverse\" instead."),
+    {"strings"});
+
 const FunctionDoc utf8_upper_doc(
     "Transform input to uppercase",
     ("For each string in `strings`, return an uppercase version."), {"strings"});
@@ -4087,17 +4146,16 @@ const FunctionDoc utf8_swapcase_doc(
     "lowercase",
     ("For each string in `strings`, return an opposite case version."), {"strings"});
 
-const FunctionDoc ascii_reverse_doc(
-    "Reverse ASCII input",
-    ("For each ASCII string in `strings`, return a reversed version.\n\n"
-     "This function assumes the input is fully ASCII.  If it may contain\n"
-     "non-ASCII characters, use \"utf8_reverse\" instead."),
+const FunctionDoc utf8_capitalize_doc(
+    "Capitalize the first character of input",
+    ("For each string in `strings`, return a capitalized version,\n"
+     "with the first character uppercased and the others lowercased."),
     {"strings"});
 
 const FunctionDoc utf8_reverse_doc(
-    "Reverse utf8 input",
-    ("For each utf8 string in `strings`, return a reversed version.\n\n"
-     "This function operates on codepoints/UTF-8 code units, not grapheme\n"
+    "Reverse input",
+    ("For each string in `strings`, return a reversed version.\n\n"
+     "This function operates on Unicode codepoints, not grapheme\n"
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
     {"strings"});
@@ -4113,6 +4171,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiSwapCase>(
       "ascii_swapcase", registry, &ascii_swapcase_doc, MemAllocation::NO_PREALLOCATE);
+  MakeUnaryStringBatchKernel<AsciiCapitalize>("ascii_capitalize", registry,
+                                              &ascii_capitalize_doc);
   MakeUnaryStringBatchKernel<AsciiTrimWhitespace>("ascii_trim_whitespace", registry,
                                                   &ascii_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiLTrimWhitespace>("ascii_ltrim_whitespace", registry,
@@ -4158,6 +4218,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
   MakeUnaryStringUTF8TransformKernel<UTF8SwapCase>("utf8_swapcase", registry,
                                                    &utf8_swapcase_doc);
+  MakeUnaryStringBatchKernel<Utf8Capitalize>("utf8_capitalize", registry,
+                                             &utf8_capitalize_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
