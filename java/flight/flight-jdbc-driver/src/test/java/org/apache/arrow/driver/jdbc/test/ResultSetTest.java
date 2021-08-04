@@ -82,6 +82,17 @@ public class ResultSetTest {
     connection.close();
   }
 
+  private static void resultSetNextUntilDone(ResultSet resultSet) throws SQLException {
+    while (resultSet.next()) {
+      // TODO: implement resultSet.last()
+      // Pass to the next until resultSet is done
+    }
+  }
+
+  private static void setMaxRowsLimit(int maxRowsLimit, Statement statement) throws SQLException {
+    statement.setLargeMaxRows(maxRowsLimit);
+  }
+
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
    *
@@ -219,12 +230,7 @@ public class ResultSetTest {
 
     statement.closeOnCompletion();
 
-    int columns = 6;
-    while (resultSet.next()) {
-      for (int column = 1; column <= columns; column++) {
-        resultSet.getObject(column);
-      }
-    }
+    resultSetNextUntilDone(resultSet);
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -240,16 +246,10 @@ public class ResultSetTest {
     Statement statement = connection.createStatement();
     ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
 
-    final long maxRowsLimit = 3;
-    statement.setLargeMaxRows(maxRowsLimit);
+    setMaxRowsLimit(3, statement);
     statement.closeOnCompletion();
 
-    int columns = 6;
-    while (resultSet.next()) {
-      for (int column = 1; column <= columns; column++) {
-        resultSet.getObject(column);
-      }
-    }
+    resultSetNextUntilDone(resultSet);
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -265,15 +265,9 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
 
-      final long maxRowsLimit = 3;
-      statement.setLargeMaxRows(maxRowsLimit);
+      setMaxRowsLimit(3, statement);
 
-      int columns = 6;
-      while (resultSet.next()) {
-        for (int column = 1; column <= columns; column++) {
-          resultSet.getObject(column);
-        }
-      }
+      resultSetNextUntilDone(resultSet);
 
       collector.checkThat(statement.isClosed(), is(false));
     }
