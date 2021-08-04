@@ -278,7 +278,7 @@ intermediate datasets that would potentially be large.
 Second, all work is pushed down to the individual data files,
 and depending on the file format, chunks of data within the files. As a result,
 you can select a subset of data from a much larger dataset by collecting the
-smaller slices from each file - you don't have to load the whole dataset in 
+smaller slices from each file—you don't have to load the whole dataset in 
 memory to slice from it.
 
 Third, because of partitioning, you can ignore some files entirely.
