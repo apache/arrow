@@ -82,13 +82,6 @@ public class ResultSetTest {
     connection.close();
   }
 
-  private static void resultSetNextUntilDone(ResultSet resultSet) throws SQLException {
-    while (resultSet.next()) {
-      // TODO: implement resultSet.last()
-      // Pass to the next until resultSet is done
-    }
-  }
-
   private static void setMaxRowsLimit(int maxRowsLimit, Statement statement) throws SQLException {
     statement.setLargeMaxRows(maxRowsLimit);
   }
@@ -230,7 +223,10 @@ public class ResultSetTest {
 
     statement.closeOnCompletion();
 
-    resultSetNextUntilDone(resultSet);
+    while (resultSet.next()) {
+      // TODO: implement resultSet.last()
+      // Pass to the next until resultSet is done
+    }
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -249,7 +245,10 @@ public class ResultSetTest {
     setMaxRowsLimit(3, statement);
     statement.closeOnCompletion();
 
-    resultSetNextUntilDone(resultSet);
+    while (resultSet.next()) {
+      // TODO: implement resultSet.last()
+      // Pass to the next until resultSet is done
+    }
 
     collector.checkThat(statement.isClosed(), is(true));
   }
@@ -267,7 +266,10 @@ public class ResultSetTest {
 
       setMaxRowsLimit(3, statement);
 
-      resultSetNextUntilDone(resultSet);
+      while (resultSet.next()) {
+        // TODO: implement resultSet.last()
+        // Pass to the next until resultSet is done
+      }
 
       collector.checkThat(statement.isClosed(), is(false));
     }
