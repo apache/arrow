@@ -164,8 +164,8 @@ public class TestBitVectorHelper {
         final int maxCount = 100;
         for (int i = 0; i < maxCount; i++) {
           if (i % 3 == 0) {
-            BitVectorHelper.setValidityBitToOne(buf1, i);
-            BitVectorHelper.setValidityBitToOne(buf2, i);
+            BitVectorHelper.setBit(buf1, i);
+            BitVectorHelper.setBit(buf2, i);
           }
         }
 
@@ -199,8 +199,8 @@ public class TestBitVectorHelper {
         final int maxCount = 100;
         for (int i = 0; i < maxCount; i++) {
           if (i % 3 == 0) {
-            BitVectorHelper.setValidityBitToOne(buf1, i);
-            BitVectorHelper.setValidityBitToOne(buf2, i);
+            BitVectorHelper.setBit(buf1, i);
+            BitVectorHelper.setBit(buf2, i);
           }
         }
 

@@ -2646,8 +2646,8 @@ public class TestValueVector {
 
   @Test
   public void testUnionVectorEquals() {
-    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null, null);
+        final UnionVector vector2 = new UnionVector("union", allocator, null, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -2716,7 +2716,7 @@ public class TestValueVector {
 
   @Test
   public void testUnionNullHashCode() {
-    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
 
       final NullableIntHolder holder = new NullableIntHolder();

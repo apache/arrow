@@ -139,7 +139,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   @Override
-  @Deprecated
   public UInt4Vector getOffsetVector() {
     throw new UnsupportedOperationException("There is no inner offset vector");
   }

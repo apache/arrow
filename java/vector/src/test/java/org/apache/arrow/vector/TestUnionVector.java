@@ -69,7 +69,7 @@ public class TestUnionVector {
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
 
-    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       unionVector.allocateNew();
 
       // write some data
@@ -96,7 +96,7 @@ public class TestUnionVector {
 
   @Test
   public void testUnionVectorMapValue() throws Exception {
-    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       unionVector.allocateNew();
 
       UnionWriter writer = (UnionWriter) unionVector.getWriter();
@@ -157,7 +157,7 @@ public class TestUnionVector {
 
   @Test
   public void testTransfer() throws Exception {
-    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
 
       // write some data
@@ -171,7 +171,7 @@ public class TestUnionVector {
       srcVector.setSafe(5, newBitHolder(false));
       srcVector.setValueCount(6);
 
-      try (UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
         TransferPair pair = srcVector.makeTransferPair(destVector);
 
         // Creating the transfer should transfer the type of the field at least.
@@ -206,7 +206,7 @@ public class TestUnionVector {
 
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
       sourceVector.allocateNew();
 
@@ -256,7 +256,7 @@ public class TestUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(50, sourceVector.getObject(9));
 
-      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
@@ -286,7 +286,7 @@ public class TestUnionVector {
 
   @Test
   public void testSplitAndTransferWithMixedVectors() throws Exception {
-    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
       sourceVector.allocateNew();
 
@@ -345,7 +345,7 @@ public class TestUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(30.5f, sourceVector.getObject(9));
 
-      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
@@ -410,7 +410,7 @@ public class TestUnionVector {
 
   @Test
   public void testGetBufferAddress() throws Exception {
-    try (UnionVector vector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector vector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       boolean error = false;
 
       vector.allocateNew();
@@ -467,7 +467,7 @@ public class TestUnionVector {
 
   @Test
   public void testSetGetNull() {
-    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
 
       final NullableIntHolder holder = new NullableIntHolder();

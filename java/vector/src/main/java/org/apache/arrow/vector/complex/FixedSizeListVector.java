@@ -50,7 +50,6 @@ import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -76,20 +75,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   private UnionFixedSizeListReader reader;
   private int valueCount;
   private int validityAllocationSizeInBytes;
-
-  /**
-   * Creates a new instance.
-   *
-   * @deprecated use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public FixedSizeListVector(String name,
-                             BufferAllocator allocator,
-                             int listSize,
-                             DictionaryEncoding dictionary,
-                             CallBack schemaChangeCallback) {
-    this(name, allocator, new FieldType(true, new ArrowType.FixedSizeList(listSize), dictionary), schemaChangeCallback);
-  }
 
   /**
    * Creates a new instance.
@@ -184,7 +169,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
-  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
@@ -407,7 +391,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector(name, allocator, null);
+    UnionVector vector = new UnionVector(name, allocator, null, null);
     this.vector.clear();
     this.vector = vector;
     invalidateReader();

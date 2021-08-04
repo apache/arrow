@@ -53,17 +53,15 @@ public final class ${className} implements ValueHolder{
     <#list fields as field>
     public ${field.type} ${field.name};
     </#list>
-    
-    @Deprecated
+
     public int hashCode(){
       throw new UnsupportedOperationException();
     }
 
     /*
-     * Reason for deprecation is that ValueHolders are potential scalar replacements
-     * and hence we don't want any methods to be invoked on them.
+     * Reason for not supporting the operation is that ValueHolders are potential scalar
+     * replacements and hence we don't want any methods to be invoked on them.
      */
-    @Deprecated
     public String toString(){
       throw new UnsupportedOperationException();
     }

@@ -274,7 +274,6 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   @Override
-  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
@@ -541,7 +540,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector("$data$", allocator, callBack);
+    UnionVector vector = new UnionVector("$data$", allocator, null, callBack);
     replaceDataVector(vector);
     invalidateReader();
     if (callBack != null) {
