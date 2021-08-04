@@ -28,18 +28,18 @@ namespace parquet {
 /// \brief The path and filesystem where an actual file is located.
 class PARQUET_EXPORT FilePath {
  public:
-  FilePath(const std::string& parent, const std::string& child,
-           std::shared_ptr<::arrow::fs::FileSystem> filesystem)
-      : parent_(parent), child_(child), filesystem_(filesystem) {}
+  FilePath(std::string path, std::shared_ptr<::arrow::fs::FileSystem> filesystem)
+      : file_info_(std::move(path)), filesystem_(filesystem) {}
 
-  /// \brief Return the file parent.
-  const std::string& parent() const { return parent_; }
+  /// \brief The directory base name (component before the file base name
+  std::string dir_name() const { return file_info_.dir_name(); }
 
-  /// \brief Return the file name.
-  const std::string& child() const { return child_; }
+  /// \brief The file base name (component after the last directory separator)
+  std::string base_name() const { return file_info_.base_name(); }
 
-  /// \brief Set file name.
-  void set_child(const std::string& child) { child_ = child; }
+  /// The full file path in the filesystem
+  const std::string& path() const { return file_info_.path(); }
+  void set_path(std::string path) { file_info_.set_path(path); }
 
   /// \brief Return the filesystem.
   const std::shared_ptr<::arrow::fs::FileSystem>& filesystem() const {
@@ -48,33 +48,30 @@ class PARQUET_EXPORT FilePath {
 
   /// \brief Get an OutputStream which wraps this file source.
   ::arrow::Result<std::shared_ptr<::arrow::io::OutputStream>> OpenWriteable() const {
-    return filesystem_->OpenOutputStream(parent_ + child_);
+    return filesystem_->OpenOutputStream(file_info_.path());
   }
 
   /// \brief Open an input file for random access reading.
   ::arrow::Result<std::shared_ptr<::arrow::io::RandomAccessFile>> OpenReadable() const {
-    return filesystem_->OpenInputFile(parent_ + child_);
+    return filesystem_->OpenInputFile(file_info_.path());
   }
 
   /// \brief Delete a file.
   void DeleteFile() {
-    if (filesystem_->DeleteFile(parent_ + child_) != ::arrow::Status::OK()) {
-      throw ParquetException("Failed to delete file " + parent_ + child_);
+    if (filesystem_->DeleteFile(file_info_.path()) != ::arrow::Status::OK()) {
+      throw ParquetException("Failed to delete file " + file_info_.path());
     }
   }
 
   /// \brief Move / rename a file or directory.
   void Move(const std::string& src, const std::string& dest) {
     if (filesystem_->Move(src, dest) != ::arrow::Status::OK()) {
-      throw ParquetException("Failed to rename file " + parent_ + child_);
+      throw ParquetException("Failed to rename file " + file_info_.path());
     }
   }
 
  private:
-  // file path.
-  std::string parent_;
-  // File name.
-  std::string child_;
+  ::arrow::fs::FileInfo file_info_;
   std::shared_ptr<::arrow::fs::FileSystem> filesystem_;
 };
 

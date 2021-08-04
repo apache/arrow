@@ -72,9 +72,7 @@ class PARQUET_EXPORT FileSystemKeyMaterialStore : public FileKeyMaterialStore {
   std::vector<std::string> GetKeyIDSet();
 
  private:
-  std::string GetStorageFilePath() {
-    return key_material_file_->parent() + key_material_file_->child();
-  }
+  std::string GetStorageFilePath() { return key_material_file_->path(); }
 
   std::string BuildKeyMaterialMapJson();
   void LoadKeyMaterialMap();

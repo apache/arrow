@@ -38,10 +38,10 @@ void FileSystemKeyMaterialStore::initialize(
   full_prefix =
       full_prefix + std::string(FileSystemKeyMaterialStore::kKetMaterialFilePrefix);
   std::string key_material_file_name =
-      full_prefix + parquet_file_path->child() +
+      full_prefix + parquet_file_path->base_name() +
       std::string(FileSystemKeyMaterialStore::kKeyMaterialFileSuffix);
   key_material_file_ = ::arrow::internal::make_unique<FilePath>(
-      parquet_file_path->parent(), key_material_file_name,
+      parquet_file_path->dir_name() + "/" + key_material_file_name,
       parquet_file_path->filesystem());
 }
 
@@ -112,8 +112,7 @@ void FileSystemKeyMaterialStore::MoveMaterialTo(
   std::shared_ptr<FileSystemKeyMaterialStore> target_key_file_store =
       std::static_pointer_cast<FileSystemKeyMaterialStore>(target_key_store);
   std::string target_key_material_file = target_key_file_store->GetStorageFilePath();
-  std::string source_key_material_file =
-      key_material_file_->parent() + key_material_file_->child();
+  std::string source_key_material_file = key_material_file_->path();
   key_material_file_->Move(source_key_material_file, target_key_material_file);
 }
 

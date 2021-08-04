@@ -56,7 +56,7 @@ class KeyWrappingTest : public ::testing::Test {
 
       filesystem = MakeLocalFileSystem();
       std::shared_ptr<FilePath> writable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString(), file_name, filesystem.ValueOrDie());
+          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
       try {
         key_material_store = std::make_shared<FileSystemKeyMaterialStore>();
         key_material_store->initialize(writable, false);
@@ -83,7 +83,7 @@ class KeyWrappingTest : public ::testing::Test {
 
     std::shared_ptr<FilePath> readable = nullptr;
     if (!internal_key_material) {
-      readable = std::make_shared<FilePath>(temp_dir_->path().ToString(), file_name,
+      readable = std::make_shared<FilePath>(temp_dir_->path().ToString() + file_name,
                                             filesystem.ValueOrDie());
     }
 

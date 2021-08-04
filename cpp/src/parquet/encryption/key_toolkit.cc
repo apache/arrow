@@ -70,23 +70,23 @@ void KeyToolkit::RotateMasterKeys(const KmsConnectionConfig& kms_connection_conf
   lock.Unlock();
   std::vector<::arrow::fs::FileInfo> parquet_files_in_folder;
   ::arrow::fs::FileSelector s;
-  s.base_dir = folder_path->parent();
+  s.base_dir = folder_path->dir_name();
   parquet_files_in_folder = folder_path->filesystem()->GetFileInfo(s).ValueOrDie();
 
   if (parquet_files_in_folder.size() == 0) {
     throw ParquetException("Couldn't rotate keys - no parquet files in folder " +
-                           folder_path->parent());
+                           folder_path->dir_name());
   }
 
   for (auto const& parquet_file : parquet_files_in_folder) {
     if (parquet_file.type() != ::arrow::fs::FileType::File)
-      throw ParquetException("Expecting file type in " + folder_path->parent());
+      throw ParquetException("Expecting file type in " + folder_path->dir_name());
     std::string child = parquet_file.base_name();
     if (filter_out_file(child)) continue;
 
     std::shared_ptr<FileKeyMaterialStore> key_material_store =
         std::make_shared<FileSystemKeyMaterialStore>();
-    folder_path->set_child(parquet_file.base_name());
+    folder_path->set_path(folder_path->dir_name() + "/" + parquet_file.base_name());
     key_material_store->initialize(folder_path, false);
 
     FileKeyUnwrapper file_key_unwrapper(this, kms_connection_config,

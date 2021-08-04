@@ -164,7 +164,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
       ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem =
           MakeLocalFileSystem();
       std::shared_ptr<FilePath> writable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString(), file_name, filesystem.ValueOrDie());
+          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
       auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
           kms_connection_config_, encryption_config, writable);
       encryptor_.EncryptFile(file, file_encryption_properties);
@@ -188,7 +188,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
       std::string file_name = GetFileName(double_wrapping, wrap_locally_,
                                           internal_key_material, encryption_no);
       std::shared_ptr<FilePath> readable = std::make_shared<FilePath>(
-          temp_dir_->path().ToString(), file_name, filesystem.ValueOrDie());
+          temp_dir_->path().ToString() + file_name, filesystem.ValueOrDie());
       auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
           kms_connection_config_, decryption_config, readable);
 
@@ -200,9 +200,8 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     ::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> filesystem =
         MakeLocalFileSystem();
 
-    std::string empty_string;
-    std::shared_ptr<FilePath> readable = std::make_shared<FilePath>(
-        temp_dir_->path().ToString(), empty_string, filesystem.ValueOrDie());
+    std::shared_ptr<FilePath> readable =
+        std::make_shared<FilePath>(temp_dir_->path().ToString(), filesystem.ValueOrDie());
 
     TestOnlyInServerWrapKms::StartKeyRotation(new_key_list_);
     std::cout << "Start master key rotation" << std::endl;
