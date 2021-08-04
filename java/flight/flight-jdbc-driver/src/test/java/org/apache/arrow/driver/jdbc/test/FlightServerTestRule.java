@@ -310,18 +310,21 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                     indexOnBatch++;
                     if (indexOnBatch == batchSize) {
                       root.setRowCount(indexOnBatch);
-      if (listener.isCancelled()) {
-                  return;
-                }                listener.putNext();
+                      if (listener.isCancelled()) {
+                        return;
+                      }
+                      listener.putNext();
                       root.allocateNew();
                       indexOnBatch = 0;
                     }
                   }
                   if (listener.isCancelled()) {
-              return;
-            }root.setRowCount(indexOnBatch);
+                    return;
+                  }
+                  root.setRowCount(indexOnBatch);
                   listener.putNext();
-                } finally {  listener.completed();
+                } finally {
+                  listener.completed();
                 }
               },
               ticket -> readilyGetTickets(METADATA_TEST_SQL_CMD).contains(ticket),
@@ -350,7 +353,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                   ((Float4Vector) root.getVector("float2")).setSafe(0, (float) 4.1);
                   root.setRowCount(1);
                   listener.start(root);
-                  listener.putNext();} finally {
+                  listener.putNext();
+                } finally {
                   listener.completed();
                 }
               },
