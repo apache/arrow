@@ -347,7 +347,7 @@ public class ResultSetTest {
     try (final Statement statement = connection.createStatement()) {
       final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
-      new Thread(() -> {
+      final Thread thread = new Thread(() -> {
         try (final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
           final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
           Thread.sleep(300);
@@ -359,9 +359,11 @@ public class ResultSetTest {
         } finally {
           latch.countDown();
         }
-      }).start();
+      });
+      thread.setName("Test Case: interrupt query execution before first retrieval");
+      thread.start();
       statement.cancel();
-      latch.await();
+      thread.join();
       collector.checkThat(
           exceptions.stream()
               .map(Exception::getMessage)
@@ -378,7 +380,6 @@ public class ResultSetTest {
       throws SQLException, InterruptedException {
     final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
     try (final Statement statement = connection.createStatement()) {
-      final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
         try (final ResultSet resultSet = statement.executeQuery(query)) {
@@ -387,8 +388,6 @@ public class ResultSetTest {
           }
         } catch (final SQLException e) {
           exceptions.add(e);
-        } finally {
-          latch.countDown();
         }
       });
       thread.setName("Test Case: interrupt query execution mid-process");
@@ -396,7 +395,7 @@ public class ResultSetTest {
       thread.start();
       Thread.sleep(RANDOM.nextInt(300));
       statement.cancel();
-      latch.await();
+      thread.join();
       collector.checkThat(
           exceptions.stream()
               .map(Exception::getMessage)
