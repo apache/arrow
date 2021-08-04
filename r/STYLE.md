@@ -35,4 +35,4 @@ When referring to external packages, include a link to the package at the first 
 
 When referring to the concept, use the phrase "data frame", whereas when referring to an object of that class or when the class is important, write `data.frame`, e.g.
 
-* "You can call `write_dataset()` on tabular data objects such as Arrow Tables or RecordBatchs, or R data frames. If working with data frames you might want to use a `tibble` instead of a `data.frame` to take advantage of the default behaviour of partitioning data based on grouped variables."
+* "You can call `write_dataset()` on tabular data objects such as Arrow Tables or RecordBatches, or R data frames. If working with data frames you might want to use a `tibble` instead of a `data.frame` to take advantage of the default behaviour of partitioning data based on grouped variables."
