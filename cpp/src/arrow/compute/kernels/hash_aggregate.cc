@@ -45,6 +45,7 @@
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
+#include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/visitor_inline.h"
 
@@ -1312,6 +1313,126 @@ struct GroupedVarStdFactory {
 };
 
 // ----------------------------------------------------------------------
+// TDigest implementation
+
+using arrow::internal::TDigest;
+
+template <typename Type>
+struct GroupedTDigestImpl : public GroupedAggregator {
+  using CType = typename Type::c_type;
+
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const TDigestOptions*>(options);
+    ctx_ = ctx;
+    pool_ = ctx->memory_pool();
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    const int64_t added_groups = new_num_groups - tdigests_.size();
+    tdigests_.reserve(new_num_groups);
+    for (int64_t i = 0; i < added_groups; i++) {
+      tdigests_.emplace_back(options_.delta, options_.buffer_size);
+    }
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
+    VisitArrayDataInline<Type>(
+        *batch[0].array(),
+        [&](typename TypeTraits<Type>::CType value) {
+          this->tdigests_[*g].NanAdd(value);
+          ++g;
+        },
+        [&] { ++g; });
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedTDigestImpl*>(&raw_other);
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    std::vector<TDigest> other_tdigest(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      other_tdigest[0] = std::move(other->tdigests_[other_g]);
+      tdigests_[*g].Merge(&other_tdigest);
+    }
+
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    std::shared_ptr<Buffer> null_bitmap;
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Buffer> values,
+        AllocateBuffer(tdigests_.size() * options_.q.size() * sizeof(double), pool_));
+    int64_t null_count = 0;
+    const int64_t slot_length = options_.q.size();
+
+    double* results = reinterpret_cast<double*>(values->mutable_data());
+    for (int64_t i = 0; static_cast<size_t>(i) < tdigests_.size(); ++i) {
+      if (!tdigests_[i].is_empty()) {
+        for (int64_t j = 0; j < slot_length; j++) {
+          results[i * slot_length + j] = tdigests_[i].Quantile(options_.q[j]);
+        }
+        continue;
+      }
+
+      if (!null_bitmap) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(tdigests_.size(), pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, tdigests_.size(), true);
+      }
+      null_count++;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+      std::fill(&results[i * slot_length], &results[(i + 1) * slot_length], 0.0);
+    }
+
+    auto child = ArrayData::Make(float64(), tdigests_.size() * options_.q.size(),
+                                 {nullptr, std::move(values)}, /*null_count=*/0);
+    return ArrayData::Make(out_type(), tdigests_.size(), {std::move(null_bitmap)},
+                           {std::move(child)}, null_count);
+  }
+
+  std::shared_ptr<DataType> out_type() const override {
+    return fixed_size_list(float64(), static_cast<int32_t>(options_.q.size()));
+  }
+
+  TDigestOptions options_;
+  std::vector<TDigest> tdigests_;
+  ExecContext* ctx_;
+  MemoryPool* pool_;
+};
+
+struct GroupedTDigestFactory {
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    kernel =
+        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedTDigestImpl<T>>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Computing t-digest of data of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Computing t-digest of data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedTDigestFactory factory;
+    factory.argument_type = InputType::Array(type);
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
+// ----------------------------------------------------------------------
 // MinMax implementation
 
 template <typename CType>
@@ -1863,6 +1984,13 @@ const FunctionDoc hash_variance_doc{
      "to satisfy `ddof`, null is returned."),
     {"array", "group_id_array"}};
 
+const FunctionDoc hash_tdigest_doc{
+    "Calculate approximate quantiles of a numeric array with the T-Digest algorithm",
+    ("By default, the 0.5 quantile (median) is returned.\n"
+     "Nulls and NaNs are ignored.\n"
+     "A null array is returned if there are no valid data points."),
+    {"array", "group_id_array"}};
+
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
     ("Null values are ignored by default.\n"
@@ -1936,6 +2064,19 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
                                 GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
                                 GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  static auto default_tdigest_options = TDigestOptions::Defaults();
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
+    DCHECK_OK(
+        AddHashAggKernels(SignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(UnsignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(FloatingPointTypes(), GroupedTDigestFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
