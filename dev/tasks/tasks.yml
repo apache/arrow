@@ -847,7 +847,6 @@ tasks:
 {############################## Docker tests #################################}
 
 {% for image in ["conda-cpp",
-                 "conda-cpp-valgrind",
                  "debian-c-glib",
                  "ubuntu-c-glib",
                  "debian-ruby",
@@ -858,6 +857,13 @@ tasks:
     params:
       image: {{ image }}
 {% endfor %}
+
+  # Use azure to run valgrind tests to prevent OOM
+  test-conda-cpp-valgrind:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      image: conda-cpp-valgrind
 
 {% for ubuntu_version in ["18.04", "20.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
