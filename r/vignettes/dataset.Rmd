@@ -340,7 +340,7 @@ Sometimes you might start with one giant CSV. The first step in analyzing data
 is cleaning is up and reshaping it into a more usable form.
 
 The `write_dataset()` function allows you to take a Dataset or another tabular 
-data object - an Arrow Table or RecordBatch, or an R data frame - and write
+data object—an Arrow Table or RecordBatch, or an R data frame—and write
 it to a different file format, partitioned into multiple files.
 
 Assume that you have a version of the NYC Taxi data as CSV:
