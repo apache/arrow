@@ -102,7 +102,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       }
 
       try (Reader reader = new BufferedReader(new InputStreamReader(
-          this.getClass().getResourceAsStream("/flight.properties"), StandardCharsets.UTF_8))) {
+          this.getClass().getResourceAsStream("/properties/flight.properties"), StandardCharsets.UTF_8))) {
         final Properties properties = new Properties();
         properties.load(reader);
 
