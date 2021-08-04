@@ -406,9 +406,11 @@ TYPED_TEST(TestStringKernels, AsciiSwapCase) {
 TYPED_TEST(TestStringKernels, AsciiCapitalize) {
   this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("ascii_capitalize",
-                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\"]",
+                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\", "
+                   "\"!hELlo, wORLd!\"]",
                    this->type(),
-                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, world!\", \"$. a3\"]");
+                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, world!\", \"$. a3\", "
+                   "\"!hello, world!\"]");
 }
 
 TYPED_TEST(TestStringKernels, AsciiReverse) {
@@ -533,10 +535,10 @@ TYPED_TEST(TestStringKernels, Utf8Capitalize) {
   this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("utf8_capitalize",
                    "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
-                   "\"hEllO, WoRld!\", \"$. A3\"]",
+                   "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",
                    this->type(),
                    "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
-                   "\"Hello, world!\", \"$. a3\"]");
+                   "\"Hello, world!\", \"$. a3\", \"!ɑɽɽow\"]");
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
