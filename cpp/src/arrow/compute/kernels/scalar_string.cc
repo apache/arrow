@@ -4147,12 +4147,12 @@ const FunctionDoc utf8_swapcase_doc(
     ("For each string in `strings`, return an opposite case version."), {"strings"});
 
 const FunctionDoc utf8_capitalize_doc(
-    "Capitalize the first codepoint of UTF8 input",
-    ("For each UTF8 string in `strings`, return a capitalized version."), {"strings"});
+    "Capitalize the first codepoint of input",
+    ("For each string in `strings`, return a capitalized version."), {"strings"});
 
 const FunctionDoc utf8_reverse_doc(
-    "Reverse UTF8 input",
-    ("For each UTF8 string in `strings`, return a reversed version.\n\n"
+    "Reverse input",
+    ("For each string in `strings`, return a reversed version.\n\n"
      "This function operates on codepoints/UTF8 code units, not grapheme\n"
      "clusters. Hence, it will not correctly reverse grapheme clusters\n"
      "composed of multiple codepoints."),
