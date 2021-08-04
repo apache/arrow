@@ -434,7 +434,6 @@ tasks:
                   "debian-bullseye",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-groovy",
                   "ubuntu-hirsute"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
