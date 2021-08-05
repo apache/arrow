@@ -41,6 +41,11 @@ if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
 endif()
 
+if(POLICY CMP0069)
+  # https://cmake.org/cmake/help/latest/policy/CMP0069.html
+  cmake_policy(SET CMP0069 OLD)
+endif()
+
 # find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
 if(POLICY CMP0074)
