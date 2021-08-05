@@ -143,8 +143,8 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:groovy" \
-                "arm64v8/ubuntu:groovy"; do \
+                "ubuntu:hirsute" \
+                "arm64v8/ubuntu:hirsute"; do \
     case "${target}" in
       arm64v8/debian:bullseye)
         # qemu-user-static in Ubuntu 20.04 has a crash bug:
