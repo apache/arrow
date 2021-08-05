@@ -264,6 +264,7 @@ String Transforms
    ascii_rtrim
    ascii_rtrim_whitespace
    ascii_swapcase
+   ascii_title
    ascii_trim
    ascii_upper
    binary_length
