@@ -1234,9 +1234,9 @@ TYPED_TEST(TestStringKernels, BinaryJoin) {
   auto expected =
       ArrayFromJSON(this->type(), R"(["a--bb--ccc", "", null, "dd", null, "ff--"])");
   CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
-                    separator, expected);
+                    Datum(separator), expected);
   CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
-                    separator, expected);
+                    Datum(separator), expected);
 
   auto separator_null = MakeNullScalar(this->type());
   expected = ArrayFromJSON(this->type(), R"([null, null, null, null, null, null])");
