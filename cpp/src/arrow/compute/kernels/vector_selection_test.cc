@@ -996,6 +996,22 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
                                          "[0.0, 1.0, 0.1]", &arr));
 }
 
+TEST_F(TestTakeKernel, TakeCCEmptyIndices) {
+  Datum dat = ChunkedArrayFromJSON(int8(), {"[]"});
+  Datum idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+  ValidateOutput(out);
+  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
+}
+
+TEST_F(TestTakeKernel, TakeACEmptyIndices) {
+  Datum dat = ArrayFromJSON(int8(), {"[]"});
+  Datum idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+  ValidateOutput(out);
+  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
+}
+
 TEST_F(TestTakeKernel, DefaultOptions) {
   auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
   auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");
