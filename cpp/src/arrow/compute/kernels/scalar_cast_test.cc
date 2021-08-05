@@ -198,7 +198,7 @@ TEST(Cast, CanCast) {
   ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
   ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
-                   kBaseBinaryTypes);  // no formatting supported
+                   {binary(), large_binary()});  // no formatting supported
 
   ExpectCannotCast(fixed_size_binary(3),
                    {fixed_size_binary(3)});  // FIXME missing identity cast
@@ -208,6 +208,13 @@ TEST(Cast, CanCast) {
   ExpectCanCast(smallint(),
                 kNumericTypes);  // any cast which is valid for storage is supported
   ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
+
+  ExpectCanCast(date32(), {utf8(), large_utf8()});
+  ExpectCanCast(date64(), {utf8(), large_utf8()});
+  ExpectCanCast(timestamp(TimeUnit::NANO), {utf8(), large_utf8()});
+  ExpectCanCast(timestamp(TimeUnit::MICRO), {utf8(), large_utf8()});
+  ExpectCanCast(time32(TimeUnit::MILLI), {utf8(), large_utf8()});
+  ExpectCanCast(time64(TimeUnit::NANO), {utf8(), large_utf8()});
 }
 
 TEST(Cast, SameTypeZeroCopy) {
@@ -1206,6 +1213,33 @@ TEST(Cast, TimeZeroCopy) {
   }
   CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"),
                     time64(TimeUnit::MICRO));
+}
+
+TEST(Cast, DateToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(date32(), "[0, null]"),
+              ArrayFromJSON(string_type, R"(["1970-01-01", null])"));
+    CheckCast(ArrayFromJSON(date64(), "[86400000, null]"),
+              ArrayFromJSON(string_type, R"(["1970-01-02", null])"));
+  }
+}
+
+TEST(Cast, TimeToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(time32(TimeUnit::SECOND), "[1, 62]"),
+              ArrayFromJSON(string_type, R"(["00:00:01", "00:01:02"])"));
+    CheckCast(
+        ArrayFromJSON(time64(TimeUnit::NANO), "[0, 1]"),
+        ArrayFromJSON(string_type, R"(["00:00:00.000000000", "00:00:00.000000001"])"));
+  }
+}
+
+TEST(Cast, TimestampToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
+        ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
+  }
 }
 
 TEST(Cast, DateToDate) {

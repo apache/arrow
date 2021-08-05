@@ -57,20 +57,26 @@ std::vector<WriterTestParams> GenerateTestCases() {
       {field("a", uint64())},
       {field("b\"", utf8())},
       {field("c ", int32())},
+      {field("d", date32())},
+      {field("e", date64())},
   });
   auto populated_batch = R"([{"a": 1, "c ": -1},
                              { "a": 1, "b\"": "abc\"efg", "c ": 2324},
                              { "b\"": "abcd", "c ": 5467},
                              { },
                              { "a": 546, "b\"": "", "c ": 517 },
-                             { "a": 124, "b\"": "a\"\"b\"" }])";
-  std::string expected_without_header = std::string("1,,-1") + "\n" +     // line 1
-                                        +R"(1,"abc""efg",2324)" + "\n" +  // line 2
-                                        R"(,"abcd",5467)" + "\n" +        // line 3
-                                        R"(,,)" + "\n" +                  // line 4
-                                        R"(546,"",517)" + "\n" +          // line 5
-                                        R"(124,"a""""b""",)" + "\n";      // line 6
-  std::string expected_header = std::string(R"("a","b""","c ")") + "\n";
+                             { "a": 124, "b\"": "a\"\"b\"" },
+                             { "d": 0 },
+                             { "e": 86400000 }])";
+  std::string expected_without_header = std::string("1,,-1,,") + "\n" +    // line 1
+                                        R"(1,"abc""efg",2324,,)" + "\n" +  // line 2
+                                        R"(,"abcd",5467,,)" + "\n" +       // line 3
+                                        R"(,,,,)" + "\n" +                 // line 4
+                                        R"(546,"",517,,)" + "\n" +         // line 5
+                                        R"(124,"a""""b""",,,)" + "\n" +    // line 6
+                                        R"(,,,1970-01-01,)" + "\n" +       // line 7
+                                        R"(,,,,1970-01-02)" + "\n";        // line 8
+  std::string expected_header = std::string(R"("a","b""","c ","d","e")") + "\n";
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},

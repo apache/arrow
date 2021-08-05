@@ -73,6 +73,39 @@ struct NumericToStringCastFunctor {
 };
 
 // ----------------------------------------------------------------------
+// Temporal to String
+
+template <typename O, typename I>
+struct TemporalToStringCastFunctor {
+  using value_type = typename TypeTraits<I>::CType;
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+  using FormatterType = StringFormatter<I>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK(out->is_array());
+    const ArrayData& input = *batch[0].array();
+    ArrayData* output = out->mutable_array();
+    return Convert(ctx, input, output);
+  }
+
+  static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
+    FormatterType formatter(input.type);
+    BuilderType builder(input.type, ctx->memory_pool());
+    RETURN_NOT_OK(VisitArrayDataInline<I>(
+        input,
+        [&](value_type v) {
+          return formatter(v, [&](util::string_view v) { return builder.Append(v); });
+        },
+        [&]() { return builder.AppendNull(); }));
+
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(builder.Finish(&output_array));
+    *output = std::move(*output_array->data());
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
 // Binary-like to binary-like
 //
 
@@ -192,6 +225,18 @@ void AddNumberToStringCasts(CastFunction* func) {
   }
 }
 
+template <typename OutType>
+void AddTemporalToStringCasts(CastFunction* func) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
+  for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
+    DCHECK_OK(func->AddKernel(
+        in_ty->id(), {in_ty}, out_ty,
+        TrivialScalarUnaryAsArraysExec(
+            GenerateTemporal<TemporalToStringCastFunctor, OutType>(*in_ty)),
+        NullHandling::COMPUTED_NO_PREALLOCATE));
+  }
+}
+
 template <typename OutType, typename InType>
 void AddBinaryToBinaryCast(CastFunction* func) {
   auto in_ty = TypeTraits<InType>::type_singleton();
@@ -226,12 +271,14 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
   AddNumberToStringCasts<StringType>(cast_string.get());
+  AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
   AddNumberToStringCasts<LargeStringType>(cast_large_string.get());
+  AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
   auto cast_fsb =
