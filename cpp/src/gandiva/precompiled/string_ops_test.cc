@@ -1755,26 +1755,4 @@ TEST(TestStringOps, TestConvertToBigEndian) {
 #endif
 }
 
-TEST(TestStringOps, TestFormatNumberHive) {
-  gandiva::ExecutionContext ctx;
-  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
-  gdv_int32 out_len = 0;
-  const char* out_str;
-
-  out_str = format_number(ctx_ptr, 10123.4444, 2, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "10,123.44");
-
-  out_str = format_number(ctx_ptr, 123456789.1234, 3, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "123,456,789.123");
-
-  out_str = format_number(ctx_ptr, 987654321.987654, 0, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "987,654,321");
-
-  out_str = format_number(ctx_ptr, 987654321.987654, -1, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_TRUE(ctx.has_error());
-  EXPECT_EQ(ctx.get_error(), "Could not format with negative decimal point");
-
-  ctx.Reset();
-}
 }  // namespace gandiva

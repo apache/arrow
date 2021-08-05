@@ -31,6 +31,7 @@
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
+#include "gandiva/format_number_util.h"
 #include "gandiva/hash_utils.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
@@ -794,6 +795,47 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+}
+
+GANDIVA_EXPORT
+const char* gdv_fn_format_number(gdv_int64 context, gdv_float64 number, gdv_int32 decimal_points,
+                          gdv_int32* out_len) {
+  if (decimal_points < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format with negative decimal point");
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_float64 decimal_adjust = std::pow(10, decimal_points);
+
+  gdv_float64 fromatted_number = std::trunc(number * decimal_adjust) / decimal_adjust;
+
+  std::string formatted_string = std::to_string(fromatted_number);
+  if (decimal_points == 0) {
+    formatted_string =
+        formatted_string.substr(0, formatted_string.find(".") + decimal_points);
+  } else {
+    formatted_string =
+        formatted_string.substr(0, formatted_string.find(".") + decimal_points + 1);
+  }
+
+  formatted_string = gandiva::FormatNumberUtil::AddThousandSeparators(formatted_string);
+
+  int32_t formatted_string_len = static_cast<int32_t>(strlen(formatted_string.c_str()));
+
+  char* ret = reinterpret_cast<gdv_binary>(
+      gdv_fn_context_arena_malloc(context, formatted_string_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = formatted_string_len;
+  memcpy(ret, formatted_string.c_str(), *out_len);
+
+  return ret;
 }
 
 namespace gandiva {
@@ -1599,5 +1641,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_initcap_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_initcap_utf8));
+
+  // gdv_fn_initcap_utf8
+  args = {
+      types->i64_type(),     // context
+      types->double_type(),  // number
+      types->i32_type(),     // decimal points places
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_format_number",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_format_number));
 }
 }  // namespace gandiva

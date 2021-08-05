@@ -589,7 +589,4 @@ gdv_month_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in)
 
 gdv_month_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
 
-const char* format_number(gdv_int64 context, gdv_float64 number, gdv_int32 decimal_points,
-                          gdv_int32* out_len);
-
 }  // extern "C"

@@ -409,7 +409,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("format_number", {}, DataTypeVector{float64(), int32()}, utf8(),
-                     kResultNullIfNull, "format_number",
+                     kResultNullIfNull, "gdv_fn_format_number",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return string_fn_registry_;
