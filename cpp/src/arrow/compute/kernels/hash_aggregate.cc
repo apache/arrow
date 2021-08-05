@@ -2050,7 +2050,7 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
     offsets[0] = 0;
     for (size_t i = 0; i < grouped_slices.size(); i++) {
       indices = std::copy(grouped_slices[i].begin(), grouped_slices[i].end(), indices);
-      offsets[i + 1] = offsets[i] + grouped_slices[i].size();
+      offsets[i + 1] = offsets[i] + static_cast<int32_t>(grouped_slices[i].size());
     }
 
     ARROW_ASSIGN_OR_RAISE(
