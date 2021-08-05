@@ -991,7 +991,7 @@ class TestRetryStrategy : public S3RetryStrategy {
   bool ShouldRetry(Status& error, long attempted_retries) final {
     errors_encountered_.emplace_back(error);
     constexpr long MAX_RETRIES = 2;
-    return attempted_retries <= MAX_RETRIES;
+    return attempted_retries < MAX_RETRIES;
   }
 
   long CalculateDelayBeforeNextRetry(Status& error, long attempted_retries) final {
@@ -1019,7 +1019,7 @@ TEST_F(TestS3FS, CustomRetryStrategy) {
   for (const Status& status : retry_strategy->GetErrorsEncountered()) {
     ASSERT_EQ(StatusCode::IOError, status.code());
   }
-  std::vector<long> expected_retry_delays = {0, 1};
+  std::vector<long> expected_retry_delays = {0, 1, 2};
   ASSERT_EQ(retry_strategy->GetRetryDelays(), expected_retry_delays);
 }
 
