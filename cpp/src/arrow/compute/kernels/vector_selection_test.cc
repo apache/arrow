@@ -996,6 +996,16 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
                                          "[0.0, 1.0, 0.1]", &arr));
 }
 
+TEST_F(TestTakeKernel, TakeEmptyIndices) {
+  Datum out;
+  auto dat = Datum(std::make_shared<ChunkedArray>(ArrayFromJSON(int8(), "[]")));
+  auto idx = Datum(std::make_shared<ChunkedArray>(ArrayVector(), int32()));
+  auto ret = Take(dat, idx).Value(&out);
+  ASSERT_OK(ret);
+  ValidateOutput(out);
+  AssertDatumsEqual(dat, out, true);
+}
+
 TEST_F(TestTakeKernel, DefaultOptions) {
   auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
   auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");

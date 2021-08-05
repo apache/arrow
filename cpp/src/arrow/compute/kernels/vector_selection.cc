@@ -2048,7 +2048,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeAC(const Array& values,
     // Take with that indices chunk
     ARROW_ASSIGN_OR_RAISE(new_chunks[i], TakeAA(values, *indices.chunk(i), options, ctx));
   }
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
 
 Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
