@@ -17,17 +17,9 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static java.lang.String.format;
-import static java.util.Collections.synchronizedSet;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
-import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.*;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -67,6 +59,7 @@ public class ResultSetTest {
   @ClassRule
   public static FlightServerTestRule rule;
   private static Connection connection;
+  private static Map<BaseProperty, Object> properties;
 
   static {
     Map<BaseProperty, Object> properties = new HashMap<>();
