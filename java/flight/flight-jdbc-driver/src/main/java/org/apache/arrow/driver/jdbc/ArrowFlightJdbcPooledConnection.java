@@ -19,9 +19,9 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
@@ -36,8 +36,8 @@ import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 public class ArrowFlightJdbcPooledConnection implements PooledConnection {
 
   private final Connection connection;
-  private final List<ConnectionEventListener> eventListeners;
-  private final List<StatementEventListener> statementEventListeners;
+  private final Set<ConnectionEventListener> eventListeners;
+  private final Set<StatementEventListener> statementEventListeners;
   private final ArrowFlightJdbcConnectionPoolDataSource.Credentials credentials;
 
   private class ConnectionHandle extends ConnectionWrapper {
@@ -64,8 +64,8 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
   ArrowFlightJdbcPooledConnection(Connection connection,
                                   ArrowFlightJdbcConnectionPoolDataSource.Credentials credentials) {
     this.connection = connection;
-    this.eventListeners = Collections.synchronizedList(new ArrayList<>());
-    this.statementEventListeners = Collections.synchronizedList(new ArrayList<>());
+    this.eventListeners = Collections.synchronizedSet(new HashSet<>());
+    this.statementEventListeners = Collections.synchronizedSet(new HashSet<>());
     this.credentials = credentials;
   }
 
@@ -85,9 +85,7 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
 
   @Override
   public void addConnectionEventListener(ConnectionEventListener listener) {
-    if (!eventListeners.contains(listener)) {
-      eventListeners.add(listener);
-    }
+    eventListeners.add(listener);
   }
 
   @Override
@@ -97,9 +95,7 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
 
   @Override
   public void addStatementEventListener(StatementEventListener listener) {
-    if (!statementEventListeners.contains(listener)) {
-      statementEventListeners.add(listener);
-    }
+    statementEventListeners.add(listener);
   }
 
   @Override
