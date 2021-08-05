@@ -43,6 +43,7 @@ ConvertOptions ConvertOptions::Defaults() {
                          "NULL", "NaN",  "n/a",      "nan",     "null"};
   options.true_values = {"1", "True", "TRUE", "true"};
   options.false_values = {"0", "False", "FALSE", "false"};
+  options.timestamp_parsers = {};
   return options;
 }
 
