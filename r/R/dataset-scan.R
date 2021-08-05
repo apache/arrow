@@ -85,10 +85,21 @@ Scanner$create <- function(dataset,
       # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
       dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
     }
+
+    proj<- c(dataset$selected_columns, dataset$temp_columns)
+    if (!is.null(projection)) {
+      proj <- c(proj, projection)
+    }
+
+    filt <- dataset$filtered_rows
+    if (!isTRUE(filter)) {
+      filt <- build_expr("&", filt, filter)
+    }
+
     return(Scanner$create(
       dataset$.data,
-      c(dataset$selected_columns, dataset$temp_columns),
-      dataset$filtered_rows,
+      proj,
+      filt,
       use_threads,
       use_async,
       batch_size,

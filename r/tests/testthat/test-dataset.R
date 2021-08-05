@@ -1071,22 +1071,36 @@ test_that("Scanner$ToRecordBatchReader()", {
   )
 })
 
-test_that("Scanner$create() projection pushdown", {
+test_that("Scanner$create() filter/projection pushdown", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
   scan_one <- ds %>%
     filter(int > 7 & dbl < 57) %>%
     select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl -1) %>%
     Scanner$create()
 
   scan_two <- ds %>%
+    filter(int > 7& dbl < 57) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1) %>%
+    filter(int > 6) %>%
+    Scanner$create(projection = list(dbl_minus = build_expr("-", args = list(Expression$field_ref("dbl"), 1))))
+
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
+  )
+
+  scan_three <- ds %>%
     filter(int > 7) %>%
     select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl -1) %>%
     filter(int > 6) %>%
     Scanner$create(filter = build_expr("<", args = list(Expression$field_ref("dbl"), 57)))
 
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
-    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
+    as.data.frame(scan_three$ToRecordBatchReader()$read_table())
   )
 })
 
