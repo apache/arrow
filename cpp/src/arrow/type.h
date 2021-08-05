@@ -143,7 +143,6 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
   /// \brief A string name of the type, omitting any child fields
   ///
-  /// \note Experimental API
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
