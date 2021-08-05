@@ -1,8 +1,30 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.driver.jdbc;
 
 import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
 
 import javax.sql.ConnectionEvent;
@@ -10,19 +32,35 @@ import javax.sql.ConnectionEventListener;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
 
+/**
+ * {@link ConnectionPoolDataSource} implementation for Arrow Flight JDBC Driver.
+ */
 public class ArrowFlightJdbcConnectionPoolDataSource implements ConnectionPoolDataSource, ConnectionEventListener {
-  ArrowFlightJdbcDataSource dataSource = new ArrowFlightJdbcDataSource();
+  private final ArrowFlightJdbcDataSource dataSource = new ArrowFlightJdbcDataSource();
+  private final Map<Credentials, Queue<PooledConnection>> pool = new ConcurrentHashMap<>();
 
   @Override
   public PooledConnection getPooledConnection() throws SQLException {
-    ArrowFlightJdbcPooledConnection pooledConnection = new ArrowFlightJdbcPooledConnection(this.dataSource.getConnection());
-    pooledConnection.addConnectionEventListener(this);
-    return pooledConnection;
+    return this.getPooledConnection(getUsername(), getPassword());
   }
 
   @Override
   public PooledConnection getPooledConnection(String username, String password) throws SQLException {
-    return new ArrowFlightJdbcPooledConnection(this.dataSource.getConnection(username, password));
+    Credentials credentials = new Credentials(username, password);
+    Queue<PooledConnection> objectPool = pool.computeIfAbsent(credentials, s -> new ConcurrentLinkedQueue<>());
+    PooledConnection pooledConnection = objectPool.poll();
+    if (pooledConnection == null) {
+      pooledConnection = createPooledConnection(username, password);
+    }
+    return pooledConnection;
+  }
+
+  private PooledConnection createPooledConnection(String username, String password) throws SQLException {
+    Credentials credentials = new Credentials(username, password);
+    ArrowFlightJdbcPooledConnection pooledConnection =
+        new ArrowFlightJdbcPooledConnection(this.dataSource.getConnection(username, password), credentials);
+    pooledConnection.addConnectionEventListener(this);
+    return pooledConnection;
   }
 
   @Override
@@ -152,11 +190,39 @@ public class ArrowFlightJdbcConnectionPoolDataSource implements ConnectionPoolDa
 
   @Override
   public void connectionClosed(ConnectionEvent connectionEvent) {
+    ArrowFlightJdbcPooledConnection pooledConnection = (ArrowFlightJdbcPooledConnection) connectionEvent.getSource();
+    Credentials credentials = pooledConnection.getCredentials();
 
+    this.pool.get(credentials).add(pooledConnection);
   }
 
   @Override
   public void connectionErrorOccurred(ConnectionEvent connectionEvent) {
 
+  }
+
+  /**
+   * Value object used as key of ArrowFlightJdbcConnectionPoolDataSource's connection pool.
+   */
+  static class Credentials {
+    private final String username;
+    private final String password;
+
+    Credentials(String username, String password) {
+      this.username = username;
+      this.password = password;
+    }
+
+    @Override
+    public int hashCode() {
+      return username.hashCode() ^ password.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof Credentials &&
+          Objects.equals(this.username, ((Credentials) o).username) &&
+          Objects.equals(this.password, ((Credentials) o).password);
+    }
   }
 }

@@ -38,17 +38,20 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Random;
-import java.util.function.BiConsumer;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcConnectionPoolDataSource;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
@@ -119,9 +122,10 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
-  private final ArrowFlightJdbcDataSource dataSource;
 
-  FlightServerTestRule(Map<BaseProperty, Object> properties) {
+  private final Set<String> validUsernameAndPasswordList = new HashSet<>();
+
+  public FlightServerTestRule(Map<BaseProperty, Object> properties) {
     this(properties, new RootAllocator(Long.MAX_VALUE));
   }
 
@@ -131,11 +135,19 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     this.allocator = allocator;
 
-    this.dataSource = new ArrowFlightJdbcDataSource();
-    dataSource.setHost((String) getProperty(HOST));
-    dataSource.setPort((Integer) getProperty(PORT));
-    dataSource.setUsername((String) getProperty(USERNAME));
-    dataSource.setPassword((String) getProperty(PASSWORD));
+    this.addUser(((String) getProperty(USERNAME)), ((String) getProperty(PASSWORD)));
+  }
+
+  public void addUser(String username, String password) {
+    this.validUsernameAndPasswordList.add(username + ":" + password);
+  }
+
+  private boolean validateUser(String username, String password) {
+    return this.validUsernameAndPasswordList.contains(username + ":" + password);
+  }
+
+  private boolean validateUser(String username) {
+    return this.validUsernameAndPasswordList.stream().anyMatch(s -> s.startsWith(username + ":"));
   }
 
   private static Map<String, Supplier<Stream<String>>> generateQueryTickets(
@@ -187,14 +199,28 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 
-  /**
-   * Get a connection with the server to be used within the test.
-   *
-   * @return a valid JDBC connection.
-   * @throws SQLException in case of error.
-   */
-  Connection getConnection() throws SQLException {
-    return dataSource.getConnection();
+  public ArrowFlightJdbcDataSource createDataSource() {
+    ArrowFlightJdbcDataSource dataSource = new ArrowFlightJdbcDataSource();
+    dataSource.setHost((String) getProperty(HOST));
+    dataSource.setPort((Integer) getProperty(PORT));
+    dataSource.setUsername((String) getProperty(USERNAME));
+    dataSource.setPassword((String) getProperty(PASSWORD));
+
+    return dataSource;
+  }
+
+  public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource() {
+    ArrowFlightJdbcConnectionPoolDataSource dataSource = new ArrowFlightJdbcConnectionPoolDataSource();
+    dataSource.setHost((String) getProperty(HOST));
+    dataSource.setPort((Integer) getProperty(PORT));
+    dataSource.setUsername((String) getProperty(USERNAME));
+    dataSource.setPassword((String) getProperty(PASSWORD));
+
+    return dataSource;
+  }
+
+  public Connection getConnection() throws SQLException {
+    return this.createDataSource().getConnection();
   }
 
   @Override
@@ -451,7 +477,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       }
 
       private void checkUsername(CallContext context, StreamListener<?> listener) {
-        if (context.peerIdentity().equals(getProperty(BaseProperty.USERNAME))) {
+        if (validateUser(context.peerIdentity())) {
           listener.onCompleted();
           return;
         }
@@ -459,7 +485,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       }
 
       private void checkUsername(CallContext context, OutboundStreamListener listener) {
-        if (!context.peerIdentity().equals(getProperty(BaseProperty.USERNAME))) {
+        if (!validateUser(context.peerIdentity())) {
           listener.error(new IllegalArgumentException("Invalid username."));
         }
       }
@@ -470,8 +496,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private CallHeaderAuthenticator.AuthResult validate(final String username,
                                                       final String password) {
-    if ((getProperty(BaseProperty.USERNAME)).equals(checkNotNull(username)) &&
-        (getProperty(BaseProperty.PASSWORD)).equals(checkNotNull(password))) {
+    if (validateUser(username, password)) {
       return () -> username;
     }
 
