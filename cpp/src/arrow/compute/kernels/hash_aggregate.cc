@@ -1784,7 +1784,10 @@ struct GroupedAnyImpl : public GroupedAggregator {
     arrow::internal::VisitBitBlocksVoid(
         input.buffers[0], input.offset, input.length,
         [&](int64_t offset) {
-          BitUtil::SetBitTo(seen, *g++, BitUtil::GetBit(values, input.offset + offset));
+          BitUtil::SetBitTo(seen, *g,
+                            BitUtil::GetBit(seen, *g) ||
+                                BitUtil::GetBit(values, input.offset + offset));
+          g++;
         },
         [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     return Status::OK();

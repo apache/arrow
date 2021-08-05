@@ -1103,7 +1103,7 @@ TEST(GroupBy, AnyAndAll) {
     [true,  2]
                         ])",
                                                                                       R"([
-    [true,  2],
+    [false, 2],
     [false, null],
     [null,  3]
                         ])"});
