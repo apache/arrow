@@ -1740,15 +1740,18 @@ struct GroupedMinMaxFactory {
 // Any/All implementation
 
 struct GroupedAnyImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const FunctionOptions*) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    return seen_.Append(added_groups, false);
+    RETURN_NOT_OK(seen_.Append(added_groups, false));
+    return has_nulls_.Append(added_groups, false);
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -1757,29 +1760,48 @@ struct GroupedAnyImpl : public GroupedAggregator {
 
     auto seen = seen_.mutable_data();
     auto other_seen = other->seen_.data();
+    auto has_nulls = has_nulls_.mutable_data();
+    auto other_has_nulls = other->has_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       if (BitUtil::GetBit(other_seen, other_g)) BitUtil::SetBitTo(seen, *g, true);
+      if (BitUtil::GetBit(other_has_nulls, other_g)) {
+        BitUtil::SetBitTo(has_nulls, *g, true);
+      }
     }
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
     auto seen = seen_.mutable_data();
+    auto has_nulls = has_nulls_.mutable_data();
 
     const auto& input = *batch[0].array();
 
     auto g = batch[1].array()->GetValues<uint32_t>(1);
-    arrow::internal::VisitTwoBitBlocksVoid(
-        input.buffers[0], input.offset, input.buffers[1], input.offset, input.length,
-        [&](int64_t) { BitUtil::SetBitTo(seen, *g++, true); }, [&]() { g++; });
+    auto values = input.buffers[1]->data();
+    arrow::internal::VisitBitBlocksVoid(
+        input.buffers[0], input.offset, input.length,
+        [&](int64_t offset) {
+          BitUtil::SetBitTo(seen, *g++, BitUtil::GetBit(values, input.offset + offset));
+        },
+        [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    if (options_.skip_nulls) {
+      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
+    // null if (~seen & has_nulls) -> not null if (seen | ~has_nulls)
+    ::arrow::internal::BitmapOrNot(seen->data(), /*left_offset=*/0, bitmap->data(),
+                                   /*right_offset=*/0, num_groups_, /*out_offset=*/0,
+                                   bitmap->mutable_data());
+    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
+                                          std::move(bitmap));
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
@@ -1787,18 +1809,22 @@ struct GroupedAnyImpl : public GroupedAggregator {
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
   TypedBufferBuilder<bool> seen_;
+  TypedBufferBuilder<bool> has_nulls_;
 };
 
 struct GroupedAllImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const FunctionOptions*) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    return seen_.Append(added_groups, true);
+    RETURN_NOT_OK(seen_.Append(added_groups, true));
+    return has_nulls_.Append(added_groups, false);
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -1807,17 +1833,23 @@ struct GroupedAllImpl : public GroupedAggregator {
 
     auto seen = seen_.mutable_data();
     auto other_seen = other->seen_.data();
+    auto has_nulls = has_nulls_.mutable_data();
+    auto other_has_nulls = other->has_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       BitUtil::SetBitTo(
           seen, *g, BitUtil::GetBit(seen, *g) && BitUtil::GetBit(other_seen, other_g));
+      if (BitUtil::GetBit(other_has_nulls, other_g)) {
+        BitUtil::SetBitTo(has_nulls, *g, true);
+      }
     }
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
     auto seen = seen_.mutable_data();
+    auto has_nulls = has_nulls_.mutable_data();
 
     const auto& input = *batch[0].array();
 
@@ -1832,7 +1864,7 @@ struct GroupedAllImpl : public GroupedAggregator {
                                   BitUtil::GetBit(bitmap, input.offset + position));
             g++;
           },
-          [&]() { g++; });
+          [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     } else {
       arrow::internal::VisitBitBlocksVoid(
           input.buffers[1], input.offset, input.length, [&](int64_t) { g++; },
@@ -1843,7 +1875,18 @@ struct GroupedAllImpl : public GroupedAggregator {
 
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    if (options_.skip_nulls) {
+      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
+    // null if (seen & has_nulls)
+    ::arrow::internal::BitmapAnd(seen->data(), /*left_offset=*/0, bitmap->data(),
+                                 /*right_offset=*/0, num_groups_, /*out_offset=*/0,
+                                 bitmap->mutable_data());
+    ::arrow::internal::InvertBitmap(bitmap->data(), /*offset=*/0, num_groups_,
+                                    bitmap->mutable_data(), /*dest_offset=*/0);
+    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
+                                          std::move(bitmap));
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
@@ -1851,6 +1894,7 @@ struct GroupedAllImpl : public GroupedAggregator {
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
   TypedBufferBuilder<bool> seen_;
+  TypedBufferBuilder<bool> has_nulls_;
 };
 
 }  // namespace
@@ -2155,7 +2199,8 @@ const FunctionDoc hash_tdigest_doc{
     ("By default, the 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
      "A null array is returned if there are no valid data points."),
-    {"array", "group_id_array"}};
+    {"array", "group_id_array"},
+    "TDigestOptions"};
 
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
@@ -2175,6 +2220,9 @@ const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+  static auto default_tdigest_options = TDigestOptions::Defaults();
+  static auto default_variance_options = VarianceOptions::Defaults();
+
   {
     static auto default_count_options = CountOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
@@ -2222,7 +2270,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
-  static auto default_variance_options = VarianceOptions::Defaults();
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_stddev", Arity::Binary(), &hash_stddev_doc, &default_variance_options);
@@ -2247,7 +2294,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
-  static auto default_tdigest_options = TDigestOptions::Defaults();
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
@@ -2273,15 +2319,15 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_any", Arity::Binary(),
-                                                        &hash_any_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_any", Arity::Binary(), &hash_any_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAnyImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_all", Arity::Binary(),
-                                                        &hash_all_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_all", Arity::Binary(), &hash_all_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAllImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }

@@ -1083,6 +1083,7 @@ TEST(GroupBy, MinMaxDecimal) {
 }
 
 TEST(GroupBy, AnyAndAll) {
+  ScalarAggregateOptions options(/*skip_nulls=*/false);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -1094,6 +1095,9 @@ TEST(GroupBy, AnyAndAll) {
                                                                                       R"([
     [false, 2],
     [null,  3],
+    [null,  4],
+    [false, 4],
+    [true,  5],
     [false, null],
     [true,  1],
     [true,  2]
@@ -1105,26 +1109,43 @@ TEST(GroupBy, AnyAndAll) {
                         ])"});
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy({table->GetColumnByName("argument"),
-                                            table->GetColumnByName("argument")},
-                                           {table->GetColumnByName("key")},
-                                           {
-                                               {"hash_any", nullptr},
-                                               {"hash_all", nullptr},
-                                           },
-                                           use_threads));
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                             },
+                             {table->GetColumnByName("key")},
+                             {
+                                 {"hash_any", nullptr},
+                                 {"hash_all", nullptr},
+                                 {"hash_any", &options},
+                                 {"hash_all", &options},
+                             },
+                             use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
 
+    // Group 1: trues and nulls
+    // Group 2: trues and falses
+    // Group 3: nulls
+    // Group 4: falses and nulls
+    // Group 5: trues
+    // Group null: falses
     AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_any", boolean()),
+                                        field("hash_all", boolean()),
                                         field("hash_any", boolean()),
                                         field("hash_all", boolean()),
                                         field("key_0", int64()),
                                     }),
                                     R"([
-    [true,  true,  1],
-    [true,  false, 2],
-    [false, true, 3],
-    [false, false, null]
+    [true,  true,  true,  null,  1],
+    [true,  false, true,  false, 2],
+    [false, true,  null,  null,  3],
+    [false, false, null,  false, 4],
+    [true,  true,  true,  true,  5],
+    [false, false, false, false, null]
   ])"),
                       aggregated_and_grouped,
                       /*verbose=*/true);
