@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
-#include <set>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
@@ -2175,10 +2174,10 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
   if (values->type()->Equals(arrow::null())) {
     return std::make_shared<NullArray>(0);
   }
-  std::shared_ptr<BooleanArray> dropnull_filter;
-  RETURN_NOT_OK(GetDropNullFilter(*values, ctx->memory_pool(), &dropnull_filter));
+  std::shared_ptr<BooleanArray> drop_null_filter;
+  RETURN_NOT_OK(GetDropNullFilter(*values, ctx->memory_pool(), &drop_null_filter));
 
-  if (dropnull_filter->null_count() == dropnull_filter->length()) {
+  if (drop_null_filter->null_count() == drop_null_filter->length()) {
     std::shared_ptr<Array> empty_array;
     RETURN_NOT_OK(CreateEmptyArray(values->type(), ctx->memory_pool(), &empty_array));
     return empty_array;
@@ -2186,7 +2185,7 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
   auto options = FilterOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(
       Datum result,
-      CallFunction("array_filter", {Datum(*values), Datum(*dropnull_filter)}, &options,
+      CallFunction("array_filter", {Datum(*values), Datum(*drop_null_filter)}, &options,
                    ctx));
   return result.make_array();
 }
@@ -2203,18 +2202,28 @@ Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(const ChunkedArray& v
 
 Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch,
                                                          ExecContext* ctx) {
-  std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
-  std::set<int32_t> notnull_indices;
+  ARROW_ASSIGN_OR_RAISE(auto dst,
+                        AllocateEmptyBitmap(batch.num_rows(), ctx->memory_pool()));
+  BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), true);
 
   for (int col_index = 0; col_index < batch.num_columns(); ++col_index) {
     const auto& column = batch.column(col_index);
-    for (int64_t i = 0; i < column->length(); ++i) {
-      if (!column->IsValid(i)) {
-        notnull_indices.insert(static_cast<int32_t>(i));
+    if (column->null_bitmap_data()) {
+      ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
+                                   dst->data(), 0, column->length(), 0,
+                                   dst->mutable_data());
+    } else {
+      for (int64_t i = 0; i < column->length(); ++i) {
+        if (!column->IsValid(i)) {
+          BitUtil::ClearBit(dst->mutable_data(), i);
+        }
       }
     }
   }
-  if (static_cast<int64_t>(notnull_indices.size()) == batch.num_rows()) {
+  auto drop_null_filter =
+      std::make_shared<BooleanArray>(batch.num_rows(), dst, nullptr, 0, 0);
+
+  if (drop_null_filter->false_count() == batch.num_rows()) {
     std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
     for (int i = 0; i < batch.num_columns(); i++) {
       RETURN_NOT_OK(
@@ -2222,17 +2231,9 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
     }
     return RecordBatch::Make(batch.schema(), 0, empty_batch);
   }
-  std::shared_ptr<arrow::Array> indices;
-  arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
-  RETURN_NOT_OK(
-      builder.Reserve(static_cast<int64_t>(batch.num_rows() - notnull_indices.size())));
-  for (int64_t row_index = 0; row_index < batch.num_rows(); ++row_index) {
-    if (notnull_indices.find(static_cast<int32_t>(row_index)) == notnull_indices.end()) {
-      builder.UnsafeAppend(static_cast<int32_t>(row_index));
-    }
-  }
-  RETURN_NOT_OK(builder.Finish(&indices));
-  return TakeRA(batch, *indices, TakeOptions::Defaults(), ctx);
+  ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(batch), Datum(drop_null_filter),
+                                             FilterOptions::Defaults(), ctx));
+  return result.record_batch();
 }
 
 Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ctx) {
@@ -2246,24 +2247,28 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   for (int i = 0; i < num_columns; ++i) {
     inputs[i] = table.column(i)->chunks();
   }
-  std::set<int32_t> notnull_indices;
-  // Rechunk inputs to allow consistent iteration over their respective chunks
-  inputs = arrow::internal::RechunkArraysConsistently(inputs);
 
-  const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
+  ARROW_ASSIGN_OR_RAISE(auto dst,
+                        AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
+  BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
+  // Note: Not all chunks has null_bitmap data, so we are using IsValid method
   for (int col = 0; col < num_columns; ++col) {
     int64_t relative_index = 0;
-    for (int64_t chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
+    for (int64_t chunk_index = 0; chunk_index < static_cast<int64_t>(inputs[col].size());
+         ++chunk_index) {
       const auto& column_chunk = inputs[col][chunk_index];
       for (int64_t i = 0; i < column_chunk->length(); ++i) {
         if (!column_chunk->IsValid(i)) {
-          notnull_indices.insert(static_cast<int32_t>(relative_index + i));
+          BitUtil::ClearBit(dst->mutable_data(), relative_index + i);
         }
       }
       relative_index += column_chunk->length();
     }
   }
-  if (static_cast<int64_t>(notnull_indices.size()) == table.num_rows()) {
+  auto drop_null_filter =
+      std::make_shared<BooleanArray>(table.num_rows(), dst, nullptr, 0, 0);
+
+  if (drop_null_filter->false_count() == table.num_rows()) {
     std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
     for (int i = 0; i < table.num_columns(); i++) {
       std::shared_ptr<Array> empty_array;
@@ -2273,27 +2278,20 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
     }
     return Table::Make(table.schema(), empty_table, 0);
   }
-  std::shared_ptr<arrow::Array> indices;
-  arrow::NumericBuilder<arrow::Int32Type> builder(ctx->memory_pool());
-  RETURN_NOT_OK(
-      builder.Reserve(static_cast<int64_t>(table.num_rows() - notnull_indices.size())));
-  for (int64_t row_index = 0; row_index < table.num_rows(); ++row_index) {
-    if (notnull_indices.find(static_cast<int32_t>(row_index)) == notnull_indices.end()) {
-      builder.UnsafeAppend(static_cast<int32_t>(row_index));
-    }
-  }
-  RETURN_NOT_OK(builder.Finish(&indices));
-  return TakeTA(table, *indices, TakeOptions::Defaults(), ctx);
+  ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(table), Datum(drop_null_filter),
+                                             FilterOptions::Defaults(), ctx));
+  return result.table();
 }
 
-const FunctionDoc dropnull_doc(
-    "DropNull kernel",
-    ("The output is populated with values from the input without the null values"),
+const FunctionDoc drop_null_doc(
+    "Drop Null kernel",
+    ("The output is populated with values from the input (Array, ChunkedArray, "
+     "RecordBatch, or Table) without the null values"),
     {"input"});
 
 class DropNullMetaFunction : public MetaFunction {
  public:
-  DropNullMetaFunction() : MetaFunction("dropnull", Arity::Unary(), &dropnull_doc) {}
+  DropNullMetaFunction() : MetaFunction("drop_null", Arity::Unary(), &drop_null_doc) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2320,7 +2318,7 @@ class DropNullMetaFunction : public MetaFunction {
         break;
     }
     return Status::NotImplemented(
-        "Unsupported types for dropnull operation: "
+        "Unsupported types for drop_null operation: "
         "values=",
         args[0].ToString());
   }

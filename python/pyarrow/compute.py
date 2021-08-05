@@ -591,7 +591,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     return call_function('take', [data, indices], options, memory_pool)
 
 
-def dropnull(data, *, memory_pool=None):
+def drop_null(data, *, memory_pool=None):
     """
     Remove missing values (or records) from array- or table-like.
 
@@ -610,7 +610,7 @@ def dropnull(data, *, memory_pool=None):
     --------
     >>> import pyarrow as pa
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
-    >>> arr.dropnull()
+    >>> arr.drop_null()
     <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
     [
       "a",
@@ -620,7 +620,7 @@ def dropnull(data, *, memory_pool=None):
       "f"
     ]
     """
-    return call_function('dropnull', [data], memory_pool)
+    return call_function('drop_null', [data], memory_pool)
 
 
 def fill_null(values, fill_value):

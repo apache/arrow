@@ -216,7 +216,7 @@ Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* ctx = NULLPTR);
 
-/// \brief DropNull from an array of values
+/// \brief Drop Null from an array of values
 ///
 /// The output array will be of the same type as the input values
 /// array, with elements taken from the values array without nulls.

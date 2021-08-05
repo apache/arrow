@@ -239,7 +239,7 @@ Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
 Result<Datum> DropNull(const Datum& values, ExecContext* ctx) {
   // Invoke metafunction which deals with Datum kinds other than just Array,
   // ChunkedArray.
-  return CallFunction("dropnull", {values}, ctx);
+  return CallFunction("drop_null", {values}, ctx);
 }
 
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {

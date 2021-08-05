@@ -1117,11 +1117,11 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
-    def dropnull(self):
+    def drop_null(self):
         """
         Remove missing values from an array.
         """
-        return _pc().dropnull(self)
+        return _pc().drop_null(self)
 
     def filter(self, Array mask, null_selection_behavior='drop'):
         """
