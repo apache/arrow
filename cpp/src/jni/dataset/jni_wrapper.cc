@@ -604,27 +604,27 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
     jstring uri, jobjectArray partition_columns, jint max_partitions,
     jstring base_name_template) {
   JNI_METHOD_START
-    JavaVM* vm;
-    if (env->GetJavaVM(&vm) != JNI_OK) {
-      JniThrow("Unable to get JavaVM instance");
-    }
-    auto schema = JniGetOrThrow(FromSchemaByteArray(env, schema_bytes));
-    auto scanner = JniGetOrThrow(MakeJavaDatasetScanner(vm, itr, schema));
-    std::shared_ptr<arrow::dataset::FileFormat> file_format =
-        JniGetOrThrow(GetFileFormat(file_format_id));
-    arrow::dataset::FileSystemDatasetWriteOptions options;
-    std::string output_path;
-    auto filesystem = JniGetOrThrow(
-        arrow::fs::FileSystemFromUri(JStringToCString(env, uri), &output_path));
-    std::vector<std::string> partition_column_vector =
-        ToStringVector(env, partition_columns);
-    options.file_write_options = file_format->DefaultWriteOptions();
-    options.filesystem = filesystem;
-    options.base_dir = output_path;
-    options.basename_template = JStringToCString(env, base_name_template);
-    options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
-        arrow::dataset::SchemaFromColumnNames(schema, partition_column_vector));
-    options.max_partitions = max_partitions;
-    JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
+  JavaVM* vm;
+  if (env->GetJavaVM(&vm) != JNI_OK) {
+    JniThrow("Unable to get JavaVM instance");
+  }
+  auto schema = JniGetOrThrow(FromSchemaByteArray(env, schema_bytes));
+  auto scanner = JniGetOrThrow(MakeJavaDatasetScanner(vm, itr, schema));
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemDatasetWriteOptions options;
+  std::string output_path;
+  auto filesystem = JniGetOrThrow(
+      arrow::fs::FileSystemFromUri(JStringToCString(env, uri), &output_path));
+  std::vector<std::string> partition_column_vector =
+      ToStringVector(env, partition_columns);
+  options.file_write_options = file_format->DefaultWriteOptions();
+  options.filesystem = filesystem;
+  options.base_dir = output_path;
+  options.basename_template = JStringToCString(env, base_name_template);
+  options.partitioning = std::make_shared<arrow::dataset::HivePartitioning>(
+      arrow::dataset::SchemaFromColumnNames(schema, partition_column_vector));
+  options.max_partitions = max_partitions;
+  JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
   JNI_METHOD_END()
 }
