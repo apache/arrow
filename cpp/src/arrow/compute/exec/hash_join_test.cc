@@ -93,14 +93,32 @@ void RunNonEmptyTest(JoinType type, bool parallel) {
       {R"([["f", 0], ["b", 1], ["b", 2]])", R"([["c", 3], ["g", 4]])", R"([["e", 5]])"},
       &r_batches, multiplicity);
 
-  if (type == JoinType::LEFT_SEMI) {
-    GenerateBatchesFromString(
-        l_schema, {R"([[1,"b"]])", R"([])", R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
-        &exp_batches, multiplicity);
-  } else if (type == JoinType::RIGHT_SEMI) {
-    GenerateBatchesFromString(
-        r_schema, {R"([["b", 1], ["b", 2]])", R"([["c", 3]])", R"([["e", 5]])"},
-        &exp_batches, multiplicity);
+  switch (type) {
+    case LEFT_SEMI:
+      GenerateBatchesFromString(
+          l_schema, {R"([[1,"b"]])", R"([])", R"([[5,"b"], [6,"c"], [7,"e"], [8,"e"]])"},
+          &exp_batches, multiplicity);
+      break;
+    case RIGHT_SEMI:
+      GenerateBatchesFromString(
+          r_schema, {R"([["b", 1], ["b", 2]])", R"([["c", 3]])", R"([["e", 5]])"},
+          &exp_batches, multiplicity);
+      break;
+    case LEFT_ANTI:
+      GenerateBatchesFromString(
+          l_schema, {R"([[0,"d"]])", R"([[2,"d"], [3,"a"], [4,"a"]])", R"([])"},
+          &exp_batches, multiplicity);
+      break;
+    case RIGHT_ANTI:
+      GenerateBatchesFromString(r_schema, {R"([["f", 0]])", R"([["g", 4]])", R"([])"},
+                                &exp_batches, multiplicity);
+      break;
+    case INNER:
+    case LEFT_OUTER:
+    case RIGHT_OUTER:
+    case FULL_OUTER:
+    default:
+      FAIL() << "join type not implemented!";
   }
 
   CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
@@ -111,46 +129,71 @@ void RunNonEmptyTest(JoinType type, bool parallel) {
 void RunEmptyTest(JoinType type, bool parallel) {
   auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
   auto r_schema = schema({field("r_str", utf8()), field("r_i32", int32())});
-  BatchesWithSchema l_batches, r_batches, exp_batches;
 
   int multiplicity = parallel ? 100 : 1;
 
-  if (type == JoinType::LEFT_SEMI) {
-    GenerateBatchesFromString(l_schema, {R"([])"}, &exp_batches, multiplicity);
-  } else if (type == JoinType::RIGHT_SEMI) {
-    GenerateBatchesFromString(r_schema, {R"([])"}, &exp_batches, multiplicity);
+  BatchesWithSchema l_empty, r_empty, l_n_empty, r_n_empty;
+
+  GenerateBatchesFromString(l_schema, {R"([])"}, &l_empty, multiplicity);
+  GenerateBatchesFromString(r_schema, {R"([])"}, &r_empty, multiplicity);
+
+  GenerateBatchesFromString(l_schema, {R"([[0,"d"], [1,"b"]])"}, &l_n_empty,
+                            multiplicity);
+  GenerateBatchesFromString(r_schema, {R"([["f", 0], ["b", 1], ["b", 2]])"}, &r_n_empty,
+                            multiplicity);
+
+  std::vector<std::string> l_keys{"l_str"};
+  std::vector<std::string> r_keys{"r_str"};
+
+  switch (type) {
+    case LEFT_SEMI:
+      // both empty
+      CheckRunOutput(type, l_empty, r_empty, l_keys, r_keys, l_empty, parallel);
+      // right empty
+      CheckRunOutput(type, l_n_empty, r_empty, l_keys, r_keys, l_empty, parallel);
+      // left empty
+      CheckRunOutput(type, l_empty, r_n_empty, l_keys, r_keys, l_empty, parallel);
+      break;
+    case RIGHT_SEMI:
+      // both empty
+      CheckRunOutput(type, l_empty, r_empty, l_keys, r_keys, r_empty, parallel);
+      // right empty
+      CheckRunOutput(type, l_n_empty, r_empty, l_keys, r_keys, r_empty, parallel);
+      // left empty
+      CheckRunOutput(type, l_empty, r_n_empty, l_keys, r_keys, r_empty, parallel);
+      break;
+    case LEFT_ANTI:
+      // both empty
+      CheckRunOutput(type, l_empty, r_empty, l_keys, r_keys, l_empty, parallel);
+      // right empty
+      CheckRunOutput(type, l_n_empty, r_empty, l_keys, r_keys, l_n_empty, parallel);
+      // left empty
+      CheckRunOutput(type, l_empty, r_n_empty, l_keys, r_keys, l_empty, parallel);
+      break;
+    case RIGHT_ANTI:
+      // both empty
+      CheckRunOutput(type, l_empty, r_empty, l_keys, r_keys, r_empty, parallel);
+      // right empty
+      CheckRunOutput(type, l_n_empty, r_empty, l_keys, r_keys, r_empty, parallel);
+      // left empty
+      CheckRunOutput(type, l_empty, r_n_empty, l_keys, r_keys, r_n_empty, parallel);
+      break;
+    case INNER:
+    case LEFT_OUTER:
+    case RIGHT_OUTER:
+    case FULL_OUTER:
+    default:
+      FAIL() << "join type not implemented!";
   }
-
-  // both empty
-  GenerateBatchesFromString(l_schema, {R"([])"}, &l_batches, multiplicity);
-  GenerateBatchesFromString(r_schema, {R"([])"}, &r_batches, multiplicity);
-  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
-                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
-                 parallel);
-
-  // left empty
-  GenerateBatchesFromString(l_schema, {R"([])"}, &l_batches, multiplicity);
-  GenerateBatchesFromString(r_schema, {R"([["f", 0], ["b", 1], ["b", 2]])"}, &r_batches,
-                            multiplicity);
-  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
-                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
-                 parallel);
-
-  // right empty
-  GenerateBatchesFromString(l_schema, {R"([[0,"d"], [1,"b"]])"}, &l_batches,
-                            multiplicity);
-  GenerateBatchesFromString(r_schema, {R"([])"}, &r_batches, multiplicity);
-  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
-                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
-                 parallel);
 }
 
 class HashJoinTest : public testing::TestWithParam<std::tuple<JoinType, bool>> {};
 
-INSTANTIATE_TEST_SUITE_P(HashJoinTest, HashJoinTest,
-                         ::testing::Combine(::testing::Values(JoinType::LEFT_SEMI,
-                                                              JoinType::RIGHT_SEMI),
-                                            ::testing::Values(false, true)));
+INSTANTIATE_TEST_SUITE_P(
+    HashJoinTest, HashJoinTest,
+    ::testing::Combine(::testing::Values(JoinType::LEFT_SEMI, JoinType::RIGHT_SEMI,
+                                         JoinType::LEFT_ANTI, JoinType::RIGHT_ANTI),
+                       ::testing::Values(false, true)));
 
 TEST_P(HashJoinTest, TestSemiJoins) {
   RunNonEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
