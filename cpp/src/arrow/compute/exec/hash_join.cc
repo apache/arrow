@@ -21,11 +21,13 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/exec_utils.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
 
+template <bool anti_join = false>
 struct HashSemiJoinNode : ExecNode {
   HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
                    ExecContext* ctx, const std::vector<int>&& build_index_field_ids,
@@ -186,6 +188,33 @@ struct HashSemiJoinNode : ExecNode {
     return Status::OK();
   }
 
+  Status GenerateOutput(int seq, const ArrayData& group_ids_data, ExecBatch batch) {
+    if (group_ids_data.GetNullCount() == batch.length) {
+      // All NULLS! hence, there are no valid outputs!
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
+      outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
+    } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
+      auto filter_arr =
+          std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
+                                         /*null_bitmap=*/nullptr, /*null_count=*/0,
+                                         /*offset=*/group_ids_data.offset);
+      ARROW_ASSIGN_OR_RAISE(auto rec_batch,
+                            batch.ToRecordBatch(output_schema_, ctx_->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          auto filtered,
+          Filter(rec_batch, filter_arr,
+                 /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
+      auto out_batch = ExecBatch(*filtered.record_batch());
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
+      outputs_[0]->InputReceived(this, seq, std::move(out_batch));
+    } else {  // all values are valid for output
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
+      outputs_[0]->InputReceived(this, seq, std::move(batch));
+    }
+
+    return Status::OK();
+  }
+
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[build_result_index] which have been merged with all others.
   Status ConsumeProbeBatch(int seq, ExecBatch batch) {
@@ -205,24 +234,7 @@ struct HashSemiJoinNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Datum group_ids, final_grouper.Find(key_batch));
     auto group_ids_data = *group_ids.array();
 
-    if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
-      auto filter_arr =
-          std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
-                                         /*null_bitmap=*/nullptr, /*null_count=*/0,
-                                         /*offset=*/group_ids_data.offset);
-      ARROW_ASSIGN_OR_RAISE(auto rec_batch,
-                            batch.ToRecordBatch(output_schema_, ctx_->memory_pool()));
-      ARROW_ASSIGN_OR_RAISE(
-          auto filtered,
-          Filter(rec_batch, filter_arr,
-                 /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
-      auto out_batch = ExecBatch(*filtered.record_batch());
-      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
-      outputs_[0]->InputReceived(this, seq, std::move(out_batch));
-    } else {  // all values are valid for output
-      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
-      outputs_[0]->InputReceived(this, seq, std::move(batch));
-    }
+    RETURN_NOT_OK(GenerateOutput(seq, group_ids_data, std::move(batch)));
 
     if (out_counter_.Increment()) {
       finished_.MarkFinished();
@@ -393,6 +405,42 @@ struct HashSemiJoinNode : ExecNode {
   bool cached_probe_batches_consumed;
 };
 
+// template specialization for anti joins. For anti joins, group_ids_data needs to be
+// inverted. Output will be taken for indices which are NULL
+template <>
+Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_ids_data,
+                                              ExecBatch batch) {
+  if (group_ids_data.GetNullCount() == group_ids_data.length) {
+    // All NULLS! hence, all values are valid for output
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
+    outputs_[0]->InputReceived(this, seq, std::move(batch));
+  } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
+    // invert the validity buffer
+    arrow::internal::InvertBitmap(
+        group_ids_data.buffers[0]->data(), group_ids_data.offset, group_ids_data.length,
+        group_ids_data.buffers[0]->mutable_data(), group_ids_data.offset);
+
+    auto filter_arr =
+        std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
+                                       /*null_bitmap=*/nullptr, /*null_count=*/0,
+                                       /*offset=*/group_ids_data.offset);
+    ARROW_ASSIGN_OR_RAISE(auto rec_batch,
+                          batch.ToRecordBatch(output_schema_, ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto filtered,
+        Filter(rec_batch, filter_arr,
+               /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
+    auto out_batch = ExecBatch(*filtered.record_batch());
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
+    outputs_[0]->InputReceived(this, seq, std::move(out_batch));
+  } else {
+    // No NULLS! hence, there are no valid outputs!
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
+    outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
+  }
+  return Status::OK();
+}
+
 Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,
                           const std::vector<std::string>& left_keys,
                           const std::vector<std::string>& right_keys) {
@@ -427,6 +475,7 @@ Result<std::vector<int>> PopulateKeys(const Schema& schema,
   return key_field_ids;
 }
 
+template <bool anti_join = false>
 Result<ExecNode*> MakeHashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input,
                                        std::string label,
                                        const std::vector<std::string>& build_keys,
@@ -443,27 +492,9 @@ Result<ExecNode*> MakeHashSemiJoinNode(ExecNode* build_input, ExecNode* probe_in
   auto ctx = build_input->plan()->exec_context();
   ExecPlan* plan = build_input->plan();
 
-  return plan->EmplaceNode<HashSemiJoinNode>(build_input, probe_input, std::move(label),
-                                             ctx, std::move(build_key_ids),
-                                             std::move(probe_key_ids));
-}
-
-Result<ExecNode*> MakeHashLeftSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
-                                           std::string label,
-                                           const std::vector<std::string>& left_keys,
-                                           const std::vector<std::string>& right_keys) {
-  // left join--> build from right and probe from left
-  return MakeHashSemiJoinNode(right_input, left_input, std::move(label), right_keys,
-                              left_keys);
-}
-
-Result<ExecNode*> MakeHashRightSemiJoinNode(ExecNode* left_input, ExecNode* right_input,
-                                            std::string label,
-                                            const std::vector<std::string>& left_keys,
-                                            const std::vector<std::string>& right_keys) {
-  // right join--> build from left and probe from right
-  return MakeHashSemiJoinNode(left_input, right_input, std::move(label), left_keys,
-                              right_keys);
+  return plan->EmplaceNode<HashSemiJoinNode<anti_join>>(
+      build_input, probe_input, std::move(label), ctx, std::move(build_key_ids),
+      std::move(probe_key_ids));
 }
 
 Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
@@ -484,7 +515,13 @@ Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
       return MakeHashSemiJoinNode(left_input, right_input, std::move(label), left_keys,
                                   right_keys);
     case LEFT_ANTI:
+      // left join--> build from right and probe from left
+      return MakeHashSemiJoinNode<true>(right_input, left_input, std::move(label),
+                                        right_keys, left_keys);
     case RIGHT_ANTI:
+      // right join--> build from left and probe from right
+      return MakeHashSemiJoinNode<true>(left_input, right_input, std::move(label),
+                                        left_keys, right_keys);
     case INNER:
     case LEFT_OUTER:
     case RIGHT_OUTER:
