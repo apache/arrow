@@ -17,7 +17,7 @@
 
 #include "arrow/compute/exec/exec_utils.h"
 
-#include <arrow/util/logging.h>
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -25,7 +25,7 @@ namespace compute {
 size_t ThreadIndexer::operator()() {
   auto id = std::this_thread::get_id();
 
-  std::unique_lock<std::mutex> lock(mutex_);
+  auto guard = mutex_.Lock();  // acquire the lock
   const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
 
   return Check(id_index.second);

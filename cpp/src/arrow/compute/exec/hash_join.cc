@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <mutex>
+
 #include "arrow/api.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -159,7 +161,7 @@ struct HashSemiJoinNode : ExecNode {
     // batches should not be cached!
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
 
-    if (!cached_probe_batches.empty()) {
+    if (!cached_probe_batches_consumed) {
       auto executor = ctx_->executor();
       for (auto&& cached : cached_probe_batches) {
         if (executor) {

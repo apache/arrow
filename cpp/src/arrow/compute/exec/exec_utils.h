@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include <mutex>
 #include <thread>
 #include <unordered_map>
 
+#include "arrow/util/mutex.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -35,7 +35,7 @@ class ThreadIndexer {
  private:
   static size_t Check(size_t thread_index);
 
-  std::mutex mutex_;
+  util::Mutex mutex_;
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
