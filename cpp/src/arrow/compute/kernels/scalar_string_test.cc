@@ -413,6 +413,16 @@ TYPED_TEST(TestStringKernels, AsciiCapitalize) {
                    "\"!hello, world!\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiTitle) {
+  this->CheckUnary("ascii_title", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_title",
+                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\", "
+                   "\"!hELlo, wORLd!\", \"  a b cd\"]",
+                   this->type(),
+                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, World!\", \"$. A3\", "
+                   "\"!Hello, World!\", \"  A B Cd\"]");
+}
+
 TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
@@ -522,7 +532,7 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
   // test maximum buffer growth
   this->CheckUnary("utf8_swapcase", "[\"ȺȺȺȺ\"]", this->type(), "[\"ⱥⱥⱥⱥ\"]");
 
-  this->CheckUnary("ascii_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
+  this->CheckUnary("utf8_swapcase", "[\"hEllO, WoRld!\", \"$. A35?\"]", this->type(),
                    "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 
   // Test invalid data
@@ -532,7 +542,7 @@ TYPED_TEST(TestStringKernels, Utf8SwapCase) {
 }
 
 TYPED_TEST(TestStringKernels, Utf8Capitalize) {
-  this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("utf8_capitalize",
                    "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
                    "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",

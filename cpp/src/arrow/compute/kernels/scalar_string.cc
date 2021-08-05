@@ -66,29 +66,10 @@ Status RegexStatus(const RE2& regex) {
 }
 #endif
 
-// Code units in the range [a-z] can only be an encoding of an ascii
-// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of an different
-// codepoint. This guaranteed by non-overlap design of the unicode standard. (see
-// section 2.5 of Unicode Standard Core Specification v13.0)
-
-static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
-                                                              : utf8_code_unit;
-}
-
-static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
-  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
-                                                              : utf8_code_unit;
-}
-
-static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
-  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit -= 32;
-  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
-    utf8_code_unit += 32;
-  }
-  return utf8_code_unit;
-}
+// Code units in the range [a-z] can only be an encoding of an ASCII
+// character/codepoint, not the 2nd, 3rd or 4th code unit (byte) of a different
+// codepoint. This is guaranteed by the non-overlap design of the Unicode
+// standard. (see section 2.5 of Unicode Standard Core Specification v13.0)
 
 // IsAlpha/Digit etc
 
@@ -148,6 +129,25 @@ struct Utf8Length {
     return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
   }
 };
+
+static inline uint8_t ascii_tolower(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'A') && (utf8_code_unit <= 'Z')) ? (utf8_code_unit + 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_toupper(uint8_t utf8_code_unit) {
+  return ((utf8_code_unit >= 'a') && (utf8_code_unit <= 'z')) ? (utf8_code_unit - 32)
+                                                              : utf8_code_unit;
+}
+
+static inline uint8_t ascii_swapcase(uint8_t utf8_code_unit) {
+  if (IsLowerCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit -= 32;
+  } else if (IsUpperCaseCharacterAscii(utf8_code_unit)) {
+    utf8_code_unit += 32;
+  }
+  return utf8_code_unit;
+}
 
 #ifdef ARROW_WITH_UTF8PROC
 
@@ -681,23 +681,24 @@ using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 
 struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, uint8_t* output) {
-    uint8_t* c = input;
-    const uint8_t* end = input + input_string_ncodeunits;
-    while (c <= end) {
-      uint8_t* c_;
+    const uint8_t* const end = input + input_string_ncodeunits;
+    while (input <= end) {
+      const uint8_t* c_;
       // Uppercase first alpha character of current word
-      while ((c_ = c++) <= end) {
+      while ((c_ = input++) <= end) {
         if (IsCasedCharacterAscii(*c_)) {
-          *c_ = ascii_toupper(*c_);
+          *output++ = ascii_toupper(*c_);
           break;
         }
+        *output++ = *c_;
       }
       // Lowercase characters until a whitespace is found
-      while ((c_ = c++) <= end) {
+      while ((c_ = input++) <= end) {
         if (IsSpaceCharacterAscii(*c_)) {
+          *output++ = *c_;
           break;
         }
-        *c_ = ascii_tolower(*c_);
+        *output++ = ascii_tolower(*c_);
       }
     }
     return input_string_ncodeunits;
@@ -4201,8 +4202,9 @@ const FunctionDoc utf8_reverse_doc(
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  // ascii_upper and ascii_lower are able to reuse the original offsets buffer,
-  // so don't preallocate them in the output.
+  // Some kernels are able to reuse the original offsets buffer, so don't
+  // preallocate them in the output. Only kernels that invoke
+  // "StringDataTransform()" support no preallocation.
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
