@@ -569,40 +569,54 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
 }
 
 TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
+  // ARROW-9056: scalar aggregation can be done over scalars, taking
+  // into account batch.length > 1 (e.g. a partition column)
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(int32()),
-                         ValueDescr::Scalar(int32())},
-                        "[[5, 5, 5], [5, 5, 5], [5, 5, 5]]"),
-      ExecBatchFromJSON({int32(), int32(), int32()},
-                        "[[5, 5, 5], [6, 6, 6], [7, 7, 7]]")};
-  scalar_data.schema =
-      schema({field("a", int32()), field("b", int32()), field("c", int32())});
+      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(boolean())},
+                        "[[5, false], [5, false], [5, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
 
-  ASSERT_OK(Declaration::Sequence(
-                {
-                    {"source", SourceNodeOptions{scalar_data.schema,
-                                                 scalar_data.gen(/*parallel=*/false,
-                                                                 /*slow=*/false)}},
-                    {"aggregate",
-                     AggregateNodeOptions{
-                         /*aggregates=*/{
-                             {"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}},
-                         /*targets=*/{"a", "b", "c"},
-                         /*names=*/{"count(a)", "sum(b)", "mean(c)"}}},
-                    {"sink", SinkNodeOptions{&sink_gen}},
-                })
-                .AddToPlan(plan.get()));
+  // index can't be tested as it's order-dependent
+  // mode/quantile can't be tested as they're technically vector kernels
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{scalar_data.schema, scalar_data.gen(/*parallel=*/false,
+                                                                     /*slow=*/false)}},
+              {"aggregate", AggregateNodeOptions{
+                                /*aggregates=*/{{"all", nullptr},
+                                                {"any", nullptr},
+                                                {"count", nullptr},
+                                                {"mean", nullptr},
+                                                {"product", nullptr},
+                                                {"stddev", nullptr},
+                                                {"sum", nullptr},
+                                                {"tdigest", nullptr},
+                                                {"variance", nullptr}},
+                                /*targets=*/{"b", "b", "a", "a", "a", "a", "a", "a", "a"},
+                                /*names=*/
+                                {"all(b)", "any(b)", "count(a)", "mean(a)", "product(a)",
+                                 "stddev(a)", "sum(a)", "tdigest(a)", "variance(a)"}}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
 
   ASSERT_THAT(
       StartAndCollect(plan.get(), sink_gen),
       Finishes(ResultWith(UnorderedElementsAreArray({
-          ExecBatchFromJSON({ValueDescr::Scalar(int64()), ValueDescr::Scalar(int64()),
-                             ValueDescr::Scalar(float64())},
-                            "[[6, 33, 5.5]]"),
+          ExecBatchFromJSON(
+              {ValueDescr::Scalar(boolean()), ValueDescr::Scalar(boolean()),
+               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
+               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
+               ValueDescr::Scalar(int64()), ValueDescr::Array(float64()),
+               ValueDescr::Scalar(float64())},
+              R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
       }))));
 }
 

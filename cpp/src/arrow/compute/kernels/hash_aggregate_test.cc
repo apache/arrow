@@ -767,24 +767,28 @@ TEST(GroupBy, MeanOnly) {
     [null,  3]
                         ])"});
 
+    ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         internal::GroupBy({table->GetColumnByName("argument")},
+                         internal::GroupBy({table->GetColumnByName("argument"),
+                                            table->GetColumnByName("argument")},
                                            {table->GetColumnByName("key")},
                                            {
                                                {"hash_mean", nullptr},
+                                               {"hash_mean", &min_count},
                                            },
                                            use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsApproxEqual(ArrayFromJSON(struct_({
                                               field("hash_mean", float64()),
+                                              field("hash_mean", float64()),
                                               field("key_0", int64()),
                                           }),
                                           R"([
-    [2.125,   1],
-    [-0.041666666666666664, 2],
-    [null,   3],
-    [2.375,   null]
+    [2.125,                 null,                  1],
+    [-0.041666666666666664, -0.041666666666666664, 2],
+    [null,                  null,                  3],
+    [2.375,                 null,                  null]
   ])"),
                             aggregated_and_grouped,
                             /*verbose=*/true);
@@ -1074,11 +1078,13 @@ TEST(GroupBy, CountAndSum) {
   ])");
 
   ScalarAggregateOptions count_options;
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
       internal::GroupBy(
           {
               // NB: passing an argument twice or also using it as a key is legal
+              batch->GetColumnByName("argument"),
               batch->GetColumnByName("argument"),
               batch->GetColumnByName("argument"),
               batch->GetColumnByName("key"),
@@ -1089,6 +1095,7 @@ TEST(GroupBy, CountAndSum) {
           {
               {"hash_count", &count_options},
               {"hash_sum", nullptr},
+              {"hash_sum", &min_count},
               {"hash_sum", nullptr},
           }));
 
@@ -1097,17 +1104,92 @@ TEST(GroupBy, CountAndSum) {
                         field("hash_count", int64()),
                         // NB: summing a float32 array results in float64 sums
                         field("hash_sum", float64()),
+                        field("hash_sum", float64()),
                         field("hash_sum", int64()),
                         field("key_0", int64()),
                     }),
                     R"([
-    [2, 4.25,   3,    1],
-    [3, -0.125, 6,    2],
-    [0, null,   6,    3],
-    [2, 4.75,   null, null]
+    [2, 4.25,   null,   3,    1],
+    [3, -0.125, -0.125, 6,    2],
+    [0, null,   null,   6,    3],
+    [2, 4.75,   null,   null, null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
+}
+
+TEST(GroupBy, Product) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [-1.0,  1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
+
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("key"),
+                               batch->GetColumnByName("argument"),
+                           },
+                           {
+                               batch->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_product", nullptr},
+                               {"hash_product", nullptr},
+                               {"hash_product", &min_count},
+                           }));
+
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_product", float64()),
+                                            field("hash_product", int64()),
+                                            field("hash_product", float64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
+    [-3.25, 1,    null, 1],
+    [0.0,   8,    0.0,  2],
+    [null,  9,    null, 3],
+    [3.0,   null, null, null]
+  ])"),
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
+
+  // Overflow should wrap around
+  batch = RecordBatchFromJSON(schema({field("argument", int64()), field("key", int64())}),
+                              R"([
+    [8589934592, 1],
+    [8589934593, 1]
+  ])");
+
+  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped, internal::GroupBy(
+                                                   {
+                                                       batch->GetColumnByName("argument"),
+                                                   },
+                                                   {
+                                                       batch->GetColumnByName("key"),
+                                                   },
+                                                   {
+                                                       {"hash_product", nullptr},
+                                                   }));
+
+  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
+                                            field("hash_product", int64()),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([[8589934592, 1]])"),
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
 }
 
 TEST(GroupBy, SumOnlyStringAndDictKeys) {
@@ -1205,6 +1287,7 @@ TEST(GroupBy, CountNull) {
 }
 
 TEST(GroupBy, RandomArraySum) {
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
     for (auto null_probability : {0.0, 0.01, 0.5, 1.0}) {
       auto batch = random::GenerateBatch(
@@ -1218,7 +1301,7 @@ TEST(GroupBy, RandomArraySum) {
 
       ValidateGroupBy(
           {
-              {"hash_sum", nullptr},
+              {"hash_sum", &options},
           },
           {batch->GetColumnByName("argument")}, {batch->GetColumnByName("key")});
     }

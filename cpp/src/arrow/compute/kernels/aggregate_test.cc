@@ -189,6 +189,53 @@ TEST(TestBooleanAggregation, Sum) {
               ResultWith(Datum(MakeNullScalar(uint64()))));
 }
 
+TEST(TestBooleanAggregation, Product) {
+  const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
+  ValidateBooleanAgg<Product>("[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Product>("[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Product>("[null, false]", std::make_shared<UInt64Scalar>(0),
+                              options);
+  ValidateBooleanAgg<Product>("[true]", std::make_shared<UInt64Scalar>(1), options);
+  ValidateBooleanAgg<Product>("[true, false, true]", std::make_shared<UInt64Scalar>(0),
+                              options);
+  ValidateBooleanAgg<Product>("[true, false, true, true, null]",
+                              std::make_shared<UInt64Scalar>(0), options);
+
+  const ScalarAggregateOptions& options_min_count_zero =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  ValidateBooleanAgg<Product>("[]", std::make_shared<UInt64Scalar>(1),
+                              options_min_count_zero);
+  ValidateBooleanAgg<Product>("[null]", std::make_shared<UInt64Scalar>(1),
+                              options_min_count_zero);
+
+  const char* json = "[true, null, true, null]";
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(1),
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(1),
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(1),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(1),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+
+  EXPECT_THAT(Product(MakeScalar(true)),
+              ResultWith(Datum(std::make_shared<UInt64Scalar>(1))));
+  EXPECT_THAT(Product(MakeScalar(false)),
+              ResultWith(Datum(std::make_shared<UInt64Scalar>(0))));
+  EXPECT_THAT(Product(MakeNullScalar(boolean())),
+              ResultWith(Datum(MakeNullScalar(uint64()))));
+}
+
 TEST(TestBooleanAggregation, Mean) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
   ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
@@ -413,6 +460,105 @@ TEST_F(TestSumKernelRoundOff, Basics) {
   ASSERT_OK_AND_ASSIGN(Datum result, Sum(array));
   auto sum = checked_cast<const ScalarType*>(result.scalar().get());
   ASSERT_EQ(sum->value, 2756346749973250.0);
+}
+
+//
+// Product
+//
+
+template <typename ArrowType>
+class TestNumericProductKernel : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestNumericProductKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericProductKernel, SimpleProduct) {
+  using ProductType = typename FindAccumulatorType<TypeParam>::Type;
+  using T = typename TypeParam::c_type;
+  using ProductT = typename ProductType::c_type;
+
+  Datum null_result(std::make_shared<typename TypeTraits<ProductType>::ScalarType>());
+
+  auto ty = TypeTraits<TypeParam>::type_singleton();
+
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]")), ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]")), ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[0, 1, 2, 3, 4, 5]")),
+              ResultWith(Datum(static_cast<ProductT>(0))));
+  Datum chunks = ChunkedArrayFromJSON(ty, {"[1, 2, 3, 4, 5]"});
+  EXPECT_THAT(Product(chunks), ResultWith(Datum(static_cast<ProductT>(120))));
+  chunks = ChunkedArrayFromJSON(ty, {"[1, 2]", "[3, 4, 5]"});
+  EXPECT_THAT(Product(chunks), ResultWith(Datum(static_cast<ProductT>(120))));
+  chunks = ChunkedArrayFromJSON(ty, {"[1, 2]", "[]", "[3, 4, 5]"});
+  EXPECT_THAT(Product(chunks), ResultWith(Datum(static_cast<ProductT>(120))));
+
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]"), options), Datum(static_cast<ProductT>(1)));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]"), options),
+              Datum(static_cast<ProductT>(1)));
+  chunks = ChunkedArrayFromJSON(ty, {});
+  EXPECT_THAT(Product(chunks, options), Datum(static_cast<ProductT>(1)));
+
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[1, null, 3, null, 3, null, 7]"), options),
+              Datum(static_cast<ProductT>(63)));
+
+  EXPECT_THAT(Product(Datum(static_cast<T>(5))),
+              ResultWith(Datum(static_cast<ProductT>(5))));
+  EXPECT_THAT(Product(MakeNullScalar(TypeTraits<TypeParam>::type_singleton())),
+              ResultWith(null_result));
+}
+
+TYPED_TEST(TestNumericProductKernel, ScalarAggregateOptions) {
+  using ProductType = typename FindAccumulatorType<TypeParam>::Type;
+  using T = typename TypeParam::c_type;
+  using ProductT = typename ProductType::c_type;
+
+  Datum null_result(std::make_shared<typename TypeTraits<ProductType>::ScalarType>());
+  Datum one_result(static_cast<ProductT>(1));
+  Datum result(static_cast<ProductT>(63));
+
+  auto ty = TypeTraits<TypeParam>::type_singleton();
+  Datum empty = ArrayFromJSON(ty, "[]");
+  Datum null = ArrayFromJSON(ty, "[null]");
+  Datum arr = ArrayFromJSON(ty, "[1, null, 3, null, 3, null, 7]");
+
+  EXPECT_THAT(
+      Product(empty, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+      ResultWith(one_result));
+  EXPECT_THAT(Product(null, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+              ResultWith(one_result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3)),
+              ResultWith(result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4)),
+              ResultWith(result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5)),
+              ResultWith(null_result));
+  EXPECT_THAT(
+      Product(empty, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+      ResultWith(null_result));
+  EXPECT_THAT(Product(null, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+              ResultWith(null_result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+              ResultWith(result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+              ResultWith(result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+              ResultWith(null_result));
+
+  EXPECT_THAT(
+      Product(Datum(static_cast<T>(5)), ScalarAggregateOptions(/*skip_nulls=*/false)),
+      ResultWith(Datum(static_cast<ProductT>(5))));
+  EXPECT_THAT(Product(Datum(static_cast<T>(5)),
+                      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
+              ResultWith(null_result));
+  EXPECT_THAT(Product(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
+                      ScalarAggregateOptions(/*skip_nulls=*/false)),
+              ResultWith(null_result));
+}
+
+TEST(TestProductKernel, Overflow) {
+  EXPECT_THAT(Product(ArrayFromJSON(int64(), "[8589934592, 8589934593]")),
+              ResultWith(Datum(static_cast<int64_t>(8589934592))));
 }
 
 //

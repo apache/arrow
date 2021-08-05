@@ -200,11 +200,13 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(3)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(4)  |
+| product       | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | stddev        | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
+| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(4)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -225,9 +227,9 @@ Notes:
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(4) Output is Float64 or input type, depending on QuantileOptions.
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
 
-* \(5) Output is Int64, UInt64 or Float64, depending on the input type.
+* \(5) Output is Float64 or input type, depending on QuantileOptions.
 
 Element-wise ("scalar") functions
 ---------------------------------

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/array/util.h"
@@ -41,6 +42,16 @@ namespace internal {
 #ifndef M_PI_4
 #define M_PI_4 0.785398163397448309616
 #endif
+
+template <typename T, typename Enable = enable_if_t<std::is_integral<T>::value>>
+constexpr typename std::make_unsigned<T>::type to_unsigned(T signed_) {
+  using Unsigned = typename std::make_unsigned<T>::type;
+  return static_cast<Unsigned>(signed_);
+}
+// Convenience overloads
+constexpr bool to_unsigned(bool signed_) { return signed_; }
+constexpr double to_unsigned(double signed_) { return signed_; }
+constexpr float to_unsigned(float signed_) { return signed_; }
 
 // An internal data structure for unpacking a primitive argument to pass to a
 // kernel implementation

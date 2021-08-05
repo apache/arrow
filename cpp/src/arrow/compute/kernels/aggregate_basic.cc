@@ -19,6 +19,7 @@
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
 
@@ -132,6 +133,109 @@ Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
+
+// ----------------------------------------------------------------------
+// Product implementation
+
+using arrow::compute::internal::to_unsigned;
+
+template <typename ArrowType>
+struct ProductImpl : public ScalarAggregator {
+  using ThisType = ProductImpl<ArrowType>;
+  using AccType = typename FindAccumulatorType<ArrowType>::Type;
+  using ProductType = typename TypeTraits<AccType>::CType;
+  using OutputType = typename TypeTraits<AccType>::ScalarType;
+
+  explicit ProductImpl(const ScalarAggregateOptions& options) { this->options = options; }
+
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (batch[0].is_array()) {
+      const auto& data = batch[0].array();
+      this->count += data->length - data->GetNullCount();
+      VisitArrayDataInline<ArrowType>(
+          *data,
+          [&](typename TypeTraits<ArrowType>::CType value) {
+            this->product =
+                static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(value));
+          },
+          [] {});
+    } else {
+      const auto& data = *batch[0].scalar();
+      this->count += data.is_valid * batch.length;
+      if (data.is_valid) {
+        for (int64_t i = 0; i < batch.length; i++) {
+          auto value = internal::UnboxScalar<ArrowType>::Unbox(data);
+          this->product =
+              static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(value));
+        }
+      }
+    }
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const ThisType&>(src);
+    this->count += other.count;
+    this->product =
+        static_cast<ProductType>(to_unsigned(this->product) * to_unsigned(other.product));
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
+      out->value = std::make_shared<OutputType>();
+    } else {
+      out->value = MakeScalar(this->product);
+    }
+    return Status::OK();
+  }
+
+  size_t count = 0;
+  typename AccType::c_type product = 1;
+  ScalarAggregateOptions options;
+};
+
+struct ProductInit {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const DataType& type;
+  const ScalarAggregateOptions& options;
+
+  ProductInit(KernelContext* ctx, const DataType& type,
+              const ScalarAggregateOptions& options)
+      : ctx(ctx), type(type), options(options) {}
+
+  Status Visit(const DataType&) {
+    return Status::NotImplemented("No product implemented");
+  }
+
+  Status Visit(const HalfFloatType&) {
+    return Status::NotImplemented("No product implemented");
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new ProductImpl<BooleanType>(options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(new ProductImpl<Type>(options));
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    return std::move(state);
+  }
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    ProductInit visitor(ctx, *args.inputs[0].type,
+                        static_cast<const ScalarAggregateOptions&>(*args.options));
+    return visitor.Create();
+  }
+};
 
 // ----------------------------------------------------------------------
 // MinMax implementation
@@ -290,9 +394,22 @@ struct IndexImpl : public ScalarAggregator {
       return Status::OK();
     }
 
+    const ArgValue desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
+
+    if (batch[0].is_scalar()) {
+      seen = batch.length;
+      if (batch[0].scalar()->is_valid) {
+        const ArgValue v = internal::UnboxScalar<ArgType>::Unbox(*batch[0].scalar());
+        if (v == desired) {
+          index = 0;
+          return Status::Cancelled("Found");
+        }
+      }
+      return Status::OK();
+    }
+
     auto input = batch[0].array();
     seen = input->length;
-    const ArgValue desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
     int64_t i = 0;
 
     ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
@@ -455,6 +572,14 @@ const FunctionDoc sum_doc{
     {"array"},
     "ScalarAggregateOptions"};
 
+const FunctionDoc product_doc{
+    "Compute the product of values in a numeric array",
+    ("Null values are ignored by default. Minimum count of non-null\n"
+     "values can be set and null is returned if too few are present.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array"},
+    "ScalarAggregateOptions"};
+
 const FunctionDoc mean_doc{
     "Compute the mean of a numeric array",
     ("Null values are ignored by default. Minimum count of non-null\n"
@@ -513,7 +638,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
                                                    &default_scalar_aggregate_options);
-  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, {boolean()}, int64(),
+  aggregate::AddArrayScalarAggKernels(aggregate::SumInit, {boolean()}, uint64(),
                                       func.get());
   aggregate::AddArrayScalarAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
                                       func.get());
@@ -572,6 +697,18 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   }
 #endif
 
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>(
+      "product", Arity::Unary(), &product_doc, &default_scalar_aggregate_options);
+  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, {boolean()}, uint64(),
+                                      func.get());
+  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, SignedIntTypes(),
+                                      int64(), func.get());
+  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, UnsignedIntTypes(),
+                                      uint64(), func.get());
+  aggregate::AddArrayScalarAggKernels(aggregate::ProductInit::Init, FloatingPointTypes(),
+                                      float64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any

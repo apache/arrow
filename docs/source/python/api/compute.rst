@@ -32,6 +32,7 @@ Aggregations
    mean
    min_max
    mode
+   product
    stddev
    sum
    variance

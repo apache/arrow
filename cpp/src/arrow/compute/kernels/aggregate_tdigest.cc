@@ -55,7 +55,9 @@ struct TDigestImpl : public ScalarAggregator {
     } else {
       const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar());
       if (batch[0].scalar()->is_valid) {
-        this->tdigest.NanAdd(value);
+        for (int64_t i = 0; i < batch.length; i++) {
+          this->tdigest.NanAdd(value);
+        }
       }
     }
     return Status::OK();

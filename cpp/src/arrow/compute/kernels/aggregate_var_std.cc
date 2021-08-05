@@ -107,6 +107,18 @@ struct VarStdState {
     }
   }
 
+  // Scalar: textbook algorithm
+  void Consume(const Scalar& scalar, const int64_t count) {
+    this->m2 = 0;
+    if (scalar.is_valid) {
+      this->count = count;
+      this->mean = UnboxScalar<ArrowType>::Unbox(scalar);
+    } else {
+      this->count = 0;
+      this->mean = 0;
+    }
+  }
+
   // Combine `m2` from two chunks (m2 = n*s2)
   // https://www.emathzone.com/tutorials/basic-statistics/combined-variance.html
   void MergeFrom(const ThisType& state) {
@@ -138,8 +150,12 @@ struct VarStdImpl : public ScalarAggregator {
       : out_type(out_type), options(options), return_type(return_type) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    ArrayType array(batch[0].array());
-    this->state.Consume(array);
+    if (batch[0].is_array()) {
+      ArrayType array(batch[0].array());
+      this->state.Consume(array);
+    } else {
+      this->state.Consume(*batch[0].scalar(), batch.length);
+    }
     return Status::OK();
   }
 
@@ -164,34 +180,6 @@ struct VarStdImpl : public ScalarAggregator {
   VarStdState<ArrowType> state;
   VarianceOptions options;
   VarOrStd return_type;
-};
-
-struct ScalarVarStdImpl : public ScalarAggregator {
-  explicit ScalarVarStdImpl(const VarianceOptions& options)
-      : options(options), seen(false) {}
-
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
-    seen = batch[0].scalar()->is_valid;
-    return Status::OK();
-  }
-
-  Status MergeFrom(KernelContext*, KernelState&& src) override {
-    const auto& other = checked_cast<const ScalarVarStdImpl&>(src);
-    seen = seen || other.seen;
-    return Status::OK();
-  }
-
-  Status Finalize(KernelContext*, Datum* out) override {
-    if (!seen || options.ddof > 0) {
-      out->value = std::make_shared<DoubleScalar>();
-    } else {
-      out->value = std::make_shared<DoubleScalar>(0.0);
-    }
-    return Status::OK();
-  }
-
-  const VarianceOptions options;
-  bool seen;
 };
 
 struct VarStdInitState {
@@ -247,21 +235,12 @@ Result<std::unique_ptr<KernelState>> VarianceInit(KernelContext* ctx,
   return visitor.Create();
 }
 
-Result<std::unique_ptr<KernelState>> ScalarVarStdInit(KernelContext* ctx,
-                                                      const KernelInitArgs& args) {
-  return arrow::internal::make_unique<ScalarVarStdImpl>(
-      static_cast<const VarianceOptions&>(*args.options));
-}
-
 void AddVarStdKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, float64());
+    auto sig = KernelSignature::Make({InputType(ty)}, float64());
     AddAggKernel(std::move(sig), init, func);
-
-    sig = KernelSignature::Make({InputType::Scalar(ty)}, float64());
-    AddAggKernel(std::move(sig), ScalarVarStdInit, func);
   }
 }
 
