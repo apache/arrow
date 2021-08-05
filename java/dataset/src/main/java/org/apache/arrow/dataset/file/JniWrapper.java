@@ -18,6 +18,7 @@
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.dataset.jni.JniLoader;
+import org.apache.arrow.dataset.jni.NativeSerializedRecordBatchIterator;
 
 /**
  * JniWrapper for filesystem based {@link org.apache.arrow.dataset.source.Dataset} implementations.
