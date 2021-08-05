@@ -214,7 +214,6 @@ TEST(Cast, CanCast) {
   ExpectCanCast(timestamp(TimeUnit::MICRO), {utf8(), large_utf8()});
   ExpectCanCast(time32(TimeUnit::MILLI), {utf8(), large_utf8()});
   ExpectCanCast(time64(TimeUnit::NANO), {utf8(), large_utf8()});
-  //ExpectCanCast(duration(TimeUnit::SECOND), {utf8(), large_utf8()}); //FIXME
 }
 
 TEST(Cast, SameTypeZeroCopy) {
@@ -1221,6 +1220,22 @@ TEST(Cast, DateToString) {
               ArrayFromJSON(string_type, R"(["1970-01-01", null])"));
     CheckCast(ArrayFromJSON(date64(), "[86400000, null]"),
               ArrayFromJSON(string_type, R"(["1970-01-02", null])"));
+  }
+}
+
+TEST(Cast, TimeToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(time32(TimeUnit::SECOND), "[1, 62]"),
+              ArrayFromJSON(string_type, R"(["00:00:01", "00:01:02"])"));
+    CheckCast(ArrayFromJSON(time64(TimeUnit::NANO), "[0, 1]"),
+              ArrayFromJSON(string_type, R"(["00:00:00.000000000", "00:00:00.000000001"])"));
+  }
+}
+
+TEST(Cast, TimestampToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
+              ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
   }
 }
 
