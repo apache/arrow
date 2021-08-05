@@ -1023,7 +1023,6 @@ TEST_F(TestS3FS, CustomRetryStrategy) {
   ASSERT_EQ(retry_strategy->GetRetryDelays(), expected_retry_delays);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////
 // Generic S3 tests
 
