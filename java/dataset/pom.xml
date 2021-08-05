@@ -28,6 +28,7 @@
         <protobuf.version>2.5.0</protobuf.version>
         <parquet.version>1.11.0</parquet.version>
         <avro.version>1.9.1</avro.version>
+        <commons.io.version>2.4</commons.io.version>
     </properties>
 
     <dependencies>
@@ -54,6 +55,12 @@
             <groupId>com.google.flatbuffers</groupId>
             <artifactId>flatbuffers-java</artifactId>
             <version>${dep.fbs.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons.io.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
