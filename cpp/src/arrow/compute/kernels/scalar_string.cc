@@ -4204,7 +4204,7 @@ const FunctionDoc utf8_reverse_doc(
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
   // Some kernels are able to reuse the original offsets buffer, so don't
   // preallocate them in the output. Only kernels that invoke
-  // "StringDataTransform()" support no preallocation.
+  // "StringDataTransform" support no preallocation.
   MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
                                          MemAllocation::NO_PREALLOCATE);
   MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
