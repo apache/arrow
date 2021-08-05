@@ -102,6 +102,7 @@ namespace S3Model = Aws::S3::Model;
 
 using internal::ConnectRetryStrategy;
 using internal::DetectS3Backend;
+using internal::ErrorToDetail;
 using internal::ErrorToStatus;
 using internal::FromAwsDatetime;
 using internal::FromAwsString;
@@ -491,15 +492,15 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
 
   bool ShouldRetry(const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
                    long attempted_retries) const override {
-    Status status = ErrorToStatus(error);
-    return s3_retry_strategy_->ShouldRetry(status, attempted_retries);
+    S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
+    return s3_retry_strategy_->ShouldRetry(detail, attempted_retries);
   }
 
   long CalculateDelayBeforeNextRetry(
       const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
       long attempted_retries) const override {
-    Status status = ErrorToStatus(error);
-    return s3_retry_strategy_->CalculateDelayBeforeNextRetry(status, attempted_retries);
+    S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
+    return s3_retry_strategy_->CalculateDelayBeforeNextRetry(detail, attempted_retries);
   }
 
  private:

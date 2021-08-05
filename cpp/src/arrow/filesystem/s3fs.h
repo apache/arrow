@@ -72,8 +72,17 @@ enum class S3CredentialsKind : int8_t {
 /// Pure virtual class for describing custom S3 retry strategies
 class S3RetryStrategy {
  public:
-  virtual bool ShouldRetry(Status& error, long attempted_retries) = 0;
-  virtual long CalculateDelayBeforeNextRetry(Status& error, long attempted_retries) = 0;
+  struct AWSErrorDetail {
+    int error_type;
+    std::string message;
+    std::string exception_name;
+    bool should_retry;
+  };
+  /// Returns true if the S3 request resulting in the provided error should be retried.
+  virtual bool ShouldRetry(const AWSErrorDetail& error, long attempted_retries) = 0;
+  /// Returns the time in miiliseconds the S3 client should sleep for until retrying.
+  virtual long CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
+                                             long attempted_retries) = 0;
 };
 
 /// Options for the S3FileSystem implementation.

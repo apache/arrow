@@ -29,6 +29,7 @@
 #include <aws/core/utils/StringUtils.h>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/s3fs.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/print.h"
@@ -124,6 +125,17 @@ Status ErrorToStatus(const std::tuple<Args&...>& prefix,
 template <typename ErrorType>
 Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
   return ErrorToStatus(std::string(), error);
+}
+
+template <typename ErrorType>
+S3RetryStrategy::AWSErrorDetail ErrorToDetail(
+    const Aws::Client::AWSError<ErrorType>& error) {
+  S3RetryStrategy::AWSErrorDetail detail;
+  detail.error_type = static_cast<int>(error.GetErrorType());
+  detail.message = error.GetMessage();
+  detail.exception_name = error.GetExceptionName();
+  detail.should_retry = error.ShouldRetry();
+  return detail;
 }
 
 template <typename AwsResult, typename Error>
