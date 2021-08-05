@@ -1084,7 +1084,12 @@ test_that("Scanner$create() filter/projection pushdown", {
     select(int, dbl, lgl) %>%
     mutate(int_plus = int + 1) %>%
     filter(int > 6) %>%
-    Scanner$create(projection = list(dbl_minus = build_expr("-", args = list(Expression$field_ref("dbl"), 1))))
+    Scanner$create(projection = list(
+        dbl_minus = Expression$create(
+          "subtract_checked",
+          Expression$field_ref("dbl"),
+          Expression$scalar(1))
+    ))
 
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
@@ -1096,7 +1101,9 @@ test_that("Scanner$create() filter/projection pushdown", {
     select(int, dbl, lgl) %>%
     mutate(int_plus = int + 1, dbl_minus = dbl -1) %>%
     filter(int > 6) %>%
-    Scanner$create(filter = build_expr("<", args = list(Expression$field_ref("dbl"), 57)))
+    Scanner$create(
+      filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
+    )
 
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),

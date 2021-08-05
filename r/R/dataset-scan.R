@@ -88,6 +88,7 @@ Scanner$create <- function(dataset,
 
     proj<- c(dataset$selected_columns, dataset$temp_columns)
     if (!is.null(projection)) {
+      # TODO: should we check names and make sure we only project once per?
       proj <- c(proj, projection)
     }
 
