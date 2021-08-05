@@ -35,7 +35,8 @@ import javax.sql.PooledConnection;
 /**
  * {@link ConnectionPoolDataSource} implementation for Arrow Flight JDBC Driver.
  */
-public class ArrowFlightJdbcConnectionPoolDataSource implements ConnectionPoolDataSource, ConnectionEventListener {
+public class ArrowFlightJdbcConnectionPoolDataSource
+    implements ConnectionPoolDataSource, ConnectionEventListener, AutoCloseable {
   private final ArrowFlightJdbcDataSource dataSource = new ArrowFlightJdbcDataSource();
   private final Map<Credentials, Queue<PooledConnection>> pool = new ConcurrentHashMap<>();
 
@@ -199,6 +200,25 @@ public class ArrowFlightJdbcConnectionPoolDataSource implements ConnectionPoolDa
   @Override
   public void connectionErrorOccurred(ConnectionEvent connectionEvent) {
 
+  }
+
+  @Override
+  public void close() throws Exception {
+    SQLException lastException = null;
+    for (Queue<PooledConnection> connections : this.pool.values()) {
+      while (!connections.isEmpty()) {
+        PooledConnection pooledConnection = connections.poll();
+        try {
+          pooledConnection.close();
+        } catch (SQLException e) {
+          lastException = e;
+        }
+      }
+    }
+
+    if (lastException != null) {
+      throw lastException;
+    }
   }
 
   /**

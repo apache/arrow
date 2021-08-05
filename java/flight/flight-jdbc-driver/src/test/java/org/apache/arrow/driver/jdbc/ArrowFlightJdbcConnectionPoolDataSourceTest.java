@@ -31,7 +31,9 @@ import javax.sql.PooledConnection;
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -54,10 +56,20 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
     rule.addUser("user2", "pass2");
   }
 
+  private ArrowFlightJdbcConnectionPoolDataSource dataSource;
+
+  @Before
+  public void setUp() {
+    dataSource = rule.createConnectionPoolDataSource();
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    dataSource.close();
+  }
+
   @Test
   public void testShouldInnerConnectionIsClosedReturnCorrectly() throws Exception {
-    ArrowFlightJdbcConnectionPoolDataSource dataSource = rule.createConnectionPoolDataSource();
-
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
     Assert.assertFalse(connection.isClosed());
@@ -67,8 +79,6 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   @Test
   public void testShouldInnerConnectionIsClosedReturnTrueIfPooledConnectionCloses() throws Exception {
-    ArrowFlightJdbcConnectionPoolDataSource dataSource = rule.createConnectionPoolDataSource();
-
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
     Assert.assertFalse(connection.isClosed());
@@ -78,8 +88,6 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   @Test
   public void testShouldReuseConnectionsOnPool() throws Exception {
-    ArrowFlightJdbcConnectionPoolDataSource dataSource = rule.createConnectionPoolDataSource();
-
     PooledConnection pooledConnection = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection = ((ConnectionWrapper) pooledConnection.getConnection());
     Assert.assertFalse(connection.isClosed());
@@ -101,8 +109,6 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   @Test
   public void testShouldNotMixConnectionsForDifferentUsers() throws Exception {
-    ArrowFlightJdbcConnectionPoolDataSource dataSource = rule.createConnectionPoolDataSource();
-
     PooledConnection pooledConnection = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection = ((ConnectionWrapper) pooledConnection.getConnection());
     Assert.assertFalse(connection.isClosed());
