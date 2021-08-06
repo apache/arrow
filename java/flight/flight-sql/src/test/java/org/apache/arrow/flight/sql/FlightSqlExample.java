@@ -52,6 +52,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -789,7 +790,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final StatementContext<PreparedStatement> statement =
         preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
-
     return () -> {
       assert statement != null;
       try {
@@ -799,13 +799,19 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           final VectorSchemaRoot root = flightStream.getRoot();
 
           final int rowCount = root.getRowCount();
+          final int recordCount;
 
-          setDataPreparedStatement(preparedStatement, root, rowCount, true);
-
-          final int[] result = preparedStatement.executeBatch();
+          if (rowCount == 0) {
+            preparedStatement.execute();
+            recordCount = preparedStatement.getUpdateCount();
+          } else {
+            setDataPreparedStatement(preparedStatement, root, true);
+            int[] recordCount1 = preparedStatement.executeBatch();
+            recordCount = Arrays.stream(recordCount1).sum();
+          }
 
           final FlightSql.DoPutUpdateResult build =
-              FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(result.length).build();
+              FlightSql.DoPutUpdateResult.newBuilder().setRecordCount(recordCount).build();
 
           try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
             buffer.writeBytes(build.toByteArray());
@@ -820,10 +826,19 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     };
   }
 
-  private void setDataPreparedStatement(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount,
+  /**
+   * Method responsible to set the parameters, to the preparedStatement object, sent via doPut request.
+   *
+   * @param preparedStatement   the preparedStatement object for the operation.
+   * @param root                a {@link VectorSchemaRoot} object contain the values to be used in the
+   *                            PreparedStatement setters.
+   * @param isUpdate            a flag to indicate if is an update or query operation.
+   * @throws SQLException       in case of error.
+   */
+  private void setDataPreparedStatement(PreparedStatement preparedStatement, VectorSchemaRoot root,
                                         boolean isUpdate)
       throws SQLException {
-    for (int i = 0; i < rowCount; i++) {
+    for (int i = 0; i < root.getRowCount(); i++) {
       for (FieldVector vector : root.getFieldVectors()) {
         final int vectorPosition = root.getFieldVectors().indexOf(vector);
         final Object object = vector.getObject(i);
@@ -918,7 +933,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       try {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
-          setDataPreparedStatement(preparedStatement, root, root.getRowCount(), false);
+          setDataPreparedStatement(preparedStatement, root, false);
         }
 
       } catch (SQLException e) {
