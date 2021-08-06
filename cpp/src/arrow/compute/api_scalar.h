@@ -212,8 +212,8 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
 class ARROW_EXPORT NanNullOptions : public FunctionOptions {
  public:
   explicit NanNullOptions(bool nan_is_null = false);
-  static NanNullOptions Defaults() { return NanNullOptions{}; }
   constexpr static char const kTypeName[] = "NanNullOptions";
+  static NanNullOptions Defaults() { return NanNullOptions{}; }
 
   bool nan_is_null;
 };
