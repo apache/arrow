@@ -479,7 +479,7 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
   return CallFunction("case_when", args, ctx);
 }
 
-Result<Datum> IsNull(const Datum& arg, const NanNullOptions& options, ExecContext* ctx) {
+Result<Datum> IsNull(const Datum& arg, NanNullOptions options, ExecContext* ctx) {
   return CallFunction("is_null", {arg}, &options, ctx);
 }
 
