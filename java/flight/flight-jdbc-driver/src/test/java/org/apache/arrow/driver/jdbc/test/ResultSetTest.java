@@ -38,7 +38,6 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -48,14 +47,14 @@ import java.util.stream.IntStream;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFlightStreamResultSet;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
-import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -63,6 +62,7 @@ import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ResultSetTest.class);
   @ClassRule
   public static FlightServerTestRule rule;
   private static Map<BaseProperty, Object> properties;
@@ -294,18 +294,10 @@ public class ResultSetTest {
       collector.checkThat(resultSet.next(), is(true));
       collector.checkSucceeds(() -> resultSet.getObject(column));
       statement.cancel();
+      // Should reset `ResultSet`; keep both `ResultSet` and `Connection` open.
       collector.checkThat(statement.isClosed(), is(false));
-      collector.checkThat(resultSet.isClosed(), is(true));
-      Optional<Exception> expectedException = Optional.empty();
-      try {
-        resultSet.getObject(column);
-      } catch (final SQLException e) {
-        expectedException = Optional.of(e);
-      }
-      collector.checkThat(expectedException.isPresent(), is(true));
-      collector.checkThat(
-          expectedException.orElse(new Exception()).getMessage(),
-          is(format("%s closed", ResultSet.class.getSimpleName())));
+      collector.checkThat(resultSet.isClosed(), is(false));
+      collector.checkThat(resultSet.getMetaData().getColumnCount(), is(0));
     }
   }
 
@@ -344,7 +336,6 @@ public class ResultSetTest {
   }
 
   @Test
-  @Ignore
   public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
       throws SQLException, InterruptedException {
     final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
@@ -352,9 +343,7 @@ public class ResultSetTest {
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
         try (final ResultSet resultSet = statement.executeQuery(query)) {
-          while (resultSet.next()) {
-            resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
-          }
+          resultSetNextUntilDone(resultSet);
         } catch (final SQLException e) {
           exceptions.add(e);
         }
@@ -362,7 +351,7 @@ public class ResultSetTest {
       thread.setName("Test Case: interrupt query execution mid-process");
       thread.setPriority(Thread.MAX_PRIORITY);
       thread.start();
-      Thread.sleep(5000);
+      Thread.sleep(5000); // Let the other thread attempt to retrieve results.
       statement.cancel();
       thread.join();
       collector.checkThat(
@@ -372,9 +361,7 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          is(format(
-              "Error while executing SQL \"%s\": %s closed",
-              query, FlightStreamQueue.class.getSimpleName())));
+          is(format("%s canceled", Statement.class.getSimpleName())));
     }
   }
 }

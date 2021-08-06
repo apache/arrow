@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueue;
-import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
