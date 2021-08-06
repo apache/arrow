@@ -569,8 +569,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet = commandExecutePreparedStatementLoadingCache
-        .get(command.getPreparedStatementHandle())) {
+    StatementContext<PreparedStatement> statementContext =
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
+    assert statementContext != null;
+    try (PreparedStatement statement = statementContext.getStatement();
+         ResultSet resultSet = statement.executeQuery()) {
+
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
         VectorLoader loader = new VectorLoader(vectorSchemaRoot);
@@ -586,7 +590,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         listener.putNext();
       }
-    } catch (SQLException | IOException | ExecutionException e) {
+    } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
@@ -628,12 +632,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery command,
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
+    final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
+    StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(preparedStatementHandle);
     try {
-      final ResultSet resultSet =
-          commandExecutePreparedStatementLoadingCache.get(preparedStatementHandle);
+      assert statementContext != null;
+      PreparedStatement statement = statementContext.getStatement();
+
+      ResultSetMetaData metaData = statement.getMetaData();
       return getFlightInfoForSchema(command, descriptor,
-          jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (final SQLException | ExecutionException e) {
+          jdbcToArrowSchema(metaData, DEFAULT_CALENDAR));
+    } catch (final SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -780,7 +788,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         final VectorSchemaRoot root = flightStream.getRoot();
 
-        final int rowCount = root.getRowCount();
+          setDataPreparedStatement(preparedStatement, root, rowCount, true);
 
         System.out.println(rowCount);
 
@@ -805,85 +813,40 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     };
   }
 
-  private void prepareBatch(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount) {
-    IntStream.range(0, rowCount).forEach(i -> {
-      root.getFieldVectors().forEach(vector -> {
-            try {
-              final int vectorPosition = root.getFieldVectors().indexOf(vector);
-              final Object object = vector.getObject(i);
-              boolean isNull = Objects.isNull(object);
-              switch (vector.getMinorType()) {
-                case VARCHAR:
-                case LARGEVARCHAR:
-                  preparedStatement.setString(vectorPosition + 1, String.valueOf(object));
-                  break;
-                case TINYINT:
-                case UINT1:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.TINYINT);
-                  } else {
-                    preparedStatement.setShort(vectorPosition + 1, (short) object);
-                  }
-                  break;
-                case SMALLINT:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.SMALLINT);
-                  } else {
-                    preparedStatement.setByte(vectorPosition + 1, (byte) object);
-                  }
-                  break;
-                case INT:
-                case UINT2:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.INTEGER);
-                  } else {
-                    preparedStatement.setInt(vectorPosition + 1, (int) object);
-                  }
-                  break;
-                case BIGINT:
-                case UINT8:
-                case UINT4:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.BIGINT);
-                  } else {
-                    preparedStatement.setLong(vectorPosition + 1, (long) object);
-                  }
-                  break;
-                case FLOAT4:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.FLOAT);
-                  } else {
-                    preparedStatement.setFloat(vectorPosition + 1, (float) object);
-                  }
-                  break;
-                case FLOAT8:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.DOUBLE);
-                  } else {
-                    preparedStatement.setDouble(vectorPosition + 1, (double) object);
-                  }
-                  break;
-                case BIT:
-                  if (isNull) {
-                    preparedStatement.setNull(vectorPosition + 1, Types.BIT);
-                  } else {
-                    preparedStatement.setBytes(vectorPosition + 1, (byte[]) object);
-                  }
-                  break;
-                case DECIMAL:
-                case DECIMAL256:
-                  preparedStatement.setBigDecimal(vectorPosition + 1, (BigDecimal) object);
-                  break;
-                case LIST:
-                case LARGELIST:
-                case FIXED_SIZE_LIST:
-                  preparedStatement.setArray(vectorPosition + 1, (Array) object);
-                  break;
-                default:
-                  throw new UnsupportedOperationException();
-              }
-            } catch (SQLException e) {
-              throw new RuntimeException(e);
+  private void setDataPreparedStatement(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount,
+                                        boolean isUpdate)
+      throws SQLException {
+    for (int i = 0; i < rowCount; i++) {
+      for (FieldVector vector : root.getFieldVectors()) {
+        final int vectorPosition = root.getFieldVectors().indexOf(vector);
+        final Object object = vector.getObject(i);
+        boolean isNull = isNull(object);
+        switch (vector.getMinorType()) {
+          case VARCHAR:
+          case LARGEVARCHAR:
+            preparedStatement.setString(vectorPosition + 1, String.valueOf(object));
+            break;
+          case TINYINT:
+            if (isNull) {
+              preparedStatement.setNull(vectorPosition + 1, Types.TINYINT);
+            } else {
+              preparedStatement.setByte(vectorPosition + 1, (byte) object);
+            }
+            break;
+          case SMALLINT:
+          case UINT1:
+            if (isNull) {
+              preparedStatement.setNull(vectorPosition + 1, Types.SMALLINT);
+            } else {
+              preparedStatement.setShort(vectorPosition + 1, (short) object);
+            }
+            break;
+          case INT:
+          case UINT2:
+            if (isNull) {
+              preparedStatement.setNull(vectorPosition + 1, Types.INTEGER);
+            } else {
+              preparedStatement.setInt(vectorPosition + 1, (int) object);
             }
           }
       );
@@ -892,14 +855,34 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       } catch (SQLException e) {
         throw new RuntimeException(e);
       }
-    });
+      if (isUpdate) {
+        preparedStatement.addBatch();
+      }
+    }
   }
 
   @Override
   public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command, CallContext context,
                                                   FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final StatementContext<PreparedStatement> statementContext =
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
+
+    return () -> {
+      assert statementContext != null;
+      PreparedStatement preparedStatement = statementContext.getStatement();
+
+      try {
+        while (flightStream.next()) {
+          final VectorSchemaRoot root = flightStream.getRoot();
+          setDataPreparedStatement(preparedStatement, root, root.getRowCount(), false);
+        }
+
+      } catch (SQLException e) {
+        ackStream.onError(e);
+        return;
+      }
+      ackStream.onCompleted();
+    };
   }
 
   @Override
