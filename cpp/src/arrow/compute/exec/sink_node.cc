@@ -60,9 +60,9 @@ class SinkNode : public ExecNode {
 
   static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
       AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
-    auto gen = std::make_shared<PushGenerator<util::optional<ExecBatch>>>();
-    auto out = gen->producer();
-    *out_gen = AsyncGenerator<util::optional<ExecBatch>>([gen] { return (*gen)(); });
+    PushGenerator<util::optional<ExecBatch>> gen;
+    auto out = gen.producer();
+    *out_gen = std::move(gen);
     return out;
   }
 
