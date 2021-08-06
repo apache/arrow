@@ -306,7 +306,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
   }
 }
 
-TEST_F(ScalarTemporalTest, TestZoned3) {
+TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   auto data_buffer = Buffer::Wrap(std::vector<int32_t>{1, 2, 3});
   auto null_buffer = Buffer::FromString("\xff");
 
@@ -325,11 +325,11 @@ TEST_F(ScalarTemporalTest, TestZoned3) {
     ASSERT_RAISES(Invalid, Quarter(timestamp_array));
     ASSERT_RAISES(Invalid, Hour(timestamp_array));
     ASSERT_RAISES(Invalid, Minute(timestamp_array));
-    //    ASSERT_RAISES(Invalid, Second(timestamp_array));
-    //    ASSERT_RAISES(Invalid, Millisecond(timestamp_array));
-    //    ASSERT_RAISES(Invalid, Microsecond(timestamp_array));
-    //    ASSERT_RAISES(Invalid, Nanosecond(timestamp_array));
-    //    ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
+    ASSERT_RAISES(Invalid, Second(timestamp_array));
+    ASSERT_RAISES(Invalid, Millisecond(timestamp_array));
+    ASSERT_RAISES(Invalid, Microsecond(timestamp_array));
+    ASSERT_RAISES(Invalid, Nanosecond(timestamp_array));
+    ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
   }
 }
 #endif
