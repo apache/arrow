@@ -20,7 +20,19 @@ const path = require(`path`);
 const pump = require(`stream`).pipeline;
 const child_process = require(`child_process`);
 const { targets, modules } = require('./argv');
-const { Observable, ReplaySubject } = require('rxjs');
+const {
+    ReplaySubject,
+    empty: ObservableEmpty,
+    throwError: ObservableThrow,
+    fromEvent: ObservableFromEvent
+} = require('rxjs');
+const {
+    share,
+    flatMap,
+    takeUntil,
+    defaultIfEmpty,
+    mergeWith,
+} = require('rxjs/operators');
 const asyncDone = require('util').promisify(require('async-done'));
 
 const mainExport = `Arrow`;
@@ -35,10 +47,10 @@ const tasksToSkipPerTargetOrFormat = {
     cls: { test: true, package: true }
 };
 const packageJSONFields = [
-  `version`, `license`, `description`,
-  `author`, `homepage`, `repository`,
-  `bugs`, `keywords`,  `dependencies`,
-  `bin`
+    `version`, `license`, `description`,
+    `author`, `homepage`, `repository`,
+    `bugs`, `keywords`, `dependencies`,
+    `bin`
 ];
 
 const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
@@ -58,12 +70,12 @@ const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) 
 // see: https://github.com/google/closure-compiler/blob/c1372b799d94582eaf4b507a4a22558ff26c403c/src/com/google/javascript/jscomp/CompilerOptions.java#L2988
 const gCCLanguageNames = {
     es5: `ECMASCRIPT5`,
- es2015: `ECMASCRIPT_2015`,
- es2016: `ECMASCRIPT_2016`,
- es2017: `ECMASCRIPT_2017`,
- es2018: `ECMASCRIPT_2018`,
- es2019: `ECMASCRIPT_2019`,
- esnext: `ECMASCRIPT_NEXT`
+    es2015: `ECMASCRIPT_2015`,
+    es2016: `ECMASCRIPT_2016`,
+    es2017: `ECMASCRIPT_2017`,
+    es2018: `ECMASCRIPT_2018`,
+    es2019: `ECMASCRIPT_2019`,
+    esnext: `ECMASCRIPT_NEXT`
 };
 
 function taskName(target, format) {
@@ -105,19 +117,20 @@ function spawnGulpCommandInChildProcess(command, target, format) {
         child.stderr.on('data', (line) => err.push(line));
         return child;
     }).catch(() => Promise.reject(err.length > 0 ? err.join('\n')
-            : `Error in "${command}:${taskName(target, format)}" task.`));
+        : `Error in "${command}:${taskName(target, format)}" task.`));
 }
 
 const logAndDie = (e) => { if (e) { console.error(e); process.exit(1); } };
 function observableFromStreams(...streams) {
-    if (streams.length <= 0) { return Observable.empty(); }
+    if (streams.length <= 0) { return ObservableEmpty(); }
     const pumped = streams.length <= 1 ? streams[0] : pump(...streams, logAndDie);
-    const fromEvent = Observable.fromEvent.bind(null, pumped);
-    const streamObs = fromEvent(`data`)
-               .merge(fromEvent(`error`).flatMap((e) => Observable.throw(e)))
-           .takeUntil(fromEvent(`end`).merge(fromEvent(`close`)))
-           .defaultIfEmpty(`empty stream`)
-           .multicast(new ReplaySubject()).refCount();
+    const fromEvent = ObservableFromEvent.bind(null, pumped);
+    const streamObs = fromEvent(`data`).pipe(
+        mergeWith(fromEvent(`error`).pipe(flatMap((e) => ObservableThrow(e)))),
+        takeUntil(fromEvent(`end`).pipe(mergeWith(fromEvent(`close`)))),
+        defaultIfEmpty(`empty stream`),
+        share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false })
+    );
     streamObs.stream = pumped;
     streamObs.observable = streamObs;
     return streamObs;
@@ -146,14 +159,14 @@ function* combinations(_targets, _modules) {
 
     function known(known, values) {
         return values.includes(`all`) ? known
-            :  values.includes(`src`) ? [`src`]
-            : Object.keys(
-                values.reduce((map, arg) => ((
-                    (known.includes(arg)) &&
-                    (map[arg.toLowerCase()] = true)
-                    || true) && map
-                ), {})
-            ).sort((a, b) => known.indexOf(a) - known.indexOf(b));
+            : values.includes(`src`) ? [`src`]
+                : Object.keys(
+                    values.reduce((map, arg) => ((
+                        (known.includes(arg)) &&
+                        (map[arg.toLowerCase()] = true)
+                        || true) && map
+                    ), {})
+                ).sort((a, b) => known.indexOf(a) - known.indexOf(b));
     }
 }
 

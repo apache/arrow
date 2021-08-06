@@ -101,10 +101,9 @@
 #' new_array$offset
 #'
 #' # Compare 2 arrays
-#' na_array2 = na_array
+#' na_array2 <- na_array
 #' na_array2 == na_array # element-wise comparison
 #' na_array2$Equals(na_array) # overall comparison
-#'
 #' @export
 Array <- R6Class("Array",
   inherit = ArrowDatum,
@@ -196,7 +195,8 @@ Array$import_from_c <- ImportArray
 #' @usage NULL
 #' @format NULL
 #' @export
-DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
+DictionaryArray <- R6Class("DictionaryArray",
+  inherit = Array,
   public = list(
     indices = function() DictionaryArray__indices(self),
     dictionary = function() DictionaryArray__dictionary(self)
@@ -227,7 +227,8 @@ DictionaryArray$create <- function(x, dict = NULL) {
 #' @usage NULL
 #' @format NULL
 #' @export
-StructArray <- R6Class("StructArray", inherit = Array,
+StructArray <- R6Class("StructArray",
+  inherit = Array,
   public = list(
     field = function(i) StructArray__field(self, i),
     GetFieldByName = function(name) StructArray__GetFieldByName(self, name),
@@ -272,7 +273,8 @@ as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...
 #' @usage NULL
 #' @format NULL
 #' @export
-ListArray <- R6Class("ListArray", inherit = Array,
+ListArray <- R6Class("ListArray",
+  inherit = Array,
   public = list(
     values = function() ListArray__values(self),
     value_length = function(i) ListArray__value_length(self, i),
@@ -288,7 +290,8 @@ ListArray <- R6Class("ListArray", inherit = Array,
 #' @usage NULL
 #' @format NULL
 #' @export
-LargeListArray <- R6Class("LargeListArray", inherit = Array,
+LargeListArray <- R6Class("LargeListArray",
+  inherit = Array,
   public = list(
     values = function() LargeListArray__values(self),
     value_length = function(i) LargeListArray__value_length(self, i),
@@ -304,7 +307,8 @@ LargeListArray <- R6Class("LargeListArray", inherit = Array,
 #' @usage NULL
 #' @format NULL
 #' @export
-FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
+FixedSizeListArray <- R6Class("FixedSizeListArray",
+  inherit = Array,
   public = list(
     values = function() FixedSizeListArray__values(self),
     value_length = function(i) FixedSizeListArray__value_length(self, i),
@@ -316,7 +320,7 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
   )
 )
 
-is.Array <- function(x, type = NULL) {
+is.Array <- function(x, type = NULL) { # nolint
   is_it <- inherits(x, c("Array", "ChunkedArray"))
   if (is_it && !is.null(type)) {
     is_it <- x$type$ToString() %in% type

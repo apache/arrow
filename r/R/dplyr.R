@@ -42,7 +42,7 @@ arrow_dplyr_query <- function(.data) {
       )
     ))
   }
-  
+
   structure(
     list(
       .data = if (inherits(.data, "Dataset")) {
@@ -216,31 +216,17 @@ restore_dplyr_features <- function(df, query) {
 # Helper to handle unsupported dplyr features
 # * For Table/RecordBatch, we collect() and then call the dplyr method in R
 # * For Dataset, we just error
-abandon_ship <- function(call, .data, msg = NULL) {
+abandon_ship <- function(call, .data, msg) {
   dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
   if (query_on_dataset(.data)) {
-    if (is.null(msg)) {
-      # Default message: function not implemented
-      not_implemented_for_dataset(paste0(dplyr_fun_name, "()"))
-    } else {
-      stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
-    }
+    stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
   }
   # else, collect and call dplyr method
-  if (!is.null(msg)) {
-    warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
-  }
+  msg <- sub("\\n$", "", msg)
+  warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
   call$.data <- dplyr::collect(.data)
   call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))
   eval.parent(call, 2)
 }
 
 query_on_dataset <- function(x) !inherits(x$.data, "InMemoryDataset")
-
-not_implemented_for_dataset <- function(method) {
-  stop(
-    method, " is not currently implemented for Arrow Datasets. ",
-    "Call collect() first to pull data into R.",
-    call. = FALSE
-  )
-}

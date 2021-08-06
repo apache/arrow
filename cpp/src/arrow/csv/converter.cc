@@ -17,6 +17,7 @@
 
 #include "arrow/csv/converter.h"
 
+#include <array>
 #include <cstring>
 #include <limits>
 #include <sstream>
@@ -130,7 +131,7 @@ struct ValueDecoder {
 
  protected:
   Trie null_trie_;
-  std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType> type_;
   const ConvertOptions& options_;
 };
 
@@ -191,24 +192,29 @@ struct BinaryValueDecoder : public ValueDecoder {
 };
 
 //
-// Value decoder for integers and floats
+// Value decoder for integers, floats and temporals
 //
 
 template <typename T>
 struct NumericValueDecoder : public ValueDecoder {
   using value_type = typename T::c_type;
 
-  using ValueDecoder::ValueDecoder;
+  explicit NumericValueDecoder(const std::shared_ptr<DataType>& type,
+                               const ConvertOptions& options)
+      : ValueDecoder(type, options), concrete_type_(checked_cast<const T&>(*type)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
     TrimWhiteSpace(&data, &size);
-    if (ARROW_PREDICT_FALSE(
-            !internal::ParseValue<T>(reinterpret_cast<const char*>(data), size, out))) {
+    if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
       return GenericConversionError(type_, data, size);
     }
     return Status::OK();
   }
+
+ protected:
+  const T& concrete_type_;
 };
 
 //
@@ -283,6 +289,55 @@ struct DecimalValueDecoder : public ValueDecoder {
   const DecimalType& decimal_type_;
   const int32_t type_precision_;
   const int32_t type_scale_;
+};
+
+//
+// Value decoder wrapper for floating-point and decimals
+// with a non-default decimal point
+//
+
+template <typename WrappedDecoder>
+struct CustomDecimalPointValueDecoder : public ValueDecoder {
+  using value_type = typename WrappedDecoder::value_type;
+
+  explicit CustomDecimalPointValueDecoder(const std::shared_ptr<DataType>& type,
+                                          const ConvertOptions& options)
+      : ValueDecoder(type, options), wrapped_decoder_(type, options) {}
+
+  Status Initialize() {
+    RETURN_NOT_OK(wrapped_decoder_.Initialize());
+    for (int i = 0; i < 256; ++i) {
+      mapping_[i] = i;
+    }
+    mapping_[options_.decimal_point] = '.';
+    mapping_['.'] = options_.decimal_point;  // error out on standard decimal point
+    temp_.resize(30);
+    return Status::OK();
+  }
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    if (ARROW_PREDICT_FALSE(size > temp_.size())) {
+      temp_.resize(size);
+    }
+    uint8_t* temp_data = temp_.data();
+    for (uint32_t i = 0; i < size; ++i) {
+      temp_data[i] = mapping_[data[i]];
+    }
+    if (ARROW_PREDICT_FALSE(
+            !wrapped_decoder_.Decode(temp_data, size, quoted, out).ok())) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+
+  bool IsNull(const uint8_t* data, uint32_t size, bool quoted) {
+    return wrapped_decoder_.IsNull(data, size, quoted);
+  }
+
+ protected:
+  WrappedDecoder wrapped_decoder_;
+  std::array<uint8_t, 256> mapping_;
+  std::vector<uint8_t> temp_;
 };
 
 //
@@ -527,6 +582,24 @@ std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType
   }
 }
 
+//
+// Concrete Converter factory for reals
+//
+
+template <typename ConverterType, template <typename...> class ConcreteConverterType,
+          typename Type, typename DecoderType>
+std::shared_ptr<ConverterType> MakeRealConverter(const std::shared_ptr<DataType>& type,
+                                                 const ConvertOptions& options,
+                                                 MemoryPool* pool) {
+  if (options.decimal_point == '.') {
+    return std::make_shared<ConcreteConverterType<Type, DecoderType>>(type, options,
+                                                                      pool);
+  }
+  return std::make_shared<
+      ConcreteConverterType<Type, CustomDecimalPointValueDecoder<DecoderType>>>(
+      type, options, pool);
+}
+
 }  // namespace
 
 /////////////////////////////////////////////////////////////////////////
@@ -556,6 +629,12 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
   CONVERTER_CASE(TYPE_ID,                           \
                  (PrimitiveConverter<TYPE_CLASS, NumericValueDecoder<TYPE_CLASS>>))
 
+#define REAL_CONVERTER_CASE(TYPE_ID, TYPE_CLASS, DECODER)                        \
+  case TYPE_ID:                                                                  \
+    ptr = MakeRealConverter<Converter, PrimitiveConverter, TYPE_CLASS, DECODER>( \
+        type, options, pool);                                                    \
+    break;
+
     CONVERTER_CASE(Type::NA, NullConverter)
     NUMERIC_CONVERTER_CASE(Type::INT8, Int8Type)
     NUMERIC_CONVERTER_CASE(Type::INT16, Int16Type)
@@ -565,10 +644,13 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::UINT16, UInt16Type)
     NUMERIC_CONVERTER_CASE(Type::UINT32, UInt32Type)
     NUMERIC_CONVERTER_CASE(Type::UINT64, UInt64Type)
-    NUMERIC_CONVERTER_CASE(Type::FLOAT, FloatType)
-    NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
+    REAL_CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
+    REAL_CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
     NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
+    NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
+    NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
                    (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))
@@ -576,8 +658,6 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
                    (PrimitiveConverter<LargeBinaryType, BinaryValueDecoder<false>>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY,
                    (PrimitiveConverter<FixedSizeBinaryType, FixedSizeBinaryValueDecoder>))
-    CONVERTER_CASE(Type::DECIMAL,
-                   (PrimitiveConverter<Decimal128Type, DecimalValueDecoder>))
 
     case Type::TIMESTAMP:
       ptr = MakeTimestampConverter<PrimitiveConverter>(type, options, pool);
@@ -623,6 +703,7 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
 #undef CONVERTER_CASE
 #undef NUMERIC_CONVERTER_CASE
+#undef REAL_CONVERTER_CASE
   }
   RETURN_NOT_OK(ptr->Initialize());
   return ptr;
@@ -640,14 +721,20 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
         new TypedDictionaryConverter<TYPE, VALUE_DECODER_TYPE>(type, options, pool)); \
     break;
 
+#define REAL_CONVERTER_CASE(TYPE_ID, TYPE_CLASS, DECODER)                              \
+  case TYPE_ID:                                                                        \
+    ptr = MakeRealConverter<DictionaryConverter, TypedDictionaryConverter, TYPE_CLASS, \
+                            DECODER>(type, options, pool);                             \
+    break;
+
     // XXX Are 32-bit types useful?
     CONVERTER_CASE(Type::INT32, Int32Type, NumericValueDecoder<Int32Type>)
     CONVERTER_CASE(Type::INT64, Int64Type, NumericValueDecoder<Int64Type>)
     CONVERTER_CASE(Type::UINT32, UInt32Type, NumericValueDecoder<UInt32Type>)
     CONVERTER_CASE(Type::UINT64, UInt64Type, NumericValueDecoder<UInt64Type>)
-    CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
-    CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
-    CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
+    REAL_CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
+    REAL_CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
                    FixedSizeBinaryValueDecoder)
     CONVERTER_CASE(Type::BINARY, BinaryType, BinaryValueDecoder<false>)
@@ -683,6 +770,7 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     }
 
 #undef CONVERTER_CASE
+#undef REAL_CONVERTER_CASE
   }
   RETURN_NOT_OK(ptr->Initialize());
   return ptr;

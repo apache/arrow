@@ -172,7 +172,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "min_max" || func_name == "sum" || func_name == "mean" ||
-      func_name == "count") {
+      func_name == "count" || func_name == "any" || func_name == "all") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
@@ -239,6 +239,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       out->null_replacement = cpp11::as_cpp<std::string>(options["null_replacement"]);
     }
     return out;
+  }
+
+  if (func_name == "make_struct") {
+    using Options = arrow::compute::MakeStructOptions;
+    // TODO (ARROW-13371): accept `field_nullability` and `field_metadata` options
+    return std::make_shared<Options>(
+        cpp11::as_cpp<std::vector<std::string>>(options["field_names"]));
   }
 
   if (func_name == "match_substring" || func_name == "match_substring_regex" ||
@@ -314,6 +321,23 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       reverse = cpp11::as_cpp<bool>(options["reverse"]);
     }
     return std::make_shared<Options>(max_splits, reverse);
+  }
+
+  if (func_name == "utf8_slice_codeunits") {
+    using Options = arrow::compute::SliceOptions;
+
+    int64_t step = 1;
+    if (!Rf_isNull(options["step"])) {
+      step = cpp11::as_cpp<int64_t>(options["step"]);
+    }
+
+    int64_t stop = std::numeric_limits<int32_t>::max();
+    if (!Rf_isNull(options["stop"])) {
+      stop = cpp11::as_cpp<int64_t>(options["stop"]);
+    }
+
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["start"]), stop,
+                                     step);
   }
 
   if (func_name == "variance" || func_name == "stddev") {

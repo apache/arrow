@@ -104,7 +104,6 @@ test_that("Masked data type functions still work", {
     arrow::string()
   )
   rm(type)
-
 })
 
 test_that("Type strings are correctly canonicalized", {
@@ -160,7 +159,7 @@ test_that("Type strings are correctly canonicalized", {
   )
   expect_equal(
     canonical_type_str("decimal"),
-    sub("^([^([<]+).*$", "\\1", decimal(3,2)$ToString())
+    sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("struct"),

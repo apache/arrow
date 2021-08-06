@@ -77,7 +77,8 @@
 #' @rdname RecordBatch
 #' @name RecordBatch
 #' @export
-RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
+RecordBatch <- R6Class("RecordBatch",
+  inherit = ArrowTabular,
   public = list(
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
@@ -123,7 +124,6 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
       ExportRecordBatch(self, array_ptr, schema_ptr)
     }
   ),
-
   active = list(
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),

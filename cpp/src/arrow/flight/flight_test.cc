@@ -1478,6 +1478,59 @@ TEST_F(TestFlightClient, DoGetLargeBatch) {
   CheckDoGet(ticket, expected_batches);
 }
 
+TEST_F(TestFlightClient, FlightDataOverflowServerBatch) {
+  // Regression test for ARROW-13253
+  // N.B. this is rather a slow and memory-hungry test
+  {
+    // DoGet: check for overflow on large batch
+    Ticket ticket{"ARROW-13253-DoGet-Batch"};
+    std::unique_ptr<FlightStreamReader> stream;
+    ASSERT_OK(client_->DoGet(ticket, &stream));
+    FlightStreamChunk chunk;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        stream->Next(&chunk));
+  }
+  {
+    // DoExchange: check for overflow on large batch from server
+    auto descr = FlightDescriptor::Command("large_batch");
+    std::unique_ptr<FlightStreamReader> reader;
+    std::unique_ptr<FlightStreamWriter> writer;
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    BatchVector batches;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        reader->ReadAll(&batches));
+  }
+}
+
+TEST_F(TestFlightClient, FlightDataOverflowClientBatch) {
+  ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
+  {
+    // DoPut: check for overflow on large batch
+    std::unique_ptr<FlightStreamWriter> stream;
+    std::unique_ptr<FlightMetadataReader> reader;
+    auto descr = FlightDescriptor::Path({""});
+    ASSERT_OK(client_->DoPut(descr, batch->schema(), &stream, &reader));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        stream->WriteRecordBatch(*batch));
+    ASSERT_OK(stream->Close());
+  }
+  {
+    // DoExchange: check for overflow on large batch from client
+    auto descr = FlightDescriptor::Command("counter");
+    std::unique_ptr<FlightStreamReader> reader;
+    std::unique_ptr<FlightStreamWriter> writer;
+    ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
+    ASSERT_OK(writer->Begin(batch->schema()));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
+        writer->WriteRecordBatch(*batch));
+    ASSERT_OK(writer->Close());
+  }
+}
+
 TEST_F(TestFlightClient, DoExchange) {
   auto descr = FlightDescriptor::Command("counter");
   BatchVector batches;

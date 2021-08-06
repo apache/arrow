@@ -26,7 +26,6 @@ module.exports = {
     },
   },
   moduleNameMapper: {
-    "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
-    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+    "^apache-arrow(.*)": "<rootDir>/targets/ts$1"
   },
 };

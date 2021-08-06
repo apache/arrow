@@ -81,6 +81,7 @@ module Arrow
       require "arrow/record-batch-builder"
       require "arrow/record-batch-file-reader"
       require "arrow/record-batch-iterator"
+      require "arrow/record-batch-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
       require "arrow/scalar"

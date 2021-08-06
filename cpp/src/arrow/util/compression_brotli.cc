@@ -224,6 +224,11 @@ class BrotliCodec : public Codec {
   Compression::type compression_type() const override { return Compression::BROTLI; }
 
   int compression_level() const override { return compression_level_; }
+  int minimum_compression_level() const override { return BROTLI_MIN_QUALITY; }
+  int maximum_compression_level() const override { return BROTLI_MAX_QUALITY; }
+  int default_compression_level() const override {
+    return kBrotliDefaultCompressionLevel;
+  }
 
  private:
   const int compression_level_;

@@ -329,6 +329,37 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
         reader.read_next_batch()
 
 
+@pytest.mark.zstd
+def test_compression_roundtrip():
+    sink = io.BytesIO()
+    values = np.random.randint(0, 10, 10000)
+    table = pa.Table.from_arrays([values], names=["values"])
+
+    options = pa.ipc.IpcWriteOptions(compression='zstd')
+    with pa.ipc.RecordBatchFileWriter(
+            sink, table.schema, options=options) as writer:
+        writer.write_table(table)
+    len1 = len(sink.getvalue())
+
+    sink2 = io.BytesIO()
+    codec = pa.Codec('zstd', compression_level=5)
+    options = pa.ipc.IpcWriteOptions(compression=codec)
+    with pa.ipc.RecordBatchFileWriter(
+            sink2, table.schema, options=options) as writer:
+        writer.write_table(table)
+    len2 = len(sink2.getvalue())
+
+    # In theory len2 should be less than len1 but for this test we just want
+    # to ensure compression_level is being correctly passed down to the C++
+    # layer so we don't really care if it makes it worse or better
+    assert len2 != len1
+
+    t1 = pa.ipc.open_file(sink).read_all()
+    t2 = pa.ipc.open_file(sink2).read_all()
+
+    assert t1 == t2
+
+
 def test_write_options():
     options = pa.ipc.IpcWriteOptions()
     assert options.allow_64bit is False
@@ -349,28 +380,33 @@ def test_write_options():
 
     assert options.compression is None
     for value in ['lz4', 'zstd']:
-        options.compression = value
-        assert options.compression == value
-        options.compression = value.upper()
-        assert options.compression == value
+        if pa.Codec.is_available(value):
+            options.compression = value
+            assert options.compression == value
+            options.compression = value.upper()
+            assert options.compression == value
     options.compression = None
     assert options.compression is None
+
+    with pytest.raises(TypeError):
+        options.compression = 0
 
     assert options.use_threads is True
     options.use_threads = False
     assert options.use_threads is False
 
-    options = pa.ipc.IpcWriteOptions(
-        metadata_version=pa.ipc.MetadataVersion.V4,
-        allow_64bit=True,
-        use_legacy_format=True,
-        compression='lz4',
-        use_threads=False)
-    assert options.metadata_version == pa.ipc.MetadataVersion.V4
-    assert options.allow_64bit is True
-    assert options.use_legacy_format is True
-    assert options.compression == 'lz4'
-    assert options.use_threads is False
+    if pa.Codec.is_available('lz4'):
+        options = pa.ipc.IpcWriteOptions(
+            metadata_version=pa.ipc.MetadataVersion.V4,
+            allow_64bit=True,
+            use_legacy_format=True,
+            compression='lz4',
+            use_threads=False)
+        assert options.metadata_version == pa.ipc.MetadataVersion.V4
+        assert options.allow_64bit is True
+        assert options.use_legacy_format is True
+        assert options.compression == 'lz4'
+        assert options.use_threads is False
 
 
 def test_write_options_legacy_exclusive(stream_fixture):
@@ -564,6 +600,7 @@ def test_message_serialize_read_message(example_messages):
         pa.ipc.read_message(reader)
 
 
+@pytest.mark.gzip
 def test_message_read_from_compressed(example_messages):
     # Part of ARROW-5910
     _, messages = example_messages

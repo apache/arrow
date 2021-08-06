@@ -907,7 +907,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   double timeout_seconds_;
   Status status_;
   bool unlocked_;
-  int num_launched_ = 0;
+  std::atomic<int> num_launched_{0};
   int num_running_ = 0;
   int num_finished_ = 0;
   std::mutex mx_;

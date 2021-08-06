@@ -28,7 +28,7 @@ module.exports = {
   rootDir: ".",
   roots: ["<rootDir>/test/"],
   preset: "ts-jest/presets/default-esm",
-  moduleFileExtensions: ["js", "ts"],
+  moduleFileExtensions: ["mjs", "js", "ts"],
   coverageReporters: ["lcov", "json"],
   coveragePathIgnorePatterns: [
     "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",

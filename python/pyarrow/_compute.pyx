@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+import sys
+
 from cython.operator cimport dereference as deref
 
 from collections import namedtuple
@@ -791,12 +793,13 @@ class ExtractRegexOptions(_ExtractRegexOptions):
 
 
 cdef class _SliceOptions(FunctionOptions):
-    def _set_options(self, start, stop, step):
+    def _set_options(self, int64_t start, int64_t stop, int64_t step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
 
 
 class SliceOptions(_SliceOptions):
-    def __init__(self, start, stop, step=1):
+    def __init__(self, int64_t start, int64_t stop=sys.maxsize,
+                 int64_t step=1):
         self._set_options(start, stop, step)
 
 
@@ -859,16 +862,16 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot)
 
 
-cdef class _ProjectOptions(FunctionOptions):
+cdef class _MakeStructOptions(FunctionOptions):
     def _set_options(self, field_names):
         cdef:
             vector[c_string] c_field_names
         for n in field_names:
             c_field_names.push_back(tobytes(n))
-        self.wrapped.reset(new CProjectOptions(field_names))
+        self.wrapped.reset(new CMakeStructOptions(c_field_names))
 
 
-class ProjectOptions(_ProjectOptions):
+class MakeStructOptions(_MakeStructOptions):
     def __init__(self, field_names):
         self._set_options(field_names)
 

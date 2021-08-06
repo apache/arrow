@@ -39,7 +39,11 @@ Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
   std::vector<std::string> field_names;
   std::vector<std::shared_ptr<Scalar>> values;
   const auto* options_type =
-      checked_cast<const GenericOptionsType*>(options.options_type());
+      dynamic_cast<const GenericOptionsType*>(options.options_type());
+  if (!options_type) {
+    return Status::NotImplemented("serializing ", options.type_name(),
+                                  " to StructScalar");
+  }
   RETURN_NOT_OK(options_type->ToStructScalar(options, &field_names, &values));
   field_names.push_back(kTypeNameField);
   const char* options_name = options.type_name();

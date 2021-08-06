@@ -24,6 +24,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 
@@ -66,9 +67,19 @@ class TempVectorStack {
   }
 
  private:
+  int64_t PaddedAllocationSize(int64_t num_bytes) {
+    // Round up allocation size to multiple of 8 bytes
+    // to avoid returning temp vectors with unaligned address.
+    //
+    // Also add padding at the end to facilitate loads and stores
+    // using SIMD when number of vector elements is not divisible
+    // by the number of SIMD lanes.
+    //
+    return ::arrow::BitUtil::RoundUp(num_bytes, sizeof(int64_t)) + padding;
+  }
   void alloc(uint32_t num_bytes, uint8_t** data, int* id) {
     int64_t old_top = top_;
-    top_ += num_bytes + padding;
+    top_ += PaddedAllocationSize(num_bytes);
     // Stack overflow check
     ARROW_DCHECK(top_ <= buffer_size_);
     *data = buffer_->mutable_data() + old_top;
@@ -76,7 +87,7 @@ class TempVectorStack {
   }
   void release(int id, uint32_t num_bytes) {
     ARROW_DCHECK(num_vectors_ == id + 1);
-    int64_t size = num_bytes + padding;
+    int64_t size = PaddedAllocationSize(num_bytes);
     ARROW_DCHECK(top_ >= size);
     top_ -= size;
     --num_vectors_;

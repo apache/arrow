@@ -730,8 +730,6 @@ Result<std::shared_ptr<Array>> SparseUnionArray::Make(
   return std::make_shared<SparseUnionArray>(std::move(internal_data));
 }
 
-std::shared_ptr<Array> UnionArray::child(int i) const { return field(i); }
-
 std::shared_ptr<Array> UnionArray::field(int i) const {
   if (i < 0 ||
       static_cast<decltype(boxed_fields_)::size_type>(i) >= boxed_fields_.size()) {

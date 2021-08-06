@@ -127,9 +127,6 @@ class PARQUET_EXPORT Node {
   /// Thrift.
   int field_id() const { return field_id_; }
 
-  PARQUET_DEPRECATED("id() is deprecated. Use field_id() instead")
-  int id() const { return field_id_; }
-
   const Node* parent() const { return parent_; }
 
   const std::shared_ptr<ColumnPath> path() const;

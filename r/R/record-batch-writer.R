@@ -18,7 +18,8 @@
 
 #' @title RecordBatchWriter classes
 #' @description Apache Arrow defines two formats for [serializing data for interprocess
-#' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
+#' communication
+#' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather.
 #' `RecordBatchStreamWriter` and `RecordBatchFileWriter` are
 #' interfaces for writing record batches to those formats, respectively.
@@ -93,11 +94,11 @@
 #' # Unlike the Writers, we don't have to close RecordBatchReaders,
 #' # but we do still need to close the file connection
 #' read_file_obj$close()
-RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
+RecordBatchWriter <- R6Class("RecordBatchWriter",
+  inherit = ArrowObject,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
-
     write = function(x) {
       if (inherits(x, "RecordBatch")) {
         self$write_batch(x)
@@ -107,7 +108,6 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
         self$write_table(Table$create(x))
       }
     },
-
     close = function() ipc___RecordBatchWriter__Close(self)
   )
 )
@@ -173,7 +173,7 @@ get_ipc_metadata_version <- function(x) {
     x <- paste0("V", x)
   } else if (is.null(x)) {
     if (identical(Sys.getenv("ARROW_PRE_1_0_METADATA_VERSION"), "1") ||
-        identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")) {
+      identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")) {
       # PRE_1_0 is specific for this;
       # if you already set PRE_0_15, PRE_1_0 should be implied
       x <- "V4"

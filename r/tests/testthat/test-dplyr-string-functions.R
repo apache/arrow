@@ -211,7 +211,6 @@ test_that("grepl", {
   df <- tibble(x = c("Foo", "bar"))
 
   for (fixed in c(TRUE, FALSE)) {
-
     expect_dplyr_equal(
       input %>%
         filter(grepl("Foo", x, fixed = fixed)) %>%
@@ -230,9 +229,7 @@ test_that("grepl", {
         collect(),
       df
     )
-
   }
-
 })
 
 test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
@@ -254,7 +251,6 @@ test_that("grepl with ignore.case = TRUE and fixed = TRUE", {
       collect(),
     tibble(x = character(0))
   )
-
 })
 
 test_that("str_detect", {
@@ -302,14 +298,12 @@ test_that("str_detect", {
       collect(),
     df
   )
-
 })
 
 test_that("sub and gsub", {
   df <- tibble(x = c("Foo", "bar"))
 
   for (fixed in c(TRUE, FALSE)) {
-
     expect_dplyr_equal(
       input %>%
         transmute(x = sub("Foo", "baz", x, fixed = fixed)) %>%
@@ -328,7 +322,6 @@ test_that("sub and gsub", {
         collect(),
       df
     )
-
   }
 })
 
@@ -358,7 +351,6 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
       collect(),
     df # unchanged
   )
-
 })
 
 test_that("str_replace and str_replace_all", {
@@ -409,11 +401,9 @@ test_that("str_replace and str_replace_all", {
       collect(),
     df
   )
-
 })
 
 test_that("strsplit and str_split", {
-
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   expect_dplyr_equal(
@@ -565,7 +555,6 @@ test_that("errors and warnings in string detection and replacement", {
     nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"),
     "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
-
 })
 
 test_that("backreferences in pattern in string detection", {
@@ -589,8 +578,7 @@ test_that("backreferences (substitutions) in string replacement", {
         "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
         "path `\\2` on server `\\1`",
         url
-        )
-      ) %>%
+      )) %>%
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")
   )
@@ -652,6 +640,12 @@ test_that("edge cases in string detection and replacement", {
 })
 
 test_that("strptime", {
+
+  # base::strptime() defaults to local timezone
+  # but arrow's strptime defaults to UTC.
+  # So that tests are consistent, set the local timezone to UTC
+  # TODO: consider reevaluating this workaround after ARROW-12980
+  withr::local_timezone("UTC")
 
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
@@ -721,12 +715,11 @@ test_that("errors in strptime", {
   x <- Expression$field_ref("x")
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
-    'Time zone argument not supported by Arrow'
+    "Time zone argument not supported by Arrow"
   )
 })
 
 test_that("arrow_find_substring and arrow_find_substring_regex", {
-
   df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
 
   expect_equivalent(
@@ -769,25 +762,24 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
 })
 
 test_that("stri_reverse and arrow_ascii_reverse functions", {
-  
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
-  
+
   df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
     df_utf8
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
     df_ascii
   )
-  
+
   expect_equivalent(
     df_ascii %>%
       Table$create() %>%
@@ -795,7 +787,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
       collect(),
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
-  
+
   expect_error(
     df_utf8 %>%
       Table$create() %>%
@@ -806,12 +798,11 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
-  
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   # TODO: After new version of stringr with str_like has been released, update all
   # these tests to use expect_dplyr_equal
-  
+
   # No match - entire string
   expect_equivalent(
     df %>%
@@ -820,7 +811,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Match - entire string
   expect_equivalent(
     df %>%
@@ -829,7 +820,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Wildcard
   expect_equivalent(
     df %>%
@@ -838,7 +829,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Ignore case
   expect_equivalent(
     df %>%
@@ -847,7 +838,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Single character
   expect_equivalent(
     df %>%
@@ -856,9 +847,9 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, TRUE))
   )
-  
+
   # This will give an error until a new version of stringr with str_like has been released
-  skip("Test will fail until stringr > 1.4.0 is release")
+  skip_if_not(packageVersion("stringr") > "1.4.0")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
@@ -868,42 +859,213 @@ test_that("str_like", {
 })
 
 test_that("str_pad", {
-  
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 30, side = "right")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31, side = "left", pad = "+")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 31, side = "both")) %>%
       collect(),
     df
   )
-  
+})
+
+test_that("substr", {
+  df <- tibble(x = "Apache Arrow")
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 0, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, -1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 6, 1)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, -1, -2)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 9, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, 8, 12)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substr(x, -5, -1)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$substr("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  expect_error(
+    nse_funcs$substr("Apache Arrow", 1, c(2, 3)),
+    "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("substring", {
+  # nse_funcs$substring just calls nse_funcs$substr, tested extensively above
+  df <- tibble(x = "Apache Arrow")
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = substring(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("str_sub", {
+  df <- tibble(x = "Apache Arrow")
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 0, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 6, 1)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -1, -2)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -1, 3)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 9, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, 8, 12)) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(y = str_sub(x, -5, -1)) %>%
+      collect(),
+    df
+  )
+
+  expect_error(
+    nse_funcs$str_sub("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths are not supported in Arrow"
+  )
+
+  expect_error(
+    nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
+    "`end` must be length 1 - other lengths are not supported in Arrow"
+  )
 })

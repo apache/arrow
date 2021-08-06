@@ -398,6 +398,18 @@ TEST(FloatingPointConversion, Whitespace) {
                                        {{12., 0.}, {34.5, -1e100}});
 }
 
+TEST(FloatingPointConversion, CustomDecimalPoint) {
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '/';
+
+  AssertConversion<FloatType, float>(float32(), {"1/5\n", "-1e10\n", "N/A\n"},
+                                     {{1.5, -1e10f, 0.}}, {{true, true, false}}, options);
+  AssertConversion<DoubleType, double>(float64(), {"1/5\n", "-1e10\n", "N/A\n"},
+                                       {{1.5, -1e10, 0.}}, {{true, true, false}},
+                                       options);
+  AssertConversionError(float32(), {"1.5\n"}, {0}, options);
+}
+
 TEST(BooleanConversion, Basics) {
   // XXX we may want to accept more bool-like values
   AssertConversion<BooleanType, bool>(boolean(), {"true,false\n", "1,0\n"},
@@ -429,6 +441,11 @@ TEST(Date32Conversion, Nulls) {
                                         {{false, true}});
 }
 
+TEST(Date32Conversion, Errors) {
+  AssertConversionError(date32(), {"1945-06-31\n"}, {0});
+  AssertConversionError(date32(), {"2020-13-01\n"}, {0});
+}
+
 TEST(Date64Conversion, Basics) {
   AssertConversion<Date64Type, int64_t>(date64(), {"1945-05-08\n", "2020-03-15\n"},
                                         {{-777945600000LL, 1584230400000LL}});
@@ -437,6 +454,63 @@ TEST(Date64Conversion, Basics) {
 TEST(Date64Conversion, Nulls) {
   AssertConversion<Date64Type, int64_t>(date64(), {"N/A\n", "2020-03-15\n"},
                                         {{0, 1584230400000LL}}, {{false, true}});
+}
+
+TEST(Date64Conversion, Errors) {
+  AssertConversionError(date64(), {"1945-06-31\n"}, {0});
+  AssertConversionError(date64(), {"2020-13-01\n"}, {0});
+}
+
+TEST(Time32Conversion, Seconds) {
+  const auto type = time32(TimeUnit::SECOND);
+
+  AssertConversion<Time32Type, int32_t>(type, {"00:00\n", "00:00:00\n"}, {{0, 0}});
+  AssertConversion<Time32Type, int32_t>(type, {"01:23:45\n", "23:45:43\n"},
+                                        {{5025, 85543}});
+  AssertConversion<Time32Type, int32_t>(type, {"N/A\n", "23:59:59\n"}, {{0, 86399}},
+                                        {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time32Conversion, Millis) {
+  const auto type = time32(TimeUnit::MILLI);
+
+  AssertConversion<Time32Type, int32_t>(type, {"00:00\n", "00:00:00\n"}, {{0, 0}});
+  AssertConversion<Time32Type, int32_t>(type, {"01:23:45.1\n", "23:45:43.789\n"},
+                                        {{5025100, 85543789}});
+  AssertConversion<Time32Type, int32_t>(type, {"N/A\n", "23:59:59.999\n"},
+                                        {{0, 86399999}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, Micros) {
+  const auto type = time64(TimeUnit::MICRO);
+
+  AssertConversion<Time64Type, int64_t>(type, {"00:00\n", "00:00:00\n"}, {{0LL, 0LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"01:23:45.1\n", "23:45:43.456789\n"},
+                                        {{5025100000LL, 85543456789LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"N/A\n", "23:59:59.999999\n"},
+                                        {{0, 86399999999LL}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
+}
+
+TEST(Time64Conversion, Nanos) {
+  const auto type = time64(TimeUnit::NANO);
+
+  AssertConversion<Time64Type, int64_t>(type, {"00:00\n", "00:00:00\n"}, {{0LL, 0LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"01:23:45.1\n", "23:45:43.123456789\n"},
+                                        {{5025100000000LL, 85543123456789LL}});
+  AssertConversion<Time64Type, int64_t>(type, {"N/A\n", "23:59:59.999999999\n"},
+                                        {{0, 86399999999999LL}}, {{false, true}});
+
+  AssertConversionError(type, {"24:00\n"}, {0});
+  AssertConversionError(type, {"23:59:60\n"}, {0});
 }
 
 TEST(TimestampConversion, Basics) {
@@ -518,6 +592,17 @@ TEST(DecimalConversion, CustomNulls) {
       decimal(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
       {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
       {{true, false}, {false, true}}, options);
+}
+
+TEST(DecimalConversion, CustomDecimalPoint) {
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '/';
+
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(14, 3), {"1/5,0/\n", ",-1e3\n"},
+      {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
+      {{true, false}, {true, true}}, options);
+  AssertConversionError(decimal128(14, 3), {"1.5\n"}, {0}, options);
 }
 
 TEST(DecimalConversion, Whitespace) {
@@ -661,6 +746,21 @@ TEST(TestDecimalDictConverter, Basics) {
 
   AssertDictConversion("1.234\n456.789\nN/A\n4.56789e2\n", expected_indices,
                        expected_dict);
+}
+
+TEST(TestDecimalDictConverter, CustomDecimalPoint) {
+  auto value_type = decimal(9, 3);
+
+  auto options = ConvertOptions::Defaults();
+  options.decimal_point = '\'';
+
+  auto expected_dict = ArrayFromJSON(value_type, R"(["1.234", "456.789"])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 1]");
+
+  AssertDictConversion("1'234\n456'789\nN/A\n4'56789e2\n", expected_indices,
+                       expected_dict, -1, options);
+
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "1.234\n", -1, options));
 }
 
 TEST(TestDecimalDictConverter, Errors) {

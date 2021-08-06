@@ -85,8 +85,7 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
 
-  // \return the table's schema
-  /// \return true if batches are equal
+  /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Retrieve all columns at once
@@ -130,7 +129,7 @@ class ARROW_EXPORT RecordBatch {
   virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
       int i, std::string field_name, const std::shared_ptr<Array>& column) const;
 
-  /// \brief Replace a column in the table, producing a new Table
+  /// \brief Replace a column in the record batch, producing a new RecordBatch
   virtual Result<std::shared_ptr<RecordBatch>> SetColumn(
       int i, const std::shared_ptr<Field>& field,
       const std::shared_ptr<Array>& column) const = 0;

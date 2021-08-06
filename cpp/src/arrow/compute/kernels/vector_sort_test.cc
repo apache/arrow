@@ -181,6 +181,10 @@ class TestNthToIndicesForIntegral : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
+class TestNthToIndicesForBool : public TestNthToIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestNthToIndicesForBool, ::testing::Types<BooleanType>);
+
+template <typename ArrowType>
 class TestNthToIndicesForTemporal : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForTemporal, TemporalArrowTypes);
 
@@ -221,6 +225,13 @@ TYPED_TEST(TestNthToIndicesForIntegral, Integral) {
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 2);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 5);
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 6);
+}
+
+TYPED_TEST(TestNthToIndicesForBool, Bool) {
+  this->AssertNthToIndicesJson("[null, false, true, null, false, true]", 0);
+  this->AssertNthToIndicesJson("[null, false, true, null, false, true]", 2);
+  this->AssertNthToIndicesJson("[null, false, true, null, false, true]", 5);
+  this->AssertNthToIndicesJson("[null, false, true, null, false, true]", 6);
 }
 
 TYPED_TEST(TestNthToIndicesForTemporal, Temporal) {
@@ -403,6 +414,10 @@ class TestArraySortIndicesForReal : public TestArraySortIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestArraySortIndicesForReal, RealArrowTypes);
 
 template <typename ArrowType>
+class TestArraySortIndicesForBool : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForBool, ::testing::Types<BooleanType>);
+
+template <typename ArrowType>
 class TestArraySortIndicesForIntegral : public TestArraySortIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestArraySortIndicesForIntegral, IntegralArrowTypes);
 
@@ -462,6 +477,26 @@ TYPED_TEST(TestArraySortIndicesForIntegral, SortIntegral) {
                           "[1, 4, 2, 5, 0, 3]");
   this->AssertSortIndices("[null, 1, 3, null, 2, 5]", SortOrder::Descending,
                           "[5, 2, 4, 1, 0, 3]");
+}
+
+TYPED_TEST(TestArraySortIndicesForBool, SortBool) {
+  this->AssertSortIndices("[]", "[]");
+
+  this->AssertSortIndices("[true, true, false]", "[2, 0, 1]");
+  this->AssertSortIndices("[false, false,  false, true, true, true, true]",
+                          "[0, 1, 2, 3, 4, 5, 6]");
+  this->AssertSortIndices("[true, true, true, true, false, false, false]",
+                          "[4, 5, 6, 0, 1, 2, 3]");
+
+  this->AssertSortIndices("[false, true, false, true, true, false, false]",
+                          SortOrder::Ascending, "[0, 2, 5, 6, 1, 3, 4]");
+  this->AssertSortIndices("[false, true, false, true, true, false, false]",
+                          SortOrder::Descending, "[1, 3, 4, 0, 2, 5, 6]");
+
+  this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Ascending,
+                          "[2, 4, 1, 5, 0, 3]");
+  this->AssertSortIndices("[null, true, false, null, false, true]", SortOrder::Descending,
+                          "[1, 5, 2, 4, 0, 3]");
 }
 
 TYPED_TEST(TestArraySortIndicesForTemporal, SortTemporal) {
@@ -546,7 +581,7 @@ class TestArraySortIndicesRandomCompare : public TestBase {};
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType,
-                     Decimal128Type>;
+                     Decimal128Type, BooleanType>;
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order) {
@@ -842,6 +877,27 @@ TEST_F(TestRecordBatchSortIndices, NaNAndNull) {
   AssertSortIndices(batch, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
+TEST_F(TestRecordBatchSortIndices, Boolean) {
+  auto schema = ::arrow::schema({
+      {field("a", boolean())},
+      {field("b", boolean())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": true,    "b": null},
+                                       {"a": false,   "b": null},
+                                       {"a": true,    "b": true},
+                                       {"a": false,   "b": true},
+                                       {"a": true,    "b": false},
+                                       {"a": null,    "b": false},
+                                       {"a": false,   "b": null},
+                                       {"a": null,    "b": true}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
+}
+
 TEST_F(TestRecordBatchSortIndices, MoreTypes) {
   auto schema = ::arrow::schema({
       {field("a", timestamp(TimeUnit::MICRO))},
@@ -978,6 +1034,25 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
                                      {"a": 1,    "b": 5}
                                     ])"});
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
+}
+
+TEST_F(TestTableSortIndices, Boolean) {
+  auto schema = ::arrow::schema({
+      {field("a", boolean())},
+      {field("b", boolean())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+  auto table = TableFromJSON(schema, {R"([{"a": true,    "b": null},
+                                       {"a": false,   "b": null},
+                                       {"a": true,    "b": true},
+                                       {"a": false,   "b": true}])",
+                                      R"([{"a": true,    "b": false},
+                                       {"a": null,    "b": false},
+                                       {"a": false,   "b": null},
+                                       {"a": null,    "b": true}
+                                       ])"});
+  AssertSortIndices(table, options, "[3, 1, 6, 2, 4, 0, 7, 5]");
 }
 
 TEST_F(TestTableSortIndices, BinaryLike) {

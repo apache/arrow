@@ -40,16 +40,23 @@ struct TDigestImpl : public ScalarAggregator {
       : q{options.q}, tdigest{options.delta, options.buffer_size} {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    const ArrayData& data = *batch[0].array();
-    const CType* values = data.GetValues<CType>(1);
+    if (batch[0].is_array()) {
+      const ArrayData& data = *batch[0].array();
+      const CType* values = data.GetValues<CType>(1);
 
-    if (data.length > data.GetNullCount()) {
-      VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                          [&](int64_t pos, int64_t len) {
-                            for (int64_t i = 0; i < len; ++i) {
-                              this->tdigest.NanAdd(values[pos + i]);
-                            }
-                          });
+      if (data.length > data.GetNullCount()) {
+        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                            [&](int64_t pos, int64_t len) {
+                              for (int64_t i = 0; i < len; ++i) {
+                                this->tdigest.NanAdd(values[pos + i]);
+                              }
+                            });
+      }
+    } else {
+      const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar());
+      if (batch[0].scalar()->is_valid) {
+        this->tdigest.NanAdd(value);
+      }
     }
     return Status::OK();
   }
@@ -125,7 +132,7 @@ void AddTDigestKernels(KernelInit init,
                        const std::vector<std::shared_ptr<DataType>>& types,
                        ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, float64());
+    auto sig = KernelSignature::Make({InputType(ty)}, float64());
     AddAggKernel(std::move(sig), init, func);
   }
 }

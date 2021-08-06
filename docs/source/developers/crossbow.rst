@@ -62,23 +62,28 @@ configuration file to run the requested build (like ``.travis.yml``,
 Scheduler
 ~~~~~~~~~
 
-`Crossbow.py`_ handles version generation, task rendering and
+Crossbow handles version generation, task rendering and
 submission. The tasks are defined in ``tasks.yml``.
 
 Install
 -------
 
-   The following guide depends on GitHub, but theoretically any git
-   server can be used.
+The following guide depends on GitHub, but theoretically any git
+server can be used.
+
+If you are not using the `ursacomputing/crossbow <https://github.com/ursacomputing/crossbow>`_
+repository, you will need to complete the first two steps, otherwise procede
+to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines_` and `CircleCI`_
+2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
    integrations on for the newly created queue repository.
 
    -  turn off Travis’ `auto cancellation`_ feature on branches
 
-3. Clone the newly created repository next to the arrow repository:
+3. Clone either ursacomputing/crossbow if you are using that, or the newly
+   created repository next to the arrow repository:
 
    By default the scripts looks for ``crossbow`` next to arrow repository, but
    this can configured through command line arguments.
@@ -100,9 +105,7 @@ Install
 
       export CROSSBOW_GITHUB_TOKEN=<token>
 
-   ..
-
-      or pass as an argument to the CLI script ``--github-token``
+   or pass as an argument to the CLI script ``--github-token``
 
 6. Export the previously created GitHub token on both CI services:
 
@@ -129,7 +132,7 @@ Install
 
    .. code:: bash
 
-      pip install -e arrow/dev/archery[crossbow]
+      pip install -e "arrow/dev/archery[crossbow]"
 
 9. Try running it:
 
@@ -164,10 +167,8 @@ The script does the following:
       git checkout ARROW-<ticket number>
       archery crossbow submit --dry-run conda-linux conda-osx
 
-   ..
-
-      Note that the arrow branch must be pushed beforehand, because the
-      script will clone the selected branch.
+   Note that the arrow branch must be pushed beforehand, because the
+   script will clone the selected branch.
 
 3. Reads and renders the required build configurations with the
    parameters substituted.

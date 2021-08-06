@@ -20,15 +20,20 @@ skip_if_not_available("dataset")
 library(lubridate)
 library(dplyr)
 
+# base::strptime() defaults to local timezone
+# but arrow's strptime defaults to UTC.
+# So that tests are consistent, set the local timezone to UTC
+# TODO: consider reevaluating this workaround after ARROW-12980
+withr::local_timezone("UTC")
+
 test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 test_df <- tibble::tibble(date = test_date)
 
 # We can support this feature after ARROW-12980 is merged
-test_that("timezone aware timestamps are not supported",{
-  
-  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "BST")
+test_that("timezone aware timestamps are not supported", {
+  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "Pacific/Marquesas")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
-  
+
   expect_error(
     Table$create(tz_aware_df) %>%
       mutate(x = wday(date)) %>%
@@ -38,11 +43,10 @@ test_that("timezone aware timestamps are not supported",{
 })
 
 # We can support this feature when ARROW-13138 is resolved
-test_that("date32 objects are not supported",{
-  
+test_that("date32 objects are not supported", {
   date <- ymd("2017-01-01")
   df <- tibble::tibble(date = date)
-  
+
   expect_error(
     Table$create(df) %>%
       mutate(x = year(date)) %>%
@@ -70,7 +74,7 @@ test_that("extract isoyear from date", {
     test_df
   )
 })
-  
+
 test_that("extract quarter from date", {
   expect_dplyr_equal(
     input %>%
@@ -106,30 +110,29 @@ test_that("extract day from date", {
     test_df
   )
 })
-  
 
 test_that("extract wday from date", {
- expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = wday(date)) %>%
       collect(),
     test_df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
     test_df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = wday(date, week_start = 1)) %>%
       collect(),
     test_df
   )
-  
+
   # We should be able to support the label argument after this ticket is resolved:
   # https://issues.apache.org/jira/browse/ARROW-13133
   x <- Expression$field_ref("x")
@@ -137,9 +140,8 @@ test_that("extract wday from date", {
     nse_funcs$wday(x, label = TRUE),
     "Label argument not supported by Arrow"
   )
-  
 })
-  
+
 test_that("extract yday from date", {
   expect_dplyr_equal(
     input %>%
@@ -148,7 +150,7 @@ test_that("extract yday from date", {
     test_df
   )
 })
-  
+
 test_that("extract hour from date", {
   expect_dplyr_equal(
     input %>%
@@ -157,16 +159,16 @@ test_that("extract hour from date", {
     test_df
   )
 })
-  
+
 test_that("extract minute from date", {
-   expect_dplyr_equal(
+  expect_dplyr_equal(
     input %>%
       mutate(x = minute(date)) %>%
       collect(),
     test_df
   )
 })
-  
+
 test_that("extract second from date", {
   expect_dplyr_equal(
     input %>%
@@ -177,4 +179,3 @@ test_that("extract second from date", {
     tolerance = 1e-6
   )
 })
-

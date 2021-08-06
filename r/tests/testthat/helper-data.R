@@ -109,15 +109,15 @@ verses <- list(
 
 make_big_string <- function() {
   # This creates a character vector that would exceed the capacity of BinaryArray
-  rep(purrr::map_chr(2047:2050, ~paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
+  rep(purrr::map_chr(2047:2050, ~ paste(sample(letters, ., replace = TRUE), collapse = "")), 2^18)
 }
 
 make_random_string_of_size <- function(size = 1) {
-  purrr::map_chr(1000*size, ~paste(sample(letters, ., replace = TRUE), collapse = ""))
+  purrr::map_chr(1000 * size, ~ paste(sample(letters, ., replace = TRUE), collapse = ""))
 }
 
 make_string_of_size <- function(size = 1) {
-  paste(rep(letters, length = 1000*size), collapse = "")
+  paste(rep(letters, length = 1000 * size), collapse = "")
 }
 
 example_with_extra_metadata <- example_with_metadata
@@ -140,19 +140,20 @@ example_with_logical_factors <- tibble::tibble(
 # sort order. The Arrow C++ library orders strings lexicographically as byte
 # strings. The order of a string array sorted by Arrow will not match the order
 # of an equivalent character vector sorted by R unless you set the R collation
-# locale to "C" by running:
-#   Sys.setlocale("LC_COLLATE", "C")
+# locale to "C" by running:   Sys.setlocale("LC_COLLATE", "C")
 # These test scripts set that, but if you are running individual tests you might
 # need to set it manually. When finished, you can restore the default
-# collation locale by running:
-#   Sys.setlocale("LC_COLLATE")
+# collation locale by running:   Sys.setlocale("LC_COLLATE")
 # In the future, the string collation locale used by the Arrow C++ library might
 # be configurable (ARROW-12046).
 example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
-  dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
+  dbl = c(
+    -Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin,
+    pi, .Machine$double.xmax, Inf, NaN, NA_real_
+  ),
   chr = c("", "", "\"", "&", "ABC", "NULL", "a", "abc", "zzz", NA_character_),
-  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA), # bool is not supported (ARROW-12016)
+  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA),
   dttm = lubridate::ymd_hms(c(
     "0000-01-01 00:00:00",
     "1919-05-29 13:08:55",

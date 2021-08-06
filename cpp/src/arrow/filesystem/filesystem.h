@@ -290,6 +290,9 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
+  ARROW_DEPRECATED(
+      "Deprecated in 6.0.0. "
+      "OpenAppendStream is unsupported on several filesystems and will be later removed.")
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) = 0;

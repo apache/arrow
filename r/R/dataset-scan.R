@@ -56,7 +56,8 @@
 #' @rdname Scanner
 #' @name Scanner
 #' @export
-Scanner <- R6Class("Scanner", inherit = ArrowObject,
+Scanner <- R6Class("Scanner",
+  inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
     ScanBatches = function() dataset___Scanner__ScanBatches(self),
@@ -76,7 +77,7 @@ Scanner$create <- function(dataset,
                            fragment_scan_options = NULL,
                            ...) {
   if (is.null(use_async)) {
-    use_async = getOption("arrow.use_async", FALSE)
+    use_async <- getOption("arrow.use_async", FALSE)
   }
 
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -125,7 +126,8 @@ Scanner$create <- function(dataset,
 #' @export
 names.Scanner <- function(x) names(x$schema)
 
-ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
+ScanTask <- R6Class("ScanTask",
+  inherit = ArrowObject,
   public = list(
     Execute = function() dataset___ScanTask__get_batches(self)
   )
@@ -155,9 +157,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   }
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
-  # message("Making ScanTasks")
   lapply(scanner$ScanBatches(), function(batch) {
-    # message("Processing Batch")
     # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
     # X$temp_columns, and X$group_by_vars
     # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
@@ -169,7 +169,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 #' @format NULL
 #' @rdname Scanner
 #' @export
-ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
+ScannerBuilder <- R6Class("ScannerBuilder",
+  inherit = ArrowObject,
   public = list(
     Project = function(cols) {
       # cols is either a character vector or a named list of Expressions

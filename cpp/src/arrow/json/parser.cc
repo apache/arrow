@@ -102,6 +102,8 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
     Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const LargeBinaryType&) { return SetKind(Kind::kString); }
+    Status Visit(const TimestampType&) { return SetKind(Kind::kString); }
     Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const DictionaryType& dict_type) {
       return Kind::ForType(*dict_type.value_type(), kind_);

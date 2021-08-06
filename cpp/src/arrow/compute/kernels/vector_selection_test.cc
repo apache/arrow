@@ -380,8 +380,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
     CType c_fifty = 50;
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection,
-                           Compare(array, Datum(fifty), CompareOptions(op)));
+      ASSERT_OK_AND_ASSIGN(
+          Datum selection,
+          CallFunction(CompareOperatorToFunctionName(op), {array, Datum(fifty)}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(array, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
@@ -403,7 +404,8 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
     auto rhs = checked_pointer_cast<ArrayType>(
         rand.Numeric<TypeParam>(length, 0, 100, /*null_probability=*/0.0));
     for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-      ASSERT_OK_AND_ASSIGN(Datum selection, Compare(lhs, rhs, CompareOptions(op)));
+      ASSERT_OK_AND_ASSIGN(Datum selection,
+                           CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
       ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(lhs, selection));
       auto filtered_array = filtered.make_array();
       ValidateOutput(*filtered_array);
@@ -428,9 +430,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
     auto fifty = std::make_shared<ScalarType>(c_fifty);
     auto hundred = std::make_shared<ScalarType>(c_hundred);
     ASSERT_OK_AND_ASSIGN(Datum greater_than_fifty,
-                         Compare(array, Datum(fifty), CompareOptions(GREATER)));
+                         CallFunction("greater", {array, Datum(fifty)}));
     ASSERT_OK_AND_ASSIGN(Datum less_than_hundred,
-                         Compare(array, Datum(hundred), CompareOptions(LESS)));
+                         CallFunction("less", {array, Datum(hundred)}));
     ASSERT_OK_AND_ASSIGN(Datum selection, And(greater_than_fifty, less_than_hundred));
     ASSERT_OK_AND_ASSIGN(Datum filtered, Filter(array, selection));
     auto filtered_array = filtered.make_array();
@@ -607,31 +609,31 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 
 class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
 
-TEST_F(TestFilterKernelWithUnion, DISABLED_FilterUnion) {
-  for (auto union_ : UnionTypeFactories()) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
-    auto union_json = R"([
-      null,
+TEST_F(TestFilterKernelWithUnion, FilterUnion) {
+  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
+  auto union_json = R"([
+      [2, null],
       [2, 222],
       [5, "hello"],
       [5, "eh"],
-      null,
-      [2, 111]
+      [2, null],
+      [2, 111],
+      [5, null]
     ])";
-    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0]", "[]");
-    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1]", R"([
+  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
+  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
       [2, 222],
       [5, "hello"],
-      null,
-      [2, 111]
+      [2, null],
+      [2, 111],
+      [5, null]
     ])");
-    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0]", R"([
-      null,
+  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
+      [2, null],
       [5, "hello"],
-      null
+      [2, null]
     ])");
-    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1]", union_json);
-  }
+  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
 }
 
 class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
@@ -994,6 +996,22 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
                                          "[0.0, 1.0, 0.1]", &arr));
 }
 
+TEST_F(TestTakeKernel, TakeCCEmptyIndices) {
+  Datum dat = ChunkedArrayFromJSON(int8(), {"[]"});
+  Datum idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+  ValidateOutput(out);
+  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
+}
+
+TEST_F(TestTakeKernel, TakeACEmptyIndices) {
+  Datum dat = ArrayFromJSON(int8(), {"[]"});
+  Datum idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+  ValidateOutput(out);
+  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
+}
+
 TEST_F(TestTakeKernel, DefaultOptions) {
   auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
   auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");
@@ -1281,34 +1299,34 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 
 class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
-// TODO: Restore Union take functionality
-TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
-  for (auto union_ : UnionTypeFactories()) {
-    auto union_type = union_({field("a", int32()), field("b", utf8())}, {2, 5});
-    auto union_json = R"([
-      null,
+TEST_F(TestTakeKernelWithUnion, TakeUnion) {
+  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
+  auto union_json = R"([
+      [2, null],
       [2, 222],
       [5, "hello"],
       [5, "eh"],
-      null,
-      [2, 111]
+      [2, null],
+      [2, 111],
+      [5, null]
     ])";
-    CheckTake(union_type, union_json, "[]", "[]");
-    CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+  CheckTake(union_type, union_json, "[]", "[]");
+  CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-    CheckTake(union_type, union_json, "[4, 2, 1]", R"([
-      null,
+  CheckTake(union_type, union_json, "[4, 2, 1, 6]", R"([
+      [2, null],
       [5, "hello"],
-      [2, 222]
+      [2, 222],
+      [5, null]
     ])");
-    CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5]", union_json);
-    CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
-      null,
+  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+  CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+      [2, null],
       [5, "hello"],
       [5, "hello"],
       [5, "hello"],
@@ -1316,7 +1334,6 @@ TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
-  }
 }
 
 class TestPermutationsWithTake : public TestBase {

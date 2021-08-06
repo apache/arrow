@@ -37,6 +37,8 @@ cdef class HadoopFileSystem(FileSystem):
         HDFS host to connect to.
     port : int, default 8020
         HDFS port to connect to.
+    user : str, default None
+        Username when connecting to HDFS; None implies login user.
     replication : int, default 3
         Number of copies each block will have.
     buffer_size : int, default 0
@@ -47,6 +49,9 @@ cdef class HadoopFileSystem(FileSystem):
         128 MB.
     kerb_ticket : string or path, default None
         If not None, the path to the Kerberos ticket cache.
+    extra_conf : dict, default None
+        Extra key/value pairs for configuration; will override any
+        hdfs-site.xml properties.
     """
 
     cdef:
@@ -93,9 +98,11 @@ cdef class HadoopFileSystem(FileSystem):
         Instantiate HadoopFileSystem object from an URI string.
 
         The following two calls are equivalent
-        * HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test'
-                                    '&replication=1')
-        * HadoopFileSystem('localhost', port=8020, user='test', replication=1)
+
+        * ``HadoopFileSystem.from_uri('hdfs://localhost:8020/?user=test\
+&replication=1')``
+        * ``HadoopFileSystem('localhost', port=8020, user='test', \
+replication=1)``
 
         Parameters
         ----------

@@ -97,7 +97,7 @@ test_that("Table with metadata roundtrip", {
 })
 
 test_that("DataType roundtrip", {
-  r <- timestamp("ms", timezone = "Asia/Pyongyang")
+  r <- timestamp("ms", timezone = "Pacific/Marquesas")
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.DataType")
   expect_equal(reticulate::py_to_r(py), r)
@@ -131,4 +131,15 @@ test_that("RecordBatchReader to python", {
       select(int, lgl) %>%
       filter(int > 6)
   )
+})
+
+test_that("RecordBatchReader from python", {
+  tab <- Table$create(example_data)
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  pyreader <- reticulate::r_to_py(reader)
+  back_to_r <- reticulate::py_to_r(pyreader)
+  rt_table <- back_to_r$read_table()
+  expect_r6_class(rt_table, "Table")
+  expect_identical(as.data.frame(rt_table), example_data)
 })

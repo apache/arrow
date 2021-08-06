@@ -177,7 +177,7 @@ garrow_decimal_to_bytes(typename DecimalConverter<Decimal>::GArrowType *decimal)
 {
   DecimalConverter<Decimal> converter;
   const auto arrow_decimal = converter.get_raw(decimal);
-  uint8_t data[DecimalConverter<Decimal>::ArrowType::bit_width / 8];
+  uint8_t data[DecimalConverter<Decimal>::ArrowType::kBitWidth / 8];
   arrow_decimal->ToBytes(data);
   return g_bytes_new(data, sizeof(data));
 }

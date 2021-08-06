@@ -197,7 +197,7 @@ class BaseSetBitRunReader {
   /// \param[in] length number of bits to copy
   ARROW_NOINLINE
   BaseSetBitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap),
+      : bitmap_(util::MakeNonNull(bitmap)),
         length_(length),
         remaining_(length_),
         current_word_(0),

@@ -21,17 +21,21 @@ context("Dataset")
 
 library(dplyr)
 
-make_temp_dir <- function() {
-  path <- tempfile()
-  dir.create(path)
-  normalizePath(path, winslash = "/")
-}
-
 dataset_dir <- make_temp_dir()
 hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
+
+skip_if_multithreading_disabled <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+  if (is_32bit && is_old_r && is_windows) {
+    skip("Multithreading does not work properly on this system")
+  }
+}
+
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
@@ -147,7 +151,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 
   expect_identical(
     ds %>%
-      filter(chr == 'a') %>%
+      filter(chr == "a") %>%
       dim(),
     c(2L, 7L)
   )
@@ -160,7 +164,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   expect_identical(
     ds %>%
       select(chr, fct, int) %>%
-      filter(chr == 'a') %>%
+      filter(chr == "a") %>%
       dim(),
     c(2L, 3L)
   )
@@ -264,8 +268,10 @@ test_that("open_dataset errors on mixed paths and URIs", {
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
-                     format = FileFormat$create("parquet", dict_columns = c("chr")))
+  ds <- open_dataset(dataset_dir,
+    partitioning = schema(part = uint8()),
+    format = FileFormat$create("parquet", dict_columns = c("chr"))
+  )
   expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
 })
 
@@ -348,6 +354,7 @@ test_that("IPC/Feather format data", {
 })
 
 test_that("CSV dataset", {
+  skip_if_multithreading_disabled()
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
@@ -375,11 +382,13 @@ test_that("CSV dataset", {
 })
 
 test_that("CSV scan options", {
+  skip_if_multithreading_disabled()
   options <- FragmentScanOptions$create("text")
   expect_equal(options$type, "csv")
   options <- FragmentScanOptions$create("csv",
-                                        null_values = c("mynull"),
-                                        strings_can_be_null = TRUE)
+    null_values = c("mynull"),
+    strings_can_be_null = TRUE
+  )
   expect_equal(options$type, "csv")
 
   dst_dir <- make_temp_dir()
@@ -397,23 +406,30 @@ test_that("CSV scan options", {
   expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
 
   # Set default convert options in CsvFileFormat
-  csv_format <- CsvFileFormat$create(null_values = c("mynull"),
-                                     strings_can_be_null = TRUE)
+  csv_format <- CsvFileFormat$create(
+    null_values = c("mynull"),
+    strings_can_be_null = TRUE
+  )
   ds <- open_dataset(dst_dir, format = csv_format)
   expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
 
   # Set both parse and convert options
   df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
   write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
-  ds <- open_dataset(dst_dir, format = "csv",
-                     delimiter="\t",
-                     null_values = c("mynull"),
-                     strings_can_be_null = TRUE)
-  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
-                                             chr2 = c("bar", "baz")))
+  ds <- open_dataset(dst_dir,
+    format = "csv",
+    delimiter = "\t",
+    null_values = c("mynull"),
+    strings_can_be_null = TRUE
+  )
+  expect_equivalent(ds %>% collect(), tibble(
+    chr = c("foo", NA),
+    chr2 = c("bar", "baz")
+  ))
 })
 
 test_that("compressed CSV dataset", {
+  skip_if_multithreading_disabled()
   skip_if_not_available("gzip")
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv.gz")
@@ -437,6 +453,7 @@ test_that("compressed CSV dataset", {
 })
 
 test_that("CSV dataset options", {
+  skip_if_multithreading_disabled()
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
   df <- tibble(chr = letters[1:10])
@@ -449,7 +466,7 @@ test_that("CSV dataset options", {
     ds %>%
       select(string = a) %>%
       collect(),
-    df1[-1,] %>%
+    df1[-1, ] %>%
       select(string = chr)
   )
 
@@ -459,11 +476,12 @@ test_that("CSV dataset options", {
     ds %>%
       select(string = foo) %>%
       collect(),
-    tibble(foo = c(c('chr'), letters[1:10]))
+    tibble(foo = c(c("chr"), letters[1:10]))
   )
 })
 
 test_that("Other text delimited dataset", {
+  skip_if_multithreading_disabled()
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equivalent(
     ds1 %>%
@@ -492,6 +510,7 @@ test_that("Other text delimited dataset", {
 })
 
 test_that("readr parse options", {
+  skip_if_multithreading_disabled()
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
@@ -619,12 +638,15 @@ test_that("Creating UnionDataset", {
 test_that("map_batches", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
-  expect_equivalent(
-    ds %>%
-      filter(int > 5) %>%
-      select(int, lgl) %>%
-      map_batches(~summarize(., min_int = min(int))),
-    tibble(min_int = c(6L, 101L))
+  expect_warning(
+    expect_equivalent(
+      ds %>%
+        filter(int > 5) %>%
+        select(int, lgl) %>%
+        map_batches(~ summarize(., min_int = min(int))),
+      tibble(min_int = c(6L, 101L))
+    ),
+    "pulling data into R" # ARROW-13502
   )
 })
 
@@ -736,7 +758,7 @@ test_that("mutate()", {
     mutate(twice = int * 2)
   expect_output(
     print(mutated),
-"FileSystemDataset (query)
+    "FileSystemDataset (query)
 chr: string
 dbl: double
 int: int32
@@ -848,9 +870,9 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   tab2 <- ds %>% collect(as_data_frame = FALSE)
   expect_is(tab2, "Table")
 
-  tab3 <-  ds %>%
+  tab3 <- ds %>%
     mutate(negint = -int) %>%
-    filter(negint > - 100) %>%
+    filter(negint > -100) %>%
     arrange(chr) %>%
     select(negint) %>%
     compute()
@@ -862,9 +884,9 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
     tibble(negint = -1:-10)
   )
 
-  tab4 <-  ds %>%
+  tab4 <- ds %>%
     mutate(negint = -int) %>%
-    filter(negint > - 100) %>%
+    filter(negint > -100) %>%
     arrange(chr) %>%
     select(negint) %>%
     collect(as_data_frame = FALSE)
@@ -888,7 +910,6 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   expect_r6_class(tab5$.data, "InMemoryDataset")
   # ... and the mutate() was evaluated
   expect_true("negint" %in% names(tab5$.data))
-
 })
 
 test_that("head/tail", {
@@ -897,27 +918,27 @@ test_that("head/tail", {
   expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(
     as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2,])
+    rbind(df1, df2[1:2, ])
   )
   expect_equal(
     ds %>%
       filter(int > 6) %>%
       head() %>%
       as.data.frame(),
-    rbind(df1[7:10,], df2[1:2,])
+    rbind(df1[7:10, ], df2[1:2, ])
   )
 
   expect_equal(as.data.frame(tail(ds)), tail(df2))
   expect_equal(
     as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10,], df2)
+    rbind(df1[9:10, ], df2)
   )
   expect_equal(
     ds %>%
       filter(int < 105) %>%
       tail() %>%
       as.data.frame(),
-    rbind(df1[9:10,], df2[1:4,])
+    rbind(df1[9:10, ], df2[1:4, ])
   )
 })
 
@@ -968,17 +989,6 @@ test_that("dplyr method not implemented messages", {
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
-  # One explicit test of the full message
-  expect_error(
-    ds %>% summarize(mean(int)),
-    "summarize() is not currently implemented for Arrow Datasets. Call collect() first to pull data into R.",
-    fixed = TRUE
-  )
-  # Helper for everything else
-  expect_not_implemented <- function(x) {
-    expect_error(x, "is not currently implemented for Arrow Datasets")
-  }
-  expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
 test_that("Dataset and query print methods", {
@@ -1118,25 +1128,33 @@ test_that("URI-decoding with directory partitioning", {
   write_feather(df1, file.path(dir1, "data.feather"))
 
   partitioning <- DirectoryPartitioning$create(
-    schema(date = timestamp(unit = "s"), string = utf8()))
+    schema(date = timestamp(unit = "s"), string = utf8())
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning = partitioning)
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_scan_result(ds, schm)
 
   partitioning <- DirectoryPartitioning$create(
     schema(date = timestamp(unit = "s"), string = utf8()),
-    segment_encoding = "none")
+    segment_encoding = "none"
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning = partitioning)
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
   schm <- factory$Inspect()
   expect_error(factory$Finish(schm), "Invalid: error parsing")
 
   partitioning_factory <- DirectoryPartitioningFactory$create(
-    c("date", "string"))
+    c("date", "string")
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory)
+    fs, selector, NULL, fmt, partitioning_factory
+  )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   # Can't directly inspect partition expressions, so do it implicitly via scan
@@ -1149,9 +1167,12 @@ test_that("URI-decoding with directory partitioning", {
   )
 
   partitioning_factory <- DirectoryPartitioningFactory$create(
-    c("date", "string"), segment_encoding = "none")
+    c("date", "string"),
+    segment_encoding = "none"
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory)
+    fs, selector, NULL, fmt, partitioning_factory
+  )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
@@ -1173,21 +1194,28 @@ test_that("URI-decoding with hive partitioning", {
   write_feather(df1, file.path(dir1, "data.feather"))
 
   partitioning <- hive_partition(
-    date = timestamp(unit = "s"), string = utf8())
+    date = timestamp(unit = "s"), string = utf8()
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning = partitioning)
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
   ds <- factory$Finish(schm)
   expect_scan_result(ds, schm)
 
   partitioning <- hive_partition(
-    date = timestamp(unit = "s"), string = utf8(), segment_encoding = "none")
+    date = timestamp(unit = "s"), string = utf8(), segment_encoding = "none"
+  )
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning = partitioning)
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
   expect_error(factory$Finish(schm), "Invalid: error parsing")
 
   partitioning_factory <- hive_partition()
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory)
+    fs, selector, NULL, fmt, partitioning_factory
+  )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   # Can't directly inspect partition expressions, so do it implicitly via scan
@@ -1201,7 +1229,8 @@ test_that("URI-decoding with hive partitioning", {
 
   partitioning_factory <- hive_partition(segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
-    fs, selector, NULL, fmt, partitioning_factory)
+    fs, selector, NULL, fmt, partitioning_factory
+  )
   schm <- factory$Inspect()
   ds <- factory$Finish(schm)
   expect_equal(
@@ -1233,7 +1262,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_r6_class(ds, "UnionDataset")
   expect_r6_class(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
-  expect_equivalent(map(ds$children, ~.$files), files)
+  expect_equivalent(map(ds$children, ~ .$files), files)
 
   expect_scan_result(ds, schm)
 })
@@ -1435,18 +1464,18 @@ test_that("Dataset writing: partition on null", {
   ds <- open_dataset(hive_dir)
 
   dst_dir <- tempfile()
-  partitioning = hive_partition(lgl = boolean())
+  partitioning <- hive_partition(lgl = boolean())
   write_dataset(ds, dst_dir, partitioning = partitioning)
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), c("lgl=__HIVE_DEFAULT_PARTITION__", "lgl=false", "lgl=true"))
 
   dst_dir <- tempfile()
-  partitioning = hive_partition(lgl = boolean(), null_fallback="xyz")
+  partitioning <- hive_partition(lgl = boolean(), null_fallback = "xyz")
   write_dataset(ds, dst_dir, partitioning = partitioning)
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
 
-  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback="xyz"))
+  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback = "xyz"))
 
   expect_identical(
     ds %>%
@@ -1581,6 +1610,7 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Writing a dataset: CSV format options", {
+  skip_if_multithreading_disabled()
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
@@ -1597,8 +1627,10 @@ test_that("Writing a dataset: CSV format options", {
   dst_dir <- make_temp_dir()
   write_dataset(df, dst_dir, format = "csv", include_header = FALSE)
   expect_true(dir.exists(dst_dir))
-  new_ds <- open_dataset(dst_dir, format = "csv",
-                         column_names = c("int", "dbl", "lgl", "chr"))
+  new_ds <- open_dataset(dst_dir,
+    format = "csv",
+    column_names = c("int", "dbl", "lgl", "chr")
+  )
   expect_equivalent(new_ds %>% collect(), df)
 })
 

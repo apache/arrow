@@ -30,6 +30,9 @@ ENV ARROW_R_DEV=${r_dev}
 ARG devtoolset_version=-1
 ENV DEVTOOLSET_VERSION=${devtoolset_version}
 
+ARG tz="UTC"
+ENV TZ=${tz}
+
 # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
 ENV PATH "${RPREFIX}/bin:${PATH}"
 

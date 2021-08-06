@@ -266,8 +266,6 @@ class PackageTask
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-groovy",
-      # "ubuntu-groovy-arm64",
       "ubuntu-hirsute",
       # "ubuntu-hirsute-arm64",
     ]

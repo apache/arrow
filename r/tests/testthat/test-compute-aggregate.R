@@ -65,7 +65,6 @@ test_that("sum dots", {
 })
 
 test_that("sum.Scalar", {
-  skip("No sum method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
   expect_identical(as.numeric(s), as.numeric(sum(s)))
 })
@@ -100,13 +99,12 @@ test_that("mean.ChunkedArray", {
   a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
   expect_r6_class(mean(a), "Scalar")
   expect_true(is.na(as.vector(mean(a))))
-  expect_identical(as.vector(mean(a, na.rm = TRUE)), 35/13)
+  expect_identical(as.vector(mean(a, na.rm = TRUE)), 35 / 13)
 })
 
 test_that("mean.Scalar", {
-  skip("No mean method in arrow for Scalar: ARROW-9056")
   s <- Scalar$create(4)
-  expect_identical(as.vector(s), mean(s))
+  expect_equal(s, mean(s))
 })
 
 test_that("Bad input handling of call_function", {
@@ -209,8 +207,15 @@ test_that("Edge cases", {
   for (type in c(int32(), float64(), bool())) {
     expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
     expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
-    expect_equal(as.vector(min(a$cast(type), na.rm = TRUE)), min(NA, na.rm = TRUE))
-    expect_equal(as.vector(max(a$cast(type), na.rm = TRUE)), max(NA, na.rm = TRUE))
+    expect_equal(
+      as.vector(min(a$cast(type), na.rm = TRUE)),
+      # Suppress the base R warning about no non-missing arguments
+      suppressWarnings(min(NA, na.rm = TRUE))
+    )
+    expect_equal(
+      as.vector(max(a$cast(type), na.rm = TRUE)),
+      suppressWarnings(max(NA, na.rm = TRUE))
+    )
   }
 })
 
@@ -218,7 +223,7 @@ test_that("quantile.Array and quantile.ChunkedArray", {
   a <- Array$create(c(0, 1, 2, 3))
   ca <- ChunkedArray$create(c(0, 1), c(2, 3))
   probs <- c(0.49, 0.51)
-  for(ad in list(a, ca)) {
+  for (ad in list(a, ca)) {
     for (type in c(int32(), uint64(), float64())) {
       expect_equal(
         quantile(ad$cast(type), probs = probs, interpolation = "linear"),
@@ -342,29 +347,27 @@ test_that("match_arrow", {
 
   ca <- ChunkedArray$create(c(1, 4, 3, 1, 1, 3, 4))
   expect_equal(match_arrow(ca, tab), ChunkedArray$create(c(3L, 0L, 1L, 3L, 3L, 1L, 0L)))
-  
+
   sc <- Scalar$create(3)
   expect_equal(match_arrow(sc, tab), Scalar$create(1L))
-  
-  vec <-  c(1,2)
+
+  vec <- c(1, 2)
   expect_equal(match_arrow(vec, tab), Array$create(c(3L, 2L)))
-  
 })
 
 test_that("is_in", {
   a <- Array$create(c(9, 4, 3))
   tab <- c(4, 3, 2, 1)
   expect_equal(is_in(a, tab), Array$create(c(FALSE, TRUE, TRUE)))
-  
+
   ca <- ChunkedArray$create(c(9, 4, 3))
   expect_equal(is_in(ca, tab), ChunkedArray$create(c(FALSE, TRUE, TRUE)))
-  
+
   sc <- Scalar$create(3)
   expect_equal(is_in(sc, tab), Scalar$create(TRUE))
-  
-  vec <-  c(1,9)
+
+  vec <- c(1, 9)
   expect_equal(is_in(vec, tab), Array$create(c(TRUE, FALSE)))
-  
 })
 
 test_that("value_counts", {
@@ -383,40 +386,40 @@ test_that("value_counts", {
 })
 
 test_that("any.Array and any.ChunkedArray", {
-  
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(any(input > 5), data)
+  expect_vector_equal(any(input > 5, na.rm = TRUE), data)
   expect_vector_equal(any(input < 1), data)
   expect_vector_equal(any(input < 1, na.rm = TRUE), data)
-  
+
   data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
-  
+
   expect_vector_equal(any(input), data_logical)
+  expect_vector_equal(any(input, na.rm = FALSE), data_logical)
   expect_vector_equal(any(input, na.rm = TRUE), data_logical)
-  
 })
 
 test_that("all.Array and all.ChunkedArray", {
-
   data <- c(1:10, NA, NA)
-  
+
   expect_vector_equal(all(input > 5), data)
+  expect_vector_equal(all(input > 5, na.rm = TRUE), data)
+
   expect_vector_equal(all(input < 11), data)
   expect_vector_equal(all(input < 11, na.rm = TRUE), data)
-  
+
   data_logical <- c(TRUE, TRUE, NA)
-  
+
   expect_vector_equal(all(input), data_logical)
   expect_vector_equal(all(input, na.rm = TRUE), data_logical)
-  
 })
 
 test_that("variance", {
   data <- c(-37, 267, 88, -120, 9, 101, -65, -23, NA)
   arr <- Array$create(data)
   chunked_arr <- ChunkedArray$create(data)
-  
+
   expect_equal(call_function("variance", arr, options = list(ddof = 5)), Scalar$create(34596))
   expect_equal(call_function("variance", chunked_arr, options = list(ddof = 5)), Scalar$create(34596))
 })
@@ -425,7 +428,7 @@ test_that("stddev", {
   data <- c(-37, 267, 88, -120, 9, 101, -65, -23, NA)
   arr <- Array$create(data)
   chunked_arr <- ChunkedArray$create(data)
-  
+
   expect_equal(call_function("stddev", arr, options = list(ddof = 5)), Scalar$create(186))
   expect_equal(call_function("stddev", chunked_arr, options = list(ddof = 5)), Scalar$create(186))
 })

@@ -46,7 +46,7 @@ const results: CaseResult[] = [];
 function cycle(result: CaseResult, _summary: Summary) {
     const duration = result.details.median * 1000;
     if (json) {
-        result.suite = _summary.name
+        result.suite = _summary.name;
         results.push(result);
     }
     console.log(

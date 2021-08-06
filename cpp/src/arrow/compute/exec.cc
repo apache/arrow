@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -102,13 +103,19 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
   }
 }
 
+std::string ExecBatch::ToString() const {
+  std::stringstream ss;
+  PrintTo(*this, &ss);
+  return ss.str();
+}
+
 ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   ExecBatch out = *this;
   for (auto& value : out.values) {
     if (value.is_scalar()) continue;
     value = value.array()->Slice(offset, length);
   }
-  out.length = length;
+  out.length = std::min(length, this->length - offset);
   return out;
 }
 
@@ -139,6 +146,22 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   }
 
   return ExecBatch(std::move(values), length);
+}
+
+Result<std::shared_ptr<RecordBatch>> ExecBatch::ToRecordBatch(
+    std::shared_ptr<Schema> schema, MemoryPool* pool) const {
+  ArrayVector columns(schema->num_fields());
+
+  for (size_t i = 0; i < columns.size(); ++i) {
+    const Datum& value = values[i];
+    if (value.is_array()) {
+      columns[i] = value.make_array();
+      continue;
+    }
+    ARROW_ASSIGN_OR_RAISE(columns[i], MakeArrayFromScalar(*value.scalar(), length, pool));
+  }
+
+  return RecordBatch::Make(std::move(schema), length, std::move(columns));
 }
 
 namespace {

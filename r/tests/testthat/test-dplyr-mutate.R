@@ -25,7 +25,7 @@ tbl <- example_data
 tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
-tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
 
 test_that("mutate() is lazy", {
   expect_s3_class(
@@ -154,20 +154,20 @@ test_that("nchar() arguments", {
     tbl
   )
   # This tests the whole abandon_ship() machinery
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(int, verses) %>%
-        mutate(
-          line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
-          longer = line_lengths * 10
-        ) %>%
-        filter(line_lengths > 15) %>%
-        collect(),
-      tbl
-    ),
-    'In nchar(verses, type = "bytes", allowNA = TRUE), allowNA = TRUE not supported by Arrow; pulling data into R',
-    fixed = TRUE
+  expect_dplyr_equal(
+    input %>%
+      select(int, verses) %>%
+      mutate(
+        line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl,
+    warning = paste0(
+      "In nchar\\(verses, type = \"bytes\", allowNA = TRUE\\), ",
+      "allowNA = TRUE not supported by Arrow; pulling data into R"
+    )
   )
 })
 
@@ -190,8 +190,8 @@ test_that("mutate with unnamed expressions", {
     input %>%
       select(int, padded_strings) %>%
       mutate(
-        int,                   # bare column name
-        nchar(padded_strings)  # expression
+        int, # bare column name
+        nchar(padded_strings) # expression
       ) %>%
       filter(int > 5) %>%
       collect(),
@@ -252,29 +252,25 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
-  # across + autosplicing: ARROW-11699
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, homeworld, species) %>%
-        mutate(across(!name, as.factor)) %>%
-        collect(),
-      starwars
-    ),
-    "Expression across.*not supported in Arrow"
+  # across and autosplicing: ARROW-11699
+  expect_dplyr_equal(
+    input %>%
+      select(name, homeworld, species) %>%
+      mutate(across(!name, as.factor)) %>%
+      collect(),
+    starwars,
+    warning = "Expression across.*not supported in Arrow"
   )
 
   # group_by then mutate
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, mass, homeworld) %>%
-        group_by(homeworld) %>%
-        mutate(rank = min_rank(desc(mass))) %>%
-        collect(),
-      starwars
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>%
+      select(name, mass, homeworld) %>%
+      group_by(homeworld) %>%
+      mutate(rank = min_rank(desc(mass))) %>%
+      collect(),
+    starwars,
+    warning = TRUE
   )
 
   # `.before` and `.after` experimental args: ARROW-11701
@@ -344,16 +340,14 @@ test_that("dplyr::mutate's examples", {
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO(ARROW-11702)
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        select(name, mass, species) %>%
-        mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
-        collect(),
-      starwars
-    ),
-    "not supported in Arrow"
+  # TODO: ARROW-11702
+  expect_dplyr_equal(
+    input %>%
+      select(name, mass, species) %>%
+      mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
+      collect(),
+    starwars,
+    warning = TRUE
   )
 })
 
@@ -394,11 +388,11 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-'InMemoryDataset (query)
+    "InMemoryDataset (query)
 int: int32
 twice: double (multiply_checked(int, 2))
 
-See $.data for the source Arrow object',
+See $.data for the source Arrow object",
     fixed = TRUE
   )
 })
@@ -466,9 +460,9 @@ test_that("mutate and pmin/pmax", {
     input %>%
       mutate(
         max_val_1 = pmax(val1, val2, val3),
-        max_val_2 = pmax(val1, val2, val3, na.rm = T),
+        max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
         min_val_1 = pmin(val1, val2, val3),
-        min_val_2 = pmin(val1, val2, val3, na.rm = T)
+        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
     df
@@ -477,8 +471,8 @@ test_that("mutate and pmin/pmax", {
   expect_dplyr_equal(
     input %>%
       mutate(
-        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = T),
-        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = T),
+        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = TRUE),
+        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = TRUE),
       ) %>%
       collect(),
     df

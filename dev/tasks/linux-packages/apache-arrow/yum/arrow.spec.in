@@ -56,6 +56,7 @@
 # EPEL ships utf8proc but it's old.
 # %define have_utf8proc (%{rhel} == 7)
 %define have_utf8proc 0
+%define have_zstd (!%{is_amazon_linux})
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -86,7 +87,9 @@ BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
 BuildRequires:	glog-devel
+%if %{have_zstd}
 BuildRequires:	libzstd-devel
+%endif
 BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
@@ -202,7 +205,9 @@ Requires:	brotli
 Requires:	gflags
 %endif
 Requires:	glog
+%if %{have_zstd}
 Requires:	libzstd
+%endif
 Requires:	lz4 %{lz4_requirement}
 %if %{have_re2}
 Requires:	re2
@@ -231,7 +236,9 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+%if %{have_zstd}
 Requires:	libzstd-devel
+%endif
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_rapidjson}
@@ -274,7 +281,9 @@ Libraries and header files for Apache Arrow C++.
 %if %{have_utf8proc}
 %{_libdir}/cmake/arrow/Findutf8proc.cmake
 %endif
+%if %{have_zstd}
 %{_libdir}/cmake/arrow/Findzstd.cmake
+%endif
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so

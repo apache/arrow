@@ -17,8 +17,12 @@
 
 const del = require('del');
 const gulp = require('gulp');
-const { Observable } = require('rxjs');
 const { targets } = require('./gulp/argv');
+const {
+    from: ObservableFrom,
+    bindNodeCallback: ObservableBindNodeCallback
+} = require('rxjs');
+const { flatMap } = require('rxjs/operators');
 const cleanTask = require('./gulp/clean-task');
 const compileTask = require('./gulp/compile-task');
 const packageTask = require('./gulp/package-task');
@@ -56,15 +60,15 @@ knownTargets.forEach((target) => {
     ));
 });
 
-// The main "apache-arrow" module builds the es2015/umd, esnext/cjs,
-// esnext/esm, and esnext/umd targets, then copies and renames the
+// The main "apache-arrow" module builds the es2015/umd, es2015/cjs,
+// es2015/esm, and esnext/umd targets, then copies and renames the
 // compiled output into the apache-arrow folder
 gulp.task(`build:${npmPkgName}`,
     gulp.series(
         gulp.parallel(
             `build:${taskName(`es2015`, `umd`)}`,
-            `build:${taskName(`esnext`, `cjs`)}`,
-            `build:${taskName(`esnext`, `esm`)}`,
+            `build:${taskName(`es2015`, `cjs`)}`,
+            `build:${taskName(`es2015`, `esm`)}`,
             `build:${taskName(`esnext`, `umd`)}`
         ),
         `clean:${npmPkgName}`,
@@ -83,10 +87,9 @@ gulp.task(`compile`, gulpConcurrent(getTasks(`compile`)));
 gulp.task(`package`, gulpConcurrent(getTasks(`package`)));
 gulp.task(`default`,  gulp.series(`clean`, `build`, `test`));
 
-function gulpConcurrent(tasks) {
-    const numCPUs = Math.max(1, require('os').cpus().length * 0.75) | 0;
-    return () => Observable.from(tasks.map((task) => gulp.series(task)))
-        .flatMap((task) => Observable.bindNodeCallback(task)(), numCPUs);
+function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
+    return () => ObservableFrom(tasks.map((task) => gulp.series(task)))
+        .pipe(flatMap((task) => ObservableBindNodeCallback(task)(), numCPUs || 1));
 }
 
 function getTasks(name) {

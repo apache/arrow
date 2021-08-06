@@ -24,7 +24,7 @@ expect_scalar_roundtrip <- function(x, type) {
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {
     # Should this be? Missing if all elements are missing?
-    # expect_identical(is.na(s), all(is.na(x)))
+    # expect_identical(is.na(s), all(is.na(x))) # nolint
   } else {
     expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
@@ -37,7 +37,7 @@ test_that("Scalar object roundtrip", {
   expect_scalar_roundtrip(2L, int32())
   expect_scalar_roundtrip(c(2, 4), list_of(float64()))
   expect_scalar_roundtrip(c(NA, NA), list_of(bool()))
-  expect_scalar_roundtrip(data.frame(a=2, b=4L), struct(a = double(), b = int32()))
+  expect_scalar_roundtrip(data.frame(a = 2, b = 4L), struct(a = double(), b = int32()))
 })
 
 test_that("Scalar print", {
@@ -87,7 +87,10 @@ test_that("Handling string data with embedded nuls", {
   scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
   expect_error(
     as.vector(scalar_with_nul),
-    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, ",
+      "set options(arrow.skip_nul = TRUE)"
+    ),
     fixed = TRUE
   )
 

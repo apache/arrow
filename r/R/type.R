@@ -42,7 +42,6 @@ DataType <- R6Class("DataType",
     },
     export_to_c = function(ptr) ExportType(self, ptr)
   ),
-
   active = list(
     id = function() DataType__id(self),
     name = function() DataType__name(self),
@@ -139,7 +138,7 @@ Null <- R6Class("Null", inherit = DataType)
 Timestamp <- R6Class("Timestamp",
   inherit = FixedWidthType,
   public = list(
-    timezone = function()  TimestampType__timezone(self),
+    timezone = function() TimestampType__timezone(self),
     unit = function() TimestampType__unit(self)
   )
 )

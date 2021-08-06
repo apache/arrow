@@ -343,9 +343,6 @@ if(MSVC)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # Avoid error when an unknown warning flag is passed
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
-
   if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0" OR CMAKE_CXX_COMPILER_VERSION
                                                        VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
@@ -444,29 +441,31 @@ if(ARROW_CPU_FLAG STREQUAL "ppc")
 endif()
 
 if(ARROW_CPU_FLAG STREQUAL "armv8")
-  if(NOT CXX_SUPPORTS_ARMV8_ARCH)
-    message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
-  endif()
-  if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
-    message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
-  endif()
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
-
   if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     set(ARROW_HAVE_NEON ON)
-    add_definitions(-DARROW_HAVE_NEON)
-  endif()
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                              "5.4")
-    message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
-  else()
-    if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
-      add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+    if(NOT CXX_SUPPORTS_ARMV8_ARCH)
+      message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
     endif()
-    # armv8.1+ implies crc support
-    if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
-      add_definitions(-DARROW_HAVE_ARMV8_CRC)
+    if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
+      message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
+    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
+
+    add_definitions(-DARROW_HAVE_NEON)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                                "5.4")
+      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well."
+      )
+    else()
+      if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
+        add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+      endif()
+      # armv8.1+ implies crc support
+      if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
+        add_definitions(-DARROW_HAVE_ARMV8_CRC)
+      endif()
     endif()
   endif()
 endif()

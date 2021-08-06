@@ -1139,7 +1139,8 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
 
   LValuePtr ret;
   switch (result_type->id()) {
-    case arrow::Type::STRING: {
+    case arrow::Type::STRING:
+    case arrow::Type::BINARY: {
       llvm::PHINode* result_length;
       result_length = builder->CreatePHI(types->i32_type(), 2, "res_length");
       result_length->addIncoming(then_lvalue->length(), then_bb);

@@ -162,6 +162,11 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
+Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
+                              const Datum& replacements, ExecContext* ctx) {
+  return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
+}
+
 Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
                                            ExecContext* ctx) {
   ArraySortOptions options(order);
@@ -230,45 +235,6 @@ Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
 
 // ----------------------------------------------------------------------
 // Deprecated functions
-
-Result<std::shared_ptr<ChunkedArray>> Take(const ChunkedArray& values,
-                                           const Array& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<ChunkedArray>> Take(const ChunkedArray& values,
-                                           const ChunkedArray& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<ChunkedArray>> Take(const Array& values,
-                                           const ChunkedArray& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<RecordBatch>> Take(const RecordBatch& batch, const Array& indices,
-                                          const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(batch), Datum(indices), options, ctx));
-  return result.record_batch();
-}
-
-Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
-                                    const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(table), Datum(indices), options, ctx));
-  return result.table();
-}
-
-Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
-                                    const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(table), Datum(indices), options, ctx));
-  return result.table();
-}
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
   return SortIndices(values, SortOrder::Ascending, ctx);

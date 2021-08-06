@@ -52,7 +52,6 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
-    libzstd-dev \
     llvm-10-dev \
     lsb-release \
     ninja-build \

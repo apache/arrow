@@ -18,6 +18,7 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -48,9 +49,9 @@ bool Scalar::ApproxEquals(const Scalar& other, const EqualOptions& options) cons
   return ScalarApproxEquals(*this, other, options);
 }
 
-struct ScalarHashImpl {
-  static std::hash<std::string> string_hash;
+namespace {
 
+struct ScalarHashImpl {
   Status Visit(const NullScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -75,7 +76,8 @@ struct ScalarHashImpl {
 
   Status Visit(const Decimal256Scalar& s) {
     Status status = Status::OK();
-    for (uint64_t elem : s.value.little_endian_array()) {
+    // endianness doesn't affect result
+    for (uint64_t elem : s.value.native_endian_array()) {
       status &= StdHash(elem);
     }
     return status;
@@ -95,8 +97,13 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
-  // TODO(bkietz) implement less wimpy hashing when these have ValueType
-  Status Visit(const UnionScalar& s) { return Status::OK(); }
+  Status Visit(const UnionScalar& s) {
+    // type_code is ignored when comparing for equality, so do not hash it either
+    AccumulateHashFrom(*s.value);
+    return Status::OK();
+  }
+
+  // TODO(bkietz) implement less wimpy hashing when this has ValueType
   Status Visit(const ExtensionScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -144,6 +151,8 @@ struct ScalarHashImpl {
 
   size_t hash_;
 };
+
+}  // namespace
 
 size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
 
@@ -283,6 +292,8 @@ std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar>
                                             std::move(type));
 }
 
+namespace {
+
 template <typename T>
 using scalar_constructor_has_arrow_type =
     std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;
@@ -308,6 +319,19 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
+  Status Visit(const SparseUnionType& type) { return MakeUnionScalar(type); }
+
+  Status Visit(const DenseUnionType& type) { return MakeUnionScalar(type); }
+
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status MakeUnionScalar(const T& type) {
+    if (type.num_fields() == 0) {
+      return Status::Invalid("Cannot make scalar of empty union type");
+    }
+    out_ = std::make_shared<ScalarType>(type.type_codes()[0], type_);
+    return Status::OK();
+  }
+
   std::shared_ptr<Scalar> Finish() && {
     // Should not fail.
     DCHECK_OK(VisitTypeInline(*type_, this));
@@ -317,6 +341,8 @@ struct MakeNullImpl {
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> out_;
 };
+
+}  // namespace
 
 std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
   return MakeNullImpl{std::move(type), nullptr}.Finish();
@@ -559,6 +585,19 @@ Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
 Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
   auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
   to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
+  return Status::OK();
+}
+
+Status CastImpl(const StructScalar& from, StringScalar* to) {
+  std::stringstream ss;
+  ss << '{';
+  for (int i = 0; static_cast<size_t>(i) < from.value.size(); i++) {
+    if (i > 0) ss << ", ";
+    ss << from.type->field(i)->name() << ':' << from.type->field(i)->type()->ToString()
+       << " = " << from.value[i]->ToString();
+  }
+  ss << '}';
+  to->value = Buffer::FromString(ss.str());
   return Status::OK();
 }
 

@@ -17,7 +17,7 @@
 
 # for compatibility with R versions earlier than 4.0.0
 if (!exists("deparse1")) {
-  deparse1 <- function (expr, collapse = " ", width.cutoff = 500L, ...) {
+  deparse1 <- function(expr, collapse = " ", width.cutoff = 500L, ...) {
     paste(deparse(expr, width.cutoff, ...), collapse = collapse)
   }
 }
@@ -48,7 +48,7 @@ assert_is_list_of <- function(object, class) {
 }
 
 is_list_of <- function(object, class) {
-  is.list(object) && all(map_lgl(object, ~inherits(., class)))
+  is.list(object) && all(map_lgl(object, ~ inherits(., class)))
 }
 
 empty_named_list <- function() structure(list(), .Names = character(0))
@@ -72,7 +72,7 @@ is_function <- function(expr, name) {
 
 all_funs <- function(expr) {
   names <- all_names(expr)
-  names[vapply(names, function(name) {is_function(expr, name)}, TRUE)]
+  names[vapply(names, function(name) is_function(expr, name), TRUE)]
 }
 
 all_vars <- function(expr) {
@@ -117,7 +117,7 @@ handle_parquet_io_error <- function(e, format) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
     abort(c(
-      msg, 
+      msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
     ))
   }
@@ -128,42 +128,41 @@ is_writable_table <- function(x) {
   inherits(x, c("data.frame", "ArrowTabular"))
 }
 
-# This attribute is used when is_writable is passed into assert_that, and allows 
+# This attribute is used when is_writable is passed into assert_that, and allows
 # the call to form part of the error message when is_writable is FALSE
-attr(is_writable_table, "fail") <- function(call, env){
+attr(is_writable_table, "fail") <- function(call, env) {
   paste0(
     deparse(call$x),
     " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
-    class(env[[deparse(call$x)]])[[1]], 
+    class(env[[deparse(call$x)]])[[1]],
     "'."
   )
 }
 
 #' Recycle scalar values in a list of arrays
-#' 
+#'
 #' @param arrays List of arrays
-#' @return List of arrays with any vector/Scalar/Array/ChunkedArray values of length 1 recycled 
+#' @return List of arrays with any vector/Scalar/Array/ChunkedArray values of length 1 recycled
 #' @keywords internal
-recycle_scalars <- function(arrays){
+recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
   arr_lens <- map_int(arrays, NROW)
-  
+
   is_scalar <- arr_lens == 1
-  
+
   if (length(arrays) > 1 && any(is_scalar) && !all(is_scalar)) {
-    
+
     # Recycling not supported for tibbles and data.frames
-    if (all(map_lgl(arrays, ~inherits(.x, "data.frame")))) {
-      
+    if (all(map_lgl(arrays, ~ inherits(.x, "data.frame")))) {
       abort(c(
-          "All input tibbles or data.frames must have the same number of rows",
-          x = paste(
-            "Number of rows in longest and shortest inputs:",
-            oxford_paste(c(max(arr_lens), min(arr_lens)))
-          )
+        "All input tibbles or data.frames must have the same number of rows",
+        x = paste(
+          "Number of rows in longest and shortest inputs:",
+          oxford_paste(c(max(arr_lens), min(arr_lens)))
+        )
       ))
     }
-    
+
     max_array_len <- max(arr_lens)
     arrays[is_scalar] <- lapply(arrays[is_scalar], repeat_value_as_array, max_array_len)
   }
@@ -171,12 +170,12 @@ recycle_scalars <- function(arrays){
 }
 
 #' Take an object of length 1 and repeat it.
-#' 
+#'
 #' @param object Object of length 1 to be repeated - vector, `Scalar`, `Array`, or `ChunkedArray`
 #' @param n Number of repetitions
-#' 
+#'
 #' @return `Array` of length `n`
-#' 
+#'
 #' @keywords internal
 repeat_value_as_array <- function(object, n) {
   if (inherits(object, "ChunkedArray")) {

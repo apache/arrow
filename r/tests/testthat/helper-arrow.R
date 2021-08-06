@@ -67,3 +67,9 @@ test_that <- function(what, code) {
 r_only <- function(code) {
   withr::with_options(list(..skip.tests = FALSE), code)
 }
+
+make_temp_dir <- function() {
+  path <- tempfile()
+  dir.create(path)
+  normalizePath(path, winslash = "/")
+}

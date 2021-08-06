@@ -29,6 +29,18 @@
 namespace arrow {
 namespace util {
 
+namespace {
+
+Status CheckSupportsCompressionLevel(Compression::type type) {
+  if (!Codec::SupportsCompressionLevel(type)) {
+    return Status::Invalid(
+        "The specified codec does not support the compression level parameter");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 
 Status Codec::Init() { return Status::OK(); }
@@ -101,6 +113,24 @@ bool Codec::SupportsCompressionLevel(Compression::type codec) {
     default:
       return false;
   }
+}
+
+Result<int> Codec::MaximumCompressionLevel(Compression::type codec_type) {
+  RETURN_NOT_OK(CheckSupportsCompressionLevel(codec_type));
+  ARROW_ASSIGN_OR_RAISE(auto codec, Codec::Create(codec_type));
+  return codec->maximum_compression_level();
+}
+
+Result<int> Codec::MinimumCompressionLevel(Compression::type codec_type) {
+  RETURN_NOT_OK(CheckSupportsCompressionLevel(codec_type));
+  ARROW_ASSIGN_OR_RAISE(auto codec, Codec::Create(codec_type));
+  return codec->minimum_compression_level();
+}
+
+Result<int> Codec::DefaultCompressionLevel(Compression::type codec_type) {
+  RETURN_NOT_OK(CheckSupportsCompressionLevel(codec_type));
+  ARROW_ASSIGN_OR_RAISE(auto codec, Codec::Create(codec_type));
+  return codec->default_compression_level();
 }
 
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,

@@ -6,7 +6,7 @@
   },
   "compilerOptions": {
     "target": "esnext",
-    "module": "es2020",
+    "module": "commonjs",
     "noEmit": true,
     "esModuleInterop": true,
     "baseUrl": "./",

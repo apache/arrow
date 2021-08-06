@@ -829,6 +829,14 @@ cdef class UnionScalar(Scalar):
         value = self.value
         return None if value is None else value.as_py()
 
+    @property
+    def type_code(self):
+        """
+        Return the union type code for this scalar.
+        """
+        cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
+        return sp.type_code
+
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,

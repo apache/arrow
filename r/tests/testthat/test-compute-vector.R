@@ -43,7 +43,7 @@ test_that("compare ops with Array", {
   expect_array_compares(Array$create(c(NA, 1:5)), 4)
   expect_array_compares(Array$create(as.numeric(c(NA, 1:5))), 4)
   expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5))))
-  expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5)), type=double()))
+  expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5)), type = double()))
 })
 
 test_that("compare ops with ChunkedArray", {
@@ -108,7 +108,7 @@ test_that("call_function validation", {
   )
   expect_error(
     call_function("filter", Array$create(1:4), 3),
-    'Argument 2 is of class numeric'
+    "Argument 2 is of class numeric"
   )
   expect_error(
     call_function("filter",

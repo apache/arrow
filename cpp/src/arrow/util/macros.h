@@ -116,6 +116,27 @@
 #endif
 // clang-format on
 
+// Macros to disable deprecation warnings
+
+#ifdef __clang__
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  _Pragma("clang diagnostic push");        \
+  _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__)
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  _Pragma("GCC diagnostic push");          \
+  _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
+#define ARROW_SUPPRESS_DEPRECATION_WARNING \
+  __pragma(warning(push)) __pragma(warning(disable : 4996))
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING __pragma(warning(pop))
+#else
+#define ARROW_SUPPRESS_DEPRECATION_WARNING
+#define ARROW_UNSUPPRESS_DEPRECATION_WARNING
+#endif
+
 // ----------------------------------------------------------------------
 
 // macros to disable padding

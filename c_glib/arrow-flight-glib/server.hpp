@@ -24,8 +24,15 @@
 #include <arrow-flight-glib/server.h>
 
 
+arrow::flight::FlightDataStream *
+gaflight_data_stream_get_raw(GAFlightDataStream *stream);
+
 arrow::flight::FlightServerOptions *
 gaflight_server_options_get_raw(GAFlightServerOptions *options);
+
+GAFlightServerCallContext *
+gaflight_server_call_context_new_raw(
+  const arrow::flight::ServerCallContext *flight_context);
 
 arrow::flight::FlightServerBase *
 gaflight_server_get_raw(GAFlightServer *server);

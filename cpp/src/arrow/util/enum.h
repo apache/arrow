@@ -21,12 +21,11 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace internal {
-
-constexpr bool IsSpace(char c) { return c == ' ' || c == '\n' || c == '\r'; }
 
 constexpr char ToLower(char c) { return c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c; }
 
@@ -43,68 +42,51 @@ constexpr bool CaseInsensitiveEquals(util::string_view l, util::string_view r) {
   return l.size() == r.size() && CaseInsensitiveEquals(l.data(), r.data(), l.size());
 }
 
-constexpr const char* SkipWhitespace(const char* raw) {
-  return *raw == '\0' || !IsSpace(*raw) ? raw : SkipWhitespace(raw + 1);
-}
+}  // namespace internal
 
-constexpr const char* SkipNonWhitespace(const char* raw) {
-  return *raw == '\0' || IsSpace(*raw) ? raw : SkipNonWhitespace(raw + 1);
-}
-
-constexpr size_t TokenSize(const char* token_start) {
-  return SkipNonWhitespace(token_start) - token_start;
-}
-
-constexpr size_t NextTokenStart(const char* raw, size_t token_start) {
-  return SkipWhitespace(SkipNonWhitespace(raw + token_start)) - raw;
-}
-
-template <typename Raw, size_t... Offsets>
-struct EnumTypeImpl {
-  static constexpr int kSize = sizeof...(Offsets);
-
-  static constexpr util::string_view kValueStrs[sizeof...(Offsets)] = {
-      {Raw::kValues + Offsets, TokenSize(Raw::kValues + Offsets)}...};
-
-  static constexpr int GetIndex(util::string_view repr, int i = 0) {
-    return i == kSize
-               ? -1
-               : CaseInsensitiveEquals(kValueStrs[i], repr) ? i : GetIndex(repr, i + 1);
+template <int N>
+struct EnumStrings {
+  template <int M>
+  static constexpr bool assert_count() {
+    static_assert(M == N, "Incorrect number of enum strings provided");
+    return false;
   }
+
+  template <typename... Strs>
+  constexpr EnumStrings(const Strs&... strs)  // NOLINT runtime/explicit
+      : dummy_{assert_count<sizeof...(Strs)>()}, strings_{util::string_view(strs)...} {}
+
+  constexpr int GetIndex(util::string_view repr, int i = 0) const {
+    return i == N ? -1
+                  : internal::CaseInsensitiveEquals(strings_[i], repr)
+                        ? i
+                        : GetIndex(repr, i + 1);
+  }
+
+  using value_type = util::string_view;
+  using const_iterator = const util::string_view*;
+
+  constexpr int size() const { return N; }
+  constexpr const util::string_view* data() const { return strings_; }
+  constexpr const_iterator begin() const { return data(); }
+  constexpr const_iterator end() const { return begin() + size(); }
+  constexpr util::string_view operator[](int i) const { return strings_[i]; }
+
+  bool dummy_;
+  util::string_view strings_[N];  // NOLINT modernize
 };
-
-template <typename Raw, size_t... Offsets>
-constexpr util::string_view const
-    EnumTypeImpl<Raw, Offsets...>::kValueStrs[sizeof...(Offsets)];
-
-/// \cond false
-template <typename Raw, bool IsEnd = false,
-          size_t MaxOffset = SkipWhitespace(Raw::kValues) - Raw::kValues,
-          size_t... Offsets>
-struct EnumTypeBuilder
-    : EnumTypeBuilder<Raw, Raw::kValues[NextTokenStart(Raw::kValues, MaxOffset)] == '\0',
-                      NextTokenStart(Raw::kValues, MaxOffset), Offsets..., MaxOffset> {};
-
-template <typename Raw, size_t TerminalNullOffset, size_t... Offsets>
-struct EnumTypeBuilder<Raw, /*IsEnd=*/true, TerminalNullOffset, Offsets...> {
-  using ImplType = EnumTypeImpl<Raw, Offsets...>;
-};
-
-// reuse struct as an alias for typename EnumTypeBuilder<Raw>::ImplType
-template <typename Raw>
-struct EnumTypeImpl<Raw> : EnumTypeBuilder<Raw>::ImplType {};
-/// \endcond
 
 struct EnumTypeTag {};
 
 /// \brief An enum replacement with minimal reflection capabilities.
 ///
 /// Declare an enum by inheriting from this helper with CRTP, including a
-/// static string literal data member containing the enum's values:
+/// static string literal member function returning the enum's values:
 ///
 ///     struct Color : EnumType<Color> {
 ///       using EnumType::EnumType;
-///       static constexpr char* kValues = "red green blue";
+///       static constexpr EnumStrings<3> values() { return {"red", "green", "blue"}; }
+///       static constexpr const char* name() { return "Color"; }
 ///     };
 ///
 /// Ensure the doccomment includes a description of each enum value.
@@ -117,18 +99,16 @@ struct EnumType : EnumTypeTag {
   constexpr EnumType() = default;
 
   constexpr explicit EnumType(int index)
-      : index{index >= 0 && index < EnumTypeImpl<Raw>::kSize ? index : -1} {}
+      : index{index >= 0 && index < Raw::values().size() ? index : -1} {}
 
   constexpr explicit EnumType(util::string_view repr)
-      : index{EnumTypeImpl<Raw>::GetIndex(repr)} {}
+      : index{Raw::values().GetIndex(repr)} {}
 
   constexpr bool operator==(EnumType other) const { return index == other.index; }
   constexpr bool operator!=(EnumType other) const { return index != other.index; }
 
   /// Return the string representation of this enum value.
-  std::string ToString() const {
-    return EnumTypeImpl<Raw>::kValueStrs[index].to_string();
-  }
+  std::string ToString() const { return Raw::values()[index].to_string(); }
 
   /// \brief Valid enum values will be truthy.
   ///
@@ -140,12 +120,31 @@ struct EnumType : EnumTypeTag {
   constexpr int operator*() const { return index; }
 
   /// The number of values in this enumeration.
-  static constexpr int size() { return EnumTypeImpl<Raw>::kSize; }
+  static constexpr int size() { return Raw::values().size(); }
 
-  /// String representations of each value in this enumeration.
-  static std::vector<util::string_view> value_strings() {
-    const util::string_view* begin = EnumTypeImpl<Raw>::kValueStrs;
-    return {begin, begin + size()};
+  /// Construct a valid enum from int or raise an error
+  static Result<Raw> Make(int index) {
+    if (auto valid = Raw(index)) return valid;
+    return Status::Invalid("index ", index, " for enum ", Raw::name(),
+                           "- index should be in range [0, ", Raw::values().size(), ")");
+  }
+
+  /// Construct a valid enum from repr or raise an error
+  static Result<Raw> Make(util::string_view repr) {
+    if (auto valid = Raw(repr)) return valid;
+
+    std::string values;
+    static std::string sep = ", ";
+    for (auto value : Raw::values()) {
+      values.append("'");
+      values.append(value.data(), value.size());
+      values.append("'");
+      values.append(sep);
+    }
+    values.resize(values.size() - sep.size());
+
+    return Status::Invalid("string '", repr, "' for enum ", Raw::name(),
+                           "- string should be one of {", values, "}");
   }
 
   int index = -1;
@@ -158,5 +157,4 @@ struct EnumType : EnumTypeTag {
 template <typename T>
 using is_reflection_enum = std::is_base_of<EnumTypeTag, T>;
 
-}  // namespace internal
 }  // namespace arrow

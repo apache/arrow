@@ -61,8 +61,13 @@ func FromI64(v int64) Num {
 // FromBigInt will convert a big.Int to a Num, if the value in v has a
 // BitLen > 128, this will panic.
 func FromBigInt(v *big.Int) (n Num) {
-	if v.BitLen() > 128 {
+	bitlen := v.BitLen()
+	if bitlen > 128 {
 		panic("arrow/decimal128: cannot represent value larger than 128bits")
+	} else if bitlen == 0 {
+		// if bitlen is 0, then the value is 0 so return the default zeroed
+		// out n
+		return
 	}
 
 	// if the value is negative, then get the high and low bytes from
@@ -73,7 +78,7 @@ func FromBigInt(v *big.Int) (n Num) {
 	b := v.Bits()
 	n.lo = uint64(b[0])
 	if len(b) > 1 {
-		n.hi = int64(v.Bits()[1])
+		n.hi = int64(b[1])
 	}
 	if v.Sign() < 0 {
 		return n.negated()

@@ -218,21 +218,19 @@ enum CompareOperator : int8_t {
   LESS_EQUAL,
 };
 
-class ARROW_EXPORT CompareOptions : public FunctionOptions {
- public:
-  explicit CompareOptions(CompareOperator op);
-  CompareOptions();
-  constexpr static char const kTypeName[] = "CompareOptions";
+struct ARROW_EXPORT CompareOptions {
+  explicit CompareOptions(CompareOperator op) : op(op) {}
+  CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
   enum CompareOperator op;
 };
 
-class ARROW_EXPORT ProjectOptions : public FunctionOptions {
+class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
  public:
-  ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                 std::vector<std::shared_ptr<const KeyValueMetadata>> m);
-  explicit ProjectOptions(std::vector<std::string> n);
-  ProjectOptions();
-  constexpr static char const kTypeName[] = "ProjectOptions";
+  MakeStructOptions(std::vector<std::string> n, std::vector<bool> r,
+                    std::vector<std::shared_ptr<const KeyValueMetadata>> m);
+  explicit MakeStructOptions(std::vector<std::string> n);
+  MakeStructOptions();
+  constexpr static char const kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -487,6 +485,35 @@ ARROW_EXPORT
 Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
+/// \brief Round to the nearest integer less than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] ctx the function execution context, optional
+/// \return the rounded value
+ARROW_EXPORT
+Result<Datum> Floor(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Round to the nearest integer greater than or equal in magnitude to the
+/// argument. Array values can be of arbitrary length. If argument is null the
+/// result will be null.
+///
+/// \param[in] arg the value to round
+/// \param[in] ctx the function execution context, optional
+/// \return the rounded value
+ARROW_EXPORT
+Result<Datum> Ceil(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Get the integral part without fractional digits. Array values can be
+/// of arbitrary length. If argument is null the result will be null.
+///
+/// \param[in] arg the value to truncate
+/// \param[in] ctx the function execution context, optional
+/// \return the truncated value
+ARROW_EXPORT
+Result<Datum> Trunc(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///
@@ -513,6 +540,15 @@ Result<Datum> MinElementWise(
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Get the sign of a value. Array values can be of arbitrary length. If argument
+/// is null the result will be null.
+///
+/// \param[in] arg the value to extract sign from
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise sign function
+ARROW_EXPORT
+Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Compare a numeric array with a scalar.
 ///
 /// \param[in] left datum to compare, must be an Array
@@ -526,6 +562,7 @@ Result<Datum> MinElementWise(
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
+ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
 ARROW_EXPORT
 Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
                       ExecContext* ctx = NULLPTR);
@@ -740,6 +777,23 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
 ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
+
+/// \brief CaseWhen behaves like a switch/case or if-else if-else statement: for
+/// each row, select the first value for which the corresponding condition is
+/// true, or (if given) select the 'else' value, else emit null. Note that a
+/// null condition is the same as false.
+///
+/// \param[in] cond Conditions (Boolean)
+/// \param[in] cases Values (any type), along with an optional 'else' value.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
+                       ExecContext* ctx = NULLPTR);
 
 /// \brief Year returns year for each element of `values`
 ///

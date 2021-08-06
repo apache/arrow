@@ -2120,13 +2120,15 @@ G_END_DECLS
 template<typename ArrowUnionScalarType>
 GArrowScalar *
 garrow_union_scalar_new(GArrowDataType *data_type,
+                        gint8 type_code,
                         GArrowScalar *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_value = garrow_scalar_get_raw(value);
   auto arrow_scalar =
     std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<ArrowUnionScalarType>(arrow_value, arrow_data_type));
+      std::make_shared<ArrowUnionScalarType>(arrow_value, type_code,
+                                             arrow_data_type));
   auto scalar = garrow_scalar_new_raw(&arrow_scalar,
                                       "scalar", &arrow_scalar,
                                       "data-type", data_type,
@@ -2135,6 +2137,23 @@ garrow_union_scalar_new(GArrowDataType *data_type,
   return scalar;
 }
 G_BEGIN_DECLS
+
+/**
+ * garrow_union_scalar_get_type_code:
+ * @scalar: A #GArrowUnionScalar.
+ *
+ * Returns: The type code of this scalar.
+ *
+ * Since: 6.0.0
+ */
+gint8
+garrow_union_scalar_get_type_code(GArrowUnionScalar *scalar)
+{
+  const auto &arrow_scalar =
+    std::static_pointer_cast<arrow::UnionScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->type_code;
+}
 
 /**
  * garrow_union_scalar_get_value:
@@ -2169,6 +2188,7 @@ garrow_sparse_union_scalar_class_init(GArrowSparseUnionScalarClass *klass)
 /**
  * garrow_sparse_union_scalar_new:
  * @data_type: A #GArrowSparseUnionDataType for this scalar.
+ * @type_code: The type code of this scalar.
  * @value: The value of this scalar.
  *
  * Returns: A newly created #GArrowSparseUnionScalar.
@@ -2177,11 +2197,12 @@ garrow_sparse_union_scalar_class_init(GArrowSparseUnionScalarClass *klass)
  */
 GArrowSparseUnionScalar *
 garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
+                               gint8 type_code,
                                GArrowScalar *value)
 {
   return GARROW_SPARSE_UNION_SCALAR(
     garrow_union_scalar_new<arrow::SparseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), value));
+      GARROW_DATA_TYPE(data_type), type_code, value));
 }
 
 
@@ -2202,6 +2223,7 @@ garrow_dense_union_scalar_class_init(GArrowDenseUnionScalarClass *klass)
 /**
  * garrow_dense_union_scalar_new:
  * @data_type: A #GArrowDenseUnionDataType for this scalar.
+ * @type_code: The type code of this scalar.
  * @value: The value of this scalar.
  *
  * Returns: A newly created #GArrowDenseUnionScalar.
@@ -2210,11 +2232,12 @@ garrow_dense_union_scalar_class_init(GArrowDenseUnionScalarClass *klass)
  */
 GArrowDenseUnionScalar *
 garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
+                              gint8 type_code,
                               GArrowScalar *value)
 {
   return GARROW_DENSE_UNION_SCALAR(
     garrow_union_scalar_new<arrow::DenseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), value));
+      GARROW_DATA_TYPE(data_type), type_code, value));
 }
 
 

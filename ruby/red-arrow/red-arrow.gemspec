@@ -48,7 +48,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency("bigdecimal", ">= 2.0.3")
   spec.add_runtime_dependency("extpp", ">= 0.0.7")
-  spec.add_runtime_dependency("gio2", ">= 3.4.5")
+  spec.add_runtime_dependency("gio2", ">= 3.4.7")
   spec.add_runtime_dependency("native-package-installer")
   spec.add_runtime_dependency("pkg-config")
 

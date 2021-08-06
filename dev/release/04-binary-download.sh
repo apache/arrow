@@ -36,4 +36,4 @@ crossbow_job_prefix="release-${version_with_rc}"
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 
-archery crossbow download-artifacts ${CROSSBOW_JOB_ID}
+archery crossbow download-artifacts ${CROSSBOW_JOB_ID} --no-fetch

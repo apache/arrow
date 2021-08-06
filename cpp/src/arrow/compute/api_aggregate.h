@@ -205,30 +205,44 @@ Result<Datum> MinMax(
 /// \brief Test whether any element in a boolean array evaluates to true.
 ///
 /// This function returns true if any of the elements in the array evaluates
-/// to true and false otherwise. Null values are skipped.
+/// to true and false otherwise. Null values are ignored by default.
+/// If null values are taken into account by setting ScalarAggregateOptions
+/// parameter skip_nulls = false then Kleene logic is used.
+/// See KleeneOr for more details on Kleene logic.
 ///
 /// \param[in] value input datum, expecting a boolean array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
 ///
 /// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Any(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Any(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Test whether all elements in a boolean array evaluate to true.
 ///
 /// This function returns true if all of the elements in the array evaluate
-/// to true and false otherwise. Null values are skipped.
+/// to true and false otherwise. Null values are ignored by default.
+/// If null values are taken into account by setting ScalarAggregateOptions
+/// parameter skip_nulls = false then Kleene logic is used.
+/// See KleeneAnd for more details on Kleene logic.
 ///
 /// \param[in] value input datum, expecting a boolean array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
 
 /// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> All(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> All(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the modal (most common) value of a numeric array
 ///
@@ -411,7 +425,7 @@ struct ARROW_EXPORT Aggregate {
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates,
+                      const std::vector<Aggregate>& aggregates, bool use_threads = false,
                       ExecContext* ctx = default_exec_context());
 
 }  // namespace internal

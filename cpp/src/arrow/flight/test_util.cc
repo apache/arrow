@@ -212,12 +212,26 @@ class FlightTestServer : public FlightServerBase {
     if (request.ticket == "ARROW-5095-success") {
       return Status::OK();
     }
+    if (request.ticket == "ARROW-13253-DoGet-Batch") {
+      // Make batch > 2GiB in size
+      ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
+      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
+      *data_stream =
+          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      return Status::OK();
+    }
 
     std::shared_ptr<RecordBatchReader> batch_reader;
     RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
 
     *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
     return Status::OK();
+  }
+
+  Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    BatchVector batches;
+    return reader->ReadAll(&batches);
   }
 
   Status DoExchange(const ServerCallContext& context,
@@ -242,6 +256,8 @@ class FlightTestServer : public FlightServerBase {
       return RunExchangeTotal(std::move(reader), std::move(writer));
     } else if (cmd == "echo") {
       return RunExchangeEcho(std::move(reader), std::move(writer));
+    } else if (cmd == "large_batch") {
+      return RunExchangeLargeBatch(std::move(reader), std::move(writer));
     } else {
       return Status::NotImplemented("Scenario not implemented: ", cmd);
     }
@@ -399,6 +415,14 @@ class FlightTestServer : public FlightServerBase {
       }
     }
     return Status::OK();
+  }
+
+  // Regression test for ARROW-13253
+  Status RunExchangeLargeBatch(std::unique_ptr<FlightMessageReader>,
+                               std::unique_ptr<FlightMessageWriter> writer) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
+    RETURN_NOT_OK(writer->Begin(batch->schema()));
+    return writer->WriteRecordBatch(*batch);
   }
 
   Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
@@ -614,6 +638,22 @@ Status ExampleLargeBatches(BatchVector* out) {
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   return Status::OK();
+}
+
+arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
+  // In CI, some platforms don't let us allocate one very large
+  // buffer, so allocate a smaller buffer and repeat it a few times
+  constexpr int64_t nbytes = (1ul << 27ul) + 8ul;
+  constexpr int64_t nrows = nbytes / 8;
+  constexpr int64_t ncols = 16;
+  ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(nbytes));
+  std::memset(values->mutable_data(), 0x00, values->capacity());
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, std::move(values)};
+  auto array = std::make_shared<ArrayData>(int64(), nrows, buffers,
+                                           /*null_count=*/0);
+  std::vector<std::shared_ptr<ArrayData>> arrays(ncols, array);
+  std::vector<std::shared_ptr<Field>> fields(ncols, field("a", int64()));
+  return RecordBatch::Make(schema(std::move(fields)), nrows, std::move(arrays));
 }
 
 std::vector<ActionType> ExampleActionTypes() {

@@ -81,21 +81,21 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
-#' @examplesIf arrow_with_dataset() & arrow_with_parquet() 
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
 #' on.exit(unlink(tf))
-#' 
+#'
 #' data <- dplyr::group_by(mtcars, cyl)
 #' write_dataset(data, tf)
-#' 
+#'
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
 #' open_dataset(tf)
-#' 
+#'
 #' # You can also supply a vector of paths
-#' open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf,"cyl=8/part-2.parquet")))
+#' open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf, "cyl=8/part-2.parquet")))
 #'
 #' ## You must specify the file format if using a format other than parquet.
 #' tf2 <- tempfile()
@@ -103,28 +103,30 @@
 #' on.exit(unlink(tf2))
 #' write_dataset(data, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
-#' \dontrun{open_dataset(tf2)}
+#' \dontrun{
+#' open_dataset(tf2)
+#' }
 #' # This line will work
-#' open_dataset(tf2, format = "ipc") 
-#' 
+#' open_dataset(tf2, format = "ipc")
+#'
 #' ## You can specify file partitioning to include it as a field in your dataset
 #' # Create a temporary directory and write example dataset
 #' tf3 <- tempfile()
 #' dir.create(tf3)
 #' on.exit(unlink(tf3))
 #' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
-#' 
-#' # View files - you can see the partitioning means that files have been written 
+#'
+#' # View files - you can see the partitioning means that files have been written
 #' # to folders based on Month/Day values
-#' list.files(tf3, recursive = TRUE)
-#' 
+#' tf3_files <- list.files(tf3, recursive = TRUE)
+#'
 #' # With no partitioning specified, dataset contains all files but doesn't include
 #' # directory names as field names
 #' open_dataset(tf3)
-#' 
+#'
 #' # Now that partitioning has been specified, your dataset contains columns for Month and Day
 #' open_dataset(tf3, partitioning = c("Month", "Day"))
-#' 
+#'
 #' # If you want to specify the data types for your fields, you can pass in a Schema
 #' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 open_dataset <- function(sources,
@@ -137,7 +139,7 @@ open_dataset <- function(sources,
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
         # Default is to unify schemas here
-        schema <- unify_schemas(schemas = map(sources, ~.$schema))
+        schema <- unify_schemas(schemas = map(sources, ~ .$schema))
       } else {
         # Take the first one.
         schema <- sources[[1]]$schema
@@ -151,12 +153,12 @@ open_dataset <- function(sources,
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
-  
+
   factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
-    error = function(e){
+    error = function(e) {
       handle_parquet_io_error(e, format)
     }
   )
@@ -220,7 +222,8 @@ open_dataset <- function(sources,
 #'
 #' @export
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
-Dataset <- R6Class("Dataset", inherit = ArrowObject,
+Dataset <- R6Class("Dataset",
+  inherit = ArrowObject,
   public = list(
     # @description
     # Start a new scan of the data
@@ -250,7 +253,8 @@ Dataset$create <- open_dataset
 #' @name FileSystemDataset
 #' @rdname Dataset
 #' @export
-FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
+FileSystemDataset <- R6Class("FileSystemDataset",
+  inherit = Dataset,
   public = list(
     .class_title = function() {
       nfiles <- length(self$files)
@@ -289,7 +293,8 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
 #' @name UnionDataset
 #' @rdname Dataset
 #' @export
-UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
+UnionDataset <- R6Class("UnionDataset",
+  inherit = Dataset,
   active = list(
     # @description
     # Return the UnionDataset's child `Dataset`s

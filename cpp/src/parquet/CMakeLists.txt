@@ -232,10 +232,7 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
 endif(NOT PARQUET_MINIMAL_DEPENDENCY)
 
-if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PARQUET_SHARED_LINK_FLAGS
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
@@ -327,7 +324,7 @@ add_parquet_test(internals-test
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
-add_parquet_test(reader_test
+add_parquet_test(reader-test
                  SOURCES
                  column_reader_test.cc
                  level_conversion_test.cc

@@ -409,10 +409,24 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
 /// \brief Construct a source ExecNode which yields batches from a dataset scan.
 ///
-/// Does not construct associated filter or project nodes
+/// Does not construct associated filter or project nodes.
+/// Yielded batches will be augmented with fragment/batch indices to enable stable
+/// ordering for simple ExecPlans.
 ARROW_DS_EXPORT Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*,
                                                         std::shared_ptr<Dataset>,
                                                         std::shared_ptr<ScanOptions>);
+
+/// \brief Construct a ProjectNode which preserves fragment/batch indices.
+ARROW_DS_EXPORT Result<compute::ExecNode*> MakeAugmentedProjectNode(
+    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
+    std::vector<std::string> names = {});
+
+/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+///
+/// Emitted batches will be ordered by fragment and batch indices, or an error
+/// will be raised if those fields are not available in the input.
+ARROW_DS_EXPORT Result<AsyncGenerator<util::optional<compute::ExecBatch>>>
+MakeOrderedSinkNode(compute::ExecNode*, std::string label);
 
 /// @}
 

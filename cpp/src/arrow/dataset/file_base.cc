@@ -37,6 +37,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
@@ -197,12 +198,14 @@ struct FileSystemDataset::FragmentSubtrees {
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, compute::Expression root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
-    std::vector<std::shared_ptr<FileFragment>> fragments) {
+    std::vector<std::shared_ptr<FileFragment>> fragments,
+    std::shared_ptr<Partitioning> partitioning) {
   std::shared_ptr<FileSystemDataset> out(
       new FileSystemDataset(std::move(schema), std::move(root_partition)));
   out->format_ = std::move(format);
   out->filesystem_ = std::move(filesystem);
   out->fragments_ = std::move(fragments);
+  out->partitioning_ = std::move(partitioning);
   out->SetupSubtreePruning();
   return out;
 }
@@ -519,23 +522,13 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
+  ARROW_SUPPRESS_DEPRECATION_WARNING
 
   // TODO(ARROW-11782/ARROW-12288) Remove calls to Scan()
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
   ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   WriteState state(write_options);
   RETURN_NOT_OK(WriteInternal(*scanner->options(), &state, std::move(scan_tasks)));
@@ -544,7 +537,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   for (const auto& part_queue : state.queues) {
     task_group->Append([&] {
       RETURN_NOT_OK(write_options.writer_pre_finish(part_queue.second->writer().get()));
-      return part_queue.second->writer()->Finish();
+      RETURN_NOT_OK(part_queue.second->writer()->Finish());
+      return write_options.writer_post_finish(part_queue.second->writer().get());
     });
   }
   return task_group->Finish();

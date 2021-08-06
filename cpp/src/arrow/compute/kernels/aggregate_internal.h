@@ -55,6 +55,10 @@ struct ScalarAggregator : public KernelState {
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
 };
 
+// Helper to differentiate between var/std calculation so we can fold
+// kernel implementations together
+enum class VarOrStd : bool { Var, Std };
+
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE);
@@ -63,9 +67,15 @@ namespace detail {
 
 using arrow::internal::VisitSetBitRunsVoid;
 
+// SumArray must be parameterized with the SIMD level since it's called both from
+// translation units with and without vectorization. Normally it gets inlined but
+// if not, without the parameter, we'll have multiple definitions of the same
+// symbol and we'll get unexpected results.
+
 // non-recursive pairwise summation for floating points
 // https://en.wikipedia.org/wiki/Pairwise_summation
-template <typename ValueType, typename SumType, typename ValueFunc>
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
+          typename ValueFunc>
 enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
   const int64_t data_size = data.length - data.GetNullCount();
@@ -139,7 +149,8 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 }
 
 // naive summation for integers
-template <typename ValueType, typename SumType, typename ValueFunc>
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
+          typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
   SumType sum = 0;
@@ -153,9 +164,9 @@ enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
   return sum;
 }
 
-template <typename ValueType, typename SumType>
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel>
 SumType SumArray(const ArrayData& data) {
-  return SumArray<ValueType, SumType>(
+  return SumArray<ValueType, SumType, SimdLevel>(
       data, [](ValueType v) { return static_cast<SumType>(v); });
 }
 

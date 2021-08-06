@@ -70,7 +70,7 @@ test_that("Table S3 methods", {
 })
 
 test_that("Table $column and $field", {
-  tab <- Table$create(x = 1:10, y  = 1:10)
+  tab <- Table$create(x = 1:10, y = 1:10)
 
   expect_equal(tab$field(0), field("x", int32()))
 
@@ -100,26 +100,26 @@ test_that("[, [[, $ for Table", {
 
   expect_identical(names(tab), names(tbl))
 
-  expect_data_frame(tab[6:7,], tbl[6:7,])
+  expect_data_frame(tab[6:7, ], tbl[6:7, ])
   expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
   expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_as_vector(tab[, "chr", drop = TRUE], tbl$chr)
   # Take within a single chunk
   expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
-  expect_data_frame(tab[rep(c(FALSE, TRUE), 5),], tbl[c(2, 4, 6, 8, 10),])
+  expect_data_frame(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
   # bool ChunkedArray (with one chunk)
-  expect_data_frame(tab[tab$lgl,], tbl[tbl$lgl,])
+  expect_data_frame(tab[tab$lgl, ], tbl[tbl$lgl, ])
   # ChunkedArray with multiple chunks
   c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
   c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)
   ca <- ChunkedArray$create(c1, c2)
-  expect_data_frame(tab[ca,], tbl[c(1, 3, 4, 8, 9),])
+  expect_data_frame(tab[ca, ], tbl[c(1, 3, 4, 8, 9), ])
   # int Array
   expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
   # ChunkedArray
   expect_data_frame(tab[ChunkedArray$create(5L, 6L), 2:4], tbl[6:7, 2:4])
   # Expression
-  expect_data_frame(tab[tab$int > 6,], tbl[tbl$int > 6,])
+  expect_data_frame(tab[tab$int > 6, ], tbl[tbl$int > 6, ])
 
   expect_as_vector(tab[["int"]], tbl$int)
   expect_as_vector(tab$int, tbl$int)
@@ -134,14 +134,14 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
-  expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+  expect_error(tab[[c("asdf", "jkl;")]], "length(name) not equal to 1", fixed = TRUE)
   expect_error(tab[-3:3], "Invalid column index")
-  expect_error(tab[1000],  "Invalid column index")
+  expect_error(tab[1000], "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")
 
   # input validation
   expect_error(tab[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
-  expect_error(tab[, c(6, NA)], 'Column indices cannot be NA')
+  expect_error(tab[, c(6, NA)], "Column indices cannot be NA")
 
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])
@@ -226,10 +226,10 @@ test_that("Table$Slice", {
   )
   tab <- Table$create(tbl)
   tab2 <- tab$Slice(5)
-  expect_data_frame(tab2, tbl[6:10,])
+  expect_data_frame(tab2, tbl[6:10, ])
 
   tab3 <- tab$Slice(5, 2)
-  expect_data_frame(tab3, tbl[6:7,])
+  expect_data_frame(tab3, tbl[6:7, ])
 
   # Input validation
   expect_error(tab$Slice("ten"))
@@ -334,7 +334,8 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
   )
   res <- as.data.frame(tab)
   expect_equal(names(res), c("a", "b", "c", "x", "y"))
-  expect_equal(res,
+  expect_equal(
+    res,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
@@ -395,8 +396,10 @@ test_that("==.Table", {
 
 test_that("Table$Equals(check_metadata)", {
   tab1 <- Table$create(x = 1:2, y = c("a", "b"))
-  tab2 <- Table$create(x = 1:2, y = c("a", "b"),
-                       schema = tab1$schema$WithMetadata(list(some="metadata")))
+  tab2 <- Table$create(
+    x = 1:2, y = c("a", "b"),
+    schema = tab1$schema$WithMetadata(list(some = "metadata"))
+  )
 
   expect_r6_class(tab1, "Table")
   expect_r6_class(tab2, "Table")
@@ -408,8 +411,8 @@ test_that("Table$Equals(check_metadata)", {
   expect_true(tab1$Equals(tab2))
   expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
-  expect_failure(expect_equal(tab1, tab2))  # expect_equal has check_metadata=TRUE
-  expect_equivalent(tab1, tab2)  # expect_equivalent has check_metadata=FALSE
+  expect_failure(expect_equal(tab1, tab2)) # expect_equal has check_metadata=TRUE
+  expect_equivalent(tab1, tab2) # expect_equivalent has check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })
@@ -420,10 +423,10 @@ test_that("Table handles null type (ARROW-7064)", {
 })
 
 test_that("Can create table with specific dictionary types", {
-  fact <- example_data[,"fct"]
+  fact <- example_data[, "fct"]
   int_types <- c(int8(), int16(), int32(), int64())
   # TODO: test uint types when format allows
-  # uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  # uint_types <- c(uint8(), uint16(), uint32(), uint64()) # nolint
   for (i in int_types) {
     sch <- schema(fct = dictionary(i, utf8()))
     tab <- Table$create(fact, schema = sch)
@@ -481,22 +484,20 @@ test_that("Table$create() scalar recycling with vectors", {
 })
 
 test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
 })
 
 test_that("Table$create() no recycling with tibbles", {
@@ -507,7 +508,7 @@ test_that("Table$create() no recycling with tibbles", {
     ),
     regexp = "All input tibbles or data.frames must have the same number of rows"
   )
-  
+
   expect_error(
     Table$create(
       tibble::tibble(a = 1:10, b = 5),
@@ -533,11 +534,9 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
       dplyr::group_vars(),
     c("fct", "fct2")
   )
-
 })
 
 test_that("ARROW-12729 - length returns number of columns in Table", {
-
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
@@ -547,5 +546,4 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
   tab <- Table$create(!!!tbl)
 
   expect_identical(length(tab), 3L)
-
 })

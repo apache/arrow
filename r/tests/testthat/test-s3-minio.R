@@ -75,7 +75,6 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   })
 
   if (arrow_with_dataset()) {
-
     library(dplyr)
 
     make_temp_dir <- function() {
@@ -183,7 +182,6 @@ if (arrow_with_s3() && process_is_running("minio server")) {
         rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
       )
     })
-
   }
 
   test_that("S3FileSystem input validation", {

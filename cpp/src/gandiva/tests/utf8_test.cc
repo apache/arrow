@@ -715,4 +715,37 @@ TEST_F(TestUtf8, TestAscii) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_asc, outputs.at(0));
 }
 
+TEST_F(TestUtf8, TestSpace) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_space = field("space", arrow::utf8());
+
+  // Build expression
+  auto space_expr = TreeExprBuilder::MakeExpression("space", {field0}, field_space);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {space_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt64({1, 0, -5, 2}, {true, true, true, true});
+  // expected output
+  auto exp_space = MakeArrowArrayUtf8({" ", "", "", "  "}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_space, outputs.at(0));
+}
+
 }  // namespace gandiva

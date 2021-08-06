@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/testing/macros.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -137,12 +137,12 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      SUPPRESS_DEPRECATION_WARNING;
+      ARROW_SUPPRESS_DEPRECATION_WARNING
       batch = static_cast<int>(reader->ReadBatchSpaced(
           batch_size, dresult.data() + levels_actual, rresult.data() + levels_actual,
           vresult.data() + batch_actual, valid_bits.data() + batch_actual, 0,
           &levels_read, &values_read, &null_count));
-      UNSUPPRESS_DEPRECATION_WARNING;
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
       total_values_read += batch - static_cast<int>(null_count);
       batch_actual += batch;
       levels_actual += static_cast<int>(levels_read);
@@ -162,11 +162,11 @@ class TestPrimitiveReader : public ::testing::Test {
       ASSERT_TRUE(vector_equal(rep_levels_, rresult));
     }
     // catch improper writes at EOS
-    SUPPRESS_DEPRECATION_WARNING;
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     batch_actual = static_cast<int>(
         reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr, valid_bits.data(), 0,
                                 &levels_read, &values_read, &null_count));
-    UNSUPPRESS_DEPRECATION_WARNING;
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, null_count);
   }

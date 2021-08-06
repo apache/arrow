@@ -400,6 +400,24 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkDate) {
                  ArrayFromJSON(date32(), "[null]")});
 }
 
+TEST_F(InferringColumnBuilderTest, SingleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "01:23:45", "NA"}}, options,
+                {ArrayFromJSON(time32(TimeUnit::SECOND), "[null, 5025, null]")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTime) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = time32(TimeUnit::SECOND);
+
+  CheckInferred(tg, {{""}, {"01:23:45"}, {"NA"}}, options,
+                {ArrayFromJSON(type, "[null]"), ArrayFromJSON(type, "[5025]"),
+                 ArrayFromJSON(type, "[null]")});
+}
+
 TEST_F(InferringColumnBuilderTest, SingleChunkTimestamp) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
@@ -451,6 +469,46 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkTimestampNS) {
                  {"2018-11-13 17:11:10.123", "2018-11-13 17:11:10.123456",
                   "2018-11-13 17:11:10.123456789"}},
                 options, expected);
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkIntegerAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "99", "01:23:45", "NA"}}, options,
+                {ArrayFromJSON(utf8(), R"(["", "99", "01:23:45", "NA"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkIntegerAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = utf8();
+
+  CheckInferred(tg, {{""}, {"99"}, {"01:23:45", "NA"}}, options,
+                {ArrayFromJSON(type, R"([""])"), ArrayFromJSON(type, R"(["99"])"),
+                 ArrayFromJSON(type, R"(["01:23:45", "NA"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, SingleChunkDateAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"", "01:23:45", "1998-04-05"}}, options,
+                {ArrayFromJSON(utf8(), R"(["", "01:23:45", "1998-04-05"])")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkDateAndTime) {
+  // Fallback to utf-8
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  auto type = utf8();
+
+  CheckInferred(tg, {{""}, {"01:23:45"}, {"1998-04-05"}}, options,
+                {ArrayFromJSON(type, R"([""])"), ArrayFromJSON(type, R"(["01:23:45"])"),
+                 ArrayFromJSON(type, R"(["1998-04-05"])")});
 }
 
 TEST_F(InferringColumnBuilderTest, SingleChunkString) {
