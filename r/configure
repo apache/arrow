@@ -129,6 +129,9 @@ else
         # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
+      if [ `R CMD config LTO` = "-flto" ]; then
+        LIBARROW_MINIMAL=true; export LIBARROW_MINIMAL
+      fi
       # Set some default values/backwards compatibility
       if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
         LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
