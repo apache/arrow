@@ -24,9 +24,6 @@ source_dir=${1}/r
 
 pushd ${source_dir}
 
-# Install R package dependencies
-${R_BIN} -e "install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys'))"
-
 if [ ${R_BIN} = "RDsan" ]; then
   # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
   ${R_BIN} -e 'd <- read.dcf("DESCRIPTION")
@@ -35,6 +32,14 @@ if [ ${R_BIN} = "RDsan" ]; then
   d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
   write.dcf(d, "DESCRIPTION")'
 fi
+
+# Install R package dependencies
+# install.packages() emits warnings if packages fail to install,
+# but we want to error/fail the build.
+# options(warn=2) turns warnings into errors
+${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps()"
+# Separately install the optional/test dependencies but don't error on them,
+# they're not available everywhere and that's ok
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
 
 popd
