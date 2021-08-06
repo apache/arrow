@@ -37,9 +37,9 @@ fi
 # install.packages() emits warnings if packages fail to install,
 # but we want to error/fail the build.
 # options(warn=2) turns warnings into errors
-${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps()"
+${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps(INSTALL_opts = '"${INSTALL_ARGS}"')"
 # Separately install the optional/test dependencies but don't error on them,
 # they're not available everywhere and that's ok
-${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
+${R_BIN} -e "remotes::install_deps(dependencies = TRUE, INSTALL_opts = '"${INSTALL_ARGS}"')"
 
 popd
