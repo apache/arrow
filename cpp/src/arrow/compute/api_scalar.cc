@@ -286,7 +286,6 @@ constexpr char DayOfWeekOptions::kTypeName[];
 NanNullOptions::NanNullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNanNullOptionsType),
       nan_is_null(nan_is_null) {}
-NanNullOptions::NanNullOptions() : NanNullOptions(false) {}
 constexpr char NanNullOptions::kTypeName[];
 
 namespace internal {

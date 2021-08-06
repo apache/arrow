@@ -77,13 +77,11 @@ struct IsInfOperator {
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    bool nan_is_null = false;
-    if (in.is_valid && in.ToString() == "nan") {
-      if (in.type == float16() || in.type == float32() || in.type == float64()) {
-        nan_is_null = true;
-        checked_cast<BooleanScalar*>(out)->value = nan_is_null;
-        return Status::OK();
-      }
+    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    bool is_nan_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+    if (in.is_valid && is_floating(in.type->id()) && options.nan_is_null && is_nan_value) {
+      checked_cast<BooleanScalar*>(out)->value = true;
+      return Status::OK();
     }
 
     checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
