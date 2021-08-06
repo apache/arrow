@@ -1718,11 +1718,11 @@ struct GroupedMinMaxFactory {
   }
 
   Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
@@ -2313,7 +2313,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_min_max", Arity::Binary(), &hash_min_max_doc,
         &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
     // Type parameters are ignored
     DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
