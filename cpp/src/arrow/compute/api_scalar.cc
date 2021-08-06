@@ -159,6 +159,8 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kNanNullOptionsType = GetFunctionOptionsType<NanNullOptions>(
+    DataMember("nan_is_null", &NanNullOptions::nan_is_null));
 }  // namespace
 }  // namespace internal
 
@@ -281,6 +283,12 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
+NanNullOptions::NanNullOptions(bool nan_is_null)
+    : FunctionOptions(internal::kNanNullOptionsType),
+      nan_is_null(nan_is_null) {}
+NanNullOptions::NanNullOptions() : NanNullOptions(false) {}
+constexpr char NanNullOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -299,6 +307,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kNanNullOptionsType));
 }
 }  // namespace internal
 
