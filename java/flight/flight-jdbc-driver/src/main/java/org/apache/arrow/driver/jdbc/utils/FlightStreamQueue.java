@@ -61,10 +61,21 @@ public class FlightStreamQueue implements AutoCloseable {
     completionService = checkNotNull(executorService);
   }
 
+  /**
+   * Creates a new {@link FlightStreamQueue} from the provided {@link ExecutorService}.
+   *
+   * @param service the service from which to create a new queue.
+   * @return a new queue.
+   */
   public static FlightStreamQueue createNewQueue(final ExecutorService service) {
     return new FlightStreamQueue(new ExecutorCompletionService<>(service));
   }
 
+  /**
+   * Gets whether this queue is closed.
+   *
+   * @return a boolean indicating whether this resource is closed.
+   */
   public boolean isClosed() {
     return closed;
   }
