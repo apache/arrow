@@ -378,6 +378,33 @@ class ErrorFlightServer(FlightServerBase):
         )
         raise flight.FlightInternalError("foo")
 
+    def do_put(self, context, descriptor, reader, writer):
+        if descriptor.command == b"internal":
+            raise flight.FlightInternalError("foo")
+        elif descriptor.command == b"timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif descriptor.command == b"cancel":
+            raise flight.FlightCancelledError("foo")
+        elif descriptor.command == b"unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif descriptor.command == b"unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
+        elif descriptor.command == b"protobuf":
+            err_msg = b'this is an error message'
+            raise flight.FlightUnauthorizedError("foo", err_msg)
+
+        reader.read_all()
+
+        if descriptor.command == b"after_read_internal":
+            raise flight.FlightInternalError("foo")
+        elif descriptor.command == b"after_read_timedout":
+            raise flight.FlightTimedOutError("foo")
+        elif descriptor.command == b"after_read_cancel":
+            raise flight.FlightCancelledError("foo")
+        elif descriptor.command == b"after_read_unauthenticated":
+            raise flight.FlightUnauthenticatedError("foo")
+        elif descriptor.command == b"after_read_unauthorized":
+            raise flight.FlightUnauthorizedError("foo")
 
 class ExchangeFlightServer(FlightServerBase):
     """A server for testing DoExchange."""
@@ -1532,6 +1559,12 @@ def test_roundtrip_errors():
     """Ensure that Flight errors propagate from server to client."""
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
+
+        data = [
+            pa.array([-10, -5, 0, 5, 10])
+        ]
+        table = pa.Table.from_arrays(data, names=['a'])
+
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -1544,6 +1577,48 @@ def test_roundtrip_errors():
             list(client.do_action(flight.Action("unauthorized", b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
+
+        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("internal"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("timedout"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("cancel"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("unauthenticated"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("unauthorized"))
+            writer.write_table(table)
+            writer.close()
+
+        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_internal"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_timedout"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_cancel"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_unauthenticated"))
+            writer.write_table(table)
+            writer.close()
+        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
+            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_unauthorized"))
+            writer.write_table(table)
+            writer.close()
 
 
 def test_do_put_independent_read_write():
