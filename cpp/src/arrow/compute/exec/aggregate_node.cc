@@ -362,9 +362,17 @@ struct GroupByNode : ExecNode {
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto agg_batch,
-          ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch}));
+      ExecBatch agg_batch;
+      if (agg_kernels_[i]->signature->in_types().size() == 2) {
+        ARROW_ASSIGN_OR_RAISE(
+            agg_batch, ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch}));
+      } else {
+        // Order-dependent-kernel; assume an upstream OrderByNode has
+        // placed the batch index as the last value
+        ARROW_ASSIGN_OR_RAISE(
+            agg_batch, ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch,
+                                        batch.values.back()}));
+      }
 
       RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
       RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));

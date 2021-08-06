@@ -661,6 +661,52 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
   }
 }
 
+TEST(ExecPlanExecution, SourceOrderByGroupSink) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    int batch_multiplicity = parallel ? 1000 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    SortOptions options({SortKey("str", SortOrder::Ascending)});
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"source", SourceNodeOptions{input.schema,
+                                                   input.gen(parallel, /*slow=*/false)}},
+                      {"order_by", OrderByNodeOptions{options}},
+                      {"aggregate", AggregateNodeOptions{
+                                        /*aggregates=*/{{"hash_arg_min_max", nullptr}},
+                                        /*targets=*/{"i32"},
+                                        /*names=*/{"arg_min_max(i32)"},
+                                        /*keys=*/{"str"}}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(::testing::ElementsAreArray(
+                    {ExecBatchFromJSON({struct_({
+                                            field("min", int64()),
+                                            field("max", int64()),
+                                        }),
+                                        utf8()},
+                                       parallel ?
+                                                R"([
+    [{"min": 4, "max": 0}, "alfa"],
+    [{"min": 5001, "max": 5000}, "beta"],
+    [{"min": 7000, "max": 7001}, "gama"]
+])"
+                                                : R"([
+    [{"min": 4, "max": 0}, "alfa"],
+    [{"min": 6, "max": 5}, "beta"],
+    [{"min": 7, "max": 8}, "gama"]
+])")}))));
+  }
+}
+
 TEST(ExecPlanExecution, SourceScalarAggSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
