@@ -62,7 +62,7 @@ class SinkNode : public ExecNode {
       AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
     auto gen = std::make_shared<PushGenerator<util::optional<ExecBatch>>>();
     auto out = gen->producer();
-    *out_gen = [gen] { return (*gen)(); };
+    *out_gen = AsyncGenerator<util::optional<ExecBatch>>([gen] { return (*gen)(); });
     return out;
   }
 
