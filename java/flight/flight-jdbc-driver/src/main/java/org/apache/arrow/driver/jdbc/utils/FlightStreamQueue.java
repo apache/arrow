@@ -22,7 +22,6 @@ import static java.util.Collections.synchronizedSet;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.util.Preconditions.checkState;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
@@ -36,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.util.AutoCloseables;
 
 /**
  * Auxiliary class used to handle consuming of multiple {@link FlightStream}.
@@ -91,7 +89,6 @@ public class FlightStreamQueue implements AutoCloseable {
           break;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        e.printStackTrace();
         return null;
       }
     }
@@ -118,13 +115,13 @@ public class FlightStreamQueue implements AutoCloseable {
   public void enqueue(final FlightStream flightStream) {
     checkNotNull(flightStream);
     checkOpen();
-    checkState(unpreparedStreams.add(flightStream));
-    checkState(futures.add(completionService.submit(() -> {
+    unpreparedStreams.add(flightStream);
+    futures.add(completionService.submit(() -> {
       // `FlightStream#next` will block until new data can be read or stream is over.
-      checkState(flightStream.next());
-      checkState(unpreparedStreams.remove(flightStream));
+      flightStream.next();
+      unpreparedStreams.remove(flightStream);
       return flightStream;
-    })));
+    }));
   }
 
   @Override
