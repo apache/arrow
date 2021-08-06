@@ -122,6 +122,18 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
   }
 
   @Override
+  protected final void cancel() {
+    try {
+      AutoCloseables.close(this);
+    } catch (final Exception e) {
+      LOGGER.error(e.getMessage(), e);
+      throw new RuntimeException(e);
+    } finally {
+      super.cancel();
+    }
+  }
+
+  @Override
   public void close() {
     final Set<Exception> exceptions = new HashSet<>();
     try {
