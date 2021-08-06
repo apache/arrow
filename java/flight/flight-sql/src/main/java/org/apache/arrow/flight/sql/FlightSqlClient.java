@@ -419,7 +419,8 @@ public class FlightSqlClient {
       if (parameterBindingRoot != null) {
         final SyncPutListener putListener = new SyncPutListener();
 
-        FlightClient.ClientStreamListener listener = client.startPut(descriptor, this.parameterBindingRoot, putListener);
+        FlightClient.ClientStreamListener listener =
+            client.startPut(descriptor, this.parameterBindingRoot, putListener);
 
         listener.putNext();
         listener.completed();
