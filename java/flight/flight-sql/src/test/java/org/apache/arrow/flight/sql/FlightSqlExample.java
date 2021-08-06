@@ -615,8 +615,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
                                      StreamListener<Result> listener) {
     try {
-      preparedStatementLoadingCache.invalidate(
-          request.getPreparedStatementHandle());
+      preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
     } catch (Exception e) {
       listener.onError(e);
       return;
@@ -647,7 +646,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
     final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
-    StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(preparedStatementHandle);
+    StatementContext<PreparedStatement> statementContext =
+        preparedStatementLoadingCache.getIfPresent(preparedStatementHandle);
     try {
       assert statementContext != null;
       PreparedStatement statement = statementContext.getStatement();
@@ -765,9 +765,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final String query = command.getQuery();
 
     return () -> {
-      try {
-        final Connection connection = dataSource.getConnection();
-        final Statement statement = connection.createStatement();
+      try (final Connection connection = dataSource.getConnection();
+           final Statement statement = connection.createStatement()) {
         final int result = statement.executeUpdate(query);
 
         final FlightSql.DoPutUpdateResult build =
@@ -969,7 +968,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void getStreamCatalogs(final CallContext context, final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet catalogs = dataSource.getConnection().getMetaData().getCatalogs();
+    try (final Connection connection = dataSource.getConnection();
+         final ResultSet catalogs = connection.getMetaData().getCatalogs();
          final VectorSchemaRoot vectorSchemaRoot = getCatalogsRoot(catalogs, rootAllocator)) {
       listener.start(vectorSchemaRoot);
       listener.putNext();

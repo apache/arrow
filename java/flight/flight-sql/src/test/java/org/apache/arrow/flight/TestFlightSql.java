@@ -279,12 +279,9 @@ public class TestFlightSql {
 
   @Test
   public void testSimplePreparedStatementResults() throws Exception {
-    try (final FlightStream stream =
-             sqlClient.getStream(
-                 sqlClient.prepare("SELECT * FROM intTable")
-                     .execute()
-                     .getEndpoints()
-                     .get(0).getTicket())) {
+    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
+         final FlightStream stream = sqlClient.getStream(
+             preparedStatement.execute().getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
       collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY));
     }
@@ -305,8 +302,8 @@ public class TestFlightSql {
         FlightInfo flightInfo = prepare.execute();
 
         FlightStream stream = sqlClient.getStream(flightInfo
-                .getEndpoints()
-                .get(0).getTicket());
+            .getEndpoints()
+            .get(0).getTicket());
 
         collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
         collector.checkThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING));
@@ -316,9 +313,8 @@ public class TestFlightSql {
 
   @Test
   public void testSimplePreparedStatementUpdateResults() {
-    try (PreparedStatement prepare = sqlClient
-        .prepare("INSERT INTO INTTABLE (keyName, value ) VALUES (?, ?");
-        PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?")) {
+    try (PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES (?, ?)");
+         PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?")) {
       final Schema parameterSchema = prepare.getParameterSchema();
       try (final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator)) {
         final VarCharVector varCharVector = (VarCharVector) insertRoot.getVector(0);
@@ -330,7 +326,7 @@ public class TestFlightSql {
 
         range.forEach(i -> {
           valueVector.setSafe(i, i * counter);
-          varCharVector.setSafe(i, new Text("value" + i ));
+          varCharVector.setSafe(i, new Text("value" + i));
         });
 
         insertRoot.setRowCount(counter);
