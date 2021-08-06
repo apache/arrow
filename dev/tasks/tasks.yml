@@ -1036,6 +1036,7 @@ tasks:
       r_org: rhub
       r_image: debian-gcc-devel-lto
       r_tag: latest
+      with_arrow: "FALSE"
       flags: '-e INSTALL_ARGS=--use-LTO'
 
   test-r-ubuntu-21.04:
