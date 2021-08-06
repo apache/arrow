@@ -346,7 +346,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     AR = R_CMD_config("AR"),
     RANLIB = R_CMD_config("RANLIB"),
-    LDFLAGS = paste(R_CMD_config("LDFLAGS"), R_CMD_config("LTO_LD"))
+    LDFLAGS = paste(R_CMD_config("LDFLAGS"), R_CMD_config("LTO"))
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
   env_vars <- with_s3_support(env_vars)
