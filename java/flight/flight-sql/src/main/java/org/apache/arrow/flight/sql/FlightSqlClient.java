@@ -335,6 +335,7 @@ public class FlightSqlClient {
     private boolean isClosed;
     private Schema resultSetSchema = null;
     private Schema parameterSchema = null;
+    private VectorSchemaRoot root;
 
     /**
      * Constructor.
@@ -359,6 +360,10 @@ public class FlightSqlClient {
 
       invocationCount = new AtomicLong(0);
       isClosed = false;
+    }
+
+    public void setParameters(VectorSchemaRoot root) {
+      this.root = root;
     }
 
     /**
@@ -413,7 +418,7 @@ public class FlightSqlClient {
      * @param root    a {@link VectorSchemaRoot} with the data from the place holders from the
      *                query when they exist.
      */
-    public long executeUpdate(VectorSchemaRoot root) {
+    public long executeUpdate() {
       if (isClosed) {
         throw new IllegalStateException("Prepared statement has already been closed on the server.");
       }
@@ -429,7 +434,7 @@ public class FlightSqlClient {
 
       final SyncPutListener putListener = new SyncPutListener();
       final FlightClient.ClientStreamListener listener =
-          client.startPut(descriptor, root, putListener);
+          client.startPut(descriptor, this.root, putListener);
 
       listener.putNext();
       listener.completed();
