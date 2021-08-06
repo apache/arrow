@@ -85,7 +85,7 @@ public class FlightStreamQueue implements AutoCloseable {
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next() {
+  public FlightStream next() throws InterruptedException {
     checkOpen();
     FlightStream result = null; // If empty.
     while (!futures.isEmpty()) {
@@ -100,7 +100,7 @@ public class FlightStreamQueue implements AutoCloseable {
           break;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        return null;
+        throw new InterruptedException("Cancelled");
       }
     }
     return result;
