@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
@@ -68,6 +67,10 @@ public class FlightStreamQueue implements AutoCloseable {
     return new FlightStreamQueue(new ExecutorCompletionService<>(service));
   }
 
+  public boolean isClosed() {
+    return closed;
+  }
+
   /**
    * Blocking request to get the next ready FlightStream in queue.
    *
@@ -88,9 +91,8 @@ public class FlightStreamQueue implements AutoCloseable {
           break;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        final Consumer<FlightStream> cancelStream = stream -> stream.cancel(e.getMessage(), e);
-        loadedStream.ifPresent(cancelStream);
-        unpreparedStreams.forEach(cancelStream);
+        loadedStream.ifPresent(unpreparedStreams::add);
+        unpreparedStreams.forEach(stream -> stream.cancel(e.getMessage(), e));
       }
     }
     return result;
