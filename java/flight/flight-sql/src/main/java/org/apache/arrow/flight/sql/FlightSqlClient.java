@@ -409,14 +409,20 @@ public class FlightSqlClient {
               .build())
               .toByteArray());
 
+      if (root != null) {
+        final SyncPutListener putListener = new SyncPutListener();
+
+        FlightClient.ClientStreamListener listener = client.startPut(descriptor, this.root, putListener);
+
+        listener.putNext();
+        listener.completed();
+      }
+
       return client.getInfo(descriptor);
     }
 
     /**
      * Executes the prepared statement update on the server.
-     *
-     * @param root    a {@link VectorSchemaRoot} with the data from the place holders from the
-     *                query when they exist.
      */
     public long executeUpdate() {
       if (isClosed) {
