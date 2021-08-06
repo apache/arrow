@@ -123,6 +123,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
   @Override
   protected void cancel() {
+    signature.columns.clear();
     super.cancel();
     try {
       AutoCloseables.close(vectorSchemaRoot);
