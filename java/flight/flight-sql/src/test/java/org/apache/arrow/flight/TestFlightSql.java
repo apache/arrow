@@ -314,7 +314,6 @@ public class TestFlightSql {
     }
   }
 
-  @Ignore
   @Test
   public void testSimplePreparedStatementUpdateResults() {
     try (PreparedStatement prepare = sqlClient
@@ -631,15 +630,15 @@ public class TestFlightSql {
     collector.checkThat(deletedCount, is(3L));
   }
 
-//  @Test
-//  public void testQueryWithNoResultsShouldNotHang() throws Exception {
-//    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable WHERE 1 = 0");
-//         final FlightStream stream = sqlClient
-//             .getStream(preparedStatement.execute().getEndpoints().get(0).getTicket())) {
-//      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
-//
-//      final List<List<String>> result = getResults(stream);
-//      collector.checkThat(result, is(emptyList()));
-//    }
-//  }
+  @Test
+  public void testQueryWithNoResultsShouldNotHang() throws Exception {
+    try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable WHERE 1 = 0");
+         final FlightStream stream = sqlClient
+             .getStream(preparedStatement.execute().getEndpoints().get(0).getTicket())) {
+      collector.checkThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
+
+      final List<List<String>> result = getResults(stream);
+      collector.checkThat(result, is(emptyList()));
+    }
+  }
 }
