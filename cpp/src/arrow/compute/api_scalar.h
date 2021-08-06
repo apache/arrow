@@ -213,6 +213,7 @@ class ARROW_EXPORT NanNullOptions : public FunctionOptions {
  public:
   explicit NanNullOptions(bool nan_is_null);
   NanNullOptions();
+  static NanNullOptions Defaults() { return NanNullOptions{}; }
   constexpr static char const kTypeName[] = "NanNullOptions";
 
   bool nan_is_null;
