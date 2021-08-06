@@ -306,6 +306,34 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestZoned3) {
+  auto data_buffer = Buffer::Wrap(std::vector<int32_t>{1, 2, 3});
+  auto null_buffer = Buffer::FromString("\xff");
+
+  for (auto u : internal::AllTimeUnits()) {
+    auto ts_type = timestamp(u, "Mars/Mariner_Valley");
+    auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
+        ts_type, 2, data_buffer, null_buffer, 0);
+    ASSERT_RAISES(Invalid, Year(timestamp_array));
+    ASSERT_RAISES(Invalid, Month(timestamp_array));
+    ASSERT_RAISES(Invalid, Day(timestamp_array));
+    ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
+    ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
+    ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
+    ASSERT_RAISES(Invalid, ISOWeek(timestamp_array));
+    ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
+    ASSERT_RAISES(Invalid, Quarter(timestamp_array));
+    ASSERT_RAISES(Invalid, Hour(timestamp_array));
+    ASSERT_RAISES(Invalid, Minute(timestamp_array));
+    //    ASSERT_RAISES(Invalid, Second(timestamp_array));
+    //    ASSERT_RAISES(Invalid, Millisecond(timestamp_array));
+    //    ASSERT_RAISES(Invalid, Microsecond(timestamp_array));
+    //    ASSERT_RAISES(Invalid, Nanosecond(timestamp_array));
+    //    ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
+  }
+}
+#endif
+
 TEST_F(ScalarTemporalTest, DayOfWeek) {
   auto unit = timestamp(TimeUnit::NANO);
 
@@ -354,6 +382,5 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                 DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
                                                        /*week_start=*/8)));
 }
-#endif
 }  // namespace compute
 }  // namespace arrow
