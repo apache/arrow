@@ -76,11 +76,11 @@ public class FlightStreamQueue implements AutoCloseable {
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next() throws Exception {
+  public FlightStream next() {
     checkOpen();
     FlightStream result = null; // If empty.
     while (!futures.isEmpty()) {
-      Optional<FlightStream> loadedStream = Optional.empty();
+      Optional<FlightStream> loadedStream;
       try {
         final Future<FlightStream> future = completionService.take();
         futures.remove(future);
@@ -91,8 +91,8 @@ public class FlightStreamQueue implements AutoCloseable {
           break;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        loadedStream.ifPresent(unpreparedStreams::add);
-        unpreparedStreams.forEach(stream -> stream.cancel(e.getMessage(), e));
+        e.printStackTrace();
+        return null;
       }
     }
     return result;
@@ -110,13 +110,6 @@ public class FlightStreamQueue implements AutoCloseable {
    */
   public void enqueue(final Collection<FlightStream> flightStreams) {
     flightStreams.forEach(this::enqueue);
-  }
-
-  /**
-   * Readily adds given {@link FlightStream}s to the queue.
-   */
-  public void enqueue(final FlightStream... flightStreams) {
-    enqueue(Arrays.asList(flightStreams));
   }
 
   /**
@@ -140,11 +133,11 @@ public class FlightStreamQueue implements AutoCloseable {
       return;
     }
     try {
-      synchronized (unpreparedStreams) {
-        unpreparedStreams.parallelStream().forEach(AutoCloseables::closeNoChecked);
-      }
       synchronized (futures) {
         futures.parallelStream().forEach(future -> future.cancel(true));
+      }
+      synchronized (unpreparedStreams) {
+        unpreparedStreams.parallelStream().forEach(flightStream -> flightStream.cancel("Canceled", null));
       }
     } finally {
       unpreparedStreams.clear();
