@@ -1863,8 +1863,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", &logb_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb)));
 
-  auto logb_checked =
-      MakeArithmeticFunctionFloatingPointNotNull<LogbChecked>("logb_checked", &logb_checked_doc);
+  auto logb_checked = MakeArithmeticFunctionFloatingPointNotNull<LogbChecked>(
+      "logb_checked", &logb_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb_checked)));
 
   // ----------------------------------------------------------------------
