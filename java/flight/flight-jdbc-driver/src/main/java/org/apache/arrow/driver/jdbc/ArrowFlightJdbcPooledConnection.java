@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Set;
 
 import javax.sql.ConnectionEvent;
@@ -35,10 +36,9 @@ import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
  */
 public class ArrowFlightJdbcPooledConnection implements PooledConnection {
 
-  private final Connection connection;
+  private final ArrowFlightConnection connection;
   private final Set<ConnectionEventListener> eventListeners;
   private final Set<StatementEventListener> statementEventListeners;
-  private final ArrowFlightJdbcConnectionPoolDataSource.Credentials credentials;
 
   private class ConnectionHandle extends ConnectionWrapper {
     private boolean closed = false;
@@ -61,16 +61,14 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
     }
   }
 
-  ArrowFlightJdbcPooledConnection(Connection connection,
-                                  ArrowFlightJdbcConnectionPoolDataSource.Credentials credentials) {
+  ArrowFlightJdbcPooledConnection(ArrowFlightConnection connection) {
     this.connection = connection;
     this.eventListeners = Collections.synchronizedSet(new HashSet<>());
     this.statementEventListeners = Collections.synchronizedSet(new HashSet<>());
-    this.credentials = credentials;
   }
 
-  public ArrowFlightJdbcConnectionPoolDataSource.Credentials getCredentials() {
-    return this.credentials;
+  public Properties getProperties() {
+    return connection.getProperties();
   }
 
   @Override

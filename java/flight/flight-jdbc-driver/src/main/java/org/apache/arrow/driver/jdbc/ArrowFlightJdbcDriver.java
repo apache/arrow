@@ -69,19 +69,18 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  public Connection connect(final String url, final Properties info)
-      throws SQLException {
+  public Connection connect(final String url, final Properties info) throws SQLException {
 
-    // FIXME DO NOT tamper with the original Properties!
-    final Properties clonedProperties = info;
+    final Properties properties = new Properties();
+    properties.putAll(info);
 
     try {
       final Map<Object, Object> args = getUrlsArgs(
           Preconditions.checkNotNull(url));
 
-      clonedProperties.putAll(args);
+      properties.putAll(args);
 
-      return new ArrowFlightConnection(this, factory, url, clonedProperties);
+      return new ArrowFlightConnection(this, factory, url, properties);
     } catch (AssertionError | FlightRuntimeException e) {
       throw new SQLException("Failed to connect.", e);
     }
@@ -228,7 +227,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     final Map<Object, Object> resultMap = new HashMap<>();
 
     resultMap.put(HOST.getName(), matcher.group(1)); // host
-    resultMap.put(PORT.getName(), matcher.group(2)); // port
+    resultMap.put(PORT.getName(), Integer.parseInt(matcher.group(2))); // port
 
     final String extraParams = matcher.group(3); // optional params
 

@@ -67,6 +67,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
+  private final Properties properties;
   private ExecutorService executorService;
 
   // TODO Use this later to run queries.
@@ -76,16 +77,17 @@ public class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Instantiates a new Arrow Flight Connection.
    *
-   * @param driver  The JDBC driver to use.
-   * @param factory The Avatica Factory to use.
-   * @param url     The URL to connect to.
-   * @param info    The properties of this connection.
+   * @param driver     The JDBC driver to use.
+   * @param factory    The Avatica Factory to use.
+   * @param url        The URL to connect to.
+   * @param properties The properties of this connection.
    * @throws SQLException If the connection cannot be established.
    */
   protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver,
-                                  final AvaticaFactory factory, final String url, final Properties info)
+                                  final AvaticaFactory factory, final String url, final Properties properties)
       throws SQLException {
-    super(driver, factory, url, info);
+    super(driver, factory, url, properties);
+    this.properties = properties;
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     try {
@@ -98,6 +100,10 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   protected final ArrowFlightClientHandler getClient() {
     return client;
+  }
+
+  Properties getProperties() {
+    return this.properties;
   }
 
   /**
