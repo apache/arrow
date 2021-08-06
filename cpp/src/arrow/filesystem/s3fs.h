@@ -72,10 +72,15 @@ enum class S3CredentialsKind : int8_t {
 /// Pure virtual class for describing custom S3 retry strategies
 class S3RetryStrategy {
  public:
+  /// Simple struct where each field corresponds to a field in Aws::Client::AWSError
   struct AWSErrorDetail {
+    /// Corresponds to AWSError::GetErrorType()
     int error_type;
+    /// Corresponds to AWSError::GetMessage()
     std::string message;
+    /// Corresponds to AWSError::GetExceptionName()
     std::string exception_name;
+    /// Corresponds to AWSError::ShouldRetry()
     bool should_retry;
   };
   /// Returns true if the S3 request resulting in the provided error should be retried.
