@@ -362,7 +362,7 @@ public class ResultSetTest {
       thread.setName("Test Case: interrupt query execution mid-process");
       thread.setPriority(Thread.MAX_PRIORITY);
       thread.start();
-      Thread.sleep(RANDOM.nextInt(300));
+      Thread.sleep(5000);
       statement.cancel();
       thread.join();
       collector.checkThat(

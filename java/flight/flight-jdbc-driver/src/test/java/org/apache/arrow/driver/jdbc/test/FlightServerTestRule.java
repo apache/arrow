@@ -117,7 +117,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final Map<String, Supplier<Stream<String>>> queryTickets = generateQueryTickets(
       new SimpleImmutableEntry<>(REGULAR_TEST_SQL_CMD, 10),
       new SimpleImmutableEntry<>(METADATA_TEST_SQL_CMD, 3),
-      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 3000));
+      new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 4));
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
@@ -378,24 +378,24 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                     Field.nullablePrimitive(irrelevantString, (PrimitiveType) MinorType.VARCHAR.getType()),
                     Field.nullablePrimitive(irrelevantBool, (PrimitiveType) MinorType.BIT.getType())));
                 try (final VectorSchemaRoot root = VectorSchemaRoot.create(cancellationSchema, allocator)) {
-                  final int rows = Integer.MAX_VALUE - 1;
-                  for (int rowCount = 0; rowCount < rows; rowCount++) {
-                    final byte[] placeholder = new byte[Byte.MAX_VALUE];
-                    RANDOM.nextBytes(placeholder);
-                    ((TinyIntVector) root.getVector(irrelevantByte))
-                        .setSafe(rowCount, (byte) RANDOM.nextInt(Byte.MAX_VALUE));
-                    ((IntVector) root.getVector(irrelevantInt))
-                        .setSafe(rowCount, RANDOM.nextInt());
-                    ((BigIntVector) root.getVector(irrelevantLong))
-                        .setSafe(rowCount, RANDOM.nextLong());
-                    ((Float4Vector) root.getVector(irrelevantFloat))
-                        .setSafe(rowCount, RANDOM.nextFloat());
-                    ((Float8Vector) root.getVector(irrelevantDouble))
-                        .setSafe(rowCount, RANDOM.nextDouble());
-                    ((VarCharVector) root.getVector(irrelevantString))
-                        .setSafe(rowCount, placeholder);
-                    root.getVector(irrelevantBool);
-                  }
+//                  final int rows = Integer.MAX_VALUE - 1;
+//                  for (int rowCount = 0; rowCount < rows; rowCount++) {
+//                    final byte[] placeholder = new byte[Byte.MAX_VALUE];
+//                    RANDOM.nextBytes(placeholder);
+//                    ((TinyIntVector) root.getVector(irrelevantByte))
+//                        .setSafe(rowCount, (byte) RANDOM.nextInt(Byte.MAX_VALUE));
+//                    ((IntVector) root.getVector(irrelevantInt))
+//                        .setSafe(rowCount, RANDOM.nextInt());
+//                    ((BigIntVector) root.getVector(irrelevantLong))
+//                        .setSafe(rowCount, RANDOM.nextLong());
+//                    ((Float4Vector) root.getVector(irrelevantFloat))
+//                        .setSafe(rowCount, RANDOM.nextFloat());
+//                    ((Float8Vector) root.getVector(irrelevantDouble))
+//                        .setSafe(rowCount, RANDOM.nextDouble());
+//                    ((VarCharVector) root.getVector(irrelevantString))
+//                        .setSafe(rowCount, placeholder);
+//                    root.getVector(irrelevantBool);
+//                  }
                 }
               });
 

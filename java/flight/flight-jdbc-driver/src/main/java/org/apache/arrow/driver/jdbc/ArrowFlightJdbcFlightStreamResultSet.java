@@ -73,7 +73,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   private void loadNewFlightStream() {
     Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
     try {
-      this.currentFlightStream = checkNotNull(getFlightStreamQueue().next());
+      this.currentFlightStream = getFlightStreamQueue().next();
     } catch (final Exception e) {
       throw new RuntimeException(e);
     }
@@ -87,7 +87,11 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
             .getClient().readilyGetFlightStreams(signature.sql));
     loadNewFlightStream();
     // Ownership of the root will be passed onto the cursor.
-    execute(currentFlightStream.getRoot());
+    if (currentFlightStream != null) {
+      execute(currentFlightStream.getRoot());
+    } else {
+      cancel();
+    }
     return this;
   }
 
@@ -107,19 +111,17 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         return true;
       }
 
-      currentFlightStream.getRoot().clear();
-      if (currentFlightStream.next()) {
-        execute(currentFlightStream.getRoot());
-        continue;
+      if (currentFlightStream != null) {
+        currentFlightStream.getRoot().clear();
+        if (currentFlightStream.next()) {
+          execute(currentFlightStream.getRoot());
+          continue;
+        }
+
+        flightStreamQueue.enqueue(currentFlightStream);
       }
 
-      flightStreamQueue.enqueue(currentFlightStream);
-      try {
-        currentFlightStream = flightStreamQueue.next();
-      } catch (final Exception e) {
-        throw new SQLException(e);
-      }
-
+      currentFlightStream = flightStreamQueue.next();
       if (currentFlightStream != null) {
         execute(currentFlightStream.getRoot());
         continue;
@@ -130,6 +132,24 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       }
 
       return false;
+    }
+  }
+
+  @Override
+  protected void cancel() {
+    super.cancel();
+    FlightStream currentFlightStream = getCurrentFlightStream();
+    if (currentFlightStream != null) {
+      currentFlightStream.cancel("Cancel", null);
+    }
+
+    FlightStreamQueue flightStreamQueue = getFlightStreamQueue();
+    if (flightStreamQueue != null) {
+      try {
+        flightStreamQueue.close();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
