@@ -110,7 +110,7 @@ public class FlightStreamQueue implements AutoCloseable {
    * Checks if this queue is open.
    */
   public void checkOpen() {
-    checkState(/*!isClosed()*/ true, format("%s closed", this.getClass().getSimpleName()));
+    checkState(!isClosed(), format("%s closed", this.getClass().getSimpleName()));
   }
 
   /**
