@@ -335,7 +335,7 @@ public class FlightSqlClient {
     private boolean isClosed;
     private Schema resultSetSchema = null;
     private Schema parameterSchema = null;
-    private VectorSchemaRoot root;
+    private VectorSchemaRoot parameterBindingRoot;
 
     /**
      * Constructor.
@@ -362,8 +362,15 @@ public class FlightSqlClient {
       isClosed = false;
     }
 
-    public void setParameters(VectorSchemaRoot root) {
-      this.root = root;
+    /**
+     * Set the {@link VectorSchemaRoot} containing the parameter binding from a preparedStatemnt
+     * operation.
+     *
+     * @param parameterBindingRoot  a {@link VectorSchemaRoot} object contain the values to be used in the
+     *                              PreparedStatement setters.
+     */
+    public void setParameters(VectorSchemaRoot parameterBindingRoot) {
+      this.parameterBindingRoot = parameterBindingRoot;
     }
 
     /**
@@ -409,10 +416,10 @@ public class FlightSqlClient {
               .build())
               .toByteArray());
 
-      if (root != null) {
+      if (parameterBindingRoot != null) {
         final SyncPutListener putListener = new SyncPutListener();
 
-        FlightClient.ClientStreamListener listener = client.startPut(descriptor, this.root, putListener);
+        FlightClient.ClientStreamListener listener = client.startPut(descriptor, this.parameterBindingRoot, putListener);
 
         listener.putNext();
         listener.completed();
@@ -437,10 +444,13 @@ public class FlightSqlClient {
               .build())
               .toByteArray());
 
+      if (this.parameterBindingRoot == null) {
+        this.parameterBindingRoot = VectorSchemaRoot.of();
+      }
 
       final SyncPutListener putListener = new SyncPutListener();
       final FlightClient.ClientStreamListener listener =
-          client.startPut(descriptor, this.root, putListener);
+          client.startPut(descriptor, this.parameterBindingRoot, putListener);
 
       listener.putNext();
       listener.completed();
