@@ -88,7 +88,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
 
   install_args <- Sys.getenv('INSTALL_ARGS')
   if (nzchar(install_args)) {
-    args <- c(args, paste0('--install-args=\", install_args, '\"'))
+    args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
   rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
