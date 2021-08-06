@@ -280,7 +280,21 @@ find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")
   }
 }
 
+R_CMD_config <- function(var) {
+  if (getRversion() < 3.4) {
+    # var names were called CXX1X instead of CXX11
+    var <- sub("^CXX11", "CXX1X", var)
+  }
+  # tools::Rcmd introduced R 3.3
+  tools::Rcmd(paste("config", var), stdout = TRUE)
+}
+
 build_libarrow <- function(src_dir, dst_dir) {
+  if (grepl(R_CMD_config("LTO"), "-flto") {
+    # libarrow builds and links successfully with LTO, but then there's
+    # a segfault on load. We're working hard to debug this!
+    stop()
+  }
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
@@ -309,14 +323,6 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
-  R_CMD_config <- function(var) {
-    if (getRversion() < 3.4) {
-      # var names were called CXX1X instead of CXX11
-      var <- sub("^CXX11", "CXX1X", var)
-    }
-    # tools::Rcmd introduced R 3.3
-    tools::Rcmd(paste("config", var), stdout = TRUE)
-  }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
     BUILD_DIR = build_dir,
