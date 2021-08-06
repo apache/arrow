@@ -2001,6 +2001,22 @@ TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
   }
 }
 
+TYPED_TEST(TestBinaryArithmeticIntegral, Log) {
+  // Integer arguments promoted to double, sanity check here
+  // ToDo
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, Log) {
+  // Integer arguments promoted to double, sanity check here
+  this->AssertBinop(Logb, "[1.0, 10.0, null]", "[10.0, 10.0, null]", "[0.0, 1.0, null]");
+  this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Log) {
+  // Integer arguments promoted to double, sanity check here
+  // ToDo
+}
+
 TYPED_TEST(TestUnaryArithmeticSigned, Log) {
   // Integer arguments promoted to double, sanity check here
   this->SetNansEqual(true);
