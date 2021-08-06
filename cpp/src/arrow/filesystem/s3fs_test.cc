@@ -990,15 +990,16 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 class TestRetryStrategy : public S3RetryStrategy {
  public:
   bool ShouldRetry(const S3RetryStrategy::AWSErrorDetail& error,
-                   long attempted_retries) final {
+                   long attempted_retries) final {  // NOLINT runtime/int
     errors_encountered_.emplace_back(error);
-    constexpr long MAX_RETRIES = 2;
+    constexpr int64_t MAX_RETRIES = 2;
     return attempted_retries < MAX_RETRIES;
   }
 
-  long CalculateDelayBeforeNextRetry(const S3RetryStrategy::AWSErrorDetail& error,
-                                     long attempted_retries) final {
-    long delay = attempted_retries;
+  int64_t CalculateDelayBeforeNextRetry(
+      const S3RetryStrategy::AWSErrorDetail& error,
+      long attempted_retries) final {  // NOLINT runtime/int
+    int64_t delay = attempted_retries;
     retry_delays_.emplace_back(delay);
     return delay;
   }
@@ -1006,11 +1007,11 @@ class TestRetryStrategy : public S3RetryStrategy {
   std::vector<S3RetryStrategy::AWSErrorDetail> GetErrorsEncountered() {
     return errors_encountered_;
   }
-  std::vector<long> GetRetryDelays() { return retry_delays_; }
+  std::vector<int64_t> GetRetryDelays() { return retry_delays_; }
 
  private:
   std::vector<S3RetryStrategy::AWSErrorDetail> errors_encountered_;
-  std::vector<long> retry_delays_;
+  std::vector<int64_t> retry_delays_;
 };
 
 TEST_F(TestS3FS, CustomRetryStrategy) {
@@ -1028,7 +1029,7 @@ TEST_F(TestS3FS, CustomRetryStrategy) {
     ASSERT_EQ(error.exception_name, "");
     ASSERT_EQ(error.should_retry, false);
   }
-  std::vector<long> expected_retry_delays = {0, 1, 2};
+  std::vector<int64_t> expected_retry_delays = {0, 1, 2};
   ASSERT_EQ(retry_strategy->GetRetryDelays(), expected_retry_delays);
 }
 
