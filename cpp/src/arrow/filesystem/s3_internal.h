@@ -127,17 +127,6 @@ Status ErrorToStatus(const Aws::Client::AWSError<ErrorType>& error) {
   return ErrorToStatus(std::string(), error);
 }
 
-template <typename ErrorType>
-S3RetryStrategy::AWSErrorDetail ErrorToDetail(
-    const Aws::Client::AWSError<ErrorType>& error) {
-  S3RetryStrategy::AWSErrorDetail detail;
-  detail.error_type = static_cast<int>(error.GetErrorType());
-  detail.message = error.GetMessage();
-  detail.exception_name = error.GetExceptionName();
-  detail.should_retry = error.ShouldRetry();
-  return detail;
-}
-
 template <typename AwsResult, typename Error>
 Status OutcomeToStatus(const std::string& prefix,
                        const Aws::Utils::Outcome<AwsResult, Error>& outcome) {
@@ -188,6 +177,17 @@ inline Aws::String ToURLEncodedAwsString(const std::string& s) {
 
 inline TimePoint FromAwsDatetime(const Aws::Utils::DateTime& dt) {
   return std::chrono::time_point_cast<std::chrono::nanoseconds>(dt.UnderlyingTimestamp());
+}
+
+template <typename ErrorType>
+S3RetryStrategy::AWSErrorDetail ErrorToDetail(
+    const Aws::Client::AWSError<ErrorType>& error) {
+  S3RetryStrategy::AWSErrorDetail detail;
+  detail.error_type = static_cast<int>(error.GetErrorType());
+  detail.message = std::string(FromAwsString(error.GetMessage()));
+  detail.exception_name = std::string(FromAwsString(error.GetExceptionName()));
+  detail.should_retry = error.ShouldRetry();
+  return detail;
 }
 
 // A connect retry strategy with a controlled max duration.
