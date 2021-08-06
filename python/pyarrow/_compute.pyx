@@ -887,6 +887,23 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
         self._set_options(skip_nulls, min_count)
 
 
+cdef class _CountOptions(FunctionOptions):
+    def _set_options(self, mode):
+        if mode == 'non_null':
+            self.wrapped.reset(new CCountOptions(CCountMode_NON_NULL))
+        elif mode == 'nulls':
+            self.wrapped.reset(new CCountOptions(CCountMode_NULLS))
+        elif mode == 'all':
+            self.wrapped.reset(new CCountOptions(CCountMode_ALL))
+        else:
+            raise ValueError(f'"{mode}" is not a valid mode')
+
+
+class CountOptions(_CountOptions):
+    def __init__(self, mode='non_null'):
+        self._set_options(mode)
+
+
 cdef class _IndexOptions(FunctionOptions):
     def _set_options(self, Scalar scalar):
         self.wrapped.reset(new CIndexOptions(pyarrow_unwrap_scalar(scalar)))

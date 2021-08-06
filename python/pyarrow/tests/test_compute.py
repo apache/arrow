@@ -1439,11 +1439,9 @@ def test_extract_datetime_components():
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, skip_nulls=True).as_py() == 3
-    assert pc.count(arr, skip_nulls=False).as_py() == 2
-
-    with pytest.raises(TypeError, match="an integer is required"):
-        pc.count(arr, min_count='zzz')
+    assert pc.count(arr, mode='non_null').as_py() == 3
+    assert pc.count(arr, mode='nulls').as_py() == 2
+    assert pc.count(arr, mode='all').as_py() == 5
 
 
 def test_index():

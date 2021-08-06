@@ -829,7 +829,7 @@ Status AddHashAggKernels(
 
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const CountOptions&>(*options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
   }
@@ -859,25 +859,36 @@ struct GroupedCountImpl : public GroupedAggregator {
 
     const auto& input = batch[0].array();
 
-    if (options_.skip_nulls) {
-      auto g_begin =
-          reinterpret_cast<const uint32_t*>(batch[1].array()->buffers[1]->data());
-
-      arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
-                                           input->length,
-                                           [&](int64_t offset, int64_t length) {
-                                             auto g = g_begin + offset;
-                                             for (int64_t i = 0; i < length; ++i, ++g) {
-                                               counts[*g] += 1;
-                                             }
-                                           });
-    } else if (input->MayHaveNulls()) {
-      auto g = batch[1].array()->GetValues<uint32_t>(1);
-
-      auto end = input->offset + input->length;
-      for (int64_t i = input->offset; i < end; ++i, ++g) {
-        counts[*g] += !BitUtil::GetBit(input->buffers[0]->data(), i);
+    auto g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    switch (options_.mode) {
+      case CountOptions::NON_NULL: {
+        arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
+                                             input->length,
+                                             [&](int64_t offset, int64_t length) {
+                                               auto g = g_begin + offset;
+                                               for (int64_t i = 0; i < length; ++i, ++g) {
+                                                 counts[*g] += 1;
+                                               }
+                                             });
+        break;
       }
+      case CountOptions::NULLS: {
+        if (input->MayHaveNulls()) {
+          auto end = input->offset + input->length;
+          for (int64_t i = input->offset; i < end; ++i, ++g_begin) {
+            counts[*g_begin] += !BitUtil::GetBit(input->buffers[0]->data(), i);
+          }
+        }
+        break;
+      }
+      case CountOptions::ALL: {
+        for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
+          counts[*g_begin] += 1;
+        }
+        break;
+      }
+      default:
+        DCHECK(false) << "unreachable";
     }
     return Status::OK();
   }
@@ -890,7 +901,7 @@ struct GroupedCountImpl : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   int64_t num_groups_ = 0;
-  ScalarAggregateOptions options_;
+  CountOptions options_;
   BufferBuilder counts_;
 };
 
@@ -2082,7 +2093,7 @@ const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
                                  ("By default, non-null values are counted.\n"
                                   "This can be changed through ScalarAggregateOptions."),
                                  {"array", "group_id_array"},
-                                 "ScalarAggregateOptions"};
+                                 "CountOptions"};
 
 const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
                                ("Null values are ignored."),
@@ -2140,9 +2151,9 @@ const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   {
+    static auto default_count_options = CountOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Binary(), &hash_count_doc,
-        &default_scalar_aggregate_options);
+        "hash_count", Arity::Binary(), &hash_count_doc, &default_count_options);
 
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountImpl>)));

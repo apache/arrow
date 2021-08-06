@@ -53,6 +53,9 @@ arrow::compute::ScalarAggregateOptions *
 garrow_scalar_aggregate_options_get_raw(
   GArrowScalarAggregateOptions *scalar_aggregate_options);
 
+arrow::compute::CountOptions *
+garrow_count_options_get_raw(GArrowCountOptions *count_options);
+
 arrow::compute::FilterOptions *
 garrow_filter_options_get_raw(GArrowFilterOptions *filter_options);
 

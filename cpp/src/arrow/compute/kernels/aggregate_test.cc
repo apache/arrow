@@ -577,14 +577,18 @@ static CountPair NaiveCount(const Array& array) {
 }
 
 void ValidateCount(const Array& input, CountPair expected) {
-  ScalarAggregateOptions all = ScalarAggregateOptions(/*skip_nulls=*/true);
-  ScalarAggregateOptions nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
+  CountOptions non_null;
+  CountOptions nulls(CountOptions::NULLS);
+  CountOptions all(CountOptions::ALL);
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Count(input, all));
+  ASSERT_OK_AND_ASSIGN(Datum result, Count(input, non_null));
   AssertDatumsEqual(result, Datum(expected.first));
 
   ASSERT_OK_AND_ASSIGN(result, Count(input, nulls));
   AssertDatumsEqual(result, Datum(expected.second));
+
+  ASSERT_OK_AND_ASSIGN(result, Count(input, all));
+  AssertDatumsEqual(result, Datum(expected.first + expected.second));
 }
 
 template <typename ArrowType>
@@ -608,11 +612,15 @@ TYPED_TEST(TestCountKernel, SimpleCount) {
 
   auto ty = TypeTraits<TypeParam>::type_singleton();
   EXPECT_THAT(Count(MakeNullScalar(ty)), ResultWith(Datum(int64_t(0))));
-  EXPECT_THAT(Count(MakeNullScalar(ty), ScalarAggregateOptions(/*skip_nulls=*/false)),
+  EXPECT_THAT(Count(MakeNullScalar(ty), CountOptions(CountOptions::NULLS)),
               ResultWith(Datum(int64_t(1))));
   EXPECT_THAT(Count(*MakeScalar(ty, 1)), ResultWith(Datum(int64_t(1))));
-  EXPECT_THAT(Count(*MakeScalar(ty, 1), ScalarAggregateOptions(/*skip_nulls=*/false)),
+  EXPECT_THAT(Count(*MakeScalar(ty, 1), CountOptions(CountOptions::NULLS)),
               ResultWith(Datum(int64_t(0))));
+
+  CountOptions all(CountOptions::ALL);
+  EXPECT_THAT(Count(MakeNullScalar(ty), all), ResultWith(Datum(int64_t(1))));
+  EXPECT_THAT(Count(*MakeScalar(ty, 1), all), ResultWith(Datum(int64_t(1))));
 }
 
 template <typename ArrowType>

@@ -28,6 +28,24 @@ namespace arrow {
 
 namespace internal {
 template <>
+struct EnumTraits<compute::CountOptions::CountMode>
+    : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::NON_NULL,
+                      compute::CountOptions::NULLS, compute::CountOptions::ALL> {
+  static std::string name() { return "CountOptions::CountMode"; }
+  static std::string value_name(compute::CountOptions::CountMode value) {
+    switch (value) {
+      case compute::CountOptions::NON_NULL:
+        return "NON_NULL";
+      case compute::CountOptions::NULLS:
+        return "NULLS";
+      case compute::CountOptions::ALL:
+        return "ALL";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
 struct EnumTraits<compute::QuantileOptions::Interpolation>
     : BasicEnumTraits<compute::QuantileOptions::Interpolation,
                       compute::QuantileOptions::LINEAR, compute::QuantileOptions::LOWER,
@@ -65,6 +83,8 @@ using ::arrow::internal::DataMember;
 static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregateOptions>(
     DataMember("skip_nulls", &ScalarAggregateOptions::skip_nulls),
     DataMember("min_count", &ScalarAggregateOptions::min_count));
+static auto kCountOptionsType =
+    GetFunctionOptionsType<CountOptions>(DataMember("mode", &CountOptions::mode));
 static auto kModeOptionsType =
     GetFunctionOptionsType<ModeOptions>(DataMember("n", &ModeOptions::n));
 static auto kVarianceOptionsType =
@@ -85,6 +105,10 @@ ScalarAggregateOptions::ScalarAggregateOptions(bool skip_nulls, uint32_t min_cou
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char ScalarAggregateOptions::kTypeName[];
+
+CountOptions::CountOptions(CountMode mode)
+    : FunctionOptions(internal::kCountOptionsType), mode(mode) {}
+constexpr char CountOptions::kTypeName[];
 
 ModeOptions::ModeOptions(int64_t n) : FunctionOptions(internal::kModeOptionsType), n(n) {}
 constexpr char ModeOptions::kTypeName[];
@@ -124,6 +148,7 @@ constexpr char IndexOptions::kTypeName[];
 namespace internal {
 void RegisterAggregateOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kScalarAggregateOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCountOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kModeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
@@ -135,8 +160,7 @@ void RegisterAggregateOptions(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Scalar aggregates
 
-Result<Datum> Count(const Datum& value, const ScalarAggregateOptions& options,
-                    ExecContext* ctx) {
+Result<Datum> Count(const Datum& value, const CountOptions& options, ExecContext* ctx) {
   return CallFunction("count", {value}, &options, ctx);
 }
 
