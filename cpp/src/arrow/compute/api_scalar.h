@@ -1019,7 +1019,7 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 5.0.0
+/// \since 6.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);

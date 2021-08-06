@@ -75,6 +75,16 @@ const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
 }
 
+Result<const time_zone*> LocateZone(std::string timezone) {
+  const time_zone* tz;
+  try {
+    tz = locate_zone(timezone);
+  } catch (const std::runtime_error& ex) {
+    return Status::Invalid(ex.what());
+  }
+  return tz;
+}
+
 struct NonZonedLocalizer {
   // No-op conversions: UTC -> UTC
   template <typename Duration>
@@ -118,12 +128,7 @@ struct TemporalComponentExtractBase {
           op};
       return kernel.Exec(ctx, batch, out);
     } else {
-      const time_zone* tz;
-      try {
-        tz = locate_zone(timezone);
-      } catch (const std::runtime_error& ex) {
-        return Status::Invalid(ex.what());
-      }
+      ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
       using ExecTemplate = Op<Duration, ZonedLocalizer>;
       auto op = ExecTemplate(options, ZonedLocalizer{tz});
       applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
@@ -448,24 +453,31 @@ struct Nanosecond {
 // ----------------------------------------------------------------------
 // Convert timestamps to a string representation with an arbitrary format
 
+#ifndef _WIN32
+template <typename Duration>
+inline static std::string strftime(int64_t arg, const std::locale* locale,
+                                   const time_zone* tz, const std::string* format) {
+  auto zt =
+      arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
+  return arrow_vendored::date::format(*locale, *format, zt);
+}
+
 template <typename Duration>
 struct Strftime {
-#ifndef _WIN32
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& timezone = GetInputTimezone(in);
     if (timezone.empty()) {
       return Status::Invalid(
           "Timestamps without a time zone cannot be reliably printed.");
     }
-    const arrow_vendored::date::time_zone* tz =
-        arrow_vendored::date::locate_zone(timezone);
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     const StrftimeOptions options = StrftimeState::Get(ctx);
     const std::locale locale = std::locale(options.locale.c_str());
 
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
       *checked_cast<StringScalar*>(out) =
-          StringScalar(strftime(in_val, &locale, tz, &options.format));
+          StringScalar(strftime<Duration>(in_val, &locale, tz, &options.format));
     } else {
       out->is_valid = false;
     }
@@ -477,21 +489,20 @@ struct Strftime {
     if (timezone.empty()) {
       return Status::Invalid("Timestamp without a time zone cannot be reliably printed.");
     }
-    const arrow_vendored::date::time_zone* tz =
-        arrow_vendored::date::locate_zone(timezone);
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
     const StrftimeOptions options = StrftimeState::Get(ctx);
     const std::locale locale = std::locale(options.locale.c_str());
 
     StringBuilder string_builder;
     auto string_size = static_cast<int64_t>(
-        ceil(strftime(-1, &locale, tz, &options.format).size() * 1.1));
+        ceil(strftime<Duration>(-1, &locale, tz, &options.format).size() * 1.1));
     RETURN_NOT_OK(string_builder.Reserve(in.length));
     RETURN_NOT_OK(
         string_builder.ReserveData((in.length - in.GetNullCount()) * string_size));
 
     auto visit_null = [&]() { return string_builder.AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      return string_builder.Append(strftime(arg, &locale, tz, &options.format));
+      return string_builder.Append(strftime<Duration>(arg, &locale, tz, &options.format));
     };
     RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
@@ -501,15 +512,9 @@ struct Strftime {
 
     return Status::OK();
   }
-
- private:
-  static std::string strftime(int64_t arg, const std::locale* locale, const time_zone* tz,
-                              const std::string* format) {
-    auto zt =
-        arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-    return arrow_vendored::date::format(*locale, *format, zt);
-  }
 #else
+template <typename Duration>
+struct Strftime {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     return Status::NotImplemented("Strftime not yet implemented on windows.");
   }
@@ -548,12 +553,8 @@ struct ISOCalendar {
       if (timezone.empty()) {
         iso_calendar = GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
       } else {
-        try {
-          const time_zone* tz = locate_zone(timezone);
-          iso_calendar = GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
-        } catch (const std::runtime_error& ex) {
-          return Status::Invalid(ex.what());
-        }
+        ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+        iso_calendar = GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
       }
       ScalarVector values = {std::make_shared<Int64Scalar>(iso_calendar[0]),
                              std::make_shared<Int64Scalar>(iso_calendar[1]),
@@ -593,19 +594,15 @@ struct ISOCalendar {
       };
       RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
     } else {
-      try {
-        const time_zone* tz = locate_zone(timezone);
-        auto visit_value = [&](int64_t arg) {
-          const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
-          field_builders[0]->UnsafeAppend(iso_calendar[0]);
-          field_builders[1]->UnsafeAppend(iso_calendar[1]);
-          field_builders[2]->UnsafeAppend(iso_calendar[2]);
-          return struct_builder->Append();
-        };
-        RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
-      } catch (const std::runtime_error& ex) {
-        return Status::Invalid(ex.what());
-      }
+      ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+      auto visit_value = [&](int64_t arg) {
+        const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
+        field_builders[0]->UnsafeAppend(iso_calendar[0]);
+        field_builders[1]->UnsafeAppend(iso_calendar[1]);
+        field_builders[2]->UnsafeAppend(iso_calendar[2]);
+        return struct_builder->Append();
+      };
+      RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
     }
 
     std::shared_ptr<Array> out_array;
@@ -647,41 +644,6 @@ std::shared_ptr<ScalarFunction> MakeTemporal(
       }
       case TimeUnit::NANO: {
         auto exec = ExecTemplate<Op, std::chrono::nanoseconds, OutType>::Exec;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-    }
-  }
-  return func;
-}
-
-std::shared_ptr<ScalarFunction> MakeStrftime(std::string name, const FunctionDoc* doc,
-                                             const StrftimeOptions& default_options,
-                                             KernelInit init) {
-  const auto& out_type = utf8();
-  auto func =
-      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, &default_options);
-
-  for (auto unit : internal::AllTimeUnits()) {
-    InputType in_type{match::TimestampTypeUnit(unit)};
-    switch (unit) {
-      case TimeUnit::SECOND: {
-        auto exec = SimpleUnary<Strftime<std::chrono::seconds>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::MILLI: {
-        auto exec = SimpleUnary<Strftime<std::chrono::milliseconds>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::MICRO: {
-        auto exec = SimpleUnary<Strftime<std::chrono::microseconds>>;
-        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
-        break;
-      }
-      case TimeUnit::NANO: {
-        auto exec = SimpleUnary<Strftime<std::chrono::nanoseconds>>;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
@@ -903,8 +865,8 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   static auto default_strftime_options = StrftimeOptions();
-  auto strftime = MakeStrftime("strftime", &strftime_doc, default_strftime_options,
-                               StrftimeState::Init);
+  auto strftime = MakeSimpleUnaryTemporal<Strftime>(
+      "strftime", utf8(), &strftime_doc, &default_strftime_options, StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 }
 
