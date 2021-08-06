@@ -343,7 +343,7 @@ public class ResultSetTest {
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
         try (final ResultSet resultSet = statement.executeQuery(query)) {
-          resultSetNextUntilDone(resultSet);
+          fail();
         } catch (final SQLException e) {
           exceptions.add(e);
         }
@@ -361,7 +361,7 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          is(format("%s canceled", Statement.class.getSimpleName())));
+          is(format("Error while executing SQL \"%s\": Execution canceled", query)));
     }
   }
 }
