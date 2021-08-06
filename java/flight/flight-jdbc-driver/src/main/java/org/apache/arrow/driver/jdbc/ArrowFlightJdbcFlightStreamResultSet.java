@@ -28,6 +28,7 @@ import java.util.TimeZone;
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
@@ -58,8 +59,8 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   private void loadNewQueue() {
     Optional.ofNullable(getFlightStreamQueue()).ifPresent(AutoCloseables::closeNoChecked);
     try {
-      flightStreamQueue =
-          createNewQueue(((ArrowFlightConnection) getStatement().getConnection()).getExecutorService());
+      ArrowFlightConnection connection = (ArrowFlightConnection) getStatement().getConnection();
+      flightStreamQueue = createNewQueue(connection.getExecutorService());
     } catch (final SQLException e) {
       throw new RuntimeException(e);
     }
@@ -69,12 +70,12 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     return currentFlightStream;
   }
 
-  private void loadNewFlightStream() {
+  private void loadNewFlightStream() throws SQLException {
     Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
     try {
       this.currentFlightStream = getFlightStreamQueue().next();
-    } catch (final Exception e) {
-      throw new RuntimeException(e);
+    } catch (InterruptedException e) {
+      throw new RuntimeException("Execution canceled");
     }
   }
 
@@ -85,11 +86,10 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         ((ArrowFlightConnection) getStatement().getConnection())
             .getClient().readilyGetFlightStreams(signature.sql));
     loadNewFlightStream();
+
     // Ownership of the root will be passed onto the cursor.
     if (currentFlightStream != null) {
       execute(currentFlightStream.getRoot());
-    } else {
-      cancel();
     }
     return this;
   }
@@ -120,7 +120,12 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         flightStreamQueue.enqueue(currentFlightStream);
       }
 
-      currentFlightStream = flightStreamQueue.next();
+      try {
+        currentFlightStream = flightStreamQueue.next();
+      } catch (InterruptedException e) {
+        throw AvaticaConnection.HELPER.createException("FlightStreams canceled");
+      }
+
       if (currentFlightStream != null) {
         execute(currentFlightStream.getRoot());
         continue;
