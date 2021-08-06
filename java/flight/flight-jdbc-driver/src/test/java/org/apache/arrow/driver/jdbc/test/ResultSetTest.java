@@ -119,15 +119,15 @@ public class ResultSetTest {
 
       for (; resultSet.next(); count++) {
         collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
-        collector.checkThat(testNames.remove(resultSet.getString(2)), CoreMatchers.is(true));
+        collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
         collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
         collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
         collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
         collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
       }
 
-      collector.checkThat(testNames.isEmpty(), CoreMatchers.is(true));
-      collector.checkThat(expectedRows, CoreMatchers.is(count));
+      collector.checkThat(testNames.isEmpty(), is(true));
+      collector.checkThat(expectedRows, is(count));
     }
   }
 
@@ -151,7 +151,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
 
       final int maxRowsLimit = 3;
       statement.setMaxRows(maxRowsLimit);
@@ -194,7 +194,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingLargeMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -235,7 +235,7 @@ public class ResultSetTest {
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletion() throws Exception {
     Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+    ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD);
 
     statement.closeOnCompletion();
 
@@ -253,7 +253,7 @@ public class ResultSetTest {
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
     Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+    ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD);
 
     final long maxRowsLimit = 3;
     statement.setLargeMaxRows(maxRowsLimit);
@@ -273,7 +273,7 @@ public class ResultSetTest {
   @Test
   public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
