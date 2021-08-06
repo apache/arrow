@@ -452,7 +452,6 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 // Validity functions
 
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
-SCALAR_EAGER_UNARY(IsNull, "is_null")
 SCALAR_EAGER_UNARY(IsNan, "is_nan")
 
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
@@ -470,6 +469,10 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
   args.reserve(cases.size() + 1);
   args.insert(args.end(), cases.begin(), cases.end());
   return CallFunction("case_when", args, ctx);
+}
+
+Result<Datum> IsNull(const Datum& arg, const NanNullOptions& options, ExecContext* ctx) {
+  return CallFunction("is_null", {arg}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
