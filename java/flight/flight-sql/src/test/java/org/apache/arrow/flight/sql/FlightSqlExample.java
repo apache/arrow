@@ -581,10 +581,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    try (final ResultSet resultSet =
-             commandExecutePreparedStatementLoadingCache
+    StatementContext<PreparedStatement> statementContext =
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
+    assert statementContext != null;
+    try (PreparedStatement statement = statementContext.getStatement();
+         ResultSet resultSet = statement.executeQuery()) {
 
-                 .get(command.getPreparedStatementHandle())) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
         VectorLoader loader = new VectorLoader(vectorSchemaRoot);
@@ -600,7 +602,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         listener.putNext();
       }
-    } catch (SQLException | IOException | ExecutionException e) {
+    } catch (SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
@@ -645,12 +647,15 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
     final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
+    StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(preparedStatementHandle);
     try {
-      final ResultSet resultSet =
-          commandExecutePreparedStatementLoadingCache.get(preparedStatementHandle);
+      assert statementContext != null;
+      PreparedStatement statement = statementContext.getStatement();
+
+      ResultSetMetaData metaData = statement.getMetaData();
       return getFlightInfoForSchema(command, descriptor,
-          jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (final SQLException | ExecutionException e) {
+          jdbcToArrowSchema(metaData, DEFAULT_CALENDAR));
+    } catch (final SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -796,7 +801,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
           final int rowCount = root.getRowCount();
 
-          prepareBatch(preparedStatement, root, rowCount);
+          setDataPreparedStatement(preparedStatement, root, rowCount, true);
 
           final int[] result = preparedStatement.executeBatch();
 
@@ -816,7 +821,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     };
   }
 
-  private void prepareBatch(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount)
+  private void setDataPreparedStatement(PreparedStatement preparedStatement, VectorSchemaRoot root, int rowCount,
+                                        boolean isUpdate)
       throws SQLException {
     for (int i = 0; i < rowCount; i++) {
       for (FieldVector vector : root.getFieldVectors()) {
@@ -894,15 +900,34 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             throw new UnsupportedOperationException();
         }
       }
-      preparedStatement.addBatch();
+      if (isUpdate) {
+        preparedStatement.addBatch();
+      }
     }
   }
 
   @Override
   public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command, CallContext context,
                                                   FlightStream flightStream, StreamListener<PutResult> ackStream) {
-    // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    final StatementContext<PreparedStatement> statementContext =
+        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
+
+    return () -> {
+      assert statementContext != null;
+      PreparedStatement preparedStatement = statementContext.getStatement();
+
+      try {
+        while (flightStream.next()) {
+          final VectorSchemaRoot root = flightStream.getRoot();
+          setDataPreparedStatement(preparedStatement, root, root.getRowCount(), false);
+        }
+
+      } catch (SQLException e) {
+        ackStream.onError(e);
+        return;
+      }
+      ackStream.onCompleted();
+    };
   }
 
   @Override
