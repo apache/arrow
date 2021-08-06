@@ -358,10 +358,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                   listener.completed();
                 }
               },
-              ticket -> ticket.equals(CANCELLATION_TEST_SQL_CMD),
+              ticket -> readilyGetTickets(CANCELLATION_TEST_SQL_CMD).contains(ticket),
               (ticketEntry, listener) -> {
-                // will keep loading for enough time for the query execution to be cancelled later
-                readilyGetTickets(CANCELLATION_TEST_SQL_CMD).forEach(LOGGER::debug);
                 // just in case -- generate irrelevant query results
                 final String irrelevantByte = "irrelevant_byte";
                 final String irrelevantInt = "irrelevant_int";
@@ -408,10 +406,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         readilyExecutableMap.entrySet().stream()
             .filter(entry -> entry.getKey().test(ticketString))
             .map(Entry::getValue)
-            .forEach(consumer ->
-                consumer.accept(
-                    new SimpleImmutableEntry<>(ticketString, readilyGetTickets(REGULAR_TEST_SQL_CMD)),
-                    listener));
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Unsupported SQL query."))
+            .accept(new SimpleImmutableEntry<>(ticketString, readilyGetTickets(REGULAR_TEST_SQL_CMD)), listener);
       }
 
       @Override
