@@ -990,15 +990,14 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 class TestRetryStrategy : public S3RetryStrategy {
  public:
   bool ShouldRetry(const S3RetryStrategy::AWSErrorDetail& error,
-                   long attempted_retries) final {  // NOLINT runtime/int
+                   int64_t attempted_retries) final {
     errors_encountered_.emplace_back(error);
     constexpr int64_t MAX_RETRIES = 2;
     return attempted_retries < MAX_RETRIES;
   }
 
-  int64_t CalculateDelayBeforeNextRetry(
-      const S3RetryStrategy::AWSErrorDetail& error,
-      long attempted_retries) final {  // NOLINT runtime/int
+  int64_t CalculateDelayBeforeNextRetry(const S3RetryStrategy::AWSErrorDetail& error,
+                                        int64_t attempted_retries) final {
     int64_t delay = attempted_retries;
     retry_delays_.emplace_back(delay);
     return delay;

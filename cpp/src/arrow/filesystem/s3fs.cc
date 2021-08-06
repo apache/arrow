@@ -493,14 +493,18 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
   bool ShouldRetry(const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
                    long attempted_retries) const override {  // NOLINT runtime/int
     S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
-    return s3_retry_strategy_->ShouldRetry(detail, attempted_retries);
+    return s3_retry_strategy_->ShouldRetry(
+        detail,
+        static_cast<long>(attempted_retries));  // NOLINT runtime/int
   }
 
   long CalculateDelayBeforeNextRetry(  // NOLINT runtime/int
       const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
       long attempted_retries) const override {  // NOLINT runtime/int
     S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
-    return s3_retry_strategy_->CalculateDelayBeforeNextRetry(detail, attempted_retries);
+    return static_cast<long>(  // NOLINT runtime/int
+        s3_retry_strategy_->CalculateDelayBeforeNextRetry(
+            detail, static_cast<long>(attempted_retries)));  // NOLINT runtime/int
   }
 
  private:
