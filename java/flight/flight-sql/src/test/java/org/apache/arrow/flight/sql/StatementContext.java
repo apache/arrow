@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.sql;
 
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,7 +69,8 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
 
   @Override
   public void close() throws Exception {
-    AutoCloseables.close(statement, statement.getConnection());
+    Connection connection = statement.getConnection();
+    AutoCloseables.close(statement, connection);
   }
 
   @Override
