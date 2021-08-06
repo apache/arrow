@@ -60,7 +60,6 @@ import org.hamcrest.Matcher;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -344,6 +343,19 @@ public class TestFlightSql {
         collector.checkThat(updatedRows, is(10L));
         collector.checkThat(deletedRows, is(10L));
       }
+    }
+  }
+
+  @Test
+  public void testSimplePreparedStatementUpdateResultsWithoutParameters() {
+    try (PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES ('test', 1000)");
+         PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = 'test'")) {
+      final long updatedRows = prepare.executeUpdate();
+
+      final long deletedRows = deletePrepare.executeUpdate();
+
+      collector.checkThat(updatedRows, is(1L));
+      collector.checkThat(deletedRows, is(1L));
     }
   }
 
