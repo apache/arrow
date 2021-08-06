@@ -374,6 +374,15 @@ public class FlightSqlClient {
     }
 
     /**
+     * Empty the {@link VectorSchemaRoot} that contains the parameter binding from a preparedStatemnt
+     * operation.
+     *
+     */
+    public void clearParameters() {
+      this.parameterBindingRoot = null;
+    }
+
+    /**
      * Returns the Schema of the resultset.
      *
      * @return the Schema of the resultset.

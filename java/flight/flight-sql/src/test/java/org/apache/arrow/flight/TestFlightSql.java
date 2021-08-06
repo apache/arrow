@@ -333,7 +333,6 @@ public class TestFlightSql {
         prepare.setParameters(insertRoot);
         final long updatedRows = prepare.executeUpdate();
 
-
         final long deletedRows;
         try (final VectorSchemaRoot deleteRoot = VectorSchemaRoot.of(varCharVector)) {
           deletePrepare.setParameters(deleteRoot);
