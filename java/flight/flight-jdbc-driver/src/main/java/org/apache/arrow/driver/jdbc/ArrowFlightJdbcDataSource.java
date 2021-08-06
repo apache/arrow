@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc;
 
 import java.io.PrintWriter;
 import java.net.URISyntaxException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
@@ -43,23 +42,39 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    */
   public ArrowFlightJdbcDataSource() {
     this.properties = new Properties();
+    for (BaseProperty baseProperty : BaseProperty.values()) {
+      Object defaultValue = baseProperty.getDefaultValue();
+      if (defaultValue != null) {
+        this.properties.put(baseProperty.getName(), defaultValue);
+      }
+    }
   }
 
   @Override
-  public Connection getConnection() throws SQLException {
+  public ArrowFlightConnection getConnection() throws SQLException {
     return getConnection(getUsername(), getPassword());
   }
 
   @Override
-  public Connection getConnection(String username, String password) throws SQLException {
+  public ArrowFlightConnection getConnection(String username, String password) throws SQLException {
+    final Properties properties = getProperties(username, password);
+    return getConnection(properties);
+  }
+
+  ArrowFlightConnection getConnection(Properties properties) throws SQLException {
     final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
 
-    final Properties properties = new Properties(this.properties);
+    final String connectionUrl = Preconditions.checkNotNull(getUrl());
+    return (ArrowFlightConnection) driver.connect(connectionUrl, properties);
+  }
+
+  Properties getProperties(String username, String password) {
+    final Properties properties = new Properties();
+    properties.putAll(this.properties);
     properties.put(BaseProperty.USERNAME.getName(), username);
     properties.put(BaseProperty.PASSWORD.getName(), password);
 
-    final String connectionUrl = Preconditions.checkNotNull(getUrl());
-    return driver.connect(connectionUrl, properties);
+    return properties;
   }
 
   private String getUrl() {

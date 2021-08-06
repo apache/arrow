@@ -238,7 +238,7 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get(HOST.getName()), "localhost");
 
     // Check port == the provided port
-    assertEquals(parsedArgs.get(PORT.getName()), "2222");
+    assertEquals(parsedArgs.get(PORT.getName()), 2222);
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("key1"), "value1");

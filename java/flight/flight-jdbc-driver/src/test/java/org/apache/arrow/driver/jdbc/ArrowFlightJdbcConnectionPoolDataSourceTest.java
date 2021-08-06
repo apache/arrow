@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.apache.arrow.driver.jdbc.ArrowFlightJdbcConnectionPoolDataSource.Credentials;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
@@ -137,19 +136,5 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
     Assert.assertNotSame(connection, connection2);
     Assert.assertNotSame(connection.unwrap(ArrowFlightConnection.class),
         connection2.unwrap(ArrowFlightConnection.class));
-  }
-
-  @Test
-  public void testCredentialsEquals() {
-    Assert.assertEquals(new Credentials("user1", "pass1"), new Credentials("user1", "pass1"));
-    Assert.assertNotEquals(new Credentials("user1", "pass1"), new Credentials("user1", "pass2"));
-    Assert.assertNotEquals(new Credentials("user1", "pass1"), new Credentials("user2", "pass1"));
-  }
-
-  @Test
-  public void testCredentialsHashCode() {
-    Assert.assertEquals(new Credentials("user1", "pass1").hashCode(), new Credentials("user1", "pass1").hashCode());
-    Assert.assertNotEquals(new Credentials("user1", "pass1").hashCode(), new Credentials("user1", "pass2").hashCode());
-    Assert.assertNotEquals(new Credentials("user1", "pass1").hashCode(), new Credentials("user2", "pass1").hashCode());
   }
 }
