@@ -38,6 +38,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
@@ -2202,6 +2203,23 @@ Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(const ChunkedArray& v
 
 Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch,
                                                          ExecContext* ctx) {
+  int64_t null_count = 0;
+  for (int col_index = 0; col_index < batch.num_columns(); ++col_index) {
+    const auto& column = batch.column(col_index);
+    null_count += column->null_count();
+  }
+  if (null_count == 0) {
+    return RecordBatch::Make(batch.schema(), batch.num_rows(), batch.columns());
+  }
+  if (null_count / batch.num_columns() == batch.num_rows()) {
+    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
+    for (int i = 0; i < batch.num_columns(); i++) {
+      RETURN_NOT_OK(
+          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
+    }
+    return RecordBatch::Make(batch.schema(), 0, empty_batch);
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto dst,
                         AllocateEmptyBitmap(batch.num_rows(), ctx->memory_pool()));
   BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), true);
@@ -2212,63 +2230,34 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
       ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
                                    dst->data(), 0, column->length(), 0,
                                    dst->mutable_data());
-    } else {
-      for (int64_t i = 0; i < column->length(); ++i) {
-        if (!column->IsValid(i)) {
-          BitUtil::ClearBit(dst->mutable_data(), i);
-        }
-      }
     }
   }
   auto drop_null_filter =
       std::make_shared<BooleanArray>(batch.num_rows(), dst, nullptr, 0, 0);
-
-  if (drop_null_filter->false_count() == batch.num_rows()) {
-    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
-    for (int i = 0; i < batch.num_columns(); i++) {
-      RETURN_NOT_OK(
-          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
-    }
-    return RecordBatch::Make(batch.schema(), 0, empty_batch);
-  }
   ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(batch), Datum(drop_null_filter),
                                              FilterOptions::Defaults(), ctx));
   return result.record_batch();
 }
+
+using ::arrow::internal::Bitmap;
 
 Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ctx) {
   if (table.num_rows() == 0) {
     return Table::Make(table.schema(), table.columns(), 0);
   }
   const int num_columns = table.num_columns();
-  std::vector<ArrayVector> inputs(num_columns);
-
-  // Fetch table columns
-  for (int i = 0; i < num_columns; ++i) {
-    inputs[i] = table.column(i)->chunks();
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto dst,
-                        AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
-  BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
-  // Note: Not all chunks has null_bitmap data, so we are using IsValid method
-  for (int col = 0; col < num_columns; ++col) {
-    int64_t relative_index = 0;
-    for (int64_t chunk_index = 0; chunk_index < static_cast<int64_t>(inputs[col].size());
-         ++chunk_index) {
-      const auto& column_chunk = inputs[col][chunk_index];
-      for (int64_t i = 0; i < column_chunk->length(); ++i) {
-        if (!column_chunk->IsValid(i)) {
-          BitUtil::ClearBit(dst->mutable_data(), relative_index + i);
-        }
-      }
-      relative_index += column_chunk->length();
+  int64_t null_count = 0;
+  for (int col_index = 0; col_index < num_columns; ++col_index) {
+    const ArrayVector& chunks = table.column(col_index)->chunks();
+    for (size_t chunk_index = 0; chunk_index < chunks.size(); ++chunk_index) {
+      const auto& column_chunk = chunks[chunk_index];
+      null_count += column_chunk->null_count();
     }
   }
-  auto drop_null_filter =
-      std::make_shared<BooleanArray>(table.num_rows(), dst, nullptr, 0, 0);
-
-  if (drop_null_filter->false_count() == table.num_rows()) {
+  if (null_count == 0) {
+    return Table::Make(table.schema(), table.columns(), table.num_rows());
+  }
+  if (null_count / table.num_columns() == table.num_rows()) {
     std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
     for (int i = 0; i < table.num_columns(); i++) {
       std::shared_ptr<Array> empty_array;
@@ -2278,6 +2267,37 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
     }
     return Table::Make(table.schema(), empty_table, 0);
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto dst,
+                        AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
+  BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
+
+  for (int col_index = 0; col_index < num_columns; ++col_index) {
+    const ArrayVector& chunks = table.column(col_index)->chunks();
+    std::vector<Bitmap> bitmaps(chunks.size());
+    for (size_t chunk_index = 0; chunk_index < chunks.size(); ++chunk_index) {
+      const auto& column_chunk = chunks[chunk_index];
+      bitmaps[chunk_index] = Bitmap(column_chunk->null_bitmap_data(),
+                                    column_chunk->offset(), column_chunk->length());
+    }
+    int64_t bitmap_offset = 0;
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_bitmap,
+                          AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
+    BitUtil::SetBitsTo(concatenated_bitmap->mutable_data(), 0, table.num_rows(), true);
+
+    for (auto bitmap : bitmaps) {
+      if (bitmap.buffer()->data()) {
+        ::arrow::internal::CopyBitmap(bitmap.buffer()->data(), bitmap.offset(),
+                                      bitmap.length(),
+                                      concatenated_bitmap->mutable_data(), bitmap_offset);
+      }
+      bitmap_offset += bitmap.length();
+    }
+    ::arrow::internal::BitmapAnd(concatenated_bitmap->data(), 0, dst->data(), 0,
+                                 table.num_rows(), 0, dst->mutable_data());
+  }
+  auto drop_null_filter =
+      std::make_shared<BooleanArray>(table.num_rows(), dst, nullptr, 0, 0);
   ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(table), Datum(drop_null_filter),
                                              FilterOptions::Defaults(), ctx));
   return result.table();

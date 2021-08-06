@@ -1027,6 +1027,17 @@ def test_drop_null_table():
     result = table.drop_null()
     assert result.equals(expected)
 
+    table = pa.table([pa.chunked_array([["a", "b"], ["c", "d", "e"]]),
+                      pa.chunked_array([["a"], ["b"], [None], ["d", None]]),
+                      pa.chunked_array([["a", None], ["c", "d", None]])],
+                     names=["a", "b", "c"])
+    expected = pa.table([pa.array(["a", "d"]),
+                         pa.array(["a", "d"]),
+                         pa.array(["a", "d"])],
+                        names=["a", "b", "c"])
+    result = table.drop_null()
+    assert result.equals(expected)
+
 
 def test_drop_null_null_type():
     arr = pa.array([None] * 10)
