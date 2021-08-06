@@ -346,13 +346,14 @@ build_libarrow <- function(src_dir, dst_dir) {
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     AR = R_CMD_config("AR"),
     RANLIB = R_CMD_config("RANLIB"),
-    LDFLAGS = R_CMD_config("LDFLAGS"),
-    CMAKE_CXX_COMPILER_AR = R_CMD_config("LDFLAGS")
+    LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
   env_vars <- with_s3_support(env_vars)
   env_vars <- with_mimalloc(env_vars)
-  if (tolower(Sys.info()[["sysname"]]) %in% "sunos") {
+  if (tolower(Sys.info()[["sysname"]]) %in% "sunos" || grepl("-flto", env_var_list[["LDFLAGS"]])) {
+    # Turn off some features for these builds
+    #
     # jemalloc doesn't seem to build on Solaris
     # nor does thrift, so turn off parquet,
     # and arrowExports.cpp requires parquet for dataset (ARROW-11994), so turn that off
@@ -360,6 +361,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     # re2 and utf8proc do compile,
     # but `ar` fails to build libarrow_bundled_dependencies, so turn them off
     # so that there are no bundled deps
+    #
+    # There's also some yet-to-be-determined issue with a libarrow dep
+    # that doesn't do LTO correctly, so likewise do a minimal build
+    # if LTO is forced on
     env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF ARROW_PARQUET=OFF ARROW_DATASET=OFF ARROW_WITH_RE2=OFF ARROW_WITH_UTF8PROC=OFF EXTRA_CMAKE_FLAGS=-DARROW_SIMD_LEVEL=NONE")
   }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
