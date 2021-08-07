@@ -284,8 +284,7 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
 constexpr char DayOfWeekOptions::kTypeName[];
 
 NanNullOptions::NanNullOptions(bool nan_is_null)
-    : FunctionOptions(internal::kNanNullOptionsType),
-      nan_is_null(nan_is_null) {}
+    : FunctionOptions(internal::kNanNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NanNullOptions::kTypeName[];
 
 namespace internal {
