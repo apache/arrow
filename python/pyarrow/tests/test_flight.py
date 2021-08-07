@@ -1560,11 +1560,6 @@ def test_roundtrip_errors():
     with ErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
 
-        data = [
-            pa.array([-10, -5, 0, 5, 10])
-        ]
-        table = pa.Table.from_arrays(data, names=['a'])
-
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.do_action(flight.Action("internal", b"")))
         with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
@@ -1578,47 +1573,32 @@ def test_roundtrip_errors():
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
 
-        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("internal"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("timedout"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("cancel"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("unauthenticated"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("unauthorized"))
-            writer.write_table(table)
-            writer.close()
+        data = [pa.array([-10, -5, 0, 5, 10])]
+        table = pa.Table.from_arrays(data, names=['a'])
 
-        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_internal"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_timedout"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_cancel"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_unauthenticated"))
-            writer.write_table(table)
-            writer.close()
-        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
-            writer, reader = client.do_put(flight.FlightDescriptor.for_command("after_read_unauthorized"))
-            writer.write_table(table)
-            writer.close()
+        exceptions = {
+            'internal': flight.FlightInternalError,
+            'timedout':flight.FlightTimedOutError,
+            'cancel':flight.FlightCancelledError,
+            'unauthenticated':flight.FlightUnauthenticatedError,
+            'unauthorized':flight.FlightUnauthorizedError,
+            'after_read_internal':flight.FlightInternalError,
+            'after_read_timedout':flight.FlightTimedOutError,
+            'after_read_cancel':flight.FlightCancelledError,
+            'after_read_unauthenticated':flight.FlightUnauthenticatedError,
+            'after_read_unauthorized':flight.FlightUnauthorizedError,
+
+        }
+
+        for command, exception in exceptions.items():
+
+            with pytest.raises(exception, match=".*foo.*"):
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(command),
+                    table.schema)
+                writer.write_table(table)
+                writer.close()
+
 
 
 def test_do_put_independent_read_write():
