@@ -76,8 +76,7 @@ TEST_F(TestBooleanValidityKernels, ArrayIsNull) {
   CheckScalarUnary("is_null", type_singleton(), "[null, 1, 0, null]", type_singleton(),
                    "[true, false, false, true]");
 
-  // TODO: This tests could be helpful (scalar for now works well, but not ArrayData still
-  // not) By default 'NaN' value is not considered as null
+  // By default 'NaN' value is not considered as null
   CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[null, 2.0, NaN]"),
                    ArrayFromJSON(boolean(), "[true, false, false]"));
   CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
@@ -85,6 +84,7 @@ TEST_F(TestBooleanValidityKernels, ArrayIsNull) {
 
   // Setting 'nan_is_null' as true, 'NaN value will be considered as null
   const NanNullOptions& options = NanNullOptions(true);
+  // TODO: These tests could be helpful (Scalar for now works, but not ArrayData)
   // CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[null, 2.0, NaN]"),
   // ArrayFromJSON(boolean(), "[true, false, true]"), &options); // works for scalar only
   // CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
