@@ -757,7 +757,9 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> IsNull(const Datum& values, NanNullOptions options = NanNullOptions::Defaults(), ExecContext* ctx = NULLPTR);
+Result<Datum> IsNull(const Datum& values,
+                     NanNullOptions options = NanNullOptions::Defaults(),
+                     ExecContext* ctx = NULLPTR);
 
 /// \brief IsNan returns true for each element of `values` that is NaN,
 /// false otherwise
