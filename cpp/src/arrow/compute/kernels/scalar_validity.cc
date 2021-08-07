@@ -77,9 +77,18 @@ struct IsInfOperator {
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    bool is_nan_value = false;
+    bool is_floating = false;
+    if (in.type == float32()) {
+      is_nan_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+      is_floating = true;
+    } else if (in.type == float64()) {
+      is_nan_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+      is_floating = true;
+    }
+
     auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
-    bool is_nan_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
-    if (in.is_valid && is_floating(in.type->id()) && options.nan_is_null && is_nan_value) {
+    if (in.is_valid && is_floating && options.nan_is_null && is_nan_value) {
       checked_cast<BooleanScalar*>(out)->value = true;
       return Status::OK();
     }
@@ -112,7 +121,9 @@ struct IsNanOperator {
 void MakeFunction(std::string name, const FunctionDoc* doc,
                   std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
-                  MemAllocation::type mem_allocation, bool can_write_into_slices, const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+                  MemAllocation::type mem_allocation, bool can_write_into_slices,
+                  const FunctionOptions* default_options = NULLPTR,
+                  KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};
   auto func = std::make_shared<ScalarFunction>(name, arity, doc, default_options);
 
@@ -210,9 +221,12 @@ const FunctionDoc is_inf_doc(
     ("For each input value, emit true iff the value is infinite (inf or -inf)."),
     {"values"});
 
-const FunctionDoc is_null_doc("Return true if null, NaN can be considered as null",
-                              ("For each input value, emit true iff the value is null. Default behavior is to emit false for NaN values. True can be emitted for NaN values by toggling NanNullOptions flag."),
-                              {"values"}, "NanNullOptions");
+const FunctionDoc is_null_doc(
+    "Return true if null, NaN can be considered as null",
+    ("For each input value, emit true iff the value is null. Default behavior is to emit "
+     "false for NaN values. True can be emitted for NaN values by toggling "
+     "NanNullOptions flag."),
+    {"values"}, "NanNullOptions");
 
 const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
@@ -228,7 +242,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
 
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
-               /*can_write_into_slices=*/true, &kNanNullOptions, OptionsWrapper<NanNullOptions>::Init);
+               /*can_write_into_slices=*/true, &kNanNullOptions,
+               OptionsWrapper<NanNullOptions>::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
