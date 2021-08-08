@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }} {{ command|default("") }}
 
-    {% if '-r-' in image %}
+    {% if '-r' in image %}
       - name: Dump R install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         continue-on-error: true
