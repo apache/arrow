@@ -274,8 +274,6 @@ test_that("Write a CSV file with header", {
   tbl_in <- read_csv_arrow(csv_file)
   expect_identical(tbl_in, tbl_no_dates)
 
-  skip("Doesn't yet work with date columns due to ARROW-12540")
-
   tbl_out <- write_csv_arrow(tbl, csv_file)
   expect_true(file.exists(csv_file))
   expect_identical(tbl_out, tbl)
