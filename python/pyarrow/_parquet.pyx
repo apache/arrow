@@ -1592,7 +1592,7 @@ cdef class ParquetWriter(_Weakrefable):
 
 cdef class EncryptionConfiguration(_Weakrefable):
     cdef:
-        unique_ptr[CEncryptionConfiguration] configuration
+        shared_ptr[CEncryptionConfiguration] configuration
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1726,9 +1726,12 @@ cdef class EncryptionConfiguration(_Weakrefable):
     def data_key_length_bits(self, value):
         self.configuration.get().data_key_length_bits = value
 
+    cdef inline shared_ptr[CEncryptionConfiguration] unwrap(self) nogil:
+        return self.configuration
+
 cdef class DecryptionConfiguration(_Weakrefable):
     cdef:
-        unique_ptr[CDecryptionConfiguration] configuration
+        shared_ptr[CDecryptionConfiguration] configuration
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1747,27 +1750,27 @@ cdef class DecryptionConfiguration(_Weakrefable):
     def cache_lifetime(self, value):
         self.configuration.get().cache_lifetime_seconds = value.total_seconds()
 
+    cdef inline shared_ptr[CDecryptionConfiguration] unwrap(self) nogil:
+        return self.configuration
+
 
 cdef class KmsConnectionConfig(_Weakrefable):
     cdef:
-        CKmsConnectionConfig configuration
+        shared_ptr[CKmsConnectionConfig] configuration
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, kms_instance_id=None, kms_instance_url=None,
                  key_access_token=None, custom_kms_conf=None):
-        if key_access_token is None:
-            self.configuration.refreshable_key_access_token.reset(
-                new CKeyAccessToken(b'DEFAULT'))
-        else:
-            self.configuration.refreshable_key_access_token.reset(
-                new CKeyAccessToken(tobytes(key_access_token)))
+        self.configuration.reset(new CKmsConnectionConfig())
         if kms_instance_id is not None:
             self.kms_instance_id = kms_instance_id
         if kms_instance_url is not None:
             self.kms_instance_url = kms_instance_url
-        if key_access_token is not None:
+        if key_access_token is None:
+            self.key_access_token = b'DEFAULT'
+        else:
             self.key_access_token = key_access_token
         if custom_kms_conf is not None:
             self.custom_kms_conf = custom_kms_conf
@@ -1776,26 +1779,26 @@ cdef class KmsConnectionConfig(_Weakrefable):
     def kms_instance_id(self):
         """ID of the KMS instance that will be used for encryption
         (if multiple KMS instances are available)."""
-        return frombytes(self.configuration.kms_instance_id)
+        return frombytes(self.configuration.get().kms_instance_id)
 
     @kms_instance_id.setter
     def kms_instance_id(self, value):
-        self.configuration.kms_instance_id = tobytes(value)
+        self.configuration.get().kms_instance_id = tobytes(value)
 
     @property
     def kms_instance_url(self):
         """URL of the KMS instance."""
-        return frombytes(self.configuration.kms_instance_url)
+        return frombytes(self.configuration.get().kms_instance_url)
 
     @kms_instance_url.setter
     def kms_instance_url(self, value):
-        self.configuration.kms_instance_url = tobytes(value)
+        self.configuration.get().kms_instance_url = tobytes(value)
 
     @property
     def key_access_token(self):
         """Authorization token that will be passed to KMS."""
         return frombytes(
-            self.configuration.refreshable_key_access_token.get().value())
+            self.configuration.get().refreshable_key_access_token.get().value())
 
     @key_access_token.setter
     def key_access_token(self, value):
@@ -1805,7 +1808,7 @@ cdef class KmsConnectionConfig(_Weakrefable):
     def custom_kms_conf(self):
         """A dictionary with KMS-type-specific configuration"""
         custom_kms_conf = {frombytes(k): frombytes(v)
-                           for k, v in self.configuration.custom_kms_conf}
+                           for k, v in self.configuration.get().custom_kms_conf}
         return custom_kms_conf
 
     @custom_kms_conf.setter
@@ -1813,7 +1816,7 @@ cdef class KmsConnectionConfig(_Weakrefable):
         if value is not None:
             for k, v in value.items():
                 if isinstance(k, str) and isinstance(v, str):
-                    self.configuration.custom_kms_conf[tobytes(k)] = \
+                    self.configuration.get().custom_kms_conf[tobytes(k)] = \
                         tobytes(v)
                 else:
                     raise TypeError("Expected custom_kms_conf to be " +
@@ -1821,22 +1824,18 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
     def refresh_key_access_token(self, value):
         cdef:
-            CKeyAccessToken* c_key_access_token = \
-                self.configuration.refreshable_key_access_token.get()
+            shared_ptr[CKeyAccessToken] c_key_access_token = \
+                self.configuration.get().refreshable_key_access_token
 
-        c_key_access_token.Refresh(tobytes(value))
+        c_key_access_token.get().Refresh(tobytes(value))
 
-    cdef inline CKmsConnectionConfig unwrap(self) nogil:
+    cdef inline shared_ptr[CKmsConnectionConfig] unwrap(self) nogil:
         return self.configuration
 
     @staticmethod
     cdef wrap(const CKmsConnectionConfig& config):
         result = KmsConnectionConfig()
-        result.configuration.kms_instance_id = config.kms_instance_id
-        result.configuration.kms_instance_url = config.kms_instance_url
-        result.configuration.refreshable_key_access_token = \
-            config.refreshable_key_access_token
-        result.configuration.custom_kms_conf = config.custom_kms_conf
+        result.configuration = make_shared[CKmsConnectionConfig](move(config))
         return result
 
 # Callback definitions for CPyKmsClientVtable
@@ -1866,13 +1865,11 @@ cdef class KmsClient(_Weakrefable):
     cdef init(self):
         cdef:
             CPyKmsClientVtable vtable = CPyKmsClientVtable()
-            CPyKmsClient* client
 
         vtable.wrap_key = _cb_wrap_key
         vtable.unwrap_key = _cb_unwrap_key
 
-        client = new CPyKmsClient(self, vtable)
-        self.client.reset(client)
+        self.client.reset(new CPyKmsClient(self, vtable))
 
     def wrap_key(self, key_bytes, master_key_identifier):
         raise NotImplementedError()
@@ -1958,8 +1955,8 @@ cdef class CryptoFactory(_Weakrefable):
         """
         file_encryption_properties = \
             self.factory.get().GetFileEncryptionProperties(
-                kms_connection_config.unwrap(),
-                deref(encryption_config.configuration.get()))
+                deref(kms_connection_config.unwrap().get()),
+                deref(encryption_config.unwrap().get()))
         if file_encryption_properties == NULL:
             return None
         return FileEncryptionProperties.wrap(file_encryption_properties)
@@ -1988,10 +1985,10 @@ cdef class CryptoFactory(_Weakrefable):
         if decryption_config is None:
             c_decryption_config = CDecryptionConfiguration()
         else:
-            c_decryption_config = deref(decryption_config.configuration.get())
+            c_decryption_config = deref(decryption_config.unwrap().get())
         file_decryption_properties = \
             self.factory.get().GetFileDecryptionProperties(
-                kms_connection_config.unwrap(), c_decryption_config)
+                deref(kms_connection_config.unwrap().get()), c_decryption_config)
         if file_decryption_properties == NULL:
             return None
         return FileDecryptionProperties.wrap(file_decryption_properties)
