@@ -16,6 +16,16 @@
 # under the License.
 
 class TestBooleanDataType < Test::Unit::TestCase
+  include Helper::Omittable
+
+  def test_export
+    require_gi_bindings(3, 4, 8)
+    data_type = Arrow::BooleanDataType.new
+    c_abi_schema = data_type.export
+    assert_equal(data_type,
+                 Arrow::DataType.import(c_abi_schema))
+  end
+
   def test_type
     data_type = Arrow::BooleanDataType.new
     assert_equal(Arrow::Type::BOOLEAN, data_type.id)
