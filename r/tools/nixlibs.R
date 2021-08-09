@@ -304,7 +304,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     # * https://issues.apache.org/jira/browse/ARROW-13507
     # * https://issues.apache.org/jira/browse/ARROW-12853
     # * https://issues.apache.org/jira/browse/ARROW-9616
-    stop()
+    stop("Full library features not supported with LTO", call. = FALSE)
   }
 
   # We'll need to compile R bindings with these libs, so delete any .o files

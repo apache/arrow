@@ -1040,7 +1040,7 @@ tasks:
       r_image: debian-gcc-devel-lto
       r_tag: latest
       with_arrow: "FALSE"
-      flags: '-e INSTALL_ARGS=--use-LTO'
+      flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-21.04:
