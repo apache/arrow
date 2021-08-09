@@ -291,10 +291,22 @@ R_CMD_config <- function(var) {
 
 build_libarrow <- function(src_dir, dst_dir) {
   if (grepl(R_CMD_config("LTO"), "-flto") {
-    # libarrow builds and links successfully with LTO, but then there's
-    # a segfault on load. We're working hard to debug this!
+    # DESCRIPTION says UseLTO: false, but the user can override this with
+    # R CMD INSTALL --use-LTO
+    # In this case, we need to return a library with some features disabled.
+    # The full library builds and links successfully with LTO, but then there's
+    # a segfault on load. This is a temporary solution while we continue to
+    # debug and search for a proper resolution in the upstream C++ project.
+    #
+    # References:
+    # * https://github.com/apache/arrow/pull/10894
+    # * https://github.com/apache/arrow/pull/10889
+    # * https://issues.apache.org/jira/browse/ARROW-13507
+    # * https://issues.apache.org/jira/browse/ARROW-12853
+    # * https://issues.apache.org/jira/browse/ARROW-9616
     stop()
   }
+
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
@@ -332,7 +344,6 @@ build_libarrow <- function(src_dir, dst_dir) {
     CC = R_CMD_config("CC"),
     CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
-    ARROW_R_CXXFLAGS = paste(Sys.getenv("ARROW_R_CXXFLAGS", ""), "-fno-lto"),
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")

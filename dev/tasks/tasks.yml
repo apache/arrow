@@ -1029,6 +1029,9 @@ tasks:
       r_tag: {{ r_tag }}
 {% endfor %}
 
+  # This is with R built with --enable-lto
+  # CRAN also does R CMD INSTALL --use-LTO
+  # which overrides the UseLTO field in r/DESCRIPTION
   test-r-rhub-debian-gcc-devel-lto-latest:
     ci: azure
     template: r/azure.linux.yml
@@ -1049,6 +1052,7 @@ tasks:
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r
 
+  # This one has -flto=auto
   test-r-gcc-11:
     ci: github
     template: docker-tests/github.linux.yml
