@@ -325,7 +325,7 @@ table ExternalTable {
   /// The schema of the data source. This may be a partial schema (ignoring
   /// unused fields), but it at least asserts the fields and types that are
   /// expected to exist in the data source.
-  schema:Schema (required);
+  schema: Schema (required);
 
   /// Optional opaque table serialization data, for passing engine-specific
   /// instructions to enable the data to be accessed.
@@ -341,11 +341,6 @@ table WindowedExpr {
 enum FrameClause : uint8 {
   ROWS,
   RANGE
-}
-
-enum NullOrdering : uint8 {
-  FIRST,
-  LAST
 }
 
 // Unbounded and CurrentRow are empty tables used as empty variants
@@ -498,6 +493,12 @@ table WindowJoin {
 enum Ordering : uint8 {
   ASCENDING,
   DESCENDING,
+}
+
+// The way in which NULL values should be ordered when sorting.
+enum NullOrdering : uint8 {
+  FIRST,
+  LAST
 }
 
 /// An expression to use for sorting. The key expression determines the values
