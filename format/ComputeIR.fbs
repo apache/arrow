@@ -156,19 +156,19 @@ table Negate {}
 /// Built-in binary operations. Other binary operations can be implemented
 /// using ArrayFunction/FunctionDescr
 enum BinaryOpType : int {
-  ADD = 0,
-  SUBTRACT = 1,
-  MULTIPLY = 2,
-  DIVIDE = 3,
-  EQUAL = 4,
-  NOT_EQUAL = 5,
-  LESS = 6,
-  LESS_EQUAL = 7,
-  GREATER = 8,
-  GREATER_EQUAL = 9,
-  AND = 10,
-  OR = 11,
-  XOR = 12
+  ADD,
+  SUBTRACT,
+  MULTIPLY,
+  DIVIDE,
+  EQUAL,
+  NOT_EQUAL,
+  LESS,
+  LESS_EQUAL,
+  GREATER,
+  GREATER_EQUAL,
+  AND,
+  OR,
+  XOR
 }
 
 /// Built-in binary operation
@@ -179,10 +179,10 @@ table BinaryOp {
 }
 
 enum FunctionType : int {
-  SCALAR = 0,
-  AGGREGATE = 1,
-  WINDOW = 2,
-  TABLE = 3
+  SCALAR,
+  AGGREGATE,
+  WINDOW,
+  TABLE
 }
 
 /// A general-purpose descriptor for a built-in or user-defined
@@ -422,12 +422,12 @@ table Limit {
 }
 
 enum RelationalJoinType : int {
-  INNER = 0,
-  LEFT = 1,
-  RIGHT = 2,
-  OUTER = 3,
-  SEMI = 4,
-  ANTI = 5,
+  INNER,
+  LEFT,
+  RIGHT,
+  FULL,
+  SEMI,
+  ANTI,
 }
 
 /// A standard relational / SQL-style equijoin.
