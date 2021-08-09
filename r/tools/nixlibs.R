@@ -340,7 +340,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = paste(R_CMD_config("LDFLAGS"), R_CMD_config("LTO"))
   )
   if (grepl("-flto", env_var_list[["LDFLAGS"]])) {
-    env_vars$CMAKE_INTERPROCEDURAL_OPTIMIZATION <- "ON"
+    env_var_list$CMAKE_INTERPROCEDURAL_OPTIMIZATION <- "ON"
   }
 
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
