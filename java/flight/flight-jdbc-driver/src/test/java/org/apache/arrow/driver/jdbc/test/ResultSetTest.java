@@ -361,7 +361,7 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          is(format("Error while executing SQL \"%s\": Execution canceled", query)));
+          is(format("Error while executing SQL \"%s\": Query canceled", query)));
     }
   }
 }
