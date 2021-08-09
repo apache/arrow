@@ -208,16 +208,6 @@ table FunctionDescr {
   data: [ubyte];
 }
 
-/// Auxiliary data structure providing parameters for a window function
-/// expression, as in the SQL OVER expression or in time series databases.
-///
-/// TODO: Finish this data type
-table WindowFrame {
-  order_by: [SortKey];
-
-  partition_by: [ArrayExpr];
-}
-
 /// A general array function call, which may be built-in or user-defined.
 ///
 /// It is recommended to put the function output type when using in an
@@ -233,11 +223,6 @@ table ArrayFunction {
   /// It is recommended to limit use of options for functions that are expected
   /// to be built-in in a generic IR consumer.
   options: [NamedLiteral];
-
-  /// Optional window expression for window functions only.
-  ///
-  /// TODO: Decide if window functions should be specified in a different way.
-  window: WindowFrame;
 }
 
 /// Conditional if-then-else operation, selecting values from the then- or
@@ -292,8 +277,6 @@ union ArrayOperation {
   Between
 }
 
-///
-///
 /// An expression yielding a scalar value can be broadcasted to array shape as
 /// needed depending on use.
 table ArrayExpr {
