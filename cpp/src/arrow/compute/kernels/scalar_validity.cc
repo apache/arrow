@@ -93,7 +93,6 @@ struct IsNullOperator {
           break;
         default:
           *out_value = false;
-          break;
       }
     } else {
       *out_value = true;
@@ -103,6 +102,9 @@ struct IsNullOperator {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
+    // TODO: Is `options` needed for detect nulls? Which is the better way to
+    // handle is_null for ArrayData
+    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
     if (arr.MayHaveNulls()) {
       // Input has nulls => output is the inverted null (validity) bitmap.
       InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
