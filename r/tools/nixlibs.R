@@ -331,6 +331,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     RANLIB = R_CMD_config("RANLIB"),
     NM = R_CMD_config("NM"),
     # Try passing -flto if set
+    CFLAGS = trimws(paste(Sys.getenv("CFLAGS"), R_CMD_config("LTO"))),
     CXXFLAGS = trimws(paste(Sys.getenv("CXXFLAGS"), R_CMD_config("LTO"))),
     # This isn't _exactly_ right: if R was built with --enable-lto
     # but the user does R CMD INSTALL --no-use-LTO, then the LTO flags
@@ -340,7 +341,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = paste(R_CMD_config("LDFLAGS"), R_CMD_config("LTO"))
   )
   if (grepl("-flto", env_var_list[["LDFLAGS"]])) {
-    env_var_list$CMAKE_INTERPROCEDURAL_OPTIMIZATION <- "ON"
+    env_var_list <- c(
+      env_var_list,
+      CMAKE_INTERPROCEDURAL_OPTIMIZATION="ON",
+      CMAKE_UNITY_BUILD="OFF"
+    )
   }
 
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
