@@ -28,7 +28,6 @@ import java.util.TimeZone;
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
@@ -72,11 +71,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
 
   private void loadNewFlightStream() throws SQLException {
     Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
-    try {
-      this.currentFlightStream = getFlightStreamQueue().next();
-    } catch (InterruptedException e) {
-      throw new RuntimeException("Execution canceled");
-    }
+    this.currentFlightStream = getFlightStreamQueue().next();
   }
 
   @Override
@@ -120,11 +115,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         flightStreamQueue.enqueue(currentFlightStream);
       }
 
-      try {
-        currentFlightStream = flightStreamQueue.next();
-      } catch (InterruptedException e) {
-        throw AvaticaConnection.HELPER.createException("FlightStreams canceled");
-      }
+      currentFlightStream = flightStreamQueue.next();
 
       if (currentFlightStream != null) {
         execute(currentFlightStream.getRoot());
