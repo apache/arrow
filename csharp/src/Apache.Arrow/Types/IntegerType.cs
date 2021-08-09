@@ -13,17 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 namespace Apache.Arrow.Types
 {
-    public sealed class UInt8Type : IntegerType
+    public abstract class IntegerType: NumberType
     {
-        public static readonly UInt8Type Default = new UInt8Type();
-
-        public override ArrowTypeId TypeId => ArrowTypeId.UInt8;
-        public override string Name => "uint8";
-        public override int BitWidth => 8;
-        public override bool IsSigned => false;
-
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

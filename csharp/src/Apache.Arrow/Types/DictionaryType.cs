@@ -13,17 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+using System;
+
 namespace Apache.Arrow.Types
 {
-    public sealed class UInt8Type : IntegerType
+    public sealed class DictionaryType : FixedWidthType
     {
-        public static readonly UInt8Type Default = new UInt8Type();
+        public static readonly DictionaryType Default = new DictionaryType(Int64Type.Default, Int64Type.Default, false);
 
-        public override ArrowTypeId TypeId => ArrowTypeId.UInt8;
-        public override string Name => "uint8";
-        public override int BitWidth => 8;
-        public override bool IsSigned => false;
+        public DictionaryType(IArrowType indexType, IArrowType valueType, bool ordered)
+        {
+            if (!(indexType is IntegerType))
+            {
+                throw new ArgumentException($"{nameof(indexType)} must be integer");
+            }
 
+            IndexType = indexType;
+            ValueType = valueType;
+            Ordered = ordered;
+        }
+
+        public override ArrowTypeId TypeId => ArrowTypeId.Dictionary;
+        public override string Name => "dictionary";
+        public override int BitWidth => 64;
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        public IArrowType IndexType { get; private set; }
+        public IArrowType ValueType { get; private set; }
+        public bool Ordered { get; private set; }
     }
 }
