@@ -344,7 +344,7 @@ enum FrameClause : uint8 {
 }
 
 // Unbounded and CurrentRow are empty tables used as empty variants
-// in the Bound sum type.
+// in the Bound union.
 table Unbounded {}
 table CurrentRow {}
 
@@ -363,8 +363,8 @@ table Frame {
   clause: FrameClause;
   partition_by: [ArrayExpr];
   order_by: [SortKey];
-  preceding: Bound;
-  following: Bound;
+  preceding: Bound (required);
+  following: Bound (required);
 }
 
 /// A helper union to permit the "SELECT $expr0, ..." construct from SQL.
