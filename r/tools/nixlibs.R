@@ -346,6 +346,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     AR = R_CMD_config("AR"),
     RANLIB = R_CMD_config("RANLIB"),
+    # Try passing -flto if set
+    CXXFLAGS = trimws(paste(Sys.getenv("CXXFLAGS"), R_CMD_config("LTO"))),
     # This isn't _exactly_ right: if R was built with --enable-lto
     # but the user does R CMD INSTALL --no-use-LTO, then the LTO flags
     # won't be used.
