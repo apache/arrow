@@ -24,6 +24,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
@@ -72,7 +73,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
 
   private void loadNewFlightStream() throws SQLException {
     Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
-    this.currentFlightStream = getFlightStreamQueue().next();
+    this.currentFlightStream = getNextFlightStream(true);
   }
 
   @Override
@@ -116,7 +117,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
         flightStreamQueue.enqueue(currentFlightStream);
       }
 
-      currentFlightStream = flightStreamQueue.next();
+      currentFlightStream = getNextFlightStream(false);
 
       if (currentFlightStream != null) {
         execute(currentFlightStream.getRoot());
@@ -157,6 +158,16 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       throw new RuntimeException(e);
     } finally {
       super.close();
+    }
+  }
+
+  private FlightStream getNextFlightStream(boolean isExecution) throws SQLException {
+    if (isExecution) {
+      final int statementTimeout = statement.getQueryTimeout();
+      return statementTimeout != 0 ?
+          flightStreamQueue.next(statementTimeout, TimeUnit.SECONDS) : flightStreamQueue.next();
+    } else {
+      return flightStreamQueue.next();
     }
   }
 }
