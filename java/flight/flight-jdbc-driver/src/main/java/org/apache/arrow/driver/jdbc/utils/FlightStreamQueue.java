@@ -126,13 +126,19 @@ public class FlightStreamQueue implements AutoCloseable {
   public void enqueue(final FlightStream flightStream) {
     checkNotNull(flightStream);
     checkOpen();
-    unpreparedStreams.add(flightStream);
-    futures.add(completionService.submit(() -> {
-      // `FlightStream#next` will block until new data can be read or stream is over.
-      flightStream.next();
-      unpreparedStreams.remove(flightStream);
-      return flightStream;
-    }));
+    synchronized (unpreparedStreams) {
+      checkOpen(); // Prevent adding more streams if closed mid-process.
+      unpreparedStreams.add(flightStream);
+    }
+    synchronized (futures) {
+      checkOpen(); // Prevent adding more streams if closed mid-process.
+      futures.add(completionService.submit(() -> {
+        // `FlightStream#next` will block until new data can be read or stream is over.
+        flightStream.next();
+        unpreparedStreams.remove(flightStream);
+        return flightStream;
+      }));
+    }
   }
 
   @Override
