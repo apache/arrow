@@ -28,6 +28,7 @@ import java.util.TimeZone;
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
@@ -61,7 +62,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
       ArrowFlightConnection connection = (ArrowFlightConnection) getStatement().getConnection();
       flightStreamQueue = createNewQueue(connection.getExecutorService());
     } catch (final SQLException e) {
-      throw new RuntimeException(e);
+      throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
     }
   }
 
