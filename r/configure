@@ -129,7 +129,7 @@ else
         # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
-      if [ `R CMD config LTO` = "-flto" ]; then
+      if [ `${R_HOME}/bin/R CMD config LTO` = "-flto" ]; then
         LIBARROW_MINIMAL=true; export LIBARROW_MINIMAL
       fi
       # Set some default values/backwards compatibility
