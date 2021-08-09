@@ -415,7 +415,7 @@ TEST_F(TestArray, TestValidateNullCount) {
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
 
   ArrayData* data = array->data().get();
-  data->null_count = -1;
+  data->null_count = kUnknownNullCount;
   ASSERT_OK(array->ValidateFull());
   data->null_count = 1;
   ASSERT_OK(array->ValidateFull());

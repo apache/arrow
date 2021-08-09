@@ -293,6 +293,10 @@ struct ValidateArrayImpl {
 
 ARROW_EXPORT
 Status ValidateArray(const ArrayData& data) {
+  if (data.type == nullptr) {
+    return Status::Invalid("Array type is absent");
+  }
+
   // First check the data layout conforms to the spec
   const DataType& type = *data.type;
   const auto layout = type.layout();
@@ -638,7 +642,7 @@ struct ValidateArrayFullImpl {
 
 ARROW_EXPORT
 Status ValidateArrayFull(const ArrayData& data) {
-  if (data.null_count != -1) {
+  if (data.null_count != kUnknownNullCount) {
     int64_t actual_null_count;
     if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
       // Do not call GetNullCount() as it would also set the `null_count` member
