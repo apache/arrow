@@ -22,6 +22,7 @@ import static java.util.Collections.synchronizedSet;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 import static org.apache.arrow.util.Preconditions.checkState;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.NoSuchElementException;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import org.apache.arrow.flight.FlightStream;
+import org.apache.calcite.avatica.AvaticaConnection;
 
 /**
  * Auxiliary class used to handle consuming of multiple {@link FlightStream}.
@@ -85,7 +87,7 @@ public class FlightStreamQueue implements AutoCloseable {
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next() throws InterruptedException {
+  public FlightStream next() throws SQLException {
     checkOpen();
     FlightStream result = null; // If empty.
     while (!futures.isEmpty()) {
@@ -100,7 +102,7 @@ public class FlightStreamQueue implements AutoCloseable {
           break;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
-        throw new InterruptedException("Cancelled");
+        throw AvaticaConnection.HELPER.wrap("Query canceled", e);
       }
     }
     return result;
@@ -151,7 +153,7 @@ public class FlightStreamQueue implements AutoCloseable {
         futures.parallelStream().forEach(future -> future.cancel(true));
       }
       synchronized (unpreparedStreams) {
-        unpreparedStreams.parallelStream().forEach(flightStream -> flightStream.cancel("Canceled", null));
+        unpreparedStreams.parallelStream().forEach(flightStream -> flightStream.cancel("Query canceled", null));
       }
     } finally {
       unpreparedStreams.clear();
