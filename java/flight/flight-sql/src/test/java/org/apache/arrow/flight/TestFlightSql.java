@@ -31,6 +31,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.Reader;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -311,7 +312,7 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testSimplePreparedStatementUpdateResults() {
+  public void testSimplePreparedStatementUpdateResults() throws SQLException {
     try (PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES (?, ?)");
          PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?")) {
       final Schema parameterSchema = prepare.getParameterSchema();
@@ -346,8 +347,9 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testSimplePreparedStatementUpdateResultsWithoutParameters() {
-    try (PreparedStatement prepare = sqlClient.prepare("INSERT INTO INTTABLE (keyName, value ) VALUES ('test', 1000)");
+  public void testSimplePreparedStatementUpdateResultsWithoutParameters() throws SQLException {
+    try (PreparedStatement prepare = sqlClient
+        .prepare("INSERT INTO INTTABLE (keyName, value ) VALUES ('test', 1000)");
          PreparedStatement deletePrepare = sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = 'test'")) {
       final long updatedRows = prepare.executeUpdate();
 

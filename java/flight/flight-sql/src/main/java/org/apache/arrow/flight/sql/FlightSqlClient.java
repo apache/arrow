@@ -34,6 +34,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -441,7 +442,7 @@ public class FlightSqlClient {
     /**
      * Executes the prepared statement update on the server.
      */
-    public long executeUpdate() {
+    public long executeUpdate() throws SQLException {
       if (isClosed) {
         throw new IllegalStateException("Prepared statement has already been closed on the server.");
       }
@@ -473,7 +474,7 @@ public class FlightSqlClient {
           return doPutUpdateResult.getRecordCount();
         }
       } catch (InterruptedException | InvalidProtocolBufferException | ExecutionException e) {
-        throw new RuntimeException(e);
+        throw new SQLException(e);
       }
     }
 
