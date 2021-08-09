@@ -416,6 +416,7 @@ table Limit {
   limit: long;
 }
 
+// The kind of join being produced
 enum RelationalJoinType : int {
   INNER,
   LEFT,
@@ -429,33 +430,15 @@ enum RelationalJoinType : int {
 ///
 /// Providing no left/right columns produces the cross product of the two
 /// tables.
-table EqualityJoin {
+table Join {
   // TODO: complete and document
   type: RelationalJoinType = INNER;
 
   left: TableExpr (required);
   right: TableExpr (required);
 
-  /// The columns from the left expression to use when joining
-  left_columns: [ColumnReference] (required);
-
-  /// The columns from the right expression to use when joining. Must have the
-  /// same length as left_columns.
-  ///
-  /// If omitted, the names provided in left_columns must match the names in
-  /// the right expression.
-  right_columns: [ColumnReference];
-}
-
-/// A relational non-equijoin containing expressions which may include
-/// inequality or range conditions.
-table NonEqualityJoin {
-  // TODO: complete and document
-  type: RelationalJoinType = INNER;
-  left: TableExpr (required);
-  right: TableExpr (required);
-  left_exprs: [ArrayExpr];
-  right_exprs: [ArrayExpr];
+  // The expression to use for joining `left` and `right` tables
+  on_expr: ArrayExpr; // a missing on_expr indicates a cross join.
 }
 
 /// A temporal join type
@@ -526,8 +509,7 @@ union TableOperation {
   Filter,
   Aggregate,
   Limit,
-  EqualityJoin,
-  NonEqualityJoin,
+  Join,
   TableFunction
 }
 
