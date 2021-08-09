@@ -45,6 +45,7 @@ jobs:
       - name: Dump R install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         continue-on-error: true
+        if: always()
     {% endif %}
 
     {% if arrow.branch == 'master' %}
