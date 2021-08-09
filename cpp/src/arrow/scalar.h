@@ -456,6 +456,10 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   using TypeClass = DenseUnionType;
 };
 
+/// \brief A Scalar value for DictionaryType
+///
+/// `is_valid` denotes the validity of the `index`, regardless of
+/// the corresponding value in the `dictionary`.
 struct ARROW_EXPORT DictionaryScalar : public Scalar {
   using TypeClass = DictionaryType;
   struct ValueType {

@@ -383,6 +383,7 @@ class TestDecimalScalar : public ::testing::Test {
   void TestBasics() {
     const auto ty = std::make_shared<T>(3, 2);
     const auto pi = ScalarType(ValueType(314), ty);
+    const auto pi2 = ScalarType(ValueType(628), ty);
     const auto null = CheckMakeNullScalar(ty);
 
     ASSERT_OK(pi.ValidateFull());
@@ -392,7 +393,9 @@ class TestDecimalScalar : public ::testing::Test {
     ASSERT_OK(null->ValidateFull());
     ASSERT_FALSE(null->is_valid);
 
-    // test Array.GetScalar
+    ASSERT_FALSE(pi.Equals(pi2));
+
+    // Test Array::GetScalar
     auto arr = ArrayFromJSON(ty, "[null, \"3.14\"]");
     ASSERT_OK_AND_ASSIGN(auto first, arr->GetScalar(0));
     ASSERT_OK_AND_ASSIGN(auto second, arr->GetScalar(1));
@@ -1156,7 +1159,7 @@ TEST(TestStructScalar, ValidateErrors) {
 TEST(TestDictionaryScalar, Basics) {
   for (auto index_ty : all_dictionary_index_types()) {
     auto ty = dictionary(index_ty, utf8());
-    auto dict = ArrayFromJSON(utf8(), R"(["alpha", "beta", "gamma"])");
+    auto dict = ArrayFromJSON(utf8(), R"(["alpha", null, "gamma"])");
 
     DictionaryScalar::ValueType alpha;
     ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(index_ty, 0));
@@ -1165,6 +1168,10 @@ TEST(TestDictionaryScalar, Basics) {
     DictionaryScalar::ValueType gamma;
     ASSERT_OK_AND_ASSIGN(gamma.index, MakeScalar(index_ty, 2));
     gamma.dictionary = dict;
+
+    DictionaryScalar::ValueType null_value;
+    ASSERT_OK_AND_ASSIGN(null_value.index, MakeScalar(index_ty, 1));
+    null_value.dictionary = dict;
 
     auto scalar_null = MakeNullScalar(ty);
     checked_cast<DictionaryScalar&>(*scalar_null).value.dictionary = dict;
@@ -1175,11 +1182,21 @@ TEST(TestDictionaryScalar, Basics) {
     auto scalar_gamma = DictionaryScalar(gamma, ty);
     ASSERT_OK(scalar_gamma.ValidateFull());
 
+    // NOTE: index is valid, though corresponding value is null
+    auto scalar_null_value = DictionaryScalar(null_value, ty);
+    ASSERT_OK(scalar_null_value.ValidateFull());
+
     ASSERT_OK_AND_ASSIGN(
         auto encoded_null,
         checked_cast<const DictionaryScalar&>(*scalar_null).GetEncodedValue());
     ASSERT_OK(encoded_null->ValidateFull());
     ASSERT_TRUE(encoded_null->Equals(MakeNullScalar(utf8())));
+
+    ASSERT_OK_AND_ASSIGN(
+        auto encoded_null_value,
+        checked_cast<const DictionaryScalar&>(scalar_null_value).GetEncodedValue());
+    ASSERT_OK(encoded_null_value->ValidateFull());
+    ASSERT_TRUE(encoded_null_value->Equals(MakeNullScalar(utf8())));
 
     ASSERT_OK_AND_ASSIGN(
         auto encoded_alpha,
@@ -1197,10 +1214,16 @@ TEST(TestDictionaryScalar, Basics) {
     DictionaryArray arr(ty, ArrayFromJSON(index_ty, "[2, 0, 1, null]"), dict);
     ASSERT_OK_AND_ASSIGN(auto first, arr.GetScalar(0));
     ASSERT_OK_AND_ASSIGN(auto second, arr.GetScalar(1));
+    ASSERT_OK_AND_ASSIGN(auto third, arr.GetScalar(1));
     ASSERT_OK_AND_ASSIGN(auto last, arr.GetScalar(3));
     ASSERT_OK(first->ValidateFull());
     ASSERT_OK(second->ValidateFull());
     ASSERT_OK(last->ValidateFull());
+
+    ASSERT_TRUE(first->is_valid);
+    ASSERT_TRUE(second->is_valid);
+    ASSERT_TRUE(third->is_valid);  // valid because of valid index, despite null value
+    ASSERT_FALSE(last->is_valid);
 
     ASSERT_TRUE(first->Equals(scalar_gamma));
     ASSERT_TRUE(second->Equals(scalar_alpha));
@@ -1217,12 +1240,19 @@ TEST(TestDictionaryScalar, Basics) {
 TEST(TestDictionaryScalar, ValidateErrors) {
   auto index_ty = int16();
   auto value_ty = utf8();
-  auto dict = ArrayFromJSON(value_ty, R"(["alpha", "beta", "gamma"])");
+  auto dict = ArrayFromJSON(value_ty, R"(["alpha", null, "gamma"])");
+  auto dict_ty = dictionary(index_ty, value_ty);
 
   DictionaryScalar::ValueType alpha;
   ASSERT_OK_AND_ASSIGN(alpha.index, MakeScalar(index_ty, 0));
   alpha.dictionary = dict;
 
+  // Valid index, null underlying value
+  DictionaryScalar::ValueType null_value;
+  ASSERT_OK_AND_ASSIGN(null_value.index, MakeScalar(index_ty, 1));
+  null_value.dictionary = dict;
+
+  // Null index, no value
   DictionaryScalar::ValueType null{MakeNullScalar(index_ty), dict};
 
   // Inconsistent index type
@@ -1234,12 +1264,17 @@ TEST(TestDictionaryScalar, ValidateErrors) {
   AssertValidationFails(scalar);
 
   // Inconsistent is_valid / value
-  scalar = DictionaryScalar(alpha, dictionary(index_ty, value_ty));
+  scalar = DictionaryScalar(alpha, dict_ty);
   ASSERT_OK(scalar.ValidateFull());
   scalar.is_valid = false;
   AssertValidationFails(scalar);
 
-  scalar = DictionaryScalar(null, dictionary(index_ty, value_ty));
+  scalar = DictionaryScalar(null_value, dict_ty);
+  ASSERT_OK(scalar.ValidateFull());
+  scalar.is_valid = false;
+  AssertValidationFails(scalar);
+
+  scalar = DictionaryScalar(null, dict_ty);
   AssertValidationFails(scalar);
   scalar.is_valid = false;
   ASSERT_OK(scalar.ValidateFull());
@@ -1250,7 +1285,7 @@ TEST(TestDictionaryScalar, ValidateErrors) {
     ASSERT_OK_AND_ASSIGN(invalid.index, MakeScalar(index_ty, index));
     invalid.dictionary = dict;
 
-    scalar = DictionaryScalar(invalid, dictionary(index_ty, value_ty));
+    scalar = DictionaryScalar(invalid, dict_ty);
     ASSERT_OK(scalar.Validate());
     ASSERT_RAISES(Invalid, scalar.ValidateFull());
   }
@@ -1260,10 +1295,12 @@ TEST(TestDictionaryScalar, Cast) {
   for (auto index_ty : all_dictionary_index_types()) {
     auto ty = dictionary(index_ty, utf8());
     auto dict = checked_pointer_cast<StringArray>(
-        ArrayFromJSON(utf8(), R"(["alpha", "beta", "gamma"])"));
+        ArrayFromJSON(utf8(), R"(["alpha", null, "gamma"])"));
 
     for (int64_t i = 0; i < dict->length(); ++i) {
-      auto alpha = MakeScalar(dict->GetString(i));
+      auto alpha =
+          dict->IsValid(i) ? MakeScalar(dict->GetString(i)) : MakeNullScalar(utf8());
+      // Cast string to dict(..., string)
       ASSERT_OK_AND_ASSIGN(auto cast_alpha, alpha->CastTo(ty));
       ASSERT_OK(cast_alpha->ValidateFull());
       ASSERT_OK_AND_ASSIGN(

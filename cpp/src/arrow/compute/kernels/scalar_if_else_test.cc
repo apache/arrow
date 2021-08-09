@@ -1046,7 +1046,7 @@ template <typename Type>
 class TestChooseBinary : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestChooseNumeric, NumericBasedTypes);
-TYPED_TEST_SUITE(TestChooseBinary, BinaryTypes);
+TYPED_TEST_SUITE(TestChooseBinary, BinaryArrowTypes);
 
 TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
