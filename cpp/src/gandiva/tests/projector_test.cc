@@ -850,6 +850,60 @@ TEST_F(TestProjector, TestPmod) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_pmod, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestGreatestLeast) {
+  // schema for input fields
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", int32());
+  auto f2 = field("f2", int32());
+  auto schema = arrow::schema({f0, f1, f2});
+
+  // output fields
+  auto field_greatest = field("greatest", int32());
+  auto field_least = field("least", int32());
+
+  // Build expression
+  auto greatest_expr =
+      TreeExprBuilder::MakeExpression("greatest", {f0, f1, f2}, field_greatest);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {greatest_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto a0 = MakeArrowArrayInt32({10, 20, 30, 40}, {true, true, true, true});
+  auto a1 = MakeArrowArrayInt32({2, 8, 50, 25}, {true, true, true, true});
+  auto a2 = MakeArrowArrayInt32({526, 32, 9, -5}, {true, true, true, true});
+  // expected output
+  auto exp_greatest = MakeArrowArrayInt32({526, 32, 50, 40}, {true, true, true, true});
+  auto exp_least = MakeArrowArrayInt32({2, 8, 9, -5}, {true, true, true, true});
+
+  // GREATEST
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {a0, a1, a2});
+  // Evaluate expression
+  arrow::ArrayVector outputs_grt;
+  status = projector->Evaluate(*in_batch, pool_, &outputs_grt);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_greatest, outputs_grt.at(0));
+
+  // LEAST
+  // Reproduce the same test now for the least operator
+  auto least_expr = TreeExprBuilder::MakeExpression("least", {f0, f1, f2}, field_least);
+  status = Projector::Make(schema, {least_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Evaluate expression
+  arrow::ArrayVector outputs_lst;
+  status = projector->Evaluate(*in_batch, pool_, &outputs_lst);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_least, outputs_lst.at(0));
+}
+
 TEST_F(TestProjector, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

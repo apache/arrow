@@ -117,6 +117,34 @@ TEST(TestArithmeticOps, TestDiv) {
   context.Reset();
 }
 
+TEST(TestArithmeticOps, TestGreatestLeast) {
+  // Comparable functions - Greatest and Least
+  EXPECT_EQ(greatest_int32_int32(1, 2), 2);
+  EXPECT_EQ(greatest_int32_int32(2, 1), 2);
+  EXPECT_EQ(least_int32_int32(1, 2), 1);
+  EXPECT_EQ(least_int32_int32(2, 1), 1);
+
+  EXPECT_EQ(greatest_int32_int32_int32(1, 2, 3), 3);
+  EXPECT_EQ(greatest_int32_int32_int32(2, 1, 3), 3);
+  EXPECT_EQ(least_int32_int32_int32(1, 2, 3), 1);
+  EXPECT_EQ(least_int32_int32_int32(2, 1, 3), 1);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32(1, 2, 3, 4), 4);
+  EXPECT_EQ(greatest_int32_int32_int32_int32(2, 4, 3, 1), 4);
+  EXPECT_EQ(least_int32_int32_int32_int32(1, 2, 3, 4), 1);
+  EXPECT_EQ(least_int32_int32_int32_int32(4, 2, 1, 3), 1);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32(1, 2, 3, 5, 4), 5);
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32(2, 4, 5, 3, 1), 5);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32(1, 2, 3, 4, -10), -10);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32(-10, 4, 2, 1, 3), -10);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32_int32(7, 1, 2, 3, 5, 4), 7);
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32_int32(2, 4, 7, 5, 3, 1), 7);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32_int32(1, 2, 3, -99, 4, -10), -99);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32_int32(-10, 4, 2, 1, -99, 3), -99);
+}
+
 TEST(TestArithmeticOps, TestBitwiseOps) {
   // bitwise AND
   EXPECT_EQ(bitwise_and_int32_int32(0x0147D, 0x17159), 0x01059);
