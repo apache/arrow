@@ -379,7 +379,7 @@ union ProjectionExpr {
 }
 
 /// Computes a new table given a set of column selections or array expressions.
-table Projection {
+table Project {
   input: TableExpr (required);
 
   /// Each expression must reference fields foudn in the input table
@@ -521,7 +521,7 @@ table TableFunction {
 
 union TableOperation {
   ExternalTable,
-  Projection,
+  Project,
   Filter,
   Aggregate,
   Limit,
