@@ -75,46 +75,46 @@ table NullLiteralData {}
 /// binary/string types included). Boolean values are to be represented as a
 /// single byte with value 1 (true) or 0 (false).
 table PrimitiveLiteralData {
-  data:[ubyte] (required);
+  data: [ubyte] (required);
 }
 
 /// For List, LargeList, and FixedSizeList.
 table ListLiteralData {
-  data:[LiteralData] (required);
+  data: [LiteralData] (required);
 }
 
 /// For Struct
 table StructLiteralData {
-  data:[LiteralData] (required);
+  data: [LiteralData] (required);
 }
 
 /// For Union
 table UnionLiteralData {
   /// The type code (referencing the Union type) needed to reconstruct the
   /// correct literal value.
-  type_code:int;  // required
+  type_code: int;  // required
 
-  value:LiteralData (required);
+  value: LiteralData (required);
 }
 
 /// Literal serializes a scalar (constant) value in an array expression.
 table Literal {
-  type:Type (required);
+  type: Type (required);
 
   /// The data needed to reconstruct the literal value.
-  data:LiteralData (required);
+  data: LiteralData (required);
 }
 
 /// A sequence of literal values all having the same type.
 table LiteralVector {
-  type:Type (required);
-  data:[LiteralData] (required);
+  type: Type (required);
+  data: [LiteralData] (required);
 }
 
 /// A name (key) and literal value, to use for map-like options fields.
 table NamedLiteral {
   name:string;
-  value:Literal;
+  value: Literal;
 }
 
 /// ----------------------------------------------------------------------
@@ -134,17 +134,17 @@ table ColumnReference {
 
   /// Optional reference to antecedent table in tree. Required when there is
   /// referential ambiguity.
-  table:TableReference;
+  table: TableReference;
 }
 
 /// Operation checks if values are null
 table IsNull {
-  input:ArrayExpr (required);
+  input: ArrayExpr (required);
 }
 
 /// Operation checks if values are not null
 table IsNotNull {
-  input:ArrayExpr (required);
+  input: ArrayExpr (required);
 }
 
 /// Operation flips true/false values in boolean expression
@@ -173,9 +173,9 @@ enum BinaryOpType : int {
 
 /// Built-in binary operation
 table BinaryOp {
-  type:BinaryOpType;
-  left:ArrayExpr (required);
-  right:ArrayExpr (required);
+  type: BinaryOpType;
+  left: ArrayExpr (required);
+  right: ArrayExpr (required);
 }
 
 enum FunctionType : int {
@@ -201,11 +201,11 @@ table FunctionDescr {
   /// with the "data" member.
   name:string (required);
 
-  type:FunctionType = SCALAR;
+  type: FunctionType = SCALAR;
 
   /// Optional arbitrary sidecar data (such as a serialized user-defined
   /// function)..
-  data:[ubyte];
+  data: [ubyte];
 }
 
 /// Auxiliary data structure providing parameters for a window function
@@ -213,9 +213,9 @@ table FunctionDescr {
 ///
 /// TODO: Finish this data type
 table WindowFrame {
-  order_by:[SortKey];
+  order_by: [SortKey];
 
-  partition_by:[ArrayExpr];
+  partition_by: [ArrayExpr];
 }
 
 /// A general array function call, which may be built-in or user-defined.
@@ -225,19 +225,19 @@ table WindowFrame {
 /// inputs (for example, in the case of math functions when double input yields
 /// double output).
 table ArrayFunction {
-  descr:FunctionDescr (required);
-  inputs:[ArrayExpr] (required);
+  descr: FunctionDescr (required);
+  inputs: [ArrayExpr] (required);
 
   /// Optional non-data inputs for function invocation.
   ///
   /// It is recommended to limit use of options for functions that are expected
   /// to be built-in in a generic IR consumer.
-  options:[NamedLiteral];
+  options: [NamedLiteral];
 
   /// Optional window expression for window functions only.
   ///
   /// TODO: Decide if window functions should be specified in a different way.
-  window:WindowFrame;
+  window: WindowFrame;
 }
 
 /// Conditional if-then-else operation, selecting values from the then- or
@@ -248,13 +248,13 @@ table ArrayFunction {
 /// this operator.
 table IfElse {
   /// Boolean output type
-  condition:ArrayExpr (required);
+  condition: ArrayExpr (required);
 
   /// Values to use when the condition is true
-  then:ArrayExpr (required);
+  then: ArrayExpr (required);
 
   /// Values to use when the condition is false
-  else:ArrayExpr (required);
+  else: ArrayExpr (required);
 }
 
 /// Operation for expressing multiple equality checks with an expression.
@@ -262,12 +262,12 @@ table IfElse {
 /// IsIn(input, [value0, value1, ...])
 /// is the same as Or(Or(Eq(input, value0), Eq(input, value1)), ...)
 table IsIn {
-  input:ArrayExpr (required);
-  in_exprs:[ArrayExpr] (required);
+  input: ArrayExpr (required);
+  in_exprs: [ArrayExpr] (required);
 
   /// If true, check whether values are not equal to any of the provided
   /// expressions.
-  negated:bool = false;
+  negated: bool = false;
 }
 
 /// Boolean operation checking whether input is bounded by the left and right
@@ -277,9 +277,9 @@ table IsIn {
 /// is the same as
 /// input >= left_bound AND input <= right_bound
 table Between {
-  input:ArrayExpr (required);
-  left_bound:ArrayExpr (required);
-  right_bound:ArrayExpr (required);
+  input: ArrayExpr (required);
+  left_bound: ArrayExpr (required);
+  right_bound: ArrayExpr (required);
 }
 
 union ArrayOperation {
@@ -297,7 +297,7 @@ union ArrayOperation {
 /// An expression yielding a scalar value can be broadcasted to array shape as
 /// needed depending on use.
 table ArrayExpr {
-  op:ArrayOperation (required);
+  op: ArrayOperation (required);
 
   /// Optional name for array operation. If not provided, may be inferred from
   /// antecedent inputs. IR producers are recommended to provide names to avoid
@@ -306,7 +306,7 @@ table ArrayExpr {
 
   /// Expected output type of the array operation. While optional, IR producers
   /// are encouraged to populate this field for the benefit of IR consumers.
-  out_type:Type;
+  out_type: Type;
 }
 
 /// ----------------------------------------------------------------------
@@ -330,14 +330,14 @@ table ExternalTable {
   /// Optional opaque table serialization data, for passing engine-specific
   /// instructions to enable the data to be accessed.
   serde_type:string;
-  serde_data:[ubyte];
+  serde_data: [ubyte];
 }
 
 /// An auxiliary helper instruction to "include all columns" in the projection,
 /// sparing the IR producer the need to enumerate all column references in a
 /// projection.
 table StarSelection {
-  ref:TableReference;
+  ref: TableReference;
 }
 
 /// A helper union to permit the "SELECT *, $expr0, ..." construct from SQL.
@@ -348,45 +348,45 @@ union ProjectionExpr {
 
 /// Computes a new table given a set of column selections or array expressions.
 table Projection {
-  input:TableExpr (required);
+  input: TableExpr (required);
 
   /// Each expression must reference fields foudn in the input table
   /// expression.
-  exprs:[ProjectionExpr] (required);
+  exprs: [ProjectionExpr] (required);
 }
 
 /// Select rows from table for given boolean condition.
 table Filter {
-  input:TableExpr (required);
+  input: TableExpr (required);
 
   /// Array expression using input table expression yielding boolean output
   /// type.
-  condition:ArrayExpr (required);
+  condition: ArrayExpr (required);
 }
 
 /// A "group by" table aggregation: data is grouped using the group
 /// expressions, and the aggregate expressions are evaluated within each group.
 table Aggregate {
-  input:TableExpr;
-  aggregate_exprs:[ArrayExpr] (required);
+  input: TableExpr;
+  aggregate_exprs: [ArrayExpr] (required);
 
   /// Expressions to use as group keys. If not provided, then the aggregate
   /// operation yields a table with a single row.
-  group_exprs:[ArrayExpr];
+  group_exprs: [ArrayExpr];
 
   /// A filter condition for the aggregation which may include aggregate
   /// functions.
-  having:[ArrayExpr];
+  having: [ArrayExpr];
 }
 
 /// Select up to the indicated number of rows from the input expression based
 /// on the first-emitted rows when evaluating the input expression. Generally,
 /// no particular order is guaranteed unless combined with a sort expression.
 table Limit {
-  input:TableExpr;
+  input: TableExpr;
 
   /// Number of logical rows to select from input.
-  limit:long;
+  limit: long;
 }
 
 enum RelationalJoinType : int {
@@ -404,54 +404,54 @@ enum RelationalJoinType : int {
 /// tables.
 table EqualityJoin {
   // TODO: complete and document
-  type:RelationalJoinType = INNER;
+  type: RelationalJoinType = INNER;
 
-  left:TableExpr (required);
-  right:TableExpr (required);
+  left: TableExpr (required);
+  right: TableExpr (required);
 
   /// The columns from the left expression to use when joining
-  left_columns:[ColumnReference] (required);
+  left_columns: [ColumnReference] (required);
 
   /// The columns from the right expression to use when joining. Must have the
   /// same length as left_columns.
   ///
   /// If omitted, the names provided in left_columns must match the names in
   /// the right expression.
-  right_columns:[ColumnReference];
+  right_columns: [ColumnReference];
 }
 
 /// A relational non-equijoin containing expressions which may include
 /// inequality or range conditions.
 table NonEqualityJoin {
   // TODO: complete and document
-  type:RelationalJoinType = INNER;
-  left:TableExpr (required);
-  right:TableExpr (required);
-  left_exprs:[ArrayExpr];
-  right_exprs:[ArrayExpr];
+  type: RelationalJoinType = INNER;
+  left: TableExpr (required);
+  right: TableExpr (required);
+  left_exprs: [ArrayExpr];
+  right_exprs: [ArrayExpr];
 }
 
 /// A temporal join type
 ///
 /// TODO: complete and document
 table AsOfJoin {
-  left:TableExpr (required);
-  right:TableExpr;
+  left: TableExpr (required);
+  right: TableExpr;
 
   /// The column in the left expression to use for data ordering to determine
   /// the "as of" time.
-  left_asof:ColumnReference (required);
+  left_asof: ColumnReference (required);
 
   /// The column in the right expression to use for data ordering to determine
   /// the "as of" time. If the column name is the same as left_asof, may be
   /// omitted.
-  right_asof:ColumnReference;
+  right_asof: ColumnReference;
 
   /// TODO: Define means of providing time deltas in this IR.
-  tolerance:Literal;
+  tolerance: Literal;
 
   /// If true, the
-  allow_equal:bool = true;
+  allow_equal: bool = true;
 }
 
 /// An extension of as-of join which allows applying an aggregate function to
@@ -466,21 +466,21 @@ table WindowJoin {
 /// An expression to use for sorting. The key expression determines the values
 /// to be used for ordering the table's rows.
 table SortKey {
-  key:ArrayExpr (required);
-  ascending:bool = true;
+  key: ArrayExpr (required);
+  ascending: bool = true;
 }
 
 /// A (possibly hierarchical) sort operation with one or more sort keys.
 table Sort {
   // TODO
-  keys:[SortKey] (required);
+  keys: [SortKey] (required);
 }
 
 /// A table-generating function.
 ///
 /// TODO
 table TableFunction {
-  descr:FunctionDescr (required);
+  descr: FunctionDescr (required);
 
   /// An optional output schema for the table function. If not provided, must
   /// be determined by the IR consumer.
@@ -502,18 +502,18 @@ union TableOperation {
 /// An expression
 table TableExpr {
   /// The operation that yields data.
-  op:TableOperation (required);
+  op: TableOperation (required);
 
   /// An optional explicit name for this table expression, to enable
   /// unambiguous column references. If not set, the name can be inherited from
   /// an antecedent table in some cases.
-  name:string;
+  name: string;
 
   /// Optional output schema. A schema can be serialized here for informational
   /// purposes, or to provide a checkpoint/assertion to the IR consumer about
   /// what you expect the schema to be at this point. Always requiring it would
   /// increase the on-wire size of a Table
-  out_schema:Schema;
+  out_schema: Schema;
 }
 
 // While the root message is TableExpr, applications are able to use just
