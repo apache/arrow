@@ -61,7 +61,7 @@ namespace Apache.Arrow.Ipc
 
             RecordBatch result = null;
 
-            do
+            while (result == null)
             {
                 int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
                     .ConfigureAwait(false);
@@ -91,7 +91,7 @@ namespace Apache.Arrow.Ipc
                     FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 }).ConfigureAwait(false);
-            } while (result == null);
+            }
 
             return result;
         }
@@ -102,7 +102,7 @@ namespace Apache.Arrow.Ipc
 
             RecordBatch result = null;
 
-            do
+            while (result == null)
             {
                 int messageLength = ReadMessageLength(throwOnFullRead: false);
 
@@ -129,7 +129,7 @@ namespace Apache.Arrow.Ipc
                     FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 });
-            } while (result == null); 
+            }
 
             return result;
         }
