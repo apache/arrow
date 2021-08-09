@@ -348,7 +348,10 @@ enum NullOrdering : uint8 {
   LAST
 }
 
+// Unbounded and CurrentRow are empty tables used as empty variants
+// in the Bound sum type.
 table Unbounded {}
+table CurrentRow {}
 
 // `Bound` represents the window bound computation in a window function like
 // `sum(x) over (unbounded preceding and current row)`.
