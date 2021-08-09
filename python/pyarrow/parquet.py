@@ -1704,7 +1704,7 @@ class _ParquetDatasetV2:
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
-                 coerce_int96_timestamp_unit=None, 
+                 coerce_int96_timestamp_unit=None,
                  decryption_properties=None, **kwargs):
         import pyarrow.dataset as ds
 

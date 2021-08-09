@@ -16,12 +16,10 @@
 // under the License.
 
 #include "parquet/encryption/internal_file_decryptor.h"
-#include "arrow/util/mutex.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
 
 namespace parquet {
-::arrow::util::Mutex mutex_;  // TODO Temporary lock for multithreading investigation
 
 // Decryptor
 Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor, const std::string& key,
@@ -37,7 +35,6 @@ int Decryptor::CiphertextSizeDelta() { return aes_decryptor_->CiphertextSizeDelt
 
 int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
                        uint8_t* plaintext) {
-  auto lock = mutex_.Lock();
   return aes_decryptor_->Decrypt(ciphertext, ciphertext_len, str2bytes(key_),
                                  static_cast<int>(key_.size()), str2bytes(aad_),
                                  static_cast<int>(aad_.size()), plaintext);
@@ -62,7 +59,6 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
 }
 
 void InternalFileDecryptor::WipeOutDecryptionKeys() {
-  auto lock = mutex_.Lock();
   properties_->WipeOutDecryptionKeys();
   for (auto const& i : all_decryptors_) {
     i->WipeOut();
@@ -70,7 +66,6 @@ void InternalFileDecryptor::WipeOutDecryptionKeys() {
 }
 
 std::string InternalFileDecryptor::GetFooterKey() {
-  auto lock = mutex_.Lock();
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
@@ -111,7 +106,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnDat
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
-  auto lock = mutex_.Lock();
   if (metadata) {
     if (footer_metadata_decryptor_ != nullptr) return footer_metadata_decryptor_;
   } else {
@@ -167,7 +161,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     const std::string& column_path, const std::string& column_key_metadata,
     const std::string& aad, bool metadata) {
-  auto lock = mutex_.Lock();
   std::string column_key;
   // first look if we already got the decryptor from before
   if (metadata) {

@@ -154,7 +154,7 @@ def read_encrypted_parquet(path, decryption_config,
 
     result = pq.ParquetFile(
         path, decryption_properties=file_decryption_properties)
-    return result.read()
+    return result.read(use_threads=False)
 
 
 @pytest.mark.parquet
@@ -386,10 +386,3 @@ def test_encrypted_parquet_write_kms_factory_type_error(tempdir):
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
                                 kms_connection_config, crypto_factory)
-
-
-@pytest.mark.parquet
-def test_encrypted_parquet_loop(tempdir):
-    """Try to discover multithreaded reads issues"""
-    for i in range(50):
-        test_encrypted_parquet_write_read(tempdir)

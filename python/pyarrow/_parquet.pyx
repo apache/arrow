@@ -1797,8 +1797,8 @@ cdef class KmsConnectionConfig(_Weakrefable):
     @property
     def key_access_token(self):
         """Authorization token that will be passed to KMS."""
-        return frombytes(
-            self.configuration.get().refreshable_key_access_token.get().value())
+        return frombytes(self.configuration.get()
+                         .refreshable_key_access_token.get().value())
 
     @key_access_token.setter
     def key_access_token(self, value):
@@ -1807,8 +1807,10 @@ cdef class KmsConnectionConfig(_Weakrefable):
     @property
     def custom_kms_conf(self):
         """A dictionary with KMS-type-specific configuration"""
-        custom_kms_conf = {frombytes(k): frombytes(v)
-                           for k, v in self.configuration.get().custom_kms_conf}
+        custom_kms_conf = {
+            frombytes(k): frombytes(v)
+            for k, v in self.configuration.get().custom_kms_conf
+        }
         return custom_kms_conf
 
     @custom_kms_conf.setter
@@ -1988,7 +1990,8 @@ cdef class CryptoFactory(_Weakrefable):
             c_decryption_config = deref(decryption_config.unwrap().get())
         file_decryption_properties = \
             self.factory.get().GetFileDecryptionProperties(
-                deref(kms_connection_config.unwrap().get()), c_decryption_config)
+                deref(kms_connection_config.unwrap().get()),
+                c_decryption_config)
         if file_decryption_properties == NULL:
             return None
         return FileDecryptionProperties.wrap(file_decryption_properties)
