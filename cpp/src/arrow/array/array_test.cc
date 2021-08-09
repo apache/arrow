@@ -432,11 +432,13 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   for (const auto index : {0, 1, 3, 5, 6}) {
     ASSERT_FALSE(out->IsNull(index));
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
   }
   for (const auto index : {2, 4, 7, 8}) {
     ASSERT_EQ(out->IsNull(index), can_check_nulls);
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*null_scalar, *scalar_i, /*verbose=*/true);
   }
 }

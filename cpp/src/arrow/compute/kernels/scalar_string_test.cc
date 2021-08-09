@@ -93,7 +93,7 @@ class BaseTestStringKernels : public ::testing::Test {
 template <typename TestType>
 class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST_SUITE(TestBinaryKernels, BinaryTypes);
+TYPED_TEST_SUITE(TestBinaryKernels, BinaryArrowTypes);
 
 TYPED_TEST(TestBinaryKernels, BinaryLength) {
   this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
@@ -381,7 +381,7 @@ TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 
-TYPED_TEST_SUITE(TestStringKernels, StringTypes);
+TYPED_TEST_SUITE(TestStringKernels, StringArrowTypes);
 
 TYPED_TEST(TestStringKernels, AsciiUpper) {
   this->CheckUnary("ascii_upper", "[]", this->type(), "[]");
