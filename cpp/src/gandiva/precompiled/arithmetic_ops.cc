@@ -65,11 +65,11 @@ extern "C" {
       gdv_fn_context_set_error_msg(context, "divide by zero error");                  \
       return static_cast<gdv_##IN_TYPE1>(0);                                          \
     }                                                                                 \
-    gdv_##IN_TYPE1 mod = fmod(left, right);                                           \
+    double mod = fmod(static_cast<double>(left), static_cast<double>(right));         \
     if (mod < 0 || right < 0) {                                                       \
-      mod += right;                                                                   \
+      mod += static_cast<double>(right);                                              \
     }                                                                                 \
-    return mod;                                                                       \
+    return static_cast<gdv_##IN_TYPE1>(mod);                                          \
   }
 
 // Symmetric binary fns : left, right params and return type are same.
