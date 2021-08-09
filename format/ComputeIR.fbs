@@ -113,7 +113,7 @@ table LiteralVector {
 
 /// A name (key) and literal value, to use for map-like options fields.
 table NamedLiteral {
-  name:string;
+  name: string;
   value: Literal;
 }
 
@@ -124,13 +124,13 @@ table NamedLiteral {
 /// A reference to an antecedent table schema in an expression tree
 table TableReference {
   ///
-  name:string (required);
+  name: string (required);
 }
 
 /// A reference to an antecedent column from a table schema in an expression
 /// tree.
 table ColumnReference {
-  name:string (required);
+  name: string (required);
 
   /// Optional reference to antecedent table in tree. Required when there is
   /// referential ambiguity.
@@ -199,7 +199,7 @@ table FunctionDescr {
   /// The name may refer to a user-defined function which has been registered
   /// with the target engine. User-defined function data can also be passed
   /// with the "data" member.
-  name:string (required);
+  name: string (required);
 
   type: FunctionType = SCALAR;
 
@@ -302,7 +302,7 @@ table ArrayExpr {
   /// Optional name for array operation. If not provided, may be inferred from
   /// antecedent inputs. IR producers are recommended to provide names to avoid
   /// ambiguity.
-  name:string;
+  name: string;
 
   /// Expected output type of the array operation. While optional, IR producers
   /// are encouraged to populate this field for the benefit of IR consumers.
@@ -320,7 +320,7 @@ table ArrayExpr {
 /// batches.
 table ExternalTable {
   /// The unique name to identify the data source.
-  name:string (required);
+  name: string (required);
 
   /// The schema of the data source. This may be a partial schema (ignoring
   /// unused fields), but it at least asserts the fields and types that are
@@ -329,7 +329,7 @@ table ExternalTable {
 
   /// Optional opaque table serialization data, for passing engine-specific
   /// instructions to enable the data to be accessed.
-  serde_type:string;
+  serde_type: string;
   serde_data: [ubyte];
 }
 
@@ -484,7 +484,7 @@ table TableFunction {
 
   /// An optional output schema for the table function. If not provided, must
   /// be determined by the IR consumer.
-  out_schema:Schema;
+  out_schema: Schema;
 }
 
 union TableOperation {
