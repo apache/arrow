@@ -473,6 +473,7 @@ table WindowJoin {
   // TODO
 }
 
+// The order in which to sort rows.
 enum Ordering : uint8 {
   ASCENDING,
   DESCENDING,
