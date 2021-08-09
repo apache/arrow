@@ -59,8 +59,7 @@ namespace Apache.Arrow.Ipc
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
-            RecordBatch result = default;
-            Flatbuf.MessageHeader messageHeaderType = Flatbuf.MessageHeader.NONE;
+            RecordBatch result = null;
 
             do
             {
@@ -82,7 +81,6 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
                     int bodyLength = checked((int)message.BodyLength);
-                    messageHeaderType = message.HeaderType;
 
                     IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
                     Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
@@ -93,7 +91,7 @@ namespace Apache.Arrow.Ipc
                     FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 }).ConfigureAwait(false);
-            } while (messageHeaderType == Flatbuf.MessageHeader.DictionaryBatch);
+            } while (result == null);
 
             return result;
         }
@@ -102,8 +100,7 @@ namespace Apache.Arrow.Ipc
         {
             ReadSchema();
 
-            RecordBatch result = default;
-            Flatbuf.MessageHeader messageHeaderType = Flatbuf.MessageHeader.NONE;
+            RecordBatch result = null;
 
             do
             {
@@ -123,7 +120,6 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
                     int bodyLength = checked((int)message.BodyLength);
-                    messageHeaderType = message.HeaderType;
 
                     IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
                     Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
@@ -133,7 +129,7 @@ namespace Apache.Arrow.Ipc
                     FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 });
-            } while (messageHeaderType == Flatbuf.MessageHeader.DictionaryBatch); 
+            } while (result == null); 
 
             return result;
         }

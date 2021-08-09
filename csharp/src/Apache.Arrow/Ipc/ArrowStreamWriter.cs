@@ -131,8 +131,8 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(DictionaryArray array)
             {
-                //Dictionary is serialized separately in Dictionary serialization.
-                //We are only interested in indexes at this context.
+                // Dictionary is serialized separately in Dictionary serialization.
+                // We are only interested in indices at this context.
 
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.IndicesBuffer));
@@ -523,7 +523,7 @@ namespace Apache.Arrow.Ipc
                 fieldNodesVectorOffset,
                 buffersVectorOffset);
 
-            //TODO: Support delta.
+            // TODO: Support delta.
             Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset = Flatbuf.DictionaryBatch.CreateDictionaryBatch(Builder, id, recordBatchOffset, false);
             return Tuple.Create(recordBatchBuilder, dictionaryBatchOffset);
         }
