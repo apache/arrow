@@ -492,17 +492,17 @@ table WindowJoin {
   // TODO
 }
 
+enum Ordering : uint8 {
+  ASCENDING,
+  DESCENDING,
+}
+
 /// An expression to use for sorting. The key expression determines the values
 /// to be used for ordering the table's rows.
 table SortKey {
   key: ArrayExpr (required);
-  ascending: bool = true;
-}
-
-/// A (possibly hierarchical) sort operation with one or more sort keys.
-table Sort {
-  // TODO
-  keys: [SortKey] (required);
+  ordering: Ordering = ASCENDING;
+  null_ordering: NullOrdering;
 }
 
 /// A table-generating function.
@@ -522,7 +522,6 @@ union TableOperation {
   Filter,
   Aggregate,
   Limit,
-  Sort,
   EqualityJoin,
   NonEqualityJoin,
   TableFunction
