@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.arrow.flight.FlightStream;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -54,7 +55,7 @@ public class FlightStreamQueue implements AutoCloseable {
   private final CompletionService<FlightStream> completionService;
   private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
   private final Set<FlightStream> unpreparedStreams = synchronizedSet(new HashSet<>());
-  private boolean closed;
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   /**
    * Instantiate a new FlightStreamQueue.
@@ -79,7 +80,7 @@ public class FlightStreamQueue implements AutoCloseable {
    * @return a boolean indicating whether this resource is closed.
    */
   public boolean isClosed() {
-    return closed;
+    return closed.get();
   }
 
   /**
@@ -111,7 +112,7 @@ public class FlightStreamQueue implements AutoCloseable {
   /**
    * Checks if this queue is open.
    */
-  public void checkOpen() {
+  public synchronized void checkOpen() {
     checkState(!isClosed(), format("%s closed", this.getClass().getSimpleName()));
   }
 
@@ -125,40 +126,30 @@ public class FlightStreamQueue implements AutoCloseable {
   /**
    * Adds given {@link FlightStream} to the queue.
    */
-  public void enqueue(final FlightStream flightStream) {
+  public synchronized void enqueue(final FlightStream flightStream) {
     checkNotNull(flightStream);
     checkOpen();
-    synchronized (unpreparedStreams) {
-      checkOpen(); // Prevent adding more streams if closed mid-process.
-      unpreparedStreams.add(flightStream);
-    }
-    synchronized (futures) {
-      checkOpen(); // Prevent adding more streams if closed mid-process.
-      futures.add(completionService.submit(() -> {
-        // `FlightStream#next` will block until new data can be read or stream is over.
-        flightStream.next();
-        unpreparedStreams.remove(flightStream);
-        return flightStream;
-      }));
-    }
+    unpreparedStreams.add(flightStream);
+    futures.add(completionService.submit(() -> {
+      // `FlightStream#next` will block until new data can be read or stream is over.
+      flightStream.next();
+      unpreparedStreams.remove(flightStream);
+      return flightStream;
+    }));
   }
 
   @Override
-  public void close() throws Exception {
+  public synchronized void close() throws Exception {
     if (isClosed()) {
       return;
     }
     try {
-      synchronized (futures) {
-        futures.parallelStream().forEach(future -> future.cancel(true));
-      }
-      synchronized (unpreparedStreams) {
-        unpreparedStreams.parallelStream().forEach(flightStream -> flightStream.cancel("Query canceled", null));
-      }
+      futures.forEach(future -> future.cancel(true));
+      unpreparedStreams.forEach(flightStream -> flightStream.cancel("Query canceled", null));
     } finally {
       unpreparedStreams.clear();
       futures.clear();
-      closed = true;
+      closed.set(true);
     }
   }
 }
