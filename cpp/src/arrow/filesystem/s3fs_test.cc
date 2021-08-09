@@ -989,8 +989,6 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 // Simple retry strategy that records errors encountered and its emitted retry delays
 class TestRetryStrategy : public S3RetryStrategy {
  public:
-  virtual ~TestRetryStrategy() = default;
-
   bool ShouldRetry(const S3RetryStrategy::AWSErrorDetail& error,
                    int64_t attempted_retries) final {
     errors_encountered_.emplace_back(error);

@@ -72,6 +72,8 @@ enum class S3CredentialsKind : int8_t {
 /// Pure virtual class for describing custom S3 retry strategies
 class S3RetryStrategy {
  public:
+  virtual ~S3RetryStrategy() = default;
+
   /// Simple struct where each field corresponds to a field in Aws::Client::AWSError
   struct AWSErrorDetail {
     /// Corresponds to AWSError::GetErrorType()
@@ -85,7 +87,7 @@ class S3RetryStrategy {
   };
   /// Returns true if the S3 request resulting in the provided error should be retried.
   virtual bool ShouldRetry(const AWSErrorDetail& error, int64_t attempted_retries) = 0;
-  /// Returns the time in miiliseconds the S3 client should sleep for until retrying.
+  /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
 };

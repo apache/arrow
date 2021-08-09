@@ -102,7 +102,6 @@ namespace S3Model = Aws::S3::Model;
 
 using internal::ConnectRetryStrategy;
 using internal::DetectS3Backend;
-using internal::ErrorToDetail;
 using internal::ErrorToStatus;
 using internal::FromAwsDatetime;
 using internal::FromAwsString;
@@ -493,9 +492,8 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
   bool ShouldRetry(const Aws::Client::AWSError<Aws::Client::CoreErrors>& error,
                    long attempted_retries) const override {  // NOLINT runtime/int
     S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
-    return s3_retry_strategy_->ShouldRetry(
-        detail,
-        static_cast<long>(attempted_retries));  // NOLINT runtime/int
+    return s3_retry_strategy_->ShouldRetry(detail,
+                                           static_cast<int64_t>(attempted_retries));
   }
 
   long CalculateDelayBeforeNextRetry(  // NOLINT runtime/int
@@ -504,10 +502,21 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
     S3RetryStrategy::AWSErrorDetail detail = ErrorToDetail(error);
     return static_cast<long>(  // NOLINT runtime/int
         s3_retry_strategy_->CalculateDelayBeforeNextRetry(
-            detail, static_cast<long>(attempted_retries)));  // NOLINT runtime/int
+            detail, static_cast<int64_t>(attempted_retries)));
   }
 
  private:
+  template <typename ErrorType>
+  static S3RetryStrategy::AWSErrorDetail ErrorToDetail(
+      const Aws::Client::AWSError<ErrorType>& error) {
+    S3RetryStrategy::AWSErrorDetail detail;
+    detail.error_type = static_cast<int>(error.GetErrorType());
+    detail.message = std::string(FromAwsString(error.GetMessage()));
+    detail.exception_name = std::string(FromAwsString(error.GetExceptionName()));
+    detail.should_retry = error.ShouldRetry();
+    return detail;
+  }
+
   std::shared_ptr<S3RetryStrategy> s3_retry_strategy_;
 };
 
