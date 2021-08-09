@@ -985,8 +985,9 @@ def test_drop_null(ty, values):
 
 
 def test_drop_null_chunked_array():
-    arr = pa.chunked_array([["a", None], ["c", "d", None]])
-    expected_drop = pa.chunked_array([["a"], ["c", "d"]])
+    arr = pa.chunked_array([["a", None], ["c", "d", None], [None], []])
+    expected_drop = pa.chunked_array([["a"], ["c", "d"], [], []])
+
     result = arr.drop_null()
     assert result.equals(expected_drop)
 
@@ -1005,8 +1006,6 @@ def test_drop_null_record_batch():
     result = batch.drop_null()
     expected = pa.record_batch(
         [pa.array(["c"]), pa.array(["c"])], names=["a'", "b'"])
-    print(result["a'"])
-    print(expected["a'"])
     assert result.equals(expected)
 
 

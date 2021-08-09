@@ -1969,5 +1969,137 @@ TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
   CheckDropNull(union_type, union_json, union_json);
 }
 
+class TestDropNullKernelWithRecordBatch : public TestDropNullKernelTyped<RecordBatch> {
+ public:
+  void AssertDropNull(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                      const std::string& expected_batch) {
+    std::shared_ptr<RecordBatch> actual;
+
+    ASSERT_OK(this->DoDropNull(schm, batch_json, &actual));
+    ValidateOutput(actual);
+    ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                    std::shared_ptr<RecordBatch>* out) {
+    auto batch = RecordBatchFromJSON(schm, batch_json);
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(batch));
+    *out = out_datum.record_batch();
+    return Status::OK();
+  }
+};
+
+TEST_F(TestDropNullKernelWithRecordBatch, DropNullRecordBatch) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  auto batch_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  this->AssertDropNull(schm, batch_json, R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])");
+
+  batch_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": null},
+    {"a": null, "b": "hello"},
+    {"a": 4, "b": null}
+  ])";
+  this->AssertDropNull(schm, batch_json, R"([])");
+  this->AssertDropNull(schm, R"([])", R"([])");
+}
+
+class TestDropNullKernelWithChunkedArray : public TestDropNullKernelTyped<ChunkedArray> {
+ public:
+  void AssertDropNull(const std::shared_ptr<DataType>& type,
+                      const std::vector<std::string>& values,
+                      const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->DoDropNull(type, values, &actual));
+    ValidateOutput(actual);
+
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<DataType>& type,
+                    const std::vector<std::string>& values,
+                    std::shared_ptr<ChunkedArray>* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(ChunkedArrayFromJSON(type, values)));
+    *out = out_datum.chunked_array();
+    return Status::OK();
+  }
+};
+
+TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
+  this->AssertDropNull(int8(), {"[]"}, {"[]"});
+  this->AssertDropNull(int8(), {"[null]", "[8, null]"}, {"[8]"});
+
+  this->AssertDropNull(int8(), {"[null]", "[null, null]"}, {"[]"});
+  this->AssertDropNull(int8(), {"[7]", "[8, 9]"}, {"[7]", "[8, 9]"});
+  this->AssertDropNull(int8(), {"[]", "[]"}, {"[]"});
+}
+
+class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
+ public:
+  void AssertDropNull(const std::shared_ptr<Schema>& schm,
+                      const std::vector<std::string>& table_json,
+                      const std::vector<std::string>& expected_table) {
+    std::shared_ptr<Table> actual;
+    ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
+    ValidateOutput(actual);
+    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<Schema>& schm,
+                    const std::vector<std::string>& values, std::shared_ptr<Table>* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(TableFromJSON(schm, values)));
+    *out = out_datum.table();
+    return Status::OK();
+  }
+};
+
+TEST_F(TestDropNullKernelWithTable, DropNullTable) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  {
+    std::vector<std::string> table_json = {R"([
+      {"a": null, "b": "yo"},
+      {"a": 1, "b": ""}
+    ])",
+                                           R"([
+      {"a": 2, "b": "hello"},
+      {"a": 4, "b": "eh"}
+    ])"};
+    std::vector<std::string> expected_table_json = {R"([
+      {"a": 1, "b": ""}
+    ])",
+                                                    R"([
+      {"a": 2, "b": "hello"},
+      {"a": 4, "b": "eh"}
+    ])"};
+    this->AssertDropNull(schm, table_json, expected_table_json);
+  }
+  {
+    std::vector<std::string> table_json = {R"([
+      {"a": null, "b": "yo"},
+      {"a": 1, "b": null}
+    ])",
+                                           R"([
+      {"a": 2, "b": null},
+      {"a": null, "b": "eh"}
+    ])"};
+    std::shared_ptr<Table> actual;
+    ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
+    ASSERT_TRUE(actual->num_rows() == 0);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
