@@ -333,17 +333,46 @@ table ExternalTable {
   serde_data: [ubyte];
 }
 
-/// An auxiliary helper instruction to "include all columns" in the projection,
-/// sparing the IR producer the need to enumerate all column references in a
-/// projection.
-table StarSelection {
-  ref: TableReference;
+table WindowedExpr {
+  func: ArrayFunction (required);
+  frame: Frame (required);
 }
 
-/// A helper union to permit the "SELECT *, $expr0, ..." construct from SQL.
+enum FrameClause : uint8 {
+  ROWS,
+  RANGE
+}
+
+enum NullOrdering : uint8 {
+  FIRST,
+  LAST
+}
+
+table Unbounded {}
+
+// `Bound` represents the window bound computation in a window function like
+// `sum(x) over (unbounded preceding and current row)`.
+union Bound {
+  ArrayExpr,
+  Unbounded,
+  CurrentRow
+}
+
+// `Frame` models a window frame clause, capturing the kind of clause
+// (ROWS/RANGE), how to partition the window how to order within partitions and
+// the bounds of the window.
+table Frame {
+  clause: FrameClause;
+  partition_by: [ArrayExpr];
+  order_by: [SortKey];
+  preceding: Bound;
+  following: Bound;
+}
+
+/// A helper union to permit the "SELECT $expr0, ..." construct from SQL.
 union ProjectionExpr {
   ArrayExpr,
-  StarSelection
+  WindowedExpr
 }
 
 /// Computes a new table given a set of column selections or array expressions.
