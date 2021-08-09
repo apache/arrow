@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/util/make_unique.h>
-
 #include <mutex>
 
 #include "arrow/api.h"
@@ -29,39 +27,6 @@
 namespace arrow {
 namespace compute {
 
-namespace {
-
-struct FreeIndexFinder {
- public:
-  explicit FreeIndexFinder(size_t max_indices) : indices_(max_indices) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::fill(indices_.begin(), indices_.end(), true);
-    ARROW_DCHECK_LE(indices_.size(), max_indices);
-  }
-
-  /// return the first available index
-  size_t FindAvailableIndex() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = std::find(indices_.begin(), indices_.end(), true);
-    ARROW_DCHECK_NE(it, indices_.end());
-    *it = false;
-    return std::distance(indices_.begin(), it);
-  }
-
-  /// release the index
-  void ReleaseIndex(size_t idx) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    // check if the indices_[idx] == false
-    ARROW_DCHECK(idx < indices_.size() && !indices_.at(idx));
-    indices_.at(idx) = true;
-  }
-
- private:
-  std::mutex mutex_;
-  std::vector<bool> indices_;
-};
-}  // namespace
-
 template <bool anti_join = false>
 struct HashSemiJoinNode : ExecNode {
   HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
@@ -71,7 +36,6 @@ struct HashSemiJoinNode : ExecNode {
                  {"hash_join_build", "hash_join_probe"}, probe_input->output_schema(),
                  /*num_outputs=*/1),
         ctx_(ctx),
-        free_index_finder(nullptr),
         build_index_field_ids_(build_index_field_ids),
         probe_index_field_ids_(probe_index_field_ids),
         build_result_index(-1),
@@ -85,7 +49,7 @@ struct HashSemiJoinNode : ExecNode {
   const char* kind_name() override { return "HashSemiJoinNode"; }
 
   Status InitLocalStateIfNeeded(ThreadLocalState* state) {
-    ARROW_LOG(WARNING) << "init state";
+    ARROW_LOG(DEBUG) << "init state";
 
     // Get input schema
     auto build_schema = inputs_[0]->output_schema();
@@ -108,26 +72,25 @@ struct HashSemiJoinNode : ExecNode {
   // Finds an appropriate index which could accumulate all build indices (i.e. the grouper
   // which has the highest # of groups)
   void CalculateBuildResultIndex() {
-    //    int32_t curr_max = -1;
-    //    for (int i = 0; i < static_cast<int>(local_states_.size()); i++) {
-    //      auto* state = &local_states_[i];
-    //      ARROW_DCHECK(state);
-    //      if (state->grouper &&
-    //          curr_max < static_cast<int32_t>(state->grouper->num_groups())) {
-    //        curr_max = static_cast<int32_t>(state->grouper->num_groups());
-    //        build_result_index = i;
-    //      }
-    //    }
-    //    ARROW_DCHECK(build_result_index > -1);
-    //    ARROW_LOG(WARNING) << "build_result_index " << build_result_index;
-    build_result_index = 0;
+    int32_t curr_max = -1;
+    for (int i = 0; i < static_cast<int>(local_states_.size()); i++) {
+      auto* state = &local_states_[i];
+      ARROW_DCHECK(state);
+      if (state->grouper &&
+          curr_max < static_cast<int32_t>(state->grouper->num_groups())) {
+        curr_max = static_cast<int32_t>(state->grouper->num_groups());
+        build_result_index = i;
+      }
+    }
+    ARROW_DCHECK(build_result_index > -1);
+    ARROW_LOG(DEBUG) << "build_result_index " << build_result_index;
   }
 
   // Performs the housekeeping work after the build-side is completed.
   // Note: this method is not thread safe, and hence should be guaranteed that it is
   // not accessed concurrently!
   Status BuildSideCompleted() {
-    ARROW_LOG(WARNING) << "build side merge";
+    ARROW_LOG(DEBUG) << "build side merge";
 
     // if the hash table has already been built, return
     if (hash_table_built_) return Status::OK();
@@ -162,13 +125,11 @@ struct HashSemiJoinNode : ExecNode {
   // total reached at the end of consumption, all the local states will be merged, before
   // incrementing the total batches
   Status ConsumeBuildBatch(ExecBatch batch) {
-    //    size_t thread_index = get_thread_index_();
-    // get a free index from the finder
-    int thread_index = free_index_finder->FindAvailableIndex();
-    ARROW_DCHECK(static_cast<size_t>(thread_index) < local_states_.size());
+    size_t thread_index = get_thread_index_();
+    ARROW_DCHECK(thread_index < local_states_.size());
 
-    ARROW_LOG(WARNING) << "ConsumeBuildBatch tid:" << thread_index
-                       << " len:" << batch.length;
+    ARROW_LOG(DEBUG) << "ConsumeBuildBatch tid:" << thread_index
+                     << " len:" << batch.length;
 
     auto state = &local_states_[thread_index];
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
@@ -184,8 +145,6 @@ struct HashSemiJoinNode : ExecNode {
     // TODO(niranda) replace with void consume method
     ARROW_ASSIGN_OR_RAISE(Datum _, state->grouper->Consume(key_batch));
 
-    free_index_finder->ReleaseIndex(thread_index);
-
     if (build_counter_.Increment()) {
       // only one thread would get inside this block!
       // while incrementing, if the total is reached, call BuildSideCompleted.
@@ -197,8 +156,8 @@ struct HashSemiJoinNode : ExecNode {
 
   // consumes cached probe batches by invoking executor::Spawn.
   Status ConsumeCachedProbeBatches() {
-    ARROW_LOG(WARNING) << "ConsumeCachedProbeBatches tid:" /*<< get_thread_index_()*/
-                       << " len:" << cached_probe_batches.size();
+    ARROW_LOG(DEBUG) << "ConsumeCachedProbeBatches tid:" << get_thread_index_()
+                     << " len:" << cached_probe_batches.size();
 
     // acquire the mutex to access cached_probe_batches, because while consuming, other
     // batches should not be cached!
@@ -232,7 +191,7 @@ struct HashSemiJoinNode : ExecNode {
   Status GenerateOutput(int seq, const ArrayData& group_ids_data, ExecBatch batch) {
     if (group_ids_data.GetNullCount() == batch.length) {
       // All NULLS! hence, there are no valid outputs!
-      ARROW_LOG(WARNING) << "output seq:" << seq << " 0";
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
       outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
     } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
       auto filter_arr =
@@ -246,10 +205,10 @@ struct HashSemiJoinNode : ExecNode {
           Filter(rec_batch, filter_arr,
                  /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
       auto out_batch = ExecBatch(*filtered.record_batch());
-      ARROW_LOG(WARNING) << "output seq:" << seq << " " << out_batch.length;
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
       outputs_[0]->InputReceived(this, seq, std::move(out_batch));
     } else {  // all values are valid for output
-      ARROW_LOG(WARNING) << "output seq:" << seq << " " << batch.length;
+      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
       outputs_[0]->InputReceived(this, seq, std::move(batch));
     }
 
@@ -259,7 +218,7 @@ struct HashSemiJoinNode : ExecNode {
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[build_result_index] which have been merged with all others.
   Status ConsumeProbeBatch(int seq, ExecBatch batch) {
-    ARROW_LOG(WARNING) << "ConsumeProbeBatch seq:" << seq;
+    ARROW_LOG(DEBUG) << "ConsumeProbeBatch seq:" << seq;
 
     auto& final_grouper = *local_states_[build_result_index].grouper;
 
@@ -288,8 +247,8 @@ struct HashSemiJoinNode : ExecNode {
   // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
   //  directly consumed!
   bool AttemptToCacheProbeBatch(int seq_num, ExecBatch* batch) {
-    ARROW_LOG(WARNING) << "cache tid:" /*<< get_thread_index_() */ << " seq:" << seq_num
-                       << " len:" << batch->length;
+    ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " seq:" << seq_num
+                     << " len:" << batch->length;
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
     if (cached_probe_batches_consumed) {
       return false;
@@ -303,8 +262,8 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    ARROW_LOG(WARNING) << "input received input:" << (IsBuildInput(input) ? "b" : "p")
-                       << " seq:" << seq << " len:" << batch.length;
+    ARROW_LOG(DEBUG) << "input received input:" << (IsBuildInput(input) ? "b" : "p")
+                     << " seq:" << seq << " len:" << batch.length;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
@@ -334,7 +293,7 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    ARROW_LOG(WARNING) << "error received " << error.ToString();
+    ARROW_LOG(DEBUG) << "error received " << error.ToString();
     DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -342,8 +301,8 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
-    ARROW_LOG(WARNING) << "input finished input:" << (IsBuildInput(input) ? "b" : "p")
-                       << " tot:" << num_total;
+    ARROW_LOG(DEBUG) << "input finished input:" << (IsBuildInput(input) ? "b" : "p")
+                     << " tot:" << num_total;
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -374,12 +333,10 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   Status StartProducing() override {
-    ARROW_LOG(WARNING) << "start prod";
+    ARROW_LOG(DEBUG) << "start prod";
     finished_ = Future<>::Make();
 
     local_states_.resize(ThreadIndexer::Capacity());
-    free_index_finder =
-        arrow::internal::make_unique<FreeIndexFinder>(ThreadIndexer::Capacity());
     return Status::OK();
   }
 
@@ -388,7 +345,7 @@ struct HashSemiJoinNode : ExecNode {
   void ResumeProducing(ExecNode* output) override {}
 
   void StopProducing(ExecNode* output) override {
-    ARROW_LOG(WARNING) << "stop prod from node";
+    ARROW_LOG(DEBUG) << "stop prod from node";
 
     DCHECK_EQ(output, outputs_[0]);
 
@@ -405,12 +362,12 @@ struct HashSemiJoinNode : ExecNode {
 
   // TODO(niranda) couldn't there be multiple outputs for a Node?
   void StopProducing() override {
-    ARROW_LOG(WARNING) << "stop prod ";
+    ARROW_LOG(DEBUG) << "stop prod ";
     outputs_[0]->StopProducing();
   }
 
   Future<> finished() override {
-    ARROW_LOG(WARNING) << "finished? " << finished_.is_finished();
+    ARROW_LOG(DEBUG) << "finished? " << finished_.is_finished();
     return finished_;
   }
 
@@ -422,12 +379,10 @@ struct HashSemiJoinNode : ExecNode {
   ExecContext* ctx_;
   Future<> finished_ = Future<>::MakeFinished();
 
-  //  ThreadIndexer get_thread_index_;
-  std::unique_ptr<FreeIndexFinder> free_index_finder;
+  ThreadIndexer get_thread_index_;
   const std::vector<int> build_index_field_ids_, probe_index_field_ids_;
 
   AtomicCounter build_counter_, out_counter_;
-
   std::vector<ThreadLocalState> local_states_;
 
   // There's no guarantee on which threads would be coming from the build side. so, out of
@@ -457,7 +412,7 @@ Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_id
                                               ExecBatch batch) {
   if (group_ids_data.GetNullCount() == group_ids_data.length) {
     // All NULLS! hence, all values are valid for output
-    ARROW_LOG(WARNING) << "output seq:" << seq << " " << batch.length;
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
     outputs_[0]->InputReceived(this, seq, std::move(batch));
   } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
     // invert the validity buffer
@@ -476,11 +431,11 @@ Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_id
         Filter(rec_batch, filter_arr,
                /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
     auto out_batch = ExecBatch(*filtered.record_batch());
-    ARROW_LOG(WARNING) << "output seq:" << seq << " " << out_batch.length;
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
     outputs_[0]->InputReceived(this, seq, std::move(out_batch));
   } else {
     // No NULLS! hence, there are no valid outputs!
-    ARROW_LOG(WARNING) << "output seq:" << seq << " 0";
+    ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
     outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
   }
   return Status::OK();
