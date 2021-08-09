@@ -187,7 +187,7 @@ else
         PKG_DIRS="-L`pwd`/$LIB_DIR"
 
         # Use pkg-config to do static linking of libarrow's dependencies
-        if [ "$ARROW_DEPENDENCY_SOURCE" = AUTO ]; then
+        if [ "$ARROW_DEPENDENCY_SOURCE" = AUTO | "$ARROW_DEPENDENCY_SOURCE" = SYSTEM ]; then
           PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR} pkg-config --libs-only-l --libs-only-other --static --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
