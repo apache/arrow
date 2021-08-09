@@ -581,33 +581,6 @@ struct GroupByNode : ExecNode {
   ExecBatch out_data_;
 };
 
-class DefaultExecFactoryRegistry : public ExecFactoryRegistry {
- public:
-  Result<Factory> GetFactory(const std::string& factory_name) override {
-    auto it = factories_.find(factory_name);
-    if (it == factories_.end()) {
-      return Status::KeyError("ExecNode factory named ", factory_name,
-                              " not present in registry.");
-    }
-    return it->second;
-  }
-
-  Status AddFactory(std::string factory_name, Factory factory) override {
-    auto it_success = factories_.emplace(std::move(factory_name), std::move(factory));
-
-    if (!it_success.second) {
-      const auto& factory_name = it_success.first->first;
-      return Status::KeyError("ExecNode factory named ", factory_name,
-                              " already registered.");
-    }
-
-    return Status::OK();
-  }
-
- private:
-  std::unordered_map<std::string, Factory> factories_;
-};
-
 ExecFactoryRegistry::AddOnLoad kRegisterAggregate(
     "aggregate",
     [](ExecPlan* plan, std::vector<ExecNode*> inputs,
