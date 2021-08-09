@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
@@ -32,7 +33,9 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -45,12 +48,14 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 using testing::HasSubstr;
 
@@ -112,6 +117,93 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
   }
 
   return StructArray::Make(std::move(out_columns), std::move(out_names));
+}
+
+Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
+                                   const std::vector<Datum>& keys,
+                                   const std::vector<internal::Aggregate>& aggregates,
+                                   bool use_threads, ExecContext* ctx) {
+  using arrow::compute::detail::ExecBatchIterator;
+
+  FieldVector scan_fields(arguments.size() + keys.size());
+  std::vector<FieldRef> keys_str(keys.size());
+  std::vector<FieldRef> arguments_str(arguments.size());
+  std::vector<std::string> names(arguments.size());
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    auto name = std::string("agg_") + std::to_string(i);
+    names[i] = aggregates[i].function;
+    scan_fields[i] = field(name, arguments[i].type());
+    arguments_str[i] = FieldRef(std::move(name));
+  }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    auto name = std::string("key_") + std::to_string(i);
+    scan_fields[arguments.size() + i] = field(name, keys[i].type());
+    keys_str[i] = FieldRef(std::move(name));
+  }
+
+  std::vector<ExecBatch> scan_batches;
+  std::vector<Datum> inputs;
+  for (const auto& argument : arguments) {
+    inputs.push_back(argument);
+  }
+  for (const auto& key : keys) {
+    inputs.push_back(key);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
+                        ExecBatchIterator::Make(inputs, ctx->exec_chunksize()));
+  ExecBatch batch;
+  while (batch_iterator->Next(&batch)) {
+    if (batch.length == 0) continue;
+    scan_batches.push_back(batch);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make(ctx));
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  RETURN_NOT_OK(
+      Declaration::Sequence(
+          {
+              {"source", SourceNodeOptions{schema(std::move(scan_fields)),
+                                           MakeVectorGenerator(arrow::internal::MapVector(
+                                               [](ExecBatch batch) {
+                                                 return util::make_optional(
+                                                     std::move(batch));
+                                               },
+                                               std::move(scan_batches)))}},
+              {"aggregate",
+               AggregateNodeOptions{std::move(aggregates), std::move(arguments_str),
+                                    std::move(names), std::move(keys_str)}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(sink_gen);
+
+  auto start_and_collect =
+      AllComplete({plan->finished(), Future<>(collected_fut)})
+          .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+            ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+            return ::arrow::internal::MapVector(
+                [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+                std::move(collected));
+          });
+
+  std::vector<ExecBatch> output_batches =
+      start_and_collect.MoveResult().MoveValueUnsafe();
+
+  ArrayVector out_arrays(arguments.size() + keys.size());
+  for (size_t i = 0; i < arguments.size() + keys.size(); ++i) {
+    std::vector<std::shared_ptr<Array>> arrays(output_batches.size());
+    for (size_t j = 0; j < output_batches.size(); ++j) {
+      arrays[j] = output_batches[j].values[i].make_array();
+    }
+    ARROW_ASSIGN_OR_RAISE(out_arrays[i], Concatenate(arrays));
+  }
+
+  return StructArray::Make(std::move(out_arrays),
+                           plan->sources()[0]->outputs()[0]->output_schema()->fields());
 }
 
 void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,

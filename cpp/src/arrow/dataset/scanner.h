@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/projector.h"
@@ -412,21 +413,15 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// Does not construct associated filter or project nodes.
 /// Yielded batches will be augmented with fragment/batch indices to enable stable
 /// ordering for simple ExecPlans.
-ARROW_DS_EXPORT Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*,
-                                                        std::shared_ptr<Dataset>,
-                                                        std::shared_ptr<ScanOptions>);
+class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
+                           std::shared_ptr<ScanOptions> scan_options)
+      : dataset(std::move(dataset)), scan_options(std::move(scan_options)) {}
 
-/// \brief Construct a ProjectNode which preserves fragment/batch indices.
-ARROW_DS_EXPORT Result<compute::ExecNode*> MakeAugmentedProjectNode(
-    compute::ExecNode* input, std::string label, std::vector<compute::Expression> exprs,
-    std::vector<std::string> names = {});
-
-/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
-///
-/// Emitted batches will be ordered by fragment and batch indices, or an error
-/// will be raised if those fields are not available in the input.
-ARROW_DS_EXPORT Result<AsyncGenerator<util::optional<compute::ExecBatch>>>
-MakeOrderedSinkNode(compute::ExecNode*, std::string label);
+  std::shared_ptr<Dataset> dataset;
+  std::shared_ptr<ScanOptions> scan_options;
+};
 
 /// @}
 

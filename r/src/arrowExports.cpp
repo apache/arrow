@@ -1176,37 +1176,20 @@ extern "C" SEXP _arrow_ExecNode_Project(SEXP input_sexp, SEXP exprs_sexp, SEXP n
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::ExecNode> ExecNode_ScalarAggregate(const std::shared_ptr<compute::ExecNode>& input, cpp11::list options, std::vector<std::string> target_names, std::vector<std::string> out_field_names);
-extern "C" SEXP _arrow_ExecNode_ScalarAggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(const std::shared_ptr<compute::ExecNode>& input, cpp11::list options, std::vector<std::string> target_names, std::vector<std::string> out_field_names, std::vector<std::string> key_names);
+extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp, SEXP key_names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	arrow::r::Input<std::vector<std::string>>::type target_names(target_names_sexp);
 	arrow::r::Input<std::vector<std::string>>::type out_field_names(out_field_names_sexp);
-	return cpp11::as_sexp(ExecNode_ScalarAggregate(input, options, target_names, out_field_names));
+	arrow::r::Input<std::vector<std::string>>::type key_names(key_names_sexp);
+	return cpp11::as_sexp(ExecNode_Aggregate(input, options, target_names, out_field_names, key_names));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_ScalarAggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp){
-	Rf_error("Cannot call ExecNode_ScalarAggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// compute-exec.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::ExecNode> ExecNode_GroupByAggregate(const std::shared_ptr<compute::ExecNode>& input, std::vector<std::string> group_vars, std::vector<std::string> agg_srcs, cpp11::list aggregations);
-extern "C" SEXP _arrow_ExecNode_GroupByAggregate(SEXP input_sexp, SEXP group_vars_sexp, SEXP agg_srcs_sexp, SEXP aggregations_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type input(input_sexp);
-	arrow::r::Input<std::vector<std::string>>::type group_vars(group_vars_sexp);
-	arrow::r::Input<std::vector<std::string>>::type agg_srcs(agg_srcs_sexp);
-	arrow::r::Input<cpp11::list>::type aggregations(aggregations_sexp);
-	return cpp11::as_sexp(ExecNode_GroupByAggregate(input, group_vars, agg_srcs, aggregations));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ExecNode_GroupByAggregate(SEXP input_sexp, SEXP group_vars_sexp, SEXP agg_srcs_sexp, SEXP aggregations_sexp){
-	Rf_error("Cannot call ExecNode_GroupByAggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SEXP target_names_sexp, SEXP out_field_names_sexp, SEXP key_names_sexp){
+	Rf_error("Cannot call ExecNode_Aggregate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7149,8 +7132,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
-		{ "_arrow_ExecNode_ScalarAggregate", (DL_FUNC) &_arrow_ExecNode_ScalarAggregate, 4}, 
-		{ "_arrow_ExecNode_GroupByAggregate", (DL_FUNC) &_arrow_ExecNode_GroupByAggregate, 4}, 
+		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
