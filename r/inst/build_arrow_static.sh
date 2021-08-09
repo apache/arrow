@@ -45,10 +45,6 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-if [ $(R CMD config LTO) = "-flto" ]; then
-  CMAKE_INTERPROCEDURAL_OPTIMIZATION="ON"
-fi
-
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
