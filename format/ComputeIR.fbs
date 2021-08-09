@@ -334,7 +334,7 @@ table ExternalTable {
 }
 
 table WindowedExpr {
-  func: ArrayFunction (required);
+  expr: ArrayExpr (required);
   frame: Frame (required);
 }
 
