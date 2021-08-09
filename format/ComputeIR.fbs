@@ -290,6 +290,8 @@ table ArrayExpr {
   /// Expected output type of the array operation. While optional, IR producers
   /// are encouraged to populate this field for the benefit of IR consumers.
   out_type: Type;
+
+  window: Frame;
 }
 
 /// ----------------------------------------------------------------------
@@ -314,11 +316,6 @@ table ExternalTable {
   /// instructions to enable the data to be accessed.
   serde_type: string;
   serde_data: [ubyte];
-}
-
-table WindowedExpr {
-  expr: ArrayExpr (required);
-  frame: Frame (required);
 }
 
 enum FrameClause : uint8 {
@@ -350,19 +347,13 @@ table Frame {
   following: Bound (required);
 }
 
-/// A helper union to permit the "SELECT $expr0, ..." construct from SQL.
-union ProjectionExpr {
-  ArrayExpr,
-  WindowedExpr
-}
-
 /// Computes a new table given a set of column selections or array expressions.
 table Project {
   input: TableExpr (required);
 
   /// Each expression must reference fields foudn in the input table
   /// expression.
-  exprs: [ProjectionExpr] (required);
+  exprs: [ArrayExpr] (required);
 }
 
 /// Select rows from table for given boolean condition.
