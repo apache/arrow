@@ -373,10 +373,8 @@ public class ResultSetTest {
     try (final Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutValue);
       final Set<Exception> exceptions = new HashSet<>(1);
-      try (final ResultSet resultSet = statement.executeQuery(query)) {
-        while (resultSet.next()) {
-          resultSet.getObject(RANDOM.nextInt(resultSet.getMetaData().getColumnCount()));
-        }
+      try {
+        statement.executeQuery(query);
       } catch (final Exception e) {
         exceptions.add(e);
       }
