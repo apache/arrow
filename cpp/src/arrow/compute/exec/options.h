@@ -112,6 +112,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()>* generator;
 };
 
+<<<<<<< HEAD
 /// \brief Make a node which sorts rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then sorted, by the given
@@ -126,5 +127,7 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
+=======
+>>>>>>> ARROW-13482: [C++][Compute] Refactoring away from hard coded ExecNode factories to a registry
 }  // namespace compute
 }  // namespace arrow

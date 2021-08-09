@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 #include <thread>
 #include <unordered_map>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
@@ -451,8 +450,7 @@ struct GroupByNode : ExecNode {
         // bail if StopProducing was called
         if (finished_.is_finished()) break;
 
-        auto plan = this->plan()->shared_from_this();
-        RETURN_NOT_OK(executor->Spawn([plan, this, i] { OutputNthBatch(i); }));
+        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
       } else {
         OutputNthBatch(i);
       }
