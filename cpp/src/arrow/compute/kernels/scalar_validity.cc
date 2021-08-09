@@ -32,6 +32,8 @@ namespace compute {
 namespace internal {
 namespace {
 
+FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
+
 struct IsValidOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
@@ -77,23 +79,26 @@ struct IsInfOperator {
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    bool is_nan_value = false;
-    bool is_floating = false;
-    if (in.type == float32()) {
-      is_nan_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
-      is_floating = true;
-    } else if (in.type == float64()) {
-      is_nan_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
-      is_floating = true;
-    }
-
     auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
-    if (in.is_valid && is_floating && options.nan_is_null && is_nan_value) {
-      checked_cast<BooleanScalar*>(out)->value = true;
-      return Status::OK();
+    bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
+    if (in.is_valid) {
+      switch (in.type->id()) {
+        case Type::FLOAT:
+          *out_value = options.nan_is_null &&
+                       std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+          break;
+        case Type::DOUBLE:
+          *out_value = options.nan_is_null &&
+                       std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+          break;
+        default:
+          *out_value = false;
+          break;
+      }
+    } else {
+      *out_value = true;
     }
 
-    checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
     return Status::OK();
   }
 
@@ -233,8 +238,6 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              {"values"});
 
 }  // namespace
-
-FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
