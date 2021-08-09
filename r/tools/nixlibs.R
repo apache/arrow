@@ -290,7 +290,7 @@ R_CMD_config <- function(var) {
 }
 
 build_libarrow <- function(src_dir, dst_dir) {
-  if (grepl(R_CMD_config("LTO"), "-flto") {
+  if (grepl(R_CMD_config("LTO"), "-flto")) {
     # DESCRIPTION says UseLTO: false, but the user can override this with
     # R CMD INSTALL --use-LTO
     # In this case, we need to return a library with some features disabled.

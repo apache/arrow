@@ -1042,6 +1042,7 @@ tasks:
       with_arrow: "FALSE"
       flags: '-e INSTALL_ARGS=--use-LTO'
 
+  # This one has -flto=auto
   test-r-ubuntu-21.04:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1052,7 +1053,7 @@ tasks:
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r
 
-  # This one has -flto=auto
+  # This also has -flto=auto
   test-r-gcc-11:
     ci: github
     template: docker-tests/github.linux.yml
