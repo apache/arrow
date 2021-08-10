@@ -308,7 +308,7 @@ Result<std::shared_ptr<ReadableFile>> ReadableFile::Open(int fd, MemoryPool* poo
   return file;
 }
 
-Status ReadableFile::DoClose() { return impl_->Close(); }
+Status ReadableFile::Close() { return impl_->Close(); }
 
 bool ReadableFile::closed() const { return !impl_->is_open(); }
 
@@ -316,27 +316,40 @@ Status ReadableFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return impl_->WillNeed(ranges);
 }
 
-Result<int64_t> ReadableFile::DoTell() const { return impl_->Tell(); }
+Result<int64_t> ReadableFile::Tell() const {
+  auto guard = lock_.TellGuard();
+  return impl_->Tell();
+}
 
-Result<int64_t> ReadableFile::DoRead(int64_t nbytes, void* out) {
+Result<int64_t> ReadableFile::Read(int64_t nbytes, void* out) {
+  auto guard = lock_.ReadGuard();
   return impl_->Read(nbytes, out);
 }
 
-Result<int64_t> ReadableFile::DoReadAt(int64_t position, int64_t nbytes, void* out) {
+Result<int64_t> ReadableFile::ReadAt(int64_t position, int64_t nbytes, void* out) {
+  auto guard = lock_.ReadAtGuard();
   return impl_->ReadAt(position, nbytes, out);
 }
 
-Result<std::shared_ptr<Buffer>> ReadableFile::DoReadAt(int64_t position, int64_t nbytes) {
+Result<std::shared_ptr<Buffer>> ReadableFile::ReadAt(int64_t position, int64_t nbytes) {
+  auto guard = lock_.ReadAtGuard();
   return impl_->ReadBufferAt(position, nbytes);
 }
 
-Result<std::shared_ptr<Buffer>> ReadableFile::DoRead(int64_t nbytes) {
+Result<std::shared_ptr<Buffer>> ReadableFile::Read(int64_t nbytes) {
+  auto guard = lock_.ReadGuard();
   return impl_->ReadBuffer(nbytes);
 }
 
-Result<int64_t> ReadableFile::DoGetSize() { return impl_->size(); }
+Result<int64_t> ReadableFile::GetSize() {
+  auto guard = lock_.GetSizeGuard();
+  return impl_->size();
+}
 
-Status ReadableFile::DoSeek(int64_t pos) { return impl_->Seek(pos); }
+Status ReadableFile::Seek(int64_t pos) {
+  auto guard = lock_.SeekGuard();
+  return impl_->Seek(pos);
+}
 
 int ReadableFile::file_descriptor() const { return impl_->fd(); }
 

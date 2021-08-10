@@ -444,9 +444,15 @@ Result<std::shared_ptr<BufferedInputStream>> BufferedInputStream::Create(
   return result;
 }
 
-Status BufferedInputStream::DoClose() { return impl_->Close(); }
+Status BufferedInputStream::Close() {
+  auto guard = lock_.CloseGuard();
+  return impl_->Close();
+}
 
-Status BufferedInputStream::DoAbort() { return impl_->Abort(); }
+Status BufferedInputStream::Abort() {
+  auto guard = lock_.AbortGuard();
+  return impl_->Abort();
+}
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 
@@ -454,9 +460,13 @@ std::shared_ptr<InputStream> BufferedInputStream::Detach() { return impl_->Detac
 
 std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->raw(); }
 
-Result<int64_t> BufferedInputStream::DoTell() const { return impl_->Tell(); }
+Result<int64_t> BufferedInputStream::Tell() const {
+  auto guard = lock_.TellGuard();
+  return impl_->Tell();
+}
 
-Result<util::string_view> BufferedInputStream::DoPeek(int64_t nbytes) {
+Result<util::string_view> BufferedInputStream::Peek(int64_t nbytes) {
+  auto guard = lock_.PeekGuard();
   return impl_->Peek(nbytes);
 }
 
@@ -468,11 +478,13 @@ int64_t BufferedInputStream::bytes_buffered() const { return impl_->bytes_buffer
 
 int64_t BufferedInputStream::buffer_size() const { return impl_->buffer_size(); }
 
-Result<int64_t> BufferedInputStream::DoRead(int64_t nbytes, void* out) {
+Result<int64_t> BufferedInputStream::Read(int64_t nbytes, void* out) {
+  auto guard = lock_.ReadGuard();
   return impl_->Read(nbytes, out);
 }
 
-Result<std::shared_ptr<Buffer>> BufferedInputStream::DoRead(int64_t nbytes) {
+Result<std::shared_ptr<Buffer>> BufferedInputStream::Read(int64_t nbytes) {
+  auto guard = lock_.ReadGuard();
   return impl_->Read(nbytes);
 }
 

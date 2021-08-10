@@ -222,7 +222,8 @@ CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
   context_ = buffer_->context();
 }
 
-Status CudaBufferReader::DoClose() {
+Status CudaBufferReader::Close() {
+  auto guard = lock_.CloseGuard();
   is_open_ = false;
   return Status::OK();
 }
@@ -232,17 +233,20 @@ bool CudaBufferReader::closed() const { return !is_open_; }
 // XXX Only in a certain sense (not on the CPU)...
 bool CudaBufferReader::supports_zero_copy() const { return true; }
 
-Result<int64_t> CudaBufferReader::DoTell() const {
+Result<int64_t> CudaBufferReader::Tell() const {
+  auto guard = lock_.TellGuard();
   RETURN_NOT_OK(CheckClosed());
   return position_;
 }
 
-Result<int64_t> CudaBufferReader::DoGetSize() {
+Result<int64_t> CudaBufferReader::GetSize() {
+  auto guard = lock_.GetSizeGuard();
   RETURN_NOT_OK(CheckClosed());
   return size_;
 }
 
-Status CudaBufferReader::DoSeek(int64_t position) {
+Status CudaBufferReader::Seek(int64_t position) {
+  auto guard = lock_.SeekGuard();
   RETURN_NOT_OK(CheckClosed());
 
   if (position < 0 || position > size_) {
@@ -253,21 +257,33 @@ Status CudaBufferReader::DoSeek(int64_t position) {
   return Status::OK();
 }
 
-Result<int64_t> CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
-                                           void* buffer) {
-  RETURN_NOT_OK(CheckClosed());
-
-  nbytes = std::min(nbytes, size_ - position);
-  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, address_ + position, nbytes));
-  return nbytes;
+Result<int64_t> CudaBufferReader::ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+  auto guard = lock_.ReadAtGuard();
+  return DoReadAt(position, nbytes, buffer);
 }
 
-Result<int64_t> CudaBufferReader::DoRead(int64_t nbytes, void* buffer) {
+Result<std::shared_ptr<Buffer>> CudaBufferReader::ReadAt(int64_t position,
+                                                         int64_t nbytes) {
+  auto guard = lock_.ReadAtGuard();
+  return DoReadAt(position, nbytes);
+}
+
+Result<int64_t> CudaBufferReader::Read(int64_t nbytes, void* buffer) {
+  auto guard = lock_.ReadGuard();
   RETURN_NOT_OK(CheckClosed());
 
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, buffer));
   position_ += bytes_read;
   return bytes_read;
+}
+
+Result<std::shared_ptr<Buffer>> CudaBufferReader::Read(int64_t nbytes) {
+  auto guard = lock_.ReadGuard();
+  RETURN_NOT_OK(CheckClosed());
+
+  ARROW_ASSIGN_OR_RAISE(auto buffer, DoReadAt(position_, nbytes));
+  position_ += nbytes;
+  return buffer;
 }
 
 Result<std::shared_ptr<Buffer>> CudaBufferReader::DoReadAt(int64_t position,
@@ -278,13 +294,13 @@ Result<std::shared_ptr<Buffer>> CudaBufferReader::DoReadAt(int64_t position,
   return std::make_shared<CudaBuffer>(buffer_, position, size);
 }
 
-Result<std::shared_ptr<Buffer>> CudaBufferReader::DoRead(int64_t nbytes) {
+Result<int64_t> CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                                           void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
-  int64_t size = std::min(nbytes, size_ - position_);
-  auto buffer = std::make_shared<CudaBuffer>(buffer_, position_, size);
-  position_ += size;
-  return buffer;
+  nbytes = std::min(nbytes, size_ - position);
+  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, address_ + position, nbytes));
+  return nbytes;
 }
 
 // ----------------------------------------------------------------------

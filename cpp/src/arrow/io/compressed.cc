@@ -44,8 +44,12 @@ namespace io {
 
 class CompressedOutputStream::Impl {
  public:
-  Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
+  Impl(MemoryPool* pool, std::shared_ptr<OutputStream> raw)
+      : pool_(pool),
+        raw_(std::move(raw)),
+        is_open_(false),
+        compressed_pos_(0),
+        total_pos_(0) {}
 
   Status Init(Codec* codec) {
     ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
@@ -229,9 +233,9 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 
 class CompressedInputStream::Impl {
  public:
-  Impl(MemoryPool* pool, const std::shared_ptr<InputStream>& raw)
+  Impl(MemoryPool* pool, std::shared_ptr<InputStream> raw)
       : pool_(pool),
-        raw_(raw),
+        raw_(std::move(raw)),
         is_open_(true),
         compressed_pos_(0),
         decompressed_pos_(0),
@@ -419,21 +423,17 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
 
-Status CompressedInputStream::DoClose() { return impl_->Close(); }
+Status CompressedInputStream::Close() {
+  auto guard = lock_.CloseGuard();
+  return impl_->Close();
+}
 
-Status CompressedInputStream::DoAbort() { return impl_->Abort(); }
+Status CompressedInputStream::Abort() {
+  auto guard = lock_.AbortGuard();
+  return impl_->Abort();
+}
 
 bool CompressedInputStream::closed() const { return impl_->closed(); }
-
-Result<int64_t> CompressedInputStream::DoTell() const { return impl_->Tell(); }
-
-Result<int64_t> CompressedInputStream::DoRead(int64_t nbytes, void* out) {
-  return impl_->Read(nbytes, out);
-}
-
-Result<std::shared_ptr<Buffer>> CompressedInputStream::DoRead(int64_t nbytes) {
-  return impl_->Read(nbytes);
-}
 
 std::shared_ptr<InputStream> CompressedInputStream::raw() const { return impl_->raw(); }
 
@@ -444,6 +444,21 @@ Result<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetad
 Future<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetadataAsync(
     const IOContext& io_context) {
   return impl_->raw()->ReadMetadataAsync(io_context);
+}
+
+Result<int64_t> CompressedInputStream::Tell() const {
+  auto guard = lock_.TellGuard();
+  return impl_->Tell();
+}
+
+Result<int64_t> CompressedInputStream::Read(int64_t nbytes, void* out) {
+  auto guard = lock_.ReadGuard();
+  return impl_->Read(nbytes, out);
+}
+
+Result<std::shared_ptr<Buffer>> CompressedInputStream::Read(int64_t nbytes) {
+  auto guard = lock_.ReadGuard();
+  return impl_->Read(nbytes);
 }
 
 }  // namespace io

@@ -300,8 +300,8 @@ ExecNode_Project <- function(input, exprs, names) {
   .Call(`_arrow_ExecNode_Project`, input, exprs, names)
 }
 
-ExecNode_Aggregate <- function(input, options, target_names, out_field_names, key_names){
-    .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
+ExecNode_Aggregate <- function(input, options, target_names, out_field_names, key_names) {
+  .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {

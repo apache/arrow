@@ -227,6 +227,12 @@ jobs:
           rtools-version: 35
           r-version: "3.6"
           Ncpus: 2
+      - name: Turn on LTO for R
+        if: ${{ matrix.rtools != 35 }}
+        shell: Rscript {0}
+        run: |
+          dir.create("~/.R")
+          writeLines(c("CPPFLAGS=-flto", "AR=gcc-ar", "NM=gcc-nm", "RANLIB=gcc-ranlib"), "~/.R/Makevars")
       - name: Build Arrow C++
         shell: bash
         env:

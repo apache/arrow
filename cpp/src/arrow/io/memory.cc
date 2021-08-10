@@ -278,19 +278,22 @@ BufferReader::BufferReader(const util::string_view& data)
     : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
                    static_cast<int64_t>(data.size())) {}
 
-Status BufferReader::DoClose() {
+Status BufferReader::Close() {
+  auto guard = lock_.CloseGuard();
   is_open_ = false;
   return Status::OK();
 }
 
 bool BufferReader::closed() const { return !is_open_; }
 
-Result<int64_t> BufferReader::DoTell() const {
+Result<int64_t> BufferReader::Tell() const {
+  auto guard = lock_.TellGuard();
   RETURN_NOT_OK(CheckClosed());
   return position_;
 }
 
-Result<util::string_view> BufferReader::DoPeek(int64_t nbytes) {
+Result<util::string_view> BufferReader::Peek(int64_t nbytes) {
+  auto guard = lock_.PeekGuard();
   RETURN_NOT_OK(CheckClosed());
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
@@ -323,7 +326,12 @@ Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
 Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const IOContext&,
                                                         int64_t position,
                                                         int64_t nbytes) {
-  return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));
+  return Future<std::shared_ptr<Buffer>>::MakeFinished(ReadAt(position, nbytes));
+}
+
+Result<int64_t> BufferReader::ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+  auto guard = lock_.ReadAtGuard();
+  return DoReadAt(position, nbytes, buffer);
 }
 
 Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* buffer) {
@@ -335,6 +343,11 @@ Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* b
     memcpy(buffer, data_ + position, nbytes);
   }
   return nbytes;
+}
+
+Result<std::shared_ptr<Buffer>> BufferReader::ReadAt(int64_t position, int64_t nbytes) {
+  auto guard = lock_.ReadAtGuard();
+  return DoReadAt(position, nbytes);
 }
 
 Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t nbytes) {
@@ -354,26 +367,30 @@ Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t
   }
 }
 
-Result<int64_t> BufferReader::DoRead(int64_t nbytes, void* out) {
+Result<int64_t> BufferReader::Read(int64_t nbytes, void* out) {
+  auto guard = lock_.ReadGuard();
   RETURN_NOT_OK(CheckClosed());
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, out));
   position_ += bytes_read;
   return bytes_read;
 }
 
-Result<std::shared_ptr<Buffer>> BufferReader::DoRead(int64_t nbytes) {
+Result<std::shared_ptr<Buffer>> BufferReader::Read(int64_t nbytes) {
+  auto guard = lock_.ReadGuard();
   RETURN_NOT_OK(CheckClosed());
   ARROW_ASSIGN_OR_RAISE(auto buffer, DoReadAt(position_, nbytes));
   position_ += buffer->size();
   return buffer;
 }
 
-Result<int64_t> BufferReader::DoGetSize() {
+Result<int64_t> BufferReader::GetSize() {
+  auto guard = lock_.GetSizeGuard();
   RETURN_NOT_OK(CheckClosed());
   return size_;
 }
 
-Status BufferReader::DoSeek(int64_t position) {
+Status BufferReader::Seek(int64_t position) {
+  auto guard = lock_.SeekGuard();
   RETURN_NOT_OK(CheckClosed());
 
   if (position < 0 || position > size_) {

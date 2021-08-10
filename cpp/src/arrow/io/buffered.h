@@ -93,8 +93,7 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
 /// \brief An InputStream that performs buffered reads from an unbuffered
 /// InputStream, which can mitigate the overhead of many small reads in some
 /// cases
-class ARROW_EXPORT BufferedInputStream
-    : public internal::InputStreamConcurrencyWrapper<BufferedInputStream> {
+class ARROW_EXPORT BufferedInputStream : public InputStream {
  public:
   ~BufferedInputStream() override;
 
@@ -136,31 +135,31 @@ class ARROW_EXPORT BufferedInputStream
   Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
       const IOContext& io_context) override;
 
- private:
-  friend InputStreamConcurrencyWrapper<BufferedInputStream>;
+  Status Close() final;
 
-  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
-                               int64_t raw_total_bytes_bound);
-
-  Status DoClose();
-  Status DoAbort() override;
+  Status Abort() final;
 
   /// \brief Returns the position of the buffered stream, though the position
   /// of the unbuffered stream may be further advanced.
-  Result<int64_t> DoTell() const;
+  Result<int64_t> Tell() const final;
 
-  Result<int64_t> DoRead(int64_t nbytes, void* out);
+  Result<int64_t> Read(int64_t nbytes, void* out) final;
 
   /// \brief Read into buffer.
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final;
 
   /// \brief Return a zero-copy string view referencing buffered data,
   /// but do not advance the position of the stream. Buffers data and
   /// expands the buffer size if necessary
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
+  Result<util::string_view> Peek(int64_t nbytes) final;
+
+ private:
+  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
+                               int64_t raw_total_bytes_bound);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
+  mutable internal::SharedExclusiveChecker lock_;
 };
 
 }  // namespace io

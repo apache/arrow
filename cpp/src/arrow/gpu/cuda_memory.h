@@ -156,8 +156,7 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// pointing to CPU memory.
 /// Reading to a raw pointer, though, copies device memory into the host
 /// memory pointed to.
-class ARROW_EXPORT CudaBufferReader
-    : public ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader> {
+class ARROW_EXPORT CudaBufferReader : public io::RandomAccessFile {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
 
@@ -167,19 +166,31 @@ class ARROW_EXPORT CudaBufferReader
 
   std::shared_ptr<CudaBuffer> buffer() const { return buffer_; }
 
+  Status Close() final;
+
+  Status Abort() final { return Close(); }
+
+  Result<int64_t> Tell() const final;
+
+  Result<int64_t> Read(int64_t nbytes, void* out) final;
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final;
+
+  Result<util::string_view> Peek(int64_t ARROW_ARG_UNUSED(nbytes)) final {
+    return Status::NotImplemented("Peek not implemented");
+  }
+
+  Status Seek(int64_t position) final;
+
+  Result<int64_t> GetSize() final;
+
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final;
+
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final;
+
  protected:
-  friend ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader>;
-
-  Status DoClose();
-
-  Result<int64_t> DoRead(int64_t nbytes, void* buffer);
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
   Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
   Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
-
-  Result<int64_t> DoTell() const;
-  Status DoSeek(int64_t position);
-  Result<int64_t> DoGetSize();
 
   Status CheckClosed() const {
     if (!is_open_) {
@@ -194,6 +205,7 @@ class ARROW_EXPORT CudaBufferReader
   int64_t size_;
   int64_t position_;
   bool is_open_;
+  mutable io::internal::SharedExclusiveChecker lock_;
 };
 
 /// \class CudaBufferWriter

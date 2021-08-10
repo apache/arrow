@@ -66,196 +66,30 @@ class ARROW_EXPORT SharedExclusiveChecker {
   void LockExclusive();
   void UnlockExclusive();
 
-  SharedLockGuard<SharedExclusiveChecker> shared_guard() {
-    return SharedLockGuard<SharedExclusiveChecker>(this);
-  }
+  using SharedGuard = SharedLockGuard<SharedExclusiveChecker>;
+  using ExclusiveGuard = ExclusiveLockGuard<SharedExclusiveChecker>;
 
-  ExclusiveLockGuard<SharedExclusiveChecker> exclusive_guard() {
-    return ExclusiveLockGuard<SharedExclusiveChecker>(this);
-  }
+  // These guards can be constructed by IO classes to check the correctness of
+  // concurrent calls to various methods.  It is not necessary to include this
+  // in all IO classes, only a few core classes that get used in tests.
+
+  // methods [Close, Abort, Tell, Read, Peek, Seek]
+  //   require that no other methods be called concurrently
+  ExclusiveGuard CloseGuard() { return ExclusiveGuard(this); }
+  ExclusiveGuard AbortGuard() { return ExclusiveGuard(this); }
+  ExclusiveGuard TellGuard() { return ExclusiveGuard(this); }
+  ExclusiveGuard ReadGuard() { return ExclusiveGuard(this); }
+  ExclusiveGuard PeekGuard() { return ExclusiveGuard(this); }
+  ExclusiveGuard SeekGuard() { return ExclusiveGuard(this); }
+
+  // methods [GetSize, ReadAt]
+  //   can be called concurrently with one another
+  SharedGuard GetSizeGuard() { return SharedGuard(this); }
+  SharedGuard ReadAtGuard() { return SharedGuard(this); }
 
  protected:
   struct Impl;
   std::shared_ptr<Impl> impl_;
-};
-
-// Concurrency wrappers for IO classes that check the correctness of
-// concurrent calls to various methods.  It is not necessary to wrap all
-// IO classes with these, only a few core classes that get used in tests.
-//
-// We're not using virtual inheritance here as virtual bases have poorly
-// understood semantic overhead which we'd be passing on to implementers
-// and users of these interfaces.  Instead, we just duplicate the method
-// wrappers between those two classes.
-
-template <class Derived>
-class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
- public:
-  Status Close() final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoClose();
-  }
-
-  Status Abort() final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoAbort();
-  }
-
-  Result<int64_t> Tell() const final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoTell();
-  }
-
-  Result<int64_t> Read(int64_t nbytes, void* out) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes, out);
-  }
-
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes);
-  }
-
-  Result<util::string_view> Peek(int64_t nbytes) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoPeek(nbytes);
-  }
-
-  /*
-  Methods to implement in derived class:
-
-  Status DoClose();
-  Result<int64_t> DoTell() const;
-  Result<int64_t> DoRead(int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-
-  And optionally:
-
-  Status DoAbort() override;
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
-
-  These methods should be protected in the derived class and
-  InputStreamConcurrencyWrapper declared as a friend with
-
-  friend InputStreamConcurrencyWrapper<derived>;
-  */
-
- protected:
-  // Default implementations.  They are virtual because the derived class may
-  // have derived classes itself.
-  virtual Status DoAbort() { return derived()->DoClose(); }
-
-  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
-    return Status::NotImplemented("Peek not implemented");
-  }
-
-  Derived* derived() { return ::arrow::internal::checked_cast<Derived*>(this); }
-
-  const Derived* derived() const {
-    return ::arrow::internal::checked_cast<const Derived*>(this);
-  }
-
-  mutable SharedExclusiveChecker lock_;
-};
-
-template <class Derived>
-class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile {
- public:
-  Status Close() final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoClose();
-  }
-
-  Status Abort() final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoAbort();
-  }
-
-  Result<int64_t> Tell() const final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoTell();
-  }
-
-  Result<int64_t> Read(int64_t nbytes, void* out) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes, out);
-  }
-
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes);
-  }
-
-  Result<util::string_view> Peek(int64_t nbytes) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoPeek(nbytes);
-  }
-
-  Status Seek(int64_t position) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoSeek(position);
-  }
-
-  Result<int64_t> GetSize() final {
-    auto guard = lock_.shared_guard();
-    return derived()->DoGetSize();
-  }
-
-  // NOTE: ReadAt doesn't use stream pointer, but it is allowed to update it
-  // (it's the case on Windows when using ReadFileEx).
-  // So any method that relies on the current position (even if it doesn't
-  // update it, such as Peek) cannot run in parallel with ReadAt and has
-  // to use the exclusive_guard.
-
-  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final {
-    auto guard = lock_.shared_guard();
-    return derived()->DoReadAt(position, nbytes, out);
-  }
-
-  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final {
-    auto guard = lock_.shared_guard();
-    return derived()->DoReadAt(position, nbytes);
-  }
-
-  /*
-  Methods to implement in derived class:
-
-  Status DoClose();
-  Result<int64_t> DoTell() const;
-  Result<int64_t> DoRead(int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-  Status DoSeek(int64_t position);
-  Result<int64_t> DoGetSize()
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
-
-  And optionally:
-
-  Status DoAbort() override;
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
-
-  These methods should be protected in the derived class and
-  RandomAccessFileConcurrencyWrapper declared as a friend with
-
-  friend RandomAccessFileConcurrencyWrapper<derived>;
-  */
-
- protected:
-  // Default implementations.  They are virtual because the derived class may
-  // have derived classes itself.
-  virtual Status DoAbort() { return derived()->DoClose(); }
-
-  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
-    return Status::NotImplemented("Peek not implemented");
-  }
-
-  Derived* derived() { return ::arrow::internal::checked_cast<Derived*>(this); }
-
-  const Derived* derived() const {
-    return ::arrow::internal::checked_cast<const Derived*>(this);
-  }
-
-  mutable SharedExclusiveChecker lock_;
 };
 
 }  // namespace internal

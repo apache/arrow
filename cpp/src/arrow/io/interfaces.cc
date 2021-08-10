@@ -183,8 +183,7 @@ Status Writable::Write(const std::shared_ptr<Buffer>& data) {
 Status Writable::Flush() { return Status::OK(); }
 
 // An InputStream that reads from a delimited range of a RandomAccessFile
-class FileSegmentReader
-    : public internal::InputStreamConcurrencyWrapper<FileSegmentReader> {
+class FileSegmentReader : public InputStream {
  public:
   FileSegmentReader(std::shared_ptr<RandomAccessFile> file, int64_t file_offset,
                     int64_t nbytes)
@@ -203,19 +202,24 @@ class FileSegmentReader
     return Status::OK();
   }
 
-  Status DoClose() {
+  Status Abort() override { return Close(); }
+
+  Status Close() override {
+    auto guard = lock_.CloseGuard();
     closed_ = true;
     return Status::OK();
   }
 
-  Result<int64_t> DoTell() const {
+  Result<int64_t> Tell() const override {
+    auto guard = lock_.TellGuard();
     RETURN_NOT_OK(CheckOpen());
     return position_;
   }
 
   bool closed() const override { return closed_; }
 
-  Result<int64_t> DoRead(int64_t nbytes, void* out) {
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    auto guard = lock_.ReadGuard();
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
@@ -224,7 +228,8 @@ class FileSegmentReader
     return bytes_read;
   }
 
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes) {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    auto guard = lock_.ReadGuard();
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     ARROW_ASSIGN_OR_RAISE(auto buffer,
@@ -239,6 +244,7 @@ class FileSegmentReader
   int64_t position_;
   int64_t file_offset_;
   int64_t nbytes_;
+  mutable internal::SharedExclusiveChecker lock_;
 };
 
 std::shared_ptr<InputStream> RandomAccessFile::GetStream(

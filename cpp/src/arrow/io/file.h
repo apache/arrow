@@ -85,8 +85,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 /// Reads through this implementation are unbuffered.  If many small reads
 /// need to be issued, it is recommended to use a buffering layer for good
 /// performance.
-class ARROW_EXPORT ReadableFile
-    : public internal::RandomAccessFileConcurrencyWrapper<ReadableFile> {
+class ARROW_EXPORT ReadableFile : public RandomAccessFile {
  public:
   ~ReadableFile() override;
 
@@ -113,27 +112,34 @@ class ARROW_EXPORT ReadableFile
 
   Status WillNeed(const std::vector<ReadRange>& ranges) override;
 
+  Status Close() final;
+
+  Status Abort() final { return Close(); }
+
+  Result<int64_t> Tell() const final;
+
+  Result<int64_t> Read(int64_t nbytes, void* out) final;
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final;
+
+  Result<util::string_view> Peek(int64_t ARROW_ARG_UNUSED(nbytes)) final {
+    return Status::NotImplemented("Peek not implemented");
+  }
+
+  Status Seek(int64_t position) final;
+
+  Result<int64_t> GetSize() final;
+
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final;
+
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final;
+
  private:
-  friend RandomAccessFileConcurrencyWrapper<ReadableFile>;
-
   explicit ReadableFile(MemoryPool* pool);
-
-  Status DoClose();
-  Result<int64_t> DoTell() const;
-  Result<int64_t> DoRead(int64_t nbytes, void* buffer);
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-
-  /// \brief Thread-safe implementation of ReadAt
-  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
-
-  /// \brief Thread-safe implementation of ReadAt
-  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
-
-  Result<int64_t> DoGetSize();
-  Status DoSeek(int64_t position);
 
   class ARROW_NO_EXPORT ReadableFileImpl;
   std::unique_ptr<ReadableFileImpl> impl_;
+  mutable internal::SharedExclusiveChecker lock_;
 };
 
 /// \brief A file interface that uses memory-mapped files for memory interactions

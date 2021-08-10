@@ -76,8 +76,7 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   std::unique_ptr<Impl> impl_;
 };
 
-class ARROW_EXPORT CompressedInputStream
-    : public internal::InputStreamConcurrencyWrapper<CompressedInputStream> {
+class ARROW_EXPORT CompressedInputStream : public InputStream {
  public:
   ~CompressedInputStream() override;
 
@@ -96,22 +95,32 @@ class ARROW_EXPORT CompressedInputStream
   /// \brief Return the underlying raw input stream.
   std::shared_ptr<InputStream> raw() const;
 
+  /// \brief Close the compressed input stream.  This implicitly closes the
+  /// underlying raw input stream.
+  Status Close() final;
+
+  Status Abort() final;
+
+  /// \brief Returns the position of the buffered stream, though the position
+  /// of the unbuffered stream may be further advanced.
+  Result<int64_t> Tell() const final;
+
+  Result<int64_t> Read(int64_t nbytes, void* out) final;
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final;
+
+  Result<util::string_view> Peek(int64_t ARROW_ARG_UNUSED(nbytes)) final {
+    return Status::NotImplemented("Peek not implemented");
+  }
+
  private:
-  friend InputStreamConcurrencyWrapper<CompressedInputStream>;
   ARROW_DISALLOW_COPY_AND_ASSIGN(CompressedInputStream);
 
   CompressedInputStream() = default;
 
-  /// \brief Close the compressed input stream.  This implicitly closes the
-  /// underlying raw input stream.
-  Status DoClose();
-  Status DoAbort() override;
-  Result<int64_t> DoTell() const;
-  Result<int64_t> DoRead(int64_t nbytes, void* out);
-  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
-
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
+  mutable internal::SharedExclusiveChecker lock_;
 };
 
 }  // namespace io
