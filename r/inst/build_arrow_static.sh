@@ -81,6 +81,4 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
 
-ldconfig
-
 popd
