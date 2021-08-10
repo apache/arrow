@@ -34,7 +34,7 @@ import javax.sql.PooledConnection;
  */
 public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcDataSource
     implements ConnectionPoolDataSource, ConnectionEventListener, AutoCloseable {
-  private final Map<Properties, Queue<PooledConnection>> pool = new ConcurrentHashMap<>();
+  private final Map<Properties, Queue<ArrowFlightJdbcPooledConnection>> pool = new ConcurrentHashMap<>();
 
   @Override
   public PooledConnection getPooledConnection() throws SQLException {
@@ -44,15 +44,18 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   @Override
   public PooledConnection getPooledConnection(String username, String password) throws SQLException {
     Properties properties = this.getProperties(username, password);
-    Queue<PooledConnection> objectPool = pool.computeIfAbsent(properties, s -> new ConcurrentLinkedQueue<>());
-    PooledConnection pooledConnection = objectPool.poll();
+    Queue<ArrowFlightJdbcPooledConnection> objectPool =
+        pool.computeIfAbsent(properties, s -> new ConcurrentLinkedQueue<>());
+    ArrowFlightJdbcPooledConnection pooledConnection = objectPool.poll();
     if (pooledConnection == null) {
       pooledConnection = createPooledConnection(properties);
+    } else {
+      pooledConnection.reset();
     }
     return pooledConnection;
   }
 
-  private PooledConnection createPooledConnection(Properties properties) throws SQLException {
+  private ArrowFlightJdbcPooledConnection createPooledConnection(Properties properties) throws SQLException {
     ArrowFlightJdbcPooledConnection pooledConnection =
         new ArrowFlightJdbcPooledConnection(this.getConnection(properties));
     pooledConnection.addConnectionEventListener(this);
@@ -75,7 +78,7 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   @Override
   public void close() throws Exception {
     SQLException lastException = null;
-    for (Queue<PooledConnection> connections : this.pool.values()) {
+    for (Queue<ArrowFlightJdbcPooledConnection> connections : this.pool.values()) {
       while (!connections.isEmpty()) {
         PooledConnection pooledConnection = connections.poll();
         try {

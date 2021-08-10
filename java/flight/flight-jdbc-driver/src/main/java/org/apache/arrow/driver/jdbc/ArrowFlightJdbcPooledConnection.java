@@ -68,7 +68,7 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
   }
 
   public Properties getProperties() {
-    return connection.getProperties();
+    return connection.getClientInfo();
   }
 
   @Override
@@ -79,6 +79,10 @@ public class ArrowFlightJdbcPooledConnection implements PooledConnection {
   @Override
   public void close() throws SQLException {
     this.connection.close();
+  }
+
+  void reset() throws SQLException {
+    this.connection.reset();
   }
 
   @Override
