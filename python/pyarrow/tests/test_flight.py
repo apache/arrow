@@ -393,19 +393,6 @@ class ErrorFlightServer(FlightServerBase):
             err_msg = b'this is an error message'
             raise flight.FlightUnauthorizedError("foo", err_msg)
 
-        reader.read_all()
-
-        if descriptor.command == b"after_read_internal":
-            raise flight.FlightInternalError("foo")
-        elif descriptor.command == b"after_read_timedout":
-            raise flight.FlightTimedOutError("foo")
-        elif descriptor.command == b"after_read_cancel":
-            raise flight.FlightCancelledError("foo")
-        elif descriptor.command == b"after_read_unauthenticated":
-            raise flight.FlightUnauthenticatedError("foo")
-        elif descriptor.command == b"after_read_unauthorized":
-            raise flight.FlightUnauthorizedError("foo")
-
 
 class ExchangeFlightServer(FlightServerBase):
     """A server for testing DoExchange."""
@@ -1595,9 +1582,8 @@ def test_roundtrip_errors():
                 writer.close()
 
             with pytest.raises(exception, match=".*foo.*"):
-                _cmd = f"after_read_{command}"
                 writer, reader = client.do_put(
-                    flight.FlightDescriptor.for_command(_cmd),
+                    flight.FlightDescriptor.for_command(command),
                     table.schema)
                 writer.close()
 
