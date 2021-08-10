@@ -43,15 +43,15 @@ namespace internal {
 #define M_PI_4 0.785398163397448309616
 #endif
 
-template <typename T, typename Enable = enable_if_t<std::is_integral<T>::value>>
-constexpr typename std::make_unsigned<T>::type to_unsigned(T signed_) {
-  using Unsigned = typename std::make_unsigned<T>::type;
+template <typename T>
+using maybe_make_unsigned =
+    typename std::conditional<std::is_integral<T>::value && !std::is_same<T, bool>::value,
+                              std::make_unsigned<T>, std::common_type<T> >::type;
+
+template <typename T, typename Unsigned = typename maybe_make_unsigned<T>::type>
+constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
-// Convenience overloads
-constexpr bool to_unsigned(bool signed_) { return signed_; }
-constexpr double to_unsigned(double signed_) { return signed_; }
-constexpr float to_unsigned(float signed_) { return signed_; }
 
 // An internal data structure for unpacking a primitive argument to pass to a
 // kernel implementation
