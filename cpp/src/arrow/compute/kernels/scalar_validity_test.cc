@@ -82,13 +82,13 @@ TEST_F(TestBooleanValidityKernels, ArrayIsNull) {
   CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
                    ArrayFromJSON(boolean(), "[true, false, false]"));
 
-  // Setting 'nan_is_null' as true, 'NaN value will be considered as null
+  // Setting 'nan_is_null' as true, 'NaN value could be considered as null (floating
+  // points)
   const NanNullOptions& options = NanNullOptions(true);
-  // TODO: These tests could be helpful (Scalar for now works, but not ArrayData)
-  // CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[null, 2.0, NaN]"),
-  // ArrayFromJSON(boolean(), "[true, false, true]"), &options); // works for scalar only
-  // CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
-  // ArrayFromJSON(boolean(), "[true, false, true]"), &options); // works for scalar only
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[5.0, 2.0, NaN]"),
+                   ArrayFromJSON(boolean(), "[false, false, true]"), &options);
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
+                   ArrayFromJSON(boolean(), "[true, false, true]"), &options);
 }
 
 TEST_F(TestBooleanValidityKernels, IsNullSetsZeroNullCount) {
