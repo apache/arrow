@@ -1253,8 +1253,6 @@ services:
     volumes: &java-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-    environment:
-      ARROW_FUZZING: "ON"  # Check fuzz regressions
     command: &java-command >
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&

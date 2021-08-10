@@ -46,16 +46,4 @@ if [ "${ARROW_PLASMA}" = "ON" ]; then
   popd
 fi
 
-if [ "${ARROW_FUZZING}" == "ON" ]; then
-  pushd ${source_dir}/tools
-  # Fuzzing regression tests
-  java -ea -cp target/test-classes:target/classes org.apache.arrow.tools.TestIpcFuzz stream \
-       ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
-  java -ea -cp target/test-classes:target/classes org.apache.arrow.tools.TestIpcFuzz stream \
-       ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
-  java -ea -cp target/test-classes:target/classes org.apache.arrow.tools.TestIpcFuzz file \
-       ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
-  popd
-fi
-
 popd

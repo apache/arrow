@@ -33,6 +33,7 @@ import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +48,7 @@ public class TestIpcFuzz {
     WHITE_LIST.add("clusterfuzz-testcase-minimized-arrow-ipc-file-fuzz-5707423356813312");
   }
 
-  static void readIpcFile(File ipcFile) {
+  private void readIpcFile(File ipcFile) {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowFileReader reader = new ArrowFileReader(new FileInputStream(ipcFile).getChannel(), allocator)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
@@ -63,7 +64,7 @@ public class TestIpcFuzz {
     }
   }
 
-  static void readIpcStream(File ipcFile) {
+  private void readIpcStream(File ipcFile) {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(new FileInputStream(ipcFile).getChannel(), allocator)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
@@ -79,7 +80,7 @@ public class TestIpcFuzz {
     }
   }
 
-  static File[] getTestFiles(String testFilePath) {
+  private File[] getTestFiles(String testFilePath) {
     int idx = testFilePath.lastIndexOf(File.separator);
     File directory = new File(testFilePath.substring(0, idx));
     String filter = testFilePath.substring(idx + 1);
@@ -87,7 +88,7 @@ public class TestIpcFuzz {
     return directory.listFiles(fileFilter);
   }
 
-  static void testFuzz(boolean stream, File test) {
+  private void testFuzz(boolean stream, File test) {
     if (stream) {
       readIpcStream(test);
     } else {
@@ -95,22 +96,8 @@ public class TestIpcFuzz {
     }
   }
 
-  public static void main(String[] args) {
-    if (args.length < 2) {
-      LOGGER.error("Usage: <cmd> [stream|file] <test file path>");
-      System.exit(1);
-    }
-
-    final boolean stream;
-    if (args[0].equalsIgnoreCase("file")) {
-      stream = false;
-    } else if (args[0].equalsIgnoreCase("stream")) {
-      stream = true;
-    } else {
-      throw new IllegalArgumentException("The first argument must be file or stream");
-    }
-
-    File[] testFiles = getTestFiles(args[1]);
+  private void testFuzzData(boolean stream, String path) {
+    File[] testFiles = getTestFiles(path);
     for (File test : testFiles) {
       LOGGER.info("Testing file " + test.getName());
       if (WHITE_LIST.contains(test.getName())) {
@@ -122,5 +109,32 @@ public class TestIpcFuzz {
         LOGGER.info("Exception thrown: " + e);
       }
     }
+  }
+
+  private String getTestDataPath() {
+    String tdPath = System. getenv("ARROW_TEST_DATA");
+    if (tdPath == null || tdPath.isEmpty()) {
+      // suppose the test is running from the project root path
+      File tdFile = new File("../../testing/data");
+      if (!tdFile.exists()) {
+        throw new IllegalStateException("Please specify the test data path through environmental " +
+             "variable ARROW_TEST_DATA, or run the test from project root with test data properly installed.");
+      }
+      tdPath = tdFile.getAbsolutePath();
+    }
+    return tdPath;
+  }
+
+  @Test
+  public void testStreamFuzz() {
+    final String dataPath = getTestDataPath();
+    testFuzzData(true, dataPath + "/arrow-ipc-stream/crash-*");
+    testFuzzData(true, dataPath + "/arrow-ipc-stream/*-testcase-*");
+  }
+
+  @Test
+  public void testFileFuzz() {
+    final String dataPath = getTestDataPath();
+    testFuzzData(false, dataPath + "/arrow-ipc-file/*-testcase-*");
   }
 }
