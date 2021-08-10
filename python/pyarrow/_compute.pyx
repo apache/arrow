@@ -889,10 +889,10 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
 
 cdef class _CountOptions(FunctionOptions):
     def _set_options(self, mode):
-        if mode == 'non_null':
-            self.wrapped.reset(new CCountOptions(CCountMode_NON_NULL))
-        elif mode == 'nulls':
-            self.wrapped.reset(new CCountOptions(CCountMode_NULLS))
+        if mode == 'only_valid':
+            self.wrapped.reset(new CCountOptions(CCountMode_ONLY_VALID))
+        elif mode == 'only_null':
+            self.wrapped.reset(new CCountOptions(CCountMode_ONLY_NULL))
         elif mode == 'all':
             self.wrapped.reset(new CCountOptions(CCountMode_ALL))
         else:
@@ -900,7 +900,7 @@ cdef class _CountOptions(FunctionOptions):
 
 
 class CountOptions(_CountOptions):
-    def __init__(self, mode='non_null'):
+    def __init__(self, mode='only_valid'):
         self._set_options(mode)
 
 

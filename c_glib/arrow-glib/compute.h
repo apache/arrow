@@ -100,9 +100,9 @@ garrow_scalar_aggregate_options_new(void);
 
 /**
  * GArrowCountMode:
- * @GARROW_COUNT_MODE_NON_NULL:
+ * @GARROW_COUNT_MODE_ONLY_VALID:
  *   Only non-null values will be counted.
- * @GARROW_COUNT_MODE_NULLS:
+ * @GARROW_COUNT_MODE_ONLY_NULL:
  *   Only null values will be counted.
  * @GARROW_COUNT_MODE_ALL:
  *   All will be counted.
@@ -110,8 +110,8 @@ garrow_scalar_aggregate_options_new(void);
  * They correspond to the values of `arrow::compute::CountOptions::CountMode`.
  */
 typedef enum {
-  GARROW_COUNT_MODE_NON_NULL,
-  GARROW_COUNT_MODE_NULLS,
+  GARROW_COUNT_MODE_ONLY_VALID,
+  GARROW_COUNT_MODE_ONLY_NULL,
   GARROW_COUNT_MODE_ALL,
 } GArrowCountMode;
 

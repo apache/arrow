@@ -24,13 +24,13 @@ class TestCount < Test::Unit::TestCase
       assert_equal(2, build_int32_array([1, nil, 3]).count)
 
       options = Arrow::CountOptions.new
-      options.mode = Arrow::CountMode::NON_NULL
+      options.mode = Arrow::CountMode::ONLY_VALID
       assert_equal(2, build_int32_array([1, nil, 3]).count(options))
     end
 
     def test_nulls
       options = Arrow::CountOptions.new
-      options.mode = Arrow::CountMode::NULLS
+      options.mode = Arrow::CountMode::ONLY_NULL
       assert_equal(1, build_int32_array([1, nil, 3]).count(options))
     end
 

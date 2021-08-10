@@ -60,13 +60,13 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
  public:
   enum CountMode {
     /// Count only non-null values.
-    NON_NULL = 0,
+    ONLY_VALID = 0,
     /// Count only null values.
-    NULLS,
+    ONLY_NULL,
     /// Count both non-null and null values.
     ALL,
   };
-  explicit CountOptions(CountMode mode = CountMode::NON_NULL);
+  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
   constexpr static char const kTypeName[] = "CountOptions";
   static CountOptions Defaults() { return CountOptions{}; }
 

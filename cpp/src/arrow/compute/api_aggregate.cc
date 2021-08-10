@@ -29,14 +29,14 @@ namespace arrow {
 namespace internal {
 template <>
 struct EnumTraits<compute::CountOptions::CountMode>
-    : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::NON_NULL,
-                      compute::CountOptions::NULLS, compute::CountOptions::ALL> {
+    : BasicEnumTraits<compute::CountOptions::CountMode, compute::CountOptions::ONLY_VALID,
+                      compute::CountOptions::ONLY_NULL, compute::CountOptions::ALL> {
   static std::string name() { return "CountOptions::CountMode"; }
   static std::string value_name(compute::CountOptions::CountMode value) {
     switch (value) {
-      case compute::CountOptions::NON_NULL:
+      case compute::CountOptions::ONLY_VALID:
         return "NON_NULL";
-      case compute::CountOptions::NULLS:
+      case compute::CountOptions::ONLY_NULL:
         return "NULLS";
       case compute::CountOptions::ALL:
         return "ALL";

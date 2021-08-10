@@ -1078,7 +1078,7 @@ TEST(GroupBy, CountAndSum) {
   ])");
 
   CountOptions count_options;
-  CountOptions count_nulls(CountOptions::NULLS);
+  CountOptions count_nulls(CountOptions::ONLY_NULL);
   CountOptions count_all(CountOptions::ALL);
   ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
@@ -1256,8 +1256,8 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   ])");
 
   ScalarAggregateOptions keepna{false, 1};
-  CountOptions nulls(CountOptions::NULLS);
-  CountOptions non_null(CountOptions::NON_NULL);
+  CountOptions nulls(CountOptions::ONLY_NULL);
+  CountOptions non_null(CountOptions::ONLY_VALID);
 
   using internal::Aggregate;
   for (auto agg : {
@@ -1282,7 +1282,7 @@ TEST(GroupBy, CountNull) {
     [3.0, "gama"]
   ])");
 
-  CountOptions keepna{CountOptions::NULLS}, skipna{CountOptions::NON_NULL};
+  CountOptions keepna{CountOptions::ONLY_NULL}, skipna{CountOptions::ONLY_VALID};
 
   using internal::Aggregate;
   for (auto agg : {

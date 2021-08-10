@@ -578,7 +578,7 @@ static CountPair NaiveCount(const Array& array) {
 
 void ValidateCount(const Array& input, CountPair expected) {
   CountOptions non_null;
-  CountOptions nulls(CountOptions::NULLS);
+  CountOptions nulls(CountOptions::ONLY_NULL);
   CountOptions all(CountOptions::ALL);
 
   ASSERT_OK_AND_ASSIGN(Datum result, Count(input, non_null));
@@ -612,10 +612,10 @@ TYPED_TEST(TestCountKernel, SimpleCount) {
 
   auto ty = TypeTraits<TypeParam>::type_singleton();
   EXPECT_THAT(Count(MakeNullScalar(ty)), ResultWith(Datum(int64_t(0))));
-  EXPECT_THAT(Count(MakeNullScalar(ty), CountOptions(CountOptions::NULLS)),
+  EXPECT_THAT(Count(MakeNullScalar(ty), CountOptions(CountOptions::ONLY_NULL)),
               ResultWith(Datum(int64_t(1))));
   EXPECT_THAT(Count(*MakeScalar(ty, 1)), ResultWith(Datum(int64_t(1))));
-  EXPECT_THAT(Count(*MakeScalar(ty, 1), CountOptions(CountOptions::NULLS)),
+  EXPECT_THAT(Count(*MakeScalar(ty, 1), CountOptions(CountOptions::ONLY_NULL)),
               ResultWith(Datum(int64_t(0))));
 
   CountOptions all(CountOptions::ALL);

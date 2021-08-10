@@ -1960,8 +1960,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         uint32_t min_count
 
     enum CCountMode "arrow::compute::CountOptions::CountMode":
-        CCountMode_NON_NULL "arrow::compute::CountOptions::NON_NULL"
-        CCountMode_NULLS "arrow::compute::CountOptions::NULLS"
+        CCountMode_ONLY_VALID "arrow::compute::CountOptions::ONLY_VALID"
+        CCountMode_ONLY_NULL "arrow::compute::CountOptions::ONLY_NULL"
         CCountMode_ALL "arrow::compute::CountOptions::ALL"
 
     cdef cppclass CCountOptions \

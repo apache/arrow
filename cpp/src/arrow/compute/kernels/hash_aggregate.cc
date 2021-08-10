@@ -861,7 +861,7 @@ struct GroupedCountImpl : public GroupedAggregator {
 
     auto g_begin = batch[1].array()->GetValues<uint32_t>(1);
     switch (options_.mode) {
-      case CountOptions::NON_NULL: {
+      case CountOptions::ONLY_VALID: {
         arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
                                              input->length,
                                              [&](int64_t offset, int64_t length) {
@@ -872,7 +872,7 @@ struct GroupedCountImpl : public GroupedAggregator {
                                              });
         break;
       }
-      case CountOptions::NULLS: {
+      case CountOptions::ONLY_NULL: {
         if (input->MayHaveNulls()) {
           auto end = input->offset + input->length;
           for (int64_t i = input->offset; i < end; ++i, ++g_begin) {

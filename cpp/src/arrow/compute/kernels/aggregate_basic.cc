@@ -60,7 +60,9 @@ struct CountImpl : public ScalarAggregator {
   explicit CountImpl(CountOptions options) : options(std::move(options)) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    if (batch[0].is_array()) {
+    if (options.mode == CountOptions::ALL) {
+      this->non_nulls += batch.length;
+    } else if (batch[0].is_array()) {
       const ArrayData& input = *batch[0].array();
       const int64_t nulls = input.GetNullCount();
       this->nulls += nulls;
@@ -83,14 +85,14 @@ struct CountImpl : public ScalarAggregator {
   Status Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
     switch (state.options.mode) {
-      case CountOptions::NON_NULL:
+      case CountOptions::ONLY_VALID:
+      case CountOptions::ALL:
+        // ALL is equivalent since we don't count the null/non-null
+        // separately to avoid potentially computing null count
         *out = Datum(state.non_nulls);
         break;
-      case CountOptions::NULLS:
+      case CountOptions::ONLY_NULL:
         *out = Datum(state.nulls);
-        break;
-      case CountOptions::ALL:
-        *out = Datum(state.non_nulls + state.nulls);
         break;
       default:
         DCHECK(false) << "unreachable";
@@ -568,7 +570,7 @@ namespace {
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, only non-null values are counted.\n"
-                             "This can be changed through ScalarAggregateOptions."),
+                             "This can be changed through CountOptions."),
                             {"array"},
                             "CountOptions"};
 

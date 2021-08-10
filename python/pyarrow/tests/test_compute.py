@@ -1439,8 +1439,8 @@ def test_extract_datetime_components():
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, mode='non_null').as_py() == 3
-    assert pc.count(arr, mode='nulls').as_py() == 2
+    assert pc.count(arr, mode='only_valid').as_py() == 3
+    assert pc.count(arr, mode='only_null').as_py() == 2
     assert pc.count(arr, mode='all').as_py() == 5
 
 
