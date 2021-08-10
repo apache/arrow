@@ -117,6 +117,9 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     // Reset Holdability
     this.setHoldability(this.metaData.getResultSetHoldability());
+
+    // Reset Meta
+    ((ArrowFlightMetaImpl) this.meta).setDefaultConnectionProperties();
   }
 
   /**

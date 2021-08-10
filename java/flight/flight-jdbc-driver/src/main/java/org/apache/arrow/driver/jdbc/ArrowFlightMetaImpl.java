@@ -157,10 +157,13 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     return null;
   }
 
-  private void setDefaultConnectionProperties() {
+  void setDefaultConnectionProperties() {
     // TODO Double-check this.
-    connProps.setAutoCommit(true).setReadOnly(true)
-    .setTransactionIsolation(Connection.TRANSACTION_NONE);
-    connProps.setDirty(false);
+    connProps.setDirty(false)
+        .setAutoCommit(true)
+        .setReadOnly(true)
+        .setCatalog(null)
+        .setSchema(null)
+        .setTransactionIsolation(Connection.TRANSACTION_NONE);
   }
 }
