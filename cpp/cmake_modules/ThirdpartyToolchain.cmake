@@ -836,6 +836,7 @@ set(Boost_ADDITIONAL_VERSIONS
 # Thrift needs Boost if we're building the bundled version with version < 0.13,
 # so we first need to determine whether we're building it
 if(ARROW_WITH_THRIFT AND Thrift_SOURCE STREQUAL "AUTO")
+  find_package(PkgConfig QUIET)
   find_package(Thrift 0.11.0 MODULE COMPONENTS ${ARROW_THRIFT_REQUIRED_COMPONENTS})
   if(Thrift_FOUND)
     pkg_check_modules(THRIFT_PC
