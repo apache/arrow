@@ -30,17 +30,19 @@ package arrow.flight.protocol.sql;
  *
  * The returned schema will be:
  * <
- *  info_name: int,
+ *  info_name: int32,
  *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
  * >
  * where there is one row per requested piece of metadata information.
  */
-message ActionGetSQLInfoResult {
+message CommandGetSqlInfo {
   /*
    * Values are modelled after ODBC's SQLGetInfo() function. This information is intended to provide
    * Flight SQL clients with basic, SQL syntax and SQL functions related information.
    * More information types can be added in future releases.
    * E.g. more SQL syntax support types, scalar functions support, type conversion support etc.
+   *
+   * // TODO: Flesh out the available set of metadata below.
    *
    * Initially, Flight SQL will support the following information types:
    * - Server Information - Range [0-500)
@@ -105,15 +107,7 @@ message ActionGetSQLInfoResult {
  * >
  * The returned data should be ordered by catalog_name.
  */
-message GetSQLInfoValue {
-  oneof value {
-    string stringValue = 1;
-    int32 integerValue = 2;
-    int32 integerBitmask = 3;
-    int32 integerFlag = 4;
-    bytes binaryValue = 5;
-    int64 longValue = 6;
-  }
+message CommandGetCatalogs {
 }
 
 /*
@@ -129,7 +123,7 @@ message GetSQLInfoValue {
  * >
  * The returned data should be ordered by catalog_name, then schema_name.
  */
-message ActionGetCatalogsRequest {
+message CommandGetSchemas {
   /*
    * Specifies the Catalog to search for schemas.
    * If omitted, then all catalogs are searched.
@@ -162,7 +156,7 @@ message ActionGetCatalogsRequest {
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
  */
-message ActionGetSchemasRequest {
+message CommandGetTables {
   /*
    * Specifies the Catalog to search for the tables.
    * If omitted, then all catalogs are searched.
@@ -188,10 +182,10 @@ message ActionGetSchemasRequest {
   google.protobuf.StringValue table_name_filter_pattern = 3;
 
   // Specifies a filter of table types which must match.
-  repeated string table_types = 5;
+  repeated string table_types = 4;
 
   // Specifies if the schema should be returned for found tables.
-  bool include_schema = 6; 
+  bool include_schema = 5;
 }
 
 /*
@@ -206,27 +200,7 @@ message ActionGetSchemasRequest {
  * >
  * The returned data should be ordered by table_type.
  */
-message ActionGetTablesResult {
-  string catalog = 1;
-  string schema = 2;
-  string table = 3;
-  string table_type = 4;
-
-  /*
-   * Schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
-   * Null if include_schema on request is false.
-   */
-  bytes arrow_metadata = 5; 
-}
-
-/*
- * Wrap the result of a "GetTableTypes" action.
- */
-message ActionGetTableTypesResult {
-  /*
-   * Indicates the type of the table. E.g. table (regular data table) , view, system table etc.
-   */
-  string table_type = 1;
+message CommandGetTableTypes {
 }
 
 /*
@@ -319,31 +293,29 @@ message CommandGetExportedKeys {
  */
 message CommandGetImportedKeys {
   // Specifies the catalog to search for the primary key table.
-  google.protobuf.StringValue pk_catalog = 1;
+  google.protobuf.StringValue catalog = 1;
 
   // Specifies the schema to search for the primary key table.
-  google.protobuf.StringValue pk_schema = 2;
+  google.protobuf.StringValue schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
-  string pk_table = 3;
+  string table = 3;
 }
 
 // SQL Execution Action Messages
 
 /*
- * Request message for the "GetPreparedStatement" action on a 
- * Flight SQL enabled backend.
+ * Request message for the "GetPreparedStatement" action on a Flight SQL enabled backend.
  */
-message ActionGetPreparedStatementRequest {
-  // The valid SQL string to get a prepared statement for.
+message ActionCreatePreparedStatementRequest {
+  // The valid SQL string to create a prepared statement for.
   string query = 1;
 }
 
 /*
  * Wrap the result of a "GetPreparedStatement" action.
  */
-message ActionGetPreparedStatementResult {
-
+message ActionCreatePreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
@@ -351,19 +323,18 @@ message ActionGetPreparedStatementResult {
   // schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes dataset_schema = 2;
 
-  // If the query provided contained parameters, parameterSchema contains the 
+  // If the query provided contained parameters, parameter_schema contains the 
   // Schema of the expected parameters as described in Schema.fbs::Schema.
   bytes parameter_schema = 3;
 }
 
 /*
- * Request message for the "ClosePreparedStatement" action on a 
- * Flight SQL enabled backend. 
+ * Request message for the "ClosePreparedStatement" action on a Flight SQL enabled backend.
  * Closes server resources associated with the prepared statement handle.
  */
 message ActionClosePreparedStatementRequest {
   // Opaque handle for the prepared statement on the server.
-  string prepared_statement_handle = 1;
+  bytes prepared_statement_handle = 1;
 }
 
 
@@ -384,28 +355,26 @@ message CommandStatementQuery {
 }
 
 /*
- * Represents an instance of executing a prepared statement. Used in the 
- * command member of FlightDescriptor for the following RPC calls:
- * TODO: Is the idea that a Put with parameter values would execute multiple bound versions of the prepared statement
- * TODO: (one for each row)? Seems like that will work ok for Insert statements, but what about other kinds of prepared statements?
- *  - DoPut: bind parameter values.
+ * Represents an instance of executing a prepared statement. Used in the command member of FlightDescriptor for
+ * the following RPC calls:
+ *  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
  *  - GetFlightInfo: execute the prepared statement instance.
  */
 message CommandPreparedStatementQuery {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1; 
+  bytes client_execution_handle = 1;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 2;
 }
 
 /*
  * Represents a SQL update query. Used in the command member of FlightDescriptor
- * for the the RPC call DoPut to cause the server to execute the included 
- * SQL update.
+ * for the the RPC call DoPut to cause the server to execute the included SQL update.
  */
 message CommandStatementUpdate {
   // The SQL syntax.
-  string query = 2;
+  string query = 1;
 }
 
 /*
@@ -415,7 +384,8 @@ message CommandStatementUpdate {
  */
 message CommandPreparedStatementUpdate {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1; 
+  bytes client_execution_handle = 1;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 2;
 }
@@ -423,26 +393,10 @@ message CommandPreparedStatementUpdate {
 /*
  * Returned from the RPC call DoPut when a CommandStatementUpdate
  * CommandPreparedStatementUpdate was in the request, containing
- * results from the update.
+ * results from the update. 
  */
 message DoPutUpdateResult {
   // The number of records updated. A return value of -1 represents 
   // an unknown updated record count.
   int64 record_count = 1;
-}
-
-message ResultsOrder {
-  enum orders {
-    // Protobuf pattern, not used.
-    UNKNOWN = 0;
-
-    // No ordering enforcement.
-    UNORDERED = 1;
-
-    // Order results by ascending value order.
-    ASCENDING = 2;
-
-    // Order results by descending value order.
-    DESCENDING = 3;
-  }
 }
