@@ -609,8 +609,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    StatementContext<PreparedStatement> statementContext =
-        preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
+    ByteString handle = command.getPreparedStatementHandle();
+    StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
     assert statementContext != null;
     try (PreparedStatement statement = statementContext.getStatement();
          ResultSet resultSet = statement.executeQuery()) {
@@ -635,7 +635,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       listener.error(e);
     } finally {
       listener.completed();
-      commandExecutePreparedStatementLoadingCache.invalidate(command);
+      commandExecutePreparedStatementLoadingCache.invalidate(handle);
     }
   }
 
