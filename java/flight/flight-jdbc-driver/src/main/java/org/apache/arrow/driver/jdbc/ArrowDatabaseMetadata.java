@@ -17,18 +17,17 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import org.apache.calcite.avatica.AvaticaStatement;
-import org.apache.calcite.avatica.Meta.StatementHandle;
+import java.sql.DatabaseMetaData;
+
+import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
 /**
- * A SQL statement for querying data from an Arrow Flight server.
+ * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
-public class ArrowFlightStatement extends AvaticaStatement {
+public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
-  ArrowFlightStatement(final ArrowFlightConnection connection,
-      final StatementHandle handle, final int resultSetType,
-      final int resultSetConcurrency, final int resultSetHoldability) {
-    super(connection, handle, resultSetType, resultSetConcurrency,
-        resultSetHoldability);
+  protected ArrowDatabaseMetadata(final AvaticaConnection connection) {
+    super(connection);
   }
 }
