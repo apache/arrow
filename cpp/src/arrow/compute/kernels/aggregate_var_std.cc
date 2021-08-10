@@ -112,7 +112,7 @@ struct VarStdState {
     this->m2 = 0;
     if (scalar.is_valid) {
       this->count = count;
-      this->mean = UnboxScalar<ArrowType>::Unbox(scalar);
+      this->mean = static_cast<double>(UnboxScalar<ArrowType>::Unbox(scalar));
     } else {
       this->count = 0;
       this->mean = 0;
