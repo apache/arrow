@@ -221,18 +221,18 @@ TIMESTAMP_DIFF(timestamp)
 
 #define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                              \
   FORCE_INLINE                                                                  \
-  gdv_timestamp add_year_month_interval_##TYPE(gdv_##TYPE millis,               \
+  gdv_##TYPE add_year_month_interval_##TYPE(gdv_##TYPE millis,               \
                                                gdv_year_month_interval count) { \
     EpochTimePoint tp(millis);                                                  \
-    return static_cast<gdv_timestamp>(tp.AddMonths(count).MillisSinceEpoch());  \
+    return static_cast<gdv_##TYPE>(tp.AddMonths(count).MillisSinceEpoch());  \
   }
 
 #define SUB_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                                   \
   FORCE_INLINE                                                                       \
-  gdv_timestamp subtract_year_month_interval_##TYPE(gdv_##TYPE millis,               \
+  gdv_##TYPE subtract_year_month_interval_##TYPE(gdv_##TYPE millis,               \
                                                     gdv_year_month_interval count) { \
     EpochTimePoint tp(millis);                                                       \
-    return static_cast<gdv_timestamp>(tp.AddMonths(-1 * count).MillisSinceEpoch());  \
+    return static_cast<gdv_##TYPE>(tp.AddMonths(-1 * count).MillisSinceEpoch());  \
   }
 #define ADD_TIMESTAMP_TO_INT32_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \
   FORCE_INLINE                                                                  \
