@@ -33,8 +33,9 @@ using arrow::internal::checked_cast;
 // Simple in-memory sort node. Accumulates all data, then sorts and
 // emits output batches in order.
 struct OrderByNode final : public ExecNode {
-  OrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs, SortOptions sort_options)
-      : ExecNode(plan, std::move(inputs), {"target"}, inputs[0]->output_schema(),
+  OrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+              std::shared_ptr<Schema> output_schema, SortOptions sort_options)
+      : ExecNode(plan, std::move(inputs), {"target"}, std::move(output_schema),
                  /*num_outputs=*/1),
         sort_options_(std::move(sort_options)) {}
 
@@ -49,10 +50,11 @@ struct OrderByNode final : public ExecNode {
     fields.reserve((order_by_options.sort_options.sort_keys.size()));
     for (const auto& key : order_by_options.sort_options.sort_keys)
       fields.push_back(key.name);
-    RETURN_NOT_OK(inputs[0]->output_schema()->CanReferenceFieldsByNames(fields));
+    auto output_schema = inputs[0]->output_schema();
+    RETURN_NOT_OK(output_schema->CanReferenceFieldsByNames(fields));
 
-    return plan->EmplaceNode<OrderByNode>(plan, std::move(inputs),
-                                          order_by_options.sort_options);
+    return plan->EmplaceNode<OrderByNode>(
+        plan, std::move(inputs), std::move(output_schema), order_by_options.sort_options);
   }
 
   Status StartProducing() override {
