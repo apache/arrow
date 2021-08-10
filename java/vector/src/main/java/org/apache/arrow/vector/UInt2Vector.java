@@ -42,7 +42,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public static final char MAX_UINT2 = (char) 0XFFFF;
 
-  private static final byte TYPE_WIDTH = 2;
+  public static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
   public UInt2Vector(String name, BufferAllocator allocator) {
