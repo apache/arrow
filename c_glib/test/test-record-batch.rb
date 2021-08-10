@@ -68,6 +68,14 @@ class TestRecordBatch < Test::Unit::TestCase
                                              columns)
     end
 
+    def test_export
+      require_gi_bindings(3, 4, 8)
+      success, c_abi_array, c_abi_schema = @record_batch.export
+      schema = Arrow::Schema.import(c_abi_schema)
+      assert_equal([success, @record_batch],
+                   [true, Arrow::RecordBatch.import(c_abi_array, schema)])
+    end
+
     sub_test_case("#equal") do
       def setup
         require_gi_bindings(3, 4, 2)
