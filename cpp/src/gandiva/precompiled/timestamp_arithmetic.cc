@@ -331,14 +331,14 @@ ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
 
-// add timestamp to day time interval
+// add a time interval to timestamp
 ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, add, MILLIS_IN_DAY)
 ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, add, MILLIS_IN_DAY)
 ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(timestamp)
 ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(date64)
 ADD_DAY_TIME_INTERVAL_TO_TIME(time32)
 
-// subtract timestamp to day time interval
+// subtract timestamp from a time interval
 SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(date64, subtract, MILLIS_IN_DAY)
 SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(timestamp, subtract, MILLIS_IN_DAY)
 SUB_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(timestamp)
