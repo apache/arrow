@@ -18,6 +18,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include "arrow/api.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -49,28 +50,30 @@ void GenerateBatchesFromString(const std::shared_ptr<Schema>& schema,
   out_batches->schema = schema;
 }
 
-void CheckRunOutput(JoinType type, BatchesWithSchema l_batches,
-                    BatchesWithSchema r_batches,
-                    const std::vector<std::string>& left_keys,
-                    const std::vector<std::string>& right_keys,
+void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
+                    const BatchesWithSchema& r_batches,
+                    const std::vector<FieldRef>& left_keys,
+                    const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
   SCOPED_TRACE("serial");
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  ASSERT_OK_AND_ASSIGN(auto l_source,
-                       MakeTestSourceNode(plan.get(), "l_source", std::move(l_batches),
-                                          /*parallel=*/parallel,
-                                          /*slow=*/false));
-  ASSERT_OK_AND_ASSIGN(auto r_source,
-                       MakeTestSourceNode(plan.get(), "r_source", std::move(r_batches),
-                                          /*parallel=*/parallel,
-                                          /*slow=*/false));
+  JoinNodeOptions join_options{type, left_keys, right_keys};
+  Declaration join{"hash_join", join_options};
 
-  ASSERT_OK_AND_ASSIGN(
-      auto semi_join,
-      MakeHashJoinNode(type, l_source, r_source, "hash_join", left_keys, right_keys));
-  auto sink_gen = MakeSinkNode(semi_join, "sink");
+  // add left source
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
+                                                                  /*slow=*/false)}});
+  // add right source
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
+                                                                  /*slow=*/false)}});
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
+                .AddToPlan(plan.get()));
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches))));
@@ -121,8 +124,8 @@ void RunNonEmptyTest(JoinType type, bool parallel) {
       FAIL() << "join type not implemented!";
   }
 
-  CheckRunOutput(type, std::move(l_batches), std::move(r_batches),
-                 /*left_keys=*/{"l_str"}, /*right_keys=*/{"r_str"}, exp_batches,
+  CheckRunOutput(type, l_batches, r_batches,
+                 /*left_keys=*/{{"l_str"}}, /*right_keys=*/{{"r_str"}}, exp_batches,
                  parallel);
 }
 
@@ -142,8 +145,8 @@ void RunEmptyTest(JoinType type, bool parallel) {
   GenerateBatchesFromString(r_schema, {R"([["f", 0], ["b", 1], ["b", 2]])"}, &r_n_empty,
                             multiplicity);
 
-  std::vector<std::string> l_keys{"l_str"};
-  std::vector<std::string> r_keys{"r_str"};
+  std::vector<FieldRef> l_keys{{"l_str"}};
+  std::vector<FieldRef> r_keys{{"r_str"}};
 
   switch (type) {
     case LEFT_SEMI:
