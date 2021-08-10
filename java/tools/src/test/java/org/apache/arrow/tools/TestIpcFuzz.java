@@ -43,6 +43,7 @@ public class TestIpcFuzz {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestIpcFuzz.class);
 
   static {
+    // test files that are expected to finish successfully should be included here.
     WHITE_LIST.add("clusterfuzz-testcase-minimized-arrow-ipc-file-fuzz-5707423356813312");
   }
 
