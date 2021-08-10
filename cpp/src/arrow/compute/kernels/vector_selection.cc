@@ -2226,18 +2226,14 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
   if (null_count == 0) {
     return RecordBatch::Make(batch.schema(), batch.num_rows(), batch.columns());
   }
-  if (null_count == batch.num_rows() * batch.num_columns()) {
-    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
-    for (int i = 0; i < batch.num_columns(); i++) {
-      RETURN_NOT_OK(
-          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
-    }
-    return RecordBatch::Make(batch.schema(), 0, empty_batch);
-  }
   ARROW_ASSIGN_OR_RAISE(auto dst,
                         AllocateEmptyBitmap(batch.num_rows(), ctx->memory_pool()));
   BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), true);
   for (const auto& column : batch.columns()) {
+    if (column->type()->Equals(arrow::null())) {
+      BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), false);
+      break;
+    }
     if (column->null_bitmap_data()) {
       ::arrow::internal::BitmapAnd(column->null_bitmap_data(), column->offset(),
                                    dst->data(), 0, column->length(), 0,
@@ -2246,6 +2242,14 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
   }
   auto drop_null_filter =
       std::make_shared<BooleanArray>(batch.num_rows(), dst, nullptr, 0, 0);
+  if (drop_null_filter->null_count() == batch.num_rows()) {
+    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
+    for (int i = 0; i < batch.num_columns(); i++) {
+      RETURN_NOT_OK(
+          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
+    }
+    return RecordBatch::Make(batch.schema(), 0, empty_batch);
+  }
   ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(batch), Datum(drop_null_filter),
                                              FilterOptions::Defaults(), ctx));
   return result.record_batch();
@@ -2264,22 +2268,16 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   if (null_count == 0) {
     return Table::Make(table.schema(), table.columns(), table.num_rows());
   }
-  if (null_count == table.num_rows() * table.num_columns()) {
-    std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
-    for (int i = 0; i < table.num_columns(); i++) {
-      std::shared_ptr<Array> empty_array;
-      RETURN_NOT_OK(
-          CreateEmptyArray(table.column(i)->type(), ctx->memory_pool(), &empty_array));
-      empty_table[i] = std::make_shared<ChunkedArray>(ArrayVector{empty_array});
-    }
-    return Table::Make(table.schema(), empty_table, 0);
-  }
 
   ARROW_ASSIGN_OR_RAISE(auto dst,
                         AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
   BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
 
   for (const auto& col : table.columns()) {
+    if (col->type()->Equals(arrow::null())) {
+      BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), false);
+      break;
+    }
     std::vector<::arrow::internal::Bitmap> bitmaps;
     std::transform(col->chunks().begin(), col->chunks().end(),
                    std::back_inserter(bitmaps), [](const std::shared_ptr<Array>& array) {
@@ -2303,6 +2301,16 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   }
   auto drop_null_filter =
       std::make_shared<BooleanArray>(table.num_rows(), dst, nullptr, 0, 0);
+  if (drop_null_filter->null_count() == table.num_rows()) {
+    std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
+    for (int i = 0; i < table.num_columns(); i++) {
+      std::shared_ptr<Array> empty_array;
+      RETURN_NOT_OK(
+          CreateEmptyArray(table.column(i)->type(), ctx->memory_pool(), &empty_array));
+      empty_table[i] = std::make_shared<ChunkedArray>(ArrayVector{empty_array});
+    }
+    return Table::Make(table.schema(), empty_table, 0);
+  }
   ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(table), Datum(drop_null_filter),
                                              FilterOptions::Defaults(), ctx));
   return result.table();

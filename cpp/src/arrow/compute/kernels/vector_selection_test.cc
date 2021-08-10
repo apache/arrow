@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -1789,7 +1790,31 @@ TEST_F(TestDropNullKernel, DropNullBoolean) {
 }
 
 template <typename ArrowType>
-class TestDropNullKernelTyped : public TestDropNullKernel {};
+struct TestDropNullKernelTyped : public TestDropNullKernel {
+  TestDropNullKernelTyped() : rng_(seed_) {}
+
+  template <typename OffsetType>
+  std::vector<OffsetType> Offsets(int32_t length, int32_t slice_count) {
+    std::vector<OffsetType> offsets(static_cast<std::size_t>(slice_count + 1));
+    std::default_random_engine gen(seed_);
+    std::uniform_int_distribution<OffsetType> dist(0, length);
+    std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
+    std::sort(offsets.begin(), offsets.end());
+    return offsets;
+  }
+
+  ArrayVector Slices(const std::shared_ptr<Array>& array,
+                     const std::vector<int32_t>& offsets) {
+    ArrayVector slices(offsets.size() - 1);
+    for (size_t i = 0; i != slices.size(); ++i) {
+      slices[i] = array->Slice(offsets[i], offsets[i + 1] - offsets[i]);
+    }
+    return slices;
+  }
+
+  random::SeedType seed_ = 0xdeadbeef;
+  random::RandomArrayGenerator rng_;
+};
 
 template <typename ArrowType>
 class TestDropNullKernelWithNumeric : public TestDropNullKernelTyped<ArrowType> {
@@ -1836,7 +1861,7 @@ class TestDropNullKernelWithString : public TestDropNullKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestDropNullKernelWithString, BinaryTypes);
+TYPED_TEST_SUITE(TestDropNullKernelWithString, BinaryArrowTypes);
 
 TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
   this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");
@@ -2017,6 +2042,10 @@ TEST_F(TestDropNullKernelWithRecordBatch, DropNullRecordBatch) {
 
 class TestDropNullKernelWithChunkedArray : public TestDropNullKernelTyped<ChunkedArray> {
  public:
+  TestDropNullKernelWithChunkedArray()
+      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
   void AssertDropNull(const std::shared_ptr<DataType>& type,
                       const std::vector<std::string>& values,
                       const std::vector<std::string>& expected) {
@@ -2034,6 +2063,29 @@ class TestDropNullKernelWithChunkedArray : public TestDropNullKernelTyped<Chunke
     *out = out_datum.chunked_array();
     return Status::OK();
   }
+
+  template <typename ArrayFactory>
+  void CheckDropNullWithSlices(ArrayFactory&& factory) {
+    for (auto size : this->sizes_) {
+      for (auto null_probability : this->null_probabilities_) {
+        std::shared_ptr<Array> concatenated_array;
+        std::shared_ptr<ChunkedArray> chunked_array;
+        factory(size, null_probability, &chunked_array, &concatenated_array);
+
+        ASSERT_OK_AND_ASSIGN(auto out_datum, DropNull(chunked_array));
+        auto actual_chunked_array = out_datum.chunked_array();
+        ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(actual_chunked_array->chunks()));
+
+        ASSERT_OK_AND_ASSIGN(out_datum, DropNull(*concatenated_array));
+        auto expected = out_datum.make_array();
+
+        AssertArraysEqual(*expected, *actual);
+      }
+    }
+  }
+
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
 };
 
 TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
@@ -2045,8 +2097,39 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
   this->AssertDropNull(int8(), {"[]", "[]"}, {"[]"});
 }
 
+TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
+  // With Null Arrays
+  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+                                       std::shared_ptr<ChunkedArray>* out_chunked_array,
+                                       std::shared_ptr<Array>* out_concatenated_array) {
+    auto array = std::make_shared<NullArray>(size);
+    auto offsets = this->Offsets<int32_t>(size, 3);
+    auto slices = this->Slices(array, offsets);
+    *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
+
+    ASSERT_OK_AND_ASSIGN(*out_concatenated_array,
+                         Concatenate((*out_chunked_array)->chunks()));
+  });
+  // Without Null Arrays
+  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+                                       std::shared_ptr<ChunkedArray>* out_chunked_array,
+                                       std::shared_ptr<Array>* out_concatenated_array) {
+    auto array = this->rng_.ArrayOf(int16(), size, null_probability);
+    auto offsets = this->Offsets<int32_t>(size, 3);
+    auto slices = this->Slices(array, offsets);
+    *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
+
+    ASSERT_OK_AND_ASSIGN(*out_concatenated_array,
+                         Concatenate((*out_chunked_array)->chunks()));
+  });
+}
+
 class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
  public:
+  TestDropNullKernelWithTable()
+      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
   void AssertDropNull(const std::shared_ptr<Schema>& schm,
                       const std::vector<std::string>& table_json,
                       const std::vector<std::string>& expected_table) {
@@ -2062,6 +2145,37 @@ class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
     *out = out_datum.table();
     return Status::OK();
   }
+
+  template <typename ArrayFactory>
+  void CheckDropNullWithSlices(ArrayFactory&& factory) {
+    for (auto size : this->sizes_) {
+      for (auto null_probability : this->null_probabilities_) {
+        std::shared_ptr<Table> table_w_slices;
+        std::shared_ptr<Table> table_wo_slices;
+
+        factory(size, null_probability, &table_w_slices, &table_wo_slices);
+
+        ASSERT_OK_AND_ASSIGN(auto out_datum, DropNull(table_w_slices));
+        auto actual = out_datum.table();
+
+        ASSERT_OK_AND_ASSIGN(out_datum, DropNull(table_wo_slices));
+        auto expected = out_datum.table();
+        if (actual->num_rows() > 0) {
+          ASSERT_TRUE(actual->num_rows() == expected->num_rows());
+          for (int index = 0; index < actual->num_columns(); index++) {
+            ASSERT_OK_AND_ASSIGN(auto actual_col,
+                                 Concatenate(actual->column(index)->chunks()));
+            ASSERT_OK_AND_ASSIGN(auto expected_col,
+                                 Concatenate(expected->column(index)->chunks()));
+            AssertArraysEqual(*actual_col, *expected_col);
+          }
+        }
+      }
+    }
+  }
+
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
 };
 
 TEST_F(TestDropNullKernelWithTable, DropNullTable) {
@@ -2099,6 +2213,72 @@ TEST_F(TestDropNullKernelWithTable, DropNullTable) {
     ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
     ASSERT_TRUE(actual->num_rows() == 0);
   }
+}
+
+TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
+  // With Null Arrays
+  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+                                       std::shared_ptr<Table>* out_table_w_slices,
+                                       std::shared_ptr<Table>* out_table_wo_slices) {
+    std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
+                                                  field("b", utf8())};
+    auto schm = schema(fields);
+    std::vector<std::shared_ptr<ChunkedArray>> empty_table(fields.size());
+    auto col_a = std::make_shared<NullArray>(size);
+    auto col_b = std::make_shared<NullArray>(size);
+    std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
+
+    auto offsets_a = this->Offsets<int32_t>(size, 3);
+    auto slices_a = this->Slices(col_a, offsets_a);
+    auto offsets_b = this->Offsets<int32_t>(size, 3);
+    auto slices_b = this->Slices(col_b, offsets_b);
+
+    table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);
+    table_content_w_slices[1] = std::make_shared<ChunkedArray>(slices_b);
+    *out_table_w_slices =
+        Table::Make(schm, table_content_w_slices, table_content_w_slices[0]->length());
+
+    std::vector<std::shared_ptr<ChunkedArray>> table_content_wo_slices(fields.size());
+    table_content_wo_slices[0] =
+        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_a)});
+    table_content_wo_slices[1] =
+        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_b)});
+
+    *out_table_wo_slices =
+        Table::Make(schm, table_content_wo_slices, table_content_wo_slices[0]->length());
+  });
+
+  // Without Null Arrays
+  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+                                       std::shared_ptr<Table>* out_table_w_slices,
+                                       std::shared_ptr<Table>* out_table_wo_slices) {
+    std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
+                                                  field("b", utf8())};
+    auto schm = schema(fields);
+    std::vector<std::shared_ptr<ChunkedArray>> empty_table(fields.size());
+    auto col_a = this->rng_.ArrayOf(int32(), size, null_probability);
+    auto col_b = this->rng_.ArrayOf(utf8(), size, null_probability);
+    std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
+
+    auto offsets_a = this->Offsets<int32_t>(size, 3);
+    auto slices_a = this->Slices(col_a, offsets_a);
+    auto offsets_b = this->Offsets<int32_t>(size, 3);
+    auto slices_b = this->Slices(col_b, offsets_b);
+
+    table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);
+    table_content_w_slices[1] = std::make_shared<ChunkedArray>(slices_b);
+    *out_table_w_slices =
+        Table::Make(schm, table_content_w_slices, table_content_w_slices[0]->length());
+
+    std::vector<std::shared_ptr<ChunkedArray>> table_content_wo_slices(fields.size());
+    table_content_wo_slices[0] =
+        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_a)});
+    table_content_wo_slices[1] =
+        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_b)});
+
+    *out_table_wo_slices =
+        Table::Make(schm, table_content_wo_slices, table_content_wo_slices[0]->length());
+  });
 }
 
 }  // namespace compute
