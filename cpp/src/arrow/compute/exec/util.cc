@@ -17,6 +17,8 @@
 
 #include "arrow/compute/exec/util.h"
 
+#include <arrow/util/logging.h>
+
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -27,6 +29,43 @@ namespace arrow {
 using BitUtil::CountTrailingZeros;
 
 namespace util {
+
+Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
+  num_vectors_ = 0;
+  top_ = 0;
+  buffer_size_ = size;
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+  buffer_ = std::move(buffer);
+  return Status::OK();
+}
+
+int64_t TempVectorStack::PaddedAllocationSize(int64_t num_bytes) {
+  // Round up allocation size to multiple of 8 bytes
+  // to avoid returning temp vectors with unaligned address.
+  //
+  // Also add padding at the end to facilitate loads and stores
+  // using SIMD when number of vector elements is not divisible
+  // by the number of SIMD lanes.
+  //
+  return ::arrow::BitUtil::RoundUp(num_bytes, sizeof(int64_t)) + padding;
+}
+
+void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
+  int64_t old_top = top_;
+  top_ += PaddedAllocationSize(num_bytes);
+  // Stack overflow check
+  ARROW_DCHECK(top_ <= buffer_size_);
+  *data = buffer_->mutable_data() + old_top;
+  *id = num_vectors_++;
+}
+
+void TempVectorStack::release(int id, uint32_t num_bytes) {
+  ARROW_DCHECK(num_vectors_ == id + 1);
+  int64_t size = PaddedAllocationSize(num_bytes);
+  ARROW_DCHECK(top_ >= size);
+  top_ -= size;
+  --num_vectors_;
+}
 
 inline void BitUtil::bits_to_indexes_helper(uint64_t word, uint16_t base_index,
                                             int* num_indexes, uint16_t* indexes) {
@@ -294,6 +333,38 @@ Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inpu
   }
 
   return Status::OK();
+}
+
+int AtomicCounter::count() const { return count_.load(); }
+
+util::optional<int> AtomicCounter::total() const {
+  int total = total_.load();
+  if (total == -1) return {};
+  return total;
+}
+
+// return true if the counter is complete
+bool AtomicCounter::Increment() {
+  DCHECK_NE(count_.load(), total_.load());
+  int count = count_.fetch_add(1) + 1;
+  if (count != total_.load()) return false;
+  return DoneOnce();
+}
+
+// return true if the counter is complete
+bool AtomicCounter::SetTotal(int total) {
+  total_.store(total);
+  if (count_.load() != total) return false;
+  return DoneOnce();
+}
+
+// return true if the counter has not already been completed
+bool AtomicCounter::Cancel() { return DoneOnce(); }
+
+// ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+bool AtomicCounter::DoneOnce() {
+  bool expected = false;
+  return complete_.compare_exchange_strong(expected, true);
 }
 
 }  // namespace compute
