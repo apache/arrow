@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <arrow/testing/gtest_util.h>
+#include <arrow/util/vector.h>
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -45,12 +48,39 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
 struct BatchesWithSchema {
   std::vector<ExecBatch> batches;
   std::shared_ptr<Schema> schema;
-};
 
-ARROW_TESTING_EXPORT
-Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
-                                     BatchesWithSchema batches_with_schema, bool parallel,
-                                     bool slow);
+  AsyncGenerator<util::optional<ExecBatch>> gen(bool parallel, bool slow) const {
+    DCHECK_GT(batches.size(), 0);
+
+    auto opt_batches = ::arrow::internal::MapVector(
+        [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
+
+    AsyncGenerator<util::optional<ExecBatch>> gen;
+
+    if (parallel) {
+      // emulate batches completing initial decode-after-scan on a cpu thread
+      gen = MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
+                                    ::arrow::internal::GetCpuThreadPool())
+                                        .ValueOrDie();
+
+      // ensure that callbacks are not executed immediately on a background thread
+      gen =
+          MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
+    } else {
+      gen = MakeVectorGenerator(std::move(opt_batches));
+    }
+
+    if (slow) {
+      gen =
+          MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
+            SleepABit();
+            return batch;
+          });
+    }
+
+    return gen;
+  }
+};
 
 ARROW_TESTING_EXPORT
 Future<std::vector<ExecBatch>> StartAndCollect(

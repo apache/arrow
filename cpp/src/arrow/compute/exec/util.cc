@@ -20,6 +20,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -294,6 +295,27 @@ Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inpu
   }
 
   return Status::OK();
+}
+
+size_t ThreadIndexer::operator()() {
+  auto id = std::this_thread::get_id();
+
+  auto guard = mutex_.Lock();  // acquire the lock
+  const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
+
+  return Check(id_index.second);
+}
+
+size_t ThreadIndexer::Capacity() {
+  static size_t max_size = arrow::internal::ThreadPool::DefaultCapacity();
+  return max_size;
+}
+
+size_t ThreadIndexer::Check(size_t thread_index) {
+  DCHECK_LT(thread_index, Capacity())
+      << "thread index " << thread_index << " is out of range [0, " << Capacity() << ")";
+
+  return thread_index;
 }
 
 }  // namespace compute

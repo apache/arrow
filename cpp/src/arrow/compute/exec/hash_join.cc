@@ -20,19 +20,60 @@
 #include "arrow/api.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/exec_utils.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
+
+namespace {
+Status ValidateJoinInputs(const std::shared_ptr<Schema>& left_schema,
+                          const std::shared_ptr<Schema>& right_schema,
+                          const std::vector<int>& left_keys,
+                          const std::vector<int>& right_keys) {
+  if (left_keys.size() != right_keys.size()) {
+    return Status::Invalid("left and right key sizes do not match");
+  }
+
+  for (size_t i = 0; i < left_keys.size(); i++) {
+    auto l_type = left_schema->field(left_keys[i])->type();
+    auto r_type = right_schema->field(right_keys[i])->type();
+
+    if (!l_type->Equals(r_type)) {
+      return Status::Invalid("build and probe types do not match: " + l_type->ToString() +
+                             "!=" + r_type->ToString());
+    }
+  }
+
+  return Status::OK();
+}
+
+Result<std::vector<int>> PopulateKeys(const Schema& schema,
+                                      const std::vector<FieldRef>& keys) {
+  std::vector<int> key_field_ids(keys.size());
+  // Find input field indices for left key fields
+  for (size_t i = 0; i < keys.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(schema));
+    key_field_ids[i] = match[0];
+  }
+  return key_field_ids;
+}
+}  // namespace
 
 template <bool anti_join = false>
 struct HashSemiJoinNode : ExecNode {
-  HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, std::string label,
-                   ExecContext* ctx, const std::vector<int>&& build_index_field_ids,
+  HashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input, ExecContext* ctx,
+                   const std::vector<int>&& build_index_field_ids,
                    const std::vector<int>&& probe_index_field_ids)
-      : ExecNode(build_input->plan(), std::move(label), {build_input, probe_input},
+      : ExecNode(build_input->plan(), {build_input, probe_input},
                  {"hash_join_build", "hash_join_probe"}, probe_input->output_schema(),
                  /*num_outputs=*/1),
         ctx_(ctx),
@@ -441,97 +482,71 @@ Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_id
   return Status::OK();
 }
 
-Status ValidateJoinInputs(ExecNode* left_input, ExecNode* right_input,
-                          const std::vector<std::string>& left_keys,
-                          const std::vector<std::string>& right_keys) {
-  if (left_keys.size() != right_keys.size()) {
-    return Status::Invalid("left and right key sizes do not match");
-  }
-
-  const auto& l_schema = left_input->output_schema();
-  const auto& r_schema = right_input->output_schema();
-  for (size_t i = 0; i < left_keys.size(); i++) {
-    auto l_type = l_schema->GetFieldByName(left_keys[i])->type();
-    auto r_type = r_schema->GetFieldByName(right_keys[i])->type();
-
-    if (!l_type->Equals(r_type)) {
-      return Status::Invalid("build and probe types do not match: " + l_type->ToString() +
-                             "!=" + r_type->ToString());
-    }
-  }
-
-  return Status::OK();
-}
-
-Result<std::vector<int>> PopulateKeys(const Schema& schema,
-                                      const std::vector<std::string>& keys) {
-  std::vector<int> key_field_ids(keys.size());
-  // Find input field indices for left key fields
-  for (size_t i = 0; i < keys.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(keys[i]).FindOne(schema));
-    key_field_ids[i] = match[0];
-  }
-
-  return key_field_ids;
-}
-
 template <bool anti_join = false>
 Result<ExecNode*> MakeHashSemiJoinNode(ExecNode* build_input, ExecNode* probe_input,
-                                       std::string label,
-                                       const std::vector<std::string>& build_keys,
-                                       const std::vector<std::string>& probe_keys) {
-  RETURN_NOT_OK(ValidateJoinInputs(build_input, probe_input, build_keys, probe_keys));
-
+                                       const std::vector<FieldRef>& build_keys,
+                                       const std::vector<FieldRef>& probe_keys) {
   auto build_schema = build_input->output_schema();
   auto probe_schema = probe_input->output_schema();
 
   ARROW_ASSIGN_OR_RAISE(auto build_key_ids, PopulateKeys(*build_schema, build_keys));
   ARROW_ASSIGN_OR_RAISE(auto probe_key_ids, PopulateKeys(*probe_schema, probe_keys));
 
+  RETURN_NOT_OK(
+      ValidateJoinInputs(build_schema, probe_schema, build_key_ids, probe_key_ids));
+
   //  output schema will be probe schema
   auto ctx = build_input->plan()->exec_context();
   ExecPlan* plan = build_input->plan();
 
   return plan->EmplaceNode<HashSemiJoinNode<anti_join>>(
-      build_input, probe_input, std::move(label), ctx, std::move(build_key_ids),
-      std::move(probe_key_ids));
+      build_input, probe_input, ctx, std::move(build_key_ids), std::move(probe_key_ids));
 }
 
-Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
-                                   ExecNode* right_input, std::string label,
-                                   const std::vector<std::string>& left_keys,
-                                   const std::vector<std::string>& right_keys) {
-  static std::string join_type_string[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
-                                           "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
-                                           "RIGHT_OUTER", "FULL_OUTER"};
+ExecFactoryRegistry::AddOnLoad kRegisterHashJoin(
+    "hash_join",
+    [](ExecPlan* plan, std::vector<ExecNode*> inputs,
+       const ExecNodeOptions& options) -> Result<ExecNode*> {
+      RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "HashJoinNode"));
 
-  switch (join_type) {
-    case LEFT_SEMI:
-      // left join--> build from right and probe from left
-      return MakeHashSemiJoinNode(right_input, left_input, std::move(label), right_keys,
-                                  left_keys);
-    case RIGHT_SEMI:
-      // right join--> build from left and probe from right
-      return MakeHashSemiJoinNode(left_input, right_input, std::move(label), left_keys,
-                                  right_keys);
-    case LEFT_ANTI:
-      // left join--> build from right and probe from left
-      return MakeHashSemiJoinNode<true>(right_input, left_input, std::move(label),
-                                        right_keys, left_keys);
-    case RIGHT_ANTI:
-      // right join--> build from left and probe from right
-      return MakeHashSemiJoinNode<true>(left_input, right_input, std::move(label),
-                                        left_keys, right_keys);
-    case INNER:
-    case LEFT_OUTER:
-    case RIGHT_OUTER:
-    case FULL_OUTER:
-      return Status::NotImplemented(join_type_string[join_type] +
-                                    " joins not implemented!");
-    default:
-      return Status::Invalid("invalid join type");
-  }
-}
+      const auto& join_options = checked_cast<const JoinNodeOptions&>(options);
+
+      static std::string join_type_string[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
+                                               "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
+                                               "RIGHT_OUTER", "FULL_OUTER"};
+
+      auto join_type = join_options.join_type;
+
+      ExecNode* left_input = inputs[0];
+      ExecNode* right_input = inputs[1];
+      const auto& left_keys = join_options.left_keys;
+      const auto& right_keys = join_options.right_keys;
+
+      switch (join_type) {
+        case LEFT_SEMI:
+          // left join--> build from right and probe from left
+          return MakeHashSemiJoinNode(right_input, left_input, right_keys, left_keys);
+        case RIGHT_SEMI:
+          // right join--> build from left and probe from right
+          return MakeHashSemiJoinNode(left_input, right_input, left_keys, right_keys);
+        case LEFT_ANTI:
+          // left join--> build from right and probe from left
+          return MakeHashSemiJoinNode<true>(right_input, left_input, right_keys,
+                                            left_keys);
+        case RIGHT_ANTI:
+          // right join--> build from left and probe from right
+          return MakeHashSemiJoinNode<true>(left_input, right_input, left_keys,
+                                            right_keys);
+        case INNER:
+        case LEFT_OUTER:
+        case RIGHT_OUTER:
+        case FULL_OUTER:
+          return Status::NotImplemented(join_type_string[join_type] +
+                                        " joins not implemented!");
+        default:
+          return Status::Invalid("invalid join type");
+      }
+    });
 
 }  // namespace compute
 }  // namespace arrow

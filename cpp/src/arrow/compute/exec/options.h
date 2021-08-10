@@ -111,5 +111,32 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()>* generator;
 };
 
+enum JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,        // Not Implemented
+  LEFT_OUTER,   // Not Implemented
+  RIGHT_OUTER,  // Not Implemented
+  FULL_OUTER    // Not Implemented
+};
+
+class ARROW_EXPORT JoinNodeOptions : public ExecNodeOptions {
+ public:
+  JoinNodeOptions(JoinType join_type, std::vector<FieldRef> left_keys,
+                  std::vector<FieldRef> right_keys)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)) {}
+
+  // type of the join
+  JoinType join_type;
+
+  // index keys of the join
+  std::vector<FieldRef> left_keys;
+  std::vector<FieldRef> right_keys;
+};
+
 }  // namespace compute
 }  // namespace arrow
