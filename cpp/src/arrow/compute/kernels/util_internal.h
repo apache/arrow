@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/array/util.h"
@@ -41,6 +42,16 @@ namespace internal {
 #ifndef M_PI_4
 #define M_PI_4 0.785398163397448309616
 #endif
+
+template <typename T>
+using maybe_make_unsigned =
+    typename std::conditional<std::is_integral<T>::value && !std::is_same<T, bool>::value,
+                              std::make_unsigned<T>, std::common_type<T> >::type;
+
+template <typename T, typename Unsigned = typename maybe_make_unsigned<T>::type>
+constexpr Unsigned to_unsigned(T signed_) {
+  return static_cast<Unsigned>(signed_);
+}
 
 // An internal data structure for unpacking a primitive argument to pass to a
 // kernel implementation

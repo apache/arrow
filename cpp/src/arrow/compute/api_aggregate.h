@@ -169,6 +169,21 @@ Result<Datum> Mean(
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the product of values of a numeric array.
+///
+/// \param[in] value datum to compute product of, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed sum as a Scalar
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Product(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Sum values of a numeric array.
 ///
 /// \param[in] value datum to sum, expecting Array or ChunkedArray

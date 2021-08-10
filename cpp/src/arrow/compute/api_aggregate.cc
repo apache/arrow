@@ -145,6 +145,11 @@ Result<Datum> Mean(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("mean", {value}, &options, ctx);
 }
 
+Result<Datum> Product(const Datum& value, const ScalarAggregateOptions& options,
+                      ExecContext* ctx) {
+  return CallFunction("product", {value}, &options, ctx);
+}
+
 Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
                   ExecContext* ctx) {
   return CallFunction("sum", {value}, &options, ctx);
