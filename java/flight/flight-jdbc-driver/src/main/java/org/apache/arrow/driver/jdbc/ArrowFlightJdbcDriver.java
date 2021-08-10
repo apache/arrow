@@ -71,7 +71,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   public Connection connect(final String url, final Properties info) throws SQLException {
 
-    final Properties properties = new Properties();
+    final Properties properties = new Properties(info);
     properties.putAll(info);
 
     try {
