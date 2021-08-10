@@ -406,6 +406,7 @@ class ErrorFlightServer(FlightServerBase):
         elif descriptor.command == b"after_read_unauthorized":
             raise flight.FlightUnauthorizedError("foo")
 
+
 class ExchangeFlightServer(FlightServerBase):
     """A server for testing DoExchange."""
 
@@ -1578,16 +1579,10 @@ def test_roundtrip_errors():
 
         exceptions = {
             'internal': flight.FlightInternalError,
-            'timedout':flight.FlightTimedOutError,
-            'cancel':flight.FlightCancelledError,
-            'unauthenticated':flight.FlightUnauthenticatedError,
-            'unauthorized':flight.FlightUnauthorizedError,
-            'after_read_internal':flight.FlightInternalError,
-            'after_read_timedout':flight.FlightTimedOutError,
-            'after_read_cancel':flight.FlightCancelledError,
-            'after_read_unauthenticated':flight.FlightUnauthenticatedError,
-            'after_read_unauthorized':flight.FlightUnauthorizedError,
-
+            'timedout': flight.FlightTimedOutError,
+            'cancel': flight.FlightCancelledError,
+            'unauthenticated': flight.FlightUnauthenticatedError,
+            'unauthorized': flight.FlightUnauthorizedError,
         }
 
         for command, exception in exceptions.items():
@@ -1599,6 +1594,12 @@ def test_roundtrip_errors():
                 writer.write_table(table)
                 writer.close()
 
+            with pytest.raises(exception, match=".*foo.*"):
+                _cmd = f"after_read_{command}"
+                writer, reader = client.do_put(
+                    flight.FlightDescriptor.for_command(_cmd),
+                    table.schema)
+                writer.close()
 
 
 def test_do_put_independent_read_write():
