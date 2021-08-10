@@ -2317,9 +2317,12 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
 }
 
 const FunctionDoc drop_null_doc(
-    "Drop Null kernel",
+    "Drop nulls from the input",
     ("The output is populated with values from the input (Array, ChunkedArray, "
-     "RecordBatch, or Table) without the null values"),
+     "RecordBatch, or Table) without the null values."
+     "Note that for the RecordBatch/Table cases, `drop_null` drops the full row if there "
+     "is any null"
+     "null."),
     {"input"});
 
 class DropNullMetaFunction : public MetaFunction {
