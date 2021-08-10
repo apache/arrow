@@ -836,12 +836,13 @@ Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
   auto f2 = field("f2", duration(TimeUnit::SECOND));
   auto f3 = field("f3", day_time_interval());
   auto f4 = field("f4", month_interval());
-  auto schema = ::arrow::schema({f0, f1, f2, f3, f4});
+  auto f5 = field("f5", month_day_nano_interval());
+  auto schema = ::arrow::schema({f0, f1, f2, f3, f4, f5});
 
   std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
                                     1489272000000, 1489272000000, 1489273000000};
 
-  std::shared_ptr<Array> a0, a1, a2, a3, a4;
+  std::shared_ptr<Array> a0, a1, a2, a3, a4, a5;
   ArrayFromVector<DurationType, int64_t>(f0->type(), is_valid, ts_values, &a0);
   ArrayFromVector<DurationType, int64_t>(f1->type(), is_valid, ts_values, &a1);
   ArrayFromVector<DurationType, int64_t>(f2->type(), is_valid, ts_values, &a2);
@@ -849,8 +850,11 @@ Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
       f3->type(), is_valid, {{0, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 4}, {-1, -1}}, &a3);
   ArrayFromVector<MonthIntervalType, int32_t>(f4->type(), is_valid, {0, -1, 1, 2, -2, 24},
                                               &a4);
+  ArrayFromVector<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+      f5->type(), is_valid,
+      {{0, 0, 0}, {0, 0, 1}, {-1, 0, 1}, {-1, -2, -3}, {2, 4, 6}, {-3, -4, -5}}, &a5);
 
-  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4});
+  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5});
   return Status::OK();
 }
 

@@ -454,6 +454,37 @@ std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
 // Assorted functions
 //
 
+inline void rand_day_millis(int64_t N,
+                            std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
+                                           std::numeric_limits<int32_t>::max());
+  out->resize(N, {});
+  std::generate(out->begin(), out->end(), [&d, &gen] {
+    DayTimeIntervalType::DayMilliseconds tmp;
+    tmp.days = d(gen);
+    tmp.milliseconds = d(gen);
+    return tmp;
+  });
+}
+
+inline void rand_month_day_nanos(
+    int64_t N, std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
+                                           std::numeric_limits<int64_t>::max());
+  out->resize(N, {});
+  std::generate(out->begin(), out->end(), [&d, &gen] {
+    MonthDayNanoIntervalType::MonthDayNanos tmp;
+    tmp.months = static_cast<int32_t>(d(gen));
+    tmp.days = static_cast<int32_t>(d(gen));
+    tmp.nanoseconds = d(gen);
+    return tmp;
+  });
+}
+
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;

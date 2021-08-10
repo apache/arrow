@@ -258,7 +258,6 @@ class MonthDayNanoIntervalArray;
 class MonthDayNanoIntervalBuilder;
 struct MonthDayNanoIntervalScalar;
 
-
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
 using DurationBuilder = NumericBuilder<DurationType>;
@@ -521,7 +520,7 @@ std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
 /// \brief Return a MonthIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_interval();
 
-/// \brief Return a MonthDayNanoType instance
+/// \brief Return a MonthDayNanoIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_day_nano_interval();
 
 /// \brief Create a TimestampType instance from its unit

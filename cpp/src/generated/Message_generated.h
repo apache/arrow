@@ -18,16 +18,12 @@ namespace flatbuf {
 struct FieldNode;
 
 struct BodyCompression;
-struct BodyCompressionBuilder;
 
 struct RecordBatch;
-struct RecordBatchBuilder;
 
 struct DictionaryBatch;
-struct DictionaryBatchBuilder;
 
 struct Message;
-struct MessageBuilder;
 
 enum class CompressionType : int8_t {
   LZ4_FRAME = 0,
@@ -179,7 +175,7 @@ bool VerifyMessageHeaderVector(flatbuffers::Verifier &verifier, const flatbuffer
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
 ///
-/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
 /// would have {length: 5, null_count: 2} for its List node, and {length: 6,
 /// null_count: 0} for its Int16 node, as separate FieldNode structs
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
@@ -213,7 +209,6 @@ FLATBUFFERS_STRUCT_END(FieldNode, 16);
 /// bodies. Intended for use with RecordBatch but could be used for other
 /// message types
 struct BodyCompression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef BodyCompressionBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CODEC = 4,
     VT_METHOD = 6
@@ -235,7 +230,6 @@ struct BodyCompression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct BodyCompressionBuilder {
-  typedef BodyCompression Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_codec(org::apache::arrow::flatbuf::CompressionType codec) {
@@ -270,7 +264,6 @@ inline flatbuffers::Offset<BodyCompression> CreateBodyCompression(
 /// batch. Some systems call this a "row batch" internally and others a "record
 /// batch".
 struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RecordBatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LENGTH = 4,
     VT_NODES = 6,
@@ -313,7 +306,6 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct RecordBatchBuilder {
-  typedef RecordBatch Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_length(int64_t length) {
@@ -377,7 +369,6 @@ inline flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
 /// may be spread across multiple dictionary batches by using the isDelta
 /// flag
 struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DictionaryBatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
     VT_DATA = 6,
@@ -406,7 +397,6 @@ struct DictionaryBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DictionaryBatchBuilder {
-  typedef DictionaryBatch Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_id(int64_t id) {
@@ -443,7 +433,6 @@ inline flatbuffers::Offset<DictionaryBatch> CreateDictionaryBatch(
 }
 
 struct Message FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef MessageBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
     VT_HEADER_TYPE = 6,
@@ -517,7 +506,6 @@ template<> inline const org::apache::arrow::flatbuf::SparseTensor *Message::head
 }
 
 struct MessageBuilder {
-  typedef Message Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_version(org::apache::arrow::flatbuf::MetadataVersion version) {

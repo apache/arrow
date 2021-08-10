@@ -647,7 +647,9 @@ struct RandomArrayGeneratorOfImpl {
   }
 
   template <typename T>
-  enable_if_t<is_temporal_type<T>::value && !std::is_same<T, DayTimeIntervalType>::value,
+  enable_if_t<is_temporal_type<T>::value &&
+                  !std::is_same<T, DayTimeIntervalType>::value &&
+                  !std::is_same<T, MonthDayNanoIntervalType>::value,
               Status>
   Visit(const T&) {
     auto max = std::numeric_limits<typename T::c_type>::max();
@@ -867,6 +869,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // This isn't as flexible as it could be, but the array-of-structs layout of this
       // type means it's not a (useful) composition of other generators
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, MonthDayNanoIntervalType);
 
       GENERATE_LIST_CASE(ListArray);
 

@@ -1325,7 +1325,8 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
     int32_t days;
     int64_t nanoseconds;
     bool operator==(MonthDayNanos other) const {
-      return this->months == other.months && this->days == other.days && this->nanoseconds == other.nanoseconds;
+      return this->months == other.months && this->days == other.days &&
+             this->nanoseconds == other.nanoseconds;
     }
     bool operator!=(MonthDayNanos other) const { return !(*this == other); }
   };
@@ -1333,12 +1334,14 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
   using PhysicalType = MonthDayNanoIntervalType;
 
   static_assert(sizeof(MonthDayNanos) == 16,
-                "DayMilliseconds struct assumed to be of size 8 bytes");
+                "MonthDayNanos  struct assumed to be of size 8 bytes");
   static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
 
   static constexpr const char* type_name() { return "month_day_nano_interval"; }
 
-  IntervalType::type interval_type() const override { return IntervalType::MONTH_DAY_NANO; }
+  IntervalType::type interval_type() const override {
+    return IntervalType::MONTH_DAY_NANO;
+  }
 
   MonthDayNanoIntervalType() : IntervalType(type_id) {}
 
@@ -1347,7 +1350,6 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_day_nano_interval"; }
 };
-
 
 /// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {

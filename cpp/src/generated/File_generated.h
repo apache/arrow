@@ -14,7 +14,6 @@ namespace arrow {
 namespace flatbuf {
 
 struct Footer;
-struct FooterBuilder;
 
 struct Block;
 
@@ -56,7 +55,6 @@ FLATBUFFERS_STRUCT_END(Block, 24);
 /// Arrow File metadata
 ///
 struct Footer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FooterBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
     VT_SCHEMA = 6,
@@ -97,7 +95,6 @@ struct Footer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct FooterBuilder {
-  typedef Footer Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_version(org::apache::arrow::flatbuf::MetadataVersion version) {

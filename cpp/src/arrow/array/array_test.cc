@@ -37,6 +37,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -475,6 +476,7 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
 static ScalarVector GetScalars() {
   auto hello = Buffer::FromString("hello");
   DayTimeIntervalType::DayMilliseconds daytime{1, 100};
+  MonthDayNanoIntervalType::MonthDayNanos month_day_nanos{5, 4, 100};
 
   FieldVector union_fields{field("string", utf8()), field("number", int32()),
                            field("other_number", int32())};
@@ -493,6 +495,7 @@ static ScalarVector GetScalars() {
       std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
       std::make_shared<MonthIntervalScalar>(1),
       std::make_shared<DayTimeIntervalScalar>(daytime),
+      std::make_shared<MonthDayNanoIntervalScalar>(month_day_nanos),
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello), std::make_shared<LargeBinaryScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
@@ -710,6 +713,7 @@ TEST_F(TestBuilder, TestResizeDownsize) {
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
  public:
+  typedef Attrs TestType;
   typedef typename Attrs::ArrayType ArrayType;
   typedef typename Attrs::BuilderType BuilderType;
   typedef typename Attrs::T T;
@@ -814,6 +818,7 @@ struct UniformIntSampleType<int8_t> {
       randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
               draws);                                                              \
     }                                                                              \
+    static T Modify(T inp) { return inp / 2; }                                     \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)       \
@@ -822,6 +827,7 @@ struct UniformIntSampleType<int8_t> {
     static void draw(int64_t N, std::vector<T>* draws) { \
       random_real(N, 0, LOWER, UPPER, draws);            \
     }                                                    \
+    static T Modify(T inp) { return inp / 2; }           \
   }
 
 PINT_DECL(UInt8, uint8_t);
@@ -839,6 +845,30 @@ PFLOAT_DECL(Double, double, -1000.0, 1000.0);
 
 struct PBoolean {
   PTYPE_DECL(Boolean, uint8_t)
+  static T Modify(T inp) { return !inp; }
+};
+
+struct PDayTimeInternal {
+  PTYPE_DECL(DayTimeInterval, DayTimeIntervalType::DayMilliseconds);
+  static void draw(int64_t N, std::vector<T>* draws) { return rand_day_millis(N, draws); }
+
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  static DayMilliseconds Modify(DayMilliseconds inp) {
+    inp.days /= 2;
+    return inp;
+  }
+};
+
+struct PMonthDayNanoInterval {
+  PTYPE_DECL(MonthDayNanoInterval, MonthDayNanoIntervalType::MonthDayNanos);
+  static void draw(int64_t N, std::vector<T>* draws) {
+    return rand_month_day_nanos(N, draws);
+  }
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+  static MonthDayNanos Modify(MonthDayNanos inp) {
+    inp.days /= 2;
+    return inp;
+  }
 };
 
 template <>
@@ -967,7 +997,8 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble>
+                         PInt32, PInt64, PFloat, PDouble, PDayTimeInternal,
+                         PMonthDayNanoInterval>
     Primitives;
 
 TYPED_TEST_SUITE(TestPrimitiveBuilder, Primitives);
@@ -1054,7 +1085,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
 
   // implementation detail: the value slots are 0-initialized
   for (int64_t i = 0; i < result->length(); ++i) {
-    ASSERT_EQ(result->Value(i), 0);
+    typename TestFixture::T t{};
+    ASSERT_EQ(result->Value(i), t);
   }
 }
 
@@ -1310,7 +1342,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto halve = [&draws](int64_t index) { return draws[index] / 2; };
+  auto halve = [&draws](int64_t index) {
+    return TestFixture::TestType::Modify(draws[index]);
+  };
   auto lazy_iter = internal::MakeLazyRange(halve, size);
 
   ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
@@ -1318,7 +1352,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 
   std::vector<T> halved;
   transform(draws.begin(), draws.end(), back_inserter(halved),
-            [](T in) { return in / 2; });
+            [](T in) { return TestFixture::TestType::Modify(in); });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
@@ -1334,10 +1368,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   DECL_T();
   // find type we can safely convert the tested values to and from
-  using conversion_type =
-      typename std::conditional<std::is_floating_point<T>::value, double,
-                                typename std::conditional<std::is_unsigned<T>::value,
-                                                          uint64_t, int64_t>::type>::type;
+  using conversion_type = typename std::conditional<
+      std::is_floating_point<T>::value, double,
+      typename std::conditional<
+          std::is_same<T, DayTimeIntervalType::DayMilliseconds>::value ||
+              std::is_same<T, MonthDayNanoIntervalType::MonthDayNanos>::value,
+          T,
+          typename std::conditional<std::is_unsigned<T>::value, uint64_t,
+                                    int64_t>::type>::type>::type;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -3058,6 +3096,16 @@ TEST(TestSwapEndianArrayData, ExtensionType) {
 #endif
   auto test_data = ReplaceBuffers(expected_data, 1, data);
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, MonthDayNanoInterval) {
+  auto array = ArrayFromJSON(month_day_nano_interval(), R"([[0, 1, 2],
+                                                          [5000, 200, 3000000000]])");
+  auto swap_array = MakeArray(*::arrow::internal::SwapEndianArrayData(array->data()));
+  EXPECT_TRUE(!swap_array->Equals(array));
+  ASSERT_ARRAYS_EQUAL(
+      *MakeArray(*::arrow::internal::SwapEndianArrayData(swap_array->data())), *array);
+  ASSERT_OK(swap_array->ValidateFull());
 }
 
 }  // namespace arrow
