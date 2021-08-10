@@ -183,24 +183,24 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
   }
 
-#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)             \
-  FORCE_INLINE                                                                 \
+#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)          \
+  FORCE_INLINE                                                              \
   gdv_##TYPE NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
-                                                gdv_day_time_interval count) { \
-    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);           \
-    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);      \
+                                             gdv_day_time_interval count) { \
+    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);        \
+    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);   \
     return static_cast<gdv_##TYPE>(millis) +                                \
-           (day_interval_days * TO_MILLIS + day_interval_millis);              \
+           (day_interval_days * TO_MILLIS + day_interval_millis);           \
   }
 
-#define SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)             \
-  FORCE_INLINE                                                                 \
+#define SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)          \
+  FORCE_INLINE                                                              \
   gdv_##TYPE NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
-                                                gdv_day_time_interval count) { \
-    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);           \
-    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);      \
+                                             gdv_day_time_interval count) { \
+    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);        \
+    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);   \
     return static_cast<gdv_##TYPE>(millis) -                                \
-           (day_interval_days * TO_MILLIS + day_interval_millis);              \
+           (day_interval_days * TO_MILLIS + day_interval_millis);           \
   }
 
 #define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE)                                  \

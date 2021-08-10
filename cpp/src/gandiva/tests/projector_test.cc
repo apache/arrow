@@ -2372,4 +2372,40 @@ TEST_F(TestProjector, TestInstr) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_sum, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
+  auto field_year_interval = field("f0", arrow::month_interval());
+  auto field_time = field("f1", arrow::date64());
+  auto schema = arrow::schema({field_time, field_year_interval});
+
+  // output fields
+  auto field_result = field("r0", arrow::date64());
+
+  // Build expression
+  auto expr = TreeExprBuilder::MakeExpression("add", {field_time, field_year_interval},
+                                              field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+  auto array0 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
+  auto array1 = MakeArrowArrayInt64({4, 4}, {true, true});
+  // expected output
+  auto exp = MakeArrowArrayDate64({962064000000, -16243200000}, {true, false});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 }  // namespace gandiva
