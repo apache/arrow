@@ -246,8 +246,10 @@ garrow_record_batch_export(GArrowRecordBatch *record_batch,
     return true;
   } else {
     g_free(*c_abi_array);
+    *c_abi_array = nullptr;
     if (c_abi_schema) {
       g_free(*c_abi_schema);
+      *c_abi_schema = nullptr;
     }
     return false;
   }

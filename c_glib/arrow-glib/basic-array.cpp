@@ -626,8 +626,10 @@ garrow_array_export(GArrowArray *array,
     return true;
   } else {
     g_free(*c_abi_array);
+    *c_abi_array = nullptr;
     if (c_abi_schema) {
       g_free(*c_abi_schema);
+      *c_abi_schema = nullptr;
     }
     return false;
   }
