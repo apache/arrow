@@ -183,7 +183,7 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
   }
 
-#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)              \
+#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)             \
   FORCE_INLINE                                                                 \
   gdv_timestamp NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
                                                 gdv_day_time_interval count) { \
@@ -193,7 +193,7 @@ TIMESTAMP_DIFF(timestamp)
            (day_interval_days * TO_MILLIS + day_interval_millis);              \
   }
 
-#define SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)              \
+#define SUB_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)             \
   FORCE_INLINE                                                                 \
   gdv_timestamp NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
                                                 gdv_day_time_interval count) { \
@@ -219,19 +219,19 @@ TIMESTAMP_DIFF(timestamp)
     return millis % MILLIS_IN_DAY;                                            \
   }
 
-#define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                              \
-  FORCE_INLINE                                                                  \
+#define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                          \
+  FORCE_INLINE                                                               \
   gdv_##TYPE add_year_month_interval_##TYPE(gdv_##TYPE millis,               \
-                                               gdv_year_month_interval count) { \
-    EpochTimePoint tp(millis);                                                  \
+                                            gdv_year_month_interval count) { \
+    EpochTimePoint tp(millis);                                               \
     return static_cast<gdv_##TYPE>(tp.AddMonths(count).MillisSinceEpoch());  \
   }
 
-#define SUB_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                                   \
-  FORCE_INLINE                                                                       \
+#define SUB_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE)                               \
+  FORCE_INLINE                                                                    \
   gdv_##TYPE subtract_year_month_interval_##TYPE(gdv_##TYPE millis,               \
-                                                    gdv_year_month_interval count) { \
-    EpochTimePoint tp(millis);                                                       \
+                                                 gdv_year_month_interval count) { \
+    EpochTimePoint tp(millis);                                                    \
     return static_cast<gdv_##TYPE>(tp.AddMonths(-1 * count).MillisSinceEpoch());  \
   }
 #define ADD_TIMESTAMP_TO_INT32_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \

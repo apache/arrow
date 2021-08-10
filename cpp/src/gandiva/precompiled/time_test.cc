@@ -429,8 +429,8 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("2000-06-27 00:00:00"));
 
   EXPECT_EQ(
-    add_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
-    StringToTimestamp("1969-06-27 00:00:00"));
+      add_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
+      StringToTimestamp("1969-06-27 00:00:00"));
 
   EXPECT_EQ(add_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
@@ -464,14 +464,14 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("1999-10-27 00:00:00"));
 
   EXPECT_EQ(
-    subtract_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
-    StringToTimestamp("1968-10-27 00:00:00"));
+      subtract_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
+      StringToTimestamp("1968-10-27 00:00:00"));
 
   EXPECT_EQ(
       subtract_day_time_interval_timestamp(StringToTimestamp("2000-03-04 00:00:00"), 4),
       StringToTimestamp("2000-02-29 00:00:00"));
 
-    EXPECT_EQ(
+  EXPECT_EQ(
       subtract_day_time_interval_timestamp(StringToTimestamp("1968-03-04 00:00:00"), 4),
       StringToTimestamp("1968-02-29 00:00:00"));
 
