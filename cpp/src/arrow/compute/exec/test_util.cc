@@ -156,40 +156,6 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   return batch;
 }
 
-Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
-                                     BatchesWithSchema batches_with_schema, bool parallel,
-                                     bool slow) {
-  DCHECK_GT(batches_with_schema.batches.size(), 0);
-
-  auto opt_batches = ::arrow::internal::MapVector(
-      [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
-      std::move(batches_with_schema.batches));
-
-  AsyncGenerator<util::optional<ExecBatch>> gen;
-
-  if (parallel) {
-    // emulate batches completing initial decode-after-scan on a cpu thread
-    ARROW_ASSIGN_OR_RAISE(
-        gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
-                                     ::arrow::internal::GetCpuThreadPool()));
-
-    // ensure that callbacks are not executed immediately on a background thread
-    gen = MakeTransferredGenerator(std::move(gen), ::arrow::internal::GetCpuThreadPool());
-  } else {
-    gen = MakeVectorGenerator(std::move(opt_batches));
-  }
-
-  if (slow) {
-    gen = MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
-      SleepABit();
-      return batch;
-    });
-  }
-
-  return MakeSourceNode(plan, std::move(label), std::move(batches_with_schema.schema),
-                        std::move(gen));
-}
-
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());

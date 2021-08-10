@@ -685,7 +685,6 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
-<<<<<<< HEAD
       ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(boolean())},
                         "[[5, false], [5, false], [5, false]]"),
       ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
@@ -716,30 +715,6 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
               {"sink", SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get()));
-=======
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(int32()),
-                         ValueDescr::Scalar(int32())},
-                        "[[5, 5, 5], [5, 5, 5], [5, 5, 5]]"),
-      ExecBatchFromJSON({int32(), int32(), int32()},
-                        "[[5, 5, 5], [6, 6, 6], [7, 7, 7]]")};
-  scalar_data.schema =
-      schema({field("a", int32()), field("b", int32()), field("c", int32())});
-
-  ASSERT_OK(Declaration::Sequence(
-                {
-                    {"source", SourceNodeOptions{scalar_data.schema,
-                                                 scalar_data.gen(/*parallel=*/false,
-                                                                 /*slow=*/false)}},
-                    {"aggregate",
-                     AggregateNodeOptions{
-                         /*aggregates=*/{
-                             {"count", nullptr}, {"sum", nullptr}, {"mean", nullptr}},
-                         /*targets=*/{"a", "b", "c"},
-                         /*names=*/{"count(a)", "sum(b)", "mean(c)"}}},
-                    {"sink", SinkNodeOptions{&sink_gen}},
-                })
-                .AddToPlan(plan.get()));
->>>>>>> ARROW-13482: [C++][Compute] Refactoring away from hard coded ExecNode factories to a registry
 
   ASSERT_THAT(
       StartAndCollect(plan.get(), sink_gen),

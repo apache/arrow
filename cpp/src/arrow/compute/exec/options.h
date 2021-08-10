@@ -112,7 +112,6 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()>* generator;
 };
 
-<<<<<<< HEAD
 /// \brief Make a node which sorts rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then sorted, by the given
@@ -127,7 +126,32 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
-=======
->>>>>>> ARROW-13482: [C++][Compute] Refactoring away from hard coded ExecNode factories to a registry
+enum JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,        // Not Implemented
+  LEFT_OUTER,   // Not Implemented
+  RIGHT_OUTER,  // Not Implemented
+  FULL_OUTER    // Not Implemented
+};
+
+class ARROW_EXPORT JoinNodeOptions : public ExecNodeOptions {
+ public:
+  JoinNodeOptions(JoinType join_type, std::vector<FieldRef> left_keys,
+                  std::vector<FieldRef> right_keys)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)) {}
+
+  // type of the join
+  JoinType join_type;
+
+  // index keys of the join
+  std::vector<FieldRef> left_keys;
+  std::vector<FieldRef> right_keys;
+};
+
 }  // namespace compute
 }  // namespace arrow

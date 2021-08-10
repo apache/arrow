@@ -19,6 +19,8 @@
 
 #include <atomic>
 #include <cstdint>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -29,6 +31,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -231,6 +234,19 @@ class AtomicCounter {
 
   std::atomic<int> count_{0}, total_{-1};
   std::atomic<bool> complete_{false};
+};
+
+class ThreadIndexer {
+ public:
+  size_t operator()();
+
+  static size_t Capacity();
+
+ private:
+  static size_t Check(size_t thread_index);
+
+  util::Mutex mutex_;
+  std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
 }  // namespace compute
