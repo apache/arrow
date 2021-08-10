@@ -91,32 +91,32 @@ class ARROW_EXPORT SharedExclusiveChecker {
 template <class Derived>
 class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
  public:
-  Status Close() final {
+  ARROW_NODROP Status Close() final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoClose();
   }
 
-  Status Abort() final {
+  ARROW_NODROP Status Abort() final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoAbort();
   }
 
-  Result<int64_t> Tell() const final {
+  ARROW_NODROP Result<int64_t> Tell() const final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoTell();
   }
 
-  Result<int64_t> Read(int64_t nbytes, void* out) final {
+  ARROW_NODROP Result<int64_t> Read(int64_t nbytes, void* out) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes, out);
   }
 
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
+  ARROW_NODROP Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes);
   }
 
-  Result<util::string_view> Peek(int64_t nbytes) final {
+  ARROW_NODROP Result<util::string_view> Peek(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoPeek(nbytes);
   }
@@ -161,42 +161,42 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
 template <class Derived>
 class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile {
  public:
-  Status Close() final {
+  ARROW_NODROP Status Close() final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoClose();
   }
 
-  Status Abort() final {
+  ARROW_NODROP Status Abort() final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoAbort();
   }
 
-  Result<int64_t> Tell() const final {
+  ARROW_NODROP Result<int64_t> Tell() const final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoTell();
   }
 
-  Result<int64_t> Read(int64_t nbytes, void* out) final {
+  ARROW_NODROP Result<int64_t> Read(int64_t nbytes, void* out) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes, out);
   }
 
-  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
+  ARROW_NODROP Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes);
   }
 
-  Result<util::string_view> Peek(int64_t nbytes) final {
+  ARROW_NODROP Result<util::string_view> Peek(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoPeek(nbytes);
   }
 
-  Status Seek(int64_t position) final {
+  ARROW_NODROP Status Seek(int64_t position) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoSeek(position);
   }
 
-  Result<int64_t> GetSize() final {
+  ARROW_NODROP Result<int64_t> GetSize() final {
     auto guard = lock_.shared_guard();
     return derived()->DoGetSize();
   }
@@ -206,12 +206,12 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   // So any method that relies on the current position (even if it doesn't
   // update it, such as Peek) cannot run in parallel with ReadAt and has
   // to use the exclusive_guard.
-
+  ARROW_NODROP
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final {
     auto guard = lock_.shared_guard();
     return derived()->DoReadAt(position, nbytes, out);
   }
-
+  ARROW_NODROP
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final {
     auto guard = lock_.shared_guard();
     return derived()->DoReadAt(position, nbytes);

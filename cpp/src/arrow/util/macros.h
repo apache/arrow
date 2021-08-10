@@ -50,17 +50,20 @@
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
+#define ARROW_NODROP __attribute((used, noinline))
 #elif defined(_MSC_VER)
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
+#define ARROW_NODROP ARROW_NOINLINE
 #else
 #define ARROW_NORETURN
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
+#define ARROW_NODROP
 #endif
 
 #if (defined(__GNUC__) || defined(__APPLE__))
