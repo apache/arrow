@@ -55,6 +55,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
+import org.apache.calcite.avatica.AvaticaStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,8 +103,20 @@ public class ArrowFlightConnection extends AvaticaConnection {
     return client;
   }
 
-  Properties getProperties() {
+  @Override
+  public Properties getClientInfo() {
     return this.properties;
+  }
+
+  void reset() throws SQLException {
+    // Clean up any open Statements
+    for (AvaticaStatement statement : statementMap.values()) {
+      statement.close();
+    }
+    statementMap.clear();
+
+    // Reset Holdability
+    this.setHoldability(this.metaData.getResultSetHoldability());
   }
 
   /**
@@ -223,5 +236,4 @@ public class ArrowFlightConnection extends AvaticaConnection {
         .forEach(exception -> LOGGER.error(
             exception.getMessage(), exception));
   }
-
 }
