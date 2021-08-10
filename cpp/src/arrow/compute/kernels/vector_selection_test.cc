@@ -2099,7 +2099,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
 
 TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
   // With Null Arrays
-  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<ChunkedArray>* out_chunked_array,
                                        std::shared_ptr<Array>* out_concatenated_array) {
     auto array = std::make_shared<NullArray>(size);
@@ -2111,7 +2111,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
                          Concatenate((*out_chunked_array)->chunks()));
   });
   // Without Null Arrays
-  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<ChunkedArray>* out_chunked_array,
                                        std::shared_ptr<Array>* out_concatenated_array) {
     auto array = this->rng_.ArrayOf(int16(), size, null_probability);
@@ -2211,13 +2211,13 @@ TEST_F(TestDropNullKernelWithTable, DropNullTable) {
     ])"};
     std::shared_ptr<Table> actual;
     ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
-    ASSERT_TRUE(actual->num_rows() == 0);
+    ASSERT_EQ(actual->num_rows(), 0);
   }
 }
 
 TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
   // With Null Arrays
-  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<Table>* out_table_w_slices,
                                        std::shared_ptr<Table>* out_table_wo_slices) {
     std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
@@ -2249,7 +2249,7 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
   });
 
   // Without Null Arrays
-  this->CheckDropNullWithSlices([this](int64_t size, double null_probability,
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<Table>* out_table_w_slices,
                                        std::shared_ptr<Table>* out_table_wo_slices) {
     std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
