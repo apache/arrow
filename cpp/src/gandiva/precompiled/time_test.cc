@@ -428,8 +428,15 @@ TEST(TestTime, TimeStampAdd) {
       add_year_month_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
       StringToTimestamp("2000-06-27 00:00:00"));
 
+  EXPECT_EQ(
+    add_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
+    StringToTimestamp("1969-06-27 00:00:00"));
+
   EXPECT_EQ(add_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
+
+  EXPECT_EQ(add_day_time_interval_timestamp(StringToTimestamp("1968-02-27 00:00:00"), 4),
+            StringToTimestamp("1968-03-02 00:00:00"));
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
   EXPECT_EQ(add_day_time_interval_time32(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
@@ -457,8 +464,16 @@ TEST(TestTime, TimeStampAdd) {
       StringToTimestamp("1999-10-27 00:00:00"));
 
   EXPECT_EQ(
+    subtract_year_month_interval_timestamp(StringToTimestamp("1969-02-27 00:00:00"), 4),
+    StringToTimestamp("1968-10-27 00:00:00"));
+
+  EXPECT_EQ(
       subtract_day_time_interval_timestamp(StringToTimestamp("2000-03-04 00:00:00"), 4),
       StringToTimestamp("2000-02-29 00:00:00"));
+
+    EXPECT_EQ(
+      subtract_day_time_interval_timestamp(StringToTimestamp("1968-03-04 00:00:00"), 4),
+      StringToTimestamp("1968-02-29 00:00:00"));
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
   EXPECT_EQ(subtract_day_time_interval_time32(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
