@@ -19,6 +19,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import java.io.IOException;
 import java.sql.Date;
+import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -105,6 +106,46 @@ public class JdbcToArrowUtils {
 
     return jdbcToArrowSchema(rsmd, new JdbcToArrowConfig(new RootAllocator(0), calendar));
   }
+
+  /**
+   * Create Arrow {@link Schema} object for the given JDBC {@link ResultSetMetaData}.
+   *
+   * @param parameterMetaData The ResultSetMetaData containing the results, to read the JDBC metadata from.
+   * @param calendar          The calendar to use the time zone field of, to construct Timestamp fields from.
+   * @return {@link Schema}
+   * @throws SQLException on error
+   */
+  public static Schema jdbcToArrowSchema(final ParameterMetaData parameterMetaData, final Calendar calendar)
+      throws SQLException {
+    Preconditions.checkNotNull(calendar, "Calendar object can't be null");
+    Preconditions.checkNotNull(parameterMetaData);
+    final List<Field> parameterFields = new ArrayList<>();
+    for (int parameterCounter = 1; parameterCounter <= parameterMetaData.getParameterCount();
+         parameterCounter++) {
+      final int jdbcDataType = parameterMetaData.getParameterType(parameterCounter);
+      final int jdbcIsNullable = parameterMetaData.isNullable(parameterCounter);
+      final boolean arrowIsNullable = jdbcIsNullable != ParameterMetaData.parameterNoNulls;
+      final int precision = parameterMetaData.getPrecision(parameterCounter);
+      final int scale = parameterMetaData.getScale(parameterCounter);
+      final ArrowType arrowType = getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale), calendar);
+      final FieldType fieldType = new FieldType(arrowIsNullable, arrowType, /*dictionary=*/null);
+      parameterFields.add(new Field(null, fieldType, null));
+    }
+
+    return new Schema(parameterFields);
+  }
+
+  /**
+   * Converts the provided JDBC type to its respective {@link ArrowType} counterpart.
+   *
+   * @param fieldInfo the {@link JdbcFieldInfo} with information about the original JDBC type.
+   * @param calendar  the {@link Calendar} to use for datetime data types.
+   * @return a new {@link ArrowType}.
+   */
+  public static ArrowType getArrowTypeFromJdbcType(final JdbcFieldInfo fieldInfo, final Calendar calendar) {
+    return JdbcToArrowConfig.getDefaultJdbcToArrowTypeConverter().apply(fieldInfo, calendar);
+  }
+
 
   /**
    * Create Arrow {@link Schema} object for the given JDBC {@link java.sql.ResultSetMetaData}.
