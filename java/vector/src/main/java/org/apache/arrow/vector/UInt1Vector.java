@@ -46,7 +46,7 @@ public final class UInt1Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public static final byte MAX_UINT1 = (byte) 0XFF;
 
-  private static final byte TYPE_WIDTH = 1;
+  public static final byte TYPE_WIDTH = 1;
   private final FieldReader reader;
 
   public UInt1Vector(String name, BufferAllocator allocator) {

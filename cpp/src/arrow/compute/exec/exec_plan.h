@@ -22,7 +22,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
@@ -113,6 +112,7 @@ class ARROW_EXPORT ExecNode {
   ///
   /// There is no guarantee that this value is non-empty or unique.
   const std::string& label() const { return label_; }
+  void SetLabel(std::string label) { label_ = std::move(label); }
 
   Status Validate() const;
 
@@ -218,9 +218,8 @@ class ARROW_EXPORT ExecNode {
   virtual Future<> finished() = 0;
 
  protected:
-  ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
-           std::vector<std::string> input_labels, std::shared_ptr<Schema> output_schema,
-           int num_outputs);
+  ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
+           std::shared_ptr<Schema> output_schema, int num_outputs);
 
   // A helper method to send an error status to all outputs.
   // Returns true if the status was an error.
@@ -237,21 +236,114 @@ class ARROW_EXPORT ExecNode {
   NodeVector outputs_;
 };
 
-/// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
-///
-/// plan->exec_context()->executor() is used to parallelize pushing to
-/// outputs, if provided.
-ARROW_EXPORT
-ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
-                         std::shared_ptr<Schema> output_schema,
-                         std::function<Future<util::optional<ExecBatch>>()>);
+/// \brief An extensible registry for factories of ExecNodes
+class ARROW_EXPORT ExecFactoryRegistry {
+ public:
+  using Factory = std::function<Result<ExecNode*>(ExecPlan*, std::vector<ExecNode*>,
+                                                  const ExecNodeOptions&)>;
 
-/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
-///
-/// Emitted batches will not be ordered.
+  virtual ~ExecFactoryRegistry() = default;
+
+  /// \brief Get the named factory from this registry
+  ///
+  /// will raise if factory_name is not found
+  virtual Result<Factory> GetFactory(const std::string& factory_name) = 0;
+
+  /// \brief Add a factory to this registry with the provided name
+  ///
+  /// will raise if factory_name is already in the registry
+  virtual Status AddFactory(std::string factory_name, Factory factory) = 0;
+
+  /// Helper for declaring on-load registration of ExecNode factories,
+  /// including built-in factories.
+  struct ARROW_EXPORT AddOnLoad {
+    AddOnLoad(std::string factory_name, Factory factory, ExecFactoryRegistry* registry);
+    AddOnLoad(std::string factory_name, Factory factory);
+  };
+};
+
+/// The default registry, which includes built-in factories.
 ARROW_EXPORT
-std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
-                                                                std::string label);
+ExecFactoryRegistry* default_exec_factory_registry();
+
+/// \brief Construct an ExecNode using the named factory
+inline Result<ExecNode*> MakeExecNode(
+    const std::string& factory_name, ExecPlan* plan, std::vector<ExecNode*> inputs,
+    const ExecNodeOptions& options,
+    ExecFactoryRegistry* registry = default_exec_factory_registry()) {
+  ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetFactory(factory_name));
+  return factory(plan, std::move(inputs), options);
+}
+
+/// \brief Helper class for declaring sets of ExecNodes efficiently
+///
+/// A Declaration represents an unconstructed ExecNode (and potentially more since its
+/// inputs may also be Declarations). The node can be constructed and added to a plan
+/// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
+struct ARROW_EXPORT Declaration {
+  using Input = util::Variant<ExecNode*, Declaration>;
+
+  Declaration(std::string factory_name, std::vector<Input> inputs,
+              std::shared_ptr<ExecNodeOptions> options, std::string label)
+      : factory_name{std::move(factory_name)},
+        inputs{std::move(inputs)},
+        options{std::move(options)},
+        label{std::move(label)} {}
+
+  template <typename Options>
+  Declaration(std::string factory_name, std::vector<Input> inputs, Options options)
+      : factory_name{std::move(factory_name)},
+        inputs{std::move(inputs)},
+        options{std::make_shared<Options>(std::move(options))},
+        label{this->factory_name} {}
+
+  template <typename Options>
+  Declaration(std::string factory_name, Options options)
+      : factory_name{std::move(factory_name)},
+        inputs{},
+        options{std::make_shared<Options>(std::move(options))},
+        label{this->factory_name} {}
+
+  /// \brief Convenience factory for the common case of a simple sequence of nodes.
+  ///
+  /// Each of decls will be appended to the inputs of the subsequent declaration,
+  /// and the final modified declaration will be returned.
+  ///
+  /// Without this convenience factory, constructing a sequence would require explicit,
+  /// difficult-to-read nesting:
+  ///
+  ///     Declaration{"n3",
+  ///                   {
+  ///                       Declaration{"n2",
+  ///                                   {
+  ///                                       Declaration{"n1",
+  ///                                                   {
+  ///                                                       Declaration{"n0", N0Opts{}},
+  ///                                                   },
+  ///                                                   N1Opts{}},
+  ///                                   },
+  ///                                   N2Opts{}},
+  ///                   },
+  ///                   N3Opts{}};
+  ///
+  /// An equivalent Declaration can be constructed more tersely using Sequence:
+  ///
+  ///     Declaration::Sequence({
+  ///         {"n0", N0Opts{}},
+  ///         {"n1", N1Opts{}},
+  ///         {"n2", N2Opts{}},
+  ///         {"n3", N3Opts{}},
+  ///     });
+  static Declaration Sequence(std::vector<Declaration> decls);
+
+  Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
+                                                  default_exec_factory_registry()) const;
+
+  std::string factory_name;
+  std::vector<Input> inputs;
+  std::shared_ptr<ExecNodeOptions> options;
+  std::string label;
+};
 
 /// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///
@@ -260,66 +352,6 @@ ARROW_EXPORT
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema>, std::function<Future<util::optional<ExecBatch>>()>,
     MemoryPool*);
-
-/// \brief Make a node which excludes some rows from batches passed through it
-///
-/// The filter Expression will be evaluated against each batch which is pushed to
-/// this node. Any rows for which the filter does not evaluate to `true` will be excluded
-/// in the batch emitted by this node.
-///
-/// If the filter is not already bound, it will be bound against the input's schema.
-ARROW_EXPORT
-Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter);
-
-/// \brief Make a node which executes expressions on input batches, producing new batches.
-///
-/// Each expression will be evaluated against each batch which is pushed to
-/// this node to produce a corresponding output column.
-///
-/// If exprs are not already bound, they will be bound against the input's schema.
-/// If names are not provided, the string representations of exprs will be used.
-ARROW_EXPORT
-Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
-                                  std::vector<Expression> exprs,
-                                  std::vector<std::string> names = {});
-
-ARROW_EXPORT
-Result<ExecNode*> MakeScalarAggregateNode(ExecNode* input, std::string label,
-                                          std::vector<internal::Aggregate> aggregates,
-                                          std::vector<FieldRef> arguments,
-                                          std::vector<std::string> out_field_names);
-
-/// \brief Make a node which groups input rows based on key fields and computes
-/// aggregates for each group
-ARROW_EXPORT
-Result<ExecNode*> MakeGroupByNode(ExecNode* input, std::string label,
-                                  std::vector<std::string> keys,
-                                  std::vector<std::string> agg_srcs,
-                                  std::vector<internal::Aggregate> aggs);
-
-ARROW_EXPORT
-Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
-                                   const std::vector<Datum>& keys,
-                                   const std::vector<internal::Aggregate>& aggregates,
-                                   bool use_threads, ExecContext* ctx);
-
-/// \brief Make a node which joins batches from two other nodes based on key fields
-enum JoinType {
-  LEFT_SEMI,
-  RIGHT_SEMI,
-  LEFT_ANTI,
-  RIGHT_ANTI,
-  INNER,        // Not Implemented
-  LEFT_OUTER,   // Not Implemented
-  RIGHT_OUTER,  // Not Implemented
-  FULL_OUTER    // Not Implemented
-};
-
-ARROW_EXPORT
-Result<ExecNode*> MakeHashJoinNode(JoinType join_type, ExecNode* left_input,
-                                   ExecNode* right_input, std::string label,
-                                   const std::vector<std::string>& left_keys,
-                                   const std::vector<std::string>& right_keys);
 
 }  // namespace compute
 }  // namespace arrow

@@ -1324,7 +1324,7 @@ TYPED_TEST(TestBooleanIndexKernel, Basics) {
 
 template <typename ArrowType>
 class TestStringIndexKernel : public TestIndexKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestStringIndexKernel, BinaryTypes);
+TYPED_TEST_SUITE(TestStringIndexKernel, BinaryArrowTypes);
 TYPED_TEST(TestStringIndexKernel, Basics) {
   auto buffer = Buffer::FromString("foo");
   auto value = std::make_shared<typename TestFixture::ScalarType>(buffer);

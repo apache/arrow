@@ -23,6 +23,8 @@
 #include <arrow-glib/internal-hash-table.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <arrow/c/bridge.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -121,6 +123,31 @@ garrow_schema_class_init(GArrowSchemaClass *klass)
 }
 
 /**
+ * garrow_schema_import:
+ * @c_abi_schema: (not nullable): A `struct ArrowSchema *`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An imported #GArrowSchema on success,
+ *   %NULL on error.
+ *
+ *   You don't need to release the passed `struct ArrowSchema *`,
+ *   even if this function reports an error.
+ *
+ * Since: 6.0.0
+ */
+GArrowSchema *
+garrow_schema_import(gpointer c_abi_schema, GError **error)
+{
+  auto arrow_schema_result =
+    arrow::ImportSchema(static_cast<ArrowSchema *>(c_abi_schema));
+  if (garrow::check(error, arrow_schema_result, "[schema][import]")) {
+    return garrow_schema_new_raw(&(*arrow_schema_result));
+  } else {
+    return NULL;
+  }
+}
+
+/**
  * garrow_schema_new:
  * @fields: (element-type GArrowField): The fields of the schema.
  *
@@ -137,6 +164,33 @@ garrow_schema_new(GList *fields)
 
   auto arrow_schema = std::make_shared<arrow::Schema>(arrow_fields);
   return garrow_schema_new_raw(&arrow_schema);
+}
+
+/**
+ * garrow_schema_export:
+ * @schema: A #GArrowSchema.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable): An exported #GArrowSchema as
+ *   `struct ArrowStruct *` on success, %NULL on error.
+ *
+ *   It should be freed with the `ArrowSchema::release` callback then
+ *   g_free() when no longer needed.
+ *
+ * Since: 6.0.0
+ */
+gpointer
+garrow_schema_export(GArrowSchema *schema, GError **error)
+{
+  const auto arrow_schema = garrow_schema_get_raw(schema);
+  auto c_abi_schema = g_new(ArrowSchema, 1);
+  auto status = arrow::ExportSchema(*arrow_schema, c_abi_schema);
+  if (garrow::check(error, status, "[schema][export]")) {
+    return c_abi_schema;
+  } else {
+    g_free(c_abi_schema);
+    return NULL;
+  }
 }
 
 /**

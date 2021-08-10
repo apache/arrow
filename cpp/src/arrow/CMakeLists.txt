@@ -370,9 +370,13 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
+       compute/exec/aggregate_node.cc
        compute/exec/exec_plan.cc
-          compute/exec/exec_utils.cc
-          compute/exec/expression.cc
+       compute/exec/expression.cc
+       compute/exec/filter_node.cc
+       compute/exec/project_node.cc
+       compute/exec/source_node.cc
+       compute/exec/sink_node.cc
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc

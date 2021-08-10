@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// User-defined extension types. EXPERIMENTAL in 0.13.0
+/// User-defined extension types.
 /// \since 0.13.0
 
 #pragma once

@@ -110,26 +110,19 @@ do_exec_plan <- function(.data, group_vars = NULL) {
   # If any columns are derived we need to Project (otherwise this may be no-op)
   project_node <- start_node$Project(.data$selected_columns)
 
+  final_node <- project_node$Aggregate(
+    options = .data$aggregations,
+    target_names = target_names,
+    out_field_names = names(.data$aggregations),
+    key_names = group_vars
+  )
+
+  out <- plan$Run(final_node)
   if (grouped) {
-    final_node <- project_node$GroupByAggregate(
-      group_vars,
-      target_names = target_names,
-      aggregations = .data$aggregations
-    )
-    out <- plan$Run(final_node)
-    # The result will have result columns first (named by their function)
-    # then the grouping cols. dplyr orders group cols first, and it accepts
-    # names for the result cols. Adapt the result to meet that expectation.
+    # The result will have result columns first then the grouping cols.
+    # dplyr orders group cols first, so adapt the result to meet that expectation.
     n_results <- length(.data$aggregations)
-    names(out)[seq_along(.data$aggregations)] <- names(.data$aggregations)
     out <- out[c((n_results + 1):ncol(out), seq_along(.data$aggregations))]
-  } else {
-    final_node <- project_node$ScalarAggregate(
-      options = .data$aggregations,
-      target_names = target_names,
-      out_field_names = names(.data$aggregations)
-    )
-    out <- plan$Run(final_node)
   }
   out
 }

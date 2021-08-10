@@ -289,10 +289,25 @@ class TypedStatistics : public Statistics {
   /// conversion to a primitive Parquet C type. Only implemented for certain
   /// Parquet type / Arrow type combinations like BYTE_ARRAY /
   /// arrow::BinaryArray
-  virtual void Update(const ::arrow::Array& values) = 0;
+  ///
+  /// If update_counts is true then the null_count and num_values will be updated
+  /// based on the null_count of values.  Set to false if these are updated
+  /// elsewhere (e.g. when updating a dictionary where the counts are taken from
+  /// the indices and not the values)
+  virtual void Update(const ::arrow::Array& values, bool update_counts = true) = 0;
 
   /// \brief Set min and max values to particular values
   virtual void SetMinMax(const T& min, const T& max) = 0;
+
+  /// \brief Increments the null count directly
+  /// Use Update to extract the null count from data.  Use this if you determine
+  /// the null count through some other means (e.g. dictionary arrays where the
+  /// null count is determined from the indices)
+  virtual void IncrementNullCount(int64_t n) = 0;
+
+  /// \brief Increments the number ov values directly
+  /// The same note on IncrementNullCount applies here
+  virtual void IncrementNumValues(int64_t n) = 0;
 };
 
 using BoolStatistics = TypedStatistics<BooleanType>;

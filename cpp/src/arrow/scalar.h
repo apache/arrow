@@ -17,9 +17,6 @@
 
 // Object model for scalar (non-Array) values. Not intended for use with large
 // amounts of data
-//
-// NOTE: This API is experimental as of the 0.13 version and subject to change
-// without deprecation warnings
 
 #pragma once
 
@@ -79,6 +76,21 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   size_t hash() const;
 
   std::string ToString() const;
+
+  /// \brief Perform cheap validation checks
+  ///
+  /// This is O(k) where k is the number of descendents.
+  ///
+  /// \return Status
+  Status Validate() const;
+
+  /// \brief Perform extensive data validation checks
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the length of descendents (if list scalars are involved).
+  ///
+  /// \return Status
+  Status ValidateFull() const;
 
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
                                                util::string_view repr);
@@ -441,6 +453,10 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   using TypeClass = DenseUnionType;
 };
 
+/// \brief A Scalar value for DictionaryType
+///
+/// `is_valid` denotes the validity of the `index`, regardless of
+/// the corresponding value in the `dictionary`.
 struct ARROW_EXPORT DictionaryScalar : public Scalar {
   using TypeClass = DictionaryType;
   struct ValueType {
@@ -462,6 +478,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
+
+  // TODO complete this
 };
 
 /// @}

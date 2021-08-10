@@ -89,10 +89,6 @@ void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array>
 
 void ValidateOutput(const Datum& output);
 
-using BinaryTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
-using StringTypes = ::testing::Types<StringType, LargeStringType>;
-
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
 template <template <typename> class DoTestFunctor>

@@ -36,6 +36,16 @@ struct _GArrowDataTypeClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_6_0
+GArrowDataType *
+garrow_data_type_import(gpointer c_abi_schema,
+                        GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+gpointer
+garrow_data_type_export(GArrowDataType *data_type,
+                        GError **error);
+
 gboolean   garrow_data_type_equal     (GArrowDataType *data_type,
                                        GArrowDataType *other_data_type);
 gchar     *garrow_data_type_to_string (GArrowDataType *data_type);

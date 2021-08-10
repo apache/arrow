@@ -65,11 +65,8 @@ ExecNode <- R6Class("ExecNode",
       assert_is(expr, "Expression")
       ExecNode_Filter(self, expr)
     },
-    ScalarAggregate = function(options, target_names, out_field_names) {
-      ExecNode_ScalarAggregate(self, options, target_names, out_field_names)
-    },
-    GroupByAggregate = function(group_vars, target_names, aggregations) {
-      ExecNode_GroupByAggregate(self, group_vars, target_names, aggregations)
+    Aggregate = function(options, target_names, out_field_names, key_names) {
+      ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
     }
   )
 )

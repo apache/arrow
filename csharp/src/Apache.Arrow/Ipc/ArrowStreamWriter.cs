@@ -48,7 +48,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
-            IArrowArrayVisitor<Decimal256Array>
+            IArrowArrayVisitor<Decimal256Array>,
+            IArrowArrayVisitor<DictionaryArray>
         {
             public readonly struct Buffer
             {
@@ -128,6 +129,15 @@ namespace Apache.Arrow.Ipc
                 }
             }
 
+            public void Visit(DictionaryArray array)
+            {
+                // Dictionary is serialized separately in Dictionary serialization.
+                // We are only interested in indices at this context.
+
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.IndicesBuffer));
+            }
+
             private void CreateBuffers(BooleanArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
@@ -165,6 +175,8 @@ namespace Apache.Arrow.Ipc
 
         protected bool HasWrittenSchema { get; set; }
 
+        private bool HasWrittenDictionaryBatch { get; set; }
+
         private bool HasWrittenEnd { get; set; }
 
         protected Schema Schema { get; }
@@ -177,6 +189,9 @@ namespace Apache.Arrow.Ipc
         private static readonly byte[] s_padding = new byte[64];
 
         private readonly ArrowTypeFlatbufferBuilder _fieldTypeBuilder;
+
+        private DictionaryMemo _dictionaryMemo;
+        private DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
 
         public ArrowStreamWriter(Stream baseStream, Schema schema)
             : this(baseStream, schema, leaveOpen: false)
@@ -216,17 +231,17 @@ namespace Apache.Arrow.Ipc
             Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.NullCount);
         }
 
-        private int CountAllNodes()
+        private static int CountAllNodes(IReadOnlyDictionary<string, Field> fields)
         {
             int count = 0;
-            foreach (Field arrowArray in Schema.Fields.Values)
+            foreach (Field arrowArray in fields.Values)
             {
                 CountSelfAndChildrenNodes(arrowArray.DataType, ref count);
             }
             return count;
         }
 
-        private void CountSelfAndChildrenNodes(IArrowType type, ref int count)
+        private static void CountSelfAndChildrenNodes(IArrowType type, ref int count)
         {
             if (type is NestedType nestedType)
             {
@@ -248,6 +263,13 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
+            if (!HasWrittenDictionaryBatch)
+            {
+                DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
+                WriteDictionaries(recordBatch);
+                HasWrittenDictionaryBatch = true;
+            }
+
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
                 PreparingWritingRecordBatch(recordBatch);
 
@@ -264,10 +286,53 @@ namespace Apache.Arrow.Ipc
             long metadataLength = WriteMessage(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength);
 
-            // Write buffer data
+            long bufferLength = WriteBufferData(recordBatchBuilder.Buffers);
 
-            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
+            FinishedWritingRecordBatch(bufferLength, metadataLength);
+        }
 
+        private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
+            CancellationToken cancellationToken = default)
+        {
+            // TODO: Truncate buffers with extraneous padding / unused capacity
+
+            if (!HasWrittenSchema)
+            {
+                await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
+                HasWrittenSchema = true;
+            }
+
+            if (!HasWrittenDictionaryBatch)
+            {
+                DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
+                await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
+                HasWrittenDictionaryBatch = true;
+            }
+
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                PreparingWritingRecordBatch(recordBatch);
+
+            VectorOffset buffersVectorOffset = Builder.EndVector();
+
+            // Serialize record batch
+
+            StartingWritingRecordBatch();
+
+            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
+                fieldNodesVectorOffset,
+                buffersVectorOffset);
+
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
+                recordBatchOffset, recordBatchBuilder.TotalLength,
+                cancellationToken).ConfigureAwait(false);
+
+            long bufferLength = await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+
+            FinishedWritingRecordBatch(bufferLength, metadataLength);
+        }
+
+        private long WriteBufferData(IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers)
+        {
             long bodyLength = 0;
 
             for (int i = 0; i < buffers.Count; i++)
@@ -294,41 +359,11 @@ namespace Apache.Arrow.Ipc
 
             WritePadding(bodyPaddingLength);
 
-            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+            return bodyLength + bodyPaddingLength;
         }
 
-        private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
-            CancellationToken cancellationToken = default)
+        private async ValueTask<long> WriteBufferDataAsync(IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers, CancellationToken cancellationToken = default)
         {
-            // TODO: Truncate buffers with extraneous padding / unused capacity
-
-            if (!HasWrittenSchema)
-            {
-                await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
-                HasWrittenSchema = true;
-            }
-
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                PreparingWritingRecordBatch(recordBatch);
-
-            VectorOffset buffersVectorOffset = Builder.EndVector();
-
-            // Serialize record batch
-
-            StartingWritingRecordBatch();
-
-            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
-                fieldNodesVectorOffset,
-                buffersVectorOffset);
-
-            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
-                recordBatchOffset, recordBatchBuilder.TotalLength,
-                cancellationToken).ConfigureAwait(false);
-
-            // Write buffer data
-
-            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
-
             long bodyLength = 0;
 
             for (int i = 0; i < buffers.Count; i++)
@@ -355,23 +390,28 @@ namespace Apache.Arrow.Ipc
 
             await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
 
-            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+            return bodyLength + bodyPaddingLength;
         }
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        {
+            return PreparingWritingRecordBatch(recordBatch.Schema.Fields, recordBatch.ArrayList);
+        }
+
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyDictionary<string, Field> fields, IReadOnlyList<IArrowArray> arrays)
         {
             Builder.Clear();
 
             // Serialize field nodes
 
-            int fieldCount = Schema.Fields.Count;
+            int fieldCount = fields.Count;
 
-            Flatbuf.RecordBatch.StartNodesVector(Builder, CountAllNodes());
+            Flatbuf.RecordBatch.StartNodesVector(Builder, CountAllNodes(fields));
 
             // flatbuffer struct vectors have to be created in reverse order
             for (int i = fieldCount - 1; i >= 0; i--)
             {
-                CreateSelfAndChildrenFieldNodes(recordBatch.Column(i).Data);
+                CreateSelfAndChildrenFieldNodes(arrays[i].Data);
             }
 
             VectorOffset fieldNodesVectorOffset = Builder.EndVector();
@@ -381,7 +421,7 @@ namespace Apache.Arrow.Ipc
             var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
             for (int i = 0; i < fieldCount; i++)
             {
-                IArrowArray fieldArray = recordBatch.Column(i);
+                IArrowArray fieldArray = arrays[i];
                 fieldArray.Accept(recordBatchBuilder);
             }
 
@@ -397,6 +437,95 @@ namespace Apache.Arrow.Ipc
             }
 
             return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
+        }
+
+
+        private protected void WriteDictionaries(RecordBatch recordBatch)
+        {
+            foreach (Field field in recordBatch.Schema.Fields.Values)
+            {
+                WriteDictionary(field);
+            }
+        }
+
+        private protected void WriteDictionary(Field field)
+        {
+            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
+            {
+                if (field.DataType is NestedType nestedType)
+                {
+                    foreach (Field child in nestedType.Fields)
+                    {
+                        WriteDictionary(child);
+                    }
+                }
+                return;
+            }
+
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
+                CreateDictionaryBatchOffset(field);
+
+            WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
+                dictionaryBatchOffset, recordBatchBuilder.TotalLength);
+
+            WriteBufferData(recordBatchBuilder.Buffers);
+        }
+
+        private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
+        {
+            foreach (Field field in recordBatch.Schema.Fields.Values)
+            {
+                await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private protected async Task WriteDictionaryAsync(Field field, CancellationToken cancellationToken)
+        {
+            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
+            {
+                if (field.DataType is NestedType nestedType)
+                {
+                    foreach (Field child in nestedType.Fields)
+                    {
+                        await WriteDictionaryAsync(child, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                return;
+            }
+
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
+                CreateDictionaryBatchOffset(field);
+
+            await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
+                dictionaryBatchOffset, recordBatchBuilder.TotalLength, cancellationToken).ConfigureAwait(false);
+
+            await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+        }
+
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
+        {
+            Field dictionaryField = new Field("dummy", ((DictionaryType)field.DataType).ValueType, false);
+            long id = DictionaryMemo.GetId(field);
+            IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
+
+            var fieldsDictionary = new Dictionary<string, Field> {
+                { dictionaryField.Name, dictionaryField } };
+
+            var arrays = new List<IArrowArray> { dictionary };
+
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                                                            PreparingWritingRecordBatch(fieldsDictionary, arrays);
+
+            VectorOffset buffersVectorOffset = Builder.EndVector();
+
+            // Serialize record batch
+            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, dictionary.Length,
+                fieldNodesVectorOffset,
+                buffersVectorOffset);
+
+            // TODO: Support delta.
+            Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset = Flatbuf.DictionaryBatch.CreateDictionaryBatch(Builder, id, recordBatchOffset, false);
+            return Tuple.Create(recordBatchBuilder, dictionaryBatchOffset);
         }
 
         private protected virtual void WriteEndInternal()
@@ -475,10 +604,11 @@ namespace Apache.Arrow.Ipc
 
                 VectorOffset fieldChildrenVectorOffset = GetChildrenFieldOffset(field);
                 VectorOffset fieldMetadataVectorOffset = GetFieldMetadataOffset(field);
+                Offset<Flatbuf.DictionaryEncoding> dictionaryOffset = GetDictionaryOffset(field);
 
                 fieldOffsets[i] = Flatbuf.Field.CreateField(Builder,
                     fieldNameOffset, field.IsNullable, fieldType.Type, fieldType.Offset,
-                    default, fieldChildrenVectorOffset, fieldMetadataVectorOffset);
+                    dictionaryOffset, fieldChildrenVectorOffset, fieldMetadataVectorOffset);
             }
 
             VectorOffset fieldsVectorOffset = Flatbuf.Schema.CreateFieldsVector(Builder, fieldOffsets);
@@ -493,7 +623,11 @@ namespace Apache.Arrow.Ipc
 
         private VectorOffset GetChildrenFieldOffset(Field field)
         {
-            if (!(field.DataType is NestedType type))
+            IArrowType targetDataType = field.DataType is DictionaryType dictionaryType ?
+                dictionaryType.ValueType :
+                field.DataType;
+
+            if (!(targetDataType is NestedType type))
             {
                 return default;
             }
@@ -509,10 +643,11 @@ namespace Apache.Arrow.Ipc
 
                 VectorOffset childFieldChildrenVectorOffset = GetChildrenFieldOffset(childField);
                 VectorOffset childFieldMetadataVectorOffset = GetFieldMetadataOffset(childField);
+                Offset<Flatbuf.DictionaryEncoding> dictionaryOffset = GetDictionaryOffset(childField);
 
                 children[i] = Flatbuf.Field.CreateField(Builder,
                     childFieldNameOffset, childField.IsNullable, childFieldType.Type, childFieldType.Offset,
-                    default, childFieldChildrenVectorOffset, childFieldMetadataVectorOffset);
+                    dictionaryOffset, childFieldChildrenVectorOffset, childFieldMetadataVectorOffset);
             }
 
             return Builder.CreateVectorOfTables(children);
@@ -527,6 +662,21 @@ namespace Apache.Arrow.Ipc
 
             Offset<Flatbuf.KeyValue>[] metadataOffsets = GetMetadataOffsets(field.Metadata);
             return Flatbuf.Field.CreateCustomMetadataVector(Builder, metadataOffsets);
+        }
+
+        private Offset<Flatbuf.DictionaryEncoding> GetDictionaryOffset(Field field)
+        {
+            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
+            {
+                return default;
+            }
+
+            long id = DictionaryMemo.GetOrAssignId(field);
+            var dicType = field.DataType as DictionaryType;
+            var indexType = dicType.IndexType as NumberType;
+
+            Offset<Flatbuf.Int> indexOffset = Flatbuf.Int.CreateInt(Builder, indexType.BitWidth, indexType.IsSigned);
+            return Flatbuf.DictionaryEncoding.CreateDictionaryEncoding(Builder, id, indexOffset, dicType.Ordered);
         }
 
         private Offset<Flatbuf.KeyValue>[] GetMetadataOffsets(IReadOnlyDictionary<string, string> metadata)
@@ -720,6 +870,66 @@ namespace Apache.Arrow.Ipc
             if (!_leaveOpen)
             {
                 BaseStream.Dispose();
+            }
+        }
+    }
+
+    internal static class DictionaryCollector
+    {
+        internal static void Collect(RecordBatch recordBatch, ref DictionaryMemo dictionaryMemo)
+        {
+            Schema schema = recordBatch.Schema;
+            for (int i = 0; i < schema.Fields.Count; i++)
+            {
+                Field field = schema.GetFieldByIndex(i);
+                IArrowArray array = recordBatch.Column(i);
+
+                CollectDictionary(field, array.Data, ref dictionaryMemo);
+            }
+        }
+
+        private static void CollectDictionary(Field field, ArrayData arrayData, ref DictionaryMemo dictionaryMemo)
+        {
+            if (field.DataType is DictionaryType dictionaryType)
+            {
+                if (arrayData.Dictionary == null)
+                {
+                    throw new ArgumentException($"{nameof(arrayData.Dictionary)} must not be null");
+                }
+                arrayData.Dictionary.EnsureDataType(dictionaryType.ValueType.TypeId);
+
+                IArrowArray dictionary = ArrowArrayFactory.BuildArray(arrayData.Dictionary);
+
+                dictionaryMemo ??= new DictionaryMemo();
+                long id = dictionaryMemo.GetOrAssignId(field);
+
+                dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
+                WalkChildren(dictionary.Data, ref dictionaryMemo);
+            }
+            else
+            {
+                WalkChildren(arrayData, ref dictionaryMemo);
+            }
+        }
+
+        private static void WalkChildren(ArrayData arrayData, ref DictionaryMemo dictionaryMemo)
+        {
+            ArrayData[] children = arrayData.Children;
+
+            if (children == null)
+            {
+                return;
+            }
+
+            if (arrayData.DataType is NestedType nestedType)
+            {
+                for (int i = 0; i < nestedType.Fields.Count; i++)
+                {
+                    Field childField = nestedType.Fields[i];
+                    ArrayData child = children[i];
+
+                    CollectDictionary(childField, child, ref dictionaryMemo);
+                }
             }
         }
     }

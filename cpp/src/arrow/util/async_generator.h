@@ -850,7 +850,7 @@ class PushGenerator {
   PushGenerator() : state_(std::make_shared<State>()) {}
 
   /// Read an item from the queue
-  Future<T> operator()() {
+  Future<T> operator()() const {
     auto lock = state_->mutex.Lock();
     assert(!state_->consumer_fut.has_value());  // Non-reentrant
     if (!state_->result_q.empty()) {

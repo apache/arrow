@@ -167,7 +167,6 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
-/// Experimental
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;

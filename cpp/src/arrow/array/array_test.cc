@@ -407,6 +407,35 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   }
 }
 
+TEST_F(TestArray, TestValidateNullCount) {
+  Int32Builder builder(pool_);
+  ASSERT_OK(builder.Append(5));
+  ASSERT_OK(builder.Append(42));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  ArrayData* data = array->data().get();
+  data->null_count = kUnknownNullCount;
+  ASSERT_OK(array->ValidateFull());
+  data->null_count = 1;
+  ASSERT_OK(array->ValidateFull());
+
+  // null_count out of bounds
+  data->null_count = -2;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  data->null_count = 4;
+  ASSERT_RAISES(Invalid, array->Validate());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+
+  // null_count inconsistent with data
+  for (const int64_t null_count : {0, 2, 3}) {
+    data->null_count = null_count;
+    ASSERT_OK(array->Validate());
+    ASSERT_RAISES(Invalid, array->ValidateFull());
+  }
+}
+
 void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
   std::unique_ptr<arrow::ArrayBuilder> builder;
   auto null_scalar = MakeNullScalar(scalar->type);
@@ -432,11 +461,13 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   for (const auto index : {0, 1, 3, 5, 6}) {
     ASSERT_FALSE(out->IsNull(index));
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
   }
   for (const auto index : {2, 4, 7, 8}) {
     ASSERT_EQ(out->IsNull(index), can_check_nulls);
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*null_scalar, *scalar_i, /*verbose=*/true);
   }
 }

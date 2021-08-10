@@ -59,35 +59,39 @@ namespace Apache.Arrow.Ipc
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
-            int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (messageLength == 0)
-            {
-                // reached end
-                return null;
-            }
-
             RecordBatch result = null;
-            await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
+
+            while (result == null)
             {
-                int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
+                int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
                     .ConfigureAwait(false);
-                EnsureFullRead(messageBuff, bytesRead);
 
-                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+                if (messageLength == 0)
+                {
+                    // reached end
+                    return null;
+                }
 
-                int bodyLength = checked((int)message.BodyLength);
+                await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
+                {
+                    int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
+                        .ConfigureAwait(false);
+                    EnsureFullRead(messageBuff, bytesRead);
 
-                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
-                    .ConfigureAwait(false);
-                EnsureFullRead(bodyBuff, bytesRead);
+                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-            }).ConfigureAwait(false);
+                    int bodyLength = checked((int)message.BodyLength);
+
+                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                    bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                        .ConfigureAwait(false);
+                    EnsureFullRead(bodyBuff, bytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
+                }).ConfigureAwait(false);
+            }
 
             return result;
         }
@@ -96,32 +100,36 @@ namespace Apache.Arrow.Ipc
         {
             ReadSchema();
 
-            int messageLength = ReadMessageLength(throwOnFullRead: false);
-
-            if (messageLength == 0)
-            {
-                // reached end
-                return null;
-            }
-
             RecordBatch result = null;
-            ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
+
+            while (result == null)
             {
-                int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
-                EnsureFullRead(messageBuff, bytesRead);
+                int messageLength = ReadMessageLength(throwOnFullRead: false);
 
-                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+                if (messageLength == 0)
+                {
+                    // reached end
+                    return null;
+                }
 
-                int bodyLength = checked((int)message.BodyLength);
+                ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
+                {
+                    int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
+                    EnsureFullRead(messageBuff, bytesRead);
 
-                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-                EnsureFullRead(bodyBuff, bytesRead);
+                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-            });
+                    int bodyLength = checked((int)message.BodyLength);
+
+                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                    bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                    EnsureFullRead(bodyBuff, bytesRead);
+
+                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
+                });
+            }
 
             return result;
         }
@@ -144,7 +152,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }).ConfigureAwait(false);
         }
 
@@ -164,7 +172,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             });
         }
 

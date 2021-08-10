@@ -17,6 +17,7 @@
 
 class TestRecordBatchReader <Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def setup
     fields = [
@@ -37,6 +38,13 @@ class TestRecordBatchReader <Test::Unit::TestCase
       Arrow::RecordBatch.new(@schema, columns[0].length, columns)
     end
     @reader = Arrow::RecordBatchReader.new(@record_batches, @schema)
+  end
+
+  def test_export
+    require_gi_bindings(3, 4, 8)
+    c_abi_array_stream = @reader.export
+    assert_equal(Arrow::Table.new(@schema, @record_batches),
+                 Arrow::RecordBatchReader.import(c_abi_array_stream).read_all)
   end
 
   def test_schema

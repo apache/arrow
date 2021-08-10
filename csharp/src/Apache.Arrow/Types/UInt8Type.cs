@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class UInt8Type : NumberType
+    public sealed class UInt8Type : IntegerType
     {
         public static readonly UInt8Type Default = new UInt8Type();
 

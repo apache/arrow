@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class UInt32Type : NumberType
+    public sealed class UInt32Type : IntegerType
     {
         public static readonly UInt32Type Default = new UInt32Type();
 
