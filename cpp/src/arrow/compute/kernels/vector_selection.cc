@@ -2321,8 +2321,7 @@ const FunctionDoc drop_null_doc(
     ("The output is populated with values from the input (Array, ChunkedArray, "
      "RecordBatch, or Table) without the null values."
      "Note that for the RecordBatch/Table cases, `drop_null` drops the full row if there "
-     "is any null"
-     "null."),
+     "is any null."),
     {"input"});
 
 class DropNullMetaFunction : public MetaFunction {
@@ -2336,7 +2335,8 @@ class DropNullMetaFunction : public MetaFunction {
       case Datum::ARRAY: {
         auto input_array = args[0].make_array();
         return DropNullArray(input_array, ctx);
-      } break;
+      }  // namespace
+      break;
       case Datum::CHUNKED_ARRAY: {
         return DropNullChunkedArray(*args[0].chunked_array(), ctx);
       } break;
@@ -2352,13 +2352,13 @@ class DropNullMetaFunction : public MetaFunction {
       } break;
       default:
         break;
-    }
+    }  // namespace internal
     return Status::NotImplemented(
         "Unsupported types for drop_null operation: "
         "values=",
         args[0].ToString());
-  }
-};
+  }  // namespace compute
+};   // namespace arrow
 
 // ----------------------------------------------------------------------
 
