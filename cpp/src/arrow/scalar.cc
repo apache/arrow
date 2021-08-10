@@ -106,8 +106,10 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
-  // TODO(bkietz) implement less wimpy hashing when this has ValueType
-  Status Visit(const ExtensionScalar& s) { return Status::OK(); }
+  Status Visit(const ExtensionScalar& s) {
+    AccumulateHashFrom(*s.value);
+    return Status::OK();
+  }
 
   template <typename T>
   Status StdHash(const T& t) {
@@ -142,14 +144,14 @@ struct ScalarHashImpl {
   }
 
   explicit ScalarHashImpl(const Scalar& scalar) : hash_(scalar.type->Hash()) {
-    if (scalar.is_valid) {
-      AccumulateHashFrom(scalar);
-    }
+    AccumulateHashFrom(scalar);
   }
 
   void AccumulateHashFrom(const Scalar& scalar) {
-    DCHECK_OK(StdHash(scalar.type->fingerprint()));
-    DCHECK_OK(VisitScalarInline(scalar, this));
+    // Note we already injected the type in ScalarHashImpl::ScalarHashImpl
+    if (scalar.is_valid) {
+      DCHECK_OK(VisitScalarInline(scalar, this));
+    }
   }
 
   size_t hash_;
@@ -371,8 +373,29 @@ struct ScalarValidateImpl {
     return Status::OK();
   }
 
-  // TODO
-  Status Visit(const ExtensionScalar& s) { return Status::OK(); }
+  Status Visit(const ExtensionScalar& s) {
+    if (!s.is_valid) {
+      if (s.value) {
+        return Status::Invalid("null ", s.type->ToString(), " scalar has storage value");
+      }
+      return Status::OK();
+    }
+
+    if (!s.value) {
+      return Status::Invalid("non-null ", s.type->ToString(),
+                             " scalar doesn't have storage value");
+    }
+    if (!s.value->is_valid) {
+      return Status::Invalid("non-null ", s.type->ToString(),
+                             " scalar has null storage value");
+    }
+    const auto st = Validate(*s.value);
+    if (!st.ok()) {
+      return st.WithMessage(s.type->ToString(),
+                            " scalar fails validation for storage value: ", st.message());
+    }
+    return Status::OK();
+  }
 
   Status ValidateStringScalar(const BaseBinaryScalar& s) {
     RETURN_NOT_OK(ValidateBinaryScalar(s));
@@ -613,6 +636,11 @@ struct MakeNullImpl {
       return Status::Invalid("Cannot make scalar of empty union type");
     }
     out_ = std::make_shared<ScalarType>(type.type_codes()[0], type_);
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    out_ = std::make_shared<ExtensionScalar>(type_);
     return Status::OK();
   }
 

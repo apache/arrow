@@ -919,10 +919,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CSparseCSFTensor& other)
 
     cdef cppclass CScalar" arrow::Scalar":
+        CScalar(shared_ptr[CDataType])
+
         shared_ptr[CDataType] type
         c_bool is_valid
+
         c_string ToString() const
         c_bool Equals(const CScalar& other) const
+        CStatus Validate() const
+        CStatus ValidateFull() const
         CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
@@ -1016,11 +1021,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CDictionaryScalar(CDictionaryScalarIndexAndDictionary value,
                           shared_ptr[CDataType], c_bool is_valid)
         CDictionaryScalarIndexAndDictionary value
+
         CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
         shared_ptr[CScalar] value
         int8_t type_code
+
+    cdef cppclass CExtensionScalar" arrow::ExtensionScalar"(CScalar):
+        shared_ptr[CScalar] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
 
