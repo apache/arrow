@@ -32,8 +32,6 @@ namespace compute {
 namespace internal {
 namespace {
 
-FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
-
 struct IsValidOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
@@ -102,9 +100,6 @@ struct IsNullOperator {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    // TODO: Is `options` needed for detect nulls? Which is the better way to
-    // handle is_null for ArrayData
-    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
     if (arr.MayHaveNulls()) {
       // Input has nulls => output is the inverted null (validity) bitmap.
       InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
@@ -114,6 +109,25 @@ struct IsNullOperator {
       BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
                          false);
     }
+
+    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    if (options.nan_is_null) {
+      if (arr.type->id() == Type::FLOAT) {
+        const float* data = arr.GetValues<float>(1);
+        for (int64_t i = 0; i < arr.length; ++i) {
+          if (std::isnan(data[i]))
+            BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), i, 1, true);
+        }
+
+      } else if (arr.type->id() == Type::DOUBLE) {
+        const double* data = arr.GetValues<double>(1);
+        for (int64_t i = 0; i < arr.length; ++i) {
+          if (std::isnan(data[i]))
+            BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), i, 1, true);
+        }
+      }
+    }
+
     return Status::OK();
   }
 };
@@ -240,6 +254,8 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              {"values"});
 
 }  // namespace
+
+FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
