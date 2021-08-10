@@ -1059,7 +1059,7 @@ tasks:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
-      image: ubuntu-r
+      image: ubuntu-r-only-r
 
   # This also has -flto=auto
   test-r-gcc-11:
