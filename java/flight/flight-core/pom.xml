@@ -233,7 +233,7 @@
           <execution>
             <id>src</id>
             <configuration>
-              <protoSourceRoot>${basedir}/../../../format</protoSourceRoot>
+              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
               <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
             </configuration>
             <goals>
