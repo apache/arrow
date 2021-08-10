@@ -80,5 +80,4 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
 ${CMAKE} --build . --target install
-
 popd
