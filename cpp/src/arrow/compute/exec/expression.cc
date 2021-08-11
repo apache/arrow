@@ -1154,7 +1154,10 @@ Expression greater_equal(Expression lhs, Expression rhs) {
   return call("greater_equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression is_null(Expression lhs) { return call("is_null", {std::move(lhs)}); }
+Expression is_null(Expression lhs, bool nan_is_null) {
+  return call("is_null", {std::move(lhs)},
+              compute::NanNullOptions(std::move(nan_is_null)));
+}
 
 Expression is_valid(Expression lhs) { return call("is_valid", {std::move(lhs)}); }
 
