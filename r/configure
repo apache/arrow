@@ -251,8 +251,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
     fi
   fi
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
-  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS -fno-lto"
-  PKG_CFLAGS="$PKG_CFLAGS -ffat-lto-objects"
+  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
