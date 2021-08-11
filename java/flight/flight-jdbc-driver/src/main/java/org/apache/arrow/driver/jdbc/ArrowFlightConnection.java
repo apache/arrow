@@ -46,6 +46,7 @@ import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
@@ -70,10 +71,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
   private final BufferAllocator allocator;
   private final Properties properties;
   private ExecutorService executorService;
-
-  // TODO Use this later to run queries.
-  @SuppressWarnings("unused")
-  private ArrowFlightClientHandler client;
+  private FlightClientHandler handler;
 
   /**
    * Instantiates a new Arrow Flight Connection.
@@ -99,8 +97,13 @@ public class ArrowFlightConnection extends AvaticaConnection {
     }
   }
 
-  protected final ArrowFlightClientHandler getClient() {
-    return client;
+  /**
+   * Gets the client {@link #handler} backing this connection.
+   *
+   * @return the handler.
+   */
+  protected final FlightClientHandler getHandler() {
+    return handler;
   }
 
   @Override
@@ -123,7 +126,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
   }
 
   /**
-   * Sets {@link #client} based on the properties of this connection.
+   * Sets {@link #handler} based on the properties of this connection.
    *
    * @throws KeyStoreException        If an error occurs while trying to retrieve KeyStore information.
    * @throws NoSuchAlgorithmException If a particular cryptographic algorithm is required but does not
@@ -136,13 +139,13 @@ public class ArrowFlightConnection extends AvaticaConnection {
    */
   private void loadClient() throws SQLException {
 
-    if (client != null) {
+    if (handler != null) {
       throw new SQLException("Client already loaded.",
           new IllegalStateException());
     }
 
     try {
-      client = ArrowFlightClientHandler.getClient(allocator,
+      handler = ArrowFlightClientHandler.getClient(allocator,
           getPropertyAsString(HOST), getPropertyAsInteger(PORT),
           getPropertyAsString(USERNAME), getPropertyAsString(PASSWORD),
           getHeaders(),
@@ -211,7 +214,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     List<Exception> exceptions = new ArrayList<>();
 
     try {
-      AutoCloseables.close(client);
+      AutoCloseables.close(handler);
     } catch (Exception e) {
       exceptions.add(e);
     }
