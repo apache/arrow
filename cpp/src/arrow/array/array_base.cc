@@ -134,9 +134,9 @@ struct ScalarFromArraySlotImpl {
   Status Visit(const DictionaryArray& a) {
     auto ty = a.type();
 
-    ARROW_ASSIGN_OR_RAISE(auto index,
-                          MakeScalar(checked_cast<DictionaryType&>(*ty).index_type(),
-                                     a.GetValueIndex(index_)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto index, MakeScalar(checked_cast<const DictionaryType&>(*ty).index_type(),
+                               a.GetValueIndex(index_)));
 
     auto scalar = DictionaryScalar(ty);
     scalar.is_valid = a.IsValid(index_);
@@ -148,7 +148,9 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const ExtensionArray& a) {
-    return Status::NotImplemented("Non-null ExtensionScalar");
+    ARROW_ASSIGN_OR_RAISE(auto storage, a.storage()->GetScalar(index_));
+    out_ = std::make_shared<ExtensionScalar>(std::move(storage), a.type());
+    return Status::OK();
   }
 
   template <typename Arg>
