@@ -17,11 +17,9 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import static java.util.stream.Collectors.toList;
-
 import java.util.Collection;
-import java.util.stream.Stream;
 
+import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
@@ -32,22 +30,27 @@ import org.apache.arrow.flight.FlightStream;
 public interface FlightClientHandler extends AutoCloseable {
 
   /**
-   * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
-   * object. Lazily retrieves result of the query previously prepared with "getInfo."
+   * Gets the call options for subsequent calls to the client wrapped by this handler.
    *
-   * @param query The query.
-   * @return a {@code FlightStream} of results.
+   * @return the call options.
    */
-  Stream<FlightStream> lazilyGetFlightStreams(String query);
+  Collection<CallOption> getOptions();
 
   /**
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
-   * object. Readily retrieves result of the query previously prepared with "getInfo."
+   * object. Retrieves the result of the query previously prepared with "getInfo."
    *
    * @param query The query.
    * @return a {@code FlightStream} of results.
    */
-  default Collection<FlightStream> readilyGetFlightStreams(String query) {
-    return lazilyGetFlightStreams(query).collect(toList());
-  }
+  Collection<FlightStream> getStreams(String query);
+
+  /**
+   * Makes an RPC "getInfo" request based on the provided {@code query}
+   * object.
+   *
+   * @param query The query.
+   * @return a {@code FlightStream} of results.
+   */
+  FlightInfo getInfo(String query);
 }
