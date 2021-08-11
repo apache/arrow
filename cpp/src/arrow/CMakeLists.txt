@@ -412,7 +412,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
-       compute/exec/hash_join.cc
+       compute/exec/hash_join_node.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
        compute/exec/key_compare.cc

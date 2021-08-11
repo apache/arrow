@@ -193,6 +193,8 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
     // add a tag scalar to ensure the batches are unique
     out.batches[i].values.emplace_back(i);
   }
+
+  out.schema = schema;
   return out;
 }
 
