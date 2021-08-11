@@ -94,26 +94,6 @@ public class Field {
     this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
   }
 
-  /**
-   * Creates a new field.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
-    this(name, new FieldType(nullable, type, null, null), children);
-  }
-
-  /**
-   * Creates a new field.
-   *
-   * @deprecated Use FieldType or static constructor instead.
-   */
-  @Deprecated
-  public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
-    this(name, new FieldType(nullable, type, dictionary, null), children);
-  }
-
   public Field(String name, FieldType fieldType, List<Field> children) {
     this(name, fieldType, children, fieldType == null ? null : TypeLayout.getTypeLayout(fieldType.getType()));
   }

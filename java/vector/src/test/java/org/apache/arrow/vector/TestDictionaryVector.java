@@ -306,8 +306,8 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeUnion() {
     // Create a new value vector
-    try (final UnionVector vector = new UnionVector("vector", allocator, null);
-         final UnionVector dictionaryVector = new UnionVector("dict", allocator, null);) {
+    try (final UnionVector vector = new UnionVector("vector", allocator, null, null);
+         final UnionVector dictionaryVector = new UnionVector("dict", allocator, null, null);) {
 
       final NullableUInt4Holder uintHolder1 = new NullableUInt4Holder();
       uintHolder1.value = 10;
@@ -494,8 +494,8 @@ public class TestDictionaryVector {
 
   @Test
   public void testUnionEquals() {
-    try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, null, null);
+         final UnionVector vector2 = new UnionVector("union", allocator, null, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
