@@ -713,7 +713,7 @@ TEST_F(TestBuilder, TestResizeDownsize) {
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
  public:
-  typedef Attrs TestType;
+  typedef Attrs TestAttrs;
   typedef typename Attrs::ArrayType ArrayType;
   typedef typename Attrs::BuilderType BuilderType;
   typedef typename Attrs::T T;
@@ -1343,7 +1343,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& valid_bytes = this->valid_bytes_;
 
   auto halve = [&draws](int64_t index) {
-    return TestFixture::TestType::Modify(draws[index]);
+    return TestFixture::TestAttrs::Modify(draws[index]);
   };
   auto lazy_iter = internal::MakeLazyRange(halve, size);
 
@@ -1352,7 +1352,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 
   std::vector<T> halved;
   transform(draws.begin(), draws.end(), back_inserter(halved),
-            [](T in) { return TestFixture::TestType::Modify(in); });
+            [](T in) { return TestFixture::TestAttrs::Modify(in); });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
