@@ -17,39 +17,33 @@
 
 import { Data } from '../data';
 import { Field } from '../schema';
+import { Vector } from '../vector';
 import { DataType, Struct } from '../type';
 import { valueToString } from '../util/pretty';
-import { instance as getVisitor } from '../visitor/get';
-import { instance as setVisitor } from '../visitor/set';
 
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');
 
 export class StructRow<T extends { [key: string]: DataType } = any> {
 
-    static bind<T extends { [key: string]: DataType } = any>(base: StructRow<T>, index: number) {
-        const bound = Object.create(base);
-        bound[kRowIndex] = index;
-        return bound;
-    }
+    declare private [kRowIndex]: number;
+    declare private [kParent]: Vector<Struct<T>>;
 
-    private [kRowIndex]: number;
-    private [kParent]: Data<Struct<T>>;
-
-    constructor(parent: Data<Struct<T>>) {
-        this[kParent] = parent;
-        return defineRowProxyProperties(this);
+    constructor(parent: Data<Struct<T>>, rowIndex: number) {
+        this[kParent] = new Vector([parent]);
+        this[kRowIndex] = rowIndex;
+        return new Proxy(this, new StructRowProxyHandler());
     }
 
     public toArray() { return Object.values(this.toJSON()); }
 
     public toJSON() {
         const i = this[kRowIndex];
-        const cols = this[kParent].children;
-        const keys = this[kParent].type.children;
+        const parent = this[kParent];
+        const keys = parent.type.children;
         const json = {} as { [P in string & keyof T]: T[P]['TValue'] };
         for (let j = -1, n = keys.length; ++j < n;) {
-            json[keys[j].name as string & keyof T] = getVisitor.visit(cols[j], i);
+            json[keys[j].name as string & keyof T] = parent.getChildAt(j)![i];
         }
         return json;
     }
@@ -74,17 +68,17 @@ class StructRowIterator<T extends { [key: string]: DataType } = any>
         keyof T, { [P in keyof T]: T[P]['TValue'] | null }[keyof T]
     ]> {
 
-    private rowIndex: number;
-    private childIndex: number;
-    private numChildren: number;
-    private children: Data<any>[];
-    private childFields: Field<T[keyof T]>[];
+    declare private rowIndex: number;
+    declare private childIndex: number;
+    declare private numChildren: number;
+    declare private parent: Vector<Struct<T>>;
+    declare private childFields: Field<T[keyof T]>[];
 
-    constructor(data: Data<Struct<T>>, rowIndex: number) {
-        this.rowIndex = rowIndex;
+    constructor(parent: Vector<Struct<T>>, rowIndex: number) {
         this.childIndex = 0;
-        this.children = data.children;
-        this.childFields = data.type.children;
+        this.parent = parent;
+        this.rowIndex = rowIndex;
+        this.childFields = parent.type.children;
         this.numChildren = this.childFields.length;
     }
 
@@ -98,7 +92,7 @@ class StructRowIterator<T extends { [key: string]: DataType } = any>
                 done: false,
                 value: [
                     this.childFields[i].name,
-                    getVisitor.visit(this.children[i], this.rowIndex)
+                    this.parent.getChildAt(i)![this.rowIndex]
                 ]
             } as IteratorYieldResult<[any, any]>;
         }
@@ -112,31 +106,44 @@ Object.defineProperties(StructRow.prototype, {
     [kRowIndex]: { writable: true, enumerable: false, configurable: false, value: -1 },
 });
 
-/** @ignore */
-const defineRowProxyProperties = (() => {
-    const desc = {
-        get: null as any,
-        set: null as any,
-        enumerable: true,
-        configurable: false,
-    };
-    return <T extends StructRow>(base: T) => {
-        const children = base[kParent].children;
-        const getter = (childIndex: number) => function(this: T) {
-            return getVisitor.visit(children[childIndex], this[kRowIndex]);
-        };
-        const setter = (childIndex: number) => function(this: T, value: any) {
-            return setVisitor.visit(children[childIndex], this[kRowIndex], value);
-        };
-        const fields = base[kParent].type.children;
-        for (let i = -1, n = fields.length; ++i < n;) {
-            desc.get = getter(i);
-            desc.set = setter(i);
-            if (!Object.prototype.hasOwnProperty.call(base, fields[i].name)) {
-                Object.defineProperty(base, fields[i].name, desc);
-            }
+class StructRowProxyHandler<T extends { [key: string]: DataType } = any> implements ProxyHandler<StructRow<T>> {
+    isExtensible() { return false; }
+    deleteProperty() { return false; }
+    preventExtensions() { return true; }
+    ownKeys(row: StructRow<T>) {
+        return row[kParent].type.children.map((f) => f.name);
+    }
+    has(row: StructRow<T>, key: string) {
+        return row[kParent].type.children.findIndex((f) => f.name === key) !== -1;
+    }
+    getOwnPropertyDescriptor(row: StructRow<T>, key: string) {
+        if (row[kParent].type.children.findIndex((f) => f.name === key) !== -1) {
+            return { writable: true, enumerable: true, configurable: true };
         }
-        desc.get = desc.set = null;
-        return base;
-    };
-})();
+        return undefined;
+    }
+    get(row: StructRow<T>, key: string) {
+        // Look up key in row first
+        if (Reflect.has(row, key)) {
+            return (row as any)[key];
+        }
+        const idx = row[kParent].type.children.findIndex((f) => f.name === key);
+        if (idx !== -1) {
+            const val = row[kParent].getChildAt(idx)![row[kRowIndex]];
+            // Cache key/val lookups
+            Reflect.set(row, key, val);
+            return val;
+        }
+    }
+    set(row: StructRow<T>, key: string, val: any) {
+        const idx = row[kParent].type.children.findIndex((f) => f.name === key);
+        if (idx !== -1) {
+            row[kParent].getChildAt(idx)![row[kRowIndex]] = val;
+            // Cache key/val lookups
+            return Reflect.set(row, key, val);
+        } else if (Reflect.has(row, key)) {
+            return Reflect.set(row, key, val);
+        }
+        return false;
+    }
+}

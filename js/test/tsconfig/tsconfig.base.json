@@ -4,6 +4,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
+    "rootDir": "../../",
     "allowJs": true,
     "declaration": false,
     "importHelpers": false,

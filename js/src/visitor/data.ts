@@ -225,7 +225,7 @@ export function visitDecimal<T extends Decimal>(props: DecimalDataProps<T>) {
 }
 
 export function visitList<T extends List>(props: ListDataProps<T>) {
-    const { type, offset = 0, child } = props;
+    const { type, offset = 0, ['child']: child } = props;
     const nullBitmap = toUint8Array(props.nullBitmap);
     const valueOffsets = toInt32Array(props.valueOffsets);
     const { length = valueOffsets.length - 1, nullCount = props.nullBitmap ? -1 : 0 } = props;
@@ -271,14 +271,14 @@ export function visitInterval<T extends Interval>(props: IntervalDataProps<T>) {
 }
 
 export function visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
-    const { type, offset = 0, child } = props;
+    const { type, offset = 0, ['child']: child } = props;
     const nullBitmap = toUint8Array(props.nullBitmap);
     const { length = child.length / strideForType(type), nullCount = props.nullBitmap ? -1 : 0 } = props;
     return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], [child]);
 }
 
 export function visitMap<T extends Map_>(props: MapDataProps<T>) {
-    const { type, offset = 0, child } = props;
+    const { type, offset = 0, ['child']: child } = props;
     const nullBitmap = toUint8Array(props.nullBitmap);
     const valueOffsets = toInt32Array(props.valueOffsets);
     const { length = valueOffsets.length - 1, nullCount = props.nullBitmap ? -1 : 0, } = props;

@@ -104,7 +104,7 @@ const createClosureArgs = (entry_point, externs, target) => ({
     js_output_file: `${mainExport}.js`,
     language_in: gCCLanguageNames[`esnext`],
     language_out: gCCLanguageNames[target],
-    output_wrapper:`${apacheHeader()}
+    output_wrapper: `${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
     typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -164,7 +164,7 @@ Symbol.asyncIterator;
 }
 
 function getPublicExportedNames(entryModule) {
-    const fn = function() {};
+    const fn = function () { };
     const isStaticOrProtoName = (x) => (
         !(x in fn) &&
         (x !== `default`) &&

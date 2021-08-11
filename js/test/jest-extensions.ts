@@ -16,7 +16,7 @@
 // under the License.
 
 import { zip } from 'ix/iterable/zip';
-import { Table, Vector, RecordBatch, Column, util } from './Arrow';
+import { Table, Vector, RecordBatch, util } from 'apache-arrow';
 
 declare global {
     namespace jest {
@@ -53,13 +53,13 @@ function toArrowCompare(this: jest.MatcherUtils, actual: any, expected: any) {
 
 function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
     const failures = [] as string[];
-    try { expect(actual).toHaveLength(expected.length); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual).toHaveLength(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.schema.metadata).toEqual(expected.schema.metadata); } catch (e) { failures.push(`${e}`); }
     (() => {
         for (let i = -1, n = actual.numCols; ++i < n;) {
-            const v1 = actual.getColumnAt(i);
-            const v2 = expected.getColumnAt(i);
+            const v1 = actual.getChildAt(i);
+            const v2 = expected.getChildAt(i);
             const name = actual.schema.fields[i].name;
             try {
                 expect([v1, `actual`, name]).toEqualVector([v2, `expected`, name]);
@@ -74,7 +74,7 @@ function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
 
 function toEqualRecordBatch(this: jest.MatcherUtils, actual: RecordBatch, expected: RecordBatch) {
     const failures = [] as string[];
-    try { expect(actual).toHaveLength(expected.length); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual).toHaveLength(expected.numRows); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     (() => {
         for (let i = -1, n = actual.numCols; ++i < n;) {
@@ -100,7 +100,7 @@ function toEqualVector<
     let [v1, format1 = '', columnName = ''] = Array.isArray(actual) ? actual : [actual];
     let [v2, format2 = ''] = Array.isArray(expected) ? expected : [expected];
 
-    if (v1 instanceof Column && columnName === '') { columnName = v1.name; }
+    // if (v1 instanceof Column && columnName === '') { columnName = v1.name; }
 
     if (v1 == null || v2 == null) {
         return {
@@ -121,7 +121,7 @@ function toEqualVector<
         { title: 'iterator', failures: iteratorFailures }
     ];
 
-    let props: (keyof Vector)[] = ['type', 'length', 'nullCount'];
+    let props: (string & keyof Vector)[] = ['type', 'length', 'nullCount'];
 
     (() => {
         for (let i = -1, n = props.length; ++i < n;) {

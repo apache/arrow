@@ -39,57 +39,62 @@ import {
 
 /** @ignore */
 export interface GetVisitor extends Visitor {
-    visit<T extends DataType>      (node: Data<T>, index: number): T['TValue'];
-    visitMany<T extends DataType>  (nodes: Data<T>[], indices: number[]): T['TValue'][];
-    getVisitFn<T extends DataType> (node: Data<T> | T): (data: Data<T>, index: number) => T['TValue'];
+    visit<T extends DataType>      (node: Data<T>, index: number): T['TValue'] | null;
+    visitMany<T extends DataType>  (nodes: Data<T>[], indices: number[]): (T['TValue'] | null)[];
+    getVisitFn<T extends DataType> (node: Data<T> | T): (data: Data<T>, index: number) => T['TValue'] | null;
     getVisitFn<T extends Type>     (node: T): (data: Data<TypeToDataType<T>>, index: number) => TypeToDataType<T>['TValue'];
-    visitNull                 <T extends Null>                 (data: Data<T>, index: number): T['TValue'];
-    visitBool                 <T extends Bool>                 (data: Data<T>, index: number): T['TValue'];
-    visitInt                  <T extends Int>                  (data: Data<T>, index: number): T['TValue'];
-    visitInt8                 <T extends Int8>                 (data: Data<T>, index: number): T['TValue'];
-    visitInt16                <T extends Int16>                (data: Data<T>, index: number): T['TValue'];
-    visitInt32                <T extends Int32>                (data: Data<T>, index: number): T['TValue'];
-    visitInt64                <T extends Int64>                (data: Data<T>, index: number): T['TValue'];
-    visitUint8                <T extends Uint8>                (data: Data<T>, index: number): T['TValue'];
-    visitUint16               <T extends Uint16>               (data: Data<T>, index: number): T['TValue'];
-    visitUint32               <T extends Uint32>               (data: Data<T>, index: number): T['TValue'];
-    visitUint64               <T extends Uint64>               (data: Data<T>, index: number): T['TValue'];
-    visitFloat                <T extends Float>                (data: Data<T>, index: number): T['TValue'];
-    visitFloat16              <T extends Float16>              (data: Data<T>, index: number): T['TValue'];
-    visitFloat32              <T extends Float32>              (data: Data<T>, index: number): T['TValue'];
-    visitFloat64              <T extends Float64>              (data: Data<T>, index: number): T['TValue'];
-    visitUtf8                 <T extends Utf8>                 (data: Data<T>, index: number): T['TValue'];
-    visitBinary               <T extends Binary>               (data: Data<T>, index: number): T['TValue'];
-    visitFixedSizeBinary      <T extends FixedSizeBinary>      (data: Data<T>, index: number): T['TValue'];
-    visitDate                 <T extends Date_>                (data: Data<T>, index: number): T['TValue'];
-    visitDateDay              <T extends DateDay>              (data: Data<T>, index: number): T['TValue'];
-    visitDateMillisecond      <T extends DateMillisecond>      (data: Data<T>, index: number): T['TValue'];
-    visitTimestamp            <T extends Timestamp>            (data: Data<T>, index: number): T['TValue'];
-    visitTimestampSecond      <T extends TimestampSecond>      (data: Data<T>, index: number): T['TValue'];
-    visitTimestampMillisecond <T extends TimestampMillisecond> (data: Data<T>, index: number): T['TValue'];
-    visitTimestampMicrosecond <T extends TimestampMicrosecond> (data: Data<T>, index: number): T['TValue'];
-    visitTimestampNanosecond  <T extends TimestampNanosecond>  (data: Data<T>, index: number): T['TValue'];
-    visitTime                 <T extends Time>                 (data: Data<T>, index: number): T['TValue'];
-    visitTimeSecond           <T extends TimeSecond>           (data: Data<T>, index: number): T['TValue'];
-    visitTimeMillisecond      <T extends TimeMillisecond>      (data: Data<T>, index: number): T['TValue'];
-    visitTimeMicrosecond      <T extends TimeMicrosecond>      (data: Data<T>, index: number): T['TValue'];
-    visitTimeNanosecond       <T extends TimeNanosecond>       (data: Data<T>, index: number): T['TValue'];
-    visitDecimal              <T extends Decimal>              (data: Data<T>, index: number): T['TValue'];
-    visitList                 <T extends List>                 (data: Data<T>, index: number): T['TValue'];
-    visitStruct               <T extends Struct>               (data: Data<T>, index: number): T['TValue'];
-    visitUnion                <T extends Union>                (data: Data<T>, index: number): T['TValue'];
-    visitDenseUnion           <T extends DenseUnion>           (data: Data<T>, index: number): T['TValue'];
-    visitSparseUnion          <T extends SparseUnion>          (data: Data<T>, index: number): T['TValue'];
-    visitDictionary           <T extends Dictionary>           (data: Data<T>, index: number): T['TValue'];
-    visitInterval             <T extends Interval>             (data: Data<T>, index: number): T['TValue'];
-    visitIntervalDayTime      <T extends IntervalDayTime>      (data: Data<T>, index: number): T['TValue'];
-    visitIntervalYearMonth    <T extends IntervalYearMonth>    (data: Data<T>, index: number): T['TValue'];
-    visitFixedSizeList        <T extends FixedSizeList>        (data: Data<T>, index: number): T['TValue'];
-    visitMap                  <T extends Map_>                 (data: Data<T>, index: number): T['TValue'];
+    visitNull                 <T extends Null>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitBool                 <T extends Bool>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitInt                  <T extends Int>                  (data: Data<T>, index: number): T['TValue'] | null;
+    visitInt8                 <T extends Int8>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitInt16                <T extends Int16>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitInt32                <T extends Int32>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitInt64                <T extends Int64>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitUint8                <T extends Uint8>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitUint16               <T extends Uint16>               (data: Data<T>, index: number): T['TValue'] | null;
+    visitUint32               <T extends Uint32>               (data: Data<T>, index: number): T['TValue'] | null;
+    visitUint64               <T extends Uint64>               (data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat                <T extends Float>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat16              <T extends Float16>              (data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat32              <T extends Float32>              (data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat64              <T extends Float64>              (data: Data<T>, index: number): T['TValue'] | null;
+    visitUtf8                 <T extends Utf8>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitBinary               <T extends Binary>               (data: Data<T>, index: number): T['TValue'] | null;
+    visitFixedSizeBinary      <T extends FixedSizeBinary>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitDate                 <T extends Date_>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitDateDay              <T extends DateDay>              (data: Data<T>, index: number): T['TValue'] | null;
+    visitDateMillisecond      <T extends DateMillisecond>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestamp            <T extends Timestamp>            (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampSecond      <T extends TimestampSecond>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampMillisecond <T extends TimestampMillisecond> (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampMicrosecond <T extends TimestampMicrosecond> (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampNanosecond  <T extends TimestampNanosecond>  (data: Data<T>, index: number): T['TValue'] | null;
+    visitTime                 <T extends Time>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeSecond           <T extends TimeSecond>           (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeMillisecond      <T extends TimeMillisecond>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeMicrosecond      <T extends TimeMicrosecond>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeNanosecond       <T extends TimeNanosecond>       (data: Data<T>, index: number): T['TValue'] | null;
+    visitDecimal              <T extends Decimal>              (data: Data<T>, index: number): T['TValue'] | null;
+    visitList                 <T extends List>                 (data: Data<T>, index: number): T['TValue'] | null;
+    visitStruct               <T extends Struct>               (data: Data<T>, index: number): T['TValue'] | null;
+    visitUnion                <T extends Union>                (data: Data<T>, index: number): T['TValue'] | null;
+    visitDenseUnion           <T extends DenseUnion>           (data: Data<T>, index: number): T['TValue'] | null;
+    visitSparseUnion          <T extends SparseUnion>          (data: Data<T>, index: number): T['TValue'] | null;
+    visitDictionary           <T extends Dictionary>           (data: Data<T>, index: number): T['TValue'] | null;
+    visitInterval             <T extends Interval>             (data: Data<T>, index: number): T['TValue'] | null;
+    visitIntervalDayTime      <T extends IntervalDayTime>      (data: Data<T>, index: number): T['TValue'] | null;
+    visitIntervalYearMonth    <T extends IntervalYearMonth>    (data: Data<T>, index: number): T['TValue'] | null;
+    visitFixedSizeList        <T extends FixedSizeList>        (data: Data<T>, index: number): T['TValue'] | null;
+    visitMap                  <T extends Map_>                 (data: Data<T>, index: number): T['TValue'] | null;
 }
 
 /** @ignore */
 export class GetVisitor extends Visitor {}
+
+/** @ignore */
+function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
+    return (data: Data<T>, _1: any) => data.getValid(_1) ? fn(data, _1) : null;
+}
 
 /** @ignore */const epochDaysToMs = (data: Int32Array, index: number) => 86400000 * data[index];
 /** @ignore */const epochMillisecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1]) + (data[index] >>> 0);
@@ -203,21 +208,25 @@ const getDecimal = <T extends Decimal>({ values }: Data<T>, index: number): T['T
 /** @ignore */
 const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
     const { valueOffsets, stride } = data;
+    const { [index * stride]: begin } = valueOffsets;
+    const { [index * stride + 1]: end } = valueOffsets;
     const child: Data<T['valueType']> = data.children[0];
-    const slice = child.slice(valueOffsets[index * stride], valueOffsets[index * stride + 1]);
+    const slice = child.slice(begin, end - begin);
     return new Vector([slice]) as T['TValue'];
 };
 
 /** @ignore */
 const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
-    const { [index]: begin, [index + 1]: end } = data.valueOffsets;
+    const { valueOffsets } = data;
+    const { [index]: begin } = valueOffsets;
+    const { [index + 1]: end } = valueOffsets;
     const child = data.children[0] as Data<T['childType']>;
-    return new MapRow(child.slice(begin, end));
+    return new MapRow(child.slice(begin, end - begin));
 };
 
 /** @ignore */
 const getStruct = <T extends Struct>(data: Data<T>, index: number): T['TValue'] => {
-    return StructRow.bind(data.type._row || (data.type._row = new StructRow(data)), index);
+    return new StructRow(data, index);
 };
 
 /* istanbul ignore next */
@@ -272,53 +281,53 @@ const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, 
 const getFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] => {
     const { stride } = data;
     const child: Data<T['valueType']> = data.children[0];
-    const slice = child.slice(index * stride, (index + 1) * stride);
+    const slice = child.slice(index * stride, stride);
     return new Vector([slice]);
 };
 
-GetVisitor.prototype.visitNull                 =                 getNull;
-GetVisitor.prototype.visitBool                 =                 getBool;
-GetVisitor.prototype.visitInt                  =                  getInt;
-GetVisitor.prototype.visitInt8                 =              getNumeric;
-GetVisitor.prototype.visitInt16                =              getNumeric;
-GetVisitor.prototype.visitInt32                =              getNumeric;
-GetVisitor.prototype.visitInt64                =              getBigInts;
-GetVisitor.prototype.visitUint8                =              getNumeric;
-GetVisitor.prototype.visitUint16               =              getNumeric;
-GetVisitor.prototype.visitUint32               =              getNumeric;
-GetVisitor.prototype.visitUint64               =              getBigInts;
-GetVisitor.prototype.visitFloat                =                getFloat;
-GetVisitor.prototype.visitFloat16              =              getFloat16;
-GetVisitor.prototype.visitFloat32              =              getNumeric;
-GetVisitor.prototype.visitFloat64              =              getNumeric;
-GetVisitor.prototype.visitUtf8                 =                 getUtf8;
-GetVisitor.prototype.visitBinary               =               getBinary;
-GetVisitor.prototype.visitFixedSizeBinary      =      getFixedSizeBinary;
-GetVisitor.prototype.visitDate                 =                 getDate;
-GetVisitor.prototype.visitDateDay              =              getDateDay;
-GetVisitor.prototype.visitDateMillisecond      =      getDateMillisecond;
-GetVisitor.prototype.visitTimestamp            =            getTimestamp;
-GetVisitor.prototype.visitTimestampSecond      =      getTimestampSecond;
-GetVisitor.prototype.visitTimestampMillisecond = getTimestampMillisecond;
-GetVisitor.prototype.visitTimestampMicrosecond = getTimestampMicrosecond;
-GetVisitor.prototype.visitTimestampNanosecond  =  getTimestampNanosecond;
-GetVisitor.prototype.visitTime                 =                 getTime;
-GetVisitor.prototype.visitTimeSecond           =           getTimeSecond;
-GetVisitor.prototype.visitTimeMillisecond      =      getTimeMillisecond;
-GetVisitor.prototype.visitTimeMicrosecond      =      getTimeMicrosecond;
-GetVisitor.prototype.visitTimeNanosecond       =       getTimeNanosecond;
-GetVisitor.prototype.visitDecimal              =              getDecimal;
-GetVisitor.prototype.visitList                 =                 getList;
-GetVisitor.prototype.visitStruct               =               getStruct;
-GetVisitor.prototype.visitUnion                =                getUnion;
-GetVisitor.prototype.visitDenseUnion           =           getDenseUnion;
-GetVisitor.prototype.visitSparseUnion          =          getSparseUnion;
-GetVisitor.prototype.visitDictionary           =           getDictionary;
-GetVisitor.prototype.visitInterval             =             getInterval;
-GetVisitor.prototype.visitIntervalDayTime      =      getIntervalDayTime;
-GetVisitor.prototype.visitIntervalYearMonth    =    getIntervalYearMonth;
-GetVisitor.prototype.visitFixedSizeList        =        getFixedSizeList;
-GetVisitor.prototype.visitMap                  =                  getMap;
+GetVisitor.prototype.visitNull                 =                 wrapGet(getNull);
+GetVisitor.prototype.visitBool                 =                 wrapGet(getBool);
+GetVisitor.prototype.visitInt                  =                  wrapGet(getInt);
+GetVisitor.prototype.visitInt8                 =              wrapGet(getNumeric);
+GetVisitor.prototype.visitInt16                =              wrapGet(getNumeric);
+GetVisitor.prototype.visitInt32                =              wrapGet(getNumeric);
+GetVisitor.prototype.visitInt64                =              wrapGet(getBigInts);
+GetVisitor.prototype.visitUint8                =              wrapGet(getNumeric);
+GetVisitor.prototype.visitUint16               =              wrapGet(getNumeric);
+GetVisitor.prototype.visitUint32               =              wrapGet(getNumeric);
+GetVisitor.prototype.visitUint64               =              wrapGet(getBigInts);
+GetVisitor.prototype.visitFloat                =                wrapGet(getFloat);
+GetVisitor.prototype.visitFloat16              =              wrapGet(getFloat16);
+GetVisitor.prototype.visitFloat32              =              wrapGet(getNumeric);
+GetVisitor.prototype.visitFloat64              =              wrapGet(getNumeric);
+GetVisitor.prototype.visitUtf8                 =                 wrapGet(getUtf8);
+GetVisitor.prototype.visitBinary               =               wrapGet(getBinary);
+GetVisitor.prototype.visitFixedSizeBinary      =      wrapGet(getFixedSizeBinary);
+GetVisitor.prototype.visitDate                 =                 wrapGet(getDate);
+GetVisitor.prototype.visitDateDay              =              wrapGet(getDateDay);
+GetVisitor.prototype.visitDateMillisecond      =      wrapGet(getDateMillisecond);
+GetVisitor.prototype.visitTimestamp            =            wrapGet(getTimestamp);
+GetVisitor.prototype.visitTimestampSecond      =      wrapGet(getTimestampSecond);
+GetVisitor.prototype.visitTimestampMillisecond = wrapGet(getTimestampMillisecond);
+GetVisitor.prototype.visitTimestampMicrosecond = wrapGet(getTimestampMicrosecond);
+GetVisitor.prototype.visitTimestampNanosecond  =  wrapGet(getTimestampNanosecond);
+GetVisitor.prototype.visitTime                 =                 wrapGet(getTime);
+GetVisitor.prototype.visitTimeSecond           =           wrapGet(getTimeSecond);
+GetVisitor.prototype.visitTimeMillisecond      =      wrapGet(getTimeMillisecond);
+GetVisitor.prototype.visitTimeMicrosecond      =      wrapGet(getTimeMicrosecond);
+GetVisitor.prototype.visitTimeNanosecond       =       wrapGet(getTimeNanosecond);
+GetVisitor.prototype.visitDecimal              =              wrapGet(getDecimal);
+GetVisitor.prototype.visitList                 =                 wrapGet(getList);
+GetVisitor.prototype.visitStruct               =               wrapGet(getStruct);
+GetVisitor.prototype.visitUnion                =                wrapGet(getUnion);
+GetVisitor.prototype.visitDenseUnion           =           wrapGet(getDenseUnion);
+GetVisitor.prototype.visitSparseUnion          =          wrapGet(getSparseUnion);
+GetVisitor.prototype.visitDictionary           =           wrapGet(getDictionary);
+GetVisitor.prototype.visitInterval             =             wrapGet(getInterval);
+GetVisitor.prototype.visitIntervalDayTime      =      wrapGet(getIntervalDayTime);
+GetVisitor.prototype.visitIntervalYearMonth    =    wrapGet(getIntervalYearMonth);
+GetVisitor.prototype.visitFixedSizeList        =        wrapGet(getFixedSizeList);
+GetVisitor.prototype.visitMap                  =                  wrapGet(getMap);
 
 /** @ignore */
 export const instance = new GetVisitor();

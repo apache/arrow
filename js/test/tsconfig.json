@@ -4,6 +4,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "es2020",
+    "rootDir": "../",
     "allowJs": true,
     "declaration": false,
     "declarationMap": false,

@@ -337,7 +337,6 @@ type TimesType = {
 interface Time_<T extends Times = Times> extends DataType<T> {
     TArray: TimesType[T]['TArray'];
     TValue: TimesType[T]['TValue'];
-    ArrayType: TypedArrayConstructor<Int32Array>;
 }
 /** @ignore */
 class Time_<T extends Times = Times> extends DataType<T> {
@@ -347,10 +346,17 @@ class Time_<T extends Times = Times> extends DataType<T> {
     }
     public get typeId() { return Type.Time as T; }
     public toString() { return `Time${this.bitWidth}<${TimeUnit[this.unit]}>`; }
+    public get ArrayType() {
+        switch (this.bitWidth) {
+            case 32: return Int32Array;
+            case 64: return BigInt64Array;
+        }
+        // @ts-ignore
+        throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
+    }
     protected static [Symbol.toStringTag] = ((proto: Time_) => {
         (<any> proto).unit = null;
         (<any> proto).bitWidth = null;
-        (<any> proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Time';
     })(Time_.prototype);
 }
@@ -658,8 +664,8 @@ export function strideForType(type: DataType) {
         case Type.Timestamp: return 2;
         case Type.Date: return 1 + (t as Date_).unit;
         case Type.Interval: return 1 + (t as Interval_).unit;
-        case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
-        case Type.Time: return 1 + +((t as Time_).bitWidth > 32);
+        // case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
+        // case Type.Time: return 1 + +((t as Time_).bitWidth > 32);
         case Type.FixedSizeList: return (t as FixedSizeList).listSize;
         case Type.FixedSizeBinary: return (t as FixedSizeBinary).byteWidth;
         default: return 1;

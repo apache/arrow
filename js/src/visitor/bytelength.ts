@@ -79,9 +79,10 @@ const getBinaryByteLength = <T extends Binary>({ valueOffsets }: Data<T>, index:
 /** @ignore */
 const getListByteLength = <T extends List>({ valueOffsets, stride, children }: Data<T>, index: number): number => {
     const child: Data<T['valueType']> = children[0];
-    const { [index * stride]: start, [index * stride + 1]: end } = valueOffsets;
+    const { [index * stride]: start } = valueOffsets;
+    const { [index * stride + 1]: end } = valueOffsets;
     const visit = instance.getVisitFn(child.type);
-    const slice = child.slice(start, end);
+    const slice = child.slice(start, end - start);
     let size = 8; // 4 + 4 for the indices
     for (let idx = -1, len = end - start; ++idx < len;) {
         size += visit(slice, idx);
@@ -92,7 +93,7 @@ const getListByteLength = <T extends List>({ valueOffsets, stride, children }: D
 /** @ignore */
 const getFixedSizeListByteLength = <T extends FixedSizeList>({ stride, children }: Data<T>, index: number): number => {
     const child: Data<T['valueType']> = children[0];
-    const slice = child.slice(index * stride, (index + 1) * stride);
+    const slice = child.slice(index * stride, stride);
     const visit = instance.getVisitFn(child.type);
     let size = 0;
     for (let idx = -1, len = slice.length; ++idx < len;) {

@@ -66,8 +66,8 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        TEST_DOM_STREAMS: (target ==='src' || format === 'umd').toString(),
-        TEST_NODE_STREAMS: (target ==='src' || format !== 'umd').toString(),
+        TEST_DOM_STREAMS: (target === 'src' || format === 'umd').toString(),
+        TEST_NODE_STREAMS: (target === 'src' || format !== 'umd').toString(),
         TEST_TS_SOURCE: !!argv.coverage || (target === 'src') || (opts.env.TEST_TS_SOURCE === 'true')
     };
     return asyncDone(() => child_process.spawn(`node`, args, opts));
@@ -150,9 +150,7 @@ async function createTestData() {
     async function generateCPPFile(jsonPath, filePath) {
         await del(filePath);
         return await exec(
-            `${CPP_JSON_TO_ARROW} ${
-            `--integration --mode=JSON_TO_ARROW`} ${
-            `--json=${jsonPath} --arrow=${filePath}`}`,
+            `${CPP_JSON_TO_ARROW} ${`--integration --mode=JSON_TO_ARROW`} ${`--json=${jsonPath} --arrow=${filePath}`}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
@@ -168,9 +166,7 @@ async function createTestData() {
     async function generateJavaFile(jsonPath, filePath) {
         await del(filePath);
         return await exec(
-            `java -cp ${JAVA_TOOLS_JAR} ${
-            `org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${
-            `-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
+            `java -cp ${JAVA_TOOLS_JAR} ${`org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${`-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
@@ -178,8 +174,7 @@ async function createTestData() {
     async function generateJavaStream(filePath, streamPath) {
         await del(streamPath);
         return await exec(
-            `java -cp ${JAVA_TOOLS_JAR} ${
-            `org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
+            `java -cp ${JAVA_TOOLS_JAR} ${`org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }

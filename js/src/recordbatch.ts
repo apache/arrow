@@ -50,7 +50,7 @@ export interface RecordBatch<T extends { [key: string]: DataType } = any> {
 export class RecordBatch<T extends { [key: string]: DataType } = any> {
 
     constructor(columns: { [P in keyof T]: Data<T[P]> });
-    constructor(schema: Schema<T>, data: undefined | Data<Struct<T>>);
+    constructor(schema: Schema<T>, data?: Data<Struct<T>>);
     constructor(...args: any[]) {
         switch (args.length) {
             case 2: {
@@ -60,8 +60,9 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 }
                 [,
                     this.data = makeData({
+                        nullCount: 0,
                         type: new Struct<T>(this.schema.fields),
-                        children: this.schema.fields.map((f) => makeData({ type: f.type }))
+                        children: this.schema.fields.map((f) => makeData({ type: f.type, nullCount: 0 }))
                     })
                 ] = args;
                 if (!(this.data instanceof Data)) {
@@ -84,7 +85,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 });
 
                 const schema = new Schema<T>(fields);
-                const data = makeData({ type: new Struct<T>(fields), length, children });
+                const data = makeData({ type: new Struct<T>(fields), length, children, nullCount: 0 });
                 [this.schema, this.data] = ensureSameLengthData<T>(schema, data.children as Data<T[keyof T]>[], length);
                 break;
             }
@@ -268,7 +269,7 @@ const ensureSameLengthData = (() => {
         }
         return [
             new Schema<T>(fields),
-            makeData({ type: new Struct<T>(fields), length, children })
+            makeData({ type: new Struct<T>(fields), length, children, nullCount: 0 })
         ] as [Schema<T>, Data<Struct<T>>];
     };
 })();

@@ -19,7 +19,6 @@ import { Vector } from '../vector';
 import { MapRow } from '../row/map';
 import { StructRow } from '../row/struct';
 import { compareArrayLike } from '../util/buffer';
-import { BigInt, BigIntAvailable } from './compat';
 
 /** @ignore */
 type RangeLike = { length: number; stride?: number };
@@ -61,7 +60,6 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
     return then ? then(source, lhs, rhs) : [lhs, rhs];
 }
 
-const big0 = BigIntAvailable ? BigInt(0) : 0;
 const isNaNFast = (value: any) => value !== value;
 
 /** @ignore */
@@ -73,9 +71,7 @@ export function createElementComparator(search: any) {
         if (isNaNFast(search)) {
             return isNaNFast;
         }
-        return typeofSearch !== 'bigint'
-            ? (value: any) => value === search
-            : (value: any) => (big0 + value) === search;
+        return (value: any) => value === search;
     }
     // Compare Dates
     if (search instanceof Date) {
@@ -92,8 +88,9 @@ export function createElementComparator(search: any) {
     if (Array.isArray(search)) { return createArrayLikeComparator(search); }
     // Compare Vectors
     if (search instanceof Vector) { return createVectorComparator(search); }
+    return createObjectComparator(search, true);
     // Compare non-empty Objects
-    return createObjectComparator(search);
+    // return createObjectComparator(search, search instanceof Proxy);
 }
 
 /** @ignore */
@@ -123,10 +120,10 @@ function createVectorComparator(lhs: Vector<any>) {
 }
 
 /** @ignore */
-function createObjectComparator(lhs: any) {
+function createObjectComparator(lhs: any, allowEmpty = false) {
     const keys = Object.keys(lhs);
     // Only compare non-empty Objects
-    if (keys.length === 0) { return () => false; }
+    if (!allowEmpty && keys.length === 0) { return () => false; }
     const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = keys.length; ++i < n;) {
         comparators[i] = createElementComparator(lhs[keys[i]]);
@@ -142,9 +139,9 @@ function createSubElementsComparator(comparators: ((x: any) => boolean)[], keys?
         switch (rhs.constructor) {
             case Array: return compareArray(comparators, rhs);
             case Map:
+                return compareObject(comparators, rhs, rhs.keys());
             case MapRow:
             case StructRow:
-                return compareObject(comparators, rhs, rhs.keys());
             case Object:
             case undefined: // support `Object.create(null)` objects
                 return compareObject(comparators, rhs, keys || Object.keys(rhs));

@@ -112,9 +112,10 @@ function indexOfNull<T extends DataType>(data: Data<T>, fromIndex?: number): num
 function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     if (searchElement === undefined) { return -1; }
     if (searchElement === null) { return indexOfNull(data, fromIndex); }
+    const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
-        if (compare(getVisitor.visit(data, i))) {
+        if (compare(get(data, i))) {
             return i;
         }
     }
@@ -127,9 +128,10 @@ function indexOfUnion<T extends DataType>(data: Data<T>, searchElement?: T['TVal
     // If the searchElement is null, we don't know whether it came from the Union's
     // bitmap or one of its childrens'. So we don't interrogate the Union's bitmap,
     // since that will report the wrong index if a child has a null before the Union.
+    const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
-        if (compare(getVisitor.visit(data, i))) {
+        if (compare(get(data, i))) {
             return i;
         }
     }

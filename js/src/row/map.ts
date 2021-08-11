@@ -16,23 +16,24 @@
 // under the License.
 
 import { Data } from '../data';
+import { Vector } from '../vector';
 import { DataType, Struct } from '../type';
 import { valueToString } from '../util/pretty';
-import { instance as getVisitor } from '../visitor/get';
-import { instance as setVisitor } from '../visitor/set';
-import { instance as indexOfVisitor } from '../visitor/indexof';
-import { instance as iteratorVisitor } from '../visitor/iterator';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
 /** @ignore */ export const kVals = Symbol.for('vals');
 
 export class MapRow<K extends DataType = any, V extends DataType = any> {
-    private [kKeys]: Data<K>;
-    private [kVals]: Data<V>;
+
+    [key: string]: V['TValue'];
+
+    declare private [kKeys]: Vector<K>;
+    declare private [kVals]: Vector<V>;
     constructor(slice: Data<Struct<{ key: K; value: V }>>) {
-        this[kKeys] = slice.children[0] as Data<K>;
-        this[kVals] = slice.children[1] as Data<V>;
-    }
+        this[kKeys] = new Vector([slice.children[0] as Data<K>]);
+        this[kVals] = new Vector([slice.children[1] as Data<V>]);
+        return new Proxy(this, new MapRowProxyHandler<K, V>());
+   }
     [Symbol.iterator]() {
         return new MapRowIterator(this[kKeys], this[kVals]);
     }
@@ -43,7 +44,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         const vals = this[kVals];
         const json = {} as { [P in K['TValue']]: V['TValue'] };
         for (let i = -1, n = keys.length; ++i < n;) {
-            json[getVisitor.visit(keys, i)] = getVisitor.visit(vals, i);
+            json[keys[i]] = vals[i];
         }
         return json;
     }
@@ -59,12 +60,12 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
 class MapRowIterator<K extends DataType = any, V extends DataType = any>
     implements IterableIterator<[K['TValue'], V['TValue'] | null]> {
 
-    private keys: Data<K>;
-    private vals: Data<V>;
+    private keys: Vector<K>;
+    private vals: Vector<V>;
     private numKeys: number;
     private keyIndex: number;
 
-    constructor(keys: Data<K>, vals: Data<V>) {
+    constructor(keys: Vector<K>, vals: Vector<V>) {
         this.keys = keys;
         this.vals = vals;
         this.keyIndex = 0;
@@ -82,41 +83,48 @@ class MapRowIterator<K extends DataType = any, V extends DataType = any>
         return {
             done: false,
             value: [
-                getVisitor.visit(this.keys, i),
-                getVisitor.visit(this.vals, i),
+                this.keys[i],
+                this.vals[i],
             ] as [K['TValue'], V['TValue'] | null]
         };
     }
 }
 
 /** @ignore */
-class MapRowProxyHandler implements ProxyHandler<MapRow> {
+class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> implements ProxyHandler<MapRow<K, V>> {
     isExtensible() { return false; }
     deleteProperty() { return false; }
     preventExtensions() { return true; }
-    ownKeys(row: MapRow) {
-        return [...iteratorVisitor.visit(Reflect.get(row, kKeys))].map(valueToString);
+    ownKeys(row: MapRow<K, V>) {
+        return row[kKeys].toArray().map(String);
     }
-    has(row: MapRow, key: string) {
-        const idx = indexOfVisitor.visit(Reflect.get(row, kKeys), key);
-        return idx !== -1 ? true : Reflect.has(row, key);
+    has(row: MapRow<K, V>, key: string | symbol) {
+        return row[kKeys].indexOf(key) !== -1;
     }
-    get(_: any, key: string, row: MapRow) {
-        if (!Reflect.has(row, key)) {
-            const idx = indexOfVisitor.visit(Reflect.get(row, kKeys), key);
-            if (idx !== -1) {
-                const val = getVisitor.visit(Reflect.get(row, kVals), idx);
-                // Cache key/val lookups
-                Reflect.set(row, key, val);
-                return val;
-            }
-        }
-        return Reflect.get(row, key);
-    }
-    set(_: any, key: string, val: any, row: MapRow) {
-        const idx = indexOfVisitor.visit(Reflect.get(row, kKeys), key);
+    getOwnPropertyDescriptor(row: MapRow<K, V>, key: string | symbol) {
+        const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            setVisitor.visit(Reflect.get(row, kVals), idx, val);
+            return { writable: true, enumerable: true, configurable: true };
+        }
+        return undefined;
+    }
+    get(row: MapRow<K, V>, key: string | symbol) {
+        // Look up key in row first
+        if (Reflect.has(row, key)) {
+            return (row as any)[key];
+        }
+        const idx = row[kKeys].indexOf(key);
+        if (idx !== -1) {
+            const val = row[kVals][idx];
+            // Cache key/val lookups
+            Reflect.set(row, key, val);
+            return val;
+        }
+    }
+    set(row: MapRow<K, V>, key: string | symbol, val: V) {
+        const idx = row[kKeys].indexOf(key);
+        if (idx !== -1) {
+            row[kVals][idx] = val;
             // Cache key/val lookups
             return Reflect.set(row, key, val);
         } else if (Reflect.has(row, key)) {
@@ -131,5 +139,3 @@ Object.defineProperties(MapRow.prototype, {
     [kKeys]: { writable: true, enumerable: false, configurable: false, value: null },
     [kVals]: { writable: true, enumerable: false, configurable: false, value: null },
 });
-
-Object.setPrototypeOf(MapRow.prototype, new Proxy({}, new MapRowProxyHandler()));

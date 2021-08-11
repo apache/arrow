@@ -71,6 +71,30 @@ export function computeChunkOffsets<T extends DataType>(chunks: ReadonlyArray<Da
 }
 
 /** @ignore */
+export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, offsets: Uint32Array, begin: number, end: number) {
+    const slices: Data<T>[] = [];
+    for (let i = -1, n = chunks.length; ++i < n;) {
+        const chunk = chunks[i];
+        const offset = offsets[i];
+        const {length} = chunk;
+        // Stop if the child is to the right of the slice boundary
+        if (offset >= end) { break; }
+        // Exclude children to the left of of the slice boundary
+        if (begin >= offset + length) { continue; }
+        // Include entire child if between both left and right boundaries
+        if (offset >= begin && (offset + length) <= end) {
+            slices.push(chunk);
+            continue;
+        }
+        // Include the child slice that overlaps one of the slice boundaries
+        const from = Math.max(0, begin - offset);
+        const to = Math.min(end - offset, length);
+        slices.push(chunk.slice(from, to - from));
+    }
+    return slices;
+}
+
+/** @ignore */
 export function binarySearch<
     T extends DataType,
     F extends (chunks: ReadonlyArray<Data<T>>, _1: number, _2: number) => any
@@ -88,20 +112,6 @@ export function binarySearch<
 /** @ignore */
 export function isChunkedValid<T extends DataType>(data: Data<T>, index: number): boolean {
     return data.getValid(index);
-}
-
-/** @ignore */
-export function wrapChunkedGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
-    return (data: Data<T>, _1: any) => data.getValid(_1) ? fn(data, _1) : null;
-}
-
-/** @ignore */
-export function wrapChunkedSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => void) {
-    return (data: Data<T>, _1: any, _2: any) => {
-        if (data.setValid(_1, _2 != null)) {
-            return fn(data, _1, _2);
-        }
-    };
 }
 
 /** @ignore */

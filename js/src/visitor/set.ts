@@ -38,8 +38,8 @@ import {
 
 /** @ignore */
 export interface SetVisitor extends Visitor {
-    visit<T extends Data>(node: T, index: number, value: T['TValue']): void;
-    visitMany<T extends Data>(nodes: T[], indices: number[], values: T['TValue'][]): void[];
+    visit<T extends DataType>(node: Data<T>, index: number, value: T['TValue']): void;
+    visitMany<T extends DataType>(nodes: Data<T>[], indices: number[], values: T['TValue'][]): void[];
     getVisitFn<T extends DataType>(node: Data<T> | T): (data: Data<T>, index: number, value: Data<T>['TValue']) => void;
     getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>, index: number, value: TypeToDataType<T>['TValue']) => void;
     visitNull                 <T extends Null>                (data: Data<T>, index: number, value: T['TValue']): void;
@@ -89,6 +89,15 @@ export interface SetVisitor extends Visitor {
 
 /** @ignore */
 export class SetVisitor extends Visitor {}
+
+/** @ignore */
+function wrapSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => void) {
+    return (data: Data<T>, _1: any, _2: any) => {
+        if (data.setValid(_1, _2 != null)) {
+            return fn(data, _1, _2);
+        }
+    };
+}
 
 /** @ignore */
 const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = (epochMs / 86400000) | 0; };
@@ -227,7 +236,7 @@ const setList = <T extends List>(data: Data<T>, index: number, value: T['TValue'
     const valueOffsets = data.valueOffsets;
     const set = instance.getVisitFn(values);
     for (let idx = -1, itr = valueOffsets[index], end = valueOffsets[index + 1]; itr < end;) {
-        set(values, itr++, value.get(++idx));
+        set(values, itr++, value[++idx]);
     }
 };
 
@@ -250,7 +259,7 @@ const setMap = <T extends Map_>(data: Data<T>, index: number, value: T['TValue']
     <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v[i]);
 
 /** @ignore */ const _setStructVectorValue = (o: number, v: Vector) =>
-    <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v.get(i));
+    <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v[i]);
 
 /** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) =>
     <T extends DataType>(set: SetFunc<T>, c: Data<T>, f: Field, _: number) => c && set(c, o, v.get(f.name));
@@ -318,52 +327,52 @@ const setFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number,
     const child = data.children[0];
     const set = instance.getVisitFn(child);
     for (let idx = -1, offset = index * stride; ++idx < stride;) {
-        set(child, offset + idx, value.get(idx));
+        set(child, offset + idx, value[idx]);
     }
 };
 
-SetVisitor.prototype.visitBool                 =                 setBool;
-SetVisitor.prototype.visitInt                  =                  setInt;
-SetVisitor.prototype.visitInt8                 =              setNumeric;
-SetVisitor.prototype.visitInt16                =              setNumeric;
-SetVisitor.prototype.visitInt32                =              setNumeric;
-SetVisitor.prototype.visitInt64                =            setNumericX2;
-SetVisitor.prototype.visitUint8                =              setNumeric;
-SetVisitor.prototype.visitUint16               =              setNumeric;
-SetVisitor.prototype.visitUint32               =              setNumeric;
-SetVisitor.prototype.visitUint64               =            setNumericX2;
-SetVisitor.prototype.visitFloat                =                setFloat;
-SetVisitor.prototype.visitFloat16              =              setFloat16;
-SetVisitor.prototype.visitFloat32              =              setNumeric;
-SetVisitor.prototype.visitFloat64              =              setNumeric;
-SetVisitor.prototype.visitUtf8                 =                 setUtf8;
-SetVisitor.prototype.visitBinary               =               setBinary;
-SetVisitor.prototype.visitFixedSizeBinary      =      setFixedSizeBinary;
-SetVisitor.prototype.visitDate                 =                 setDate;
-SetVisitor.prototype.visitDateDay              =              setDateDay;
-SetVisitor.prototype.visitDateMillisecond      =      setDateMillisecond;
-SetVisitor.prototype.visitTimestamp            =            setTimestamp;
-SetVisitor.prototype.visitTimestampSecond      =      setTimestampSecond;
-SetVisitor.prototype.visitTimestampMillisecond = setTimestampMillisecond;
-SetVisitor.prototype.visitTimestampMicrosecond = setTimestampMicrosecond;
-SetVisitor.prototype.visitTimestampNanosecond  =  setTimestampNanosecond;
-SetVisitor.prototype.visitTime                 =                 setTime;
-SetVisitor.prototype.visitTimeSecond           =           setTimeSecond;
-SetVisitor.prototype.visitTimeMillisecond      =      setTimeMillisecond;
-SetVisitor.prototype.visitTimeMicrosecond      =      setTimeMicrosecond;
-SetVisitor.prototype.visitTimeNanosecond       =       setTimeNanosecond;
-SetVisitor.prototype.visitDecimal              =              setDecimal;
-SetVisitor.prototype.visitList                 =                 setList;
-SetVisitor.prototype.visitStruct               =               setStruct;
-SetVisitor.prototype.visitUnion                =                setUnion;
-SetVisitor.prototype.visitDenseUnion           =           setDenseUnion;
-SetVisitor.prototype.visitSparseUnion          =          setSparseUnion;
-SetVisitor.prototype.visitDictionary           =           setDictionary;
-SetVisitor.prototype.visitInterval             =        setIntervalValue;
-SetVisitor.prototype.visitIntervalDayTime      =      setIntervalDayTime;
-SetVisitor.prototype.visitIntervalYearMonth    =    setIntervalYearMonth;
-SetVisitor.prototype.visitFixedSizeList        =        setFixedSizeList;
-SetVisitor.prototype.visitMap                  =                  setMap;
+SetVisitor.prototype.visitBool                 =                 wrapSet(setBool);
+SetVisitor.prototype.visitInt                  =                  wrapSet(setInt);
+SetVisitor.prototype.visitInt8                 =              wrapSet(setNumeric);
+SetVisitor.prototype.visitInt16                =              wrapSet(setNumeric);
+SetVisitor.prototype.visitInt32                =              wrapSet(setNumeric);
+SetVisitor.prototype.visitInt64                =            wrapSet(setNumericX2);
+SetVisitor.prototype.visitUint8                =              wrapSet(setNumeric);
+SetVisitor.prototype.visitUint16               =              wrapSet(setNumeric);
+SetVisitor.prototype.visitUint32               =              wrapSet(setNumeric);
+SetVisitor.prototype.visitUint64               =            wrapSet(setNumericX2);
+SetVisitor.prototype.visitFloat                =                wrapSet(setFloat);
+SetVisitor.prototype.visitFloat16              =              wrapSet(setFloat16);
+SetVisitor.prototype.visitFloat32              =              wrapSet(setNumeric);
+SetVisitor.prototype.visitFloat64              =              wrapSet(setNumeric);
+SetVisitor.prototype.visitUtf8                 =                 wrapSet(setUtf8);
+SetVisitor.prototype.visitBinary               =               wrapSet(setBinary);
+SetVisitor.prototype.visitFixedSizeBinary      =      wrapSet(setFixedSizeBinary);
+SetVisitor.prototype.visitDate                 =                 wrapSet(setDate);
+SetVisitor.prototype.visitDateDay              =              wrapSet(setDateDay);
+SetVisitor.prototype.visitDateMillisecond      =      wrapSet(setDateMillisecond);
+SetVisitor.prototype.visitTimestamp            =            wrapSet(setTimestamp);
+SetVisitor.prototype.visitTimestampSecond      =      wrapSet(setTimestampSecond);
+SetVisitor.prototype.visitTimestampMillisecond = wrapSet(setTimestampMillisecond);
+SetVisitor.prototype.visitTimestampMicrosecond = wrapSet(setTimestampMicrosecond);
+SetVisitor.prototype.visitTimestampNanosecond  =  wrapSet(setTimestampNanosecond);
+SetVisitor.prototype.visitTime                 =                 wrapSet(setTime);
+SetVisitor.prototype.visitTimeSecond           =           wrapSet(setTimeSecond);
+SetVisitor.prototype.visitTimeMillisecond      =      wrapSet(setTimeMillisecond);
+SetVisitor.prototype.visitTimeMicrosecond      =      wrapSet(setTimeMicrosecond);
+SetVisitor.prototype.visitTimeNanosecond       =       wrapSet(setTimeNanosecond);
+SetVisitor.prototype.visitDecimal              =              wrapSet(setDecimal);
+SetVisitor.prototype.visitList                 =                 wrapSet(setList);
+SetVisitor.prototype.visitStruct               =               wrapSet(setStruct);
+SetVisitor.prototype.visitUnion                =                wrapSet(setUnion);
+SetVisitor.prototype.visitDenseUnion           =           wrapSet(setDenseUnion);
+SetVisitor.prototype.visitSparseUnion          =          wrapSet(setSparseUnion);
+SetVisitor.prototype.visitDictionary           =           wrapSet(setDictionary);
+SetVisitor.prototype.visitInterval             =        wrapSet(setIntervalValue);
+SetVisitor.prototype.visitIntervalDayTime      =      wrapSet(setIntervalDayTime);
+SetVisitor.prototype.visitIntervalYearMonth    =    wrapSet(setIntervalYearMonth);
+SetVisitor.prototype.visitFixedSizeList        =        wrapSet(setFixedSizeList);
+SetVisitor.prototype.visitMap                  =                  wrapSet(setMap);
 
 /** @ignore */
 export const instance = new SetVisitor();

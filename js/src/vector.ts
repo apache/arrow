@@ -17,6 +17,7 @@
 
 import { Type } from './enum';
 import { Data, makeData } from './data';
+import { clampRange } from './util/vector';
 import { DataType, strideForType } from './type';
 
 import {
@@ -24,10 +25,9 @@ import {
     isChunkedValid,
     computeChunkOffsets,
     computeChunkNullCounts,
-    wrapChunkedGet,
+    sliceChunks,
     wrapChunkedCall1,
     wrapChunkedCall2,
-    wrapChunkedSet,
     wrapChunkedIndexOf,
 } from './util/chunk';
 
@@ -58,7 +58,7 @@ const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
 export class Vector<T extends DataType = any> {
 
-    constructor(data: Data<T>[]) {
+    constructor(data: readonly Data<T>[]) {
         this.data = data = Array.isArray(data) ? data : [];
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
@@ -75,9 +75,9 @@ export class Vector<T extends DataType = any> {
         Object.setPrototypeOf(this, vectorPrototypesByTypeId[this.type.typeId]);
     }
 
-    protected _offsets: Uint32Array;
-    protected _nullCount!: number;
-    protected _byteLength!: number;
+    declare protected _offsets: Uint32Array;
+    declare protected _nullCount: number;
+    declare protected _byteLength: number;
 
     /**
      * @summary Get and set elements by index.
@@ -200,6 +200,17 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
+     * Return a zero-copy sub-section of this Vector.
+     * @param start The beginning of the specified portion of the Vector.
+     * @param end The end of the specified portion of the Vector. This is exclusive of the element at the index 'end'.
+     */
+    public slice(begin?: number, end?: number): Vector<T> {
+        return new Vector(clampRange(this, begin, end, ({ data, _offsets }, begin, end) => {
+            return sliceChunks(data, _offsets, begin, end);
+        }));
+    }
+
+    /**
      * @summary Return a JavaScript Array or TypedArray of the Vector's elements.
      *
      * @note If this Vector contains a single Data chunk and the Vector's type is a
@@ -263,8 +274,8 @@ export class Vector<T extends DataType = any> {
                 ...prototypes,
                 [typeId]: Object.create(proto, {
                     ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
-                    ['get']: { value: wrapChunkedCall1(wrapChunkedGet(getVisitor.getVisitFnByTypeId(typeId))) },
-                    ['set']: { value: wrapChunkedCall2(wrapChunkedSet(setVisitor.getVisitFnByTypeId(typeId))) },
+                    ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
+                    ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
                     ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
                     ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
                 })

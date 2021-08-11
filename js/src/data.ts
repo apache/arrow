@@ -51,21 +51,22 @@ export interface Data<T extends DataType = DataType> {
 /** @ignore */
 export class Data<T extends DataType = DataType> {
 
-    public readonly type: T;
-    public readonly length: number;
-    public readonly offset: number;
-    public readonly stride: number;
-    public readonly children: Data[];
+    declare public readonly type: T;
+    declare public readonly length: number;
+    declare public readonly offset: number;
+    declare public readonly stride: number;
+    declare public readonly nullable: boolean;
+    declare public readonly children: Data[];
 
     /**
      * The dictionary for this Vector, if any. Only used for Dictionary type.
      */
-    public dictionary?: Vector;
+    declare public dictionary?: Vector;
 
-    public readonly values!: Buffers<T>[BufferType.DATA];
-    public readonly typeIds!: Buffers<T>[BufferType.TYPE];
-    public readonly nullBitmap!: Buffers<T>[BufferType.VALIDITY];
-    public readonly valueOffsets!: Buffers<T>[BufferType.OFFSET];
+    declare public readonly values: Buffers<T>[BufferType.DATA];
+    declare public readonly typeIds: Buffers<T>[BufferType.TYPE];
+    declare public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
+    declare public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
 
     public get values64() {
         switch (this.type.typeId) {
@@ -124,10 +125,11 @@ export class Data<T extends DataType = DataType> {
                 (buffer = (buffers as Buffers<T>)[3]) && (this.typeIds = buffer);
             }
         }
+        this.nullable = this._nullCount !== 0 && this.nullBitmap && this.nullBitmap.byteLength > 0;
     }
 
     public getValid(index: number) {
-        if (this.nullCount > 0) {
+        if (this.nullable && this.nullCount > 0) {
             const pos = this.offset + index;
             const val = this.nullBitmap[pos >> 3];
             return (val & (1 << (pos % 8))) !== 0;
@@ -136,19 +138,21 @@ export class Data<T extends DataType = DataType> {
     }
 
     public setValid(index: number, value: boolean) {
+        // Don't interact w/ nullBitmap if not nullable
+        if (!this.nullable) { return value; }
         // If no null bitmap, initialize one on the fly
-        if (!this.nullBitmap) {
+        if (!this.nullBitmap || this.nullBitmap.byteLength <= (index >> 3)) {
             const { nullBitmap } = this._changeLengthAndBackfillNullBitmap(this.length);
             Object.assign(this, { nullBitmap, _nullCount: 0 });
         }
         const { nullBitmap, offset } = this;
         const pos = (offset + index) >> 3;
         const bit = (offset + index) % 8;
-        const val = nullBitmap[pos] >> bit;
+        const val = (nullBitmap[pos] >> bit) & 1;
         // If `val` is truthy and the current bit is 0, flip it to 1 and increment `_nullCount`.
         // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `_nullCount`.
         value ? val === 0 && ((nullBitmap[pos] |=  (1 << bit)), (this._nullCount = this.nullCount + 1))
-              : val !== 0 && ((nullBitmap[pos] &= ~(1 << bit)), (this._nullCount = this.nullCount - 1));
+              : val === 1 && ((nullBitmap[pos] &= ~(1 << bit)), (this._nullCount = this.nullCount - 1));
         return value;
     }
 
