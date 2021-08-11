@@ -507,7 +507,7 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
   target_ = ArrayFromJSON(month_day_nano_interval(), R"([])");
   AssertDiffAndFormat(R"(
 @@ -0, +0 @@
--2m3d3ns
+-2m3d1ns
 )");
 
   // lists

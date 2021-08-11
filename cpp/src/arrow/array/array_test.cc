@@ -848,7 +848,7 @@ struct PBoolean {
   static T Modify(T inp) { return !inp; }
 };
 
-struct PDayTimeInternal {
+struct PDayTimeInterval {
   PTYPE_DECL(DayTimeInterval, DayTimeIntervalType::DayMilliseconds);
   static void draw(int64_t N, std::vector<T>* draws) { return rand_day_millis(N, draws); }
 
@@ -997,7 +997,7 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble, PDayTimeInternal,
+                         PInt32, PInt64, PFloat, PDouble, PDayTimeInterval,
                          PMonthDayNanoInterval>
     Primitives;
 
