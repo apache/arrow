@@ -82,12 +82,12 @@
  * Since: 0.10.0
  */
 #define GARROW_VERSION_CHECK(major, minor, micro)       \
-  (GARROW_MAJOR_VERSION > (major) ||                    \
-   (GARROW_MAJOR_VERSION == (major) &&                  \
-    GARROW_MINOR_VERSION > (minor)) ||                  \
-   (GARROW_MAJOR_VERSION == (major) &&                  \
-    GARROW_MINOR_VERSION == (minor) &&                  \
-    GARROW_MICRO_VERSION >= (micro)))
+  (GARROW_VERSION_MAJOR > (major) ||                    \
+   (GARROW_VERSION_MAJOR == (major) &&                  \
+    GARROW_VERSION_MINOR > (minor)) ||                  \
+   (GARROW_VERSION_MAJOR == (major) &&                  \
+    GARROW_VERSION_MINOR == (minor) &&                  \
+    GARROW_VERSION_MICRO >= (micro)))
 
 /**
  * GARROW_DISABLE_DEPRECATION_WARNINGS:
