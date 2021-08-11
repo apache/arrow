@@ -1854,6 +1854,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t start
         int64_t stop
         int64_t step
+    
+    cdef cppclass CNanNullOptions \
+            "arrow::compute::NanNullOptions"(CFunctionOptions):
+        CNanNullOptions(bool nan_is_null)
+        bool nan_is_null
 
     cdef cppclass CSplitOptions \
             "arrow::compute::SplitOptions"(CFunctionOptions):
