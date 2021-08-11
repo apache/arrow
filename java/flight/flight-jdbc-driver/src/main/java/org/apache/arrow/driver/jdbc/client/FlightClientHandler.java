@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
 import org.apache.arrow.flight.CallOption;
@@ -53,4 +54,7 @@ public interface FlightClientHandler extends AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   FlightInfo getInfo(String query);
+
+  @Override
+  void close() throws SQLException;
 }
