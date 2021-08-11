@@ -1638,13 +1638,13 @@ const FunctionDoc log1p_checked_doc{
 
 const FunctionDoc logb_doc{
     "Compute log of x to base b of arguments element-wise",
-    ("Values <= -1 return -inf or NaN. Null values return null.\n"
+    ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb_checked\" if you want non-positive values to raise an error."),
     {"x", "b"}};
 
 const FunctionDoc logb_checked_doc{
     "Compute log of x to base b of arguments element-wise",
-    ("Values <= -1 return -inf or NaN. Null values return null.\n"
+    ("Values <= 0 return -inf or NaN. Null values return null.\n"
      "Use function \"logb\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x", "b"}};

@@ -2031,11 +2031,36 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Log) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Log) {
-  // Integer arguments promoted to double, sanity check here
+  using CType = typename TestFixture::CType;
+  this->SetNansEqual(true);
+  auto min_val = std::numeric_limits<CType>::min();
+  auto max_val = std::numeric_limits<CType>::max();
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // N.B. min() for float types is smallest normal number > 0
+    this->AssertBinop(Logb, "[1, 10, null, NaN, Inf]", "[100, 10, null, 2, 10]",
+                      "[0, 1, null, NaN, Inf]");
+    this->AssertBinop(Logb, min_val, 10, std::log(min_val) / std::log(10));
+    this->AssertBinop(Logb, max_val, 10, std::log(max_val) / std::log(10));
+  }
   this->AssertBinop(Logb, "[1.0, 10.0, null]", "[10.0, 10.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10),
                     "[1.0, 2.0, 3.0, null]");
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(10),
+                    "[NaN, NaN, -Inf, Inf]");
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(2),
+                    "[NaN, NaN, -Inf, Inf]");
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", "[2, 10, 0, 0]", "[NaN, NaN, NaN, NaN]");
+  this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(0),
+                    "[NaN, NaN, NaN, NaN]");
+  this->AssertBinop(Logb, "[-Inf, -2, -1, Inf]", this->MakeScalar(2),
+                    "[NaN, NaN, NaN, Inf]");
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Logb, "[0]", "[2]", "logarithm of zero");
+  this->AssertBinopRaises(Logb, "[-1]", "[2]", "logarithm of negative number");
+  this->AssertBinopRaises(Logb, "[-Inf]", "[2]", "logarithm of negative number");
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, Log) {
