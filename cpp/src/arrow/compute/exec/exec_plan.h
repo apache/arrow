@@ -81,7 +81,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 
-class ARROW_EXPORT ExecNode {
+class ARROW_EXPORT ExecNode : public std::enable_shared_from_this<ExecNode> {
  public:
   using NodeVector = std::vector<ExecNode*>;
 

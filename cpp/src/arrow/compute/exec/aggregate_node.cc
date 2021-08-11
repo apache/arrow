@@ -35,6 +35,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace compute {
 
@@ -451,7 +452,8 @@ struct GroupByNode : ExecNode {
         // bail if StopProducing was called
         if (finished_.is_finished()) break;
 
-        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
+        auto self = checked_pointer_cast<GroupByNode>(shared_from_this());
+        RETURN_NOT_OK(executor->Spawn([self, i] { self->OutputNthBatch(i); }));
       } else {
         OutputNthBatch(i);
       }
