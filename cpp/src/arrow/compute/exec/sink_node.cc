@@ -19,7 +19,6 @@
 #include "arrow/compute/exec/exec_plan.h"
 
 #include <mutex>
-#include <unordered_map>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"

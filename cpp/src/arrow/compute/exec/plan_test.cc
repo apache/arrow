@@ -645,7 +645,7 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
             .AddToPlan(plan.get()));
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                Finishes(ResultWith(::testing::ElementsAreArray({ExecBatchFromJSON(
+                Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
                     {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
                                                 : R"([[20, "beta"], [36, "alfa"]])")}))));
   }
