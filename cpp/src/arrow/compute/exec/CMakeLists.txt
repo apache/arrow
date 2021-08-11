@@ -25,6 +25,7 @@ add_arrow_compute_test(expression_test
                        subtree_test.cc)
 
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
-add_arrow_compute_test(hash_join_test PREFIX "arrow-compute")
+add_arrow_compute_test(hash_join_node_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(hash_join_node_benchmark PREFIX "arrow-compute")

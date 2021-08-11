@@ -202,8 +202,61 @@ TEST_P(HashJoinTest, TestSemiJoins) {
   RunNonEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
 }
 
-TEST_P(HashJoinTest, TestSemiJoinsLeftEmpty) {
+TEST_P(HashJoinTest, TestSemiJoinstEmpty) {
   RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
+}
+
+void TestJoinRandom(const std::shared_ptr<DataType>& data_type, JoinType type,
+                    bool parallel, int num_batches, int batch_size) {
+  auto l_schema = schema({field("l0", data_type), field("l1", data_type)});
+  auto r_schema = schema({field("r0", data_type), field("r1", data_type)});
+
+  // generate data
+  auto l_batches = MakeRandomBatches(l_schema, num_batches, batch_size);
+  auto r_batches = MakeRandomBatches(r_schema, num_batches, batch_size);
+
+  std::vector<FieldRef> left_keys{{"l0"}};
+  std::vector<FieldRef> right_keys{{"r1"}};
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  JoinNodeOptions join_options{type, left_keys, right_keys};
+  Declaration join{"hash_join", join_options};
+
+  // add left source
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(parallel,
+                                                                  /*slow=*/false)}});
+  // add right source
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel,
+                                                                  /*slow=*/false)}});
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
+                .AddToPlan(plan.get()));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+
+  // TODO(niranda) add a verification step for res
+}
+
+class HashJoinTestRand : public testing::TestWithParam<
+                             std::tuple<std::shared_ptr<DataType>, JoinType, bool>> {};
+
+static constexpr int kNumBatches = 1000;
+static constexpr int kBatchSize = 100;
+
+INSTANTIATE_TEST_SUITE_P(
+    HashJoinTestRand, HashJoinTestRand,
+    ::testing::Combine(::testing::Values(int8(), int32(), int64(), float32(), float64()),
+                       ::testing::Values(JoinType::LEFT_SEMI, JoinType::RIGHT_SEMI,
+                                         JoinType::LEFT_ANTI, JoinType::RIGHT_ANTI),
+                       ::testing::Values(false, true)));
+
+TEST_P(HashJoinTestRand, TestingTypes) {
+  TestJoinRandom(std::get<0>(GetParam()), std::get<1>(GetParam()),
+                 std::get<2>(GetParam()), kNumBatches, kBatchSize);
 }
 
 }  // namespace compute
