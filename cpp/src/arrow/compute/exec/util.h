@@ -29,6 +29,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -192,41 +193,57 @@ class AtomicCounter {
  public:
   AtomicCounter() = default;
 
-  int count() const { return count_.load(); }
+  int count() const {
+    auto guard = mutex_.Lock();
+    return count_;
+  }
 
   util::optional<int> total() const {
-    int total = total_.load();
-    if (total == -1) return {};
-    return total;
+    auto guard = mutex_.Lock();
+    if (total_ == -1) return {};
+    return total_;
   }
 
   // return true if the counter is complete
   bool Increment() {
-    DCHECK_NE(count_.load(), total_.load());
-    int count = count_.fetch_add(1) + 1;
-    if (count != total_.load()) return false;
+    auto guard = mutex_.Lock();
+    DCHECK_NE(count_, total_);
+    count_++;
+    if (count_ != total_) return false;
     return DoneOnce();
   }
 
   // return true if the counter is complete
   bool SetTotal(int total) {
-    total_.store(total);
-    if (count_.load() != total) return false;
+    auto guard = mutex_.Lock();
+    total_ = total;
+    if (count_ != total_) return false;
     return DoneOnce();
   }
 
   // return true if the counter has not already been completed
-  bool Cancel() { return DoneOnce(); }
+  bool Cancel() {
+    auto guard = mutex_.Lock();
+    return DoneOnce();
+  }
 
  private:
   // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
   bool DoneOnce() {
-    bool expected = false;
-    return complete_.compare_exchange_strong(expected, true);
+    if (!complete_) {
+      complete_ = true;
+      return true;
+    }
+    return false;
   }
 
-  std::atomic<int> count_{0}, total_{-1};
-  std::atomic<bool> complete_{false};
+  // NOTE(ARROW-13605): with an atomic counter-based implementation, TSan
+  // complains about a race between Increment and ~AtomicCounter, hence
+  // mutex-based implementation instead
+  mutable util::Mutex mutex_;
+  int count_ = 0;
+  int total_ = -1;
+  bool complete_ = false;
 };
 
 }  // namespace compute
