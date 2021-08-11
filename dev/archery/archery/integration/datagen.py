@@ -381,8 +381,10 @@ class MonthDayNanoIntervalField(PrimitiveField):
         ])
 
     def generate_column(self, size, name=None):
-        min_int_value, max_int_value = np.iinfo('int32').min, np.iinfo('int32').max
-        min_nano_val, max_nano_val = np.iinfo('int64').min, np.iinfo('int64').max,
+        I32 = 'int32'
+        min_int_value, max_int_value = np.iinfo(I32).min, np.iinfo(I32).max
+        I64 = 'int64'
+        min_nano_val, max_nano_val = np.iinfo(I64).min, np.iinfo(I64).max,
         values = [{'months': random.randint(min_int_value, max_int_value),
                    'days': random.randint(min_int_value, max_int_value),
                    'nanoseconds': random.randint(min_nano_val, max_nano_val)}
