@@ -287,7 +287,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           readToken(START_OBJECT);
-          buf.writeInt(readNextField("moths", Integer.class));
+          buf.writeInt(readNextField("months", Integer.class));
           buf.writeInt(readNextField("days", Integer.class));
           buf.writeLong(readNextField("nanoseconds", Long.class));
           readToken(END_OBJECT);

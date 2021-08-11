@@ -1355,7 +1355,7 @@ class ArrayReader {
       MonthDayNanoIntervalType::MonthDayNanos dm = {0, 0, 0};
       dm.months = val[kMonths].GetInt();
       dm.days = val[kDays].GetInt();
-      dm.nanoseconds = val[kMilliseconds].GetInt64();
+      dm.nanoseconds = val[kNanoseconds].GetInt64();
       RETURN_NOT_OK(builder.Append(dm));
     }
     return FinishBuilder(&builder);
