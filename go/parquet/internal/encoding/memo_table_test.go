@@ -143,11 +143,12 @@ func (m *MemoTableTestSuite) TestFloat64() {
 	var (
 		D = math.Inf(1)
 		E = -D
-		F = math.NaN()
+		F = math.NaN()                                       // uses Quiet NaN i.e. 0x7FF8000000000001
+		G = math.Float64frombits(uint64(0x7FF0000000000001)) // test Signalling NaN
+		H = math.Float64frombits(uint64(0xFFF7FFFFFFFFFFFF)) // other NaN bit pattern
 	)
 
 	// table := encoding.NewFloat64MemoTable(nil)
-	// table := &hashing.Float64MemoTable{hashing.NewScalarMemoTable(0)}
 	table := hashing.NewFloat64MemoTable(0)
 	m.Zero(table.Size())
 	m.assertGetNotFound(table, A)
@@ -159,6 +160,8 @@ func (m *MemoTableTestSuite) TestFloat64() {
 	m.assertGetOrInsert(table, D, 3)
 	m.assertGetOrInsert(table, E, 4)
 	m.assertGetOrInsert(table, F, 5)
+	m.assertGetOrInsert(table, G, 5)
+	m.assertGetOrInsert(table, H, 5)
 
 	m.assertGet(table, A, 0)
 	m.assertGetOrInsert(table, A, 0)
@@ -169,6 +172,10 @@ func (m *MemoTableTestSuite) TestFloat64() {
 	m.assertGetOrInsert(table, E, 4)
 	m.assertGet(table, F, 5)
 	m.assertGetOrInsert(table, F, 5)
+	m.assertGet(table, G, 5)
+	m.assertGetOrInsert(table, G, 5)
+	m.assertGet(table, H, 5)
+	m.assertGetOrInsert(table, H, 5)
 
 	m.Equal(6, table.Size())
 	expected := []float64{A, B, C, D, E, F}

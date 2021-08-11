@@ -234,21 +234,28 @@ func (s *{{.Name}}MemoTable) Get(val interface{}) (int, bool) {
 {{if or (eq .Name "Int32") (eq .Name "Int64") }}
   h := hashInt(uint64(val.({{.name}})), 0)
   if e, ok := s.tbl.Lookup(h, func(v {{.name}}) bool { return val.({{.name}}) == v }); ok {
-{{ else }}
-  h := hash{{.Name}}(val.({{.name}}), 0)
+{{ else -}}
   var cmp func({{.name}}) bool
   {{if eq .Name "Float32"}}
   if math.IsNaN(float64(val.(float32))) {
     cmp = isNan32Cmp
-  {{ else }}
+    // use consistent internal bit pattern for NaN regardless of the pattern
+    // that is passed to us. NaN is NaN is NaN
+    val = float32(math.NaN())
+  {{ else -}}
   if math.IsNaN(val.(float64)) {
     cmp = math.IsNaN
-  {{end}}
+    // use consistent internal bit pattern for NaN regardless of the pattern
+    // that is passed to us. NaN is NaN is NaN
+    val = math.NaN()
+  {{end -}}
   } else {
     cmp = func(v {{.name}}) bool { return val.({{.name}}) == v }
   }
+
+  h := hash{{.Name}}(val.({{.name}}), 0)  
   if e, ok := s.tbl.Lookup(h, cmp); ok {
-{{ end }}
+{{ end -}}
     return int(e.payload.memoIdx), ok
   }
   return KeyNotFound, false
@@ -263,19 +270,26 @@ func (s *{{.Name}}MemoTable) GetOrInsert(val interface{}) (idx int, found bool, 
   e, ok := s.tbl.Lookup(h, func(v {{.name}}) bool {
     return val.({{.name}}) == v
   })
-{{ else }}
-  h := hash{{.Name}}(val.({{.name}}), 0)
+{{ else }}  
   var cmp func({{.name}}) bool
   {{if eq .Name "Float32"}}
   if math.IsNaN(float64(val.(float32))) {
     cmp = isNan32Cmp
-  {{ else }}
-  if math.IsNaN(val.(float64)) {
+    // use consistent internal bit pattern for NaN regardless of the pattern
+    // that is passed to us. NaN is NaN is NaN
+    val = float32(math.NaN()) 
+  {{ else -}}
+  if math.IsNaN(val.(float64)) {  
     cmp = math.IsNaN
-  {{end}}
+    // use consistent internal bit pattern for NaN regardless of the pattern
+    // that is passed to us. NaN is NaN is NaN
+    val = math.NaN()
+  {{end -}}
   } else {
     cmp = func(v {{.name}}) bool { return val.({{.name}}) == v }
   }
+  
+  h := hash{{.Name}}(val.({{.name}}), 0)
   e, ok := s.tbl.Lookup(h, cmp)
 {{ end }}
   if ok {

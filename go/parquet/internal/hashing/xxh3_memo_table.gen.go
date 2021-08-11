@@ -237,7 +237,6 @@ func (s *Int32MemoTable) Get(val interface{}) (int, bool) {
 
 	h := hashInt(uint64(val.(int32)), 0)
 	if e, ok := s.tbl.Lookup(h, func(v int32) bool { return val.(int32) == v }); ok {
-
 		return int(e.payload.memoIdx), ok
 	}
 	return KeyNotFound, false
@@ -476,7 +475,6 @@ func (s *Int64MemoTable) Get(val interface{}) (int, bool) {
 
 	h := hashInt(uint64(val.(int64)), 0)
 	if e, ok := s.tbl.Lookup(h, func(v int64) bool { return val.(int64) == v }); ok {
-
 		return int(e.payload.memoIdx), ok
 	}
 	return KeyNotFound, false
@@ -712,18 +710,19 @@ func (s *Float32MemoTable) CopyValuesSubset(start int, out interface{}) {
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *Float32MemoTable) Get(val interface{}) (int, bool) {
-
-	h := hashFloat32(val.(float32), 0)
 	var cmp func(float32) bool
 
 	if math.IsNaN(float64(val.(float32))) {
 		cmp = isNan32Cmp
-
+		// use consistent internal bit pattern for NaN regardless of the pattern
+		// that is passed to us. NaN is NaN is NaN
+		val = float32(math.NaN())
 	} else {
 		cmp = func(v float32) bool { return val.(float32) == v }
 	}
-	if e, ok := s.tbl.Lookup(h, cmp); ok {
 
+	h := hashFloat32(val.(float32), 0)
+	if e, ok := s.tbl.Lookup(h, cmp); ok {
 		return int(e.payload.memoIdx), ok
 	}
 	return KeyNotFound, false
@@ -734,15 +733,18 @@ func (s *Float32MemoTable) Get(val interface{}) (int, bool) {
 // existed in the table (true) or was inserted by this call (false).
 func (s *Float32MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err error) {
 
-	h := hashFloat32(val.(float32), 0)
 	var cmp func(float32) bool
 
 	if math.IsNaN(float64(val.(float32))) {
 		cmp = isNan32Cmp
-
+		// use consistent internal bit pattern for NaN regardless of the pattern
+		// that is passed to us. NaN is NaN is NaN
+		val = float32(math.NaN())
 	} else {
 		cmp = func(v float32) bool { return val.(float32) == v }
 	}
+
+	h := hashFloat32(val.(float32), 0)
 	e, ok := s.tbl.Lookup(h, cmp)
 
 	if ok {
@@ -965,18 +967,18 @@ func (s *Float64MemoTable) CopyValuesSubset(start int, out interface{}) {
 // Get returns the index of the requested value in the hash table or KeyNotFound
 // along with a boolean indicating if it was found or not.
 func (s *Float64MemoTable) Get(val interface{}) (int, bool) {
-
-	h := hashFloat64(val.(float64), 0)
 	var cmp func(float64) bool
-
 	if math.IsNaN(val.(float64)) {
 		cmp = math.IsNaN
-
+		// use consistent internal bit pattern for NaN regardless of the pattern
+		// that is passed to us. NaN is NaN is NaN
+		val = math.NaN()
 	} else {
 		cmp = func(v float64) bool { return val.(float64) == v }
 	}
-	if e, ok := s.tbl.Lookup(h, cmp); ok {
 
+	h := hashFloat64(val.(float64), 0)
+	if e, ok := s.tbl.Lookup(h, cmp); ok {
 		return int(e.payload.memoIdx), ok
 	}
 	return KeyNotFound, false
@@ -987,15 +989,17 @@ func (s *Float64MemoTable) Get(val interface{}) (int, bool) {
 // existed in the table (true) or was inserted by this call (false).
 func (s *Float64MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err error) {
 
-	h := hashFloat64(val.(float64), 0)
 	var cmp func(float64) bool
-
 	if math.IsNaN(val.(float64)) {
 		cmp = math.IsNaN
-
+		// use consistent internal bit pattern for NaN regardless of the pattern
+		// that is passed to us. NaN is NaN is NaN
+		val = math.NaN()
 	} else {
 		cmp = func(v float64) bool { return val.(float64) == v }
 	}
+
+	h := hashFloat64(val.(float64), 0)
 	e, ok := s.tbl.Lookup(h, cmp)
 
 	if ok {
