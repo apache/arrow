@@ -252,18 +252,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   fi
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
   PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS -fno-lto"
-  # Make sure we don't compile with LTO
-  # The package successfully compiles and links with LTO,
-  # but then there is a segfault on load. We're continuing to debug that
-  # so that we can support LTO, but this at least results in a working package.
-  #
-  # References:
-  # * https://issues.apache.org/jira/browse/ARROW-9616
-  # * https://github.com/apache/arrow/pull/10894
-  # * https://github.com/apache/arrow/pull/10889
-  # * https://issues.apache.org/jira/browse/ARROW-13507
-  # * https://issues.apache.org/jira/browse/ARROW-12853
-  PKG_CFLAGS="$PKG_CFLAGS -fno-lto"
+  PKG_CFLAGS="$PKG_CFLAGS -ffat-lto-objects"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
