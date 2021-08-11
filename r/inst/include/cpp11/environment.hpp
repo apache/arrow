@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -42,8 +42,7 @@ class environment {
 
  public:
   environment(SEXP env) : env_(env) {}
-  environment(sexp env) : env_(env) {}
-  proxy operator[](const SEXP name) const { return {env_, name}; }
+  proxy operator[](SEXP name) const { return {env_, name}; }
   proxy operator[](const char* name) const { return operator[](safe[Rf_install](name)); }
   proxy operator[](const std::string& name) const { return operator[](name.c_str()); }
 

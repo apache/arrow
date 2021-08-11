@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -28,7 +28,7 @@ using namespace cpp11::literals;
 class type_error : public std::exception {
  public:
   type_error(int expected, int actual) : expected_(expected), actual_(actual) {}
-  virtual const char* what() const noexcept override {
+  virtual const char* what() const noexcept {
     snprintf(str_, 64, "Invalid input type, expected '%s' actual '%s'",
              Rf_type2char(expected_), Rf_type2char(actual_));
     return str_;
@@ -287,6 +287,8 @@ class r_vector : public cpp11::r_vector<T> {
   r_vector(SEXP&& data, bool is_altrep);
   r_vector(std::initializer_list<T> il);
   r_vector(std::initializer_list<named_arg> il);
+  r_vector(std::initializer_list<const char*> il);
+  r_vector(std::initializer_list<std::string> il);
 
   template <typename Iter>
   r_vector(Iter first, Iter last);
@@ -294,7 +296,7 @@ class r_vector : public cpp11::r_vector<T> {
   template <typename V, typename W = has_begin_fun<V>>
   r_vector(const V& obj);
 
-  explicit r_vector(const R_xlen_t size);
+  r_vector(const R_xlen_t size);
 
   ~r_vector();
 
@@ -688,7 +690,7 @@ inline r_vector<T>::r_vector(const V& obj) : r_vector() {
 }
 
 template <typename T>
-inline r_vector<T>::r_vector(const R_xlen_t size) : r_vector() {
+inline r_vector<T>::r_vector(R_xlen_t size) : r_vector() {
   resize(size);
 }
 
@@ -880,28 +882,17 @@ inline void r_vector<T>::clear() {
   length_ = 0;
 }
 
-inline SEXP truncate(SEXP x, R_xlen_t length, R_xlen_t capacity) {
-#if R_VERSION >= R_Version(3, 4, 0)
-  SETLENGTH(x, length);
-  SET_TRUELENGTH(x, capacity);
-  SET_GROWABLE_BIT(x);
-#else
-  x = safe[Rf_lengthgets](x, length_);
-#endif
-  return x;
-}
-
 template <typename T>
 inline r_vector<T>::operator SEXP() const {
   if (length_ < capacity_) {
+#if R_VERSION >= R_Version(3, 4, 0)
+    SETLENGTH(data_, length_);
+    SET_TRUELENGTH(data_, capacity_);
+    SET_GROWABLE_BIT(data_);
+#else
     auto* p = const_cast<r_vector<T>*>(this);
-    p->data_ = truncate(p->data_, length_, capacity_);
-    SEXP nms = names();
-    auto nms_size = Rf_xlength(nms);
-    if ((nms_size > 0) && (length_ < nms_size)) {
-      nms = truncate(nms, length_, capacity_);
-      names() = nms;
-    }
+    p->data_ = safe[Rf_lengthgets](data_, length_);
+#endif
   }
   return data_;
 }

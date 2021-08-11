@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -25,7 +25,7 @@ class r_bool {
         value_ = static_cast<Rboolean>(LOGICAL_ELT(data, 0));
       }
     }
-    throw std::invalid_argument("Invalid r_bool value");
+    stop("Invalid r_bool value: %x", data);
   }
 
   r_bool(bool value) : value_(value ? TRUE : FALSE) {}

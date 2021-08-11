@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -140,5 +140,4 @@ inline void r_vector<r_bool>::push_back(r_bool value) {
 typedef r_vector<r_bool> logicals;
 
 }  // namespace writable
-
 }  // namespace cpp11

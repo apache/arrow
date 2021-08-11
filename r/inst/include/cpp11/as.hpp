@@ -1,13 +1,12 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
 #include <cmath>             // for modf
 #include <initializer_list>  // for initializer_list
 #include <memory>            // for std::shared_ptr, std::weak_ptr, std::unique_ptr
-#include <stdexcept>
-#include <string>       // for string, basic_string
-#include <type_traits>  // for decay, enable_if, is_same, is_convertible
+#include <string>            // for string, basic_string
+#include <type_traits>       // for decay, enable_if, is_same, is_convertible
 
 #include "cpp11/R.hpp"        // for SEXP, SEXPREC, Rf_xlength, R_xlen_t
 #include "cpp11/protect.hpp"  // for stop, protect, safe, protect::function
@@ -114,7 +113,7 @@ enable_if_integral<T, T> as_cpp(SEXP from) {
     }
   }
 
-  throw std::length_error("Expected single integer value");
+  stop("Expected single integer value");
 }
 
 template <typename E>
@@ -128,7 +127,7 @@ enable_if_enum<E, E> as_cpp(SEXP from) {
     return static_cast<E>(as_cpp<int_type>(from));
   }
 
-  throw std::length_error("Expected single integer value");
+  stop("Expected single integer value");
 }
 
 template <typename T>
@@ -139,7 +138,7 @@ enable_if_bool<T, T> as_cpp(SEXP from) {
     }
   }
 
-  throw std::length_error("Expected single logical value");
+  stop("Expected single logical value");
 }
 
 template <typename T>
@@ -168,7 +167,7 @@ enable_if_floating_point<T, T> as_cpp(SEXP from) {
     }
   }
 
-  throw std::length_error("Expected single double value");
+  stop("Expected single double value");
 }
 
 template <typename T>
@@ -179,7 +178,7 @@ enable_if_char<T, T> as_cpp(SEXP from) {
     }
   }
 
-  throw std::length_error("Expected string vector of length 1");
+  stop("Expected string vector of length 1");
 }
 
 template <typename T>
@@ -191,7 +190,7 @@ enable_if_c_string<T, T> as_cpp(SEXP from) {
     }
   }
 
-  throw std::length_error("Expected string vector of length 1");
+  stop("Expected string vector of length 1");
 }
 
 template <typename T>

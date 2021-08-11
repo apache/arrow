@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -141,31 +141,6 @@ typedef r_vector<int> integers;
 template <>
 inline int na() {
   return NA_INTEGER;
-}
-
-// forward declaration
-
-typedef r_vector<double> doubles;
-
-inline integers as_integers(sexp x) {
-  if (TYPEOF(x) == INTSXP) {
-    return as_cpp<integers>(x);
-  } else if (TYPEOF(x) == REALSXP) {
-    doubles xn = as_cpp<doubles>(x);
-    size_t len = (xn.size());
-    writable::integers ret = writable::integers(len);
-    for (size_t i = 0; i < len; ++i) {
-      double el = xn[i];
-      if (!is_convertable_without_loss_to_integer(el)) {
-        throw std::runtime_error("All elements must be integer-like");
-      }
-      ret[i] = (static_cast<int>(el));
-    }
-
-    return ret;
-  }
-
-  throw type_error(REALSXP, TYPEOF(x));
 }
 
 }  // namespace cpp11

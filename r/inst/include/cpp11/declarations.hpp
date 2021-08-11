@@ -1,4 +1,4 @@
-// cpp11 version: 0.3.1.9000
+// cpp11 version: 0.3.1.1
 // vendored on: 2021-08-11
 #pragma once
 
@@ -8,8 +8,8 @@
 
 #ifndef CPP11_PARTIAL
 #include "cpp11.hpp"
-using namespace ::cpp11;
-namespace writable = ::cpp11::writable;
+using namespace cpp11;
+namespace writable = cpp11::writable;
 #endif
 
 #include <R_ext/Rdynload.h>
