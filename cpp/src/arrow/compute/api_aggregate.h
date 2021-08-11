@@ -53,6 +53,26 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
+/// \brief Control count aggregate kernel behavior.
+///
+/// By default, only non-null values are counted.
+class ARROW_EXPORT CountOptions : public FunctionOptions {
+ public:
+  enum CountMode {
+    /// Count only non-null values.
+    ONLY_VALID = 0,
+    /// Count only null values.
+    ONLY_NULL,
+    /// Count both non-null and null values.
+    ALL,
+  };
+  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
+  constexpr static char const kTypeName[] = "CountOptions";
+  static CountOptions Defaults() { return CountOptions{}; }
+
+  CountMode mode;
+};
+
 /// \brief Control Mode kernel behavior
 ///
 /// Returns top-n common values and counts.
@@ -139,9 +159,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 
 /// @}
 
-/// \brief Count non-null (or null) values in an array.
+/// \brief Count values in an array.
 ///
-/// \param[in] options counting options, see ScalarAggregateOptions for more information
+/// \param[in] options counting options, see CountOptions for more information
 /// \param[in] datum to count
 /// \param[in] ctx the function execution context, optional
 /// \return out resulting datum
@@ -149,10 +169,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(
-    const Datum& datum,
-    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(const Datum& datum,
+                    const CountOptions& options = CountOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///

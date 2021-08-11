@@ -1077,13 +1077,17 @@ TEST(GroupBy, CountAndSum) {
     [null,  3]
   ])");
 
-  ScalarAggregateOptions count_options;
+  CountOptions count_options;
+  CountOptions count_nulls(CountOptions::ONLY_NULL);
+  CountOptions count_all(CountOptions::ALL);
   ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
       internal::GroupBy(
           {
               // NB: passing an argument twice or also using it as a key is legal
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
               batch->GetColumnByName("argument"),
               batch->GetColumnByName("argument"),
               batch->GetColumnByName("argument"),
@@ -1094,6 +1098,8 @@ TEST(GroupBy, CountAndSum) {
           },
           {
               {"hash_count", &count_options},
+              {"hash_count", &count_nulls},
+              {"hash_count", &count_all},
               {"hash_sum", nullptr},
               {"hash_sum", &min_count},
               {"hash_sum", nullptr},
@@ -1102,6 +1108,8 @@ TEST(GroupBy, CountAndSum) {
   AssertDatumsEqual(
       ArrayFromJSON(struct_({
                         field("hash_count", int64()),
+                        field("hash_count", int64()),
+                        field("hash_count", int64()),
                         // NB: summing a float32 array results in float64 sums
                         field("hash_sum", float64()),
                         field("hash_sum", float64()),
@@ -1109,10 +1117,10 @@ TEST(GroupBy, CountAndSum) {
                         field("key_0", int64()),
                     }),
                     R"([
-    [2, 4.25,   null,   3,    1],
-    [3, -0.125, -0.125, 6,    2],
-    [0, null,   null,   6,    3],
-    [2, 4.75,   null,   null, null]
+    [2, 1, 3, 4.25,   null,   3,    1],
+    [3, 0, 3, -0.125, -0.125, 6,    2],
+    [0, 2, 2, null,   null,   6,    3],
+    [2, 0, 2, 4.75,   null,   null, null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
@@ -1248,13 +1256,14 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   ])");
 
   ScalarAggregateOptions keepna{false, 1};
-  ScalarAggregateOptions skipna{true, 1};
+  CountOptions nulls(CountOptions::ONLY_NULL);
+  CountOptions non_null(CountOptions::ONLY_VALID);
 
   using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_sum", nullptr},
-           Aggregate{"hash_count", &skipna},
-           Aggregate{"hash_count", &keepna},
+           Aggregate{"hash_count", &non_null},
+           Aggregate{"hash_count", &nulls},
            Aggregate{"hash_min_max", nullptr},
            Aggregate{"hash_min_max", &keepna},
        }) {
@@ -1273,7 +1282,7 @@ TEST(GroupBy, CountNull) {
     [3.0, "gama"]
   ])");
 
-  ScalarAggregateOptions keepna{false}, skipna{true};
+  CountOptions keepna{CountOptions::ONLY_NULL}, skipna{CountOptions::ONLY_VALID};
 
   using internal::Aggregate;
   for (auto agg : {
@@ -1323,7 +1332,6 @@ TEST(GroupBy, WithChunkedArray) {
                          {"argument": 0.75,  "key": null},
                          {"argument": null,  "key": 3}
                         ])"});
-  ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
@@ -1335,7 +1343,7 @@ TEST(GroupBy, WithChunkedArray) {
                                table->GetColumnByName("key"),
                            },
                            {
-                               {"hash_count", &count_options},
+                               {"hash_count", nullptr},
                                {"hash_sum", nullptr},
                                {"hash_min_max", nullptr},
                            }));

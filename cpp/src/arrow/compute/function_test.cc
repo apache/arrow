@@ -40,6 +40,8 @@ TEST(FunctionOptions, Equality) {
   std::vector<std::shared_ptr<FunctionOptions>> options;
   options.emplace_back(new ScalarAggregateOptions());
   options.emplace_back(new ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  options.emplace_back(new CountOptions());
+  options.emplace_back(new CountOptions(CountOptions::ALL));
   options.emplace_back(new ModeOptions());
   options.emplace_back(new ModeOptions(/*n=*/2));
   options.emplace_back(new VarianceOptions());

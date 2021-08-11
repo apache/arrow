@@ -98,6 +98,38 @@ GARROW_AVAILABLE_IN_5_0
 GArrowScalarAggregateOptions *
 garrow_scalar_aggregate_options_new(void);
 
+/**
+ * GArrowCountMode:
+ * @GARROW_COUNT_MODE_ONLY_VALID:
+ *   Only non-null values will be counted.
+ * @GARROW_COUNT_MODE_ONLY_NULL:
+ *   Only null values will be counted.
+ * @GARROW_COUNT_MODE_ALL:
+ *   All will be counted.
+ *
+ * They correspond to the values of `arrow::compute::CountOptions::CountMode`.
+ */
+typedef enum {
+  GARROW_COUNT_MODE_ONLY_VALID,
+  GARROW_COUNT_MODE_ONLY_NULL,
+  GARROW_COUNT_MODE_ALL,
+} GArrowCountMode;
+
+#define GARROW_TYPE_COUNT_OPTIONS (garrow_count_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCountOptions,
+                         garrow_count_options,
+                         GARROW,
+                         COUNT_OPTIONS,
+                         GObject)
+struct _GArrowCountOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowCountOptions *
+garrow_count_options_new(void);
+
 
 /**
  * GArrowFilterNullSelectionBehavior:
@@ -242,7 +274,7 @@ GArrowDictionaryArray *garrow_array_dictionary_encode(GArrowArray *array,
                                                       GError **error);
 GARROW_AVAILABLE_IN_0_13
 gint64 garrow_array_count(GArrowArray *array,
-                          GArrowScalarAggregateOptions *options,
+                          GArrowCountOptions *options,
                           GError **error);
 GARROW_AVAILABLE_IN_0_13
 GArrowStructArray *garrow_array_count_values(GArrowArray *array,

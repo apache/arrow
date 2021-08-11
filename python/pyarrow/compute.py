@@ -31,6 +31,7 @@ from pyarrow._compute import (  # noqa
     # Option classes
     ArraySortOptions,
     CastOptions,
+    CountOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,

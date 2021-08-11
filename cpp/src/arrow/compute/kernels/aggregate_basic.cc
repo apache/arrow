@@ -57,10 +57,12 @@ namespace aggregate {
 // Count implementation
 
 struct CountImpl : public ScalarAggregator {
-  explicit CountImpl(ScalarAggregateOptions options) : options(std::move(options)) {}
+  explicit CountImpl(CountOptions options) : options(std::move(options)) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
-    if (batch[0].is_array()) {
+    if (options.mode == CountOptions::ALL) {
+      this->non_nulls += batch.length;
+    } else if (batch[0].is_array()) {
       const ArrayData& input = *batch[0].array();
       const int64_t nulls = input.GetNullCount();
       this->nulls += nulls;
@@ -82,15 +84,23 @@ struct CountImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
-    if (state.options.skip_nulls) {
-      *out = Datum(state.non_nulls);
-    } else {
-      *out = Datum(state.nulls);
+    switch (state.options.mode) {
+      case CountOptions::ONLY_VALID:
+      case CountOptions::ALL:
+        // ALL is equivalent since we don't count the null/non-null
+        // separately to avoid potentially computing null count
+        *out = Datum(state.non_nulls);
+        break;
+      case CountOptions::ONLY_NULL:
+        *out = Datum(state.nulls);
+        break;
+      default:
+        DCHECK(false) << "unreachable";
     }
     return Status::OK();
   }
 
-  ScalarAggregateOptions options;
+  CountOptions options;
   int64_t non_nulls = 0;
   int64_t nulls = 0;
 };
@@ -98,7 +108,7 @@ struct CountImpl : public ScalarAggregator {
 Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
                                                const KernelInitArgs& args) {
   return ::arrow::internal::make_unique<CountImpl>(
-      static_cast<const ScalarAggregateOptions&>(*args.options));
+      static_cast<const CountOptions&>(*args.options));
 }
 
 // ----------------------------------------------------------------------
@@ -560,9 +570,9 @@ namespace {
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, only non-null values are counted.\n"
-                             "This can be changed through ScalarAggregateOptions."),
+                             "This can be changed through CountOptions."),
                             {"array"},
-                            "ScalarAggregateOptions"};
+                            "CountOptions"};
 
 const FunctionDoc sum_doc{
     "Compute the sum of a numeric array",
@@ -623,17 +633,15 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+  static auto default_count_options = CountOptions::Defaults();
 
   auto func = std::make_shared<ScalarAggregateFunction>(
-      "count", Arity::Unary(), &count_doc, &default_scalar_aggregate_options);
+      "count", Arity::Unary(), &count_doc, &default_count_options);
 
-  // Takes any array input, outputs int64 scalar
-  InputType any_array(ValueDescr::ARRAY);
-  AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())),
+  // Takes any input, outputs int64 scalar
+  InputType any_input;
+  AddAggKernel(KernelSignature::Make({any_input}, ValueDescr::Scalar(int64())),
                aggregate::CountInit, func.get());
-  AddAggKernel(
-      KernelSignature::Make({InputType(ValueDescr::SCALAR)}, ValueDescr::Scalar(int64())),
-      aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
