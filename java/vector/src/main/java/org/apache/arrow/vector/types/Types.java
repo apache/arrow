@@ -37,6 +37,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -82,6 +83,7 @@ import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalDayWriterImpl;
+import org.apache.arrow.vector.complex.impl.IntervalMonthDayNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.IntervalYearWriterImpl;
 import org.apache.arrow.vector.complex.impl.LargeVarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.LargeVarCharWriterImpl;
@@ -384,6 +386,20 @@ public class Types {
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new IntervalDayWriterImpl((IntervalDayVector) vector);
+      }
+    },
+    INTERVALMONTHDAYNANO(new Interval(IntervalUnit.MONTH_DAY_NANO)) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new IntervalMonthDayNanoVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new IntervalMonthDayNanoWriterImpl((IntervalMonthDayNanoVector) vector);
       }
     },
     DURATION(null) {
@@ -978,6 +994,8 @@ public class Types {
             return MinorType.INTERVALDAY;
           case YEAR_MONTH:
             return MinorType.INTERVALYEAR;
+          case MONTH_DAY_NANO:
+            return MinorType.INTERVALMONTHDAYNANO;
           default:
             throw new IllegalArgumentException("unknown unit: " + type);
         }
