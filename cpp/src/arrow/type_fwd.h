@@ -404,7 +404,6 @@ struct Type {
 
     // Leave this at the end
     MAX_ID
-
   };
 };
 
