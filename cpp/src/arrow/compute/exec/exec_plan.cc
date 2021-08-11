@@ -241,15 +241,6 @@ bool ExecNode::ErrorIfNotOk(Status status) {
   return true;
 }
 
-ExecFactoryRegistry::AddOnLoad::AddOnLoad(std::string factory_name, Factory factory)
-    : AddOnLoad(std::move(factory_name), std::move(factory),
-                default_exec_factory_registry()) {}
-
-ExecFactoryRegistry::AddOnLoad::AddOnLoad(std::string factory_name, Factory factory,
-                                          ExecFactoryRegistry* registry) {
-  DCHECK_OK(registry->AddFactory(std::move(factory_name), std::move(factory)));
-}
-
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema,
     std::function<Future<util::optional<ExecBatch>>()> gen, MemoryPool* pool) {
@@ -315,9 +306,27 @@ Declaration Declaration::Sequence(std::vector<Declaration> decls) {
   return out;
 }
 
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry*);
+void RegisterFilterNode(ExecFactoryRegistry*);
+void RegisterProjectNode(ExecFactoryRegistry*);
+void RegisterAggregateNode(ExecFactoryRegistry*);
+void RegisterSinkNode(ExecFactoryRegistry*);
+
+}  // namespace internal
+
 ExecFactoryRegistry* default_exec_factory_registry() {
-  static class : public ExecFactoryRegistry {
+  class DefaultRegistry : public ExecFactoryRegistry {
    public:
+    DefaultRegistry() {
+      internal::RegisterSourceNode(this);
+      internal::RegisterFilterNode(this);
+      internal::RegisterProjectNode(this);
+      internal::RegisterAggregateNode(this);
+      internal::RegisterSinkNode(this);
+    }
+
     Result<Factory> GetFactory(const std::string& factory_name) override {
       auto it = factories_.find(factory_name);
       if (it == factories_.end()) {
@@ -341,8 +350,9 @@ ExecFactoryRegistry* default_exec_factory_registry() {
 
    private:
     std::unordered_map<std::string, Factory> factories_;
-  } instance;
+  };
 
+  static DefaultRegistry instance;
   return &instance;
 }
 
