@@ -1039,7 +1039,6 @@ tasks:
       r_org: rhub
       r_image: debian-gcc-devel-lto
       r_tag: latest
-      with_arrow: "FALSE"
       flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
