@@ -38,6 +38,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visitor_inline.h"
@@ -46,6 +47,9 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+
+using internal::SmallVector;
+using internal::StaticVector;
 
 using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
@@ -64,9 +68,6 @@ Status ExportingNotImplemented(const DataType& type) {
 // to allow accounting memory and checking for memory leaks.
 
 // XXX use Gandiva's SimpleArena?
-
-template <typename T>
-using PoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 
 template <typename Derived>
 struct PoolAllocationMixin {
@@ -90,8 +91,8 @@ struct ExportedSchemaPrivateData : PoolAllocationMixin<ExportedSchemaPrivateData
   std::string name_;
   std::string metadata_;
   struct ArrowSchema dictionary_;
-  PoolVector<struct ArrowSchema> children_;
-  PoolVector<struct ArrowSchema*> child_pointers_;
+  SmallVector<struct ArrowSchema, 1> children_;
+  SmallVector<struct ArrowSchema*, 4> child_pointers_;
 
   ExportedSchemaPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedSchemaPrivateData);
@@ -225,7 +226,7 @@ struct SchemaExporter {
     c_struct->flags = flags_;
 
     c_struct->n_children = static_cast<int64_t>(child_exporters_.size());
-    c_struct->children = pdata->child_pointers_.data();
+    c_struct->children = c_struct->n_children ? pdata->child_pointers_.data() : nullptr;
     c_struct->dictionary = dict_exporter_ ? &pdata->dictionary_ : nullptr;
     c_struct->private_data = pdata;
     c_struct->release = ReleaseExportedSchema;
@@ -475,10 +476,10 @@ namespace {
 
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
-  PoolVector<const void*> buffers_;
+  StaticVector<const void*, 3> buffers_;
   struct ArrowArray dictionary_;
-  PoolVector<struct ArrowArray> children_;
-  PoolVector<struct ArrowArray*> child_pointers_;
+  SmallVector<struct ArrowArray, 1> children_;
+  SmallVector<struct ArrowArray*, 4> child_pointers_;
 
   std::shared_ptr<ArrayData> data_;
 
@@ -574,7 +575,7 @@ struct ArrayExporter {
     c_struct_->n_buffers = static_cast<int64_t>(pdata->buffers_.size());
     c_struct_->n_children = static_cast<int64_t>(pdata->child_pointers_.size());
     c_struct_->buffers = pdata->buffers_.data();
-    c_struct_->children = pdata->child_pointers_.data();
+    c_struct_->children = c_struct_->n_children ? pdata->child_pointers_.data() : nullptr;
     c_struct_->dictionary = dict_exporter_ ? &pdata->dictionary_ : nullptr;
     c_struct_->private_data = pdata;
     c_struct_->release = ReleaseExportedArray;
@@ -687,8 +688,8 @@ class FormatStringParser {
     }
   }
 
-  std::vector<util::string_view> Split(util::string_view v, char delim = ',') {
-    std::vector<util::string_view> parts;
+  SmallVector<util::string_view, 2> Split(util::string_view v, char delim = ',') {
+    SmallVector<util::string_view, 2> parts;
     size_t start = 0, end;
     while (true) {
       end = v.find_first_of(delim, start);
