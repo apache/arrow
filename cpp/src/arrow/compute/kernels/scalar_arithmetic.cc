@@ -819,28 +819,34 @@ struct Log1pChecked {
 
 struct Logb {
   template <typename T, typename Arg0, typename Arg1>
-  static T Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    // if (x == -1) {
-    //   return -std::numeric_limits<T>::infinity();
-    // } else if (x < -1) {
-    //   return std::numeric_limits<T>::quiet_NaN();
-    // }
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    if (x == 0.0) {
+      if (base == 0.0 || base < 0.0) {
+        return std::numeric_limits<T>::quiet_NaN();
+      } else {
+        return -std::numeric_limits<T>::infinity();
+      }
+    } else if (x < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
     return std::log(x) / std::log(base);
   }
 };
 
 struct LogbChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static T Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    // if (x == -1) {
-    //   *st = Status::Invalid("logarithm of zero");
-    //   return x;
-    // } else if (x < -1) {
-    //   *st = Status::Invalid("logarithm of negative number");
-    //   return x;
-    // }
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    if (x == 0.0 || base == 0.0) {
+      *st = Status::Invalid("logarithm of zero");
+      return x;
+    } else if (x < 0.0 || base < 0.0) {
+      *st = Status::Invalid("logarithm of negative number");
+      return x;
+    }
     return std::log(x) / std::log(base);
   }
 };

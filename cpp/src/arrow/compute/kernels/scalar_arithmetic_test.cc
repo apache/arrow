@@ -229,6 +229,15 @@ class TestBinaryArithmetic : public TestBase {
     AssertBinop(func, lhs, right, expected);
   }
 
+  // (Array, Scalar) => Array
+  void AssertBinop(BinaryFunction func, const std::string& lhs,
+                   const std::shared_ptr<Scalar>& right, const std::shared_ptr<Array>& expected) {
+    auto left = ArrayFromJSON(type_singleton(), lhs);
+
+    ASSERT_OK_AND_ASSIGN(auto actual, func(left, right, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
+  }
+
   // (Array, Scalar)
   void AssertBinop(BinaryFunction func, const std::string& lhs,
                    const std::shared_ptr<Scalar>& right, const std::string& expected) {
@@ -242,6 +251,15 @@ class TestBinaryArithmetic : public TestBase {
   // (Array, Array)
   void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
                    const std::string& expected) {
+    auto left = ArrayFromJSON(type_singleton(), lhs);
+    auto right = ArrayFromJSON(type_singleton(), rhs);
+
+    AssertBinop(func, left, right, expected);
+  }
+
+  // (Array, Array) => Array
+  void AssertBinop(BinaryFunction func, const std::string& lhs, const std::string& rhs,
+                   const std::shared_ptr<Array>& expected) {
     auto left = ArrayFromJSON(type_singleton(), lhs);
     auto right = ArrayFromJSON(type_singleton(), rhs);
 
@@ -2003,18 +2021,32 @@ TYPED_TEST(TestUnaryArithmeticIntegral, Log) {
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Log) {
   // Integer arguments promoted to double, sanity check here
-  // ToDo
+  this->AssertBinop(Logb, "[1, 10, null]", "[10, 10, null]", ArrayFromJSON(float64(), "[0, 1, null]"));
+  this->AssertBinop(Logb, "[1, 2, null]", "[2, 2, null]", ArrayFromJSON(float64(), "[0, 1, null]"));
+  this->AssertBinop(Logb, "[10, 100, null]", this->MakeScalar(10), ArrayFromJSON(float64(), "[1, 2, null]"));
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, Log) {
   // Integer arguments promoted to double, sanity check here
   this->AssertBinop(Logb, "[1.0, 10.0, null]", "[10.0, 10.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
+  this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10), "[1.0, 2.0, 3.0, null]");
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, Log) {
   // Integer arguments promoted to double, sanity check here
-  // ToDo
+  this->SetNansEqual(true);
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Logb, "[-1, 0]", this->MakeScalar(10), ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertBinop(Logb, "[-1, 0]", this->MakeScalar(2), ArrayFromJSON(float64(), "[NaN, -Inf]"));
+  this->AssertBinop(Logb, "[10, 100]", this->MakeScalar(-1), ArrayFromJSON(float64(), "[NaN, NaN]"));
+  this->AssertBinop(Logb, "[-1, 0, null]", this->MakeScalar(-1), ArrayFromJSON(float64(), "[NaN, NaN, null]"));
+  this->AssertBinop(Logb, "[10, 100]", this->MakeScalar(0), ArrayFromJSON(float64(), "[0, 0]"));
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Logb, "[0]", "[10]", "logarithm of zero");
+  this->AssertBinopRaises(Logb, "[-1]", "[10]", "logarithm of negative number");
+  this->AssertBinopRaises(Logb, "[10]", "[0]", "logarithm of zero");
+  this->AssertBinopRaises(Logb, "[100]", "[-1]", "logarithm of negative number");
 }
 
 TYPED_TEST(TestUnaryArithmeticSigned, Log) {
