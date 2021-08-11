@@ -594,6 +594,16 @@ class KernelExecutorImpl : public KernelExecutor {
     return out;
   }
 
+  Status CheckResultType(const Datum& out, const char* function_name) override {
+    const auto& type = out.type();
+    if (type != nullptr && !type->Equals(output_descr_.type)) {
+      return Status::TypeError(
+          "kernel type result mismatch for function '", function_name, "': declared as ",
+          output_descr_.type->ToString(), ", actual is ", type->ToString());
+    }
+    return Status::OK();
+  }
+
   ExecContext* exec_context() { return kernel_ctx_->exec_context(); }
   KernelState* state() { return kernel_ctx_->state(); }
 

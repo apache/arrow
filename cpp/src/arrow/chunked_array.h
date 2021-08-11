@@ -128,7 +128,7 @@ class ARROW_EXPORT ChunkedArray {
   /// there are zero chunks
   Result<std::shared_ptr<ChunkedArray>> View(const std::shared_ptr<DataType>& type) const;
 
-  std::shared_ptr<DataType> type() const { return type_; }
+  const std::shared_ptr<DataType>& type() const { return type_; }
 
   /// \brief Determine if two chunked arrays are equal.
   ///
