@@ -280,15 +280,6 @@ find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")
   }
 }
 
-R_CMD_config <- function(var) {
-  if (getRversion() < 3.4) {
-    # var names were called CXX1X instead of CXX11
-    var <- sub("^CXX11", "CXX1X", var)
-  }
-  # tools::Rcmd introduced R 3.3
-  tools::Rcmd(paste("config", var), stdout = TRUE)
-}
-
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
@@ -318,6 +309,14 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
+  R_CMD_config <- function(var) {
+    if (getRversion() < 3.4) {
+      # var names were called CXX1X instead of CXX11
+      var <- sub("^CXX11", "CXX1X", var)
+    }
+    # tools::Rcmd introduced R 3.3
+    tools::Rcmd(paste("config", var), stdout = TRUE)
+  }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
     BUILD_DIR = build_dir,

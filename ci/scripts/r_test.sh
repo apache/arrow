@@ -32,8 +32,8 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
 fi
 export _R_CHECK_COMPILATION_FLAGS_KNOWN_=${ARROW_R_CXXFLAGS}
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
-  # These are used in the Arrow C++ build and are not a problem
-  export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2"
+  # These are sometimes used in the Arrow C++ build and are not a problem
+  export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2 -Wno-noexcept-type -Wno-subobject-linkage"
   if [ "$NOT_CRAN" = "" ]; then
     # Note that NOT_CRAN=true means (among other things) that optional dependencies are built
     # You can set NOT_CRAN=false for the CRAN build and then
