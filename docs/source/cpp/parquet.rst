@@ -224,7 +224,7 @@ and will recreate the original Arrow data, converting the Parquet data as
 required (for example, a LargeList will be recreated from the Parquet LIST
 type).
 
-As an exemple, when serializing an Arrow LargeList to Parquet:
+As an example, when serializing an Arrow LargeList to Parquet:
 
 * The data is written out as a Parquet LIST
 
