@@ -93,9 +93,9 @@ integrations in other projects, we'd be happy to have you involved:
 - Join the mailing list: send an email to
   [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
   project.
-- [Follow our activity on JIRA][3]
-- [Learn the format][2]
-- Contribute code to one of the reference implementations
+- [Follow our activity on JIRA][3].
+- [Learn the format][2].
+- Contribute code to one of the reference implementations.
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format
