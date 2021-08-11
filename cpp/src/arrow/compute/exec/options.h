@@ -64,19 +64,6 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
   Expression filter_expression;
 };
 
-/// \brief Make a node which sorts rows passed through it
-///
-/// All batches pushed to this node will be accumulated, then sorted, by the given
-/// fields. Then sorted batches will be pushed to the next node, along a tag
-/// indicating the absolute order of the batches.
-class ARROW_EXPORT OrderByNodeOptions : public ExecNodeOptions {
- public:
-  explicit OrderByNodeOptions(SortOptions sort_options)
-      : sort_options(std::move(sort_options)) {}
-
-  SortOptions sort_options;
-};
-
 /// \brief Make a node which executes expressions on input batches, producing new batches.
 ///
 /// Each expression will be evaluated against each batch which is pushed to
@@ -123,6 +110,21 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
       : generator(generator) {}
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;
+};
+
+/// \brief Make a node which sorts rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then sorted, by the given
+/// fields. Then sorted batches will be pushed to the next node, along a tag
+/// indicating the absolute order of the batches.
+class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit OrderBySinkNodeOptions(
+      SortOptions sort_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
+
+  SortOptions sort_options;
 };
 
 }  // namespace compute

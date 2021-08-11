@@ -21,6 +21,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
@@ -28,6 +29,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -149,72 +151,89 @@ class SinkNode : public ExecNode {
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
-// A node that reorders inputs according to a tag. To be paired with OrderByNode.
-struct ReorderNode final : public SinkNode {
-  ReorderNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              AsyncGenerator<util::optional<ExecBatch>>* generator)
-      : SinkNode(plan, std::move(inputs), generator) {}
+// A sink node that accumulates inputs, then sorts them before emitting them.
+struct OrderBySinkNode final : public SinkNode {
+  OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs, SortOptions sort_options,
+                  AsyncGenerator<util::optional<ExecBatch>>* generator)
+      : SinkNode(plan, std::move(inputs), generator),
+        sort_options_(std::move(sort_options)) {}
 
-  const char* kind_name() override { return "ReorderNode"; }
+  const char* kind_name() override { return "OrderBySinkNode"; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "ReorderNode"));
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
 
-    const auto& sink_options = checked_cast<const SinkNodeOptions&>(options);
-    return plan->EmplaceNode<ReorderNode>(plan, std::move(inputs),
-                                          sink_options.generator);
+    const auto& sink_options = checked_cast<const OrderBySinkNodeOptions&>(options);
+    return plan->EmplaceNode<OrderBySinkNode>(
+        plan, std::move(inputs), sink_options.sort_options, sink_options.generator);
   }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
+    // Accumulate data
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
+                                             plan()->exec_context()->memory_pool());
+      if (ErrorIfNotOk(maybe_batch.status())) return;
+      batches_.push_back(maybe_batch.MoveValueUnsafe());
+    }
+
     if (input_counter_.Increment()) {
       Finish();
-      return;
-    }
-    std::unique_lock<std::mutex> lock(mutex_);
-    const auto& tag_scalar = *batch.values.back().scalar();
-    const int64_t tag = checked_cast<const Int64Scalar&>(tag_scalar).value;
-    batch.values.pop_back();
-    PushAvailable();
-    if (tag == next_batch_index_) {
-      next_batch_index_++;
-      producer_.Push(std::move(batch));
-    } else {
-      batches_.emplace(tag, std::move(batch));
     }
   }
 
  protected:
-  void PushAvailable() {
-    decltype(batches_)::iterator it;
-    while ((it = batches_.find(next_batch_index_)) != batches_.end()) {
-      auto batch = std::move(it->second);
-      bool did_push = producer_.Push(std::move(batch));
-      batches_.erase(it);
-      // producer was Closed already
-      if (!did_push) return;
-      next_batch_index_++;
-    }
+  Result<std::shared_ptr<Table>> SortData() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    ARROW_ASSIGN_OR_RAISE(
+        auto table,
+        Table::FromRecordBatches(inputs_[0]->output_schema(), std::move(batches_)));
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          SortIndices(table, sort_options_, plan()->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(auto sorted, Take(table, indices, TakeOptions::NoBoundsCheck(),
+                                            plan()->exec_context()));
+    return sorted.table();
   }
 
   void Finish() override {
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      PushAvailable();
+    auto maybe_sorted = SortData();
+    if (ErrorIfNotOk(maybe_sorted.status())) {
+      producer_.Push(maybe_sorted.status());
+      SinkNode::Finish();
+      return;
     }
+    auto sorted = maybe_sorted.MoveValueUnsafe();
+
+    TableBatchReader reader(*sorted);
+    while (true) {
+      std::shared_ptr<RecordBatch> batch;
+      auto status = reader.ReadNext(&batch);
+      if (!status.ok()) {
+        producer_.Push(std::move(status));
+        SinkNode::Finish();
+        return;
+      }
+      if (!batch) break;
+      bool did_push = producer_.Push(ExecBatch(*batch));
+      if (!did_push) break;  // producer_ was Closed already
+    }
+
     SinkNode::Finish();
   }
 
  private:
-  std::unordered_map<int64_t, ExecBatch> batches_;
+  SortOptions sort_options_;
   std::mutex mutex_;
-  int64_t next_batch_index_ = 0;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
 };
 
 ExecFactoryRegistry::AddOnLoad kRegisterSink("sink", SinkNode::Make);
-ExecFactoryRegistry::AddOnLoad kRegisterReorder("reorder", ReorderNode::Make);
+ExecFactoryRegistry::AddOnLoad kRegisterOrderBySink("order_by_sink",
+                                                    OrderBySinkNode::Make);
 
 }  // namespace
 }  // namespace compute

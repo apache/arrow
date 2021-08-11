@@ -824,18 +824,6 @@ Status AddHashAggKernels(
   return Status::OK();
 }
 
-HashAggregateKernel MakeOrderDependentKernel(InputType argument_type, KernelInit init) {
-  HashAggregateKernel kernel = MakeKernel(argument_type, init);
-  kernel.signature = KernelSignature::Make(
-      {std::move(argument_type), InputType::Array(Type::UINT32),
-       InputType::Scalar(Type::INT64)},
-      OutputType(
-          [](KernelContext* ctx, const std::vector<ValueDescr>&) -> Result<ValueDescr> {
-            return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
-          }));
-  return kernel;
-}
-
 // ----------------------------------------------------------------------
 // Count implementation
 
@@ -1713,207 +1701,6 @@ struct GroupedMinMaxFactory {
 };
 
 // ----------------------------------------------------------------------
-// ArgMinMax implementation
-
-template <typename Type>
-struct GroupedArgMinMaxImpl : public GroupedAggregator {
-  using CType = typename TypeTraits<Type>::CType;
-
-  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
-    mins_ = TypedBufferBuilder<CType>(ctx->memory_pool());
-    maxes_ = TypedBufferBuilder<CType>(ctx->memory_pool());
-    min_offsets_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
-    max_offsets_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
-    min_batch_indices_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
-    max_batch_indices_ = TypedBufferBuilder<int64_t>(ctx->memory_pool());
-    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    return Status::OK();
-  }
-
-  Status Resize(int64_t new_num_groups) override {
-    auto added_groups = new_num_groups - num_groups_;
-    num_groups_ = new_num_groups;
-    RETURN_NOT_OK(mins_.Append(added_groups, AntiExtrema<CType>::anti_min()));
-    RETURN_NOT_OK(maxes_.Append(added_groups, AntiExtrema<CType>::anti_max()));
-    RETURN_NOT_OK(min_offsets_.Append(added_groups, -1));
-    RETURN_NOT_OK(max_offsets_.Append(added_groups, -1));
-    RETURN_NOT_OK(min_batch_indices_.Append(added_groups, -1));
-    RETURN_NOT_OK(max_batch_indices_.Append(added_groups, -1));
-    RETURN_NOT_OK(has_values_.Append(added_groups, false));
-    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
-    return Status::OK();
-  }
-
-  Status Consume(const ExecBatch& batch) override {
-    DCHECK_EQ(3, batch.num_values());
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-    const Scalar& tag_scalar = *batch.values.back().scalar();
-    const int64_t batch_index = UnboxScalar<Int64Type>::Unbox(tag_scalar);
-    auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
-    auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
-    auto max_offsets = max_offsets_.mutable_data();
-    auto max_batch_indices = max_batch_indices_.mutable_data();
-    auto min_offsets = min_offsets_.mutable_data();
-    auto min_batch_indices = min_batch_indices_.mutable_data();
-    batch_sizes_.emplace(batch_index, batch.length);
-
-    int64_t index = 0;
-    VisitArrayDataInline<Type>(
-        *batch[0].array(),
-        [&](CType val) {
-          if (val > raw_maxes[*g] || max_batch_indices[*g] < 0) {
-            raw_maxes[*g] = val;
-            max_offsets[*g] = index;
-            max_batch_indices[*g] = batch_index;
-          }
-          // TODO: test an array that contains the antiextreme
-          if (val < raw_mins[*g] || min_batch_indices[*g] < 0) {
-            raw_mins[*g] = val;
-            min_offsets[*g] = index;
-            min_batch_indices[*g] = batch_index;
-          }
-          BitUtil::SetBit(has_values_.mutable_data(), *g++);
-          index++;
-        },
-        [&] {
-          BitUtil::SetBit(has_nulls_.mutable_data(), *g++);
-          index++;
-        });
-    return Status::OK();
-  }
-
-  Status Merge(GroupedAggregator&& raw_other,
-               const ArrayData& group_id_mapping) override {
-    auto other = checked_cast<GroupedArgMinMaxImpl*>(&raw_other);
-
-    batch_sizes_.insert(other->batch_sizes_.begin(), other->batch_sizes_.end());
-
-    // TODO: go back and clean up these casts
-    auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
-    auto min_offsets = min_offsets_.mutable_data();
-    auto min_batch_indices = max_batch_indices_.mutable_data();
-    auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
-    auto max_offsets = max_offsets_.mutable_data();
-    auto max_batch_indices = max_batch_indices_.mutable_data();
-
-    auto other_raw_mins = reinterpret_cast<const CType*>(other->mins_.data());
-    auto other_min_offsets = other->min_offsets_.mutable_data();
-    auto other_min_batch_indices = other->max_batch_indices_.mutable_data();
-    auto other_raw_maxes = reinterpret_cast<const CType*>(other->maxes_.data());
-    auto other_max_offsets = other->max_offsets_.mutable_data();
-    auto other_max_batch_indices = other->max_batch_indices_.mutable_data();
-
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      if (other_raw_mins[other_g] < raw_mins[*g]) {
-        raw_mins[*g] = other_raw_mins[other_g];
-        min_offsets[*g] = other_min_offsets[other_g];
-        min_batch_indices[*g] = other_min_batch_indices[other_g];
-      } else if (other_raw_mins[other_g] == raw_mins[*g] &&
-                 other_min_batch_indices[other_g] < min_batch_indices[*g]) {
-        min_offsets[*g] = other_min_offsets[other_g];
-        min_batch_indices[*g] = other_min_batch_indices[other_g];
-      }
-      if (other_raw_maxes[other_g] > raw_maxes[*g]) {
-        raw_maxes[*g] = other_raw_maxes[other_g];
-        max_offsets[*g] = other_max_offsets[other_g];
-        max_batch_indices[*g] = other_max_batch_indices[other_g];
-      } else if (other_raw_maxes[other_g] == raw_maxes[*g] &&
-                 other_max_batch_indices[other_g] < max_batch_indices[*g]) {
-        max_offsets[*g] = other_max_offsets[other_g];
-        max_batch_indices[*g] = other_max_batch_indices[other_g];
-      }
-
-      if (BitUtil::GetBit(other->has_values_.data(), other_g)) {
-        BitUtil::SetBit(has_values_.mutable_data(), *g);
-      }
-      if (BitUtil::GetBit(other->has_nulls_.data(), other_g)) {
-        BitUtil::SetBit(has_nulls_.mutable_data(), *g);
-      }
-    }
-    return Status::OK();
-  }
-
-  Result<Datum> Finalize() override {
-    // aggregation for group is valid if there was at least one value in that group
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
-
-    if (!options_.skip_nulls) {
-      // ... and there were no nulls in that group
-      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
-      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
-                                    num_groups_, 0, null_bitmap->mutable_data());
-    }
-
-    // Compute the actual row index
-    int64_t* min_offsets = min_offsets_.mutable_data();
-    int64_t* max_offsets = max_offsets_.mutable_data();
-    const int64_t* min_batch_indices = min_batch_indices_.mutable_data();
-    const int64_t* max_batch_indices = max_batch_indices_.mutable_data();
-    for (int64_t batch_idx = 0; static_cast<size_t>(batch_idx) < batch_sizes_.size();
-         batch_idx++) {
-      for (int64_t i = 0; i < num_groups_; i++) {
-        if (batch_idx < min_batch_indices[i]) {
-          min_offsets[i] += batch_sizes_[batch_idx];
-        }
-        if (batch_idx < max_batch_indices[i]) {
-          max_offsets[i] += batch_sizes_[batch_idx];
-        }
-      }
-    }
-
-    auto mins = ArrayData::Make(int64(), num_groups_, {null_bitmap, nullptr});
-    auto maxes = ArrayData::Make(int64(), num_groups_, {std::move(null_bitmap), nullptr});
-    ARROW_ASSIGN_OR_RAISE(mins->buffers[1], min_offsets_.Finish());
-    ARROW_ASSIGN_OR_RAISE(maxes->buffers[1], max_offsets_.Finish());
-
-    return ArrayData::Make(out_type(), num_groups_, {nullptr},
-                           {std::move(mins), std::move(maxes)});
-  }
-
-  std::shared_ptr<DataType> out_type() const override {
-    return struct_({field("min", int64()), field("max", int64())});
-  }
-
-  int64_t num_groups_;
-  TypedBufferBuilder<CType> mins_, maxes_;
-  TypedBufferBuilder<int64_t> min_offsets_, min_batch_indices_, max_offsets_,
-      max_batch_indices_;
-  TypedBufferBuilder<bool> has_values_, has_nulls_;
-  std::unordered_map<int64_t, int64_t> batch_sizes_;
-  ScalarAggregateOptions options_;
-};
-
-struct GroupedArgMinMaxFactory {
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
-    kernel = MakeOrderDependentKernel(std::move(argument_type),
-                                      HashAggregateInit<GroupedArgMinMaxImpl<T>>);
-    return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Computing argmin/argmax of data of type ", type);
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("Computing argmin/argmax of data of type ", type);
-  }
-
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
-    GroupedArgMinMaxFactory factory;
-    factory.argument_type = InputType::Array(type);
-    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
-    return std::move(factory.kernel);
-  }
-
-  HashAggregateKernel kernel;
-  InputType argument_type;
-};
-
-// ----------------------------------------------------------------------
 // Any/All implementation
 
 struct GroupedAnyImpl : public GroupedAggregator {
@@ -2045,19 +1832,10 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
   for (size_t i = 0; i < aggregates.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           ctx->func_registry()->GetFunction(aggregates[i].function));
-    if (function->arity().num_args == 3) {
-      // Order-dependent kernel
-      ARROW_ASSIGN_OR_RAISE(
-          const Kernel* kernel,
-          function->DispatchExact(
-              {in_descrs[i], ValueDescr::Array(uint32()), ValueDescr::Scalar(int64())}));
-      kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
-    } else {
-      ARROW_ASSIGN_OR_RAISE(
-          const Kernel* kernel,
-          function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
-      kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
-    }
+    ARROW_ASSIGN_OR_RAISE(
+        const Kernel* kernel,
+        function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
+    kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
   }
   return kernels;
 }
@@ -2350,14 +2128,6 @@ const FunctionDoc hash_min_max_doc{
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc hash_arg_min_max_doc{
-    "Compute the indices of the minimum and maximum values of a numeric array",
-    ("If there are duplicate values, the least index is taken.\n"
-     "Null values are ignored by default.\n"
-     "This can be changed through ScalarAggregateOptions."),
-    {"array", "group_id_array", "batch_index_tag"},
-    "ScalarAggregateOptions"};
-
 const FunctionDoc hash_any_doc{"Test whether any element evaluates to true",
                                ("Null values are ignored."),
                                {"array", "group_id_array"}};
@@ -2460,16 +2230,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
-  }
-
-  {
-    static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
-    auto func = std::make_shared<HashAggregateFunction>(
-        "hash_arg_min_max", Arity::Ternary(), &hash_arg_min_max_doc,
-        &default_scalar_aggregate_options);
-    DCHECK_OK(
-        AddHashAggKernels(NumericTypes(), GroupedArgMinMaxFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
