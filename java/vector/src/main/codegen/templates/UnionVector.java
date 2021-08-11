@@ -190,7 +190,6 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
   }
 
   @Override
-  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
      throw new UnsupportedOperationException("There are no inner vectors. Use geFieldBuffers");
   }

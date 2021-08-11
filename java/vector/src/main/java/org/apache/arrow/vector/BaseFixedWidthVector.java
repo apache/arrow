@@ -458,7 +458,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   @Override
-  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }

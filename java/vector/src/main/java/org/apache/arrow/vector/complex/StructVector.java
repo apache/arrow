@@ -142,7 +142,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
-  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
