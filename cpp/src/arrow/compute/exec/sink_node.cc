@@ -187,41 +187,34 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
  protected:
-  Result<std::shared_ptr<Table>> SortData() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ARROW_ASSIGN_OR_RAISE(
-        auto table,
-        Table::FromRecordBatches(inputs_[0]->output_schema(), std::move(batches_)));
-    ARROW_ASSIGN_OR_RAISE(auto indices,
-                          SortIndices(table, sort_options_, plan()->exec_context()));
-    ARROW_ASSIGN_OR_RAISE(auto sorted, Take(table, indices, TakeOptions::NoBoundsCheck(),
-                                            plan()->exec_context()));
-    return sorted.table();
-  }
-
-  void Finish() override {
-    auto maybe_sorted = SortData();
-    if (ErrorIfNotOk(maybe_sorted.status())) {
-      producer_.Push(maybe_sorted.status());
-      SinkNode::Finish();
-      return;
+  Status DoFinish() {
+    Datum sorted;
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      ARROW_ASSIGN_OR_RAISE(
+          auto table,
+          Table::FromRecordBatches(inputs_[0]->output_schema(), std::move(batches_)));
+      ARROW_ASSIGN_OR_RAISE(auto indices,
+                            SortIndices(table, sort_options_, plan()->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(sorted, Take(table, indices, TakeOptions::NoBoundsCheck(),
+                                         plan()->exec_context()));
     }
-    auto sorted = maybe_sorted.MoveValueUnsafe();
-
-    TableBatchReader reader(*sorted);
+    TableBatchReader reader(*sorted.table());
     while (true) {
       std::shared_ptr<RecordBatch> batch;
-      auto status = reader.ReadNext(&batch);
-      if (!status.ok()) {
-        producer_.Push(std::move(status));
-        SinkNode::Finish();
-        return;
-      }
+      RETURN_NOT_OK(reader.ReadNext(&batch));
       if (!batch) break;
       bool did_push = producer_.Push(ExecBatch(*batch));
       if (!did_push) break;  // producer_ was Closed already
     }
+    return Status::OK();
+  }
 
+  void Finish() override {
+    Status st = DoFinish();
+    if (ErrorIfNotOk(st)) {
+      producer_.Push(std::move(st));
+    }
     SinkNode::Finish();
   }
 

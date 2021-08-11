@@ -115,8 +115,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
 /// \brief Make a node which sorts rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then sorted, by the given
-/// fields. Then sorted batches will be pushed to the next node, along a tag
-/// indicating the absolute order of the batches.
+/// fields. Then sorted batches will be forwarded to the generator in sorted order.
 class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
  public:
   explicit OrderBySinkNodeOptions(

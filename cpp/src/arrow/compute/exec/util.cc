@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/util.h"
 
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
@@ -294,6 +295,16 @@ Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inpu
   }
 
   return Status::OK();
+}
+
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches) {
+  RecordBatchVector batches;
+  for (const auto& batch : exec_batches) {
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema));
+    batches.push_back(std::move(rb));
+  }
+  return Table::FromRecordBatches(schema, batches);
 }
 
 }  // namespace compute

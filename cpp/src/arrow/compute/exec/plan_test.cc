@@ -25,6 +25,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
@@ -37,6 +38,7 @@
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
+using testing::ElementsAreArray;
 using testing::HasSubstr;
 using testing::Optional;
 using testing::UnorderedElementsAreArray;
@@ -328,7 +330,7 @@ TEST(ExecPlanExecution, SourceOrderBy) {
                     .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  Finishes(ResultWith(::testing::ElementsAreArray(expected))));
+                  Finishes(ResultWith(ElementsAreArray(expected))));
     }
   }
 }
@@ -414,18 +416,9 @@ TEST(ExecPlanExecution, StressSourceOrderBy) {
       // Check that data is sorted appropriately
       ASSERT_FINISHES_OK_AND_ASSIGN(auto exec_batches,
                                     StartAndCollect(plan.get(), sink_gen));
-      RecordBatchVector batches, original_batches;
-      for (const auto& batch : exec_batches) {
-        ASSERT_OK_AND_ASSIGN(auto rb, batch.ToRecordBatch(input_schema));
-        batches.push_back(std::move(rb));
-      }
-      for (const auto& batch : random_data.batches) {
-        ASSERT_OK_AND_ASSIGN(auto rb, batch.ToRecordBatch(input_schema));
-        original_batches.push_back(std::move(rb));
-      }
-      ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatches(input_schema, batches));
+      ASSERT_OK_AND_ASSIGN(auto actual, TableFromExecBatches(input_schema, exec_batches));
       ASSERT_OK_AND_ASSIGN(auto original,
-                           Table::FromRecordBatches(input_schema, original_batches));
+                           TableFromExecBatches(input_schema, random_data.batches));
       ASSERT_OK_AND_ASSIGN(auto sort_indices, SortIndices(original, options));
       ASSERT_OK_AND_ASSIGN(auto expected, Take(original, sort_indices));
       AssertTablesEqual(*actual, *expected.table());
