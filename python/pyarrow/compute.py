@@ -49,6 +49,7 @@ from pyarrow._compute import (  # noqa
     ScalarAggregateOptions,
     SetLookupOptions,
     SliceOptions,
+    NanNullOptions,
     SortOptions,
     SplitOptions,
     SplitPatternOptions,
