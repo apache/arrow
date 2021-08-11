@@ -17,71 +17,45 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import static java.util.Collections.synchronizedSet;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
+import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.Builder;
-import org.apache.arrow.flight.FlightDescriptor;
-import org.apache.arrow.flight.FlightEndpoint;
-import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware.Factory;
-import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.AutoCloseables;
 
 /**
  * An adhoc {@link FlightClient} wrapper, used to access the client. Allows for
  * the reuse of credentials and properties.
  */
-public class ArrowFlightClientHandler implements FlightClientHandler {
+public class ArrowFlightClientHandler implements BareFlightClientHandler {
 
-  private final Set<AutoCloseable> resources = synchronizedSet(new HashSet<>());
+  private final List<CallOption> options = new ArrayList<>();
   private final FlightClient client;
 
-  @Nullable
-  private CredentialCallOption token;
-
-  @Nullable
-  private HeaderCallOption properties;
-
-  protected ArrowFlightClientHandler(final FlightClient client,
-                                     @Nullable final CredentialCallOption token,
-                                     @Nullable final HeaderCallOption properties) {
-    this(client, token);
-    this.properties = properties;
+  protected ArrowFlightClientHandler(final FlightClient client, final CallOption... options) {
+    this(client, Arrays.asList(options));
   }
 
   protected ArrowFlightClientHandler(final FlightClient client,
-                                     @Nullable final CredentialCallOption token) {
-    this(client);
-    this.token = token;
-  }
-
-  protected ArrowFlightClientHandler(final FlightClient client,
-                                     final HeaderCallOption properties) {
-    this(client, null, properties);
-  }
-
-  protected ArrowFlightClientHandler(final FlightClient client) {
-    this.client = client;
-    this.resources.add(this.client);
+                                     final Collection<CallOption> options) {
+    this.client = checkNotNull(client);
+    this.options.addAll(options);
   }
 
   /**
@@ -89,53 +63,13 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
    *
    * @return the client wrapped by this.
    */
-  protected final FlightClient getClient() {
+  public final FlightClient getClient() {
     return client;
   }
 
-  /**
-   * Gets the bearer token for subsequent calls to this client.
-   *
-   * @return the bearer token, if it exists; otherwise, empty.
-   */
-  protected final Optional<CredentialCallOption> getBearerToken() {
-    return Optional.ofNullable(token);
-  }
-
-  /**
-   * Gets the headers for subsequent calls to this client.
-   *
-   * @return the {@link #properties} of this client, if they exist; otherwise, empty.
-   */
-  protected final Optional<HeaderCallOption> getProperties() {
-    return Optional.ofNullable(properties);
-  }
-
-  /**
-   * Makes an RPC "getInfo" request with the given query and client properties
-   * in order to retrieve the metadata associated with a set of data records.
-   *
-   * @param query The query to retrieve FlightInfo for.
-   * @return a {@link FlightInfo} object.
-   */
-  protected FlightInfo getInfo(final String query) {
-    return client.getInfo(FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)),
-        token);
-  }
-
   @Override
-  public Stream<FlightStream> lazilyGetFlightStreams(final String query) {
-    final List<FlightEndpoint> endpoints = getInfo(query).getEndpoints();
-    return endpoints.stream().map(flightEndpoint -> client.getStream(flightEndpoint.getTicket(), token));
-  }
-
-  @Override
-  public final void close() throws Exception {
-    try {
-      AutoCloseables.close(resources);
-    } catch (final Exception e) {
-      throw new IOException("Failed to close resources.", e);
-    }
+  public List<CallOption> getOptions() {
+    return options;
   }
 
   /**
@@ -212,8 +146,6 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
           .getAuthenticate(client, username, password, factory, properties),
           properties);
     }
-
-    handler.resources.add(client);
     return handler;
   }
 
