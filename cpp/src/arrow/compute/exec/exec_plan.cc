@@ -121,11 +121,11 @@ struct ExecPlanImpl : public ExecPlan {
 
   NodeVector TopoSort() {
     struct Impl {
-      const std::vector<std::shared_ptr<ExecNode>>& nodes;
+      const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
       NodeVector sorted;
 
-      explicit Impl(const std::vector<std::shared_ptr<ExecNode>>& nodes) : nodes(nodes) {
+      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
         visited.reserve(nodes.size());
         sorted.resize(nodes.size());
 
@@ -154,7 +154,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   Future<> finished_ = Future<>::MakeFinished();
   bool started_ = false, stopped_ = false;
-  std::vector<std::shared_ptr<ExecNode>> nodes_;
+  std::vector<std::unique_ptr<ExecNode>> nodes_;
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
 };
