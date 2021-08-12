@@ -2040,8 +2040,10 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
     // N.B. min() for float types is smallest normal number > 0
     this->AssertBinop(Logb, "[1, 10, null, NaN, Inf]", "[100, 10, null, 2, 10]",
                       "[0, 1, null, NaN, Inf]");
-    this->AssertBinop(Logb, min_val, 10, static_cast<CType>(std::log(min_val) / std::log(10)));
-    this->AssertBinop(Logb, max_val, 10, static_cast<CType>(std::log(max_val) / std::log(10)));
+    this->AssertBinop(Logb, min_val, 10,
+                      static_cast<CType>(std::log(min_val) / std::log(10)));
+    this->AssertBinop(Logb, max_val, 10,
+                      static_cast<CType>(std::log(max_val) / std::log(10)));
   }
   this->AssertBinop(Logb, "[1.0, 10.0, null]", "[10.0, 10.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
