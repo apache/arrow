@@ -75,31 +75,100 @@ TEST_F(TestBooleanValidityKernels, ArrayIsNull) {
   CheckScalarUnary("is_null", type_singleton(), "[1]", type_singleton(), "[false]");
   CheckScalarUnary("is_null", type_singleton(), "[null, 1, 0, null]", type_singleton(),
                    "[true, false, false, true]");
+}
 
-  // By default 'NaN' value is not considered as null
-  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[null, 2.0, NaN]"),
-                   ArrayFromJSON(boolean(), "[true, false, false]"));
-  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
-                   ArrayFromJSON(boolean(), "[true, false, false]"));
+TEST_F(TestFloatValidityKernels, FloatArrayIsNull) {
+  // All NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  // No NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[0.0, 1.0, 2.0, 3.0, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"));
+  // Some NaNs
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[0.0, NaN, 2.0, NaN, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"));
+}
 
-  // Setting 'nan_is_null' as true, 'NaN value could be considered as null (floating
-  // points)
+TEST_F(TestFloatValidityKernels, FloatArrayIsNullUsingNanNullOptions) {
   const NanNullOptions& options = NanNullOptions(true);
-  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[5.0, 2.0, NaN]"),
-                   ArrayFromJSON(boolean(), "[false, false, true]"), &options);
-  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[null, 2.0, NaN]"),
-                   ArrayFromJSON(boolean(), "[true, false, true]"), &options);
+  // All NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"), &options);
+  // No NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[0.0, 1.0, 2.0, 3.0, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"),
+                   &options);
+  // Some NaNs
+  CheckScalarUnary("is_null", ArrayFromJSON(float32(), "[0.0, NaN, 2.0, NaN, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, true, false, true, false, true]"),
+                   &options);
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleArrayIsNull) {
+  // All NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  // No NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, 3.0, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"));
+  // Some NaNs
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[0.0, NaN, 2.0, NaN, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"));
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleArrayIsNullUsingNanNullOptions) {
+  const NanNullOptions& options = NanNullOptions(true);
+  // All NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[NaN, NaN, NaN, NaN, NaN]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"), &options);
+  // No NaN
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, 3.0, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false, true]"),
+                   &options);
+  // Some NaNs
+  CheckScalarUnary("is_null", ArrayFromJSON(float64(), "[0.0, NaN, 2.0, NaN, Inf, null]"),
+                   ArrayFromJSON(boolean(), "[false, true, false, true, false, true]"),
+                   &options);
+}
+
+TEST_F(TestFloatValidityKernels, FloatScalarIsNull) {
+  CheckScalarUnary("is_null", MakeScalar(42.0f), MakeScalar(false));
+  CheckScalarUnary("is_null", MakeScalar(std::nanf("")), MakeScalar(false));
+  CheckScalarUnary("is_null", MakeScalar(std::numeric_limits<float>::infinity()),
+                   MakeScalar(false));
+  CheckScalarUnary("is_null", MakeNullScalar(float32()), MakeScalar(true));
+}
+
+TEST_F(TestFloatValidityKernels, FloatScalarIsNullUsingNanNullOptions) {
+  const NanNullOptions& options = NanNullOptions(true);
+  CheckScalarUnary("is_null", MakeScalar(42.0f), MakeScalar(false), &options);
+  CheckScalarUnary("is_null", MakeScalar(std::nanf("")), MakeScalar(true), &options);
+  CheckScalarUnary("is_null", MakeScalar(std::numeric_limits<float>::infinity()),
+                   MakeScalar(false), &options);
+  CheckScalarUnary("is_null", MakeNullScalar(float32()), MakeScalar(true), &options);
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleScalarIsNull) {
+  CheckScalarUnary("is_null", MakeScalar(42.0), MakeScalar(false));
+  CheckScalarUnary("is_null", MakeScalar(std::nan("")), MakeScalar(false));
+  CheckScalarUnary("is_null", MakeScalar(std::numeric_limits<double>::infinity()),
+                   MakeScalar(false));
+  CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleScalarIsNullUsingNanNullOptions) {
+  const NanNullOptions& options = NanNullOptions(true);
+  CheckScalarUnary("is_null", MakeScalar(42.0), MakeScalar(false), &options);
+  CheckScalarUnary("is_null", MakeScalar(std::nan("")), MakeScalar(true), &options);
+  CheckScalarUnary("is_null", MakeScalar(std::numeric_limits<double>::infinity()),
+                   MakeScalar(false), &options);
+  CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true), &options);
 }
 
 TEST_F(TestBooleanValidityKernels, IsNullSetsZeroNullCount) {
   auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
   std::shared_ptr<ArrayData> result = (*IsNull(arr)).array();
   ASSERT_EQ(result->null_count, 0);
-}
-
-TEST_F(TestBooleanValidityKernels, ScalarIsNull) {
-  CheckScalarUnary("is_null", MakeScalar(19.7), MakeScalar(false));
-  CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));
 }
 
 TEST_F(TestFloatValidityKernels, FloatArrayIsFinite) {
