@@ -1699,8 +1699,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 template <typename T>
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
-  auto impl = ::arrow::internal::make_unique<GroupedMinMaxImpl<T>>();
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.options));
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
   static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].type;
   return std::move(impl);
 }
