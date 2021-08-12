@@ -25,7 +25,9 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -36,6 +38,7 @@
 #include "arrow/util/vector.h"
 
 using testing::ElementsAre;
+using testing::ElementsAreArray;
 using testing::HasSubstr;
 using testing::Optional;
 using testing::UnorderedElementsAreArray;
@@ -262,6 +265,7 @@ BatchesWithSchema MakeBasicBatches() {
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4) {
   BatchesWithSchema out;
+  out.schema = schema;
 
   random::RandomArrayGenerator rng(42);
   out.batches.resize(num_batches);
@@ -297,6 +301,36 @@ TEST(ExecPlanExecution, SourceSink) {
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, SourceOrderBy) {
+  std::vector<ExecBatch> expected = {
+      ExecBatchFromJSON({int32(), boolean()},
+                        "[[4, false], [5, null], [6, false], [7, false], [null, true]]")};
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto basic_data = MakeBasicBatches();
+
+      SortOptions options({SortKey("i32", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(ElementsAreArray(expected))));
     }
   }
 }
@@ -351,6 +385,43 @@ TEST(ExecPlanExecution, StressSourceSink) {
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(UnorderedElementsAreArray(random_data.batches))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, StressSourceOrderBy) {
+  auto input_schema = schema({field("a", int32()), field("b", boolean())});
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = slow && !parallel ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto random_data = MakeRandomBatches(input_schema, num_batches);
+
+      SortOptions options({SortKey("a", SortOrder::Ascending)});
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{random_data.schema,
+                                                     random_data.gen(parallel, slow)}},
+                        {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      // Check that data is sorted appropriately
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto exec_batches,
+                                    StartAndCollect(plan.get(), sink_gen));
+      ASSERT_OK_AND_ASSIGN(auto actual, TableFromExecBatches(input_schema, exec_batches));
+      ASSERT_OK_AND_ASSIGN(auto original,
+                           TableFromExecBatches(input_schema, random_data.batches));
+      ASSERT_OK_AND_ASSIGN(auto sort_indices, SortIndices(original, options));
+      ASSERT_OK_AND_ASSIGN(auto expected, Take(original, sort_indices));
+      AssertTablesEqual(*actual, *expected.table());
     }
   }
 }
@@ -538,6 +609,45 @@ TEST(ExecPlanExecution, SourceFilterProjectGroupedSumFilter) {
                 Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
                     {int64(), utf8()}, parallel ? R"([[3600, "alfa"], [2000, "beta"]])"
                                                 : R"([[36, "alfa"], [20, "beta"]])")}))));
+  }
+}
+
+TEST(ExecPlanExecution, SourceFilterProjectGroupedSumOrderBy) {
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    int batch_multiplicity = parallel ? 100 : 1;
+    auto input = MakeGroupableBatches(/*multiplicity=*/batch_multiplicity);
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    SortOptions options({SortKey("str", SortOrder::Descending)});
+    ASSERT_OK(
+        Declaration::Sequence(
+            {
+                {"source",
+                 SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                {"filter",
+                 FilterNodeOptions{greater_equal(field_ref("i32"), literal(0))}},
+                {"project", ProjectNodeOptions{{
+                                field_ref("str"),
+                                call("multiply", {field_ref("i32"), literal(2)}),
+                            }}},
+                {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"hash_sum", nullptr}},
+                                                   /*targets=*/{"multiply(i32, 2)"},
+                                                   /*names=*/{"sum(multiply(i32, 2))"},
+                                                   /*keys=*/{"str"}}},
+                {"filter", FilterNodeOptions{greater(field_ref("sum(multiply(i32, 2))"),
+                                                     literal(10 * batch_multiplicity))}},
+                {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+            })
+            .AddToPlan(plan.get()));
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(ElementsAreArray({ExecBatchFromJSON(
+                    {int64(), utf8()}, parallel ? R"([[2000, "beta"], [3600, "alfa"]])"
+                                                : R"([[20, "beta"], [36, "alfa"]])")}))));
   }
 }
 
