@@ -17,39 +17,34 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.util.Preconditions;
 
 /**
  * Wrapper for a {@link FlightSqlClient}.
  */
-public class ArrowFlightSqlClientHandler implements FlightSqlClientHandler {
+public class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler implements FlightSqlClientHandler {
 
-  private final FlightSqlClient client;
-  private final List<CallOption> options = new ArrayList<>();
+  private final FlightSqlClient sqlClient;
 
-  public ArrowFlightSqlClientHandler(final FlightSqlClient client, final CallOption... options) {
-    this(client, Arrays.asList(options));
+  protected ArrowFlightSqlClientHandler(final FlightClient client, final FlightSqlClient sqlClient,
+                                        final CallOption... options) {
+    this(client, sqlClient, Arrays.asList(options));
   }
 
-  public ArrowFlightSqlClientHandler(final FlightSqlClient client, final Collection<CallOption> options) {
-    this.client = Preconditions.checkNotNull(client);
-    this.options.addAll(options);
-  }
-
-  @Override
-  public final List<CallOption> getOptions() {
-    return options;
+  protected ArrowFlightSqlClientHandler(final FlightClient client, final FlightSqlClient sqlClient,
+                                        final Collection<CallOption> options) {
+    super(client, options);
+    this.sqlClient = Preconditions.checkNotNull(sqlClient);
   }
 
   @Override
-  public final FlightSqlClient getClient() {
-    return client;
+  public final FlightSqlClient getSqlClient() {
+    return sqlClient;
   }
 }
