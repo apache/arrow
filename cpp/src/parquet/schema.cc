@@ -139,8 +139,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case ConvertedType::JSON:
     case ConvertedType::BSON:
       if (type != Type::BYTE_ARRAY) {
-        ss << ConvertedTypeToString(converted_type);
-        ss << " can only annotate BYTE_ARRAY fields";
+        ss << ConvertedTypeToString(converted_type)
+           << " can only annotate BYTE_ARRAY fields";
         throw ParquetException(ss.str());
       }
       break;
@@ -161,8 +161,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         throw ParquetException(ss.str());
       }
       if (scale > precision) {
-        ss << "Invalid DECIMAL scale " << scale;
-        ss << " cannot be greater than precision " << precision;
+        ss << "Invalid DECIMAL scale " << scale
+           << " cannot be greater than precision " << precision;
         throw ParquetException(ss.str());
       }
       decimal_metadata_.isset = true;
@@ -178,8 +178,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case ConvertedType::INT_16:
     case ConvertedType::INT_32:
       if (type != Type::INT32) {
-        ss << ConvertedTypeToString(converted_type);
-        ss << " can only annotate INT32";
+        ss << ConvertedTypeToString(converted_type)
+           << " can only annotate INT32";
         throw ParquetException(ss.str());
       }
       break;
@@ -189,8 +189,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
     case ConvertedType::UINT_64:
     case ConvertedType::INT_64:
       if (type != Type::INT64) {
-        ss << ConvertedTypeToString(converted_type);
-        ss << " can only annotate INT64";
+        ss << ConvertedTypeToString(converted_type)
+           << " can only annotate INT64";
         throw ParquetException(ss.str());
       }
       break;
@@ -210,8 +210,8 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       // NA can annotate any type
       break;
     default:
-      ss << ConvertedTypeToString(converted_type);
-      ss << " cannot be applied to a primitive type";
+      ss << ConvertedTypeToString(converted_type)
+         << " cannot be applied to a primitive type";
       throw ParquetException(ss.str());
   }
   // For forward compatibility, create an equivalent logical type
@@ -246,15 +246,15 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         // converted type (if possible)
         converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
       } else {
-        error << logical_type_->ToString();
-        error << " can not be applied to primitive type ";
-        error << TypeToString(physical_type);
+        error << logical_type_->ToString()
+              << " can not be applied to primitive type "
+	      << TypeToString(physical_type);
         throw ParquetException(error.str());
       }
     } else {
-      error << "Nested logical type ";
-      error << logical_type_->ToString();
-      error << " can not be applied to non-group node";
+      error << "Nested logical type "
+            << logical_type_->ToString()
+            << " can not be applied to non-group node";
       throw ParquetException(error.str());
     }
   } else {
@@ -334,9 +334,9 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
       converted_type_ = logical_type_->ToConvertedType(nullptr);
     } else {
       std::stringstream error;
-      error << "Logical type ";
-      error << logical_type_->ToString();
-      error << " can not be applied to group node";
+      error << "Logical type "
+            << logical_type_->ToString()
+            << " can not be applied to group node";
       throw ParquetException(error.str());
     }
   } else {
