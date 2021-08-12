@@ -37,7 +37,7 @@ For example, one of the NYC taxi data files used in
 s3://ursa-labs-taxi-data/2019/06/data.parquet
 ```
 
-Given this URI, we can pass it to `read_parquet()` just as if it were a local 
+Given this URI, you can pass it to `read_parquet()` just as if it were a local 
 file path:
 
 ```r
