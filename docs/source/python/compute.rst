@@ -49,6 +49,22 @@ Below are a few simple examples:
    >>> pc.multiply(x, y)
    <pyarrow.DoubleScalar: 72.54>
 
+These functions can do more than just element-by-element operations. 
+Here is an example of sorting a table:
+
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> t = pa.table({'x':[1,2,3],'y':[3,2,1]})
+    >>> i = pc.sort_indices(t, sort_keys=[('y', 'ascending')])
+    >>> i
+    <pyarrow.lib.UInt64Array object at 0x7fcee5df75e8>
+    [
+      2,
+      1,
+      0
+    ]
+
+
 
 .. seealso::
 
