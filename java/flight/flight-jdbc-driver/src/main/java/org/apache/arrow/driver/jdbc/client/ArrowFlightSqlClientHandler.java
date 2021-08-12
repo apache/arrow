@@ -43,6 +43,18 @@ public class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler implem
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
   }
 
+  /**
+   * Instantiates a new {@link ArrowFlightSqlClientHandler} wrapping the provided {@code client}.
+   *
+   * @param client  the client to wrap.
+   * @param options the options for subsequent calls.
+   * @return a new handler.
+   */
+  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
+                                                             final CallOption... options) {
+    return new ArrowFlightSqlClientHandler(client, new FlightSqlClient(client), options);
+  }
+
   @Override
   public final FlightSqlClient getSqlClient() {
     return sqlClient;
