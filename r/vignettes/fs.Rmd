@@ -157,7 +157,7 @@ or, as a URI, it would be
 s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 ```
 
-Note the URL escaping of the `:` in `endpoint_override`. From here, you
+Note the URL encoding of the `:` in `endpoint_override`. From here, you
 can subtree exactly as in the previous section.
 
 Among other applications, this can be useful for testing out code locally before
