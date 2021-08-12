@@ -13,7 +13,7 @@ parts of the project to be able to read and write data with different storage
 backends. In the `arrow` R package, support has been enabled for AWS S3.
 This vignette provides an overview of working with S3 data using Arrow.
 
-> In Windows and macOS binary packages, S3 support is included. On Linux when 
+> In Windows (for R > 3.6) and macOS binary packages, S3 support is included. On Linux when 
 installing from source, S3 support is not enabled by default, and it has 
 additional system requirements. See `vignette("install", package = "arrow")` 
 for details. However, on Windows the S3 works out of the box if and only if
