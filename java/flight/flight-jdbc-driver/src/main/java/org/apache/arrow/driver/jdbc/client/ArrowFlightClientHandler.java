@@ -68,7 +68,7 @@ public class ArrowFlightClientHandler implements BareFlightClientHandler {
   }
 
   @Override
-  public List<CallOption> getOptions() {
+  public final List<CallOption> getOptions() {
     return options;
   }
 
