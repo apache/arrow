@@ -122,7 +122,7 @@ for temporary access by passing the `role_arn` identifier to
 
 ## File systems that emulate S3
 
-### Connecting to a local S3
+### Connecting to a local S3 file system
 
 The `S3FileSystem` machinery enables you to work with any file system that
 provides an S3-compatible interface. For example, [MinIO](https://min.io/) is
