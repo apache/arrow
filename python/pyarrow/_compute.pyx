@@ -796,10 +796,12 @@ cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, int64_t start, int64_t stop, int64_t step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
 
+
 class SliceOptions(_SliceOptions):
     def __init__(self, int64_t start, int64_t stop=sys.maxsize,
                  int64_t step=1):
         self._set_options(start, stop, step)
+
 
 cdef class _FilterOptions(FunctionOptions):
     def _set_options(self, null_selection_behavior):
@@ -989,6 +991,18 @@ cdef class _DayOfWeekOptions(FunctionOptions):
 class DayOfWeekOptions(_DayOfWeekOptions):
     def __init__(self, one_based_numbering=False, week_start=1):
         self._set_options(one_based_numbering, week_start)
+
+
+cdef class _NanNullOptions(FunctionOptions):
+    def _set_options(self, nan_is_null):
+        self.wrapped.reset(
+            new CNanNullOptions(nan_is_null)
+        )
+
+
+class NanNullOptions(_NanNullOptions):
+    def __init__(self, nan_is_null=False):
+        self._set_options(nan_is_null)
 
 
 cdef class _VarianceOptions(FunctionOptions):
