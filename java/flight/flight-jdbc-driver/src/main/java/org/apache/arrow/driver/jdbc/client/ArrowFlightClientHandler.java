@@ -20,23 +20,19 @@ package org.apache.arrow.driver.jdbc.client;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import javax.annotation.Nullable;
+import java.util.Map.Entry;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightClient.Builder;
-import org.apache.arrow.flight.HeaderCallOption;
-import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
-import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware.Factory;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.memory.BufferAllocator;
 
 /**
@@ -59,6 +55,66 @@ public class ArrowFlightClientHandler implements BareFlightClientHandler {
   }
 
   /**
+   * Gets a new client based upon provided info.
+   *
+   * @param address      the host and port to use.
+   * @param credentials  the username and password to use.
+   * @param keyStoreInfo the KeyStore path and password to use.
+   * @param allocator    the {@link BufferAllocator}.
+   * @param useTls       whether to use TLS encryption.
+   * @param options      the options.
+   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
+   * @throws GeneralSecurityException If a certificate-related error occurs.
+   * @throws IOException              If an error occurs while trying to establish a connection to the
+   *                                  client.
+   */
+  public static ArrowFlightClientHandler createNewHandler(final Entry<String, Integer> address,
+                                                          final Entry<String, String> credentials,
+                                                          final Entry<String, String> keyStoreInfo,
+                                                          final BufferAllocator allocator,
+                                                          final boolean useTls,
+                                                          final CallOption... options)
+      throws GeneralSecurityException, IOException {
+    return createNewHandler(address, credentials, keyStoreInfo, allocator, useTls, Arrays.asList(options));
+  }
+
+  /**
+   * Gets a new client based upon provided info.
+   *
+   * @param address      the host and port to use.
+   * @param credentials  the username and password to use.
+   * @param keyStoreInfo the KeyStore path and password to use.
+   * @param allocator    the {@link BufferAllocator}.
+   * @param useTls       whether to use TLS encryption.
+   * @param options      the options.
+   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
+   * @throws GeneralSecurityException If a certificate-related error occurs.
+   * @throws IOException              If an error occurs while trying to establish a connection to the
+   *                                  client.
+   */
+  public static ArrowFlightClientHandler createNewHandler(final Entry<String, Integer> address,
+                                                          final Entry<String, String> credentials,
+                                                          final Entry<String, String> keyStoreInfo,
+                                                          final BufferAllocator allocator,
+                                                          final boolean useTls,
+                                                          final Collection<CallOption> options)
+      throws GeneralSecurityException, IOException {
+    final boolean authenticate = credentials != null;
+    final List<CallOption> theseOptions = new ArrayList<>(options);
+    final FlightClient client;
+    if (authenticate) {
+      final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
+          new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator, authFactory);
+      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, credentials, authFactory));
+    } else {
+      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
+    }
+    return new ArrowFlightClientHandler(client, theseOptions);
+  }
+
+
+  /**
    * Gets the {@link FlightClient} wrapped by this handler.
    *
    * @return the client wrapped by this.
@@ -70,169 +126,5 @@ public class ArrowFlightClientHandler implements BareFlightClientHandler {
   @Override
   public final List<CallOption> getOptions() {
     return options;
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param allocator    The {@link BufferAllocator}.
-   * @param host         The host to connect to.
-   * @param port         The port to connect to.
-   * @param username     The username for authentication, if needed.
-   * @param password     The password for authentication, if needed.
-   * @param properties   The {@link HeaderCallOption} of this client, if needed.
-   * @param keyStorePath The keystore path for establishing a TLS-encrypted connection, if
-   *                     needed.
-   * @param keyStorePass The keystore password for establishing a TLS-encrypted connection,
-   *                     if needed.
-   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
-   */
-  public static final ArrowFlightClientHandler getClient(
-      final BufferAllocator allocator, final String host, final int port,
-      @Nullable final String username, @Nullable final String password,
-      @Nullable final HeaderCallOption properties,
-      final boolean useTls,
-      @Nullable final String keyStorePath, @Nullable final String keyStorePass)
-      throws GeneralSecurityException, IOException {
-
-    /*
-     * TODO Too many if/else clauses: REDUCE somehow.
-     *
-     * Do NOT resort to creating labels and breaking from them! A better
-     * alternative would be splitting this method into smaller ones.
-     */
-    final Builder builder = FlightClient.builder()
-        .allocator(allocator);
-
-    ArrowFlightClientHandler handler;
-
-    if (useTls || keyStorePath != null) {
-      // Build a secure TLS-encrypted connection.
-      builder.location(Location.forGrpcTls(host, port)).useTls();
-    } else {
-      // Build an insecure, basic connection.
-      builder.location(Location.forGrpcInsecure(host, port));
-    }
-
-    if (keyStorePath != null) {
-      final InputStream certificateStream = ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePass);
-      builder.trustedCertificates(certificateStream);
-    }
-
-    /*
-     * Check whether to use username/password credentials to authenticate to the
-     * Flight Client.
-     */
-    final boolean useAuthentication = username != null;
-    final FlightClient client;
-
-    if (!useAuthentication) {
-      client = builder.build();
-      // Build an unauthenticated client.
-      handler = new ArrowFlightClientHandler(client, properties);
-    } else {
-      final Factory factory = new Factory(
-          new ClientBearerHeaderHandler());
-
-      builder.intercept(factory);
-
-      client = builder.build();
-
-      // Build an authenticated client.
-      handler = new ArrowFlightClientHandler(client, ClientAuthenticationUtils
-          .getAuthenticate(client, username, password, factory, properties),
-          properties);
-    }
-    return handler;
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param allocator  The {@link BufferAllocator}.
-   * @param host       The host to connect to.
-   * @param port       The port to connect to.
-   * @param username   The username for authentication, if needed.
-   * @param password   The password for authentication, if needed.
-   * @param properties The {@link HeaderCallOption} of this client, if needed.
-   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
-   */
-  public static final ArrowFlightClientHandler getClient(
-      final BufferAllocator allocator, final String host, final int port,
-      @Nullable final String username, @Nullable final String password,
-      @Nullable final HeaderCallOption properties)
-      throws GeneralSecurityException, IOException {
-
-    return getClient(allocator, host, port, username, password, properties,
-        false, null, null);
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param allocator The {@link BufferAllocator}.
-   * @param host      The host to connect to.
-   * @param port      The port to connect to.
-   * @param username  The username for authentication, if needed.
-   * @param password  The password for authentication, if needed.
-   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
-   */
-  public static final ArrowFlightClientHandler getClient(
-      final BufferAllocator allocator, final String host, final int port,
-      @Nullable final String username, @Nullable final String password)
-      throws GeneralSecurityException, IOException {
-
-    return getClient(allocator, host, port, username, password, null);
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param allocator The {@link BufferAllocator}.
-   * @param host      The host to connect to.
-   * @param port      The port to connect to.
-   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
-   */
-  public static final ArrowFlightClientHandler getClient(
-      final BufferAllocator allocator, final String host, final int port)
-      throws GeneralSecurityException, IOException {
-
-    return getClient(allocator, host, port, null, null);
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param allocator    The {@link BufferAllocator}.
-   * @param host         The host to connect to.
-   * @param port         The port to connect to.
-   * @param properties   The {@link HeaderCallOption} of this client, if needed.
-   * @param keyStorePath The keystore path for establishing a TLS-encrypted connection, if
-   *                     needed.
-   * @param keyStorePass The keystore password for establishing a TLS-encrypted connection,
-   *                     if needed.
-   * @return a new {@link ArrowFlightClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the client.
-   */
-  public static final ArrowFlightClientHandler getClient(
-      final BufferAllocator allocator, final String host, final int port,
-      @Nullable final HeaderCallOption properties,
-      @Nullable final String keyStorePath, @Nullable final String keyStorePass)
-      throws GeneralSecurityException, IOException {
-
-    return getClient(allocator, host, port, null, null, properties, true, keyStorePath, keyStorePass);
   }
 }

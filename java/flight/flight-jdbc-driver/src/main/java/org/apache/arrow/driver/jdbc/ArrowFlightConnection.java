@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static java.lang.String.format;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PASS;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PATH;
@@ -27,36 +28,29 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USE_TLS;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.AvaticaStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,31 +63,66 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
-  private final Properties properties;
+  private final PropertyManager manager;
+  private final FlightClientHandler handler;
   private ExecutorService executorService;
-  private FlightClientHandler handler;
 
   /**
-   * Instantiates a new Arrow Flight Connection.
+   * Creates a new {@link ArrowFlightConnection}.
    *
-   * @param driver     The JDBC driver to use.
-   * @param factory    The Avatica Factory to use.
-   * @param url        The URL to connect to.
-   * @param properties The properties of this connection.
-   * @throws SQLException If the connection cannot be established.
+   * @param driver    the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory   the {@link AvaticaFactory} to use.
+   * @param url       the URL to establish the connection.
+   * @param manager   the {@link PropertyManager} for this connection.
+   * @param allocator the {@link BufferAllocator} to use.
+   * @param handler   the {@link FlightClientHandler} to use.
    */
-  protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver,
-                                  final AvaticaFactory factory, final String url, final Properties properties)
-      throws SQLException {
-    super(driver, factory, url, properties);
-    this.properties = properties;
-    allocator = new RootAllocator(Integer.MAX_VALUE);
+  protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
+                                  final String url, final PropertyManager manager,
+                                  final BufferAllocator allocator, final FlightClientHandler handler) {
+    super(
+        driver,
+        factory,
+        url,
+        Preconditions.checkNotNull(manager, "Manager cannot be null!").getProperties());
+    this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
+    this.handler = Preconditions.checkNotNull(handler, "Handler cannot be null!");
+    this.manager = manager;
+  }
 
+  /**
+   * Creates a new {@link ArrowFlightConnection} to a {@link FlightClient}.
+   *
+   * @param driver    the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory   the {@link AvaticaFactory} to use.
+   * @param url       the URL to establish the connection to.
+   * @param info      the {@link Properties} to use for this session.
+   * @param allocator the {@link BufferAllocator} to use.
+   * @return a new {@link ArrowFlightConnection}.
+   * @throws SQLException on error.
+   */
+  public static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
+                                                          final AvaticaFactory factory,
+                                                          final String url, final Properties info,
+                                                          final BufferAllocator allocator)
+      throws SQLException {
+    final PropertyManager manager = new PropertyManager(info);
+    final Entry<String, Integer> address =
+        new SimpleImmutableEntry<>(manager.getPropertyAsString(HOST), manager.getPropertyAsInteger(PORT));
+    final String username = manager.getPropertyAsString(USERNAME);
+    final Entry<String, String> credentials =
+        username == null ? null : new SimpleImmutableEntry<>(username, manager.getPropertyAsString(PASSWORD));
+    final String keyStorePath = manager.getPropertyAsString(KEYSTORE_PATH);
+    final Entry<String, String> keyStoreInfo =
+        keyStorePath == null ? null :
+            new SimpleImmutableEntry<>(keyStorePath, manager.getPropertyAsString(KEYSTORE_PASS));
     try {
-      loadClient();
-    } catch (final SQLException e) {
-      close();
-      throw new SQLException("Failed to initialize Flight Client.", e);
+      final FlightClientHandler handler = ArrowFlightClientHandler.createNewHandler(
+          address, credentials, keyStoreInfo, allocator, manager.getPropertyAsBoolean(USE_TLS), manager.toCallOption());
+      return new ArrowFlightConnection(driver, factory, url, manager, allocator, handler);
+    } catch (final GeneralSecurityException | IOException e) {
+      manager.close();
+      throw AvaticaConnection.HELPER.createException("Failed to establish a valid connection to the Flight Client.", e);
     }
   }
 
@@ -106,90 +135,6 @@ public class ArrowFlightConnection extends AvaticaConnection {
     return handler;
   }
 
-  @Override
-  public Properties getClientInfo() {
-    return this.properties;
-  }
-
-  void reset() throws SQLException {
-    // Clean up any open Statements
-    for (AvaticaStatement statement : statementMap.values()) {
-      statement.close();
-    }
-    statementMap.clear();
-
-    // Reset Holdability
-    this.setHoldability(this.metaData.getResultSetHoldability());
-
-    // Reset Meta
-    ((ArrowFlightMetaImpl) this.meta).setDefaultConnectionProperties();
-  }
-
-  /**
-   * Sets {@link #handler} based on the properties of this connection.
-   *
-   * @throws KeyStoreException        If an error occurs while trying to retrieve KeyStore information.
-   * @throws NoSuchAlgorithmException If a particular cryptographic algorithm is required but does not
-   *                                  exist.
-   * @throws CertificateException     If an error occurs while trying to retrieve certificate
-   *                                  information.
-   * @throws IOException              If an I/O operation fails.
-   * @throws NumberFormatException    If the port number to connect to is invalid.
-   * @throws URISyntaxException       If the URI syntax is invalid.
-   */
-  private void loadClient() throws SQLException {
-
-    if (handler != null) {
-      throw new SQLException("Client already loaded.",
-          new IllegalStateException());
-    }
-
-    try {
-      handler = ArrowFlightClientHandler.getClient(allocator,
-          getPropertyAsString(HOST), getPropertyAsInteger(PORT),
-          getPropertyAsString(USERNAME), getPropertyAsString(PASSWORD),
-          getHeaders(),
-          getPropertyAsBoolean(USE_TLS), getPropertyAsString(KEYSTORE_PATH), getPropertyAsString(KEYSTORE_PASS));
-    } catch (GeneralSecurityException | IOException e) {
-      throw new SQLException("Failed to connect to the Arrow Flight client.", e);
-    }
-  }
-
-  private boolean getPropertyAsBoolean(BaseProperty property) {
-    return Boolean.parseBoolean(Objects.toString(getPropertyOrDefault(checkNotNull(property))));
-  }
-
-  @Nullable
-  protected String getPropertyAsString(BaseProperty property) {
-    return (String) getPropertyOrDefault(checkNotNull(property));
-  }
-
-  @Nullable
-  protected int getPropertyAsInteger(BaseProperty property) {
-    return Integer.parseInt(Objects.toString(getPropertyOrDefault(checkNotNull(property))));
-  }
-
-  @Nullable
-  private Object getPropertyOrDefault(BaseProperty property) {
-    return info.getOrDefault(property.getName(), property.getDefaultValue());
-  }
-
-  private HeaderCallOption getHeaders() {
-
-    final CallHeaders headers = new FlightCallHeaders();
-    final Iterator<Map.Entry<Object, Object>> properties = info.entrySet()
-        .iterator();
-
-    while (properties.hasNext()) {
-      final Map.Entry<Object, Object> entry = properties.next();
-
-      headers.insert(Objects.toString(entry.getKey()),
-          Objects.toString(entry.getValue()));
-    }
-
-    return new HeaderCallOption(headers);
-  }
-
   /**
    * Gets the {@link ExecutorService} of this connection.
    *
@@ -197,7 +142,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
    */
   public synchronized ExecutorService getExecutorService() {
     if (executorService == null) {
-      final int threadPoolSize = getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
+      final int threadPoolSize = manager.getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
       final DefaultThreadFactory threadFactory = new DefaultThreadFactory(this.getClass().getSimpleName());
       executorService = Executors.newFixedThreadPool(threadPoolSize, threadFactory);
     }
@@ -211,35 +156,135 @@ public class ArrowFlightConnection extends AvaticaConnection {
       executorService.shutdown();
     }
 
-    List<Exception> exceptions = new ArrayList<>();
+    final Set<SQLException> exceptions = new HashSet<>();
 
     try {
-      AutoCloseables.close(handler);
-    } catch (Exception e) {
-      exceptions.add(e);
+      AutoCloseables.close(handler, manager);
+    } catch (final Exception e) {
+      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
     }
 
     try {
-      Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
-      AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
-    } catch (Exception e) {
-      exceptions.add(e);
-    }
-
-    try {
+      allocator.getChildAllocators().forEach(AutoCloseables::closeNoChecked);
       AutoCloseables.close(allocator);
     } catch (final Exception e) {
-      exceptions.add(e);
+      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
     }
 
     try {
       super.close();
-    } catch (Exception e) {
-      throw new SQLException(e);
+    } catch (final Exception e) {
+      exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
+    }
+    if (exceptions.isEmpty()) {
+      return;
+    }
+    final SQLException exception =
+        AvaticaConnection.HELPER.createException("Failed to clean up resources; a memory leak will likely take place.");
+    exceptions.forEach(exception::setNextException);
+    /*
+     * FIXME Properly close allocator held open with outstanding child allocators.
+     * A bug has been detected in this code. Closing the connection does not release the resources
+     * from the allocator appropriately. This should be fixed in a future patch.
+     */
+    LOGGER.error("Memory leak detected!", exception);
+  }
+
+  /**
+   * A property manager for the {@link ArrowFlightConnection}.
+   */
+  protected static final class PropertyManager implements AutoCloseable {
+    private final Properties properties;
+
+    public PropertyManager(final Properties properties) {
+      this.properties = Preconditions.checkNotNull(properties);
     }
 
-    exceptions
-        .forEach(exception -> LOGGER.error(
-            exception.getMessage(), exception));
+    /**
+     * Gets the {@link #properties} managed by this wrapper.
+     *
+     * @return the properties.
+     */
+    public Properties getProperties() {
+      return properties;
+    }
+
+    /**
+     * Gets the {@link #properties} managed by this wrapper as a {@link CallOption}.
+     *
+     * @return the properties as a call option.
+     */
+    public CallOption toCallOption() {
+      final CallHeaders headers = new FlightCallHeaders();
+      properties.forEach((key, val) -> headers.insert(key.toString(), val.toString()));
+      return new HeaderCallOption(headers);
+    }
+
+    /**
+     * Gets the value mapped to the provided {@code property} key as a boolean value.
+     *
+     * @param property the property.
+     * @return the property value as a boolean value.
+     */
+    public boolean getPropertyAsBoolean(final BaseProperty property) {
+      final Object object = getPropertyOrDefault(checkNotNull(property));
+      return object != null && Boolean.parseBoolean(object.toString());
+    }
+
+    /**
+     * Gets the value mapped to the provided {@code property} key as a string value.
+     *
+     * @param property the property.
+     * @return the property value as a string value.
+     */
+    public String getPropertyAsString(final BaseProperty property) {
+      final Object object = getPropertyOrDefault(checkNotNull(property));
+      return object == null ? null : object.toString();
+    }
+
+    /**
+     * Gets the value mapped to the provided {@code property} key as a boolean value.
+     *
+     * @param property the property.
+     * @return the property value as an integer value.
+     */
+    public int getPropertyAsInteger(final BaseProperty property) {
+      final Object object = getPropertyOrDefault(checkNotNull(property));
+      return object == null ? 0 : Integer.parseInt(object.toString());
+    }
+
+    /**
+     * Gets the value mapped to the provided {@code property} key.
+     *
+     * @param property the property.
+     * @return the property value.
+     */
+    public Object getPropertyOrDefault(final BaseProperty property) {
+      return getPropertyOrDefault(property, Object.class);
+    }
+
+    /**
+     * Gets the value mapped to the provided {@code property} key.
+     *
+     * @param property the property.
+     * @return the property value.
+     */
+    public <T> T getPropertyOrDefault(final BaseProperty property, final Class<T> clazz) {
+      final Object object = getProperties().getOrDefault(property.getName(), property.getDefaultValue());
+      if (object == null) {
+        return null;
+      }
+      final Class<?> objClass = object.getClass();
+      Preconditions.checkState(
+          clazz.isAssignableFrom(objClass),
+          format("%s cannot be cast to %s!", objClass, clazz.getName()));
+      return clazz.cast(object);
+    }
+
+    @Override
+    public void close() {
+      properties.clear();
+    }
   }
+
 }

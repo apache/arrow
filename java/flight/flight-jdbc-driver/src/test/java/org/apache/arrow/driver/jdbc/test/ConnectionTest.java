@@ -17,25 +17,21 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
@@ -48,8 +44,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
-
-import io.grpc.Metadata;
 
 /**
  * Tests for {@link Connection}.
@@ -65,8 +59,7 @@ public class ConnectionTest {
   /**
    * Setup for all tests.
    *
-   * @throws ClassNotFoundException
-   *           If the {@link ArrowFlightJdbcDriver} cannot be loaded.
+   * @throws ClassNotFoundException If the {@link ArrowFlightJdbcDriver} cannot be loaded.
    */
   @Before
   public void setUp() throws Exception {
@@ -94,14 +87,12 @@ public class ConnectionTest {
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username
-   *          flight server username.
-   * @param password
-   *          flight server password.
+   * @param username flight server username.
+   * @param password flight server password.
    * @return the result of validation.
    */
   private CallHeaderAuthenticator.AuthResult validate(final String username,
-      final String password) {
+                                                      final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Credentials not supplied.").toRuntimeException();
@@ -122,8 +113,7 @@ public class ConnectionTest {
    * Checks if an unencrypted connection can be established successfully when
    * the provided valid credentials.
    *
-   * @throws SQLException
-   *           on error.
+   * @throws SQLException on error.
    */
   @Test
   public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedValidCredentials()
@@ -142,8 +132,7 @@ public class ConnectionTest {
   /**
    * Checks if the exception SQLException is thrown when trying to establish a connection without a host.
    *
-   * @throws SQLException
-   *           on error.
+   * @throws SQLException on error.
    */
   @Test(expected = SQLException.class)
   public void testUnencryptedConnectionWithEmptyHost()
@@ -163,16 +152,16 @@ public class ConnectionTest {
   /**
    * Try to instantiate a basic FlightClient.
    *
-   * @throws URISyntaxException
-   *           on error.
+   * @throws URISyntaxException on error.
    */
   @Test
   public void testGetBasicClientAuthenticatedShouldOpenConnection()
       throws Exception {
 
-    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.getClient(
-        allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-        flightTestUtils.getUsername1(), flightTestUtils.getPassword1())) {
+    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.createNewHandler(
+        new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
+        new SimpleImmutableEntry<>(flightTestUtils.getUsername1(), flightTestUtils.getPassword1()),
+        null, allocator, false)) {
       assertNotNull(client);
     }
   }
@@ -181,8 +170,7 @@ public class ConnectionTest {
    * Checks if the exception IllegalArgumentException is thrown when trying to establish an  unencrypted
    * connection providing with an invalid port.
    *
-   * @throws SQLException
-   *           on error.
+   * @throws SQLException on error.
    */
   @Test(expected = IllegalArgumentException.class)
   public void testUnencryptedConnectionProvidingInvalidPort()
@@ -199,72 +187,17 @@ public class ConnectionTest {
     }
   }
 
-  @Test(expected = SQLException.class)
-  public void testReloadClientShouldThrowException()
-      throws Exception {
-    try (Connection connection = DriverManager.getConnection(serverUrl, new Properties())) {
-      Method loadClient = ((ArrowFlightConnection) connection)
-          .getClass().getDeclaredMethod("loadClient");
-      loadClient.setAccessible(true);
-      try {
-        loadClient.invoke(connection);
-      } catch (InvocationTargetException e) {
-        Throwable throwable = e.getCause();
-        if (throwable instanceof SQLException) {
-          throw (SQLException) throwable;
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testGetHeadersShouldReturnPropertiesAsHeaders()
-      throws Exception {
-
-    Properties properties = new Properties();
-    properties.put("TEST", "PROPERTY");
-    properties.put("ONCE", "MORE");
-    properties.put("SHOULD", "SAVE");
-
-    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
-      Method getHeaders = ((ArrowFlightConnection) connection)
-          .getClass().getDeclaredMethod("getHeaders");
-      getHeaders.setAccessible(true);
-
-      HeaderCallOption headers =
-          (HeaderCallOption) getHeaders.invoke(connection);
-
-      Field propertiesMetadata =
-          headers.getClass().getDeclaredField("propertiesMetadata");
-      propertiesMetadata.setAccessible(true);
-      Metadata metadata = (Metadata) propertiesMetadata.get(headers);
-
-      assertEquals(
-          metadata.get(Metadata.Key.of("TEST", Metadata.ASCII_STRING_MARSHALLER)),
-          "PROPERTY"
-      );
-      assertEquals(
-          metadata.get(Metadata.Key.of("ONCE", Metadata.ASCII_STRING_MARSHALLER)),
-          "MORE"
-      );
-      assertEquals(
-          metadata.get(Metadata.Key.of("SHOULD", Metadata.ASCII_STRING_MARSHALLER)),
-          "SAVE"
-      );
-    }
-  }
-
   /**
    * Try to instantiate a basic FlightClient.
    *
-   * @throws URISyntaxException
-   *           on error.
+   * @throws URISyntaxException on error.
    */
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.getClient(
-        allocator, flightTestUtils.getLocalhost(), this.server.getPort())) {
+    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.createNewHandler(
+        new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
+        null, null, allocator, false)) {
       assertNotNull(client);
     }
   }
@@ -273,8 +206,7 @@ public class ConnectionTest {
    * Checks if an unencrypted connection can be established successfully when
    * not providing credentials.
    *
-   * @throws SQLException
-   *           on error.
+   * @throws SQLException on error.
    */
   @Test
   public void testUnencryptedConnectionShouldOpenSuccessfullyWithoutAuthentication()
@@ -291,8 +223,7 @@ public class ConnectionTest {
    * Check if an unencrypted connection throws an exception when provided with
    * invalid credentials.
    *
-   * @throws SQLException
-   *           The exception expected to be thrown.
+   * @throws SQLException The exception expected to be thrown.
    */
   @Test(expected = SQLException.class)
   public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithInvalidCredentials()

@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
@@ -68,7 +69,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
       properties.putAll(args);
 
-      return new ArrowFlightConnection(this, factory, url, properties);
+      return ArrowFlightConnection.createNewConnection(
+          this,
+          factory,
+          url,
+          clonedProperties,
+          new RootAllocator(Long.MAX_VALUE));
     } catch (AssertionError | FlightRuntimeException e) {
       throw new SQLException("Failed to connect.", e);
     }

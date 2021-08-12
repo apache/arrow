@@ -17,11 +17,19 @@
 
 package org.apache.arrow.driver.jdbc.client.utils;
 
+import static org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils.getCertificateStream;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map.Entry;
 
-import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightClientMiddleware;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * Utility class for creating a client.
@@ -31,22 +39,61 @@ public class ClientCreationUtils {
     // Prevent instantiation.
   }
 
+
   /**
    * Instantiates a new {@link FlightClient} from the provided info.
    *
-   * @param address      the host and port for the connection to be established.
-   * @param credentials  the username and password to use for authentication.
-   * @param keyStoreInfo the keystore path and keystore password for TLS encryption.
-   * @param allocator    the {@link BufferAllocator} to use.
-   * @param options      the call options to use in subsequent calls to the client.
-   * @return a new client.
+   * @param address             the host and port for the connection to be established.
+   * @param keyStoreInfo        the keystore path and keystore password for TLS encryption.
+   * @param allocator           the {@link BufferAllocator} to use.
+   * @param middlewareFactories the authentication middleware factory.
+   * @param useTls              whether to use TLS encryption.
+   * @return a new client associated to its call options.
    */
   public static FlightClient createNewClient(final Entry<String, Integer> address,
-                                             final Entry<String, String> credentials,
                                              final Entry<String, String> keyStoreInfo,
+                                             final boolean useTls,
                                              final BufferAllocator allocator,
-                                             final CallOption... options) {
-    // TODO
-    return null;
+                                             final FlightClientMiddleware.Factory... middlewareFactories)
+      throws GeneralSecurityException, IOException {
+    return createNewClient(address, keyStoreInfo, useTls, allocator, Arrays.asList(middlewareFactories));
+  }
+
+  /**
+   * Instantiates a new {@link FlightClient} from the provided info.
+   *
+   * @param address             the host and port for the connection to be established.
+   * @param keyStoreInfo        the keystore path and keystore password for TLS encryption.
+   * @param allocator           the {@link BufferAllocator} to use.
+   * @param middlewareFactories the authentication middleware factory.
+   * @param useTls              whether to use TLS encryption.
+   * @return a new client associated to its call options.
+   */
+  public static FlightClient createNewClient(final Entry<String, Integer> address,
+                                             final Entry<String, String> keyStoreInfo,
+                                             final boolean useTls,
+                                             final BufferAllocator allocator,
+                                             final List<FlightClientMiddleware.Factory> middlewareFactories)
+      throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(address, "Address cannot be null!");
+    Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
+    Preconditions.checkNotNull(middlewareFactories, "Middleware factories cannot be null!");
+    FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
+    middlewareFactories.forEach(clientBuilder::intercept);
+    final String host = address.getKey();
+    final int port = address.getValue();
+    Location location;
+    if (useTls) {
+      location = Location.forGrpcTls(host, port);
+      clientBuilder.useTls();
+    } else {
+      location = Location.forGrpcInsecure(host, port);
+    }
+    clientBuilder.location(location);
+    if (keyStoreInfo != null) {
+      Preconditions.checkState(useTls, "KeyStore info cannot be provided when TLS encryption is disabled.");
+      clientBuilder.trustedCertificates(getCertificateStream(keyStoreInfo));
+    }
+    return clientBuilder.build();
   }
 }

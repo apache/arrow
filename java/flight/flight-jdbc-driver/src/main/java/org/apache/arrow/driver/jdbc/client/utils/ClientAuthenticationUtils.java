@@ -29,15 +29,14 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
-
-import javax.annotation.Nullable;
+import java.util.Map.Entry;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
@@ -57,43 +56,37 @@ public final class ClientAuthenticationUtils {
    * Helper method to authenticate provided {@link FlightClient} instance
    * against an Arrow Flight server endpoint.
    *
-   * @param client
-   *          the FlightClient instance to connect to Arrow Flight.
-   * @param username
-   *          the Arrow Flight server username.
-   * @param password
-   *          the corresponding Arrow Flight server password
-   * @param factory
-   *          the factory to create {@link ClientIncomingAuthHeaderMiddleware}.
-   * @return {@link CredentialCallOption} encapsulating the bearer token to use
-   *         in subsequent requests.
+   * @param client      the FlightClient instance to connect to Arrow Flight.
+   * @param credentials the Arrow Flight server username and password.
+   * @param factory     the factory to create {@link ClientIncomingAuthHeaderMiddleware}.
+   * @param options     the options.
+   * @return the call option encapsulating the bearer token to use in subsequent requests.
    */
-  public static CredentialCallOption getAuthenticate(final FlightClient client,
-      final String username, final String password,
-      final ClientIncomingAuthHeaderMiddleware.Factory factory,
-      @Nullable final HeaderCallOption properties) {
+  public static CredentialCallOption getAuthenticate(final FlightClient client, final Entry<String, String> credentials,
+                                                     final ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                     final CallOption... options) {
+    return getAuthenticate(client, credentials.getKey(), credentials.getValue(), factory, options);
+  }
+
+
+  private static CredentialCallOption getAuthenticate(final FlightClient client,
+                                                      final String username, final String password,
+                                                      final ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                      final CallOption... options) {
 
     return getAuthenticate(client,
-        new CredentialCallOption(
-            new BasicAuthCredentialWriter(username, password)),
-        factory, properties);
+        new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
+        factory, options);
   }
 
   private static CredentialCallOption getAuthenticate(final FlightClient client,
-      final CredentialCallOption token,
-      final ClientIncomingAuthHeaderMiddleware.Factory factory,
-      @Nullable final HeaderCallOption properties) {
-
-    final List<CallOption> options = new ArrayList<>();
-
-    options.add(token);
-
-    if (properties != null) {
-      options.add(properties);
-    }
-
-    client.handshake(options.toArray(new CallOption[options.size()]));
-
+                                                      final CredentialCallOption token,
+                                                      final ClientIncomingAuthHeaderMiddleware.Factory factory,
+                                                      final CallOption... options) {
+    final List<CallOption> theseOptions = new ArrayList<>();
+    theseOptions.add(token);
+    theseOptions.addAll(Arrays.asList(options));
+    client.handshake(theseOptions.toArray(new CallOption[0]));
     return factory.getCredentialCallOption();
   }
 
@@ -101,17 +94,21 @@ public final class ClientAuthenticationUtils {
    * Generates an {@link InputStream} that contains certificates for a private
    * key.
    *
-   * @param keyStorePath
-   *          The path to the keystore.
-   * @param keyStorePass
-   *          The password for the keystore.
+   * @param keyStoreInfo The path and password of the KeyStore.
    * @return a new {code InputStream} containing the certificates.
-   * @throws Exception
-   *           If there was an error looking up the private key or certificates.
+   * @throws GeneralSecurityException on error.
+   * @throws IOException              on error.
    */
-  public static InputStream getCertificateStream(final String keyStorePath,
-      final String keyStorePass) throws GeneralSecurityException, IOException {
+  public static InputStream getCertificateStream(final Entry<String, String> keyStoreInfo)
+      throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(keyStoreInfo, "KeyStore info cannot be null!");
+    return getCertificateStream(keyStoreInfo.getKey(), keyStoreInfo.getValue());
+  }
 
+  private static InputStream getCertificateStream(final String keyStorePath, final String keyStorePass)
+      throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(keyStorePath, "KeyStore path cannot be null!");
+    Preconditions.checkNotNull(keyStorePass, "KeyStorePass cannot be null!");
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
     try (final InputStream keyStoreStream = Files
@@ -136,7 +133,7 @@ public final class ClientAuthenticationUtils {
       throws IOException {
 
     try (final StringWriter writer = new StringWriter();
-        final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
 
       pemWriter.writeObject(certificate);
       pemWriter.flush();
