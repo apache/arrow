@@ -849,10 +849,10 @@ struct PBoolean {
 };
 
 struct PDayTimeInterval {
-  PTYPE_DECL(DayTimeInterval, DayTimeIntervalType::DayMilliseconds);
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  PTYPE_DECL(DayTimeInterval, DayMilliseconds);
   static void draw(int64_t N, std::vector<T>* draws) { return rand_day_millis(N, draws); }
 
-  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
   static DayMilliseconds Modify(DayMilliseconds inp) {
     inp.days /= 2;
     return inp;
@@ -860,11 +860,11 @@ struct PDayTimeInterval {
 };
 
 struct PMonthDayNanoInterval {
-  PTYPE_DECL(MonthDayNanoInterval, MonthDayNanoIntervalType::MonthDayNanos);
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+  PTYPE_DECL(MonthDayNanoInterval, MonthDayNanos);
   static void draw(int64_t N, std::vector<T>* draws) {
     return rand_month_day_nanos(N, draws);
   }
-  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
   static MonthDayNanos Modify(MonthDayNanos inp) {
     inp.days /= 2;
     return inp;
