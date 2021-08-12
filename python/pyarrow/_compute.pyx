@@ -796,18 +796,10 @@ cdef class _SliceOptions(FunctionOptions):
     def _set_options(self, int64_t start, int64_t stop, int64_t step):
         self.wrapped.reset(new CSliceOptions(start, stop, step))
 
-cdef class _NanNullOptions(FunctionOptions):
-    def _set_options(self, bool nan_is_null):
-        self.wrapped.reset(new CNanNullOptions(nan_is_null))
-
 class SliceOptions(_SliceOptions):
     def __init__(self, int64_t start, int64_t stop=sys.maxsize,
                  int64_t step=1):
         self._set_options(start, stop, step)
-
-class NanNullOptions(_NanNullOptions):
-    def __init__(self, bool nan_is_null):
-        self._set_options(nan_is_null)
 
 cdef class _FilterOptions(FunctionOptions):
     def _set_options(self, null_selection_behavior):

@@ -125,7 +125,6 @@ def test_option_class_equality():
         pc.ReplaceSubstringOptions("a", "b"),
         pc.SetLookupOptions(value_set=pa.array([1])),
         pc.SliceOptions(start=0, stop=1, step=1),
-        pc.NanNullOptions(nan_is_null=False),
         pc.SplitPatternOptions(pattern="pattern"),
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
