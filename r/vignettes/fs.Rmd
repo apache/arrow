@@ -60,7 +60,7 @@ This may be convenient when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 
-With a `FileSystem` object, we can point to specific files in it with the 
+With a `FileSystem` object, you can point to specific files in the S3 bucket with the 
 `$path()` method.
 In the previous example, this would look like:
 
