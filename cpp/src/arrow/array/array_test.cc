@@ -997,13 +997,13 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble, PDayTimeInterval,
-                         PMonthDayNanoInterval>
+                         PInt32, PInt64, PFloat, PDouble, PMonthDayNanoInterval,
+                         PDayTimeInterval>
     Primitives;
 
-TYPED_TEST_SUITE(TestPrimitiveBuilder, Primitives);
+TYPED_TEST_SUITE_P(TestPrimitiveBuilder);
 
-TYPED_TEST(TestPrimitiveBuilder, TestInit) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestInit) {
   ASSERT_OK(this->builder_->Reserve(1000));
   ASSERT_EQ(1000, this->builder_->capacity());
 
@@ -1019,7 +1019,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   ASSERT_EQ(0, this->builder_->num_children());
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendNull) {
   int64_t size = 1000;
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_OK(this->builder_->AppendNull());
@@ -1042,7 +1042,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
   }
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendNulls) {
   const int64_t size = 10;
   ASSERT_OK(this->builder_->AppendNulls(size));
   ASSERT_EQ(size, this->builder_->null_count());
@@ -1062,7 +1062,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
   }
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendEmptyValue) {
   ASSERT_OK(this->builder_->AppendNull());
   ASSERT_OK(this->builder_->AppendEmptyValue());
   ASSERT_OK(this->builder_->AppendNulls(2));
@@ -1090,7 +1090,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
   }
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   DECL_T();
 
   int64_t size = 1000;
@@ -1120,7 +1120,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   ASSERT_EQ(memory_before, this->pool_->bytes_allocated());
 }
 
-TYPED_TEST(TestPrimitiveBuilder, Equality) {
+TYPED_TEST_P(TestPrimitiveBuilder, Equality) {
   DECL_T();
 
   const int64_t size = 1000;
@@ -1156,7 +1156,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
       array->RangeEquals(first_valid_idx + 1, size, first_valid_idx + 1, unequal_array));
 }
 
-TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
+TYPED_TEST_P(TestPrimitiveBuilder, SliceEquality) {
   DECL_T();
 
   const int64_t size = 1000;
@@ -1189,7 +1189,7 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
   ASSERT_TRUE(array->RangeEquals(5, 15, 0, slice));
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendScalar) {
   DECL_T();
 
   const int64_t size = 10000;
@@ -1245,7 +1245,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValues) {
   DECL_T();
 
   int64_t size = 10000;
@@ -1281,7 +1281,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestTypedFinish) {
   DECL_T();
 
   int64_t size = 1000;
@@ -1301,7 +1301,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
   AssertArraysEqual(*result_untyped, *result);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValuesIter) {
   int64_t size = 10000;
   this->RandomData(size);
 
@@ -1316,7 +1316,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
   int64_t size = 10000;
   this->RandomData(size);
 
@@ -1333,7 +1333,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   DECL_T();
 
   int64_t size = 10000;
@@ -1365,7 +1365,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   ASSERT_TRUE(expected->Equals(result));
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   DECL_T();
   // find type we can safely convert the tested values to and from
   using conversion_type = typename std::conditional<
@@ -1410,7 +1410,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestZeroPadded) {
   DECL_T();
 
   int64_t size = 10000;
@@ -1428,7 +1428,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
   FinishAndCheckPadding(this->builder_.get(), &out);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
   DECL_T();
 
@@ -1474,7 +1474,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestAdvance) {
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
 
@@ -1487,14 +1487,14 @@ TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
   ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestResize) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestResize) {
   int64_t cap = kMinBuilderCapacity * 2;
 
   ASSERT_OK(this->builder_->Reserve(cap));
   ASSERT_EQ(cap, this->builder_->capacity());
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
+TYPED_TEST_P(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(10));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_EQ(kMinBuilderCapacity, this->builder_->capacity());
@@ -1508,6 +1508,17 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
 
   ASSERT_RAISES(Invalid, this->builder_->Resize(1));
 }
+
+REGISTER_TYPED_TEST_SUITE_P(TestPrimitiveBuilder, TestInit, TestAppendNull,
+                            TestAppendNulls, TestAppendEmptyValue, TestArrayDtorDealloc,
+                            Equality, SliceEquality, TestAppendScalar, TestAppendValues,
+                            TestTypedFinish, TestAppendValuesIter,
+                            TestAppendValuesIterNullValid, TestAppendValuesLazyIter,
+                            TestAppendValuesIterConverted, TestZeroPadded,
+                            TestAppendValuesStdBool, TestAdvance, TestResize,
+                            TestReserve);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(PrimitiveBuilders, TestPrimitiveBuilder, Primitives);
 
 TEST(TestBooleanBuilder, AppendNullsAdvanceBuilder) {
   BooleanBuilder builder;
