@@ -72,7 +72,7 @@ class ARROW_EXPORT BasicDecimal128 {
       : high_bits_(static_cast<int64_t>(array[0])), low_bits_(array[1]) {}
 #endif
 
-  /// \brief Create a BasicDecimal256 from the two's complement representation.
+  /// \brief Create a BasicDecimal128 from the two's complement representation.
   ///
   /// Input array is assumed to be in little endianness, with native endian elements.
   BasicDecimal128(LittleEndianArrayTag, const std::array<uint64_t, 2>& array) noexcept
@@ -208,6 +208,17 @@ class ARROW_EXPORT BasicDecimal128 {
 
   /// \brief Get the maximum valid unscaled decimal value.
   static const BasicDecimal128& GetMaxValue();
+
+  /// \brief Get the maximum decimal value (is not a valid value).
+  static inline BasicDecimal128 GetMaxSentinel() {
+    return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::max(),
+                           /*low=*/std::numeric_limits<uint64_t>::max());
+  }
+  /// \brief Get the minimum decimal value (is not a valid value).
+  static inline BasicDecimal128 GetMinSentinel() {
+    return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::min(),
+                           /*low=*/std::numeric_limits<uint64_t>::min());
+  }
 
  private:
 #if ARROW_LITTLE_ENDIAN
@@ -387,6 +398,31 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
+
+  /// \brief Get the maximum decimal value (is not a valid value).
+  static inline BasicDecimal256 GetMaxSentinel() {
+#if ARROW_LITTLE_ENDIAN
+    return BasicDecimal256({std::numeric_limits<uint64_t>::max(),
+                            std::numeric_limits<uint64_t>::max(),
+                            std::numeric_limits<uint64_t>::max(),
+                            static_cast<uint64_t>(std::numeric_limits<int64_t>::max())});
+#else
+    return BasicDecimal256({static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
+                            std::numeric_limits<uint64_t>::max(),
+                            std::numeric_limits<uint64_t>::max(),
+                            std::numeric_limits<uint64_t>::max()});
+#endif
+  }
+  /// \brief Get the minimum decimal value (is not a valid value).
+  static inline BasicDecimal256 GetMinSentinel() {
+#if ARROW_LITTLE_ENDIAN
+    return BasicDecimal256(
+        {0, 0, 0, static_cast<uint64_t>(std::numeric_limits<int64_t>::min())});
+#else
+    return BasicDecimal256(
+        {static_cast<uint64_t>(std::numeric_limits<int64_t>::min()), 0, 0, 0});
+#endif
+  }
 
  private:
   std::array<uint64_t, 4> array_;

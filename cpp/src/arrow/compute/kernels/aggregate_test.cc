@@ -978,7 +978,6 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   auto ty = struct_({field("min", item_ty), field("max", item_ty)});
 
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
-  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
@@ -1026,6 +1025,78 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
                        CallFunction("min_max", {values}, &default_options));
 
   AssertDatumsEqual(explicit_defaults, no_options_provided);
+}
+
+TEST(TestDecimalMinMaxKernel, Decimals) {
+  std::vector<std::shared_ptr<DataType>> types = {
+      decimal128(5, 2),
+      decimal256(5, 2),
+  };
+  for (const auto& item_ty : types) {
+    auto ty = struct_({field("min", item_ty), field("max", item_ty)});
+
+    Datum chunked_input1 =
+        ChunkedArrayFromJSON(item_ty, {R"(["5.10", "1.23", "2.00", "3.45", "4.56"])",
+                                       R"(["9.42", "1.01", null, "3.14", "4.00"])"});
+    Datum chunked_input2 =
+        ChunkedArrayFromJSON(item_ty, {R"(["5.10", null, "2.00", "3.45", "4.56"])",
+                                       R"(["9.42", "1.01", "2.52", "3.14", "4.00"])"});
+    Datum chunked_input3 =
+        ChunkedArrayFromJSON(item_ty, {R"(["5.10", "1.23", "2.00", "3.45", null])",
+                                       R"(["9.42", "1.01", null, "3.14", "4.00"])"});
+
+    ScalarAggregateOptions options;
+
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "1.23", "2.00", "3.45", "4.56"])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": "1.23", "max": "5.10"})")));
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", null, "2.00", "3.45", "4.56"])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": "2.00", "max": "5.10"})")));
+
+    EXPECT_THAT(MinMax(chunked_input1, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
+    EXPECT_THAT(MinMax(chunked_input2, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
+    EXPECT_THAT(MinMax(chunked_input3, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": "1.01", "max": "9.42"})")));
+
+    EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, "null"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(ScalarFromJSON(item_ty, R"("1.00")"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": "1.00", "max": "1.00"})")));
+
+    options = ScalarAggregateOptions(/*skip_nulls=*/false);
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "1.23", "2.00", "3.45", "4.56"])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": "1.23", "max": "5.10"})")));
+    // output null
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", null, "2.00", "3.45", "4.56"])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(chunked_input1, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(chunked_input2, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(chunked_input3, options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+
+    options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+    EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([null])"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+
+    options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
+    EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+    EXPECT_THAT(MinMax(ArrayFromJSON(item_ty, R"([null])"), options),
+                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+  }
 }
 
 template <typename ArrowType>
