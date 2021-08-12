@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
@@ -53,8 +54,12 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final AvaticaFactory factory,
       final String url,
       final Properties info) throws SQLException {
-    return new ArrowFlightConnection((ArrowFlightJdbcDriver) driver,
-        factory, url, info);
+    return ArrowFlightConnection.createNewConnection(
+        (ArrowFlightJdbcDriver) driver,
+        factory,
+        url,
+        info,
+        new RootAllocator(Long.MAX_VALUE));
   }
 
   @Override

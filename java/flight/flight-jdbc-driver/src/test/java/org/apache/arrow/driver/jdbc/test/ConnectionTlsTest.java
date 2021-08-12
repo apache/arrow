@@ -25,6 +25,7 @@ import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
@@ -51,15 +52,15 @@ import com.google.common.base.Strings;
  * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
  */
 public class ConnectionTlsTest {
-  private FlightServer tlsServer;
-  private String serverUrl;
-  private BufferAllocator allocator;
-  private FlightTestUtils flightTestUtils;
   private final String keyStorePath = this.getClass().getResource("/keys/keyStore.jks")
       .getPath();
   private final String noCertificateKeyStorePath = this.getClass().getResource("/keys/noCertificate.jks")
       .getPath();
   private final String keyStorePass = "flight";
+  private FlightServer tlsServer;
+  private String serverUrl;
+  private BufferAllocator allocator;
+  private FlightTestUtils flightTestUtils;
 
   @Before
   public void setUp() throws Exception {
@@ -97,14 +98,12 @@ public class ConnectionTlsTest {
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username
-   *          flight server username.
-   * @param password
-   *          flight server password.
+   * @param username flight server username.
+   * @param password flight server password.
    * @return the result of validation.
    */
   private CallHeaderAuthenticator.AuthResult validate(final String username,
-      final String password) {
+                                                      final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Credentials not supplied.").toRuntimeException();
@@ -124,8 +123,7 @@ public class ConnectionTlsTest {
   /**
    * Try to instantiate an encrypted FlightClient.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
@@ -138,12 +136,10 @@ public class ConnectionTlsTest {
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
     try (ArrowFlightClientHandler client =
-           ArrowFlightClientHandler
-             .getClient(
-                allocator, address.getHost(), address.getPort(),
-                credentials.getUserName(), credentials.getPassword(),
-                null, true, keyStorePath, keyStorePass)) {
-
+             ArrowFlightClientHandler.createNewHandler(
+                 new SimpleImmutableEntry<>(address.getHost(), address.getPort()),
+                 new SimpleImmutableEntry<>(credentials.getUserName(), credentials.getPassword()),
+                 new SimpleImmutableEntry<>(keyStorePath, keyStorePass), allocator, true)) {
       assertNotNull(client);
     }
   }
@@ -152,18 +148,19 @@ public class ConnectionTlsTest {
    * Try to instantiate an encrypted FlightClient providing a keystore without certificate. It's expected to
    * receive the SQLException.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test(expected = CertificateException.class)
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
     final String noCertificateKeyStorePassword = "flight1";
 
     try (ArrowFlightClientHandler client =
-           ArrowFlightClientHandler
-             .getClient(allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-                null, noCertificateKeyStorePath,
-                noCertificateKeyStorePassword)) {
+             ArrowFlightClientHandler
+                 .createNewHandler(
+                     new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
+                     null,
+                     new SimpleImmutableEntry<>(noCertificateKeyStorePath, noCertificateKeyStorePassword),
+                     allocator, true)) {
       Assert.fail();
     }
   }
@@ -171,18 +168,16 @@ public class ConnectionTlsTest {
   /**
    * Try to instantiate an encrypted FlightClient without credentials.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (ArrowFlightClientHandler client =
-           ArrowFlightClientHandler
-             .getClient(
-                allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-                null, keyStorePath,
-                keyStorePass)) {
-
+             ArrowFlightClientHandler
+                 .createNewHandler(
+                     new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
+                     null, new SimpleImmutableEntry<>(keyStorePath, keyStorePass),
+                     allocator, true)) {
       assertNotNull(client);
     }
   }
@@ -191,18 +186,17 @@ public class ConnectionTlsTest {
    * Try to instantiate an encrypted FlightClient with an invalid password to the keystore file.
    * It's expected to receive the SQLException.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test(expected = IOException.class)
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
     String keyStoreBadPassword = "badPassword";
 
     try (ArrowFlightClientHandler client =
-           ArrowFlightClientHandler.getClient(
-             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-             null, keyStorePath,
-             keyStoreBadPassword)) {
+             ArrowFlightClientHandler.createNewHandler(
+                 new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
+                 null, new SimpleImmutableEntry<>(keyStorePath, keyStoreBadPassword),
+                 allocator, true)) {
       Assert.fail();
     }
   }
@@ -211,8 +205,7 @@ public class ConnectionTlsTest {
    * Check if an encrypted connection can be established successfully when the
    * provided valid credentials and a valid Keystore.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test
   public void testGetEncryptedConnectionWithValidCredentialsAndKeyStore() throws Exception {
@@ -256,8 +249,7 @@ public class ConnectionTlsTest {
   /**
    * Check if an encrypted connection can be established successfully when not providing authentication.
    *
-   * @throws Exception
-   *           on error.
+   * @throws Exception on error.
    */
   @Test
   public void testGetNonAuthenticatedEncryptedConnection() throws Exception {
