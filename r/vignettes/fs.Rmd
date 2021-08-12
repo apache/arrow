@@ -16,7 +16,7 @@ This vignette provides an overview of working with S3 data using Arrow.
 > In Windows and macOS binary packages, S3 support is included. On Linux when 
 installing from source, S3 support is not enabled by default, and it has 
 additional system requirements. See `vignette("install", package = "arrow")` 
-for details. However, on Windows the S3 workds out of the box if and only if
+for details. However, on Windows the S3 works out of the box if and only if
 you have R 4.0 and rtools 40 installed (rtools35 is not supported).
 
 ## URIs
