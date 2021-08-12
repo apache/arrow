@@ -1028,11 +1028,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
 }
 
 TEST(TestDecimalMinMaxKernel, Decimals) {
-  std::vector<std::shared_ptr<DataType>> types = {
-      decimal128(5, 2),
-      decimal256(5, 2),
-  };
-  for (const auto& item_ty : types) {
+  for (const auto& item_ty : {decimal128(5, 2), decimal256(5, 2)}) {
     auto ty = struct_({field("min", item_ty), field("max", item_ty)});
 
     Datum chunked_input1 =
