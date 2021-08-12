@@ -451,7 +451,8 @@ struct GroupByNode : ExecNode {
         // bail if StopProducing was called
         if (finished_.is_finished()) break;
 
-        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
+        auto plan = this->plan()->shared_from_this();
+        RETURN_NOT_OK(executor->Spawn([plan, this, i] { OutputNthBatch(i); }));
       } else {
         OutputNthBatch(i);
       }
