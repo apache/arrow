@@ -210,12 +210,12 @@ class ARROW_EXPORT BasicDecimal128 {
   static const BasicDecimal128& GetMaxValue();
 
   /// \brief Get the maximum decimal value (is not a valid value).
-  static inline BasicDecimal128 GetMaxSentinel() {
+  static inline constexpr BasicDecimal128 GetMaxSentinel() {
     return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::max(),
                            /*low=*/std::numeric_limits<uint64_t>::max());
   }
   /// \brief Get the minimum decimal value (is not a valid value).
-  static inline BasicDecimal128 GetMinSentinel() {
+  static inline constexpr BasicDecimal128 GetMinSentinel() {
     return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::min(),
                            /*low=*/std::numeric_limits<uint64_t>::min());
   }
@@ -400,7 +400,7 @@ class ARROW_EXPORT BasicDecimal256 {
   BasicDecimal256& operator/=(const BasicDecimal256& right);
 
   /// \brief Get the maximum decimal value (is not a valid value).
-  static inline BasicDecimal256 GetMaxSentinel() {
+  static inline constexpr BasicDecimal256 GetMaxSentinel() {
 #if ARROW_LITTLE_ENDIAN
     return BasicDecimal256({std::numeric_limits<uint64_t>::max(),
                             std::numeric_limits<uint64_t>::max(),
@@ -414,7 +414,7 @@ class ARROW_EXPORT BasicDecimal256 {
 #endif
   }
   /// \brief Get the minimum decimal value (is not a valid value).
-  static inline BasicDecimal256 GetMinSentinel() {
+  static inline constexpr BasicDecimal256 GetMinSentinel() {
 #if ARROW_LITTLE_ENDIAN
     return BasicDecimal256(
         {0, 0, 0, static_cast<uint64_t>(std::numeric_limits<int64_t>::min())});
