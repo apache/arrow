@@ -42,88 +42,6 @@ using std::launder;
 // }
 #endif
 
-template <typename ValueType, typename PointerType, typename ReferenceType>
-class VectorIterator {
- public:
-  using value_type = ValueType;
-  using pointer = PointerType;
-  using reference = ReferenceType;
-  using difference_type = ptrdiff_t;
-  using iterator_category = std::random_access_iterator_tag;
-
-  // Some algorithms need to default-construct an iterator
-  constexpr VectorIterator() noexcept = default;
-
-  constexpr explicit VectorIterator(pointer ptr) noexcept : ptr_(ptr) {}
-
-  // Value access
-  constexpr reference operator*() const { return *ptr_; }
-
-  constexpr reference operator[](difference_type n) const { return ptr_[n]; }
-
-  // Forward / backward
-  VectorIterator& operator++() {
-    ++ptr_;
-    return *this;
-  }
-  VectorIterator& operator--() {
-    --ptr_;
-    return *this;
-  }
-  VectorIterator operator++(int) {
-    VectorIterator tmp(*this);
-    ++ptr_;
-    return tmp;
-  }
-  VectorIterator operator--(int) {
-    VectorIterator tmp(*this);
-    --ptr_;
-    return tmp;
-  }
-
-  // Arithmetic
-  constexpr difference_type operator-(const VectorIterator& other) const {
-    return ptr_ - other.ptr_;
-  }
-  constexpr VectorIterator operator+(difference_type n) const {
-    return VectorIterator(ptr_ + n);
-  }
-  constexpr VectorIterator operator-(difference_type n) const {
-    return VectorIterator(ptr_ - n);
-  }
-  VectorIterator& operator+=(difference_type n) {
-    ptr_ += n;
-    return *this;
-  }
-  VectorIterator& operator-=(difference_type n) {
-    ptr_ -= n;
-    return *this;
-  }
-
-  // Comparisons
-  constexpr bool operator==(const VectorIterator& other) const {
-    return ptr_ == other.ptr_;
-  }
-  constexpr bool operator!=(const VectorIterator& other) const {
-    return ptr_ != other.ptr_;
-  }
-  constexpr bool operator<(const VectorIterator& other) const {
-    return ptr_ < other.ptr_;
-  }
-  constexpr bool operator>(const VectorIterator& other) const {
-    return ptr_ > other.ptr_;
-  }
-  constexpr bool operator<=(const VectorIterator& other) const {
-    return ptr_ <= other.ptr_;
-  }
-  constexpr bool operator>=(const VectorIterator& other) const {
-    return ptr_ >= other.ptr_;
-  }
-
- private:
-  pointer ptr_ = NULLPTR;
-};
-
 template <typename T>
 class StaticVectorMixin {
  protected:
@@ -339,8 +257,8 @@ class StaticVectorImpl : public Base {
   using const_pointer = const T*;
   using reference = T&;
   using const_reference = const T&;
-  using iterator = VectorIterator<value_type, pointer, reference>;
-  using const_iterator = VectorIterator<const value_type, const_pointer, const_reference>;
+  using iterator = T*;
+  using const_iterator = const T*;
 
   constexpr StaticVectorImpl() noexcept = default;
 

@@ -399,6 +399,13 @@ class TestSmallStaticVector : public ::testing::Test {
       ASSERT_NE(it, it2);
       ASSERT_EQ(*++it2, 7);
       ASSERT_EQ(it, it2);
+
+      // Conversion from non-const iterator
+      it = underlying_ints.begin() + 1;
+      ASSERT_NE(it, underlying_ints.end());
+      ASSERT_EQ(*it, 6);
+      it += underlying_ints.end() - it;
+      ASSERT_EQ(it, underlying_ints.end());
     }
   }
 };
