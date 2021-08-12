@@ -215,7 +215,7 @@ class ARROW_EXPORT NanNullOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "NanNullOptions";
   static NanNullOptions Defaults() { return NanNullOptions{}; }
 
-  bool nan_is_null;
+  bool nan_is_null = false;
 };
 
 enum CompareOperator : int8_t {

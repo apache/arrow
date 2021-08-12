@@ -32,6 +32,8 @@ namespace compute {
 namespace internal {
 namespace {
 
+FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
+
 struct IsValidOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
@@ -77,7 +79,7 @@ struct IsInfOperator {
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    const NanNullOptions& options = OptionsWrapper<NanNullOptions>::Get(ctx);
     bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
     if (in.is_valid) {
       switch (in.type->id()) {
@@ -110,7 +112,7 @@ struct IsNullOperator {
                          false);
     }
 
-    auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    const NanNullOptions& options = OptionsWrapper<NanNullOptions>::Get(ctx);
     if (options.nan_is_null) {
       if (arr.type->id() == Type::FLOAT) {
         const float* data = arr.GetValues<float>(1);
@@ -254,8 +256,6 @@ const FunctionDoc is_nan_doc("Return true if NaN",
                              {"values"});
 
 }  // namespace
-
-FunctionOptions kNanNullOptions = NanNullOptions::Defaults();
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
