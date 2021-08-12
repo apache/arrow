@@ -35,6 +35,7 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
@@ -153,6 +154,48 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   }
 
   return batch;
+}
+
+Future<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto collected_fut = CollectAsyncGenerator(gen);
+
+  return AllComplete({plan->finished(), Future<>(collected_fut)})
+      .Then([collected_fut]() -> Result<std::vector<ExecBatch>> {
+        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+        return ::arrow::internal::MapVector(
+            [](util::optional<ExecBatch> batch) { return std::move(*batch); },
+            std::move(collected));
+      });
+}
+
+BatchesWithSchema MakeBasicBatches() {
+  BatchesWithSchema out;
+  out.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+  out.schema = schema({field("i32", int32()), field("bool", boolean())});
+  return out;
+}
+
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches, int batch_size) {
+  BatchesWithSchema out;
+
+  random::RandomArrayGenerator rng(42);
+  out.batches.resize(num_batches);
+
+  for (int i = 0; i < num_batches; ++i) {
+    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
+    // add a tag scalar to ensure the batches are unique
+    out.batches[i].values.emplace_back(i);
+  }
+
+  out.schema = schema;
+  return out;
 }
 
 }  // namespace compute
