@@ -15,55 +15,47 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: MATLAB CI to Build and Run Tests
+name: MATLAB
 
-on: 
+on:
   push:
     paths:
       - '.github/workflows/matlab.yml'
       - 'ci/scripts/matlab*.sh'
       - 'matlab/**'
-      
+      - 'cpp/src/arrow/**'
+
 concurrency:
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
-env:
-  DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-
 jobs:
-    debian:
-        name: Build cpp api and run MATLAB Tests
-        runs-on: ubuntu-latest
-        env:
-            ARROW_HOME: /usr/local/
-        steps:
-          - name: Check out repository
-            uses: actions/checkout@v2
-            with:
-                fetch-depth: 0
-          - name: Fetch Submodules and Tags
-            shell: bash
-            run: ci/scripts/util_checkout.sh
-          - name: Build MATLAB
-            shell: bash
-            run: |
-                ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-                ci/scripts/matlab_build.sh $(pwd) $(pwd)/build
-            
-    my-job:
-        name: Run MATLAB Tests and Generate Artifacts
-        runs-on: ubuntu-latest
-        steps:
-          - name: Check out repository
-            uses: actions/checkout@v2
-          - name: Install MATLAB
-            uses: matlab-actions/setup-matlab@v0
-          - name: Run script
-            uses: matlab-actions/run-command@v0
-            with:
-                command: cd(fullfile('matlab','build_support'));compile
-          - name: Run tests and generate artifacts
-            uses: matlab-actions/run-tests@v0
+
+  matlab:
+    name: MATLAB 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v0
+      - name: Build MATLAB Interface
+        shell: bash
+        run: ci/scripts/matlab_build.sh $(pwd);
+      - name: Run MATLAB Tests
+        env: 
+          # libarrow.so requires a more recent version of libstdc++.so
+          # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
+          # Therefore, if a MEX function that depends on libarrow.so
+          # is executed within the MATLAB address space, runtime linking
+          # errors will occur. To work around this issue, we can explicitly
+          # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
+          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+        uses: matlab-actions/run-tests@v1
+        with:
+          select-by-folder: matlab/test

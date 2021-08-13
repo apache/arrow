@@ -17,14 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Exit on error (-e) and print all commands (-x).
 set -ex
 
-source_dir=${1}/matlab
-build_dir=${2}/matlab
+base_dir=${1}
+source_dir=${base_dir}/matlab
+build_dir=${base_dir}/matlab/build
 
-mkdir -p ${build_dir}
-pushd ${build_dir}
-cmake ${source_dir}
-make
-
-popd
+cmake -S ${source_dir} -B ${build_dir} -D MATLAB_BUILD_TESTS=ON
+cmake --build ${build_dir} --config Release
+ctest --test-dir ${build_dir}
