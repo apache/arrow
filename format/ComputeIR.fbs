@@ -142,15 +142,6 @@ table AggregateOptions {
   keys: [Expression];
 }
 
-enum JoinKind : int {
-  INNER,
-  LEFT,
-  RIGHT,
-  FULL,
-  SEMI,
-  ANTI,
-}
-
 /// The contents of Relation.options will be JoinOptions
 /// if Relation.name = "join"
 table JoinOptions {
@@ -158,7 +149,7 @@ table JoinOptions {
   /// input to determine whether they should be included in the
   /// "join" relation's output.
   on_expression: Expression (required);
-  join_kind: JoinKind;
+  join_kind: string;
 }
 
 /// Whether lesser values should precede greater or vice versa.
