@@ -89,7 +89,7 @@ table Call {
   type: Type;
 }
 
-/// A relation is a set of rows with consitent schema.
+/// A relation is a set of rows with consistent schema.
 table Relation {
   /// The namespaced name of this Relation.
   ///
