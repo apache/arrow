@@ -34,10 +34,20 @@ union Expression {
   Literal, FieldRef, Call
 }
 
-table Literal {
-  /// Number of slots. If this is absent, the literal should be
-  /// considered scalar.
+union Shape {
+  ArrayShape, ScalarShape
+}
+
+table ScalarShape {}
+
+table ArrayShape {
+  /// Number of slots.
   length: long;
+}
+
+table Literal {
+  /// Shape of this literal.
+  shape: Shape (required);
 
   /// The type of this literal.
   type: Type (required);
