@@ -407,7 +407,7 @@ For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 
-# Using `remotes::install_github(...)`
+## Using `remotes::install_github(...)`
 
 If you need an Arrow installation from a specific repository or at a specific ref,
 `remotes::install_github("apache/arrow/r", build = FALSE)`
@@ -431,7 +431,7 @@ separate from another Arrow development environment or system installation
 * Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
 * You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
 
-# What happens when you `R CMD INSTALL`?
+## What happens when you `R CMD INSTALL`?
 
 There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arrow users, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host) so the installation process is easy. However knowing about these scripts can help troubleshoot if things go wrong in them or things go wrong in an install:
 
@@ -442,6 +442,14 @@ There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arr
   * Download the Arrow source and build the Arrow Library from source.
   * `*** Proceed without C++` dependencies (this is an error and the package will not work, but if you see this message you know the previous steps have not succeeded/were not enabled)
 * `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built. (If you're looking at this script, and you've gotten this far, it might look incredibly familiar: it's basically the contents of this guide in script form — with a few important changes)
+
+## Styling and linting of the R code in the R package
+
+The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
+
+To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run `lintr::lint_package("arrow/r")`.
+
+
 
 # Editing C++ code in the R package
 
@@ -481,6 +489,7 @@ _Note_ that the lint script requires Python 3 and the Python dependencies
 * autopep8
 * flake8
 * cmake_format==0.5.2
+
 # Running tests
 Some tests are conditionally enabled based on the availability of certain
 features in the package build (S3 support, compression libraries, etc.).
