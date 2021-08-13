@@ -208,9 +208,7 @@ table LiteralOptions {
 table InteractiveOutputOptions {
   /// In an interactive context there is an implicit pipe open between
   /// the producer and the consumer along which output may be sent.
-  /// `id` is an opaque identifier for such outputs; for example it could be used to
-  /// identify which Jupyter output cell should receive the output.
-  id: long;
+  options: Blob;
 }
 
 table Plan {
