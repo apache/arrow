@@ -1,0 +1,100 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+include "Schema.fbs";
+
+namespace org.apache.arrow.flatbuf.computeir;
+
+table Literal {
+  /// Number of slots. If this is absent, the literal should be considered scalar.
+  length: long;
+
+  type: Type;
+
+  buffers: [Buffer];
+}
+
+table FieldRef {
+  path: [string];
+
+  relation_index: int; // 0 for left-of-join, 1 for right-of-join, ...
+}
+
+table Call {
+  function_name: string;
+
+  arguments: [Expression];
+
+  options: [ubyte];  // user defined data
+}
+
+union Expression {
+  Literal, FieldRef, Call
+}
+
+table Operation {
+  /// name is in a namespace known to the producer
+  /// names with no namespace are reserved for pure relational algebraic operations
+  /// current operations would include:
+  ///   "filter"
+  ///   "project"
+  ///   "aggregate"
+  ///   "join"
+  ///   ...
+  name: string;
+
+  out_schema: Schema;
+
+  inputs: [Operation];
+
+  options: [ubyte];  // user defined data
+}
+
+/// associated with Operation.name = "filter"
+table FilterOptions {
+  filter_expression: Expression;
+}
+
+/// associated with Operation.name = "project"
+table ProjectOptions {
+  expressions: [Expression];
+  names: [string];
+}
+
+/// associated with Operation.name = "aggregate"
+table AggregateOptions {
+  aggregations: [Expression];
+  names: [string];
+  keys: [Expression];
+}
+
+enum JoinKind : int {
+  INNER,
+  LEFT,
+  RIGHT,
+  FULL,
+  SEMI,
+  ANTI,
+}
+
+/// associated with Operation.name = "join"
+table JoinOptions {
+  on_expressions: [Expression];
+  join_kind: JoinKind;
+}
+
+root_type Operation;
