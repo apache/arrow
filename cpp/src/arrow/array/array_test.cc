@@ -716,7 +716,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   typedef Attrs TestAttrs;
   typedef typename Attrs::ArrayType ArrayType;
   typedef typename Attrs::BuilderType BuilderType;
-  typedef typename Attrs::T T;
+  typedef typename Attrs::T CType;
   typedef typename Attrs::Type Type;
 
   virtual void SetUp() {
@@ -770,7 +770,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_TRUE(result->Equals(*expected));
   }
 
-  void FlipValue(T* ptr) {
+  void FlipValue(CType* ptr) {
     auto byteptr = reinterpret_cast<uint8_t*>(ptr);
     *byteptr = static_cast<uint8_t>(~*byteptr);
   }
@@ -779,7 +779,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   std::unique_ptr<BuilderType> builder_;
   std::unique_ptr<BuilderType> builder_nn_;
 
-  std::vector<T> draws_;
+  std::vector<CType> draws_;
   std::vector<uint8_t> valid_bytes_;
 };
 
@@ -881,7 +881,7 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
 }
 
 template <>
-void TestPrimitiveBuilder<PBoolean>::FlipValue(T* ptr) {
+void TestPrimitiveBuilder<PBoolean>::FlipValue(CType* ptr) {
   *ptr = !*ptr;
 }
 
@@ -1085,13 +1085,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
 
   // implementation detail: the value slots are 0-initialized
   for (int64_t i = 0; i < result->length(); ++i) {
-    typename TestFixture::T t{};
+    typename TestFixture::CType t{};
     ASSERT_EQ(result->Value(i), t);
   }
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
 
@@ -1121,7 +1121,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1157,7 +1157,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1190,7 +1190,7 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 10000;
 
@@ -1246,7 +1246,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1282,7 +1282,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
   this->RandomData(size);
@@ -1334,7 +1334,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1366,7 +1366,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
   // find type we can safely convert the tested values to and from
   using conversion_type = typename std::conditional<
       std::is_floating_point<T>::value, double,
@@ -1411,7 +1411,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1430,7 +1430,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
