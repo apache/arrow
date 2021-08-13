@@ -818,6 +818,40 @@ struct Log1pChecked {
   }
 };
 
+struct Logb {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    if (x == 0.0) {
+      if (base == 0.0 || base < 0.0) {
+        return std::numeric_limits<T>::quiet_NaN();
+      } else {
+        return -std::numeric_limits<T>::infinity();
+      }
+    } else if (x < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::log(x) / std::log(base);
+  }
+};
+
+struct LogbChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    if (x == 0.0 || base == 0.0) {
+      *st = Status::Invalid("logarithm of zero");
+      return x;
+    } else if (x < 0.0 || base < 0.0) {
+      *st = Status::Invalid("logarithm of negative number");
+      return x;
+    }
+    return std::log(x) / std::log(base);
+  }
+};
+
 struct Floor {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
@@ -1318,6 +1352,19 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
   return func;
 }
 
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
+    std::string name, const FunctionDoc* doc) {
+  auto func =
+      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+  for (const auto& ty : FloatingPointTypes()) {
+    auto output = is_integer(ty->id()) ? float64() : ty;
+    auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty, ty}, output, exec));
+  }
+  return func;
+}
+
 const FunctionDoc absolute_value_doc{
     "Calculate the absolute value of the argument element-wise",
     ("Results will wrap around on integer overflow.\n"
@@ -1590,6 +1637,19 @@ const FunctionDoc log1p_checked_doc{
      "-inf or NaN."),
     {"x"}};
 
+const FunctionDoc logb_doc{
+    "Compute log of x to base b of arguments element-wise",
+    ("Values <= 0 return -inf or NaN. Null values return null.\n"
+     "Use function \"logb_checked\" if you want non-positive values to raise an error."),
+    {"x", "b"}};
+
+const FunctionDoc logb_checked_doc{
+    "Compute log of x to base b of arguments element-wise",
+    ("Values <= 0 return -inf or NaN. Null values return null.\n"
+     "Use function \"logb\" if you want non-positive values to return "
+     "-inf or NaN."),
+    {"x", "b"}};
+
 const FunctionDoc floor_doc{
     "Round down to the nearest integer",
     ("Calculate the nearest integer less than or equal in magnitude to the "
@@ -1806,6 +1866,13 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto log1p_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log1pChecked>(
       "log1p_checked", &log1p_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p_checked)));
+
+  auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", &logb_doc);
+  DCHECK_OK(registry->AddFunction(std::move(logb)));
+
+  auto logb_checked = MakeArithmeticFunctionFloatingPointNotNull<LogbChecked>(
+      "logb_checked", &logb_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(logb_checked)));
 
   // ----------------------------------------------------------------------
   // Rounding functions

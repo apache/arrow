@@ -105,6 +105,8 @@ variants which detect domain errors.
    log1p_checked
    log2
    log2_checked
+   logb
+   logb_checked
 
 Trigonometric Functions
 -----------------------

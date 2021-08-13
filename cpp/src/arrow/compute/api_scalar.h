@@ -485,6 +485,20 @@ ARROW_EXPORT
 Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
+/// \brief Get the log of a value to the given base.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the logarithm for.
+/// \param[in] base The given base.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log to the given base
+ARROW_EXPORT
+Result<Datum> Logb(const Datum& arg, const Datum& base,
+                   ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
 /// \brief Round to the nearest integer less than or equal in magnitude to the
 /// argument. Array values can be of arbitrary length. If argument is null the
 /// result will be null.
