@@ -91,6 +91,7 @@ table Relation {
   ///   "order_by"
   ///   "limit"
   ///   "literal"
+  ///   "interactive_output"
   relation_name: string (required);
 
   /// Parameters for `relation_name`; content/format may be unique to each
@@ -190,6 +191,15 @@ table LiteralOptions {
   batches: [RecordBatch] (required);
   /// A dictionary batch for this literal.
   dictionary_batch: DictionaryBatch;
+}
+
+/// The contents of Relation.options will be InteractiveOutputOptions
+/// if Relation.name = "interactive_output"
+table InteractiveOutputOptions {
+  /// In an interactive context there is an implicit pipe open between
+  /// the producer and the consumer along which output may be sent.
+  /// `id` is an opaque identifier for such outputs.
+  id: long;
 }
 
 table Plan {
