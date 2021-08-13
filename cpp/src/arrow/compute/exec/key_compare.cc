@@ -200,7 +200,7 @@ void KeyCompare::CompareBinaryColumnToRow(
 
           // Non-zero length guarantees no underflow
           int32_t num_loops_less_one =
-              BitUtil::CeilDiv(static_cast<int32_t>(length), 8) - 1;
+              static_cast<int32_t>(BitUtil::CeilDiv(length, 8)) - 1;
 
           uint64_t tail_mask = ~0ULL >> (64 - 8 * (length - num_loops_less_one * 8));
 
@@ -271,7 +271,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(
     if (length > 0) {
       int32_t j;
       // length can be zero
-      for (j = 0; j < BitUtil::CeilDiv(static_cast<int32_t>(length), 8) - 1; ++j) {
+      for (j = 0; j < static_cast<int32_t>(BitUtil::CeilDiv(length, 8)) - 1; ++j) {
         uint64_t key_left = util::SafeLoad(key_left_ptr + j);
         uint64_t key_right = key_right_ptr[j];
         result_or |= key_left ^ key_right;
