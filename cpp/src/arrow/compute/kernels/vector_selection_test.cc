@@ -1785,6 +1785,8 @@ TEST_F(TestDropNullKernel, DropNull) {
 TEST_F(TestDropNullKernel, DropNullBoolean) {
   CheckDropNull(boolean(), "[true, false, true]", "[true, false, true]");
   CheckDropNull(boolean(), "[null, false, true]", "[false, true]");
+  CheckDropNull(boolean(), "[]", "[]");
+  CheckDropNull(boolean(), "[null, null]", "[]");
 
   TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]");
 }

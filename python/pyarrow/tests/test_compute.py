@@ -978,7 +978,7 @@ def test_take_null_type():
 def test_drop_null(ty, values):
     arr = pa.array(values, type=ty)
     result = arr.drop_null()
-    result.validate()
+    result.validate(full=True)
     indices = [i for i in range(len(arr)) if arr[i].is_valid]
     expected = arr.take(pa.array(indices))
     assert result.equals(expected)
@@ -1027,12 +1027,12 @@ def test_drop_null_table():
     assert result.equals(expected)
 
     table = pa.table([pa.chunked_array([["a", "b"], ["c", "d", "e"]]),
-                      pa.chunked_array([["a"], ["b"], [None], ["d", None]]),
-                      pa.chunked_array([["a", None], ["c", "d", None]])],
+                      pa.chunked_array([["A"], ["B"], [None], ["D", None]]),
+                      pa.chunked_array([["a`", None], ["c`", "d`", None]])],
                      names=["a", "b", "c"])
     expected = pa.table([pa.array(["a", "d"]),
-                         pa.array(["a", "d"]),
-                         pa.array(["a", "d"])],
+                         pa.array(["A", "D"]),
+                         pa.array(["a`", "d`"])],
                         names=["a", "b", "c"])
     result = table.drop_null()
     assert result.equals(expected)

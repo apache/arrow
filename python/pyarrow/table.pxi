@@ -400,7 +400,7 @@ cdef class ChunkedArray(_PandasConvertible):
     def drop_null(self):
         """
         Remove missing values from a chunked array.
-        See pyarrow.compute.drop_null for full usage.
+        See pyarrow.compute.drop_null for full description.
         """
         return _pc().drop_null(self)
 

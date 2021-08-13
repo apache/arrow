@@ -2150,29 +2150,27 @@ class TakeMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-Status GetDropNullFilter(const Array& values, MemoryPool* memory_pool,
-                         std::shared_ptr<arrow::BooleanArray>* out_array) {
+Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& values,
+                                                               MemoryPool* memory_pool) {
   auto bitmap_buffer = values.null_bitmap();
-  *out_array = std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
-                                              values.offset());
-  return Status::OK();
+  std::shared_ptr<arrow::BooleanArray> out_array = std::make_shared<BooleanArray>(
+      values.length(), bitmap_buffer, nullptr, 0, values.offset());
+  return out_array;
 }
 
-Status CreateEmptyArray(std::shared_ptr<DataType> type, MemoryPool* memory_pool,
-                        std::shared_ptr<Array>* output_array) {
+Result<std::shared_ptr<Array>> CreateEmptyArray(std::shared_ptr<DataType> type,
+                                                MemoryPool* memory_pool) {
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
-  ARROW_ASSIGN_OR_RAISE(*output_array, builder->Finish());
-  return Status::OK();
+  return builder->Finish();
 }
 
-Status CreateEmptyChunkedArray(std::shared_ptr<DataType> type, MemoryPool* memory_pool,
-                               std::shared_ptr<ChunkedArray>* output_array) {
+Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
   std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
-  ARROW_RETURN_NOT_OK(CreateEmptyArray(type, memory_pool, &new_chunks[0]));
-  *output_array = std::make_shared<ChunkedArray>(std::move(new_chunks));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], CreateEmptyArray(type, memory_pool));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
 Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& values,
@@ -2180,17 +2178,15 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
   if (values->null_count() == 0) {
     return values;
   }
-  if (values->type()->Equals(arrow::null())) {
+  if (values->null_count() == values->length()) {
+    return CreateEmptyArray(values->type(), ctx->memory_pool());
+  }
+  if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
   }
-  std::shared_ptr<BooleanArray> drop_null_filter;
-  RETURN_NOT_OK(GetDropNullFilter(*values, ctx->memory_pool(), &drop_null_filter));
+  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter,
+                        GetDropNullFilter(*values, ctx->memory_pool()));
 
-  if (drop_null_filter->null_count() == drop_null_filter->length()) {
-    std::shared_ptr<Array> empty_array;
-    RETURN_NOT_OK(CreateEmptyArray(values->type(), ctx->memory_pool(), &empty_array));
-    return empty_array;
-  }
   auto options = FilterOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(
       Datum result,
@@ -2202,10 +2198,7 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
 Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(const ChunkedArray& values,
                                                            ExecContext* ctx) {
   if (values.null_count() == values.length()) {
-    std::shared_ptr<ChunkedArray> empty_array;
-    RETURN_NOT_OK(
-        CreateEmptyChunkedArray(values.type(), ctx->memory_pool(), &empty_array));
-    return empty_array;
+    return CreateEmptyChunkedArray(values.type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
   for (const auto& chunk : values.chunks()) {
@@ -2230,7 +2223,7 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
                         AllocateEmptyBitmap(batch.num_rows(), ctx->memory_pool()));
   BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), true);
   for (const auto& column : batch.columns()) {
-    if (column->type()->Equals(arrow::null())) {
+    if (column->type()->id() == Type::type::NA) {
       BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), false);
       break;
     }
@@ -2245,8 +2238,8 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
   if (drop_null_filter->null_count() == batch.num_rows()) {
     std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
     for (int i = 0; i < batch.num_columns(); i++) {
-      RETURN_NOT_OK(
-          CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool(), &empty_batch[i]));
+      ARROW_ASSIGN_OR_RAISE(
+          empty_batch[i], CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool()));
     }
     return RecordBatch::Make(batch.schema(), 0, empty_batch);
   }
@@ -2274,7 +2267,7 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
 
   for (const auto& col : table.columns()) {
-    if (col->type()->Equals(arrow::null())) {
+    if (col->type()->id() == Type::type::NA) {
       BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), false);
       break;
     }
@@ -2304,9 +2297,8 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
   if (drop_null_filter->null_count() == table.num_rows()) {
     std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
     for (int i = 0; i < table.num_columns(); i++) {
-      std::shared_ptr<Array> empty_array;
-      RETURN_NOT_OK(
-          CreateEmptyArray(table.column(i)->type(), ctx->memory_pool(), &empty_array));
+      ARROW_ASSIGN_OR_RAISE(auto empty_array, CreateEmptyArray(table.column(i)->type(),
+                                                               ctx->memory_pool()));
       empty_table[i] = std::make_shared<ChunkedArray>(ArrayVector{empty_array});
     }
     return Table::Make(table.schema(), empty_table, 0);
@@ -2318,10 +2310,10 @@ Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ct
 
 const FunctionDoc drop_null_doc(
     "Drop nulls from the input",
-    ("The output is populated with values from the input (Array, ChunkedArray, "
-     "RecordBatch, or Table) without the null values."
-     "Note that for the RecordBatch/Table cases, `drop_null` drops the full row if there "
-     "is any null."),
+    ("The output is populated with values from the input (Array, ChunkedArray,\n"
+     "RecordBatch, or Table) without the null values.\n"
+     "Note that for the RecordBatch/Table cases, `drop_null` drops the full row if\n"
+     "there is any null."),
     {"input"});
 
 class DropNullMetaFunction : public MetaFunction {
