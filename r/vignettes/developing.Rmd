@@ -451,11 +451,11 @@ To run the [lintr](https://github.com/jimhester/lintr) locally, install the lint
 
 You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package. There are two ways to do this:
 
-1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR and commit it back to the branch.
+1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR, and commit it back to the branch.
 
-2. Locally, with the command `make style` (for only the files changed), `make style-all` (for all files), or use `styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))` note the two excluded files which should not be styled.
+2. Run the styler locally with the command `make style` (for only the files changed), `make style-all` (for all files), or use `styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))` - note the two excluded files which should not be styled.
 
-The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we habitually do not style is in `r/.styler_excludes.R`.
+The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
 
 # Editing C++ code in the R package
 
