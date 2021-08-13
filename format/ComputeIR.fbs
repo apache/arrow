@@ -16,69 +16,118 @@
 // under the License.
 
 include "Schema.fbs";
+include "Message.fbs";
 
 namespace org.apache.arrow.flatbuf.computeir;
 
-table Literal {
-  /// Number of slots. If this is absent, the literal should be considered scalar.
-  length: long;
-
-  type: Type;
-
-  buffers: [Buffer];
+/// Wrapper for blobs of arbitrary bytes
+table Blob {
+  bytes: [ubyte];
 }
 
-table FieldRef {
-  path: [string];
-
-  relation_index: int; // 0 for left-of-join, 1 for right-of-join, ...
-}
-
-table Call {
-  function_name: string;
-
-  arguments: [Expression];
-
-  options: [ubyte];  // user defined data
-}
-
+/// An expression is one of
+/// - a Literal datum
+/// - a reference to a Field from a Relation
+/// - a call to a named function
+/// On evaluation, an Expression will have either array or scalar shape.
 union Expression {
   Literal, FieldRef, Call
 }
 
-table Operation {
-  /// name is in a namespace known to the producer
-  /// names with no namespace are reserved for pure relational algebraic operations
-  /// current operations would include:
+table Literal {
+  /// Number of slots. If this is absent, the literal should be
+  /// considered scalar.
+  length: long;
+
+  /// The type of this literal.
+  type: Type (required);
+
+  /// Buffers containing `length` elements of arrow-formatted data.
+  /// If `length` is absent (this Literal is scalar), these buffers
+  /// are sized to accommodate a single element of arrow-formatted data.
+  /// XXX this can be optimized for trivial scalars later
+  buffers: [Buffer];
+}
+
+table FieldRef {
+  /// A sequence of field names to allow referencing potentially nested fields
+  path: [string];
+
+  /// For Expressions which might reference fields in multiple Relations,
+  /// this index may be provided to indicate which Relation's fields
+  /// `path` points into. For example in the case of a join,
+  /// 0 refers to the left relation and 1 to the right relation.
+  relation_index: int;
+
+  /// The type of data in the referenced Field.
+  type: Type;
+}
+
+table Call {
+  /// The name of the function whose invocation this Call represents.
+  function_name: string (required);
+
+  /// Parameters for `function_name`; content/format may be unique to each
+  /// value of `function_name`.
+  options: Blob;
+
+  /// The arguments passed to `function_name`.
+  arguments: [Expression] (required);
+
+  /// The type of data which invoking `function_name` will return.
+  type: Type;
+}
+
+/// A relation is a set of rows with consitent schema.
+table Relation {
+  /// The namespaced name of this Relation.
+  ///
+  /// Names with no namespace are reserved for pure relational
+  /// algebraic operations, which currently include:
   ///   "filter"
   ///   "project"
   ///   "aggregate"
   ///   "join"
-  ///   ...
-  name: string;
+  ///   "order_by"
+  ///   "limit"
+  ///   "literal"
+  relation_name: string (required);
 
-  out_schema: Schema;
+  /// Parameters for `relation_name`; content/format may be unique to each
+  /// value of `relation_name`.
+  options: Blob;
 
-  inputs: [Operation];
+  /// The arguments passed to `relation_name`.
+  arguments: [Relation] (required);
 
-  options: [ubyte];  // user defined data
+  /// The schema of rows in this Relation
+  schema: Schema;
 }
 
-/// associated with Operation.name = "filter"
+/// The contents of Relation.options will be FilterOptions
+/// if Relation.name = "filter"
 table FilterOptions {
-  filter_expression: Expression;
+  /// The expression which will be evaluated against input rows
+  /// to determine whether they should be excluded from the
+  /// "filter" relation's output.
+  filter_expression: Expression (required);
 }
 
-/// associated with Operation.name = "project"
+/// The contents of Relation.options will be ProjectOptions
+/// if Relation.name = "project"
 table ProjectOptions {
-  expressions: [Expression];
-  names: [string];
+  /// Expressions which will be evaluated to produce to
+  /// the rows of the "project" relation's output.
+  expressions: [Expression] (required);
 }
 
-/// associated with Operation.name = "aggregate"
+/// The contents of Relation.options will be AggregateOptions
+/// if Relation.name = "aggregate"
 table AggregateOptions {
-  aggregations: [Expression];
-  names: [string];
+  /// Expressions which will be evaluated to produce to
+  /// the rows of the "aggregate" relation's output.
+  aggregations: [Expression] (required);
+  /// Keys by which `aggregations` will be grouped.
   keys: [Expression];
 }
 
@@ -91,10 +140,61 @@ enum JoinKind : int {
   ANTI,
 }
 
-/// associated with Operation.name = "join"
+/// The contents of Relation.options will be JoinOptions
+/// if Relation.name = "join"
 table JoinOptions {
-  on_expressions: [Expression];
+  /// The expression which will be evaluated against rows from each
+  /// input to determine whether they should be included in the
+  /// "join" relation's output.
+  on_expression: Expression (required);
   join_kind: JoinKind;
 }
 
-root_type Operation;
+/// Whether lesser values should precede greater or vice versa.
+enum Ordering : uint8 {
+  ASCENDING,
+  DESCENDING,
+}
+
+/// Whether nulls should precede or follow other values.
+enum NullOrdering : uint8 {
+  FIRST,
+  LAST
+}
+
+table SortKey {
+  value: Expression (required);
+  ordering: Ordering = ASCENDING;
+  null_ordering: NullOrdering = LAST;
+}
+
+/// The contents of Relation.options will be OrderByOptions
+/// if Relation.name = "order_by"
+table OrderByOptions {
+  /// Define sort order for rows of output.
+  /// Keys with higher precedence are ordered ahead of other keys.
+  keys: [SortKey] (required);
+}
+
+/// The contents of Relation.options will be LimitOptions
+/// if Relation.name = "limit"
+table LimitOptions {
+  /// Set the maximum number of rows of output.
+  count: long;
+}
+
+/// The contents of Relation.options will be LiteralOptions
+/// if Relation.name = "literal"
+table LiteralOptions {
+  /// Batches of rows in this literal.
+  batches: [RecordBatch] (required);
+  /// A dictionary batch for this literal.
+  dictionary_batch: DictionaryBatch;
+}
+
+table Plan {
+  /// One or more output relations.
+  sinks: [Relation] (required);
+}
+
+root_type Plan;

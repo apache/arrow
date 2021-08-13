@@ -1,0 +1,113 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+include "Schema.fbs";
+include "ComputeIR.fbs";
+
+namespace org.apache.arrow.flatbuf.computeir.ext;
+
+/////////////////////////////////////////////////////////////
+// Example source relations:
+
+// RFC 3986, section 3
+table Uri {
+  schema: string (required);
+  userinfo: string;
+  host: string (required);
+  port: ushort;
+  path: string (required);
+  query: [KeyValue];
+  fragment: string;
+}
+
+/// The contents of Relation.options will be Sql_FromOptions
+/// if Relation.name = "sql::from"
+table Sql_FromOptions {
+  /// The name of a table referenced as a source relation.
+  name: string (required);
+}
+
+table Partitioning {
+  /// Currently supported: "hive", "directory"
+  flavor: string (required);
+
+  /// Fields on which data is partitioned
+  schema: Schema (required);
+}
+
+table FileFormat {
+  /// E.g. "parquet", "csv", ...
+  name: string (required);
+  options: Blob;
+}
+
+/// The contents of Relation.options will be Arrow_FileSystemDatasetScanOptions
+/// if Relation.name = "arrow::filesystem_dataset_scan"
+table Arrow_FileSystemDatasetScanOptions {
+  /// The base directory of a dataset which should be scanned
+  /// as a source relation. A URI is used to accommodate potentially
+  /// remote file systems.
+  base_dir: Uri (required);
+
+  /// The format of files in this dataset.
+  format: FileFormat (required);
+
+  /// A partitioning scheme in use in this dataset.
+  partitioning: Partitioning;
+}
+
+/////////////////////////////////////////////////////////////
+// Example output relations:
+
+/// The contents of Relation.options will be Sql_IntoOptions
+/// if Relation.name = "sql::into"
+table Sql_IntoOptions {
+  /// The name of a table into which rows will be inserted.
+  name: string (required);
+
+  /// Whether rows written into the table should be appended
+  /// to the table's current rows (INSERT INTO).
+  /// If false, the table will be overwritten (INTO).
+  append: bool = true;
+}
+
+/// The contents of Relation.options will be Arrow_StreamOutOptions
+/// if Relation.name = "arrow::stream_out"
+table Arrow_StreamOutOptions {
+  /// The URI to which RecordBatches of output should be streamed.
+  destination: Uri (required);
+}
+
+/// The contents of Relation.options will be Arrow_FileSystemDatasetWriteOptions
+/// if Relation.name = "arrow::filesystem_dataset_write"
+table Arrow_FileSystemDatasetWriteOptions {
+  /// The base directory of a dataset into which output batches should be
+  /// written. A URI is used to accommodate potentially remote file systems.
+  /// Files present in this directory will not be explicitly deleted, though
+  /// they may be overwritten.
+  base_dir: Uri (required);
+
+  /// The format in which to write files.
+  format: FileFormat (required);
+
+  /// A partitioning scheme which should be used when writing this dataset.
+  partitioning: Partitioning;
+
+  /// Template string used to generate written files' basenames.
+  /// {i} will be replaced by an auto incremented integer.
+  basename_template: string (required);
+}
