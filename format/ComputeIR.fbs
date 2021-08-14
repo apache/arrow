@@ -148,11 +148,11 @@ table JoinOptions {
 }
 
 /// Whether lesser values should precede greater or vice versa,
-/// whether nulls should preced or follow values.
+/// also whether nulls should preced or follow values.
 enum Ordering : uint8 {
   ASCENDING_THEN_NULLS,
-  NULLS_THEN_ASCENDING,
   DESCENDING_THEN_NULLS,
+  NULLS_THEN_ASCENDING,
   NULLS_THEN_DESCENDING
 }
 
@@ -181,21 +181,33 @@ table LimitOptions {
 table LiteralOptions {
   /// Batches of rows in this literal.
   batches: [RecordBatch] (required);
-  /// A dictionary batch for this literal.
-  dictionary_batch: DictionaryBatch;
 }
 
-/// The contents of Relation.options will be InteractiveOutputOptions
-/// if Relation.name = "interactive_output"
-table InteractiveOutputOptions {
-  /// In an interactive context there is an implicit pipe open between
-  /// the producer and the consumer along which output may be sent.
-  options: Buffer;
-}
-
+/// A specification of a query.
 table Plan {
   /// One or more output relations.
   sinks: [Relation] (required);
+
+  /// Dictionary batches which may be referenced by Literals.
+  dictionary_batch: [DictionaryBatch];
+}
+
+/// Frequently there is an open direct channel between producers
+/// of queries (client) and their consumers (server).
+/// `Interactive` is provided to reify this case:
+rpc_service Interactive {
+  /// Restructure the provided Plan into one which contains only
+  /// Relations that are directly executable by the server.
+  /// These relations will usually be opaque to the client, but should
+  /// be descriptively named and validly structured to provide a client
+  /// with information on how the query will be executed.
+  explain(Plan): Plan (streaming: "none");
+
+  /// Execute a Plan.
+  /// The Plan may contain a single Relation with name="interactive_output",
+  /// in which case data which is received by that sink will be streamed back
+  /// to the client.
+  execute(Plan): Message (streaming: "server");
 }
 
 root_type Plan;
