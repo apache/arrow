@@ -1246,23 +1246,6 @@ extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
-	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
-	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
-	Rf_error("Cannot call compute__GroupBy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// compute.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::string> compute__GetFunctionNames();
 extern "C" SEXP _arrow_compute__GetFunctionNames(){
 BEGIN_CPP11
@@ -7136,7 +7119,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
-		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 

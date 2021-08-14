@@ -59,9 +59,7 @@ test_that("Can aggregate in Arrow", {
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
-    tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+    tbl
   )
 })
 
@@ -90,9 +88,7 @@ test_that("Group by sum on dataset", {
       summarize(total = sum(int)) %>%
       arrange(some_grouping) %>%
       collect(),
-    tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+    tbl
   )
 })
 
@@ -115,7 +111,22 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-  # ARROW-13497: na.rm option also is not being passed/received to any/all
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(any(lgl, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(all(lgl, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
 
   expect_dplyr_equal(
     input %>%

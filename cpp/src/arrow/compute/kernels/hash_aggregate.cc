@@ -916,8 +916,9 @@ struct GroupedSumImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     pool_ = ctx->memory_pool();
     options_ = checked_cast<const ScalarAggregateOptions&>(*options);
-    sums_ = BufferBuilder(pool_);
-    counts_ = BufferBuilder(pool_);
+    sums_ = TypedBufferBuilder<SumType>(pool_);
+    counts_ = TypedBufferBuilder<int64_t>(pool_);
+    no_nulls_ = TypedBufferBuilder<bool>(pool_);
     out_type_ = TypeTraits<AccType>::type_singleton();
     return Status::OK();
   }
@@ -925,14 +926,16 @@ struct GroupedSumImpl : public GroupedAggregator {
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    RETURN_NOT_OK(sums_.Append(added_groups * sizeof(AccType), 0));
-    RETURN_NOT_OK(counts_.Append(added_groups * sizeof(int64_t), 0));
+    RETURN_NOT_OK(sums_.Append(added_groups, SumType()));
+    RETURN_NOT_OK(counts_.Append(added_groups, 0));
+    RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto sums = reinterpret_cast<SumType*>(sums_.mutable_data());
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
+    SumType* sums = sums_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
 
     // XXX this uses naive summation; we should switch to pairwise summation as was
     // done for the scalar aggregate kernel in ARROW-11758
@@ -944,7 +947,7 @@ struct GroupedSumImpl : public GroupedAggregator {
           counts[*g] += 1;
           ++g;
         },
-        [&] { ++g; });
+        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
     return Status::OK();
   }
 
@@ -952,23 +955,28 @@ struct GroupedSumImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedSumImpl*>(&raw_other);
 
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto sums = reinterpret_cast<SumType*>(sums_.mutable_data());
+    SumType* sums = sums_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
 
-    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.mutable_data());
-    auto other_sums = reinterpret_cast<const SumType*>(other->sums_.mutable_data());
+    const SumType* other_sums = other->sums_.data();
+    const int64_t* other_counts = other->counts_.data();
+    const uint8_t* other_no_nulls = no_nulls_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
       sums[*g] += other_sums[other_g];
+      BitUtil::SetBitTo(
+          no_nulls, *g,
+          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
     }
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
     std::shared_ptr<Buffer> null_bitmap;
-    const int64_t* counts = reinterpret_cast<const int64_t*>(counts_.data());
+    const int64_t* counts = counts_.data();
     int64_t null_count = 0;
 
     for (int64_t i = 0; i < num_groups_; ++i) {
@@ -983,19 +991,30 @@ struct GroupedSumImpl : public GroupedAggregator {
       BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto sums, sums_.Finish());
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls_.data(), /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
+      }
+    }
 
+    ARROW_ASSIGN_OR_RAISE(auto sums, sums_.Finish());
     return ArrayData::Make(std::move(out_type_), num_groups_,
                            {std::move(null_bitmap), std::move(sums)}, null_count);
   }
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
-  // NB: counts are used here instead of a simple "has_values_" bitmap since
-  // we expect to reuse this kernel to handle Mean
+  // NB: counts are used here to support Mean below
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
-  BufferBuilder sums_, counts_;
+  TypedBufferBuilder<SumType> sums_;
+  TypedBufferBuilder<int64_t> counts_;
+  TypedBufferBuilder<bool> no_nulls_;
   std::shared_ptr<DataType> out_type_;
   MemoryPool* pool_;
 };
@@ -1048,12 +1067,14 @@ struct GroupedProductImpl final : public GroupedAggregator {
     num_groups_ = new_num_groups;
     RETURN_NOT_OK(products_.Append(added_groups * sizeof(AccType), 1));
     RETURN_NOT_OK(counts_.Append(added_groups, 0));
+    RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
     ProductType* products = products_.mutable_data();
     int64_t* counts = counts_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
     auto g = batch[1].array()->GetValues<uint32_t>(1);
     VisitArrayDataInline<Type>(
         *batch[0].array(),
@@ -1062,7 +1083,7 @@ struct GroupedProductImpl final : public GroupedAggregator {
               to_unsigned(products[*g]) * to_unsigned(static_cast<ProductType>(value)));
           counts[*g++] += 1;
         },
-        [&] { ++g; });
+        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
     return Status::OK();
   }
 
@@ -1072,15 +1093,20 @@ struct GroupedProductImpl final : public GroupedAggregator {
 
     int64_t* counts = counts_.mutable_data();
     ProductType* products = products_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
 
-    const int64_t* other_counts = other->counts_.mutable_data();
-    const ProductType* other_products = other->products_.mutable_data();
+    const int64_t* other_counts = other->counts_.data();
+    const ProductType* other_products = other->products_.data();
+    const uint8_t* other_no_nulls = other->no_nulls_.data();
     const uint32_t* g = group_id_mapping.GetValues<uint32_t>(1);
 
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       products[*g] = static_cast<ProductType>(to_unsigned(products[*g]) *
                                               to_unsigned(other_products[other_g]));
       counts[*g] += other_counts[other_g];
+      BitUtil::SetBitTo(
+          no_nulls, *g,
+          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
     }
     return Status::OK();
   }
@@ -1104,6 +1130,17 @@ struct GroupedProductImpl final : public GroupedAggregator {
       BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
 
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls_.data(), /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
+      }
+    }
+
     return ArrayData::Make(std::move(out_type_), num_groups_,
                            {std::move(null_bitmap), std::move(products)}, null_count);
   }
@@ -1114,6 +1151,7 @@ struct GroupedProductImpl final : public GroupedAggregator {
   ScalarAggregateOptions options_;
   TypedBufferBuilder<ProductType> products_;
   TypedBufferBuilder<int64_t> counts_;
+  TypedBufferBuilder<bool> no_nulls_;
   std::shared_ptr<DataType> out_type_;
   MemoryPool* pool_;
 };
@@ -1157,8 +1195,8 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
                           AllocateBuffer(num_groups_ * sizeof(double), pool_));
     int64_t null_count = 0;
 
-    const int64_t* counts = reinterpret_cast<const int64_t*>(counts_.data());
-    const auto* sums = reinterpret_cast<const SumType*>(sums_.data());
+    const int64_t* counts = counts_.data();
+    const SumType* sums = sums_.data();
     double* means = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups_; ++i) {
       if (counts[i] >= options_.min_count) {
@@ -1176,6 +1214,17 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
       BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
 
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls_.data(), /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
+      }
+    }
+
     return ArrayData::Make(float64(), num_groups_,
                            {std::move(null_bitmap), std::move(values)}, null_count);
   }
@@ -1187,6 +1236,7 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
   using GroupedSumImpl<Type>::pool_;
   using GroupedSumImpl<Type>::counts_;
   using GroupedSumImpl<Type>::sums_;
+  using GroupedSumImpl<Type>::no_nulls_;
 };
 
 struct GroupedMeanFactory {
@@ -1741,9 +1791,11 @@ struct GroupedMinMaxFactory {
 
 struct GroupedAnyImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
-    seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    pool_ = ctx->memory_pool();
+    seen_ = TypedBufferBuilder<bool>(pool_);
+    no_nulls_ = TypedBufferBuilder<bool>(pool_);
+    counts_ = TypedBufferBuilder<int64_t>(pool_);
     return Status::OK();
   }
 
@@ -1751,75 +1803,117 @@ struct GroupedAnyImpl : public GroupedAggregator {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
     RETURN_NOT_OK(seen_.Append(added_groups, false));
-    return has_nulls_.Append(added_groups, false);
+    RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
+    return counts_.Append(added_groups, 0);
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    uint8_t* seen = seen_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+    const auto& input = *batch[0].array();
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
+
+    if (input.MayHaveNulls()) {
+      const uint8_t* bitmap = input.buffers[1]->data();
+      arrow::internal::VisitBitBlocksVoid(
+          input.buffers[0], input.offset, input.length,
+          [&](int64_t position) {
+            counts[*g]++;
+            BitUtil::SetBitTo(
+                seen, *g, BitUtil::GetBit(seen, *g) || BitUtil::GetBit(bitmap, position));
+            g++;
+          },
+          [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
+    } else {
+      arrow::internal::VisitBitBlocksVoid(
+          input.buffers[1], input.offset, input.length,
+          [&](int64_t) {
+            counts[*g++]++;
+            BitUtil::SetBitTo(seen, *g++, true);
+          },
+          [&]() { counts[*g]++; });
+    }
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedAnyImpl*>(&raw_other);
 
-    auto seen = seen_.mutable_data();
-    auto other_seen = other->seen_.data();
-    auto has_nulls = has_nulls_.mutable_data();
-    auto other_has_nulls = other->has_nulls_.data();
+    uint8_t* seen = seen_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+
+    const uint8_t* other_seen = other->seen_.mutable_data();
+    const uint8_t* other_no_nulls = other->no_nulls_.mutable_data();
+    const int64_t* other_counts = other->counts_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      if (BitUtil::GetBit(other_seen, other_g)) BitUtil::SetBitTo(seen, *g, true);
-      if (BitUtil::GetBit(other_has_nulls, other_g)) {
-        BitUtil::SetBitTo(has_nulls, *g, true);
-      }
+      counts[*g] += other_counts[other_g];
+      BitUtil::SetBitTo(
+          seen, *g, BitUtil::GetBit(seen, *g) || BitUtil::GetBit(other_seen, other_g));
+      BitUtil::SetBitTo(
+          no_nulls, *g,
+          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
     }
-    return Status::OK();
-  }
-
-  Status Consume(const ExecBatch& batch) override {
-    auto seen = seen_.mutable_data();
-    auto has_nulls = has_nulls_.mutable_data();
-
-    const auto& input = *batch[0].array();
-
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-    auto values = input.buffers[1]->data();
-    arrow::internal::VisitBitBlocksVoid(
-        input.buffers[0], input.offset, input.length,
-        [&](int64_t offset) {
-          BitUtil::SetBitTo(seen, *g,
-                            BitUtil::GetBit(seen, *g) ||
-                                BitUtil::GetBit(values, input.offset + offset));
-          g++;
-        },
-        [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    if (options_.skip_nulls) {
-      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    std::shared_ptr<Buffer> null_bitmap;
+    const int64_t* counts = counts_.data();
+    int64_t null_count = 0;
+
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (counts[i] >= options_.min_count) continue;
+
+      if (null_bitmap == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
-    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
-    // null if (~seen & has_nulls) -> not null if (seen | ~has_nulls)
-    ::arrow::internal::BitmapOrNot(seen->data(), /*left_offset=*/0, bitmap->data(),
-                                   /*right_offset=*/0, num_groups_, /*out_offset=*/0,
-                                   bitmap->mutable_data());
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
-                                          std::move(bitmap));
+
+    ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      ARROW_ASSIGN_OR_RAISE(auto no_nulls, no_nulls_.Finish());
+      arrow::internal::BitmapOr(no_nulls->data(), /*left_offset=*/0, seen->data(),
+                                /*right_offset=*/0, num_groups_,
+                                /*out_offset=*/0, no_nulls->mutable_data());
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls->data(), /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        null_bitmap = std::move(no_nulls);
+      }
+    }
+
+    return ArrayData::Make(out_type(), num_groups_,
+                           {std::move(null_bitmap), std::move(seen)}, null_count);
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
-  TypedBufferBuilder<bool> seen_;
-  TypedBufferBuilder<bool> has_nulls_;
+  TypedBufferBuilder<bool> seen_, no_nulls_;
+  TypedBufferBuilder<int64_t> counts_;
+  MemoryPool* pool_;
 };
 
 struct GroupedAllImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
-    seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    pool_ = ctx->memory_pool();
+    seen_ = TypedBufferBuilder<bool>(pool_);
+    no_nulls_ = TypedBufferBuilder<bool>(pool_);
+    counts_ = TypedBufferBuilder<int64_t>(pool_);
     return Status::OK();
   }
 
@@ -1827,77 +1921,108 @@ struct GroupedAllImpl : public GroupedAggregator {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
     RETURN_NOT_OK(seen_.Append(added_groups, true));
-    return has_nulls_.Append(added_groups, false);
+    RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
+    return counts_.Append(added_groups, 0);
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    uint8_t* seen = seen_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+    const auto& input = *batch[0].array();
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
+
+    if (input.MayHaveNulls()) {
+      const uint8_t* bitmap = input.buffers[1]->data();
+      arrow::internal::VisitBitBlocksVoid(
+          input.buffers[0], input.offset, input.length,
+          [&](int64_t position) {
+            counts[*g]++;
+            BitUtil::SetBitTo(seen, *g,
+                              BitUtil::GetBit(seen, *g) &&
+                                  BitUtil::GetBit(bitmap, input.offset + position));
+            g++;
+          },
+          [&]() { BitUtil::SetBitTo(no_nulls, *g++, false); });
+    } else {
+      arrow::internal::VisitBitBlocksVoid(
+          input.buffers[1], input.offset, input.length, [&](int64_t) { counts[*g++]++; },
+          [&]() {
+            counts[*g]++;
+            BitUtil::SetBitTo(seen, *g++, false);
+          });
+    }
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedAllImpl*>(&raw_other);
 
-    auto seen = seen_.mutable_data();
-    auto other_seen = other->seen_.data();
-    auto has_nulls = has_nulls_.mutable_data();
-    auto other_has_nulls = other->has_nulls_.data();
+    uint8_t* seen = seen_.mutable_data();
+    uint8_t* no_nulls = no_nulls_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+
+    const uint8_t* other_seen = other->seen_.mutable_data();
+    const uint8_t* other_no_nulls = other->no_nulls_.mutable_data();
+    const int64_t* other_counts = other->counts_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      counts[*g] += other_counts[other_g];
       BitUtil::SetBitTo(
           seen, *g, BitUtil::GetBit(seen, *g) && BitUtil::GetBit(other_seen, other_g));
-      if (BitUtil::GetBit(other_has_nulls, other_g)) {
-        BitUtil::SetBitTo(has_nulls, *g, true);
-      }
-    }
-    return Status::OK();
-  }
-
-  Status Consume(const ExecBatch& batch) override {
-    auto seen = seen_.mutable_data();
-    auto has_nulls = has_nulls_.mutable_data();
-
-    const auto& input = *batch[0].array();
-
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-    if (input.MayHaveNulls()) {
-      const uint8_t* bitmap = input.buffers[1]->data();
-      arrow::internal::VisitBitBlocksVoid(
-          input.buffers[0], input.offset, input.length,
-          [&](int64_t position) {
-            BitUtil::SetBitTo(seen, *g,
-                              BitUtil::GetBit(seen, *g) &&
-                                  BitUtil::GetBit(bitmap, input.offset + position));
-            g++;
-          },
-          [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
-    } else {
-      arrow::internal::VisitBitBlocksVoid(
-          input.buffers[1], input.offset, input.length, [&](int64_t) { g++; },
-          [&]() { BitUtil::SetBitTo(seen, *g++, false); });
+      BitUtil::SetBitTo(
+          no_nulls, *g,
+          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
     }
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    if (options_.skip_nulls) {
-      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    std::shared_ptr<Buffer> null_bitmap;
+    const int64_t* counts = counts_.data();
+    int64_t null_count = 0;
+
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (counts[i] >= options_.min_count) continue;
+
+      if (null_bitmap == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
-    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
-    // null if (seen & has_nulls)
-    ::arrow::internal::BitmapAnd(seen->data(), /*left_offset=*/0, bitmap->data(),
-                                 /*right_offset=*/0, num_groups_, /*out_offset=*/0,
-                                 bitmap->mutable_data());
-    ::arrow::internal::InvertBitmap(bitmap->data(), /*offset=*/0, num_groups_,
-                                    bitmap->mutable_data(), /*dest_offset=*/0);
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
-                                          std::move(bitmap));
+
+    ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
+    if (!options_.skip_nulls) {
+      null_count = kUnknownNullCount;
+      ARROW_ASSIGN_OR_RAISE(auto no_nulls, no_nulls_.Finish());
+      arrow::internal::BitmapOrNot(no_nulls->data(), /*left_offset=*/0, seen->data(),
+                                   /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, no_nulls->mutable_data());
+      if (null_bitmap) {
+        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
+                                   no_nulls->data(), /*right_offset=*/0, num_groups_,
+                                   /*out_offset=*/0, null_bitmap->mutable_data());
+      } else {
+        null_bitmap = std::move(no_nulls);
+      }
+    }
+
+    return ArrayData::Make(out_type(), num_groups_,
+                           {std::move(null_bitmap), std::move(seen)}, null_count);
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
-  TypedBufferBuilder<bool> seen_;
-  TypedBufferBuilder<bool> has_nulls_;
+  TypedBufferBuilder<bool> seen_, no_nulls_;
+  TypedBufferBuilder<int64_t> counts_;
+  MemoryPool* pool_;
 };
 
 }  // namespace
@@ -2176,7 +2301,8 @@ const FunctionDoc hash_product_doc{
     "Compute product of values of a numeric array",
     ("Null values are ignored.\n"
      "Overflow will wrap around as if the calculation was done with unsigned integers."),
-    {"array", "group_id_array"}};
+    {"array", "group_id_array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc hash_mean_doc{"Average values of a numeric array",
                                 ("Null values are ignored."),
@@ -2216,11 +2342,13 @@ const FunctionDoc hash_min_max_doc{
 
 const FunctionDoc hash_any_doc{"Test whether any element evaluates to true",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"}};
+                               {"array", "group_id_array"},
+                               "ScalarAggregateOptions"};
 
 const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"}};
+                               {"array", "group_id_array"},
+                               "ScalarAggregateOptions"};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
