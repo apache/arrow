@@ -20,12 +20,6 @@ include "Message.fbs";
 
 namespace org.apache.arrow.flatbuf.computeir;
 
-/// Wrapper for blobs of arbitrary bytes
-table Blob {
-  // ulong is used instead of ubyte to guarantee alignment
-  bytes: [ulong];
-}
-
 /// An expression is one of
 /// - a Literal datum
 /// - a reference to a Field from a Relation
@@ -80,7 +74,7 @@ table Call {
 
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
-  options: Blob;
+  options: Buffer;
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
@@ -107,7 +101,7 @@ table Relation {
 
   /// Parameters for `relation_name`; content/format may be unique to each
   /// value of `relation_name`.
-  options: Blob;
+  options: Buffer;
 
   /// The arguments passed to `relation_name`.
   arguments: [Relation] (required);
@@ -196,7 +190,7 @@ table LiteralOptions {
 table InteractiveOutputOptions {
   /// In an interactive context there is an implicit pipe open between
   /// the producer and the consumer along which output may be sent.
-  options: Blob;
+  options: Buffer;
 }
 
 table Plan {

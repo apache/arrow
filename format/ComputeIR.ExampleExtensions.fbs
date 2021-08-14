@@ -52,7 +52,7 @@ table Partitioning {
 table FileFormat {
   /// E.g. "parquet", "csv", ...
   name: string (required);
-  options: Blob;
+  options: Buffer;
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetScanOptions
