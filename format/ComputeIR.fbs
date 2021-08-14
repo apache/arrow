@@ -153,22 +153,18 @@ table JoinOptions {
   join_kind: string;
 }
 
-/// Whether lesser values should precede greater or vice versa.
+/// Whether lesser values should precede greater or vice versa,
+/// whether nulls should preced or follow values.
 enum Ordering : uint8 {
-  ASCENDING,
-  DESCENDING,
-}
-
-/// Whether nulls should precede or follow other values.
-enum NullOrdering : uint8 {
-  FIRST,
-  LAST
+  ASCENDING_THEN_NULLS,
+  NULLS_THEN_ASCENDING,
+  DESCENDING_THEN_NULLS,
+  NULLS_THEN_DESCENDING
 }
 
 table SortKey {
   value: Expression (required);
-  ordering: Ordering = ASCENDING;
-  null_ordering: NullOrdering = LAST;
+  ordering: Ordering = ASCENDING_THEN_NULLS;
 }
 
 /// The contents of Relation.options will be OrderByOptions
