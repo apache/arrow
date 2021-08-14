@@ -22,7 +22,8 @@ namespace org.apache.arrow.flatbuf.computeir;
 
 /// Wrapper for blobs of arbitrary bytes
 table Blob {
-  bytes: [ubyte];
+  // ulong is used instead of ubyte to guarantee alignment
+  bytes: [ulong];
 }
 
 /// An expression is one of
