@@ -220,7 +220,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
 
   private StringBuilder getAsStringBuilderHelper(int index) {
     final long startIndex = (long) index * TYPE_WIDTH;
-    return new StringBuilder().append(getObject(index).toString());
+    return new StringBuilder().append(getObject(index).toString()).append(" ");
   }
 
   /*----------------------------------------------------------------*

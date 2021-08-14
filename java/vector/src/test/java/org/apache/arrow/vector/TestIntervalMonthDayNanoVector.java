@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
@@ -21,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.time.Duration;
 import java.time.Period;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.IntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
@@ -59,9 +61,9 @@ public class TestIntervalMonthDayNanoVector {
       holder.nanoseconds = Long.MIN_VALUE;
 
 
-        vector.set(0, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-2);
-        vector.setSafe(2, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-3);
-        vector.setSafe(/*index=*/4, nullableHolder);
+      vector.set(0, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-2);
+      vector.setSafe(2, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-3);
+      vector.setSafe(/*index=*/4, nullableHolder);
       vector.set(3, holder);
       nullableHolder.isSet = 0;
       vector.setSafe(/*index=*/5, nullableHolder);
