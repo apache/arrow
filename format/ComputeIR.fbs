@@ -95,6 +95,8 @@ table Relation {
   ///   "join"
   ///   "order_by"
   ///   "limit"
+  ///   "common"
+  ///   "union"
   ///   "literal"
   ///   "interactive_output"
   relation_name: string (required);
@@ -111,7 +113,7 @@ table Relation {
 }
 
 /// The contents of Relation.options will be FilterOptions
-/// if Relation.name = "filter"
+/// if Relation.relation_name = "filter"
 table FilterOptions {
   /// The expression which will be evaluated against input rows
   /// to determine whether they should be excluded from the
@@ -120,7 +122,7 @@ table FilterOptions {
 }
 
 /// The contents of Relation.options will be ProjectOptions
-/// if Relation.name = "project"
+/// if Relation.relation_name = "project"
 table ProjectOptions {
   /// Expressions which will be evaluated to produce to
   /// the rows of the "project" relation's output.
@@ -128,7 +130,7 @@ table ProjectOptions {
 }
 
 /// The contents of Relation.options will be AggregateOptions
-/// if Relation.name = "aggregate"
+/// if Relation.relation_name = "aggregate"
 table AggregateOptions {
   /// Expressions which will be evaluated to produce to
   /// the rows of the "aggregate" relation's output.
@@ -138,7 +140,7 @@ table AggregateOptions {
 }
 
 /// The contents of Relation.options will be JoinOptions
-/// if Relation.name = "join"
+/// if Relation.relation_name = "join"
 table JoinOptions {
   /// The expression which will be evaluated against rows from each
   /// input to determine whether they should be included in the
@@ -162,7 +164,7 @@ table SortKey {
 }
 
 /// The contents of Relation.options will be OrderByOptions
-/// if Relation.name = "order_by"
+/// if Relation.relation_name = "order_by"
 table OrderByOptions {
   /// Define sort order for rows of output.
   /// Keys with higher precedence are ordered ahead of other keys.
@@ -170,14 +172,31 @@ table OrderByOptions {
 }
 
 /// The contents of Relation.options will be LimitOptions
-/// if Relation.name = "limit"
+/// if Relation.relation_name = "limit"
 table LimitOptions {
   /// Set the maximum number of rows of output.
   count: long;
 }
 
+/// The contents of Relation.options will be CommonOptions
+/// if Relation.relation_name = "common"
+table CommonOptions {
+  /// Commons (CTEs in SQL) allow assigning a name to a stream
+  /// of data and reusing it, potentially multiple times and
+  /// potentially recursively.
+  name: string;
+}
+
+/// The contents of Relation.options will be UnionOptions
+/// if Relation.relation_name = "union"
+table UnionOptions {
+  /// For simplicity, all rows from any input to a "union" relation
+  /// will always be concatenated into a single output- establishing
+  /// uniqueness of output rows is deferred to other relations.
+}
+
 /// The contents of Relation.options will be LiteralOptions
-/// if Relation.name = "literal"
+/// if Relation.relation_name = "literal"
 table LiteralOptions {
   /// Batches of rows in this literal.
   batches: [RecordBatch] (required);
@@ -204,9 +223,9 @@ rpc_service Interactive {
   explain(Plan): Plan (streaming: "none");
 
   /// Execute a Plan.
-  /// The Plan may contain a single Relation with name="interactive_output",
-  /// in which case data which is received by that sink will be streamed back
-  /// to the client.
+  /// The Plan may contain a single Relation with
+  /// relation_name="interactive_output", in which case data which
+  /// is received by that sink will be streamed back to the client.
   execute(Plan): Message (streaming: "server");
 }
 
