@@ -467,7 +467,7 @@ make test file=regexp
 # Update roxygen documentation
 devtools::document()
 # To preview the documentation website
-pkgdown::build_site()
+pkgdown::build_site(preview=TRUE)
 # All package checks; see also below
 devtools::check()
 # See test coverage statistics
