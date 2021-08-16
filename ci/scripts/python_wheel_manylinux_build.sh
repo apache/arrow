@@ -71,6 +71,10 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
+if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
+    export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=14"
+fi
+
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 cmake \
@@ -109,6 +113,7 @@ cmake \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    ${ARROW_EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
 cmake --build . --target install
