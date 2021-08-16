@@ -304,7 +304,7 @@ cmake \
 </p>
 </details>  
 
-# Installing a version of the R package with a specific git reference
+## Installing a version of the R package with a specific git reference
 
 If you need an arrow installation from a specific repository or at a specific ref,
 `remotes::install_github("apache/arrow/r", build = FALSE)`
@@ -332,7 +332,15 @@ some additional variables in order to isolate this build from your system librar
 
 * You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
 
-# Rebuilding the documentation
+# Common developer workflow tasks
+
+The `arrow/r` directory contains a `Makefile` to help with some common tasks from the command line (e.g. `make test`, `make doc`, `make clean`, etc.).
+
+## Loading arrow
+
+You can load the R package via `devtools::load_all()`.
+
+## Rebuilding the documentation
 
 The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.1.9001, which hasn't yet been released on CRAN at the time of writing.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub. 
 
@@ -340,9 +348,19 @@ The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles
 remotes::install_github("r-lib/roxygen2")
 ```
 
-# Styling and linting
+You can use `devtools::document()` and `pkgdown::build_site()` to rebuild the documentation and preview the results.
 
-## R code
+```r
+# Update roxygen documentation
+devtools::document()
+
+# To preview the documentation website
+pkgdown::build_site(preview=TRUE)
+```
+
+## Styling and linting
+
+### R code
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
@@ -356,7 +374,7 @@ You can automatically change the formatting of the code in the package using the
 
 The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
 
-## C++ code
+### C++ code
 
 The arrow package uses some customized tools on top of `cpp11` to prepare its
 C++ code in `src/`. This is because there are some features that are only enabled
@@ -396,7 +414,18 @@ _Note_ that the lint script requires Python 3 and the Python dependencies
 * flake8
 * cmake_format==0.5.2
 
-# Running tests
+## Running tests
+
+Tests can be run either using `devtools::test()` or the Makefile alternative.
+
+```r
+# Run the test suite, optionally filtering file names
+devtools::test(filter="^regexp$")
+
+# or the Makefile alternative from the arrow/r directory in a shell:
+make test file=regexp
+```
+
 Some tests are conditionally enabled based on the availability of certain
 features in the package build (S3 support, compression libraries, etc.).
 Others are generally skipped by default but can be enabled with environment
@@ -420,62 +449,38 @@ variables or other settings:
   settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
   `MINIO_PORT` to override the defaults.
 
-# Running additional CI checks
+## Running checks
+
+You can run package checks by using `devtools::check()` or the Makefile alternative.
+
+```
+# All package checks; see also below
+devtools::check()
+```
+
+
+## Running additional CI checks
 
 On a pull request, there are some actions you can trigger by commenting on the PR. We have additional CI checks that run nightly and can be requested on demand using an internal tool called [crosssbow](https://arrow.apache.org/docs/developers/crossbow.html). A few important GitHub comment commands include:
 
-### Run all extended R CI tasks
+#### Run all extended R CI tasks
 `@github-actions crossbow submit -g r`
 
 This runs each of the R-related CI tasks.
 
-### Run a specific task
+#### Run a specific task
 `@github-actions crossbow submit {task-name}`
 
 See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) for a list of glob expression patterns that match names of items in the `tasks:` list below it.
 
-### Run linting and documentation building tasks
+#### Run linting and documentation building tasks
 
 `@github-actions autotune`
 
-This will run and fix lint c++ linting errors + run R documentation (among other cleanup tasks) and commit them to the branch.
-
-# What happens when you `R CMD INSTALL`?
-
-There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arrow users, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host) so the installation process is easy. However knowing about these scripts can help troubleshoot if things go wrong in them or things go wrong in an install:
-
-* `configure` and `configure.win` These scripts are triggered during `R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They handle finding the Arrow library, setting up the build variables necessary, and writing the package Makevars file that is used to compile the C++ code in the R package.
-* `tools/nixlibs.R` This script is sometimes called by `configure` on Linux (or on any non-windows OS with the environment variable `FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled builds (which is the default on linux). The operative logic is at the end of the script, but it will do the following (and it will stop with the first one that succeeds and some of the steps are only checked if they are enabled via an environment variable):
-  * Check if there is an already built libarrow in `arrow/r/libarrow-{version}`, use that to link against if it exists.
-  * Check if a binary is available from our hosted unofficial builds.
-  * Download the Arrow source and build the Arrow Library from source.
-  * `*** Proceed without C++` dependencies (this is an error and the package will not work, but if you see this message you know the previous steps have not succeeded/were not enabled)
-* `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built. (If you're looking at this script, and you've gotten this far, it might look incredibly familiar: it's basically the contents of this guide in script form — with a few important changes)
+This will run and fix lint C++ linting errors, run R documentation (among other cleanup tasks), and commit the resulting updates to the branch.
 
 
-# Useful functions for Arrow developers
 
-Within an R session, these functions can help with package development:
-
-``` r
-# Load the dev package
-devtools::load_all()
-# Run the test suite, optionally filtering file names
-devtools::test(filter="^regexp$")
-# or the Makefile alternative from the arrow/r directory in a shell:
-make test file=regexp
-# Update roxygen documentation
-devtools::document()
-# To preview the documentation website
-pkgdown::build_site(preview=TRUE)
-# All package checks; see also below
-devtools::check()
-# See test coverage statistics
-covr::report()
-covr::package_coverage()
-```
-
-There's also a `Makefile` to help with some common tasks from the command line (`make test`, `make doc`, `make clean`, etc.)
 
 # Troubleshooting
 
@@ -569,3 +574,7 @@ Arrow C++ library first.
 
 For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html).
+
+## Other installation issues
+
+There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html) for more information.
