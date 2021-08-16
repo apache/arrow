@@ -55,9 +55,12 @@ using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
-const auto& iso_calendar_type =
-    struct_({field("iso_year", int64()), field("iso_week", int64()),
-             field("iso_day_of_week", int64())});
+
+const std::shared_ptr<DataType>& IsoCalendarType() {
+  static auto type = struct_({field("iso_year", int64()), field("iso_week", int64()),
+                              field("iso_day_of_week", int64())});
+  return type;
+}
 
 const std::string& GetInputTimezone(const Datum& datum) {
   return checked_cast<const TimestampType&>(*datum.type()).timezone();
@@ -71,18 +74,45 @@ const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
 }
 
-template <
-    template <typename Duration, typename TimePointConverter, typename DaysConverter>
-    class Op,
-    typename Duration, typename OutType>
-struct TemporalComponentExtract {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+struct NonZonedLocalizer {
+  // No-op conversions: UTC -> UTC
+  template <typename Duration>
+  sys_time<Duration> ConvertTimePoint(int64_t t) const {
+    return sys_time<Duration>(Duration{t});
+  }
+
+  sys_days ConvertDays(sys_days d) const { return d; }
+};
+
+struct ZonedLocalizer {
+  // Timezone-localizing conversions: UTC -> local time
+  const time_zone* tz;
+
+  template <typename Duration>
+  local_time<Duration> ConvertTimePoint(int64_t t) const {
+    return tz->to_local(sys_time<Duration>(Duration{t}));
+  }
+
+  local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
+};
+
+//
+// Executor class for temporal component extractors, i.e. scalar kernels
+// with the signature Timestamp -> <non-temporal scalar type `OutType`>
+//
+// The `Op` parameter is templated on the Duration (which depends on the timestamp
+// unit) and a Localizer class (depending on whether the timestamp has a
+// timezone defined).
+//
+template <template <typename...> class Op, typename Duration, typename OutType>
+struct TemporalComponentExtractBase {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecBatch& batch, Datum* out) {
     const auto& timezone = GetInputTimezone(batch.values[0]);
     if (timezone.empty()) {
-      using ExecTemplate = Op<Duration, std::function<sys_time<Duration>(int64_t)>,
-                              std::function<sys_days(sys_days)>>;
-      auto op = ExecTemplate([](int64_t t) { return sys_time<Duration>(Duration{t}); },
-                             [](sys_days d) { return d; });
+      using ExecTemplate = Op<Duration, NonZonedLocalizer>;
+      auto op = ExecTemplate(options, NonZonedLocalizer());
       applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);
@@ -93,11 +123,8 @@ struct TemporalComponentExtract {
       } catch (const std::runtime_error& ex) {
         return Status::Invalid(ex.what());
       }
-      using ExecTemplate = Op<Duration, std::function<local_time<Duration>(int64_t)>,
-                              std::function<local_days(sys_days)>>;
-      auto op = ExecTemplate(
-          [tz](int64_t t) { return tz->to_local(sys_time<Duration>(Duration{t})); },
-          [](sys_days d) { return local_days(year_month_day(d)); });
+      using ExecTemplate = Op<Duration, ZonedLocalizer>;
+      auto op = ExecTemplate(options, ZonedLocalizer{tz});
       applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
           op};
       return kernel.Exec(ctx, batch, out);
@@ -105,98 +132,88 @@ struct TemporalComponentExtract {
   }
 };
 
-template <
-    template <typename Duration, typename TimePointConverter, typename DaysConverter>
-    class Op,
-    typename Duration, typename OutType>
-struct TemporalComponentExtractDayOfWeek {
+template <template <typename...> class Op, typename Duration, typename OutType>
+struct TemporalComponentExtract
+    : public TemporalComponentExtractBase<Op, Duration, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, OutType>;
+
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& timezone = GetInputTimezone(batch.values[0]);
+    const FunctionOptions* options = nullptr;
+    return Base::ExecWithOptions(ctx, options, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename OutType>
+struct TemporalComponentExtractDayOfWeek
+    : public TemporalComponentExtractBase<Op, Duration, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
     if (options.week_start < 1 || 7 < options.week_start) {
       return Status::Invalid(
           "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
           options.week_start);
     }
-
-    if (timezone.empty()) {
-      using ExecTemplate = Op<Duration, std::function<sys_time<Duration>(int64_t)>,
-                              std::function<sys_days(sys_days)>>;
-      auto op = ExecTemplate(
-          options, [](int64_t t) { return sys_time<Duration>(Duration{t}); },
-          [](sys_days d) { return d; });
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    } else {
-      const time_zone* tz;
-      try {
-        tz = locate_zone(timezone);
-      } catch (const std::runtime_error& ex) {
-        return Status::Invalid(ex.what());
-      }
-      using ExecTemplate = Op<Duration, std::function<local_time<Duration>(int64_t)>,
-                              std::function<local_days(sys_days)>>;
-      auto op = ExecTemplate(
-          options,
-          [tz](int64_t t) { return tz->to_local(sys_time<Duration>(Duration{t})); },
-          [](sys_days d) { return local_days(year_month_day(d)); });
-      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
-          op};
-      return kernel.Exec(ctx, batch, out);
-    }
+    return Base::ExecWithOptions(ctx, &options, batch, out);
   }
 };
 
 // ----------------------------------------------------------------------
 // Extract year from timestamp
+//
+// This class and the following (`Month`, etc.) are to be used as the `Op`
+// parameter to `TemporalComponentExtract`.
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Year {
-  explicit Year(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  Year(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const int32_t>(
-        year_month_day(floor<days>(convert_timepoint_(arg))).year()));
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .year()));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract month from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Month {
-  explicit Month(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Month(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(convert_timepoint_(arg))).month()));
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .month()));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract day from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Day {
-  explicit Day(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Day(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(convert_timepoint_(arg))).day()));
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .day()));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
@@ -206,47 +223,46 @@ struct Day {
 // by 6. Start day of the week (Monday=1, Sunday=7) and numbering start (0 or 1) can be
 // set using DayOfWeekOptions
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct DayOfWeek {
-  explicit DayOfWeek(const DayOfWeekOptions& options,
-                     TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {
+  explicit DayOfWeek(const DayOfWeekOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {
     for (int i = 0; i < 7; i++) {
-      lookup_table[i] = i + 8 - options.week_start;
+      lookup_table[i] = i + 8 - options->week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
-      lookup_table[i] += options.one_based_numbering;
+      lookup_table[i] += options->one_based_numbering;
     }
   }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto wd =
-        arrow_vendored::date::year_month_weekday(floor<days>(convert_timepoint_(arg)))
-            .weekday()
-            .iso_encoding();
+    const auto wd = arrow_vendored::date::year_month_weekday(
+                        floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+                        .weekday()
+                        .iso_encoding();
     return lookup_table[wd - 1];
   }
+
   std::array<int64_t, 7> lookup_table;
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract day of year from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct DayOfYear {
-  explicit DayOfYear(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit DayOfYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = floor<days>(convert_timepoint_(arg));
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
     return static_cast<T>(
-        (t - convert_days_(year_month_day(t).year() / jan / 0)).count());
+        (t - localizer_.ConvertDays(year_month_day(t).year() / jan / 0)).count());
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
@@ -255,23 +271,23 @@ struct DayOfYear {
 // First week of an ISO year has the majority (4 or more) of it's days in January.
 // Last week of an ISO year has the year's last Thursday in it.
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct ISOYear {
-  explicit ISOYear(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit ISOYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = floor<days>(convert_timepoint_(arg));
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
     auto y = year_month_day{t + days{3}}.year();
-    auto start = convert_days_((y - years{1}) / dec / thu[last]) + (mon - thu);
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
     if (t < start) {
       --y;
     }
     return static_cast<T>(static_cast<int32_t>(y));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
@@ -282,101 +298,98 @@ struct ISOYear {
 // Based on
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct ISOWeek {
-  explicit ISOWeek(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit ISOWeek(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = floor<days>(convert_timepoint_(arg));
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
     auto y = year_month_day{t + days{3}}.year();
-    auto start = convert_days_((y - years{1}) / dec / thu[last]) + (mon - thu);
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
     if (t < start) {
       --y;
-      start = convert_days_((y - years{1}) / dec / thu[last]) + (mon - thu);
+      start = localizer_.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
     }
     return static_cast<T>(trunc<weeks>(t - start).count() + 1);
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract quarter from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Quarter {
-  explicit Quarter(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Quarter(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto ymd = year_month_day(floor<days>(convert_timepoint_(arg)));
+    const auto ymd =
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
     return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract hour from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Hour {
-  explicit Hour(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Hour(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = convert_timepoint_(arg);
+    const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
     return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract minute from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Minute {
-  explicit Minute(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Minute(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    const auto t = convert_timepoint_(arg);
+    const auto t = localizer_.template ConvertTimePoint<Duration>(arg);
     return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
+
+  Localizer localizer_;
 };
 
 // ----------------------------------------------------------------------
 // Extract second from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Second {
-  explicit Second(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Second(const FunctionOptions* options, Localizer&& localizer) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     Duration t = Duration{arg};
     return static_cast<T>((t - floor<std::chrono::minutes>(t)) / std::chrono::seconds(1));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
 };
 
 // ----------------------------------------------------------------------
 // Extract subsecond from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Subsecond {
-  explicit Subsecond(TimePointConverter&& convert_timepoint, DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Subsecond(const FunctionOptions* options, Localizer&& localizer) {}
 
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
@@ -384,18 +397,14 @@ struct Subsecond {
     return static_cast<T>(
         (std::chrono::duration<double>(t - floor<std::chrono::seconds>(t)).count()));
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
 };
 
 // ----------------------------------------------------------------------
 // Extract milliseconds from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Millisecond {
-  explicit Millisecond(TimePointConverter&& convert_timepoint,
-                       DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Millisecond(const FunctionOptions* options, Localizer&& localizer) {}
 
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
@@ -403,18 +412,14 @@ struct Millisecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000);
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
 };
 
 // ----------------------------------------------------------------------
 // Extract microseconds from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Microsecond {
-  explicit Microsecond(TimePointConverter&& convert_timepoint,
-                       DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Microsecond(const FunctionOptions* options, Localizer&& localizer) {}
 
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
@@ -422,18 +427,14 @@ struct Microsecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000);
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
 };
 
 // ----------------------------------------------------------------------
 // Extract nanoseconds from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
+template <typename Duration, typename Localizer>
 struct Nanosecond {
-  explicit Nanosecond(TimePointConverter&& convert_timepoint,
-                      DaysConverter&& convert_days)
-      : convert_timepoint_(convert_timepoint), convert_days_(convert_days) {}
+  explicit Nanosecond(const FunctionOptions* options, Localizer&& localizer) {}
 
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
@@ -441,24 +442,20 @@ struct Nanosecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
   }
-  TimePointConverter convert_timepoint_;
-  DaysConverter convert_days_;
 };
 
 // ----------------------------------------------------------------------
 // Extract ISO calendar values from timestamp
 
-template <typename Duration, typename TimePointConverter, typename DaysConverter>
-inline std::vector<int64_t> get_iso_calendar(int64_t arg,
-                                             TimePointConverter&& convert_timepoint,
-                                             DaysConverter&& convert_days) {
-  const auto t = floor<days>(convert_timepoint(arg));
+template <typename Duration, typename Localizer>
+inline std::array<int64_t, 3> GetIsoCalendar(int64_t arg, Localizer&& localizer) {
+  const auto t = floor<days>(localizer.template ConvertTimePoint<Duration>(arg));
   const auto ymd = year_month_day(t);
   auto y = year_month_day{t + days{3}}.year();
-  auto start = convert_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+  auto start = localizer.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
   if (t < start) {
     --y;
-    start = convert_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+    start = localizer.ConvertDays((y - years{1}) / dec / thu[last]) + (mon - thu);
   }
   return {static_cast<int64_t>(static_cast<int32_t>(y)),
           static_cast<int64_t>(trunc<weeks>(t - start).count() + 1),
@@ -472,27 +469,22 @@ struct ISOCalendar {
 
     if (in.is_valid) {
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      std::vector<int64_t> iso_calendar;
+      std::array<int64_t, 3> iso_calendar;
       if (timezone.empty()) {
-        iso_calendar = get_iso_calendar<Duration>(
-            in_val, [](int64_t t) { return sys_time<Duration>(Duration{t}); },
-            [](sys_days d) { return d; });
+        iso_calendar = GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
       } else {
         try {
           const time_zone* tz = locate_zone(timezone);
-          iso_calendar = get_iso_calendar<Duration>(
-              in_val,
-              [tz](int64_t t) { return tz->to_local(sys_time<Duration>(Duration{t})); },
-              [](sys_days d) { return local_days(year_month_day(d)); });
+          iso_calendar = GetIsoCalendar<Duration>(in_val, ZonedLocalizer{tz});
         } catch (const std::runtime_error& ex) {
           return Status::Invalid(ex.what());
         }
       }
-      std::vector<std::shared_ptr<Scalar>> values = {
-          std::make_shared<Int64Scalar>(iso_calendar[0]),
-          std::make_shared<Int64Scalar>(iso_calendar[1]),
-          std::make_shared<Int64Scalar>(iso_calendar[2])};
-      *checked_cast<StructScalar*>(out) = StructScalar(values, iso_calendar_type);
+      ScalarVector values = {std::make_shared<Int64Scalar>(iso_calendar[0]),
+                             std::make_shared<Int64Scalar>(iso_calendar[1]),
+                             std::make_shared<Int64Scalar>(iso_calendar[2])};
+      *checked_cast<StructScalar*>(out) =
+          StructScalar(std::move(values), IsoCalendarType());
     } else {
       out->is_valid = false;
     }
@@ -504,7 +496,7 @@ struct ISOCalendar {
     std::string timezone = GetInputTimezone(in);
 
     std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), iso_calendar_type, &array_builder));
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), IsoCalendarType(), &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
     RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
@@ -518,9 +510,7 @@ struct ISOCalendar {
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     if (timezone.empty()) {
       auto visit_value = [&](int64_t arg) {
-        const auto iso_calendar = get_iso_calendar<Duration>(
-            arg, [](int64_t t) { return sys_time<Duration>(Duration{t}); },
-            [](sys_days d) { return d; });
+        const auto iso_calendar = GetIsoCalendar<Duration>(arg, NonZonedLocalizer{});
         field_builders[0]->UnsafeAppend(iso_calendar[0]);
         field_builders[1]->UnsafeAppend(iso_calendar[1]);
         field_builders[2]->UnsafeAppend(iso_calendar[2]);
@@ -531,10 +521,7 @@ struct ISOCalendar {
       try {
         const time_zone* tz = locate_zone(timezone);
         auto visit_value = [&](int64_t arg) {
-          const auto iso_calendar = get_iso_calendar<Duration>(
-              arg,
-              [tz](int64_t t) { return tz->to_local(sys_time<Duration>(Duration{t})); },
-              [](sys_days d) { return local_days(year_month_day(d)); });
+          const auto iso_calendar = GetIsoCalendar<Duration>(arg, ZonedLocalizer{tz});
           field_builders[0]->UnsafeAppend(iso_calendar[0]);
           field_builders[1]->UnsafeAppend(iso_calendar[1]);
           field_builders[2]->UnsafeAppend(iso_calendar[2]);
@@ -554,12 +541,8 @@ struct ISOCalendar {
 };
 
 template <
-    template <typename Duration, typename TimePointConverter, typename DaysConverter>
-    class Op,
-    template <
-        template <typename Duration, typename TimePointConverter, typename DaysConverter>
-        class OpExec,
-        typename Duration, typename OutType>
+    template <typename...> class Op,
+    template <template <typename...> class OpExec, typename Duration, typename OutType>
     class ExecTemplate,
     typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporal(
@@ -765,7 +748,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
-      "iso_calendar", iso_calendar_type, &iso_calendar_doc);
+      "iso_calendar", IsoCalendarType(), &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter = MakeTemporal<Quarter, TemporalComponentExtract, Int64Type>(
