@@ -24,6 +24,12 @@ on:
       - 'ci/scripts/matlab*.sh'
       - 'matlab/**'
       - 'cpp/src/arrow/**'
+  pull_request:
+    paths:
+      - '.github/workflows/matlab.yml'
+      - 'ci/scripts/matlab*.sh'
+      - 'matlab/**'
+      - 'cpp/src/arrow/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
