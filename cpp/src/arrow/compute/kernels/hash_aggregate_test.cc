@@ -1281,24 +1281,21 @@ TEST(GroupBy, CountDistinct) {
                                  {"hash_count_distinct", nullptr},
                              },
                              use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
+    ValidateOutput(aggregated_and_grouped);
 
-    {
-      // Order is not stable
-      EXPECT_EQ(4, aggregated_and_grouped.length());
-      const int64_t* counts =
-          aggregated_and_grouped.array()->child_data[0]->GetValues<int64_t>(1);
-      const uint8_t* keys_valid =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
-      const int64_t* keys =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
-      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
-        if (BitUtil::GetBit(keys_valid, i)) {
-          EXPECT_EQ(keys[i], counts[i]);
-        } else {
-          EXPECT_EQ(4, counts[i]);
-        }
-      }
-    }
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count_distinct", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2, 2],
+    [3, 3],
+    [4, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
 
     table =
         TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
@@ -1338,24 +1335,21 @@ TEST(GroupBy, CountDistinct) {
                                  {"hash_count_distinct", nullptr},
                              },
                              use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
-    {
-      // Order is not stable
-      EXPECT_EQ(4, aggregated_and_grouped.length());
-      const int64_t* counts =
-          aggregated_and_grouped.array()->child_data[0]->GetValues<int64_t>(1);
-      const uint8_t* keys_valid =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
-      const int64_t* keys =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
-      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
-        if (BitUtil::GetBit(keys_valid, i)) {
-          EXPECT_EQ(keys[i], counts[i]);
-        } else {
-          EXPECT_EQ(4, counts[i]);
-        }
-      }
-    }
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count_distinct", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2, 2],
+    [3, 3],
+    [4, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
   }
 }
 
@@ -1401,46 +1395,25 @@ TEST(GroupBy, Distinct) {
                                  {"hash_distinct", nullptr},
                              },
                              use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
-    {
-      // Order is not stable
-      EXPECT_EQ(4, aggregated_and_grouped.length());
-      const auto uniques = std::static_pointer_cast<ListArray>(
-          aggregated_and_grouped.array_as<StructArray>()->GetFieldByName(
-              "hash_distinct"));
-      const uint8_t* keys_valid =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<uint8_t>(0, 0);
-      const int64_t* keys =
-          aggregated_and_grouped.array()->child_data[1]->GetValues<int64_t>(1);
-      for (int i = 0; i < aggregated_and_grouped.length(); i++) {
-        auto values = std::static_pointer_cast<StringArray>(uniques->value_slice(i));
-        std::vector<util::string_view> c_values;
-        for (int i = 0; i < values->length(); i++) {
-          if (values->IsValid(i)) {
-            c_values.push_back(values->GetView(i));
-          }
-        }
-
-        if (BitUtil::GetBit(keys_valid, i)) {
-          EXPECT_EQ(keys[i], values->length());
-          if (keys[i] == 1) {
-            EXPECT_EQ(0, values->null_count());
-            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"foo"}));
-          } else if (keys[i] == 2) {
-            EXPECT_EQ(0, values->null_count());
-            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"bar", "spam"}));
-          } else if (keys[i] == 3) {
-            EXPECT_EQ(1, values->null_count());
-            EXPECT_THAT(c_values, ::testing::UnorderedElementsAreArray({"foo", "ham"}));
-          }
-        } else {
-          EXPECT_EQ(4, values->length());
-          EXPECT_EQ(0, values->null_count());
-          EXPECT_THAT(c_values,
-                      ::testing::UnorderedElementsAreArray({"a", "b", "baz", "eggs"}));
-        }
-      }
-    }
+    // Order of sub-arrays is not stable
+    auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+    auto distinct_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+    auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+      EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+      EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+      return sorted.make_array();
+    };
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"),
+                      sort(*distinct_arr->value_slice(0)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["bar", "spam"])"),
+                      sort(*distinct_arr->value_slice(1)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo", "ham", null])"),
+                      sort(*distinct_arr->value_slice(2)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["a", "b", "baz", "eggs"])"),
+                      sort(*distinct_arr->value_slice(3)), /*verbose=*/true);
   }
 }
 
