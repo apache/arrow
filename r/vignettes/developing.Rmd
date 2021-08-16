@@ -455,7 +455,7 @@ There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arr
 
 # Useful functions for Arrow developers
 
-Within an R session, these can help with package development:
+Within an R session, these functions can help with package development:
 
 ``` r
 # Load the dev package
@@ -475,16 +475,7 @@ covr::report()
 covr::package_coverage()
 ```
 
-Any of those can be run from the command line by wrapping them in `R -e
-'$COMMAND'`. There's also a `Makefile` to help with some common tasks
-from the command line (`make test`, `make doc`, `make clean`, etc.)
-
-## Full package validation
-
-``` shell
-R CMD build .
-R CMD check arrow_*.tar.gz --as-cran
-```
+There's also a `Makefile` to help with some common tasks from the command line (`make test`, `make doc`, `make clean`, etc.)
 
 # Troubleshooting
 
