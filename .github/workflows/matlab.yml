@@ -47,6 +47,8 @@ jobs:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
+      - name: Install ninja-build
+        run: sudo apt-get install ninja-build
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v0
       - name: Build MATLAB Interface

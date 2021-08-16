@@ -24,6 +24,6 @@ base_dir=${1}
 source_dir=${base_dir}/matlab
 build_dir=${base_dir}/matlab/build
 
-cmake -S ${source_dir} -B ${build_dir} -D MATLAB_BUILD_TESTS=ON
+cmake -S ${source_dir} -B ${build_dir} -G Ninja -D MATLAB_BUILD_TESTS=ON
 cmake --build ${build_dir} --config Release
 ctest --test-dir ${build_dir}
