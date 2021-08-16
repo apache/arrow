@@ -41,7 +41,7 @@ module Arrow
     #
     #     If this is an `Object` that has `#each`, each value is a pair of key and item.
     #
-    # @since 5.0.0
+    # @since 6.0.0
     def append_value(*args)
       n_args = args.size
 
