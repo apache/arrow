@@ -188,7 +188,7 @@ table CommonOptions {
   /// Commons (CTEs in SQL) allow assigning a name to a stream
   /// of data and reusing it, potentially multiple times and
   /// potentially recursively.
-  name: string;
+  name: string (required);
 }
 
 /// The contents of Relation.options will be UnionOptions
