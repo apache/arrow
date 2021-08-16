@@ -252,8 +252,10 @@ struct ProductInit {
 
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto out_type,
+                        args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::NONE> visitor(
-      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      ctx, *args.inputs[0].type, std::move(out_type.type),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -552,13 +554,25 @@ void AddArrayScalarAggKernels(KernelInit init,
   AddScalarAggKernels(init, types, out_ty, func);
 }
 
+Result<ValueDescr> MinMaxType(KernelContext*, const std::vector<ValueDescr>& descrs) {
+  // any[T] -> scalar[struct<min: T, max: T>]
+  auto ty = descrs.front().type;
+  return ValueDescr::Scalar(struct_({field("min", ty), field("max", ty)}));
+}
+
+void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
+                     ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+  auto sig = KernelSignature::Make({InputType(get_id.id)}, OutputType(MinMaxType));
+  AddAggKernel(std::move(sig), init, func, simd_level);
+}
+
 void AddMinMaxKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
                       ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // any[T] -> scalar[struct<min: T, max: T>]
     auto out_ty = struct_({field("min", ty), field("max", ty)});
-    auto sig = KernelSignature::Make({InputType(ty)}, ValueDescr::Scalar(out_ty));
+    auto sig = KernelSignature::Make({InputType(ty->id())}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func, simd_level);
   }
 }
@@ -693,6 +707,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
       "min_max", Arity::Unary(), &min_max_doc, &default_scalar_aggregate_options);
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
+  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL128, func.get());
+  aggregate::AddMinMaxKernel(aggregate::MinMaxInit, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
