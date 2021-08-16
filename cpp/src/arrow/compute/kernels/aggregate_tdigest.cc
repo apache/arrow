@@ -89,7 +89,7 @@ struct TDigestImpl : public ScalarAggregator {
     return Status::OK();
   }
 
-  const std::vector<double>& q;
+  const std::vector<double> q;
   TDigest tdigest;
 };
 

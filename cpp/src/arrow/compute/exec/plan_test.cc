@@ -678,6 +678,67 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
       }))));
 }
 
+TEST(ExecPlanExecution, AggregationPreservesOptions) {
+  // ARROW-13638: aggregation nodes initialize per-thread kernel state lazily
+  // and need to keep a copy/strong reference to function options
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    auto basic_data = MakeBasicBatches();
+
+    {
+      auto options = std::make_shared<TDigestOptions>(TDigestOptions::Defaults());
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(/*parallel=*/false,
+                                                                    /*slow=*/false)}},
+                        {"aggregate",
+                         AggregateNodeOptions{/*aggregates=*/{{"tdigest", options.get()}},
+                                              /*targets=*/{"i32"},
+                                              /*names=*/{"tdigest(i32)"}}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+    }
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({
+                    ExecBatchFromJSON({ValueDescr::Array(float64())}, "[[5.5]]"),
+                }))));
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    auto data = MakeGroupableBatches(/*multiplicity=*/100);
+
+    {
+      auto options = std::make_shared<CountOptions>(CountOptions::Defaults());
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source", SourceNodeOptions{data.schema, data.gen(/*parallel=*/false,
+                                                                     /*slow=*/false)}},
+                  {"aggregate",
+                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options.get()}},
+                                        /*targets=*/{"i32"},
+                                        /*names=*/{"count(i32)"},
+                                        /*keys=*/{"str"}}},
+                  {"sink", SinkNodeOptions{&sink_gen}},
+              })
+              .AddToPlan(plan.get()));
+    }
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({
+                    ExecBatchFromJSON({int64(), utf8()},
+                                      R"([[500, "alfa"], [200, "beta"], [200, "gama"]])"),
+                }))));
+  }
+}
+
 TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   // ARROW-9056: scalar aggregation can be done over scalars, taking
   // into account batch.length > 1 (e.g. a partition column)
