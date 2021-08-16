@@ -666,7 +666,8 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
     ])");
   this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
 
-  // Sliced (check this manually as concatenation of dense unions isn't implemented)
+  // Sliced
+  // (check this manually as concatenation of dense unions isn't supported: ARROW-4975)
   auto values = ArrayFromJSON(union_type, union_json)->Slice(2, 4);
   auto filter = ArrayFromJSON(boolean(), "[0, 1, 1, null, 0, 1, 1]")->Slice(2, 4);
   auto expected = ArrayFromJSON(union_type, R"([
