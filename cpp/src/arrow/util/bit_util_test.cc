@@ -52,6 +52,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/bitset_stack.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 
@@ -63,6 +64,7 @@ using internal::BitsetStack;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
+using util::SafeCopy;
 
 using ::testing::ElementsAreArray;
 
@@ -1832,11 +1834,13 @@ TEST(BitUtil, ByteSwap) {
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<float>(0)), 0);
   uint32_t srci32 = 0xaabbccdd, expectedi32 = 0xddccbbaa;
-  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<float*>(&srci32)),
-            *reinterpret_cast<float*>(&expectedi32));
+  float srcf32 = SafeCopy<float>(srci32);
+  float expectedf32 = SafeCopy<float>(expectedi32);
+  EXPECT_EQ(BitUtil::ByteSwap(srcf32), expectedf32);
   uint64_t srci64 = 0xaabb11223344ccdd, expectedi64 = 0xddcc44332211bbaa;
-  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<double*>(&srci64)),
-            *reinterpret_cast<double*>(&expectedi64));
+  double srcd64 = SafeCopy<double>(srci64);
+  double expectedd64 = SafeCopy<double>(expectedi64);
+  EXPECT_EQ(BitUtil::ByteSwap(srcd64), expectedd64);
 }
 
 TEST(BitUtil, Log2) {
