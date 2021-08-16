@@ -17,11 +17,14 @@ namespace arrow {
 namespace flatbuf {
 namespace computeir {
 
-struct ScalarShape;
-struct ScalarShapeBuilder;
+struct Expression;
+struct ExpressionBuilder;
 
-struct ArrayShape;
-struct ArrayShapeBuilder;
+struct Scalar;
+struct ScalarBuilder;
+
+struct Array;
+struct ArrayBuilder;
 
 struct Literal;
 struct LiteralBuilder;
@@ -73,7 +76,7 @@ struct PlanBuilder;
 /// - a reference to a Field from a Relation
 /// - a call to a named function
 /// On evaluation, an Expression will have either array or scalar shape.
-enum class Expression : uint8_t {
+enum class ExpressionImpl : uint8_t {
   NONE = 0,
   Literal = 1,
   FieldRef = 2,
@@ -82,17 +85,17 @@ enum class Expression : uint8_t {
   MAX = Call
 };
 
-inline const Expression (&EnumValuesExpression())[4] {
-  static const Expression values[] = {
-    Expression::NONE,
-    Expression::Literal,
-    Expression::FieldRef,
-    Expression::Call
+inline const ExpressionImpl (&EnumValuesExpressionImpl())[4] {
+  static const ExpressionImpl values[] = {
+    ExpressionImpl::NONE,
+    ExpressionImpl::Literal,
+    ExpressionImpl::FieldRef,
+    ExpressionImpl::Call
   };
   return values;
 }
 
-inline const char * const *EnumNamesExpression() {
+inline const char * const *EnumNamesExpressionImpl() {
   static const char * const names[5] = {
     "NONE",
     "Literal",
@@ -103,44 +106,44 @@ inline const char * const *EnumNamesExpression() {
   return names;
 }
 
-inline const char *EnumNameExpression(Expression e) {
-  if (flatbuffers::IsOutRange(e, Expression::NONE, Expression::Call)) return "";
+inline const char *EnumNameExpressionImpl(ExpressionImpl e) {
+  if (flatbuffers::IsOutRange(e, ExpressionImpl::NONE, ExpressionImpl::Call)) return "";
   const size_t index = static_cast<size_t>(e);
-  return EnumNamesExpression()[index];
+  return EnumNamesExpressionImpl()[index];
 }
 
-template<typename T> struct ExpressionTraits {
-  static const Expression enum_value = Expression::NONE;
+template<typename T> struct ExpressionImplTraits {
+  static const ExpressionImpl enum_value = ExpressionImpl::NONE;
 };
 
-template<> struct ExpressionTraits<org::apache::arrow::flatbuf::computeir::Literal> {
-  static const Expression enum_value = Expression::Literal;
+template<> struct ExpressionImplTraits<org::apache::arrow::flatbuf::computeir::Literal> {
+  static const ExpressionImpl enum_value = ExpressionImpl::Literal;
 };
 
-template<> struct ExpressionTraits<org::apache::arrow::flatbuf::computeir::FieldRef> {
-  static const Expression enum_value = Expression::FieldRef;
+template<> struct ExpressionImplTraits<org::apache::arrow::flatbuf::computeir::FieldRef> {
+  static const ExpressionImpl enum_value = ExpressionImpl::FieldRef;
 };
 
-template<> struct ExpressionTraits<org::apache::arrow::flatbuf::computeir::Call> {
-  static const Expression enum_value = Expression::Call;
+template<> struct ExpressionImplTraits<org::apache::arrow::flatbuf::computeir::Call> {
+  static const ExpressionImpl enum_value = ExpressionImpl::Call;
 };
 
-bool VerifyExpression(flatbuffers::Verifier &verifier, const void *obj, Expression type);
-bool VerifyExpressionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+bool VerifyExpressionImpl(flatbuffers::Verifier &verifier, const void *obj, ExpressionImpl type);
+bool VerifyExpressionImplVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 enum class Shape : uint8_t {
   NONE = 0,
-  ArrayShape = 1,
-  ScalarShape = 2,
+  Array = 1,
+  Scalar = 2,
   MIN = NONE,
-  MAX = ScalarShape
+  MAX = Scalar
 };
 
 inline const Shape (&EnumValuesShape())[3] {
   static const Shape values[] = {
     Shape::NONE,
-    Shape::ArrayShape,
-    Shape::ScalarShape
+    Shape::Array,
+    Shape::Scalar
   };
   return values;
 }
@@ -148,15 +151,15 @@ inline const Shape (&EnumValuesShape())[3] {
 inline const char * const *EnumNamesShape() {
   static const char * const names[4] = {
     "NONE",
-    "ArrayShape",
-    "ScalarShape",
+    "Array",
+    "Scalar",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameShape(Shape e) {
-  if (flatbuffers::IsOutRange(e, Shape::NONE, Shape::ScalarShape)) return "";
+  if (flatbuffers::IsOutRange(e, Shape::NONE, Shape::Scalar)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesShape()[index];
 }
@@ -165,12 +168,12 @@ template<typename T> struct ShapeTraits {
   static const Shape enum_value = Shape::NONE;
 };
 
-template<> struct ShapeTraits<org::apache::arrow::flatbuf::computeir::ArrayShape> {
-  static const Shape enum_value = Shape::ArrayShape;
+template<> struct ShapeTraits<org::apache::arrow::flatbuf::computeir::Array> {
+  static const Shape enum_value = Shape::Array;
 };
 
-template<> struct ShapeTraits<org::apache::arrow::flatbuf::computeir::ScalarShape> {
-  static const Shape enum_value = Shape::ScalarShape;
+template<> struct ShapeTraits<org::apache::arrow::flatbuf::computeir::Scalar> {
+  static const Shape enum_value = Shape::Scalar;
 };
 
 bool VerifyShape(flatbuffers::Verifier &verifier, const void *obj, Shape type);
@@ -214,38 +217,114 @@ inline const char *EnumNameOrdering(Ordering e) {
   return EnumNamesOrdering()[index];
 }
 
-struct ScalarShape FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ScalarShapeBuilder Builder;
+struct Expression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ExpressionBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_IMPL_TYPE = 4,
+    VT_IMPL = 6
+  };
+  org::apache::arrow::flatbuf::computeir::ExpressionImpl impl_type() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::ExpressionImpl>(GetField<uint8_t>(VT_IMPL_TYPE, 0));
+  }
+  const void *impl() const {
+    return GetPointer<const void *>(VT_IMPL);
+  }
+  template<typename T> const T *impl_as() const;
+  const org::apache::arrow::flatbuf::computeir::Literal *impl_as_Literal() const {
+    return impl_type() == org::apache::arrow::flatbuf::computeir::ExpressionImpl::Literal ? static_cast<const org::apache::arrow::flatbuf::computeir::Literal *>(impl()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::computeir::FieldRef *impl_as_FieldRef() const {
+    return impl_type() == org::apache::arrow::flatbuf::computeir::ExpressionImpl::FieldRef ? static_cast<const org::apache::arrow::flatbuf::computeir::FieldRef *>(impl()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::computeir::Call *impl_as_Call() const {
+    return impl_type() == org::apache::arrow::flatbuf::computeir::ExpressionImpl::Call ? static_cast<const org::apache::arrow::flatbuf::computeir::Call *>(impl()) : nullptr;
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_IMPL_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_IMPL) &&
+           VerifyExpressionImpl(verifier, impl(), impl_type()) &&
+           verifier.EndTable();
+  }
+};
+
+template<> inline const org::apache::arrow::flatbuf::computeir::Literal *Expression::impl_as<org::apache::arrow::flatbuf::computeir::Literal>() const {
+  return impl_as_Literal();
+}
+
+template<> inline const org::apache::arrow::flatbuf::computeir::FieldRef *Expression::impl_as<org::apache::arrow::flatbuf::computeir::FieldRef>() const {
+  return impl_as_FieldRef();
+}
+
+template<> inline const org::apache::arrow::flatbuf::computeir::Call *Expression::impl_as<org::apache::arrow::flatbuf::computeir::Call>() const {
+  return impl_as_Call();
+}
+
+struct ExpressionBuilder {
+  typedef Expression Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_impl_type(org::apache::arrow::flatbuf::computeir::ExpressionImpl impl_type) {
+    fbb_.AddElement<uint8_t>(Expression::VT_IMPL_TYPE, static_cast<uint8_t>(impl_type), 0);
+  }
+  void add_impl(flatbuffers::Offset<void> impl) {
+    fbb_.AddOffset(Expression::VT_IMPL, impl);
+  }
+  explicit ExpressionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ExpressionBuilder &operator=(const ExpressionBuilder &);
+  flatbuffers::Offset<Expression> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Expression>(end);
+    fbb_.Required(o, Expression::VT_IMPL);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Expression> CreateExpression(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::computeir::ExpressionImpl impl_type = org::apache::arrow::flatbuf::computeir::ExpressionImpl::NONE,
+    flatbuffers::Offset<void> impl = 0) {
+  ExpressionBuilder builder_(_fbb);
+  builder_.add_impl(impl);
+  builder_.add_impl_type(impl_type);
+  return builder_.Finish();
+}
+
+struct Scalar FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ScalarBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
   }
 };
 
-struct ScalarShapeBuilder {
-  typedef ScalarShape Table;
+struct ScalarBuilder {
+  typedef Scalar Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  explicit ScalarShapeBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ScalarBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ScalarShapeBuilder &operator=(const ScalarShapeBuilder &);
-  flatbuffers::Offset<ScalarShape> Finish() {
+  ScalarBuilder &operator=(const ScalarBuilder &);
+  flatbuffers::Offset<Scalar> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<ScalarShape>(end);
+    auto o = flatbuffers::Offset<Scalar>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<ScalarShape> CreateScalarShape(
+inline flatbuffers::Offset<Scalar> CreateScalar(
     flatbuffers::FlatBufferBuilder &_fbb) {
-  ScalarShapeBuilder builder_(_fbb);
+  ScalarBuilder builder_(_fbb);
   return builder_.Finish();
 }
 
-struct ArrayShape FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ArrayShapeBuilder Builder;
+struct Array FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArrayBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LENGTH = 4
   };
@@ -260,29 +339,29 @@ struct ArrayShape FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct ArrayShapeBuilder {
-  typedef ArrayShape Table;
+struct ArrayBuilder {
+  typedef Array Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_length(int64_t length) {
-    fbb_.AddElement<int64_t>(ArrayShape::VT_LENGTH, length, 0);
+    fbb_.AddElement<int64_t>(Array::VT_LENGTH, length, 0);
   }
-  explicit ArrayShapeBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArrayBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ArrayShapeBuilder &operator=(const ArrayShapeBuilder &);
-  flatbuffers::Offset<ArrayShape> Finish() {
+  ArrayBuilder &operator=(const ArrayBuilder &);
+  flatbuffers::Offset<Array> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<ArrayShape>(end);
+    auto o = flatbuffers::Offset<Array>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<ArrayShape> CreateArrayShape(
+inline flatbuffers::Offset<Array> CreateArray(
     flatbuffers::FlatBufferBuilder &_fbb,
     int64_t length = 0) {
-  ArrayShapeBuilder builder_(_fbb);
+  ArrayBuilder builder_(_fbb);
   builder_.add_length(length);
   return builder_.Finish();
 }
@@ -304,11 +383,11 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetPointer<const void *>(VT_SHAPE);
   }
   template<typename T> const T *shape_as() const;
-  const org::apache::arrow::flatbuf::computeir::ArrayShape *shape_as_ArrayShape() const {
-    return shape_type() == org::apache::arrow::flatbuf::computeir::Shape::ArrayShape ? static_cast<const org::apache::arrow::flatbuf::computeir::ArrayShape *>(shape()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::Array *shape_as_Array() const {
+    return shape_type() == org::apache::arrow::flatbuf::computeir::Shape::Array ? static_cast<const org::apache::arrow::flatbuf::computeir::Array *>(shape()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::computeir::ScalarShape *shape_as_ScalarShape() const {
-    return shape_type() == org::apache::arrow::flatbuf::computeir::Shape::ScalarShape ? static_cast<const org::apache::arrow::flatbuf::computeir::ScalarShape *>(shape()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::Scalar *shape_as_Scalar() const {
+    return shape_type() == org::apache::arrow::flatbuf::computeir::Shape::Scalar ? static_cast<const org::apache::arrow::flatbuf::computeir::Scalar *>(shape()) : nullptr;
   }
   org::apache::arrow::flatbuf::Type type_type() const {
     return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
@@ -402,12 +481,12 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-template<> inline const org::apache::arrow::flatbuf::computeir::ArrayShape *Literal::shape_as<org::apache::arrow::flatbuf::computeir::ArrayShape>() const {
-  return shape_as_ArrayShape();
+template<> inline const org::apache::arrow::flatbuf::computeir::Array *Literal::shape_as<org::apache::arrow::flatbuf::computeir::Array>() const {
+  return shape_as_Array();
 }
 
-template<> inline const org::apache::arrow::flatbuf::computeir::ScalarShape *Literal::shape_as<org::apache::arrow::flatbuf::computeir::ScalarShape>() const {
-  return shape_as_ScalarShape();
+template<> inline const org::apache::arrow::flatbuf::computeir::Scalar *Literal::shape_as<org::apache::arrow::flatbuf::computeir::Scalar>() const {
+  return shape_as_Scalar();
 }
 
 template<> inline const org::apache::arrow::flatbuf::Null *Literal::type_as<org::apache::arrow::flatbuf::Null>() const {
@@ -809,10 +888,9 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FUNCTION_NAME = 4,
     VT_OPTIONS = 6,
-    VT_ARGUMENTS_TYPE = 8,
-    VT_ARGUMENTS = 10,
-    VT_TYPE_TYPE = 12,
-    VT_TYPE = 14
+    VT_ARGUMENTS = 8,
+    VT_TYPE_TYPE = 10,
+    VT_TYPE = 12
   };
   /// The name of the function whose invocation this Call represents.
   const flatbuffers::String *function_name() const {
@@ -823,12 +901,9 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::Buffer *options() const {
     return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_OPTIONS);
   }
-  const flatbuffers::Vector<uint8_t> *arguments_type() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_ARGUMENTS_TYPE);
-  }
   /// The arguments passed to `function_name`.
-  const flatbuffers::Vector<flatbuffers::Offset<void>> *arguments() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<void>> *>(VT_ARGUMENTS);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_ARGUMENTS);
   }
   org::apache::arrow::flatbuf::Type type_type() const {
     return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
@@ -906,11 +981,9 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffsetRequired(verifier, VT_FUNCTION_NAME) &&
            verifier.VerifyString(function_name()) &&
            VerifyField<org::apache::arrow::flatbuf::Buffer>(verifier, VT_OPTIONS) &&
-           VerifyOffsetRequired(verifier, VT_ARGUMENTS_TYPE) &&
-           verifier.VerifyVector(arguments_type()) &&
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
            verifier.VerifyVector(arguments()) &&
-           VerifyExpressionVector(verifier, arguments(), arguments_type()) &&
+           verifier.VerifyVectorOfTables(arguments()) &&
            VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
            VerifyOffset(verifier, VT_TYPE) &&
            VerifyType(verifier, type(), type_type()) &&
@@ -1012,10 +1085,7 @@ struct CallBuilder {
   void add_options(const org::apache::arrow::flatbuf::Buffer *options) {
     fbb_.AddStruct(Call::VT_OPTIONS, options);
   }
-  void add_arguments_type(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> arguments_type) {
-    fbb_.AddOffset(Call::VT_ARGUMENTS_TYPE, arguments_type);
-  }
-  void add_arguments(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> arguments) {
+  void add_arguments(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments) {
     fbb_.AddOffset(Call::VT_ARGUMENTS, arguments);
   }
   void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
@@ -1033,7 +1103,6 @@ struct CallBuilder {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Call>(end);
     fbb_.Required(o, Call::VT_FUNCTION_NAME);
-    fbb_.Required(o, Call::VT_ARGUMENTS_TYPE);
     fbb_.Required(o, Call::VT_ARGUMENTS);
     return o;
   }
@@ -1043,14 +1112,12 @@ inline flatbuffers::Offset<Call> CreateCall(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> function_name = 0,
     const org::apache::arrow::flatbuf::Buffer *options = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> arguments_type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> arguments = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments = 0,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0) {
   CallBuilder builder_(_fbb);
   builder_.add_type(type);
   builder_.add_arguments(arguments);
-  builder_.add_arguments_type(arguments_type);
   builder_.add_options(options);
   builder_.add_function_name(function_name);
   builder_.add_type_type(type_type);
@@ -1061,18 +1128,15 @@ inline flatbuffers::Offset<Call> CreateCallDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *function_name = nullptr,
     const org::apache::arrow::flatbuf::Buffer *options = 0,
-    const std::vector<uint8_t> *arguments_type = nullptr,
-    const std::vector<flatbuffers::Offset<void>> *arguments = nullptr,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments = nullptr,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0) {
   auto function_name__ = function_name ? _fbb.CreateString(function_name) : 0;
-  auto arguments_type__ = arguments_type ? _fbb.CreateVector<uint8_t>(*arguments_type) : 0;
-  auto arguments__ = arguments ? _fbb.CreateVector<flatbuffers::Offset<void>>(*arguments) : 0;
+  auto arguments__ = arguments ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*arguments) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateCall(
       _fbb,
       function_name__,
       options,
-      arguments_type__,
       arguments__,
       type_type,
       type);
@@ -1196,57 +1260,27 @@ inline flatbuffers::Offset<Relation> CreateRelationDirect(
 struct FilterOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef FilterOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_FILTER_EXPRESSION_TYPE = 4,
-    VT_FILTER_EXPRESSION = 6
+    VT_FILTER_EXPRESSION = 4
   };
-  org::apache::arrow::flatbuf::computeir::Expression filter_expression_type() const {
-    return static_cast<org::apache::arrow::flatbuf::computeir::Expression>(GetField<uint8_t>(VT_FILTER_EXPRESSION_TYPE, 0));
-  }
   /// The expression which will be evaluated against input rows
   /// to determine whether they should be excluded from the
   /// "filter" relation's output.
-  const void *filter_expression() const {
-    return GetPointer<const void *>(VT_FILTER_EXPRESSION);
-  }
-  template<typename T> const T *filter_expression_as() const;
-  const org::apache::arrow::flatbuf::computeir::Literal *filter_expression_as_Literal() const {
-    return filter_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::Literal ? static_cast<const org::apache::arrow::flatbuf::computeir::Literal *>(filter_expression()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::FieldRef *filter_expression_as_FieldRef() const {
-    return filter_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::FieldRef ? static_cast<const org::apache::arrow::flatbuf::computeir::FieldRef *>(filter_expression()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::Call *filter_expression_as_Call() const {
-    return filter_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::Call ? static_cast<const org::apache::arrow::flatbuf::computeir::Call *>(filter_expression()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::Expression *filter_expression() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_FILTER_EXPRESSION);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_FILTER_EXPRESSION_TYPE) &&
            VerifyOffsetRequired(verifier, VT_FILTER_EXPRESSION) &&
-           VerifyExpression(verifier, filter_expression(), filter_expression_type()) &&
+           verifier.VerifyTable(filter_expression()) &&
            verifier.EndTable();
   }
 };
-
-template<> inline const org::apache::arrow::flatbuf::computeir::Literal *FilterOptions::filter_expression_as<org::apache::arrow::flatbuf::computeir::Literal>() const {
-  return filter_expression_as_Literal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::FieldRef *FilterOptions::filter_expression_as<org::apache::arrow::flatbuf::computeir::FieldRef>() const {
-  return filter_expression_as_FieldRef();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::Call *FilterOptions::filter_expression_as<org::apache::arrow::flatbuf::computeir::Call>() const {
-  return filter_expression_as_Call();
-}
 
 struct FilterOptionsBuilder {
   typedef FilterOptions Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_filter_expression_type(org::apache::arrow::flatbuf::computeir::Expression filter_expression_type) {
-    fbb_.AddElement<uint8_t>(FilterOptions::VT_FILTER_EXPRESSION_TYPE, static_cast<uint8_t>(filter_expression_type), 0);
-  }
-  void add_filter_expression(flatbuffers::Offset<void> filter_expression) {
+  void add_filter_expression(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> filter_expression) {
     fbb_.AddOffset(FilterOptions::VT_FILTER_EXPRESSION, filter_expression);
   }
   explicit FilterOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1264,11 +1298,9 @@ struct FilterOptionsBuilder {
 
 inline flatbuffers::Offset<FilterOptions> CreateFilterOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::computeir::Expression filter_expression_type = org::apache::arrow::flatbuf::computeir::Expression::NONE,
-    flatbuffers::Offset<void> filter_expression = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> filter_expression = 0) {
   FilterOptionsBuilder builder_(_fbb);
   builder_.add_filter_expression(filter_expression);
-  builder_.add_filter_expression_type(filter_expression_type);
   return builder_.Finish();
 }
 
@@ -1277,24 +1309,18 @@ inline flatbuffers::Offset<FilterOptions> CreateFilterOptions(
 struct ProjectOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ProjectOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_EXPRESSIONS_TYPE = 4,
-    VT_EXPRESSIONS = 6
+    VT_EXPRESSIONS = 4
   };
-  const flatbuffers::Vector<uint8_t> *expressions_type() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_EXPRESSIONS_TYPE);
-  }
   /// Expressions which will be evaluated to produce to
   /// the rows of the "project" relation's output.
-  const flatbuffers::Vector<flatbuffers::Offset<void>> *expressions() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<void>> *>(VT_EXPRESSIONS);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *expressions() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_EXPRESSIONS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_EXPRESSIONS_TYPE) &&
-           verifier.VerifyVector(expressions_type()) &&
            VerifyOffsetRequired(verifier, VT_EXPRESSIONS) &&
            verifier.VerifyVector(expressions()) &&
-           VerifyExpressionVector(verifier, expressions(), expressions_type()) &&
+           verifier.VerifyVectorOfTables(expressions()) &&
            verifier.EndTable();
   }
 };
@@ -1303,10 +1329,7 @@ struct ProjectOptionsBuilder {
   typedef ProjectOptions Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_expressions_type(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expressions_type) {
-    fbb_.AddOffset(ProjectOptions::VT_EXPRESSIONS_TYPE, expressions_type);
-  }
-  void add_expressions(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> expressions) {
+  void add_expressions(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> expressions) {
     fbb_.AddOffset(ProjectOptions::VT_EXPRESSIONS, expressions);
   }
   explicit ProjectOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1317,7 +1340,6 @@ struct ProjectOptionsBuilder {
   flatbuffers::Offset<ProjectOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ProjectOptions>(end);
-    fbb_.Required(o, ProjectOptions::VT_EXPRESSIONS_TYPE);
     fbb_.Required(o, ProjectOptions::VT_EXPRESSIONS);
     return o;
   }
@@ -1325,23 +1347,18 @@ struct ProjectOptionsBuilder {
 
 inline flatbuffers::Offset<ProjectOptions> CreateProjectOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> expressions_type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> expressions = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> expressions = 0) {
   ProjectOptionsBuilder builder_(_fbb);
   builder_.add_expressions(expressions);
-  builder_.add_expressions_type(expressions_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<ProjectOptions> CreateProjectOptionsDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *expressions_type = nullptr,
-    const std::vector<flatbuffers::Offset<void>> *expressions = nullptr) {
-  auto expressions_type__ = expressions_type ? _fbb.CreateVector<uint8_t>(*expressions_type) : 0;
-  auto expressions__ = expressions ? _fbb.CreateVector<flatbuffers::Offset<void>>(*expressions) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *expressions = nullptr) {
+  auto expressions__ = expressions ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*expressions) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateProjectOptions(
       _fbb,
-      expressions_type__,
       expressions__);
 }
 
@@ -1350,38 +1367,26 @@ inline flatbuffers::Offset<ProjectOptions> CreateProjectOptionsDirect(
 struct AggregateOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AggregateOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_AGGREGATIONS_TYPE = 4,
-    VT_AGGREGATIONS = 6,
-    VT_KEYS_TYPE = 8,
-    VT_KEYS = 10
+    VT_AGGREGATIONS = 4,
+    VT_KEYS = 6
   };
-  const flatbuffers::Vector<uint8_t> *aggregations_type() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_AGGREGATIONS_TYPE);
-  }
   /// Expressions which will be evaluated to produce to
   /// the rows of the "aggregate" relation's output.
-  const flatbuffers::Vector<flatbuffers::Offset<void>> *aggregations() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<void>> *>(VT_AGGREGATIONS);
-  }
-  const flatbuffers::Vector<uint8_t> *keys_type() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_KEYS_TYPE);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *aggregations() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_AGGREGATIONS);
   }
   /// Keys by which `aggregations` will be grouped.
-  const flatbuffers::Vector<flatbuffers::Offset<void>> *keys() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<void>> *>(VT_KEYS);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *keys() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_KEYS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_AGGREGATIONS_TYPE) &&
-           verifier.VerifyVector(aggregations_type()) &&
            VerifyOffsetRequired(verifier, VT_AGGREGATIONS) &&
            verifier.VerifyVector(aggregations()) &&
-           VerifyExpressionVector(verifier, aggregations(), aggregations_type()) &&
-           VerifyOffset(verifier, VT_KEYS_TYPE) &&
-           verifier.VerifyVector(keys_type()) &&
-           VerifyOffset(verifier, VT_KEYS) &&
+           verifier.VerifyVectorOfTables(aggregations()) &&
+           VerifyOffsetRequired(verifier, VT_KEYS) &&
            verifier.VerifyVector(keys()) &&
-           VerifyExpressionVector(verifier, keys(), keys_type()) &&
+           verifier.VerifyVectorOfTables(keys()) &&
            verifier.EndTable();
   }
 };
@@ -1390,16 +1395,10 @@ struct AggregateOptionsBuilder {
   typedef AggregateOptions Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_aggregations_type(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> aggregations_type) {
-    fbb_.AddOffset(AggregateOptions::VT_AGGREGATIONS_TYPE, aggregations_type);
-  }
-  void add_aggregations(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> aggregations) {
+  void add_aggregations(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> aggregations) {
     fbb_.AddOffset(AggregateOptions::VT_AGGREGATIONS, aggregations);
   }
-  void add_keys_type(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> keys_type) {
-    fbb_.AddOffset(AggregateOptions::VT_KEYS_TYPE, keys_type);
-  }
-  void add_keys(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> keys) {
+  void add_keys(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> keys) {
     fbb_.AddOffset(AggregateOptions::VT_KEYS, keys);
   }
   explicit AggregateOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1410,41 +1409,31 @@ struct AggregateOptionsBuilder {
   flatbuffers::Offset<AggregateOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<AggregateOptions>(end);
-    fbb_.Required(o, AggregateOptions::VT_AGGREGATIONS_TYPE);
     fbb_.Required(o, AggregateOptions::VT_AGGREGATIONS);
+    fbb_.Required(o, AggregateOptions::VT_KEYS);
     return o;
   }
 };
 
 inline flatbuffers::Offset<AggregateOptions> CreateAggregateOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> aggregations_type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> aggregations = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> keys_type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> keys = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> aggregations = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> keys = 0) {
   AggregateOptionsBuilder builder_(_fbb);
   builder_.add_keys(keys);
-  builder_.add_keys_type(keys_type);
   builder_.add_aggregations(aggregations);
-  builder_.add_aggregations_type(aggregations_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<AggregateOptions> CreateAggregateOptionsDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint8_t> *aggregations_type = nullptr,
-    const std::vector<flatbuffers::Offset<void>> *aggregations = nullptr,
-    const std::vector<uint8_t> *keys_type = nullptr,
-    const std::vector<flatbuffers::Offset<void>> *keys = nullptr) {
-  auto aggregations_type__ = aggregations_type ? _fbb.CreateVector<uint8_t>(*aggregations_type) : 0;
-  auto aggregations__ = aggregations ? _fbb.CreateVector<flatbuffers::Offset<void>>(*aggregations) : 0;
-  auto keys_type__ = keys_type ? _fbb.CreateVector<uint8_t>(*keys_type) : 0;
-  auto keys__ = keys ? _fbb.CreateVector<flatbuffers::Offset<void>>(*keys) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *aggregations = nullptr,
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *keys = nullptr) {
+  auto aggregations__ = aggregations ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*aggregations) : 0;
+  auto keys__ = keys ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*keys) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateAggregateOptions(
       _fbb,
-      aggregations_type__,
       aggregations__,
-      keys_type__,
       keys__);
 }
 
@@ -1453,63 +1442,33 @@ inline flatbuffers::Offset<AggregateOptions> CreateAggregateOptionsDirect(
 struct JoinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JoinOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ON_EXPRESSION_TYPE = 4,
-    VT_ON_EXPRESSION = 6,
-    VT_JOIN_KIND = 8
+    VT_ON_EXPRESSION = 4,
+    VT_JOIN_KIND = 6
   };
-  org::apache::arrow::flatbuf::computeir::Expression on_expression_type() const {
-    return static_cast<org::apache::arrow::flatbuf::computeir::Expression>(GetField<uint8_t>(VT_ON_EXPRESSION_TYPE, 0));
-  }
   /// The expression which will be evaluated against rows from each
   /// input to determine whether they should be included in the
   /// "join" relation's output.
-  const void *on_expression() const {
-    return GetPointer<const void *>(VT_ON_EXPRESSION);
-  }
-  template<typename T> const T *on_expression_as() const;
-  const org::apache::arrow::flatbuf::computeir::Literal *on_expression_as_Literal() const {
-    return on_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::Literal ? static_cast<const org::apache::arrow::flatbuf::computeir::Literal *>(on_expression()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::FieldRef *on_expression_as_FieldRef() const {
-    return on_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::FieldRef ? static_cast<const org::apache::arrow::flatbuf::computeir::FieldRef *>(on_expression()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::Call *on_expression_as_Call() const {
-    return on_expression_type() == org::apache::arrow::flatbuf::computeir::Expression::Call ? static_cast<const org::apache::arrow::flatbuf::computeir::Call *>(on_expression()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::Expression *on_expression() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_ON_EXPRESSION);
   }
   const flatbuffers::String *join_kind() const {
     return GetPointer<const flatbuffers::String *>(VT_JOIN_KIND);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_ON_EXPRESSION_TYPE) &&
            VerifyOffsetRequired(verifier, VT_ON_EXPRESSION) &&
-           VerifyExpression(verifier, on_expression(), on_expression_type()) &&
+           verifier.VerifyTable(on_expression()) &&
            VerifyOffset(verifier, VT_JOIN_KIND) &&
            verifier.VerifyString(join_kind()) &&
            verifier.EndTable();
   }
 };
 
-template<> inline const org::apache::arrow::flatbuf::computeir::Literal *JoinOptions::on_expression_as<org::apache::arrow::flatbuf::computeir::Literal>() const {
-  return on_expression_as_Literal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::FieldRef *JoinOptions::on_expression_as<org::apache::arrow::flatbuf::computeir::FieldRef>() const {
-  return on_expression_as_FieldRef();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::Call *JoinOptions::on_expression_as<org::apache::arrow::flatbuf::computeir::Call>() const {
-  return on_expression_as_Call();
-}
-
 struct JoinOptionsBuilder {
   typedef JoinOptions Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_on_expression_type(org::apache::arrow::flatbuf::computeir::Expression on_expression_type) {
-    fbb_.AddElement<uint8_t>(JoinOptions::VT_ON_EXPRESSION_TYPE, static_cast<uint8_t>(on_expression_type), 0);
-  }
-  void add_on_expression(flatbuffers::Offset<void> on_expression) {
+  void add_on_expression(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression) {
     fbb_.AddOffset(JoinOptions::VT_ON_EXPRESSION, on_expression);
   }
   void add_join_kind(flatbuffers::Offset<flatbuffers::String> join_kind) {
@@ -1530,25 +1489,21 @@ struct JoinOptionsBuilder {
 
 inline flatbuffers::Offset<JoinOptions> CreateJoinOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::computeir::Expression on_expression_type = org::apache::arrow::flatbuf::computeir::Expression::NONE,
-    flatbuffers::Offset<void> on_expression = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
     flatbuffers::Offset<flatbuffers::String> join_kind = 0) {
   JoinOptionsBuilder builder_(_fbb);
   builder_.add_join_kind(join_kind);
   builder_.add_on_expression(on_expression);
-  builder_.add_on_expression_type(on_expression_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<JoinOptions> CreateJoinOptionsDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::computeir::Expression on_expression_type = org::apache::arrow::flatbuf::computeir::Expression::NONE,
-    flatbuffers::Offset<void> on_expression = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
     const char *join_kind = nullptr) {
   auto join_kind__ = join_kind ? _fbb.CreateString(join_kind) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateJoinOptions(
       _fbb,
-      on_expression_type,
       on_expression,
       join_kind__);
 }
@@ -1556,59 +1511,29 @@ inline flatbuffers::Offset<JoinOptions> CreateJoinOptionsDirect(
 struct SortKey FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SortKeyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_VALUE_TYPE = 4,
-    VT_VALUE = 6,
-    VT_ORDERING = 8
+    VT_VALUE = 4,
+    VT_ORDERING = 6
   };
-  org::apache::arrow::flatbuf::computeir::Expression value_type() const {
-    return static_cast<org::apache::arrow::flatbuf::computeir::Expression>(GetField<uint8_t>(VT_VALUE_TYPE, 0));
-  }
-  const void *value() const {
-    return GetPointer<const void *>(VT_VALUE);
-  }
-  template<typename T> const T *value_as() const;
-  const org::apache::arrow::flatbuf::computeir::Literal *value_as_Literal() const {
-    return value_type() == org::apache::arrow::flatbuf::computeir::Expression::Literal ? static_cast<const org::apache::arrow::flatbuf::computeir::Literal *>(value()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::FieldRef *value_as_FieldRef() const {
-    return value_type() == org::apache::arrow::flatbuf::computeir::Expression::FieldRef ? static_cast<const org::apache::arrow::flatbuf::computeir::FieldRef *>(value()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::computeir::Call *value_as_Call() const {
-    return value_type() == org::apache::arrow::flatbuf::computeir::Expression::Call ? static_cast<const org::apache::arrow::flatbuf::computeir::Call *>(value()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::Expression *value() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_VALUE);
   }
   org::apache::arrow::flatbuf::computeir::Ordering ordering() const {
     return static_cast<org::apache::arrow::flatbuf::computeir::Ordering>(GetField<uint8_t>(VT_ORDERING, 0));
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_VALUE_TYPE) &&
            VerifyOffsetRequired(verifier, VT_VALUE) &&
-           VerifyExpression(verifier, value(), value_type()) &&
+           verifier.VerifyTable(value()) &&
            VerifyField<uint8_t>(verifier, VT_ORDERING) &&
            verifier.EndTable();
   }
 };
 
-template<> inline const org::apache::arrow::flatbuf::computeir::Literal *SortKey::value_as<org::apache::arrow::flatbuf::computeir::Literal>() const {
-  return value_as_Literal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::FieldRef *SortKey::value_as<org::apache::arrow::flatbuf::computeir::FieldRef>() const {
-  return value_as_FieldRef();
-}
-
-template<> inline const org::apache::arrow::flatbuf::computeir::Call *SortKey::value_as<org::apache::arrow::flatbuf::computeir::Call>() const {
-  return value_as_Call();
-}
-
 struct SortKeyBuilder {
   typedef SortKey Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_value_type(org::apache::arrow::flatbuf::computeir::Expression value_type) {
-    fbb_.AddElement<uint8_t>(SortKey::VT_VALUE_TYPE, static_cast<uint8_t>(value_type), 0);
-  }
-  void add_value(flatbuffers::Offset<void> value) {
+  void add_value(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> value) {
     fbb_.AddOffset(SortKey::VT_VALUE, value);
   }
   void add_ordering(org::apache::arrow::flatbuf::computeir::Ordering ordering) {
@@ -1629,13 +1554,11 @@ struct SortKeyBuilder {
 
 inline flatbuffers::Offset<SortKey> CreateSortKey(
     flatbuffers::FlatBufferBuilder &_fbb,
-    org::apache::arrow::flatbuf::computeir::Expression value_type = org::apache::arrow::flatbuf::computeir::Expression::NONE,
-    flatbuffers::Offset<void> value = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> value = 0,
     org::apache::arrow::flatbuf::computeir::Ordering ordering = org::apache::arrow::flatbuf::computeir::Ordering::ASCENDING_THEN_NULLS) {
   SortKeyBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_ordering(ordering);
-  builder_.add_value_type(value_type);
   return builder_.Finish();
 }
 
@@ -1757,7 +1680,7 @@ struct CommonOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_NAME) &&
+           VerifyOffsetRequired(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            verifier.EndTable();
   }
@@ -1778,6 +1701,7 @@ struct CommonOptionsBuilder {
   flatbuffers::Offset<CommonOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<CommonOptions>(end);
+    fbb_.Required(o, CommonOptions::VT_NAME);
     return o;
   }
 };
@@ -1976,20 +1900,20 @@ inline flatbuffers::Offset<Plan> CreatePlanDirect(
       derived_from);
 }
 
-inline bool VerifyExpression(flatbuffers::Verifier &verifier, const void *obj, Expression type) {
+inline bool VerifyExpressionImpl(flatbuffers::Verifier &verifier, const void *obj, ExpressionImpl type) {
   switch (type) {
-    case Expression::NONE: {
+    case ExpressionImpl::NONE: {
       return true;
     }
-    case Expression::Literal: {
+    case ExpressionImpl::Literal: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::Literal *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Expression::FieldRef: {
+    case ExpressionImpl::FieldRef: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::FieldRef *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Expression::Call: {
+    case ExpressionImpl::Call: {
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::Call *>(obj);
       return verifier.VerifyTable(ptr);
     }
@@ -1997,12 +1921,12 @@ inline bool VerifyExpression(flatbuffers::Verifier &verifier, const void *obj, E
   }
 }
 
-inline bool VerifyExpressionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+inline bool VerifyExpressionImplVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
   if (!values || !types) return !values && !types;
   if (values->size() != types->size()) return false;
   for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
-    if (!VerifyExpression(
-        verifier,  values->Get(i), types->GetEnum<Expression>(i))) {
+    if (!VerifyExpressionImpl(
+        verifier,  values->Get(i), types->GetEnum<ExpressionImpl>(i))) {
       return false;
     }
   }
@@ -2014,12 +1938,12 @@ inline bool VerifyShape(flatbuffers::Verifier &verifier, const void *obj, Shape 
     case Shape::NONE: {
       return true;
     }
-    case Shape::ArrayShape: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::ArrayShape *>(obj);
+    case Shape::Array: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::Array *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Shape::ScalarShape: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::ScalarShape *>(obj);
+    case Shape::Scalar: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::Scalar *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

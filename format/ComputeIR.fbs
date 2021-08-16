@@ -34,12 +34,12 @@ table Expression {
 }
 
 union Shape {
-  ArrayShape, ScalarShape
+  Array, Scalar
 }
 
-table ScalarShape {}
+table Scalar {}
 
-table ArrayShape {
+table Array {
   /// Number of slots.
   length: long;
 }
