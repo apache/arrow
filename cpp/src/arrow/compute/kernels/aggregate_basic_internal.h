@@ -236,8 +236,7 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
-  using T = typename std::conditional<is_decimal128_type<ArrowType>::value, Decimal128,
-                                      Decimal256>::type;
+  using T = typename TypeTraits<ArrowType>::CType;
 
   MinMaxState() : min(T::GetMaxSentinel()), max(T::GetMinSentinel()) {}
 

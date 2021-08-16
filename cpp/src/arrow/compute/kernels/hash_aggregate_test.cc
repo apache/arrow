@@ -1019,23 +1019,22 @@ TEST(GroupBy, MinMaxDecimal) {
       field("argument1", decimal256(3, 2)),
       field("key", int64()),
   });
-  // for (bool use_exec_plan : {false, true}) {
-  //   for (bool use_threads : {true, false}) {
-
-  for (bool use_exec_plan : {true}) {
-    for (bool use_threads : {false}) {
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
       auto table = TableFromJSON(in_schema, {R"([
-    ["1.01", "1.01", 1],
-    [null,   null,   1]
+    ["1.01", "1.01",   1],
+    [null,   null,     1]
                         ])",
                                              R"([
-    ["0.00", "0.00", 2],
-    [null,   null,   3],
-    ["4.01", "4.01", null],
-    ["3.25", "3.25", 1],
-    ["0.12", "0.12", 2]
+    ["0.00", "0.00",   2],
+    [null,   null,     3],
+    ["-3.25", "-3.25", 4],
+    ["-5.25", "-5.25", 4],
+    ["4.01", "4.01",   null],
+    ["3.25", "3.25",   1],
+    ["0.12", "0.12",   2]
                         ])",
                                              R"([
     ["-0.25", "-0.25", 2],
@@ -1055,6 +1054,7 @@ TEST(GroupBy, MinMaxDecimal) {
                                    {"hash_min_max", nullptr},
                                },
                                use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(
@@ -1070,10 +1070,11 @@ TEST(GroupBy, MinMaxDecimal) {
                             field("key_0", int64()),
                         }),
                         R"([
-    [{"min": "1.01", "max": "3.25"},  {"min": "1.01", "max": "3.25"},  1],
-    [{"min": "-0.25", "max": "0.12"}, {"min": "-0.25", "max": "0.12"}, 2],
-    [{"min": null, "max": null},      {"min": null, "max": null},      3],
-    [{"min": "0.75", "max": "4.01"},  {"min": "0.75", "max": "4.01"},  null]
+    [{"min": "1.01", "max": "3.25"},   {"min": "1.01", "max": "3.25"},   1],
+    [{"min": "-0.25", "max": "0.12"},  {"min": "-0.25", "max": "0.12"},  2],
+    [{"min": null, "max": null},       {"min": null, "max": null},       3],
+    [{"min": "-5.25", "max": "-3.25"}, {"min": "-5.25", "max": "-3.25"}, 4],
+    [{"min": "0.75", "max": "4.01"},   {"min": "0.75", "max": "4.01"},   null]
   ])"),
           aggregated_and_grouped,
           /*verbose=*/true);

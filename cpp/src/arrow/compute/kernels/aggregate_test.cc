@@ -1044,9 +1044,13 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
     ScalarAggregateOptions options;
 
     EXPECT_THAT(
-        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "1.23", "2.00", "3.45", "4.56"])"),
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "-1.23", "2.00", "3.45", "4.56"])"),
                options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": "1.23", "max": "5.10"})")));
+        ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
+    EXPECT_THAT(
+        MinMax(ArrayFromJSON(item_ty, R"(["-5.10", "-1.23", "-2.00", "-3.45", "-4.56"])"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": "-5.10", "max": "-1.23"})")));
     EXPECT_THAT(
         MinMax(ArrayFromJSON(item_ty, R"(["5.10", null, "2.00", "3.45", "4.56"])"),
                options),
@@ -1066,9 +1070,9 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
 
     options = ScalarAggregateOptions(/*skip_nulls=*/false);
     EXPECT_THAT(
-        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "1.23", "2.00", "3.45", "4.56"])"),
+        MinMax(ArrayFromJSON(item_ty, R"(["5.10", "-1.23", "2.00", "3.45", "4.56"])"),
                options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": "1.23", "max": "5.10"})")));
+        ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
     // output null
     EXPECT_THAT(
         MinMax(ArrayFromJSON(item_ty, R"(["5.10", null, "2.00", "3.45", "4.56"])"),
