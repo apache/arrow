@@ -209,6 +209,11 @@ table Plan {
 
   /// Dictionary batches which may be referenced by Literals.
   dictionary_batch: [DictionaryBatch];
+
+  /// If this Plan was derived from another (for example by running
+  /// an optimization pass), that plan may be included here to
+  /// provide a backtrace of derivations.
+  derived_from: Plan;
 }
 
 /// Frequently there is an open direct channel between producers
