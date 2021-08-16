@@ -140,7 +140,7 @@ table AggregateOptions {
   /// the rows of the "aggregate" relation's output.
   aggregations: [Expression] (required);
   /// Keys by which `aggregations` will be grouped.
-  keys: [Expression];
+  keys: [Expression] (required);
 }
 
 /// The contents of Relation.options will be JoinOptions
