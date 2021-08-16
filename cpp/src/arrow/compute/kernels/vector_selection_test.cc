@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -82,8 +83,6 @@ TEST(GetTakeIndices, NullValidityBuffer) {
   ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
 }
-
-// TODO: Add slicing
 
 template <typename IndexArrayType>
 void CheckGetTakeIndicesCase(const Array& untyped_filter) {
@@ -167,36 +166,68 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
     return filter;
   }
   const auto& data = *filter->data();
-  auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1]);
-  auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0]);
+  auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1], nullptr, 0,
+                                                data.offset);
+  auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0], nullptr, 0,
+                                                 data.offset);
   EXPECT_OK_AND_ASSIGN(Datum out_datum, And(is_true, is_valid));
   return out_datum.make_array();
 }
 
-template <typename ArrowType>
 class TestFilterKernel : public ::testing::Test {
  protected:
   TestFilterKernel() : emit_null_(FilterOptions::EMIT_NULL), drop_(FilterOptions::DROP) {}
 
-  void AssertFilter(std::shared_ptr<Array> values, std::shared_ptr<Array> filter,
-                    std::shared_ptr<Array> expected) {
+  void DoAssertFilter(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& filter,
+                      const std::shared_ptr<Array>& expected) {
     // test with EMIT_NULL
-    ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, emit_null_));
-    auto actual = out_datum.make_array();
-    ValidateOutput(*actual);
-    AssertArraysEqual(*expected, *actual);
+    {
+      ARROW_SCOPED_TRACE("with EMIT_NULL");
+      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, emit_null_));
+      auto actual = out_datum.make_array();
+      ValidateOutput(*actual);
+      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    }
 
     // test with DROP using EMIT_NULL and a coalesced filter
-    auto coalesced_filter = CoalesceNullToFalse(filter);
-    ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, coalesced_filter, emit_null_));
-    expected = out_datum.make_array();
-    ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
-    actual = out_datum.make_array();
-    ValidateOutput(*actual);
-    AssertArraysEqual(*expected, *actual);
+    {
+      ARROW_SCOPED_TRACE("with DROP");
+      auto coalesced_filter = CoalesceNullToFalse(filter);
+      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, emit_null_));
+      auto expected_for_drop = out_datum.make_array();
+      ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
+      auto actual = out_datum.make_array();
+      ValidateOutput(*actual);
+      AssertArraysEqual(*expected_for_drop, *actual, /*verbose=*/true);
+    }
   }
 
-  void AssertFilter(std::shared_ptr<DataType> type, const std::string& values,
+  void AssertFilter(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& filter,
+                    const std::shared_ptr<Array>& expected) {
+    DoAssertFilter(values, filter, expected);
+
+    if (values->type_id() == Type::DENSE_UNION) {
+      // Concatenation of dense union not supported
+      return;
+    }
+
+    // Check slicing: add M(=3) dummy values at the start and end of `values`,
+    // add N(=2) dummy values at the start and end of `filter`.
+    ARROW_SCOPED_TRACE("for sliced values and filter");
+    ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 3));
+    auto filter_filler = ArrayFromJSON(boolean(), "[true, false]");
+    ASSERT_OK_AND_ASSIGN(auto values_sliced,
+                         Concatenate({values_filler, values, values_filler}));
+    ASSERT_OK_AND_ASSIGN(auto filter_sliced,
+                         Concatenate({filter_filler, filter, filter_filler}));
+    values_sliced = values_sliced->Slice(3, values->length());
+    filter_sliced = filter_sliced->Slice(2, filter->length());
+    DoAssertFilter(values_sliced, filter_sliced, expected);
+  }
+
+  void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
                     const std::string& filter, const std::string& expected) {
     AssertFilter(ArrayFromJSON(type, values), ArrayFromJSON(boolean(), filter),
                  ArrayFromJSON(type, expected));
@@ -235,13 +266,13 @@ void ValidateFilter(const std::shared_ptr<Array>& values,
                     /*verbose=*/true);
 }
 
-class TestFilterKernelWithNull : public TestFilterKernel<NullType> {
+class TestFilterKernelWithNull : public TestFilterKernel {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<NullType>::AssertFilter(ArrayFromJSON(null(), values),
-                                             ArrayFromJSON(boolean(), filter),
-                                             ArrayFromJSON(null(), expected));
+    TestFilterKernel::AssertFilter(ArrayFromJSON(null(), values),
+                                   ArrayFromJSON(boolean(), filter),
+                                   ArrayFromJSON(null(), expected));
   }
 };
 
@@ -252,13 +283,13 @@ TEST_F(TestFilterKernelWithNull, FilterNull) {
   this->AssertFilter("[null, null, null]", "[1, 1, 0]", "[null, null]");
 }
 
-class TestFilterKernelWithBoolean : public TestFilterKernel<BooleanType> {
+class TestFilterKernelWithBoolean : public TestFilterKernel {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<BooleanType>::AssertFilter(ArrayFromJSON(boolean(), values),
-                                                ArrayFromJSON(boolean(), filter),
-                                                ArrayFromJSON(boolean(), expected));
+    TestFilterKernel::AssertFilter(ArrayFromJSON(boolean(), values),
+                                   ArrayFromJSON(boolean(), filter),
+                                   ArrayFromJSON(boolean(), expected));
   }
 };
 
@@ -285,7 +316,7 @@ TEST_F(TestFilterKernelWithBoolean, DefaultOptions) {
 }
 
 template <typename ArrowType>
-class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
+class TestFilterKernelWithNumeric : public TestFilterKernel {
  protected:
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
@@ -457,7 +488,7 @@ TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
 }
 
 template <typename TypeClass>
-class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
+class TestFilterKernelWithString : public TestFilterKernel {
  protected:
   std::shared_ptr<DataType> value_type() {
     return TypeTraits<TypeClass>::type_singleton();
@@ -465,9 +496,9 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
 
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<TypeClass>::AssertFilter(ArrayFromJSON(value_type(), values),
-                                              ArrayFromJSON(boolean(), filter),
-                                              ArrayFromJSON(value_type(), expected));
+    TestFilterKernel::AssertFilter(ArrayFromJSON(value_type(), values),
+                                   ArrayFromJSON(boolean(), filter),
+                                   ArrayFromJSON(value_type(), expected));
   }
 
   void AssertFilterDictionary(const std::string& dictionary_values,
@@ -483,7 +514,7 @@ class TestFilterKernelWithString : public TestFilterKernel<TypeClass> {
         auto expected,
         DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter), dict));
     auto take_filter = ArrayFromJSON(boolean(), filter);
-    TestFilterKernel<TypeClass>::AssertFilter(values, take_filter, expected);
+    TestFilterKernel::AssertFilter(values, take_filter, expected);
   }
 };
 
@@ -502,7 +533,7 @@ TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
 }
 
-class TestFilterKernelWithList : public TestFilterKernel<ListType> {
+class TestFilterKernelWithList : public TestFilterKernel {
  public:
 };
 
@@ -542,7 +573,7 @@ TEST_F(TestFilterKernelWithList, FilterListListInt32) {
   ])");
 }
 
-class TestFilterKernelWithLargeList : public TestFilterKernel<LargeListType> {};
+class TestFilterKernelWithLargeList : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
@@ -551,7 +582,7 @@ TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
                      "[[1,2], null, null]");
 }
 
-class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -565,7 +596,7 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
                      "[[1, null, 3], [7, 8, null]]");
 }
 
-class TestFilterKernelWithMap : public TestFilterKernel<MapType> {};
+class TestFilterKernelWithMap : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithMap, FilterMapStringToInt32) {
   std::string map_json = R"([
@@ -584,7 +615,7 @@ TEST_F(TestFilterKernelWithMap, FilterMapStringToInt32) {
   this->AssertFilter(map(utf8(), int32()), map_json, "[0, 1, 0, 1]", "[null, []]");
 }
 
-class TestFilterKernelWithStruct : public TestFilterKernel<StructType> {};
+class TestFilterKernelWithStruct : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithStruct, FilterStruct) {
   auto struct_type = struct_({field("a", int32()), field("b", utf8())});
@@ -607,7 +638,7 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
   ])");
 }
 
-class TestFilterKernelWithUnion : public TestFilterKernel<UnionType> {};
+class TestFilterKernelWithUnion : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithUnion, FilterUnion) {
   auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
@@ -634,9 +665,20 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
       [2, null]
     ])");
   this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
+
+  // Sliced
+  // (check this manually as concatenation of dense unions isn't supported: ARROW-4975)
+  auto values = ArrayFromJSON(union_type, union_json)->Slice(2, 4);
+  auto filter = ArrayFromJSON(boolean(), "[0, 1, 1, null, 0, 1, 1]")->Slice(2, 4);
+  auto expected = ArrayFromJSON(union_type, R"([
+      [5, "hello"],
+      [2, null],
+      [2, 111]
+    ])");
+  this->AssertFilter(values, filter, expected);
 }
 
-class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
+class TestFilterKernelWithRecordBatch : public TestFilterKernel {
  public:
   void AssertFilter(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                     const std::string& selection, FilterOptions options,
@@ -690,7 +732,7 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
   ])");
 }
 
-class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
+class TestFilterKernelWithChunkedArray : public TestFilterKernel {
  public:
   void AssertFilter(const std::shared_ptr<DataType>& type,
                     const std::vector<std::string>& values, const std::string& filter,
@@ -747,7 +789,7 @@ TEST_F(TestFilterKernelWithChunkedArray, FilterChunkedArray) {
                                                       {"[0, 1, 0]", "[1, 1]"}, &arr));
 }
 
-class TestFilterKernelWithTable : public TestFilterKernel<Table> {
+class TestFilterKernelWithTable : public TestFilterKernel {
  public:
   void AssertFilter(const std::shared_ptr<Schema>& schm,
                     const std::vector<std::string>& table_json, const std::string& filter,
@@ -856,14 +898,31 @@ Status TakeJSON(const std::shared_ptr<DataType>& type, const std::string& values
       .Value(out);
 }
 
-void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values,
-               const std::string& indices, const std::string& expected) {
-  std::shared_ptr<Array> actual;
+void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values_json,
+               const std::string& indices_json, const std::string& expected_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto expected = ArrayFromJSON(type, expected_json);
 
   for (auto index_type : {int8(), uint32()}) {
-    ASSERT_OK(TakeJSON(type, values, index_type, indices, &actual));
-    ValidateOutput(actual);
-    AssertArraysEqual(*ArrayFromJSON(type, expected), *actual, /*verbose=*/true);
+    auto indices = ArrayFromJSON(index_type, indices_json);
+    AssertTakeArrays(values, indices, expected);
+
+    // Check sliced values
+    if (type->id() != Type::DENSE_UNION) {
+      ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(type, 2));
+      ASSERT_OK_AND_ASSIGN(auto values_sliced,
+                           Concatenate({values_filler, values, values_filler}));
+      values_sliced = values_sliced->Slice(2, values->length());
+      AssertTakeArrays(values_sliced, indices, expected);
+    }
+
+    // Check sliced indices
+    ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(index_type, int8_t{0}));
+    ASSERT_OK_AND_ASSIGN(auto indices_filler, MakeArrayFromScalar(*zero, 3));
+    ASSERT_OK_AND_ASSIGN(auto indices_sliced,
+                         Concatenate({indices_filler, indices, indices_filler}));
+    indices_sliced = indices_sliced->Slice(3, indices->length());
+    AssertTakeArrays(values, indices_sliced, expected);
   }
 }
 
