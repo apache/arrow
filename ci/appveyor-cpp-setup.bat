@@ -39,6 +39,8 @@ conda config --set auto_update_conda false
 conda config --set show_channel_urls True
 @rem Help with SSL timeouts to S3
 conda config --set remote_connect_timeout_secs 12
+@rem Workaround for ARROW-13636
+conda config --append disallowed_packages pypy3
 conda info -a
 
 @rem
