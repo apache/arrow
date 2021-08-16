@@ -34,29 +34,57 @@ using internal::checked_cast;
 
 namespace compute {
 
+namespace {
+std::vector<std::string> GetInputLabels(ExecNode::NodeVector inputs) {
+  std::vector<std::string> labels(inputs.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    labels[i] = "input_" + std::to_string(i) + "_label";
+  }
+  return labels;
+}
+}  // namespace
 struct UnionNode : ExecNode {
-  UnionNode(ExecNode* lhs_input, ExecNode* rhs_input, ExecContext* ctx)
-      : ExecNode(lhs_input->plan(), {lhs_input, rhs_input},
-                 {"left_input_union", "right_input_union"},
-                 /*output_schema=*/lhs_input->output_schema(),
-                 /*num_outputs=*/1),
-        ctx_(ctx) {}
+  UnionNode(ExecPlan* plan, std::vector<ExecNode*> inputs)
+      : ExecNode(plan, inputs, GetInputLabels(inputs),
+                 /*output_schema=*/inputs[0]->output_schema(),
+                 /*num_outputs=*/1) {
+    if (this->input_count_.SetTotal(static_cast<int>(inputs.size()))) {
+      finished_.MarkFinished();
+    }
+  }
 
   const char* kind_name() override { return "UnionNode"; }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, inputs.size(), "UnionNode"));
+    if (inputs.size() < 2) {
+      return Status::Invalid("Constructing a `UnionNode` with inputs size less than 2");
+    }
+    auto schema = inputs.at(0)->output_schema();
+    for (auto input : inputs) {
+      if (!input->output_schema()->Equals(schema)) {
+        return Status::Invalid(
+            "Constructing a `UnionNode` with inputs with different schemas");
+      }
+    }
+    return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
+  }
 
   inline bool IsLeftInput(ExecNode* input) { return input == inputs_[0]; }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
+    ARROW_DCHECK(std::find_if(inputs_.begin(), inputs_.end(), [input](ExecNode* n) {
+                   return n == input;
+                 }) != inputs_.end());
 
     if (finished_.is_finished()) {
       return;
     }
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      ++batch_count_;
-    }
     outputs_[0]->InputReceived(this, seq, std::move(batch));
+    if (batch_count_.Increment()) {
+      finished_.MarkFinished();
+    }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -67,15 +95,17 @@ struct UnionNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
-    ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
-    {
-      std::unique_lock<std::mutex> lk(mutex_);
-      ++input_count_;
-    }
-    std::unique_lock<std::mutex> lk(mutex_);
-    if (input_count_ == 2) {
-      finished_.MarkFinished();
-      outputs_[0]->InputFinished(this, batch_count_);
+    ARROW_DCHECK(std::find_if(inputs_.begin(), inputs_.end(), [input](ExecNode* n) {
+                   return n == input;
+                 }) != inputs_.end());
+
+    total_batches_.fetch_add(num_total);
+
+    if (input_count_.Increment()) {
+      outputs_[0]->InputFinished(this, total_batches_.load());
+      if (batch_count_.SetTotal(total_batches_.load())) {
+        finished_.MarkFinished();
+      }
     }
   }
 
@@ -90,42 +120,31 @@ struct UnionNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    finished_.MarkFinished();
-
+    if (batch_count_.Cancel()) {
+      finished_.MakeFinished();
+    }
     for (auto&& input : inputs_) {
       input->StopProducing(this);
     }
   }
 
-  void StopProducing() override { inputs_[0]->StopProducing(this); }
+  void StopProducing() override {
+    if (batch_count_.Cancel()) {
+      finished_.MakeFinished();
+    }
+    inputs_[0]->StopProducing(this);
+  }
 
   Future<> finished() override { return finished_; }
 
  private:
-  ExecContext* ctx_;
-  std::mutex mutex_;
-  int batch_count_{0};
-  int input_count_{0};
+  AtomicCounter batch_count_;
+  AtomicCounter input_count_;
+  std::atomic<int> total_batches_{0};
   Future<> finished_ = Future<>::MakeFinished();
 };
 
-Result<ExecNode*> MakeUnionNode(ExecNode* lhs_input, ExecNode* rhs_input) {
-  auto ctx = lhs_input->plan()->exec_context();
-  ExecPlan* plan = lhs_input->plan();
-  return plan->EmplaceNode<UnionNode>(lhs_input, rhs_input, ctx);
-}
-
-ExecFactoryRegistry::AddOnLoad kRegisterUnion(
-    "union",
-    [](ExecPlan* plan, std::vector<ExecNode*> inputs,
-       const ExecNodeOptions& options) -> Result<ExecNode*> {
-      RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "UnionNode"));
-
-      ExecNode* left_input = inputs[0];
-      ExecNode* right_input = inputs[1];
-
-      return MakeUnionNode(left_input, right_input);
-    });
+ExecFactoryRegistry::AddOnLoad kRegisterUnion("union", UnionNode::Make);
 
 }  // namespace compute
 }  // namespace arrow

@@ -56,12 +56,11 @@ void GenerateBatchesFromString(const std::shared_ptr<Schema>& schema,
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r_batches,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  SCOPED_TRACE("serial");
+  SCOPED_TRACE(parallel ? "parallel" : "single threaded");
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  ExecNodeOptions Union_options{};
-  Declaration union_decl{"union", Union_options};
+  Declaration union_decl{"union", ExecNodeOptions{}};
 
   // add left source
   union_decl.inputs.emplace_back(Declaration{
@@ -84,8 +83,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
 }
 
 void RunNonEmptyTest(bool parallel) {
-  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
-  auto r_schema = schema({field("r_i32", int32()), field("r_str", utf8())});
+  auto l_schema = schema({field("colum_i32", int32()), field("colum_str", utf8())});
+  auto r_schema = schema({field("colum_i32", int32()), field("colum_str", utf8())});
   BatchesWithSchema l_batches, r_batches, exp_batches;
 
   int multiplicity = parallel ? 100 : 1;
@@ -115,8 +114,8 @@ void RunNonEmptyTest(bool parallel) {
 }
 
 void RunEmptyTest(bool parallel) {
-  auto l_schema = schema({field("l_i32", int32()), field("l_str", utf8())});
-  auto r_schema = schema({field("r_i32", int32()), field("r_str", utf8())});
+  auto l_schema = schema({field("colum_i32", int32()), field("colum_str", utf8())});
+  auto r_schema = schema({field("colum_i32", int32()), field("colum_str", utf8())});
 
   int multiplicity = parallel ? 100 : 1;
 
@@ -130,19 +129,22 @@ void RunEmptyTest(bool parallel) {
   CheckRunOutput(l_empty, r_empty, output_batches);
 }
 
-class UnionTest : public testing::TestWithParam<std::tuple<bool>> {};
+TEST(UnionTest, TestNonEmpty) {
+  for (bool parallel : {false, true}) {
+    RunNonEmptyTest(parallel);
+  }
+}
 
-INSTANTIATE_TEST_SUITE_P(UnionTest, UnionTest,
-                         ::testing::Combine(::testing::Values(false, true)));
-
-TEST_P(UnionTest, TestNonEmpty) { RunNonEmptyTest(std::get<0>(GetParam())); }
-
-TEST_P(UnionTest, TestEmpty) { RunEmptyTest(std::get<0>(GetParam())); }
+TEST(UnionTest, TestEmpty) {
+  for (bool parallel : {false, true}) {
+    RunEmptyTest(parallel);
+  }
+}
 
 void TestUnionRandom(const std::shared_ptr<DataType>& data_type, bool parallel,
                      int num_batches, int batch_size) {
-  auto l_schema = schema({field("l0", data_type), field("l1", data_type)});
-  auto r_schema = schema({field("r0", data_type), field("r1", data_type)});
+  auto l_schema = schema({field("colum0", data_type), field("colum1", data_type)});
+  auto r_schema = schema({field("colum0", data_type), field("colum1", data_type)});
 
   // generate data
   auto l_batches = MakeRandomBatches(l_schema, num_batches, batch_size);
@@ -165,14 +167,27 @@ void TestUnionRandom(const std::shared_ptr<DataType>& data_type, bool parallel,
   ASSERT_OK(Declaration::Sequence({Union, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
 
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+  auto actual = StartAndCollect(plan.get(), sink_gen);
+
+  BatchesWithSchema exp_batches;
+  exp_batches.schema = l_schema;
+  exp_batches.batches.reserve(l_batches.batches.size() + r_batches.batches.size());
+
+  std::copy(l_batches.batches.begin(), l_batches.batches.end(),
+            std::back_inserter(exp_batches.batches));
+  std::copy(r_batches.batches.begin(), r_batches.batches.end(),
+            std::back_inserter(exp_batches.batches));
+
+  auto expected_matcher =
+      Finishes(ResultWith(UnorderedElementsAreArray(exp_batches.batches)));
+  ASSERT_THAT(actual, expected_matcher);
 }
 
 class UnionTestRand
     : public testing::TestWithParam<std::tuple<std::shared_ptr<DataType>, bool>> {};
 
-static constexpr int kNumBatches = 1000;
-static constexpr int kBatchSize = 100;
+static constexpr int kNumBatches = 100;
+static constexpr int kBatchSize = 10;
 
 INSTANTIATE_TEST_SUITE_P(UnionTestRand, UnionTestRand,
                          ::testing::Combine(::testing::Values(int8(), int32(), int64(),
