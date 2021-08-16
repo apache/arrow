@@ -248,14 +248,48 @@ Notes:
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
-Hash Aggregations ("group by")
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Grouped Aggregations ("group by")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Hash aggregations are not directly invokable, but are used as part of a group
-by operation. Like scalar aggregations, hash aggregations reduce their input
-to a single output value, but do so on subsets of the input, based on a
-partitioning of the input values on some set of "key" columns, and emit one
-output per input group.
+Grouped aggregations are not directly invokable, but are used as part of a
+group by operation. Like scalar aggregations, grouped aggregations reduce
+multiple input values to a single output value. Instead of aggregating all
+values of the input, however, grouped aggregations partition of the input
+values on some set of "key" columns, then aggregate each group individually,
+and emit one output per input group.
+
+As an example, for the following table:
+
++-----------------+--------------+
+| Column "x"      | Column "key" |
++=================+==============+
+| 2               | "a"          |
++-----------------+--------------+
+| 5               | "a"          |
++-----------------+--------------+
+| null            | "b"          |
++-----------------+--------------+
+| null            | "b"          |
++-----------------+--------------+
+| null            | null         |
++-----------------+--------------+
+| 5               | null         |
++-----------------+--------------+
+
+We compute a sum of column "x", grouped on the key column "key". This gives us
+three groups:
+
++-----------------+--------------+
+| Column "sum(x)" | Column "key" |
++=================+==============+
+| 7               | "a"          |
++-----------------+--------------+
+| null            | "b"          |
++-----------------+--------------+
+| 5               | null         |
++-----------------+--------------+
+
+The supported aggregation functions are as follows.
 
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
