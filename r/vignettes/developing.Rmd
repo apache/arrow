@@ -47,7 +47,7 @@ If you're looking to contribute to arrow, this vignette can help you set up a de
 * how to build the components that make up the Arrow project and R package
 * some common troubleshooting and workflows that developers use
 
-This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation); Linux users can find more details on building from source at `vignette("install", package = "arrow")`.
+This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation).
 
 This document is a work in progress and will grow and change as the Apache Arrow project grows and changes. We have tried to make these steps as robust as possible (in fact, we even test exactly these instructions on our nightly CI to ensure they don't become stale!), but custom configurations might conflict with these instructions and there are differences of opinion across developers about how to set up development environments like this is.
 
@@ -96,13 +96,7 @@ On Linux, you'll need to create a `libarrow` directory inside the R package dire
 
 If you need to alter both the Arrow C++ library and the R package code, or if you can't get a binary version of the latest C++ library elsewhere, you'll need to build it from source. This section discusses how to set up a C++ build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
-There are five major steps to the process — the first four are relevant to all Arrow developers, and the last one is specific to developers making changes to the R package:
-
-1. Install dependencies
-2. Configuring the Arrow library build (using `cmake`) — this specifies how you want the build to go, what features to include, etc.
-3. Building the Arrow library — this actually compiles the Arrow library
-4. Install the Arrow library — this organizes and moves the compiled Arrow library files into the location specified in the configuration
-5. Building the R package — this builds the C++ code in the R package, and installs the R package for you
+There are five major steps to the process — the first four are relevant to all Arrow developers, and the last one is specific to developers making changes to the R package.
 
 ### Step 1 - Install dependencies
 
@@ -276,7 +270,7 @@ need to set
 export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
 
-### Developer Experience
+#### Recompiling the C++ code
 
 With the setups described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterated and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the Arrow library C++ has changed and there is a mismatch between the Arrow Library and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
 
@@ -517,11 +511,11 @@ Execution halted
 ERROR: loading failed
 ```
 
-To resolve this, try rebuilding the Arrow library from [Building Arrow above](#building-arrow).
+To resolve this, try rebuilding the Arrow library from [Building Arrow above](#step-3-building-arrow).
 
 ## Multiple versions of Arrow library
 
-If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#installing-to-another-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
+If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#configure-for-installing-to-a-user-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
 
 ```
 Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath = DLLpath, ...):
