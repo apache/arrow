@@ -306,7 +306,7 @@ cmake \
 
 ## Installing a version of the R package with a specific git reference
 
-If you need an arrow installation from a specific repository or at a specific ref,
+If you need an arrow installation from a specific repository or git reference,
 `remotes::install_github("apache/arrow/r", build = FALSE)`
 should work on most platforms (with the notable exception of Windows).
 The `build = FALSE` argument is important so that the installation can access the
