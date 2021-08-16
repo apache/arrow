@@ -451,11 +451,23 @@ variables or other settings:
 
 ## Running checks
 
-You can run package checks by using `devtools::check()` or the Makefile alternative.
+You can run package checks by using `devtools::check()` and check test coverage with `covr::package_coverage()`.
+
+```r
+# All package checks
+devtools::check()
+
+# See test coverage statistics
+covr::report()
+covr::package_coverage()
 
 ```
-# All package checks; see also below
-devtools::check()
+
+For full package validation, you can run the following commands from a terminal.
+
+```
+R CMD build .
+R CMD check arrow_*.tar.gz --as-cran
 ```
 
 
@@ -478,9 +490,6 @@ See the `r:` group definition near the beginning of the [crossbow configuration]
 `@github-actions autotune`
 
 This will run and fix lint C++ linting errors, run R documentation (among other cleanup tasks), and commit the resulting updates to the branch.
-
-
-
 
 # Troubleshooting
 
