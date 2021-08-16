@@ -131,9 +131,9 @@ distro <- function() {
   }
 
   out$id <- tolower(out$id)
-  if (grepl("bullseye", out$codename)) {
+  if (grepl("bookworm", out$codename)) {
     # debian unstable doesn't include a number but we can map from pretty name
-    out$short_version <- "11"
+    out$short_version <- "12"
   } else if (out$id == "ubuntu") {
     # Keep major.minor version
     out$short_version <- sub('^"?([0-9]+\\.[0-9]+).*"?.*$', "\\1", out$version)
