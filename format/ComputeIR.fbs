@@ -25,8 +25,12 @@ namespace org.apache.arrow.flatbuf.computeir;
 /// - a reference to a Field from a Relation
 /// - a call to a named function
 /// On evaluation, an Expression will have either array or scalar shape.
-union Expression {
+union ExpressionImpl {
   Literal, FieldRef, Call
+}
+
+table Expression {
+  impl: ExpressionImpl (required);
 }
 
 union Shape {

@@ -23,7 +23,7 @@
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR=$CWD/../src
 FORMAT_DIR=$CWD/../../format
-FLATC="flatc -c --cpp-std c++11"
+FLATC="flatc --cpp --grpc --cpp-std c++11"
 
 $FLATC -o $SOURCE_DIR/generated \
       --scoped-enums \
