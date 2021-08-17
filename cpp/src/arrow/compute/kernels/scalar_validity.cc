@@ -32,6 +32,9 @@ namespace compute {
 namespace internal {
 namespace {
 
+template <typename T, typename R = T>
+using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, R>;
+
 struct IsValidOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
@@ -77,26 +80,42 @@ struct IsInfOperator {
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const NanNullOptions& options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    const auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
     bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
     if (in.is_valid) {
-      switch (in.type->id()) {
-        case Type::FLOAT:
-          *out_value = options.nan_is_null &&
-                       std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
-          break;
-        case Type::DOUBLE:
-          *out_value = options.nan_is_null &&
-                       std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
-          break;
-        default:
-          *out_value = false;
+      if (is_floating(in.type->id())) {
+        switch (in.type->id()) {
+          case Type::FLOAT:
+            *out_value = options.nan_is_null &&
+                         std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+            break;
+          case Type::DOUBLE:
+            *out_value = options.nan_is_null &&
+                         std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+            break;
+          default:
+            return Status::NotImplemented("Type not implemented");
+        }
+      } else {
+        *out_value = false;
+
       }
     } else {
       *out_value = true;
     }
 
     return Status::OK();
+  }
+
+  template <typename T>
+  static enable_if_floating_point<T, void> SetNanBits(const ArrayData& arr,
+                                                      ArrayData* out) {
+    const T* data = arr.GetValues<T>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      if (std::isnan(data[i])) {
+        BitUtil::SetBit(out->buffers[1]->mutable_data(), i);
+      }
+    }
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
@@ -110,20 +129,18 @@ struct IsNullOperator {
                          false);
     }
 
-    const NanNullOptions& options = OptionsWrapper<NanNullOptions>::Get(ctx);
-    if (options.nan_is_null) {
-      if (arr.type->id() == Type::FLOAT) {
-        const float* data = arr.GetValues<float>(1);
-        for (int64_t i = 0; i < arr.length; ++i) {
-          if (std::isnan(data[i]))
-            BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), i, 1, true);
-        }
-
-      } else if (arr.type->id() == Type::DOUBLE) {
-        const double* data = arr.GetValues<double>(1);
-        for (int64_t i = 0; i < arr.length; ++i) {
-          if (std::isnan(data[i]))
-            BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), i, 1, true);
+    if (is_floating(arr.type->id())) {
+      const auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+      if (options.nan_is_null) {
+        switch (arr.type->id()) {
+          case Type::FLOAT:
+            SetNanBits<float>(arr, out);
+            break;
+          case Type::DOUBLE:
+            SetNanBits<double>(arr, out);
+            break;
+          default:
+            return Status::NotImplemented("Type not implemented");
         }
       }
     }
