@@ -21,6 +21,7 @@ import inspect
 import pickle
 import pytest
 import random
+import sys
 import textwrap
 
 import numpy as np
@@ -1365,8 +1366,9 @@ def test_strptime():
 def _check_datetime_components(timestamps, timezone=None):
     from pyarrow.vendored.version import Version
 
-    ts = pd.to_datetime(timestamps).to_series()
-    tsa = pa.array(ts)
+    ts = pd.to_datetime(timestamps).tz_localize(
+        "UTC").tz_convert(timezone).to_series()
+    tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
 
     subseconds = ((ts.dt.microsecond * 10**3 +
                    ts.dt.nanosecond) * 10**-9).round(9)
@@ -1412,11 +1414,13 @@ def _check_datetime_components(timestamps, timezone=None):
     day_of_week_options = pc.DayOfWeekOptions(
         one_based_numbering=True, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
-        pa.array(ts.dt.dayofweek+1))
+        pa.array(ts.dt.dayofweek + 1))
 
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
+    from pyarrow.vendored.version import Version
+
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1432,8 +1436,21 @@ def test_extract_datetime_components():
                   "2008-12-28",
                   "2008-12-29",
                   "2012-01-01 01:02:03"]
+    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+                 "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
+    # Test timezone naive timestamp array
     _check_datetime_components(timestamps)
+
+    # Test timezone aware timestamp array
+    if sys.platform == 'win32':
+        # TODO: We should test on windows once ARROW-13168 is resolved.
+        pytest.skip('Timezone database is not available on Windows yet')
+    elif Version(pd.__version__) <= Version('0.23.0'):
+        pytest.skip('Pandas 0.23.0 extracts time components incorrectly.')
+    else:
+        for timezone in timezones:
+            _check_datetime_components(timestamps, timezone)
 
 
 def test_count():

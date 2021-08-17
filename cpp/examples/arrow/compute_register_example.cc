@@ -48,6 +48,7 @@ class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
     return true;
   }
+  std::unique_ptr<cp::FunctionOptions> Copy(const cp::FunctionOptions&) const override;
   // optional: support for serialization
   // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
   // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer&) const override;
@@ -62,6 +63,11 @@ class ExampleFunctionOptions : public cp::FunctionOptions {
  public:
   ExampleFunctionOptions() : cp::FunctionOptions(GetExampleFunctionOptionsType()) {}
 };
+
+std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
+    const cp::FunctionOptions&) const {
+  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
+}
 
 arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
                                   arrow::Datum* out) {

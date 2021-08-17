@@ -1755,16 +1755,17 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   template <typename Adapter>
   Status GenerateOutput() {
     ValuesArrayType typed_values(this->values);
-    int32_t list_size = typed_values.list_type()->list_size();
+    const int32_t list_size = typed_values.list_type()->list_size();
+    const int64_t base_offset = typed_values.offset();
 
-    /// We must take list_size elements even for null elements of
-    /// indices.
+    // We must take list_size elements even for null elements of
+    // indices.
     RETURN_NOT_OK(child_index_builder.Reserve(output_length * list_size));
 
     Adapter adapter(this);
     return adapter.Generate(
         [&](int64_t index) {
-          int64_t offset = index * list_size;
+          int64_t offset = (base_offset + index) * list_size;
           for (int64_t j = offset; j < offset + list_size; ++j) {
             child_index_builder.UnsafeAppend(j);
           }

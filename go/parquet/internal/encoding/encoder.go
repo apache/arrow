@@ -99,7 +99,7 @@ func (e *encoder) append(data []byte)              { e.sink.Write(data) }
 // FlushValues flushes any unwritten data to the buffer and returns the finished encoded buffer of data.
 // This also clears the encoder, ownership of the data belongs to whomever called FlushValues, Release
 // should be called on the resulting Buffer when done.
-func (e *encoder) FlushValues() Buffer { return e.sink.Finish() }
+func (e *encoder) FlushValues() (Buffer, error) { return e.sink.Finish(), nil }
 
 // Bytes returns the current bytes that have been written to the encoder's buffer but doesn't transfer ownership.
 func (e *encoder) Bytes() []byte { return e.sink.Bytes() }
@@ -147,13 +147,17 @@ func (d *dictEncoder) addIndex(idx int) {
 }
 
 // FlushValues dumps all the currently buffered indexes that would become the data page to a buffer and
-// returns it.
-func (d *dictEncoder) FlushValues() Buffer {
+// returns it or returns nil and any error encountered.
+func (d *dictEncoder) FlushValues() (Buffer, error) {
 	buf := bufferPool.Get().(*memory.Buffer)
 	buf.Reserve(int(d.EstimatedDataEncodedSize()))
-	size := d.WriteIndices(buf.Buf())
+	size, err := d.WriteIndices(buf.Buf())
+	if err != nil {
+		poolBuffer{buf}.Release()
+		return nil, err
+	}
 	buf.ResizeNoShrink(size)
-	return poolBuffer{buf}
+	return poolBuffer{buf}, nil
 }
 
 // EstimatedDataEncodedSize returns the maximum number of bytes needed to store the RLE encoded indexes, not including the
@@ -187,19 +191,20 @@ func (d *dictEncoder) WriteDict(out []byte) {
 
 // WriteIndices performs Run Length encoding on the indexes and the writes the encoded
 // index value data to the provided byte slice, returning the number of bytes actually written.
-func (d *dictEncoder) WriteIndices(out []byte) int {
+// If any error is encountered, it will return -1 and the error.
+func (d *dictEncoder) WriteIndices(out []byte) (int, error) {
 	out[0] = byte(d.BitWidth())
 
 	enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(out[1:]), d.BitWidth())
 	for _, idx := range d.idxValues {
-		if !enc.Put(uint64(idx)) {
-			return -1
+		if err := enc.Put(uint64(idx)); err != nil {
+			return -1, err
 		}
 	}
 	nbytes := enc.Flush()
 
 	d.idxValues = d.idxValues[:0]
-	return nbytes + 1
+	return nbytes + 1, nil
 }
 
 // Put adds a value to the dictionary data column, inserting the value if it

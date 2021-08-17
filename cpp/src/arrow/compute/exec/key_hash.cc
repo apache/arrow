@@ -198,8 +198,15 @@ void Hashing::hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* 
       last_stripe[1] = last_stripe_base[1];
       last_stripe[1] &= mask;
     }
+
+    // The stack allocation and memcpy here should be optimized out by the compiler.
+    // Using a reinterpret_cast causes a compiler warning on gcc and can lead to incorrect
+    // results. See https://issues.apache.org/jira/browse/ARROW-13600 for more info.
+    uint32_t lanes[4];
+    memcpy(&lanes, &last_stripe, sizeof(last_stripe));
+
     for (int j = 0; j < 4; ++j) {
-      uint32_t lane = reinterpret_cast<const uint32_t*>(last_stripe)[j];
+      uint32_t lane = lanes[j];
       acc[j] += (lane * PRIME32_2);
       acc[j] = ROTL(acc[j], 13);
       acc[j] *= PRIME32_1;

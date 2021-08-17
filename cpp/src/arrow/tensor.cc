@@ -328,7 +328,7 @@ struct NonZeroCounter {
   }
 
   const Tensor& tensor_;
-  int64_t result;
+  int64_t result = 0;
 };
 
 }  // namespace
