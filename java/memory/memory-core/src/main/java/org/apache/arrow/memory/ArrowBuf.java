@@ -1194,4 +1194,9 @@ public final class ArrowBuf implements AutoCloseable {
               "Realloc is only available in the context of operator's UDFs");
     }
   }
+
+  public ArrowBuf clear() {
+    this.readerIndex = this.writerIndex = 0;
+    return this;
+  }
 }
