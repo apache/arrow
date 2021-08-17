@@ -152,6 +152,8 @@ public abstract class AbstractJdbcToArrowTest {
    * If you wish to use specific TimeZone or Locale for any Date, Time and Timestamp datasets, you may want use
    * overloaded API that taken Calendar object instance.
    *
+   * This method is for test only.
+   *
    * @param connection Database connection to be used. This method will not close the passed connection object. Since
    *                   the caller has passed the connection object it's the responsibility of the caller to close or
    *                   return the connection to the pool.
@@ -172,6 +174,8 @@ public abstract class AbstractJdbcToArrowTest {
 
   /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * This method is for test only.
    *
    * @param connection Database connection to be used. This method will not close the passed connection object. Since
    *                   the caller has passed the connection object it's the responsibility of the caller to close or
@@ -198,6 +202,8 @@ public abstract class AbstractJdbcToArrowTest {
   /**
    * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
    *
+   * This method is for test only.
+   *
    * @param connection Database connection to be used. This method will not close the passed connection object.
    *                   Since the caller has passed the connection object it's the responsibility of the caller
    *                   to close or return the connection to the pool.
@@ -221,6 +227,8 @@ public abstract class AbstractJdbcToArrowTest {
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects. This
    * method uses the default RootAllocator and Calendar object.
    *
+   * This method is for test only.
+   *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
@@ -233,6 +241,8 @@ public abstract class AbstractJdbcToArrowTest {
 
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator
@@ -251,6 +261,8 @@ public abstract class AbstractJdbcToArrowTest {
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
    *
+   * This method is for test only.
+   *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
@@ -263,6 +275,8 @@ public abstract class AbstractJdbcToArrowTest {
 
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator to use.
@@ -282,6 +296,8 @@ public abstract class AbstractJdbcToArrowTest {
 
   /**
    * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   *
+   * This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param config    Configuration of the conversion from JDBC to Arrow.
