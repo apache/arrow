@@ -211,7 +211,7 @@ the input to a single output value.
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(6)  |
+| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(7)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | variance      | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -234,17 +234,11 @@ Notes:
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-  The mode kernel is not a proper aggregate (it is actually a vector
-  function, see below).
-
 * \(5) Output is Int64, UInt64 or Float64, depending on the input type.
 
 * \(6) Output is Float64 or input type, depending on QuantileOptions.
 
-  The quantile kernel is not a proper aggregate (it is actually a vector
-  function, see below).
-
-* \(6) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
