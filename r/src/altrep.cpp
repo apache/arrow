@@ -56,30 +56,49 @@ extern "C" {
 namespace arrow {
 namespace r {
 
+namespace altrep {
+
+template <typename data_type>
+SEXP Force(SEXP alt);
+
+}
+
+// This uses both data1 and data2 of the ALTREP
+// data1: an external pointer to the Array
+// data2: either NULL, or the fully materialized vector
 struct AltrepArrayBase {
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
   SEXP alt_;
 
-  AltrepArrayBase(SEXP alt) : alt_(alt){}
+  explicit AltrepArrayBase(SEXP alt) : alt_(alt) {}
 
-  SEXP data1() {
-    return R_altrep_data1(alt_);
+  SEXP data1() { return R_altrep_data1(alt_); }
+
+  SEXP data2() { return R_altrep_data2(alt_); }
+
+  const std::shared_ptr<Array>& Get() { return *Pointer(data1()); }
+
+  R_xlen_t Length() { return Get()->length(); }
+
+  bool IsMaterialized() { return !Rf_isNull(data2()); }
+
+  void Materialize() {
+    if (!IsMaterialized()) {
+      const auto& array = Get();
+      if (array->type_id() == Type::INT32) {
+        R_set_altrep_data2(alt_, altrep::Force<int>(alt_));
+      } else {
+        R_set_altrep_data2(alt_, altrep::Force<double>(alt_));
+      }
+    }
   }
 
-  SEXP data2() {
-    return R_altrep_data2(alt_);
+  SEXP Duplicate(Rboolean deep) {
+    Materialize();
+    return Rf_lazy_duplicate(data2());
   }
-
-  const std::shared_ptr<Array>& Get() {
-    return *Pointer(data1());
-  }
-
-  R_xlen_t Length() {
-    return Get()->length();
-  }
-
 };
 
 namespace altrep {
@@ -116,16 +135,57 @@ auto Elt(SEXP alt, R_xlen_t i) -> decltype(AltrepClass(alt).Elt(i)) {
 }
 
 template <typename AltrepClass>
-R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, typename AltrepClass::data_type* buf) {
-  return AltrepClass(alt).Get_region(i, n, buf);
-}
-
-template <typename AltrepClass>
 int No_NA(SEXP alt) {
   return AltrepClass(alt).No_NA();
 }
 
-inline SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array, RTasks& tasks) {
+template <typename data_type>
+R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, data_type* buf) {
+  const auto& slice = AltrepArrayBase(alt).Get()->Slice(i, n);
+
+  R_xlen_t ncopy = slice->length();
+
+  // first copy the data buffer
+  memcpy(buf, slice->data()->template GetValues<data_type>(1), ncopy * sizeof(data_type));
+
+  // then set the R NA sentinels if needed
+  if (slice->null_count() > 0) {
+    internal::BitmapReader bitmap_reader(slice->null_bitmap()->data(), slice->offset(),
+                                         ncopy);
+
+    for (R_xlen_t j = 0; j < ncopy; j++, bitmap_reader.Next()) {
+      if (bitmap_reader.IsNotSet()) {
+        buf[j] = cpp11::na<data_type>();
+      }
+    }
+  }
+
+  return ncopy;
+}
+
+template <typename data_type>
+SEXP Force(SEXP alt) {
+  constexpr int sexp_type = std::is_same<data_type, double>::value ? REALSXP : INTSXP;
+
+  const auto& array = AltrepArrayBase(alt).Get();
+  auto size = array->length();
+
+  // create a standard R vector
+  SEXP copy = PROTECT(Rf_allocVector(sexp_type, array->length()));
+
+  // copy the data from the array, through Get_region
+  altrep::Get_region<data_type>(alt, 0, size,
+                                reinterpret_cast<data_type*>(DATAPTR(copy)));
+
+  // store as data2
+  MARK_NOT_MUTABLE(copy);
+
+  UNPROTECT(1);
+  return copy;
+}
+
+inline SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array,
+                 RTasks& tasks) {
   // we don't need the whole r6 object, just an external pointer that retain the Array
   AltrepArrayBase::Pointer xp(new std::shared_ptr<Array>(array));
 
@@ -138,7 +198,7 @@ inline SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array, 
 static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
     const std::shared_ptr<Array>& array, bool na_rm) {
   auto options = std::make_shared<arrow::compute::ScalarAggregateOptions>(
-    arrow::compute::ScalarAggregateOptions::Defaults());
+      arrow::compute::ScalarAggregateOptions::Defaults());
   options->min_count = 0;
   options->skip_nulls = na_rm;
   return options;
@@ -148,7 +208,7 @@ template <int sexp_type, bool Min>
 SEXP MinMax(SEXP alt, Rboolean narm) {
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
   using scalar_type =
-    typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
+      typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
   const auto& array = AltrepArrayBase(alt).Get();
   bool na_rm = narm == TRUE;
@@ -164,12 +224,12 @@ SEXP MinMax(SEXP alt, Rboolean narm) {
   auto options = NaRmOptions(array, na_rm);
 
   const auto& minmax =
-    ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
+      ValueOrStop(arrow::compute::CallFunction("min_max", {array}, options.get()));
   const auto& minmax_scalar =
-    internal::checked_cast<const StructScalar&>(*minmax.scalar());
+      internal::checked_cast<const StructScalar&>(*minmax.scalar());
 
   const auto& result_scalar = internal::checked_cast<const scalar_type&>(
-    *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
+      *ValueOrStop(minmax_scalar.field(Min ? "min" : "max")));
   return cpp11::as_sexp(result_scalar.value);
 }
 
@@ -197,7 +257,7 @@ static SEXP Sum(SEXP alt, Rboolean narm) {
   auto options = NaRmOptions(array, na_rm);
 
   const auto& sum =
-    ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
+      ValueOrStop(arrow::compute::CallFunction("sum", {array}, options.get()));
 
   if (sexp_type == INTSXP) {
     // When calling the "sum" function on an int32 array, we get an Int64 scalar
@@ -210,83 +270,97 @@ static SEXP Sum(SEXP alt, Rboolean narm) {
     }
   } else {
     return Rf_ScalarReal(
-      internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
+        internal::checked_cast<const DoubleScalar&>(*sum.scalar()).value);
   }
 }
 
-} // namespace altrep
+template <typename AltrepClass>
+void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
+  R_set_altrep_Length_method(class_t, altrep::Length<AltrepClass>);
+  R_set_altrep_Inspect_method(class_t, altrep::Inspect<AltrepClass>);
+  R_set_altrep_Duplicate_method(class_t, altrep::Duplicate<AltrepClass>);
+}
 
+template <typename AltrepClass>
+void InitAltvecMethods(R_altrep_class_t class_t, DllInfo* dll) {
+  R_set_altvec_Dataptr_method(class_t, altrep::Dataptr<AltrepClass>);
+  R_set_altvec_Dataptr_or_null_method(class_t, altrep::Dataptr_or_null<AltrepClass>);
+}
 
+template <typename AltrepClass>
+void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
+  R_set_altreal_No_NA_method(class_t, altrep::No_NA<AltrepClass>);
+  R_set_altreal_Sum_method(class_t, altrep::Sum<REALSXP>);
+  R_set_altreal_Min_method(class_t, altrep::Min<REALSXP>);
+  R_set_altreal_Max_method(class_t, altrep::Max<REALSXP>);
+
+  R_set_altreal_Elt_method(class_t, altrep::Elt<AltrepClass>);
+  R_set_altreal_Get_region_method(class_t, altrep::Get_region<double>);
+}
+
+template <typename AltrepClass>
+void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
+  R_set_altinteger_No_NA_method(class_t, altrep::No_NA<AltrepClass>);
+  R_set_altinteger_Sum_method(class_t, altrep::Sum<INTSXP>);
+  R_set_altinteger_Min_method(class_t, altrep::Min<INTSXP>);
+  R_set_altinteger_Max_method(class_t, altrep::Max<INTSXP>);
+
+  R_set_altinteger_Elt_method(class_t, altrep::Elt<AltrepClass>);
+  R_set_altinteger_Get_region_method(class_t, altrep::Get_region<int>);
+}
+
+}  // namespace altrep
+
+// specialized altrep vector for when there are no nulls
 template <int sexp_type>
 struct AltrepArrayNoNulls : public AltrepArrayBase {
   static R_altrep_class_t class_t;
 
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+  constexpr static int r_type = sexp_type;
 
-  AltrepArrayNoNulls(SEXP alt) : AltrepArrayBase(alt){}
+  explicit AltrepArrayNoNulls(SEXP alt) : AltrepArrayBase(alt) {}
 
   Rboolean Inspect(int pre, int deep, int pvec,
                    void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get();
     Rprintf("arrow::Array<%s, no nulls> len=%d, Array=<%p>\n",
-            array->type()->ToString().c_str(), array->length(),
-            array.get());
+            array->type()->ToString().c_str(), array->length(), array.get());
     inspect_subtree(data1(), pre, deep + 1, pvec);
     return TRUE;
   }
 
+  // the array data is always available
   const void* Dataptr_or_null() {
     return Get()->data()->template GetValues<data_type>(1);
   }
 
-  void* Dataptr(Rboolean writeable) {
-    return const_cast<void*>(Dataptr_or_null());
-  }
+  void* Dataptr(Rboolean writeable) { return const_cast<void*>(Dataptr_or_null()); }
 
-  virtual SEXP Duplicate(Rboolean deep) {
-    const auto& array = Get();
-    auto size = array->length();
+  int No_NA() { return true; }
 
-    SEXP copy = PROTECT(Rf_allocVector(sexp_type, array->length()));
-
-    memcpy(DATAPTR(copy), Dataptr_or_null(), size * sizeof(data_type));
-
-    UNPROTECT(1);
-    return copy;
-  }
-
-  int No_NA() {
-    return true;
-  }
-
-  static void Init(DllInfo* dll) {
-    // altrep
-    R_set_altrep_Length_method(class_t, altrep::Length<AltrepArrayNoNulls>);
-    R_set_altrep_Inspect_method(class_t, altrep::Inspect<AltrepArrayNoNulls>);
-    R_set_altrep_Duplicate_method(class_t, altrep::Duplicate<AltrepArrayNoNulls>);
-
-    // altvec
-    R_set_altvec_Dataptr_method(class_t, altrep::Dataptr<AltrepArrayNoNulls>);
-    R_set_altvec_Dataptr_or_null_method(class_t, altrep::Dataptr_or_null<AltrepArrayNoNulls>);
-  }
-
+  data_type Elt(R_xlen_t i) { return Get()->data()->template GetValues<data_type>(1)[i]; }
 };
 
+template <int sexp_type>
+R_altrep_class_t AltrepArrayNoNulls<sexp_type>::class_t;
+
+// specialized altrep vector for when there are some nulls
 template <int sexp_type>
 struct AltrepArrayWithNulls : public AltrepArrayBase {
   static R_altrep_class_t class_t;
 
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+  constexpr static int r_type = sexp_type;
 
-  AltrepArrayWithNulls(SEXP alt) : AltrepArrayBase(alt){}
+  explicit AltrepArrayWithNulls(SEXP alt) : AltrepArrayBase(alt) {}
 
   Rboolean Inspect(int pre, int deep, int pvec,
                    void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get();
     Rprintf("arrow::Array<%s, %d nulls, %s> len=%d, Array=<%p>\n",
             array->type()->ToString().c_str(), array->null_count(),
-            Rf_isNull(data2()) ? "not materialized" : "materialized",
-            array->length(),
+            IsMaterialized() ? "not materialized" : "materialized", array->length(),
             array.get());
     inspect_subtree(data1(), pre, deep + 1, pvec);
     if (IsMaterialized()) {
@@ -295,6 +369,7 @@ struct AltrepArrayWithNulls : public AltrepArrayBase {
     return TRUE;
   }
 
+  // only return the data ptr if this has previously been materialized
   const void* Dataptr_or_null() {
     if (!IsMaterialized()) {
       return NULL;
@@ -303,159 +378,51 @@ struct AltrepArrayWithNulls : public AltrepArrayBase {
     return DATAPTR_RO(data2());
   }
 
+  // force materialization, and then return data ptr
   void* Dataptr(Rboolean writeable) {
     Materialize();
     return DATAPTR(data2());
   }
 
-  virtual SEXP Duplicate(Rboolean) {
-    Materialize();
-    return data2();
-  }
+  // by design, there are missing values in this vector
+  int No_NA() { return false; }
 
-  int No_NA() {
-    return false;
-  }
-
+  // There are no guarantee that the data is the R sentinel,
+  // so we have to treat it specially
   data_type Elt(R_xlen_t i) {
     const auto& array = Get();
 
-    if (array->IsNull(i)) {
-      return cpp11::na<data_type>();
-    }
-
-    return array->data()->template GetValues<data_type>(1)[i];
+    return array->IsNull(i) ? cpp11::na<data_type>()
+                            : array->data()->template GetValues<data_type>(1)[i];
   }
-
-  R_xlen_t Get_region(R_xlen_t i, R_xlen_t n, data_type* buf) {
-    const auto& slice = Get()->Slice(i, n);
-
-    R_xlen_t ncopy = slice->length();
-
-    // first copy the data buffer
-    memcpy(buf, slice->data()->template GetValues<data_type>(1), ncopy * sizeof(data_type));
-
-    // then set the R NA sentinels if needed
-    if (slice->null_count() > 0) {
-      internal::BitmapReader bitmap_reader(slice->null_bitmap()->data(), slice->offset(),
-                                           ncopy);
-
-      for (R_xlen_t j = 0; j < ncopy; j++, bitmap_reader.Next()) {
-        if (bitmap_reader.IsNotSet()) {
-          buf[j] = cpp11::na<data_type>();
-        }
-      }
-    }
-
-    return ncopy;
-  }
-
-  static void Init(DllInfo* dll) {
-    // altrep
-    R_set_altrep_Length_method(class_t, altrep::Length<AltrepArrayWithNulls>);
-    R_set_altrep_Inspect_method(class_t, altrep::Inspect<AltrepArrayWithNulls>);
-    R_set_altrep_Duplicate_method(class_t, altrep::Duplicate<AltrepArrayWithNulls>);
-
-    // altvec
-    R_set_altvec_Dataptr_method(class_t, altrep::Dataptr<AltrepArrayWithNulls>);
-    R_set_altvec_Dataptr_or_null_method(class_t, altrep::Dataptr_or_null<AltrepArrayWithNulls>);
-  }
-
-private:
-
-  bool IsMaterialized() {
-    return !Rf_isNull(data2());
-  }
-
-  void Materialize() {
-    if (!IsMaterialized()) {
-      const auto& array = Get();
-      auto size = array->length();
-
-      SEXP copy = PROTECT(Rf_allocVector(sexp_type, array->length()));
-
-      // copy the data from the buffer
-      memcpy(DATAPTR(copy), array->data()->template GetValues<data_type>(1), size * sizeof(data_type));
-
-      // then set the NAs to the R sentinel
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           size);
-
-      data_type* p = reinterpret_cast<data_type*>(DATAPTR(copy));
-      for (R_xlen_t i = 0; i < size; i++, bitmap_reader.Next(), p++) {
-        if (bitmap_reader.IsNotSet()) {
-          *p = cpp11::na<data_type>();
-        }
-      }
-
-      MARK_NOT_MUTABLE(copy);
-      R_set_altrep_data2(alt_, copy);
-
-      UNPROTECT(1);
-    }
-  }
-
 };
-
-
-template <int sexp_type>
-R_altrep_class_t AltrepArrayNoNulls<sexp_type>::class_t;
-
 template <int sexp_type>
 R_altrep_class_t AltrepArrayWithNulls<sexp_type>::class_t;
 
-void InitAltrepArrayNoNullClasses(DllInfo* dll) {
-  // double
-  R_altrep_class_t class_t = R_make_altreal_class("array_dbl_vector_no_nulls", "arrow", dll);
-
-  AltrepArrayNoNulls<REALSXP>::class_t = class_t;
-  AltrepArrayNoNulls<REALSXP>::Init(dll);
-
-  R_set_altreal_No_NA_method(class_t, altrep::No_NA<AltrepArrayNoNulls<REALSXP>>);
-  R_set_altreal_Sum_method(class_t, altrep::Sum<REALSXP>);
-  R_set_altreal_Min_method(class_t, altrep::Min<REALSXP>);
-  R_set_altreal_Max_method(class_t, altrep::Max<REALSXP>);
-
-  // int
-  class_t = R_make_altinteger_class("array_int_vector_no_nulls", "arrow", dll);
-
-  AltrepArrayNoNulls<INTSXP>::class_t = class_t;
-  AltrepArrayNoNulls<INTSXP>::Init(dll);
-
-  R_set_altinteger_No_NA_method(class_t, altrep::No_NA<AltrepArrayNoNulls<INTSXP>>);
-  R_set_altinteger_Sum_method(class_t, altrep::Sum<INTSXP>);
-  R_set_altinteger_Min_method(class_t, altrep::Min<INTSXP>);
-  R_set_altinteger_Max_method(class_t, altrep::Max<INTSXP>);
+template <typename AltrepClass>
+void InitAltRealClass(DllInfo* dll, const char* name) {
+  AltrepClass::class_t = R_make_altreal_class(name, "arrow", dll);
+  altrep::InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
+  altrep::InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
+  altrep::InitAltRealMethods<AltrepClass>(AltrepClass::class_t, dll);
 }
 
-void InitAltrepArrayWithNullClasses(DllInfo* dll) {
-  // double
-  R_altrep_class_t class_t = R_make_altreal_class("array_dbl_vector_with_nulls", "arrow", dll);
+template <typename AltrepClass>
+void InitAltIntegerClass(DllInfo* dll, const char* name) {
+  AltrepClass::class_t = R_make_altinteger_class(name, "arrow", dll);
+  altrep::InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
+  altrep::InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
+  altrep::InitAltIntegerMethods<AltrepClass>(AltrepClass::class_t, dll);
+}
 
-  AltrepArrayWithNulls<REALSXP>::class_t = class_t;
-  AltrepArrayWithNulls<REALSXP>::Init(dll);
+void Init_Altrep_classes(DllInfo* dll) {
+  // init altrep classes for numeric vectors wrapping Double arrays
+  InitAltRealClass<AltrepArrayNoNulls<REALSXP>>(dll, "array_dbl_vector_no_nulls");
+  InitAltRealClass<AltrepArrayWithNulls<REALSXP>>(dll, "array_dbl_vector_with_nulls");
 
-  R_set_altreal_No_NA_method(class_t, altrep::No_NA<AltrepArrayWithNulls<REALSXP>>);
-  R_set_altreal_Sum_method(class_t, altrep::Sum<REALSXP>);
-  R_set_altreal_Min_method(class_t, altrep::Min<REALSXP>);
-  R_set_altreal_Max_method(class_t, altrep::Max<REALSXP>);
-
-  R_set_altreal_Elt_method(class_t, altrep::Elt<AltrepArrayWithNulls<REALSXP>>);
-  R_set_altreal_Get_region_method(class_t, altrep::Get_region<AltrepArrayWithNulls<REALSXP>>);
-
-  // int
-  class_t = R_make_altinteger_class("array_int_vector_with_nulls", "arrow", dll);
-
-  AltrepArrayWithNulls<INTSXP>::class_t = class_t;
-  AltrepArrayWithNulls<INTSXP>::Init(dll);
-
-  R_set_altinteger_No_NA_method(class_t, altrep::No_NA<AltrepArrayWithNulls<INTSXP>>);
-  R_set_altinteger_Sum_method(class_t, altrep::Sum<INTSXP>);
-  R_set_altinteger_Min_method(class_t, altrep::Min<INTSXP>);
-  R_set_altinteger_Max_method(class_t, altrep::Max<INTSXP>);
-
-  R_set_altinteger_Elt_method(class_t, altrep::Elt<AltrepArrayWithNulls<INTSXP>>);
-  R_set_altinteger_Get_region_method(class_t, altrep::Get_region<AltrepArrayWithNulls<INTSXP>>);
+  // init altrep classes for numeric vectors wrapping Int32 arrays
+  InitAltIntegerClass<AltrepArrayNoNulls<INTSXP>>(dll, "array_int_vector_no_nulls");
+  InitAltIntegerClass<AltrepArrayWithNulls<INTSXP>>(dll, "array_int_vector_with_nulls");
 }
 
 template <int RTYPE>
@@ -467,17 +434,13 @@ SEXP MakeAltrepArray(const std::shared_ptr<Array>& array, RTasks& tasks) {
   }
 }
 template SEXP MakeAltrepArray<INTSXP>(const std::shared_ptr<Array>& array, RTasks& tasks);
-template SEXP MakeAltrepArray<REALSXP>(const std::shared_ptr<Array>& array, RTasks& tasks);
-
-void Init_Altrep_classes(DllInfo* dll) {
-  arrow::r::InitAltrepArrayNoNullClasses(dll);
-  arrow::r::InitAltrepArrayWithNullClasses(dll);
-}
+template SEXP MakeAltrepArray<REALSXP>(const std::shared_ptr<Array>& array,
+                                       RTasks& tasks);
 
 }  // namespace r
 }  // namespace arrow
 
-#endif // HAS_ALTREP
+#endif  // HAS_ALTREP
 
 // [[arrow::export]]
 bool is_altrep(SEXP x) {
