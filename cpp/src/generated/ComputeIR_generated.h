@@ -892,7 +892,10 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_TYPE_TYPE = 10,
     VT_TYPE = 12
   };
-  /// The name of the function whose invocation this Call represents.
+  /// The namespaced name of the function whose invocation this Call represents.
+  /// For example: "arrow::add" or "gandiva::jit_3432".
+  ///
+  /// Names with no namespace are reserved for canonicalization.
   const flatbuffers::String *function_name() const {
     return GetPointer<const flatbuffers::String *>(VT_FUNCTION_NAME);
   }
@@ -1152,8 +1155,9 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SCHEMA = 10
   };
   /// The namespaced name of this Relation.
+  /// For example: "arrow::hash_join" or "gandiva::filter_and_project".
   ///
-  /// Names with no namespace are reserved for pure relational
+  /// Names with no namespace are reserved for canonical, "pure" relational
   /// algebraic operations, which currently include:
   ///   "filter"
   ///   "project"
