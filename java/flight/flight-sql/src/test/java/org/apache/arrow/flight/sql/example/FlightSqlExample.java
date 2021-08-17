@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.sql;
+package org.apache.arrow.flight.sql.example;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.protobuf.Any.pack;
@@ -26,11 +24,11 @@ import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
-import static java.util.Optional.empty;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.StreamSupport.stream;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
+import static org.apache.arrow.util.Preconditions.checkState;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.File;
@@ -61,7 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
@@ -70,8 +68,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-
-import javax.annotation.Nullable;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
@@ -82,14 +78,13 @@ import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
@@ -108,7 +103,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -170,8 +164,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
 
-import io.grpc.Status;
-
 /**
  * Proof of concept {@link FlightSqlProducer} implementation showing an Apache Derby backed Flight SQL server capable
  * of the following workflows:
@@ -197,7 +189,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   public FlightSqlExample(final Location location) {
     // TODO Constructor should not be doing work.
-    Preconditions.checkState(
+    checkState(
         removeDerbyDatabaseIfExists() && populateDerbyDatabase(),
         "Failed to reset Derby database!");
     final ConnectionFactory connectionFactory =
@@ -271,7 +263,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static boolean populateDerbyDatabase() {
-    Optional<SQLException> exception = empty();
     try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
       statement.execute("CREATE TABLE foreignTable (" +
@@ -289,13 +280,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('one', 1, 1)");
       statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('zero', 0, 1)");
       statement.execute("INSERT INTO intTable (keyName, value, foreignId) VALUES ('negative one', -1, 1)");
-    } catch (SQLException e) {
-      LOGGER.error(
-          format("Failed attempt to populate DerbyDB: <%s>", e.getMessage()),
-          (exception = Optional.of(e)).get());
+    } catch (final SQLException e) {
+      LOGGER.error(format("Failed attempt to populate DerbyDB: <%s>", e.getMessage()), e);
+      return false;
     }
-
-    return !exception.isPresent();
+    return true;
   }
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
@@ -305,7 +294,15 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
-  private static void saveToVector(final byte typeRegisteredId, final @Nullable String data,
+  private static void saveToVector(final Byte data, final UInt1Vector vector, final int index) {
+    vectorConsumer(
+        data,
+        vector,
+        fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, theData));
+  }
+
+  private static void saveToVector(final byte typeRegisteredId, final String data,
                                    final DenseUnionVector vector, final int index) {
     vectorConsumer(
         data,
@@ -327,7 +324,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         });
   }
 
-  private static void saveToVector(final byte typeRegisteredId, final @Nullable Integer data,
+  private static void saveToVector(final byte typeRegisteredId, final Integer data,
                                    final DenseUnionVector vector, final int index) {
     vectorConsumer(
         data,
@@ -344,26 +341,32 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         });
   }
 
-  private static void saveToVector(final @Nullable String data, final VarCharVector vector, final int index) {
+  private static void saveToVector(final Integer data, final UInt4Vector vector, final int index) {
+    preconditionCheckSaveToVector(vector, index);
+    vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
+        (theData, fieldVector) -> fieldVector.setSafe(index, data));
+  }
+
+  private static void saveToVector(final String data, final VarCharVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, new Text(theData)));
   }
 
-  private static void saveToVector(final @Nullable Integer data, final IntVector vector, final int index) {
+  private static void saveToVector(final Integer data, final IntVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
-  private static void saveToVector(final @Nullable byte[] data, final VarBinaryVector vector, final int index) {
+  private static void saveToVector(final byte[] data, final VarBinaryVector vector, final int index) {
     preconditionCheckSaveToVector(vector, index);
     vectorConsumer(data, vector, fieldVector -> fieldVector.setNull(index),
         (theData, fieldVector) -> fieldVector.setSafe(index, theData));
   }
 
   private static void preconditionCheckSaveToVector(final FieldVector vector, final int index) {
-    checkNotNull(vector);
+    Objects.requireNonNull(vector, "vector cannot be null.");
     checkState(index >= 0, "Index must be a positive number!");
   }
 
@@ -395,8 +398,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull)
       throws SQLException {
-    checkNotNull(vectorToColumnName);
-    checkNotNull(data);
+    Objects.requireNonNull(vectorToColumnName, "vectorToColumnName cannot be null.");
+    Objects.requireNonNull(data, "data cannot be null.");
     final Set<Entry<T, String>> entrySet = vectorToColumnName.entrySet();
     int rows = 0;
     for (; data.next(); rows++) {
@@ -411,8 +414,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           final int intValue = data.getInt(columnName);
           saveToVector(data.wasNull() ? null : intValue, (IntVector) vector, rows);
           continue;
+        } else if (vector instanceof UInt1Vector) {
+          final byte byteValue = data.getByte(columnName);
+          saveToVector(data.wasNull() ? null : byteValue, (UInt1Vector) vector, rows);
+          continue;
         }
-        throw Status.INVALID_ARGUMENT.asRuntimeException();
+        throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
       }
     }
     for (final Entry<T, String> vectorToColumn : entrySet) {
@@ -451,10 +458,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
                                                 final BufferAllocator allocator,
                                                 final boolean includeSchema,
-                                                final @Nullable String catalog,
-                                                final @Nullable String schemaFilterPattern,
-                                                final @Nullable String tableFilterPattern,
-                                                final @Nullable String... tableTypes)
+                                                final String catalog,
+                                                final String schemaFilterPattern,
+                                                final String tableFilterPattern,
+                                                final String... tableTypes)
       throws SQLException, IOException {
     /*
      * TODO Fix DerbyDB inconsistency if possible.
@@ -466,7 +473,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
      * returns an empty String.The temporary workaround for this was making sure we convert the empty Strings
      * to null using `com.google.common.base.Strings#emptyToNull`.
      */
-    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", checkNotNull(allocator));
+    Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
+    final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
     final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
     final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
@@ -484,9 +492,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         tableTypeVector, "TABLE_TYPE");
 
     try (final ResultSet data =
-             checkNotNull(
-                 databaseMetaData,
-                 format("%s cannot be null!", databaseMetaData.getClass().getName()))
+             Objects.requireNonNull(
+                     databaseMetaData,
+                     format("%s cannot be null.", databaseMetaData.getClass().getName()))
                  .getTables(catalog, schemaFilterPattern, tableFilterPattern, tableTypes)) {
 
       saveToVectors(vectorToColumnName, data, true);
@@ -543,10 +551,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   private static VectorSchemaRoot getSqlInfoRoot(final DatabaseMetaData metaData, final BufferAllocator allocator,
                                                  final Integer... requestedInfo) throws SQLException {
-    checkNotNull(metaData, "metaData cannot be null!");
-    checkNotNull(allocator, "allocator cannot be null!");
-    checkNotNull(requestedInfo, "requestedInfo cannot be null!");
-    final IntVector infoNameVector = new IntVector("info_name", allocator);
+    Objects.requireNonNull(metaData, "metaData cannot be null.");
+    Objects.requireNonNull(allocator, "allocator cannot be null.");
+    Objects.requireNonNull(requestedInfo, "requestedInfo cannot be null.");
+    final UInt4Vector infoNameVector = new UInt4Vector("info_name", allocator);
     final DenseUnionVector valueVector = DenseUnionVector.empty("value", allocator);
     valueVector.initializeChildrenFromFields(
         ImmutableList.of(
@@ -560,7 +568,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     vectors.forEach(FieldVector::allocateNew);
     final int rows = requestedInfo.length;
     for (int index = 0; index < rows; index++) {
-      final int currentInfo = checkNotNull(requestedInfo[index], "Required info cannot be nulL!");
+      final int currentInfo = Objects.requireNonNull(requestedInfo[index],
+          String.format("requestedInfo had a null value at index %d", index));
       saveToVector(currentInfo, infoNameVector, index);
       switch (currentInfo) {
         case SqlInfo.FLIGHT_SQL_SERVER_NAME:
@@ -599,7 +608,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   metaData.storesLowerCaseQuotedIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
           break;
         default:
-          throw Status.INVALID_ARGUMENT.asRuntimeException();
+          throw CallStatus.INVALID_ARGUMENT.withDescription("Provided option is unknown.").toRuntimeException();
       }
     }
     vectors.forEach(vector -> vector.setValueCount(rows));
@@ -609,20 +618,20 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final Ticket ticket, final ServerStreamListener listener) {
-    ByteString handle = command.getPreparedStatementHandle();
+    final ByteString handle = command.getPreparedStatementHandle();
     StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
-    assert statementContext != null;
-    try (PreparedStatement statement = statementContext.getStatement();
-         ResultSet resultSet = statement.executeQuery()) {
+    Objects.requireNonNull(statementContext);
+    try (final PreparedStatement statement = statementContext.getStatement();
+         final ResultSet resultSet = statement.executeQuery()) {
 
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
-      try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
-        VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+      try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+        final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
         listener.start(vectorSchemaRoot);
 
         final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
         while (iterator.hasNext()) {
-          VectorUnloader unloader = new VectorUnloader(iterator.next());
+          final VectorUnloader unloader = new VectorUnloader(iterator.next());
           loader.load(unloader.getRecordBatch());
           listener.putNext();
           vectorSchemaRoot.clear();
@@ -630,7 +639,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
         listener.putNext();
       }
-    } catch (SQLException | IOException e) {
+    } catch (final SQLException | IOException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
       listener.error(e);
     } finally {
@@ -640,11 +649,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void closePreparedStatement(ActionClosePreparedStatementRequest request, CallContext context,
-                                     StreamListener<Result> listener) {
+  public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
+                                     final StreamListener<Result> listener) {
     try {
       preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
-    } catch (Exception e) {
+    } catch (final Exception e) {
       listener.onError(e);
       return;
     }
@@ -665,7 +674,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
-      throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
   }
 
@@ -687,14 +696,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
-      throw new FlightRuntimeException(new CallStatus(FlightStatusCode.INTERNAL, e, e.getMessage(), null));
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
   }
 
   @Override
   public SchemaResult getSchemaStatement(final CommandStatementQuery command, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
 
   @Override
@@ -717,7 +726,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
     // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
 
   private CommandStatementQuery getIdentifiableRequest(final CommandStatementQuery request) {
@@ -728,7 +737,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private void createStatementIfNotPresent(final CommandStatementQuery request) {
-    checkNotNull(request);
+    Objects.requireNonNull(request, "request cannot be null.");
     final ByteString handle = request.getClientExecutionHandle();
     if (!isNull(statementLoadingCache.getIfPresent(handle))) {
       return;
@@ -783,7 +792,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
     // TODO - build example implementation
-    throw Status.UNIMPLEMENTED.asRuntimeException();
+    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
   }
 
   @Override
@@ -1602,7 +1611,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
          VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
       listener.start(vectorSchemaRoot);
       listener.putNext();
-    } catch (SQLException e) {
+    } catch (final SQLException e) {
       listener.error(e);
     } finally {
       listener.completed();
@@ -1621,8 +1630,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
     final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", rootAllocator);
     final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", rootAllocator);
-    final IntVector updateRuleVector = new IntVector("update_rule", rootAllocator);
-    final IntVector deleteRuleVector = new IntVector("delete_rule", rootAllocator);
+    final UInt1Vector updateRuleVector = new UInt1Vector("update_rule", rootAllocator);
+    final UInt1Vector deleteRuleVector = new UInt1Vector("delete_rule", rootAllocator);
 
     Map<FieldVector, String> vectorToColumnName = new HashMap<>();
     vectorToColumnName.put(pkCatalogNameVector, "PKTABLE_CAT");
@@ -1656,7 +1665,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamStatement(final CommandStatementQuery command, final CallContext context, final Ticket ticket,
                                  final ServerStreamListener listener) {
     final ByteString handle = command.getClientExecutionHandle();
-    try (final ResultSet resultSet = checkNotNull(commandExecuteStatementLoadingCache.getIfPresent(handle))) {
+    try (final ResultSet resultSet = Objects.requireNonNull(commandExecuteStatementLoadingCache.getIfPresent(handle),
+        "Got a null ResultSet.")) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
         VectorLoader loader = new VectorLoader(vectorSchemaRoot);
@@ -1707,7 +1717,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     private final Cache<ByteString, StatementContext<T>> statementLoadingCache;
 
     public CommandExecuteQueryCacheLoader(final Cache<ByteString, StatementContext<T>> statementLoadingCache) {
-      this.statementLoadingCache = checkNotNull(statementLoadingCache);
+      this.statementLoadingCache =
+          Objects.requireNonNull(statementLoadingCache, "statementLoadingCache cannot be null.");
     }
 
     public final Cache<ByteString, StatementContext<T>> getStatementLoadingCache() {
@@ -1716,7 +1727,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     @Override
     public final ResultSet load(final ByteString key) throws SQLException {
-      return generateResultSetExecutingQuery(checkNotNull(key));
+      return generateResultSetExecutingQuery(Objects.requireNonNull(key, "key cannot be null."));
     }
 
     protected abstract ResultSet generateResultSetExecutingQuery(ByteString handle) throws SQLException;
@@ -1732,7 +1743,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     @Override
     protected ResultSet generateResultSetExecutingQuery(final ByteString handle) throws SQLException {
       final StatementContext<Statement> statementContext = getStatementLoadingCache().getIfPresent(handle);
-      checkNotNull(statementContext);
+      Objects.requireNonNull(statementContext, "statementContext cannot be null.");
       return statementContext.getStatement()
           .executeQuery(statementContext.getQuery().orElseThrow(IllegalStateException::new));
     }
@@ -1749,7 +1760,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     protected ResultSet generateResultSetExecutingQuery(final ByteString handle) throws SQLException {
       final StatementContext<PreparedStatement> preparedStatementContext =
           getStatementLoadingCache().getIfPresent(handle);
-      checkNotNull(preparedStatementContext);
+      Objects.requireNonNull(preparedStatementContext, "preparedStatementContext cannot be null.");
       return preparedStatementContext.getStatement().executeQuery();
     }
   }

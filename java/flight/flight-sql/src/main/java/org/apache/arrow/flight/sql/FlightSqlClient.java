@@ -31,20 +31,20 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.annotation.Nullable;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -58,6 +58,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -66,44 +67,44 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.StringValue;
 
-import io.grpc.Status;
-
 /**
  * Flight client with Flight SQL semantics.
  */
 public class FlightSqlClient {
-  private FlightClient client;
+  private final FlightClient client;
 
-  public FlightSqlClient(FlightClient client) {
-    this.client = client;
+  public FlightSqlClient(final FlightClient client) {
+    this.client = Objects.requireNonNull(client, "Client cannot be null!");
   }
 
   /**
    * Execute a query on the server.
    *
-   * @param query The query to execute.
+   * @param query   The query to execute.
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo execute(String query) {
+  public FlightInfo execute(final String query, final CallOption... options) {
     final CommandStatementQuery.Builder builder = CommandStatementQuery.newBuilder();
     builder.setQuery(query);
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
    * Execute an update query on the server.
    *
-   * @param query The query to execute.
+   * @param query   The query to execute.
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public long executeUpdate(String query) {
+  public long executeUpdate(final String query, final CallOption... options) {
     final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder();
     builder.setQuery(query);
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     final SyncPutListener putListener = new SyncPutListener();
-    client.startPut(descriptor, VectorSchemaRoot.of(), putListener);
+    client.startPut(descriptor, VectorSchemaRoot.of(), putListener, options);
 
     try {
       final PutResult read = putListener.read();
@@ -111,20 +112,23 @@ public class FlightSqlClient {
         final DoPutUpdateResult doPutUpdateResult = DoPutUpdateResult.parseFrom(metadata.nioBuffer());
         return doPutUpdateResult.getRecordCount();
       }
-    } catch (InterruptedException | ExecutionException | InvalidProtocolBufferException e) {
-      throw new RuntimeException(e);
+    } catch (final InterruptedException | ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final InvalidProtocolBufferException e) {
+      throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
     }
   }
 
   /**
    * Request a list of catalogs.
    *
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getCatalogs() {
+  public FlightInfo getCatalogs(final CallOption... options) {
     final CommandGetCatalogs.Builder builder = CommandGetCatalogs.newBuilder();
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
@@ -132,9 +136,10 @@ public class FlightSqlClient {
    *
    * @param catalog             The catalog.
    * @param schemaFilterPattern The schema filter pattern.
+   * @param options             RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSchemas(final String catalog, final String schemaFilterPattern) {
+  public FlightInfo getSchemas(final String catalog, final String schemaFilterPattern, final CallOption... options) {
     final CommandGetSchemas.Builder builder = CommandGetSchemas.newBuilder();
 
     if (catalog != null) {
@@ -146,7 +151,7 @@ public class FlightSqlClient {
     }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
@@ -156,7 +161,7 @@ public class FlightSqlClient {
    * @param options    RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
-    return this.client.getSchema(descriptor, options);
+    return client.getSchema(descriptor, options);
   }
 
   /**
@@ -166,22 +171,41 @@ public class FlightSqlClient {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    return this.client.getStream(ticket, options);
+    return client.getStream(ticket, options);
   }
 
   /**
    * Request a set of Flight SQL metadata.
    *
-   * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final @Nullable int... info) {
+  public FlightInfo getSqlInfo(final int... info) {
+    return getSqlInfo(info, new CallOption[0]);
+  }
+
+  /**
+   * Request a set of Flight SQL metadata.
+   *
+   * @param info    The set of metadata to retrieve. None to retrieve all metadata.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getSqlInfo(final int[] info, final CallOption... options) {
+    return getSqlInfo(Arrays.stream(info).boxed().collect(Collectors.toList()), options);
+  }
+
+  /**
+   * Request a set of Flight SQL metadata.
+   *
+   * @param info    The set of metadata to retrieve. None to retrieve all metadata.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getSqlInfo(final List<Integer> info, final CallOption... options) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
-    for (final int pieceOfInfo : Objects.isNull(info) ? new int[0] : info) {
-      builder.addInfo(pieceOfInfo);
-    }
+    builder.addAllInfo(info);
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
@@ -192,11 +216,12 @@ public class FlightSqlClient {
    * @param tableFilterPattern  The table filter pattern.
    * @param tableTypes          The table types to include.
    * @param includeSchema       True to include the schema upon return, false to not include the schema.
+   * @param options             RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTables(final @Nullable String catalog, final @Nullable String schemaFilterPattern,
-                              final @Nullable String tableFilterPattern, final List<String> tableTypes,
-                              final boolean includeSchema) {
+  public FlightInfo getTables(final String catalog, final String schemaFilterPattern,
+                              final String tableFilterPattern, final List<String> tableTypes,
+                              final boolean includeSchema, final CallOption... options) {
     final CommandGetTables.Builder builder = CommandGetTables.newBuilder();
 
     if (catalog != null) {
@@ -217,7 +242,7 @@ public class FlightSqlClient {
     builder.setIncludeSchema(includeSchema);
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
@@ -226,10 +251,11 @@ public class FlightSqlClient {
    * @param catalog The catalog.
    * @param schema  The schema.
    * @param table   The table.
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getPrimaryKeys(final @Nullable String catalog, final @Nullable String schema,
-                                   final @Nullable String table) {
+  public FlightInfo getPrimaryKeys(final String catalog, final String schema,
+                                   final String table, final CallOption... options) {
     final CommandGetPrimaryKeys.Builder builder = CommandGetPrimaryKeys.newBuilder();
 
     if (catalog != null) {
@@ -244,21 +270,20 @@ public class FlightSqlClient {
       builder.setTable(StringValue.newBuilder().setValue(table).build());
     }
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
-   * Request to get info about keys on a table. The table, which exports the foreign keys, parameter must be specified.
+   * Retrieves a description about the foreign key columns that reference the primary key columns of the given table.
    *
    * @param catalog The foreign key table catalog.
    * @param schema  The foreign key table schema.
-   * @param table   The foreign key table.
+   * @param table   The foreign key table. Cannot be null.
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getExportedKeys(String catalog, String schema, String table) {
-    if (null == table) {
-      throw Status.INVALID_ARGUMENT.asRuntimeException();
-    }
+  public FlightInfo getExportedKeys(String catalog, String schema, String table, final CallOption... options) {
+    Objects.requireNonNull(table, "Table cannot be null.");
 
     final CommandGetExportedKeys.Builder builder = CommandGetExportedKeys.newBuilder();
 
@@ -270,24 +295,25 @@ public class FlightSqlClient {
       builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
+    Objects.requireNonNull(table);
     builder.setTable(table).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
-   * Request to get info about keys on a table. The table, which imports the foreign keys, parameter must be specified.
+   * Retrieves the foreign key columns for the given table.
    *
    * @param catalog The primary key table catalog.
    * @param schema  The primary key table schema.
-   * @param table   The primary key table.
+   * @param table   The primary key table. Cannot be null.
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getImportedKeys(String catalog, String schema, String table) {
-    if (null == table) {
-      throw Status.INVALID_ARGUMENT.asRuntimeException();
-    }
+  public FlightInfo getImportedKeys(final String catalog, final String schema, final String table,
+                                    final CallOption... options) {
+    Objects.requireNonNull(table, "Table cannot be null.");
 
     final CommandGetImportedKeys.Builder builder = CommandGetImportedKeys.newBuilder();
 
@@ -299,61 +325,65 @@ public class FlightSqlClient {
       builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
+    Objects.requireNonNull(table);
     builder.setTable(table).build();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
    * Request a list of table types.
    *
+   * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTableTypes() {
+  public FlightInfo getTableTypes(final CallOption... options) {
     final CommandGetTableTypes.Builder builder = CommandGetTableTypes.newBuilder();
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor);
+    return client.getInfo(descriptor, options);
   }
 
   /**
    * Create a prepared statement on the server.
    *
-   * @param query The query to prepare.
+   * @param query   The query to prepare.
+   * @param options RPC-layer hints for this call.
    * @return The representation of the prepared statement which exists on the server.
    */
-  public PreparedStatement prepare(String query) {
-    return new PreparedStatement(client, query);
+  public PreparedStatement prepare(final String query, final CallOption... options) {
+    return new PreparedStatement(client, query, options);
   }
 
   /**
    * Helper class to encapsulate Flight SQL prepared statement logic.
    */
-  public static class PreparedStatement implements Closeable {
+  public static class PreparedStatement implements AutoCloseable {
     private final FlightClient client;
     private final ActionCreatePreparedStatementResult preparedStatementResult;
-    private AtomicLong invocationCount;
-    private boolean isClosed;
-    private Schema resultSetSchema = null;
-    private Schema parameterSchema = null;
+    private final AtomicLong invocationCount;
     private VectorSchemaRoot parameterBindingRoot;
+    private boolean isClosed;
+    private Schema resultSetSchema;
+    private Schema parameterSchema;
 
     /**
      * Constructor.
      *
-     * @param client The client. FlightSqlPreparedStatement does not maintain this resource.
-     * @param sql    The query.
+     * @param client  The client. PreparedStatement does not maintain this resource.
+     * @param sql     The query.
+     * @param options RPC-layer hints for this call.
      */
-    public PreparedStatement(FlightClient client, String sql) {
+    public PreparedStatement(final FlightClient client, final String sql, final CallOption... options) {
       this.client = client;
-
-      final Iterator<Result> preparedStatementResults = client.doAction(new Action(
+      final Action action = new Action(
           FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType(),
           Any.pack(ActionCreatePreparedStatementRequest
-              .newBuilder()
-              .setQuery(sql)
-              .build())
-              .toByteArray()));
+                  .newBuilder()
+                  .setQuery(sql)
+                  .build())
+              .toByteArray());
+      final Iterator<Result> preparedStatementResults = client.doAction(action, options);
 
       preparedStatementResult = FlightSqlUtils.unpackAndParseOrThrow(
           preparedStatementResults.next().getBody(),
@@ -364,23 +394,31 @@ public class FlightSqlClient {
     }
 
     /**
-     * Set the {@link VectorSchemaRoot} containing the parameter binding from a preparedStatemnt
+     * Set the {@link #parameterBindingRoot} containing the parameter binding from a {@link PreparedStatement}
      * operation.
      *
-     * @param parameterBindingRoot  a {@link VectorSchemaRoot} object contain the values to be used in the
-     *                              PreparedStatement setters.
+     * @param parameterBindingRoot a {@code VectorSchemaRoot} object containing the values to be used in the
+     *                             {@code PreparedStatement} setters.
      */
-    public void setParameters(VectorSchemaRoot parameterBindingRoot) {
-      this.parameterBindingRoot = parameterBindingRoot;
+    public void setParameters(final VectorSchemaRoot parameterBindingRoot) {
+      if (this.parameterBindingRoot != null) {
+        if (this.parameterBindingRoot.equals(parameterBindingRoot)) {
+          return;
+        }
+        this.parameterBindingRoot.close();
+      }
+      this.parameterBindingRoot =
+          Objects.requireNonNull(parameterBindingRoot, "Parameter binding root cannot be null!");
     }
 
     /**
-     * Empty the {@link VectorSchemaRoot} that contains the parameter binding from a preparedStatemnt
-     * operation.
-     *
+     * Empty the {@link #parameterBindingRoot}, which contains the parameter binding from
+     * a {@link PreparedStatement} operation.
      */
     public void clearParameters() {
-      this.parameterBindingRoot = null;
+      if (parameterBindingRoot != null) {
+        parameterBindingRoot.close();
+      }
     }
 
     /**
@@ -389,8 +427,12 @@ public class FlightSqlClient {
      * @return the Schema of the resultset.
      */
     public Schema getResultSetSchema() {
-      if (resultSetSchema == null && preparedStatementResult.getDatasetSchema() != null) {
-        resultSetSchema = Schema.deserialize(preparedStatementResult.getDatasetSchema().asReadOnlyByteBuffer());
+      if (resultSetSchema == null) {
+        final ByteString bytes = preparedStatementResult.getDatasetSchema();
+        if (bytes.isEmpty()) {
+          return new Schema(Collections.emptyList());
+        }
+        resultSetSchema = Schema.deserialize(bytes.asReadOnlyByteBuffer());
       }
       return resultSetSchema;
     }
@@ -401,8 +443,12 @@ public class FlightSqlClient {
      * @return the Schema of the parameters.
      */
     public Schema getParameterSchema() {
-      if (parameterSchema == null && preparedStatementResult.getParameterSchema() != null) {
-        parameterSchema = Schema.deserialize(preparedStatementResult.getParameterSchema().asReadOnlyByteBuffer());
+      if (parameterSchema == null) {
+        final ByteString bytes = preparedStatementResult.getParameterSchema();
+        if (bytes.isEmpty()) {
+          return new Schema(Collections.emptyList());
+        }
+        parameterSchema = Schema.deserialize(bytes.asReadOnlyByteBuffer());
       }
       return parameterSchema;
     }
@@ -410,62 +456,62 @@ public class FlightSqlClient {
     /**
      * Executes the prepared statement query on the server.
      *
+     * @param options RPC-layer hints for this call.
      * @return a FlightInfo object representing the stream(s) to fetch.
-     * @throws IOException if the PreparedStatement is closed.
      */
-    public FlightInfo execute() throws IOException {
-      if (isClosed) {
-        throw new IllegalStateException("Prepared statement has already been closed on the server.");
-      }
+    public FlightInfo execute(final CallOption... options) throws SQLException {
+      checkOpen();
 
       final FlightDescriptor descriptor = FlightDescriptor
           .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
-              .setClientExecutionHandle(
-                  ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
-              .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
-              .build())
+                  .setClientExecutionHandle(
+                      ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
+                  .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
+                  .build())
               .toByteArray());
 
-      if (parameterBindingRoot != null) {
+      if (parameterBindingRoot != null && parameterBindingRoot.getRowCount() > 0) {
         final SyncPutListener putListener = new SyncPutListener();
 
         FlightClient.ClientStreamListener listener =
-            client.startPut(descriptor, this.parameterBindingRoot, putListener);
+            client.startPut(descriptor, parameterBindingRoot, putListener, options);
 
         listener.putNext();
         listener.completed();
       }
 
-      return client.getInfo(descriptor);
+      return client.getInfo(descriptor, options);
+    }
+
+    /**
+     * Checks whether this client is open.
+     *
+     * @throws IllegalStateException if client is closed.
+     */
+    protected final void checkOpen() {
+      Preconditions.checkState(!isClosed, "Statement closed");
     }
 
     /**
      * Executes the prepared statement update on the server.
+     *
+     * @param options RPC-layer hints for this call.
      */
-    public long executeUpdate() throws SQLException {
-      if (isClosed) {
-        throw new IllegalStateException("Prepared statement has already been closed on the server.");
-      }
-
+    public long executeUpdate(final CallOption... options) {
+      checkOpen();
       final FlightDescriptor descriptor = FlightDescriptor
           .command(Any.pack(FlightSql.CommandPreparedStatementUpdate.newBuilder()
-              .setClientExecutionHandle(
-                  ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
-              .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
-              .build())
+                  .setClientExecutionHandle(
+                      ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
+                  .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
+                  .build())
               .toByteArray());
-
-      if (this.parameterBindingRoot == null) {
-        this.parameterBindingRoot = VectorSchemaRoot.of();
-      }
-
+      setParameters(parameterBindingRoot == null ? VectorSchemaRoot.of() : parameterBindingRoot);
       final SyncPutListener putListener = new SyncPutListener();
       final FlightClient.ClientStreamListener listener =
-          client.startPut(descriptor, this.parameterBindingRoot, putListener);
-
+          client.startPut(descriptor, parameterBindingRoot, putListener, options);
       listener.putNext();
       listener.completed();
-
       try {
         final PutResult read = putListener.read();
         try (final ArrowBuf metadata = read.getApplicationMetadata()) {
@@ -473,23 +519,40 @@ public class FlightSqlClient {
               FlightSql.DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
         }
-      } catch (InterruptedException | InvalidProtocolBufferException | ExecutionException e) {
-        throw new SQLException(e);
+      } catch (final InterruptedException | ExecutionException e) {
+        throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+      } catch (final InvalidProtocolBufferException e) {
+        throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+      }
+    }
+
+    /**
+     * Closes the client.
+     *
+     * @param options RPC-layer hints for this call.
+     */
+    public void close(final CallOption... options) {
+      if (isClosed) {
+        return;
+      }
+      isClosed = true;
+      final Action action = new Action(
+          FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType(),
+          Any.pack(ActionClosePreparedStatementRequest.newBuilder()
+                  .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
+                  .build())
+              .toByteArray());
+      final Iterator<Result> closePreparedStatementResults = client.doAction(action, options);
+      closePreparedStatementResults.forEachRemaining(result -> {
+      });
+      if (parameterBindingRoot != null) {
+        parameterBindingRoot.close();
       }
     }
 
     @Override
     public void close() {
-      isClosed = true;
-      final Iterator<Result> closePreparedStatementResults = client.doAction(new Action(
-          FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType(),
-          Any.pack(ActionClosePreparedStatementRequest
-              .newBuilder()
-              .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
-              .build())
-              .toByteArray()));
-      closePreparedStatementResults.forEachRemaining(result -> {
-      });
+      close(new CallOption[0]);
     }
 
     /**

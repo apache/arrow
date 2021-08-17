@@ -20,6 +20,7 @@ package org.apache.arrow.flight.sql;
 import java.util.List;
 
 import org.apache.arrow.flight.ActionType;
+import org.apache.arrow.flight.CallStatus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
@@ -54,8 +55,11 @@ public final class FlightSqlUtils {
   public static Any parseOrThrow(byte[] source) {
     try {
       return Any.parseFrom(source);
-    } catch (InvalidProtocolBufferException e) {
-      throw new AssertionError(e.getMessage());
+    } catch (final InvalidProtocolBufferException e) {
+      throw CallStatus.INVALID_ARGUMENT
+          .withDescription("Received invalid message from remote.")
+          .withCause(e)
+          .toRuntimeException();
     }
   }
 
@@ -70,8 +74,11 @@ public final class FlightSqlUtils {
   public static <T extends Message> T unpackOrThrow(Any source, Class<T> as) {
     try {
       return source.unpack(as);
-    } catch (InvalidProtocolBufferException e) {
-      throw new AssertionError(e.getMessage());
+    } catch (final InvalidProtocolBufferException e) {
+      throw CallStatus.INVALID_ARGUMENT
+          .withDescription("Provided message cannot be unpacked as desired type.")
+          .withCause(e)
+          .toRuntimeException();
     }
   }
 

@@ -42,12 +42,14 @@ import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
-import org.apache.arrow.flight.sql.FlightSqlExample;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
+import org.apache.arrow.flight.sql.example.FlightSqlExample;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -612,6 +614,18 @@ public class TestFlightSql {
               final DenseUnionVector denseUnionVector = (DenseUnionVector) fieldVector;
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
                 final Object data = denseUnionVector.getObject(rowIndex);
+                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+              }
+            } else if (fieldVector instanceof UInt4Vector) {
+              final UInt4Vector uInt4Vector = (UInt4Vector) fieldVector;
+              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                final Object data = uInt4Vector.getObject(rowIndex);
+                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
+              }
+            } else if (fieldVector instanceof UInt1Vector) {
+              final UInt1Vector uInt1Vector = (UInt1Vector) fieldVector;
+              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                final Object data = uInt1Vector.getObject(rowIndex);
                 results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
               }
             } else {

@@ -18,6 +18,7 @@
 
 syntax = "proto3";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/descriptor.proto";
 
 option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
@@ -30,12 +31,14 @@ package arrow.flight.protocol.sql;
  *
  * The returned schema will be:
  * <
- *  info_name: int32,
+ *  info_name: uint32,
  *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
  * >
  * where there is one row per requested piece of metadata information.
  */
 message CommandGetSqlInfo {
+  option (experimental) = true;
+
   /*
    * Values are modelled after ODBC's SQLGetInfo() function. This information is intended to provide
    * Flight SQL clients with basic, SQL syntax and SQL functions related information.
@@ -46,7 +49,7 @@ message CommandGetSqlInfo {
    *
    * Initially, Flight SQL will support the following information types:
    * - Server Information - Range [0-500)
-   * - Syntax Information - Ragne [500-1000)
+   * - Syntax Information - Range [500-1000)
    * Range [0-100000) is reserved for defaults. Custom options should start at 100000.
    *
    * 1. Server Information [0-500): Provides basic information about the Flight SQL Server.
@@ -89,7 +92,7 @@ message CommandGetSqlInfo {
    *
    * If omitted, then all metadata will be retrieved.
    * Flight SQL Servers may choose to include additional metadata above and beyond the specified set, however they must
-   * at least return the specified set. IDs ranging from 0 to 10,000 (exclusive) are reserved.
+   * at least return the specified set. IDs ranging from 0 to 10,000 (exclusive) are reserved for future use.
    * If additional metadata is included, the metadata IDs should start from 10,000.
    */
   repeated uint32 info = 1;
@@ -108,6 +111,7 @@ message CommandGetSqlInfo {
  * The returned data should be ordered by catalog_name.
  */
 message CommandGetCatalogs {
+  option (experimental) = true;
 }
 
 /*
@@ -124,6 +128,8 @@ message CommandGetCatalogs {
  * The returned data should be ordered by catalog_name, then schema_name.
  */
 message CommandGetSchemas {
+  option (experimental) = true;
+
   /*
    * Specifies the Catalog to search for schemas.
    * If omitted, then all catalogs are searched.
@@ -152,11 +158,13 @@ message CommandGetSchemas {
  *  schema_name: utf8,
  *  table_name: utf8,
  *  table_type: utf8,
- *  table_schema: bytes
+ *  table_schema: bytes (schema of the table as described in Schema.fbs::Schema, it is serialized as an IPC message.)
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
  */
 message CommandGetTables {
+  option (experimental) = true;
+
   /*
    * Specifies the Catalog to search for the tables.
    * If omitted, then all catalogs are searched.
@@ -201,6 +209,7 @@ message CommandGetTables {
  * The returned data should be ordered by table_type.
  */
 message CommandGetTableTypes {
+  option (experimental) = true;
 }
 
 /*
@@ -215,12 +224,14 @@ message CommandGetTableTypes {
  *  schema_name: utf8,
  *  table_name: utf8,
  *  column_name: utf8,
- *  key_sequence: int,
  *  key_name: utf8
+ *  key_sequence: int,
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
  */
 message CommandGetPrimaryKeys {
+  option (experimental) = true;
+
   // Specifies the catalog to search for the table.
   google.protobuf.StringValue catalog = 1;
 
@@ -251,12 +262,20 @@ message CommandGetPrimaryKeys {
  *  key_sequence: int,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: int,
- *  delete_rule: int
+ *  update_rule: uint1,
+ *  delete_rule: uint1
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ * update_rule and delete_rule returns a byte that is equivalent to actions:
+ *    - 0 = CASCADE
+ *    - 1 = RESTRICT
+ *    - 2 = SET NULL
+ *    - 3 = NO ACTION
+ *    - 4 = SET DEFAULT
  */
 message CommandGetExportedKeys {
+  option (experimental) = true;
+
   // Specifies the catalog to search for the foreign key table.
   google.protobuf.StringValue catalog = 1;
 
@@ -286,12 +305,20 @@ message CommandGetExportedKeys {
  *  key_sequence: int,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: int,
- *  delete_rule: int
+ *  update_rule: uint1,
+ *  delete_rule: uint1
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ * update_rule and delete_rule returns a byte that is equivalent to actions:
+ *    - 0 = CASCADE
+ *    - 1 = RESTRICT
+ *    - 2 = SET NULL
+ *    - 3 = NO ACTION
+ *    - 4 = SET DEFAULT
  */
 message CommandGetImportedKeys {
+  option (experimental) = true;
+
   // Specifies the catalog to search for the primary key table.
   google.protobuf.StringValue catalog = 1;
 
@@ -305,9 +332,11 @@ message CommandGetImportedKeys {
 // SQL Execution Action Messages
 
 /*
- * Request message for the "GetPreparedStatement" action on a Flight SQL enabled backend.
+ * Request message for the "CreatePreparedStatement" action on a Flight SQL enabled backend.
  */
 message ActionCreatePreparedStatementRequest {
+  option (experimental) = true;
+
   // The valid SQL string to create a prepared statement for.
   string query = 1;
 }
@@ -316,6 +345,8 @@ message ActionCreatePreparedStatementRequest {
  * Wrap the result of a "GetPreparedStatement" action.
  */
 message ActionCreatePreparedStatementResult {
+  option (experimental) = true;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
@@ -324,7 +355,7 @@ message ActionCreatePreparedStatementResult {
   bytes dataset_schema = 2;
 
   // If the query provided contained parameters, parameter_schema contains the 
-  // Schema of the expected parameters as described in Schema.fbs::Schema.
+  // schema of the expected parameters as described in Schema.fbs::Schema, it is serialized as an IPC message.
   bytes parameter_schema = 3;
 }
 
@@ -333,6 +364,8 @@ message ActionCreatePreparedStatementResult {
  * Closes server resources associated with the prepared statement handle.
  */
 message ActionClosePreparedStatementRequest {
+  option (experimental) = true;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 }
@@ -347,6 +380,8 @@ message ActionClosePreparedStatementRequest {
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {
+  option (experimental) = true;
+
   // The SQL syntax.
   string query = 1;
 
@@ -361,6 +396,8 @@ message CommandStatementQuery {
  *  - GetFlightInfo: execute the prepared statement instance.
  */
 message CommandPreparedStatementQuery {
+  option (experimental) = true;
+
   // Unique identifier for the instance of the prepared statement to execute.
   bytes client_execution_handle = 1;
 
@@ -373,6 +410,8 @@ message CommandPreparedStatementQuery {
  * for the the RPC call DoPut to cause the server to execute the included SQL update.
  */
 message CommandStatementUpdate {
+  option (experimental) = true;
+
   // The SQL syntax.
   string query = 1;
 }
@@ -383,6 +422,8 @@ message CommandStatementUpdate {
  * prepared statement handle as an update.
  */
 message CommandPreparedStatementUpdate {
+  option (experimental) = true;
+
   // Unique identifier for the instance of the prepared statement to execute.
   bytes client_execution_handle = 1;
 
@@ -396,7 +437,13 @@ message CommandPreparedStatementUpdate {
  * results from the update. 
  */
 message DoPutUpdateResult {
+  option (experimental) = true;
+
   // The number of records updated. A return value of -1 represents 
   // an unknown updated record count.
   int64 record_count = 1;
+}
+
+extend google.protobuf.MessageOptions {
+  bool experimental = 1000;
 }

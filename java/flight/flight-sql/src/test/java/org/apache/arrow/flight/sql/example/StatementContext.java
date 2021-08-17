@@ -15,33 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.sql;
+package org.apache.arrow.flight.sql.example;
 
-import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Objects;
 import java.util.Optional;
 
-import javax.annotation.Nullable;
-
+import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.util.Preconditions;
 
 /**
  * Context for {@link T} to be persisted in memory in between {@link FlightSqlProducer} calls.
  *
  * @param <T> the {@link Statement} to be persisted.
  */
-public final class StatementContext<T extends Statement> implements AutoCloseable, Serializable {
-
-  private static final long serialVersionUID = 1344967087502630673L;
+public final class StatementContext<T extends Statement> implements AutoCloseable {
 
   private final T statement;
   private final String query;
 
-  public StatementContext(final T statement, final @Nullable String query) {
-    this.statement = Preconditions.checkNotNull(statement);
+  public StatementContext(final T statement, final String query) {
+    this.statement = Objects.requireNonNull(statement, "statement cannot be null.");
     this.query = query;
   }
 

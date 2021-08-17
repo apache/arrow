@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
@@ -50,6 +51,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -57,8 +59,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
-
-import io.grpc.Status;
 
 /**
  * API to Implement an Arrow Flight SQL producer.
@@ -109,7 +109,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, descriptor);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
   }
 
   /**
@@ -144,7 +144,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return getSchemaForImportedAndExportedKeys();
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
   }
 
   /**
@@ -193,7 +193,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class),
           context, ticket, listener);
     } else {
-      throw Status.INVALID_ARGUMENT.asRuntimeException();
+      throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
     }
   }
 
@@ -227,7 +227,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           context, flightStream, ackStream);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
   }
 
   /**
@@ -262,7 +262,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       closePreparedStatement(request, context, listener);
     }
 
-    throw Status.INVALID_ARGUMENT.asRuntimeException();
+    throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid action provided.").toRuntimeException();
   }
 
   /**
@@ -667,11 +667,11 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         Field.nullable("key_sequence", MinorType.INT.getType()),
         Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
         Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
-        Field.nullable("update_rule", MinorType.INT.getType()),
-        Field.nullable("delete_rule", MinorType.INT.getType())));
+        Field.nullable("update_rule", new ArrowType.Int(8, false)),
+        Field.nullable("delete_rule", new ArrowType.Int(8, false))));
     public static final Schema GET_SQL_INFO_SCHEMA =
         new Schema(Arrays.asList(
-            Field.nullable("info_name", MinorType.INT.getType()),
+            Field.nullable("info_name", new ArrowType.Int(32, false)),
             new Field("value",
                 // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
                 new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
@@ -700,5 +700,21 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final int SQL_IDENTIFIER_CASE = 503;
     public static final int SQL_IDENTIFIER_QUOTE_CHAR = 504;
     public static final int SQL_QUOTED_IDENTIFIER_CASE = 505;
+  }
+
+  /**
+   * Update/delete rules for {@link FlightSqlProducer#getStreamImportedKeys} and
+   * {@link FlightSqlProducer#getStreamExportedKeys}.
+   */
+  final class UpdateDeleteRules {
+    public static final byte CASCADE = 0; // Borrowed from DatabaseMetaData.importedKeyCascade
+    public static final byte RESTRICT = 1; // Borrowed from DatabaseMetaData.importedKeyRestrict
+    public static final byte SET_NULL = 2; // Borrowed from DatabaseMetaData.importedKeySetNull
+    public static final byte NO_ACTION = 3; // Borrowed from DatabaseMetaData.importedKeyNoAction
+    public static final byte SET_DEFAULT = 4; // Borrowed from DatabaseMetaData.importedKeyNoAction
+
+    private UpdateDeleteRules() {
+      // Prevent instantiation.
+    }
   }
 }
