@@ -33,8 +33,7 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
-class StaticVectorMixin {
- protected:
+struct StaticVectorMixin {
   // properly aligned uninitialized storage for N T's
   using storage_type = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 
@@ -42,7 +41,7 @@ class StaticVectorMixin {
     return launder(reinterpret_cast<T*>(&p[i]));
   }
 
-  static const T* ptr_at(const storage_type* p, size_t i) {
+  static constexpr const T* ptr_at(const storage_type* p, size_t i) {
     return launder(reinterpret_cast<const T*>(&p[i]));
   }
 
@@ -63,8 +62,7 @@ class StaticVectorMixin {
 };
 
 template <typename T, size_t N, bool NonTrivialDestructor>
-class StaticVectorBaseStorage : public StaticVectorMixin<T> {
- protected:
+struct StaticVectorStorageBase : public StaticVectorMixin<T> {
   using typename StaticVectorMixin<T>::storage_type;
 
   storage_type static_data_[N];
@@ -74,32 +72,30 @@ class StaticVectorBaseStorage : public StaticVectorMixin<T> {
 };
 
 template <typename T, size_t N>
-class StaticVectorBaseStorage<T, N, true> : public StaticVectorMixin<T> {
- protected:
+struct StaticVectorStorageBase<T, N, true> : public StaticVectorMixin<T> {
   using typename StaticVectorMixin<T>::storage_type;
 
   storage_type static_data_[N];
   size_t size_ = 0;
 
-  ~StaticVectorBaseStorage() noexcept { destroy(); }
+  ~StaticVectorStorageBase() noexcept { destroy(); }
 
   void destroy() noexcept { this->destroy_storage(static_data_, size_); }
 };
 
 template <typename T, size_t N, bool D = !std::is_trivially_destructible<T>::value>
-class StaticVectorBase : public StaticVectorBaseStorage<T, N, D> {
- protected:
-  using Base = StaticVectorBaseStorage<T, N, D>;
+struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
+  using Base = StaticVectorStorageBase<T, N, D>;
   using typename Base::storage_type;
 
   using Base::size_;
   using Base::static_data_;
 
-  StaticVectorBase() noexcept = default;
+  StaticVectorStorage() noexcept = default;
 
-  storage_type* data_ptr() { return static_data_; }
+  T* data_ptr() { return this->ptr_at(static_data_, 0); }
 
-  constexpr const storage_type* const_data_ptr() const { return static_data_; }
+  constexpr const T* const_data_ptr() const { return this->ptr_at(static_data_, 0); }
 
   void bump_size(size_t addend) {
     assert(size_ + addend <= N);
@@ -111,13 +107,12 @@ class StaticVectorBase : public StaticVectorBaseStorage<T, N, D> {
     size_ -= reduce_by;
   }
 
-  void move_from(StaticVectorBase&& other) noexcept {
+  void move_from(StaticVectorStorage&& other) noexcept {
     size_ = other.size_;
     this->move_storage(other.static_data_, static_data_, size_);
     other.size_ = 0;
   }
 
- public:
   constexpr size_t capacity() const { return N; }
 
   constexpr size_t max_size() const { return N; }
@@ -131,8 +126,7 @@ class StaticVectorBase : public StaticVectorBaseStorage<T, N, D> {
 };
 
 template <typename T, size_t N>
-class SmallVectorBase : public StaticVectorMixin<T> {
- protected:
+struct SmallVectorStorage : public StaticVectorMixin<T> {
   using typename StaticVectorMixin<T>::storage_type;
 
   storage_type static_data_[N];
@@ -140,13 +134,13 @@ class SmallVectorBase : public StaticVectorMixin<T> {
   storage_type* data_ = static_data_;
   size_t dynamic_capacity_ = 0;
 
-  SmallVectorBase() noexcept = default;
+  SmallVectorStorage() noexcept = default;
 
-  ~SmallVectorBase() { destroy(); }
+  ~SmallVectorStorage() { destroy(); }
 
-  storage_type* data_ptr() { return data_; }
+  T* data_ptr() { return this->ptr_at(data_, 0); }
 
-  constexpr const storage_type* const_data_ptr() const { return data_; }
+  constexpr const T* const_data_ptr() const { return this->ptr_at(data_, 0); }
 
   void bump_size(size_t addend) {
     size_t new_size = size_ + addend;
@@ -178,7 +172,7 @@ class SmallVectorBase : public StaticVectorMixin<T> {
     }
   }
 
-  void move_from(SmallVectorBase&& other) noexcept {
+  void move_from(SmallVectorStorage&& other) noexcept {
     size_ = other.size_;
     dynamic_capacity_ = other.dynamic_capacity_;
     if (dynamic_capacity_) {
@@ -191,7 +185,6 @@ class SmallVectorBase : public StaticVectorMixin<T> {
     other.size_ = 0;
   }
 
- public:
   constexpr size_t capacity() const { return dynamic_capacity_ ? dynamic_capacity_ : N; }
 
   constexpr size_t max_size() const { return std::numeric_limits<size_t>::max(); }
@@ -228,16 +221,14 @@ class SmallVectorBase : public StaticVectorMixin<T> {
   }
 };
 
-template <typename T, size_t N, typename Base>
-class StaticVectorImpl : public Base {
+template <typename T, size_t N, typename Storage>
+class StaticVectorImpl {
  private:
-  using Base::size_;
+  Storage storage_;
 
-  T* item_ptr(size_t i) { return this->ptr_at(this->data_ptr(), i); }
+  T* data_ptr() { return storage_.data_ptr(); }
 
-  constexpr const T* const_item_ptr(size_t i) const {
-    return this->ptr_at(this->const_data_ptr(), i);
-  }
+  constexpr const T* const_data_ptr() const { return storage_.const_data_ptr(); }
 
  public:
   using size_type = size_t;
@@ -253,22 +244,22 @@ class StaticVectorImpl : public Base {
   constexpr StaticVectorImpl() noexcept = default;
 
   StaticVectorImpl(StaticVectorImpl&& other) noexcept {
-    this->move_from(std::move(other));
+    storage_.move_from(std::move(other.storage_));
   }
 
   StaticVectorImpl& operator=(StaticVectorImpl&& other) noexcept {
     if (&other != this) {
-      this->destroy();
-      this->move_from(std::move(other));
+      storage_.destroy();
+      storage_.move_from(std::move(other.storage_));
     }
     return *this;
   }
 
   StaticVectorImpl(const StaticVectorImpl& other) {
-    const size_t n = other.size_;
-    this->bump_size(n);
-    auto* src = other.const_item_ptr(0);
-    auto* dest = this->item_ptr(0);
+    const size_t n = other.storage_.size_;
+    storage_.bump_size(n);
+    auto* src = other.const_data_ptr();
+    auto* dest = data_ptr();
     for (size_t i = 0; i < n; ++i) {
       new (&dest[i]) T(src[i]);
     }
@@ -278,12 +269,12 @@ class StaticVectorImpl : public Base {
     if (&other == this) {
       return *this;
     }
-    const size_t n = other.size_;
-    const size_t old_size = size_;
-    auto* src = other.const_item_ptr(0);
+    const size_t n = other.storage_.size_;
+    const size_t old_size = storage_.size_;
+    auto* src = other.const_data_ptr();
     if (n > old_size) {
-      this->bump_size(n);
-      auto* dest = this->item_ptr(0);
+      storage_.bump_size(n);
+      auto* dest = data_ptr();
       for (size_t i = 0; i < old_size; ++i) {
         dest[i] = src[i];
       }
@@ -291,127 +282,137 @@ class StaticVectorImpl : public Base {
         new (&dest[i]) T(src[i]);
       }
     } else {
-      auto* dest = this->item_ptr(0);
+      auto* dest = data_ptr();
       for (size_t i = 0; i < n; ++i) {
         dest[i] = src[i];
       }
       for (size_t i = n; i < old_size; ++i) {
         dest[i].~T();
       }
-      this->reduce_size(n);
+      storage_.reduce_size(n);
     }
     return *this;
   }
 
   explicit StaticVectorImpl(size_t count) {
-    this->bump_size(count);
-    auto* p = this->item_ptr(0);
+    storage_.bump_size(count);
+    auto* p = data_ptr();
     for (size_t i = 0; i < count; ++i) {
       new (&p[i]) T();
     }
   }
 
   StaticVectorImpl(size_t count, const T& value) {
-    this->bump_size(count);
-    auto* p = this->item_ptr(0);
+    storage_.bump_size(count);
+    auto* p = data_ptr();
     for (size_t i = 0; i < count; ++i) {
       new (&p[i]) T(value);
     }
   }
 
   StaticVectorImpl(std::initializer_list<T> values) {
-    this->bump_size(values.size());
-    auto* p = this->item_ptr(0);
+    storage_.bump_size(values.size());
+    auto* p = data_ptr();
     for (auto&& v : values) {
       // XXX cannot move initializer values?
       new (p++) T(v);
     }
   }
 
-  constexpr bool empty() const { return size_ == 0; }
+  constexpr bool empty() const { return storage_.size_ == 0; }
 
-  constexpr size_t size() const { return size_; }
+  constexpr size_t size() const { return storage_.size_; }
 
-  T& operator[](size_t i) { return *item_ptr(i); }
+  constexpr size_t capacity() const { return storage_.capacity(); }
 
-  constexpr const T& operator[](size_t i) const { return *const_item_ptr(i); }
+  constexpr size_t max_size() const { return storage_.max_size(); }
 
-  T& front() { return *item_ptr(0); }
+  T& operator[](size_t i) { return data_ptr()[i]; }
 
-  constexpr const T& front() const { return *const_item_ptr(0); }
+  constexpr const T& operator[](size_t i) const { return const_data_ptr()[i]; }
 
-  T& back() { return *item_ptr(size_ - 1); }
+  T& front() { return data_ptr()[0]; }
 
-  constexpr const T& back() const { return *const_item_ptr(size_ - 1); }
+  constexpr const T& front() const { return const_data_ptr()[0]; }
 
-  T* data() { return item_ptr(0); }
+  T& back() { return data_ptr()[storage_.size_ - 1]; }
 
-  constexpr const T* data() const { return const_item_ptr(0); }
+  constexpr const T& back() const { return const_data_ptr()[storage_.size_ - 1]; }
 
-  iterator begin() { return iterator(item_ptr(0)); }
+  T* data() { return data_ptr(); }
 
-  constexpr const_iterator begin() const { return const_iterator(const_item_ptr(0)); }
+  constexpr const T* data() const { return const_data_ptr(); }
 
-  iterator end() { return iterator(item_ptr(size_)); }
+  iterator begin() { return iterator(data_ptr()); }
 
-  constexpr const_iterator end() const { return const_iterator(const_item_ptr(size_)); }
+  constexpr const_iterator begin() const { return const_iterator(const_data_ptr()); }
+
+  iterator end() { return iterator(data_ptr() + storage_.size_); }
+
+  constexpr const_iterator end() const {
+    return const_iterator(const_data_ptr() + storage_.size_);
+  }
+
+  void reserve(size_t n) { storage_.reserve(n); }
+
+  void clear() { storage_.clear(); }
 
   void push_back(const T& value) {
-    this->bump_size(1);
-    new (item_ptr(size_ - 1)) T(value);
+    storage_.bump_size(1);
+    new (data_ptr() + storage_.size_ - 1) T(value);
   }
 
   void push_back(T&& value) {
-    this->bump_size(1);
-    new (item_ptr(size_ - 1)) T(std::move(value));
+    storage_.bump_size(1);
+    new (data_ptr() + storage_.size_ - 1) T(std::move(value));
   }
 
   template <typename... Args>
   void emplace_back(Args&&... args) {
-    this->bump_size(1);
-    new (item_ptr(size_ - 1)) T(std::forward<Args>(args)...);
+    storage_.bump_size(1);
+    new (data_ptr() + storage_.size_ - 1) T(std::forward<Args>(args)...);
   }
 
   void resize(size_t n) {
-    const size_t old_size = size_;
-    if (n > size_) {
-      this->bump_size(n);
-      auto* p = this->item_ptr(0);
+    const size_t old_size = storage_.size_;
+    if (n > storage_.size_) {
+      storage_.bump_size(n);
+      auto* p = data_ptr();
       for (size_t i = old_size; i < n; ++i) {
         new (&p[i]) T{};
       }
     } else {
-      auto* p = this->item_ptr(0);
+      auto* p = data_ptr();
       for (size_t i = n; i < old_size; ++i) {
         p[i].~T();
       }
-      this->reduce_size(n);
+      storage_.reduce_size(n);
     }
   }
 
   void resize(size_t n, const T& value) {
-    const size_t old_size = size_;
-    if (n > size_) {
-      this->bump_size(n);
-      auto* p = this->item_ptr(0);
+    const size_t old_size = storage_.size_;
+    if (n > storage_.size_) {
+      storage_.bump_size(n);
+      auto* p = data_ptr();
       for (size_t i = old_size; i < n; ++i) {
         new (&p[i]) T(value);
       }
     } else {
-      auto* p = this->item_ptr(0);
+      auto* p = data_ptr();
       for (size_t i = n; i < old_size; ++i) {
         p[i].~T();
       }
-      this->reduce_size(n);
+      storage_.reduce_size(n);
     }
   }
 };
 
 template <typename T, size_t N>
-using StaticVector = StaticVectorImpl<T, N, StaticVectorBase<T, N>>;
+using StaticVector = StaticVectorImpl<T, N, StaticVectorStorage<T, N>>;
 
 template <typename T, size_t N>
-using SmallVector = StaticVectorImpl<T, N, SmallVectorBase<T, N>>;
+using SmallVector = StaticVectorImpl<T, N, SmallVectorStorage<T, N>>;
 
 }  // namespace internal
 }  // namespace arrow
