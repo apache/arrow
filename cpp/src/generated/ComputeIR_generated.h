@@ -417,16 +417,16 @@ inline const char *EnumNameCanonicalOperationId(CanonicalOperationId e) {
 enum class Operation : uint8_t {
   NONE = 0,
   CanonicalOperation = 1,
-  NonCanonicalFunction = 2,
+  NonCanonicalOperation = 2,
   MIN = NONE,
-  MAX = NonCanonicalFunction
+  MAX = NonCanonicalOperation
 };
 
 inline const Operation (&EnumValuesOperation())[3] {
   static const Operation values[] = {
     Operation::NONE,
     Operation::CanonicalOperation,
-    Operation::NonCanonicalFunction
+    Operation::NonCanonicalOperation
   };
   return values;
 }
@@ -435,14 +435,14 @@ inline const char * const *EnumNamesOperation() {
   static const char * const names[4] = {
     "NONE",
     "CanonicalOperation",
-    "NonCanonicalFunction",
+    "NonCanonicalOperation",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameOperation(Operation e) {
-  if (flatbuffers::IsOutRange(e, Operation::NONE, Operation::NonCanonicalFunction)) return "";
+  if (flatbuffers::IsOutRange(e, Operation::NONE, Operation::NonCanonicalOperation)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesOperation()[index];
 }
@@ -455,8 +455,8 @@ template<> struct OperationTraits<org::apache::arrow::flatbuf::computeir::Canoni
   static const Operation enum_value = Operation::CanonicalOperation;
 };
 
-template<> struct OperationTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction> {
-  static const Operation enum_value = Operation::NonCanonicalFunction;
+template<> struct OperationTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalOperation> {
+  static const Operation enum_value = Operation::NonCanonicalOperation;
 };
 
 bool VerifyOperation(flatbuffers::Verifier &verifier, const void *obj, Operation type);
@@ -504,16 +504,16 @@ inline const char *EnumNameCanonicalJoinKindId(CanonicalJoinKindId e) {
 enum class JoinKind : uint8_t {
   NONE = 0,
   CanonicalJoinKind = 1,
-  NonCanonicalFunction = 2,
+  NonCanonicalJoinKind = 2,
   MIN = NONE,
-  MAX = NonCanonicalFunction
+  MAX = NonCanonicalJoinKind
 };
 
 inline const JoinKind (&EnumValuesJoinKind())[3] {
   static const JoinKind values[] = {
     JoinKind::NONE,
     JoinKind::CanonicalJoinKind,
-    JoinKind::NonCanonicalFunction
+    JoinKind::NonCanonicalJoinKind
   };
   return values;
 }
@@ -522,14 +522,14 @@ inline const char * const *EnumNamesJoinKind() {
   static const char * const names[4] = {
     "NONE",
     "CanonicalJoinKind",
-    "NonCanonicalFunction",
+    "NonCanonicalJoinKind",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameJoinKind(JoinKind e) {
-  if (flatbuffers::IsOutRange(e, JoinKind::NONE, JoinKind::NonCanonicalFunction)) return "";
+  if (flatbuffers::IsOutRange(e, JoinKind::NONE, JoinKind::NonCanonicalJoinKind)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesJoinKind()[index];
 }
@@ -542,8 +542,8 @@ template<> struct JoinKindTraits<org::apache::arrow::flatbuf::computeir::Canonic
   static const JoinKind enum_value = JoinKind::CanonicalJoinKind;
 };
 
-template<> struct JoinKindTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction> {
-  static const JoinKind enum_value = JoinKind::NonCanonicalFunction;
+template<> struct JoinKindTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind> {
+  static const JoinKind enum_value = JoinKind::NonCanonicalJoinKind;
 };
 
 bool VerifyJoinKind(flatbuffers::Verifier &verifier, const void *obj, JoinKind type);
@@ -1378,8 +1378,8 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::computeir::CanonicalOperation *operation_as_CanonicalOperation() const {
     return operation_type() == org::apache::arrow::flatbuf::computeir::Operation::CanonicalOperation ? static_cast<const org::apache::arrow::flatbuf::computeir::CanonicalOperation *>(operation()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *operation_as_NonCanonicalFunction() const {
-    return operation_type() == org::apache::arrow::flatbuf::computeir::Operation::NonCanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(operation()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::NonCanonicalOperation *operation_as_NonCanonicalOperation() const {
+    return operation_type() == org::apache::arrow::flatbuf::computeir::Operation::NonCanonicalOperation ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalOperation *>(operation()) : nullptr;
   }
   /// Parameters for `operation`; content/format may be unique to each
   /// value of `operation`.
@@ -1414,8 +1414,8 @@ template<> inline const org::apache::arrow::flatbuf::computeir::CanonicalOperati
   return operation_as_CanonicalOperation();
 }
 
-template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *Relation::operation_as<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction>() const {
-  return operation_as_NonCanonicalFunction();
+template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalOperation *Relation::operation_as<org::apache::arrow::flatbuf::computeir::NonCanonicalOperation>() const {
+  return operation_as_NonCanonicalOperation();
 }
 
 struct RelationBuilder {
@@ -1802,8 +1802,8 @@ struct JoinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *join_kind_as_CanonicalJoinKind() const {
     return join_kind_type() == org::apache::arrow::flatbuf::computeir::JoinKind::CanonicalJoinKind ? static_cast<const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *>(join_kind()) : nullptr;
   }
-  const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *join_kind_as_NonCanonicalFunction() const {
-    return join_kind_type() == org::apache::arrow::flatbuf::computeir::JoinKind::NonCanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(join_kind()) : nullptr;
+  const org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind *join_kind_as_NonCanonicalJoinKind() const {
+    return join_kind_type() == org::apache::arrow::flatbuf::computeir::JoinKind::NonCanonicalJoinKind ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind *>(join_kind()) : nullptr;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1820,8 +1820,8 @@ template<> inline const org::apache::arrow::flatbuf::computeir::CanonicalJoinKin
   return join_kind_as_CanonicalJoinKind();
 }
 
-template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *JoinOptions::join_kind_as<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction>() const {
-  return join_kind_as_NonCanonicalFunction();
+template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind *JoinOptions::join_kind_as<org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind>() const {
+  return join_kind_as_NonCanonicalJoinKind();
 }
 
 struct JoinOptionsBuilder {
@@ -2339,8 +2339,8 @@ inline bool VerifyOperation(flatbuffers::Verifier &verifier, const void *obj, Op
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::CanonicalOperation *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case Operation::NonCanonicalFunction: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(obj);
+    case Operation::NonCanonicalOperation: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalOperation *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
@@ -2368,8 +2368,8 @@ inline bool VerifyJoinKind(flatbuffers::Verifier &verifier, const void *obj, Joi
       auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *>(obj);
       return verifier.VerifyTable(ptr);
     }
-    case JoinKind::NonCanonicalFunction: {
-      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(obj);
+    case JoinKind::NonCanonicalJoinKind: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalJoinKind *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

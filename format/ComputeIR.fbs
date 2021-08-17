@@ -37,6 +37,9 @@ union ExpressionImpl {
 }
 
 table Expression {
+  // Ideally we'd simply have `union Expression { Literal, FieldRef, Call }`
+  // but not all generators support vectors of unions so we provide minimal
+  // indirection to support them.
   impl: ExpressionImpl (required);
 }
 
@@ -182,7 +185,7 @@ table NonCanonicalOperation {
 }
 
 union Operation {
-  CanonicalOperation, NonCanonicalFunction
+  CanonicalOperation, NonCanonicalOperation
 }
 
 /// A relation is a set of rows with consistent schema.
@@ -246,7 +249,7 @@ table NonCanonicalJoinKind {
 }
 
 union JoinKind {
-  CanonicalJoinKind, NonCanonicalFunction
+  CanonicalJoinKind, NonCanonicalJoinKind
 }
 
 /// The contents of Relation.options will be JoinOptions
