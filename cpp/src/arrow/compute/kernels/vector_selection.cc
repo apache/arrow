@@ -2173,8 +2173,7 @@ Result<std::shared_ptr<ChunkedArray>> CreateEmptyChunkedArray(
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
-Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& values,
-                                             ExecContext* ctx) {
+Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
   if (values->null_count() == 0) {
     return values;
   }
@@ -2188,15 +2187,12 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
                         GetDropNullFilter(*values, ctx->memory_pool()));
 
   auto options = FilterOptions::Defaults();
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result,
-      CallFunction("array_filter", {Datum(*values), Datum(*drop_null_filter)}, &options,
-                   ctx));
-  return result.make_array();
+  return CallFunction("array_filter", {Datum(*values), Datum(*drop_null_filter)},
+                      &options, ctx);
 }
 
-Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(
-    const std::shared_ptr<ChunkedArray>& values, ExecContext* ctx) {
+Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
+                                   ExecContext* ctx) {
   if (values->null_count() == 0) {
     return values;
   }
@@ -2206,28 +2202,28 @@ Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(
   std::vector<std::shared_ptr<Array>> new_chunks;
   for (const auto& chunk : values->chunks()) {
     ARROW_ASSIGN_OR_RAISE(auto new_chunk, DropNullArray(chunk, ctx));
-    if (new_chunk->length() > 0) {
-      new_chunks.push_back(new_chunk);
+    if (new_chunk.length() > 0) {
+      new_chunks.push_back(new_chunk.make_array());
     }
   }
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
-Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batch,
-                                                         ExecContext* ctx) {
+Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
+                                  ExecContext* ctx) {
   int64_t null_count = 0;
-  for (const auto& column : batch.columns()) {
+  for (const auto& column : batch->columns()) {
     null_count += column->null_count();
   }
   if (null_count == 0) {
-    return RecordBatch::Make(batch.schema(), batch.num_rows(), batch.columns());
+    return batch;
   }
   ARROW_ASSIGN_OR_RAISE(auto dst,
-                        AllocateEmptyBitmap(batch.num_rows(), ctx->memory_pool()));
-  BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), true);
-  for (const auto& column : batch.columns()) {
+                        AllocateEmptyBitmap(batch->num_rows(), ctx->memory_pool()));
+  BitUtil::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), true);
+  for (const auto& column : batch->columns()) {
     if (column->type()->id() == Type::type::NA) {
-      BitUtil::SetBitsTo(dst->mutable_data(), 0, batch.num_rows(), false);
+      BitUtil::SetBitsTo(dst->mutable_data(), 0, batch->num_rows(), false);
       break;
     }
     if (column->null_bitmap_data()) {
@@ -2237,78 +2233,41 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
     }
   }
   auto drop_null_filter =
-      std::make_shared<BooleanArray>(batch.num_rows(), dst, nullptr, 0, 0);
-  if (drop_null_filter->null_count() == batch.num_rows()) {
-    ArrayVector empty_batch(batch.num_columns());
-    for (int i = 0; i < batch.num_columns(); i++) {
+      std::make_shared<BooleanArray>(batch->num_rows(), dst, nullptr, 0, 0);
+  if (drop_null_filter->null_count() == batch->num_rows()) {
+    ArrayVector empty_batch(batch->num_columns());
+    for (int i = 0; i < batch->num_columns(); i++) {
       ARROW_ASSIGN_OR_RAISE(
-          empty_batch[i], CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool()));
+          empty_batch[i], CreateEmptyArray(batch->column(i)->type(), ctx->memory_pool()));
     }
-    return RecordBatch::Make(batch.schema(), 0, empty_batch);
+    return RecordBatch::Make(batch->schema(), 0, std::move(empty_batch));
   }
-  ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(batch), Datum(drop_null_filter),
-                                             FilterOptions::Defaults(), ctx));
-  return result.record_batch();
+  return Filter(Datum(batch), Datum(drop_null_filter), FilterOptions::Defaults(), ctx);
 }
 
-Result<std::shared_ptr<Table>> DropNullTable(const Table& table, ExecContext* ctx) {
-  if (table.num_rows() == 0) {
-    return Table::Make(table.schema(), table.columns(), 0);
+Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ctx) {
+  if (table->num_rows() == 0) {
+    return Table::Make(table->schema(), table->columns(), 0);
   }
   int64_t null_count = 0;
-  for (const auto& col : table.columns()) {
+  for (const auto& col : table->columns()) {
     for (const auto& column_chunk : col->chunks()) {
       null_count += column_chunk->null_count();
     }
   }
   if (null_count == 0) {
-    return Table::Make(table.schema(), table.columns(), table.num_rows());
+    return table;
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto dst,
-                        AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
-  BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), true);
-
-  for (const auto& col : table.columns()) {
-    if (col->type()->id() == Type::type::NA) {
-      BitUtil::SetBitsTo(dst->mutable_data(), 0, table.num_rows(), false);
-      break;
-    }
-    std::vector<::arrow::internal::Bitmap> bitmaps;
-    std::transform(col->chunks().begin(), col->chunks().end(),
-                   std::back_inserter(bitmaps), [](const std::shared_ptr<Array>& array) {
-                     return ::arrow::internal::Bitmap(array->null_bitmap_data(),
-                                                      array->offset(), array->length());
-                   });
-    int64_t global_offset = 0;
-    ARROW_ASSIGN_OR_RAISE(auto concatenated_bitmap,
-                          AllocateEmptyBitmap(table.num_rows(), ctx->memory_pool()));
-    BitUtil::SetBitsTo(concatenated_bitmap->mutable_data(), 0, table.num_rows(), true);
-    for (auto bitmap : bitmaps) {
-      if (bitmap.buffer()->data()) {
-        ::arrow::internal::CopyBitmap(bitmap.buffer()->data(), bitmap.offset(),
-                                      bitmap.length(),
-                                      concatenated_bitmap->mutable_data(), global_offset);
-      }
-      global_offset += bitmap.length();
-    }
-    ::arrow::internal::BitmapAnd(concatenated_bitmap->data(), 0, dst->data(), 0,
-                                 table.num_rows(), 0, dst->mutable_data());
+  arrow::RecordBatchVector batches;
+  std::shared_ptr<RecordBatch> batch;
+  TableBatchReader batch_iter(*table);
+  RETURN_NOT_OK(batch_iter.ReadNext(&batch));
+  while (batch != nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto output_batch, DropNullRecordBatch(batch, ctx));
+    batches.push_back(output_batch.record_batch());
+    RETURN_NOT_OK(batch_iter.ReadNext(&batch));
   }
-  auto drop_null_filter =
-      std::make_shared<BooleanArray>(table.num_rows(), dst, nullptr, 0, 0);
-  if (drop_null_filter->null_count() == table.num_rows()) {
-    std::vector<std::shared_ptr<ChunkedArray>> empty_table(table.num_columns());
-    for (int i = 0; i < table.num_columns(); i++) {
-      ARROW_ASSIGN_OR_RAISE(auto empty_array, CreateEmptyArray(table.column(i)->type(),
-                                                               ctx->memory_pool()));
-      empty_table[i] = std::make_shared<ChunkedArray>(ArrayVector{empty_array});
-    }
-    return Table::Make(table.schema(), empty_table, 0);
-  }
-  ARROW_ASSIGN_OR_RAISE(Datum result, Filter(Datum(table), Datum(drop_null_filter),
-                                             FilterOptions::Defaults(), ctx));
-  return result.table();
+  return Table::FromRecordBatches(batches);
 }
 
 const FunctionDoc drop_null_doc(
@@ -2328,22 +2287,16 @@ class DropNullMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     switch (args[0].kind()) {
       case Datum::ARRAY: {
-        auto input_array = args[0].make_array();
-        return DropNullArray(input_array, ctx);
-      }  // namespace
-      break;
+        return DropNullArray(args[0].make_array(), ctx);
+      } break;
       case Datum::CHUNKED_ARRAY: {
         return DropNullChunkedArray(args[0].chunked_array(), ctx);
       } break;
       case Datum::RECORD_BATCH: {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,
-                              DropNullRecordBatch(*args[0].record_batch(), ctx));
-        return Datum(out_batch);
+        return DropNullRecordBatch(args[0].record_batch(), ctx);
       } break;
       case Datum::TABLE: {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
-                              DropNullTable(*args[0].table(), ctx));
-        return Datum(out_table);
+        return DropNullTable(args[0].table(), ctx);
       } break;
       default:
         break;

@@ -591,7 +591,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     return call_function('take', [data, indices], options, memory_pool)
 
 
-def drop_null(data, *, memory_pool=None):
+def drop_null(data, memory_pool=None):
     """
     Remove missing values (or records) from array- or table-like.
 

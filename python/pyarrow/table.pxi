@@ -958,14 +958,14 @@ cdef class RecordBatch(_PandasConvertible):
 
     def take(self, object indices):
         """
-        Select records from an RecordBatch. See pyarrow.compute.take for full
+        Select records from a RecordBatch. See pyarrow.compute.take for full
         usage.
         """
         return _pc().take(self, indices)
 
     def drop_null(self):
         """
-        Remove missing values from an RecordBatch.
+        Remove missing values from a RecordBatch.
         See pyarrow.compute.drop_null for full usage.
         """
         return _pc().drop_null(self)
