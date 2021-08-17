@@ -96,6 +96,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
           Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder();
           builder.setOrdinal(index);
           builder.setColumnName(field.getName());
+          builder.setLabel(field.getName());
 
           builder.setType(Common.AvaticaType.newBuilder()
               .setId(SqlTypes.getSqlTypeIdFromArrowType(field.getType()))
