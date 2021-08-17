@@ -20,6 +20,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
@@ -73,6 +74,15 @@ class ScalarTemporalTest : public ::testing::Test {
           "2010-01-04T07:35:35", "2006-01-01T08:40:40",
           "2005-12-31T09:45:45", "2008-12-28", "2008-12-29",
           "2012-01-01 01:02:03", null])";
+  const char* times_seconds_precision2 =
+      R"(["1971-01-01T00:00:59","1999-02-28T23:23:23",
+          "1899-02-01T00:59:20","2033-04-18T03:33:20",
+          "2020-01-02T01:05:05", "2019-12-29T02:10:10",
+          "2019-12-30T04:15:15", "2009-12-31T03:20:20",
+          "2010-01-01T05:26:25", "2010-01-03T06:29:30",
+          "2010-01-04T07:35:36", "2006-01-01T08:40:39",
+          "2005-12-31T09:45:45", "2008-12-27T23:59:59",
+          "2008-02-28", "2012-03-01", null])";
   std::shared_ptr<arrow::DataType> iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
                field("iso_day_of_week", int64())});
@@ -130,6 +140,75 @@ class ScalarTemporalTest : public ::testing::Test {
       "[0.123456, 0.999999, 0.001001, 0, 0.001, 0.002, 0.003, 0.004132, 0.005321, "
       "0.006163, 0, 0, 0, 0, 0, 0, null]";
   std::string zeros = "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]";
+  std::string years_between = "[1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]";
+  std::string years_between_tz =
+      "[1, -1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, null]";
+  std::string quarters_between =
+      "[4, -4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, null]";
+  std::string quarters_between_tz =
+      "[4, -4, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 1, null]";
+  std::string months_between =
+      "[12, -12, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -10, 2, null]";
+  std::string months_between_tz =
+      "[12, -12, 1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -10, 2, null]";
+  std::string month_day_nano_interval_between_zeros =
+      "[[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], "
+      "[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], "
+      "[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], null]";
+  std::string month_day_nano_interval_between =
+      "[[12, 0, 0], [-12, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -2, 0], "
+      "[0, 0, 3600000000000], [0, 0, -3600000000000], "
+      "[0, 0, 60000000000], [0, 0, -60000000000], "
+      "[0, 0, 1000000000], [0, 0, -1000000000], "
+      "[0, 0, 0], [0, -1, 86399000000000], [-10, -1, 0], [2, 0, -3723000000000], null]";
+  std::string month_day_nano_interval_between_tz =
+      "[[12, 0, 0], [-12, -1, 0], [1, 0, 0], [-1, 0, 0], [1, -30, 0], [0, -2, 0], "
+      "[0, 0, 3600000000000], [0, 0, -3600000000000], "
+      "[0, 0, 60000000000], [0, 0, -60000000000], "
+      "[0, 0, 1000000000], [0, 0, -1000000000], "
+      "[0, 0, 0], [0, 0, -1000000000], [-10, -1, 0], [2, -2, -3723000000000], null]";
+  std::string day_time_interval_between_zeros =
+      "[[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], "
+      "[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], null]";
+  std::string day_time_interval_between =
+      "[[365, 0], [-366, 0], [31, 0], [-30, 0], [1, 0], [-2, 0], [0, 3600000], "
+      "[0, -3600000], [0, 60000], [0, -60000], [0, 1000], [0, -1000], [0, 0], "
+      "[-1, 86399000], [-305, 0], [60, -3723000], null]";
+  std::string day_time_interval_between_tz =
+      "[[365, 0], [-366, 0], [31, 0], [-30, 0], [1, 0], [-2, 0], [0, 3600000], "
+      "[0, -3600000], [0, 60000], [0, -60000], [0, 1000], [0, -1000], [0, 0], "
+      "[0, -1000], [-305, 0], [60, -3723000], null]";
+  std::string weeks_between =
+      "[52, -53, 5, -4, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -44, 9, null]";
+  std::string weeks_between_tz =
+      "[52, -53, 5, -5, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -43, 9, null]";
+  std::string days_between =
+      "[365, -366, 31, -30, 1, -2, 0, 0, 0, 0, 0, 0, 0, -1, -305, 60, null]";
+  std::string days_between_tz =
+      "[365, -366, 31, -30, 1, -2, 0, 0, 0, 0, 0, 0, 0, 0, -305, 60, null]";
+  std::string hours_between =
+      "[8760, -8784, 744, -720, 24, -48, 1, -1, 0, 0, 0, 0, 0, -1, -7320, 1439, null]";
+  std::string hours_between_tz =
+      "[8760, -8784, 744, -720, 24, -48, 1, -1, 0, -1, 0, 0, 0, 0, -7320, 1439, null]";
+  std::string minutes_between =
+      "[525600, -527040, 44640, -43200, 1440, -2880, 60, -60, 1, -1, 0, 0, 0, -1, "
+      "-439200, 86338, null]";
+  std::string seconds_between =
+      "[31536000, -31622400, 2678400, -2592000, 86400, -172800, 3600, -3600, 60, -60, 1, "
+      "-1, 0, -1, -26352000, 5180277, null]";
+  std::string milliseconds_between =
+      "[31536000000, -31622400000, 2678400000, -2592000000, 86400000, -172800000, "
+      "3600000, -3600000, 60000, -60000, 1000, -1000, 0, -1000, -26352000000, "
+      "5180277000, null]";
+  std::string microseconds_between =
+      "[31536000000000, -31622400000000, 2678400000000, -2592000000000, 86400000000, "
+      "-172800000000, 3600000000, -3600000000, 60000000, -60000000, 1000000, -1000000, "
+      "0, -1000000, -26352000000000, 5180277000000, null]";
+  std::string nanoseconds_between =
+      "[31536000000000000, -31622400000000000, 2678400000000000, -2592000000000000, "
+      "86400000000000, -172800000000000, 3600000000000, -3600000000000, 60000000000, "
+      "-60000000000, 1000000000, -1000000000, 0, -1000000000, -26352000000000000, "
+      "5180277000000000, null]";
 };
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
@@ -505,6 +584,144 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                                                                 /*week_start=*/8)));
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalDifference) {
+  for (auto u : TimeUnit::values()) {
+    auto unit = timestamp(u);
+    auto arr1 = ArrayFromJSON(unit, times_seconds_precision);
+    auto arr2 = ArrayFromJSON(unit, times_seconds_precision2);
+    CheckScalarBinary("years_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("years_between", arr1, arr2, ArrayFromJSON(int64(), years_between));
+    CheckScalarBinary("quarters_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("quarters_between", arr1, arr2,
+                      ArrayFromJSON(int64(), quarters_between));
+    CheckScalarBinary("month_interval_between", arr1, arr1,
+                      ArrayFromJSON(month_interval(), zeros));
+    CheckScalarBinary("month_interval_between", arr1, arr1,
+                      ArrayFromJSON(month_interval(), zeros));
+    CheckScalarBinary("month_interval_between", arr1, arr2,
+                      ArrayFromJSON(month_interval(), months_between));
+    CheckScalarBinary(
+        "month_day_nano_interval_between", arr1, arr1,
+        ArrayFromJSON(month_day_nano_interval(), month_day_nano_interval_between_zeros));
+    CheckScalarBinary(
+        "month_day_nano_interval_between", arr1, arr2,
+        ArrayFromJSON(month_day_nano_interval(), month_day_nano_interval_between));
+    CheckScalarBinary(
+        "day_time_interval_between", arr1, arr1,
+        ArrayFromJSON(day_time_interval(), day_time_interval_between_zeros));
+    CheckScalarBinary("day_time_interval_between", arr1, arr2,
+                      ArrayFromJSON(day_time_interval(), day_time_interval_between));
+    CheckScalarBinary("weeks_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("weeks_between", arr1, arr2, ArrayFromJSON(int64(), weeks_between));
+    CheckScalarBinary("days_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("days_between", arr1, arr2, ArrayFromJSON(int64(), days_between));
+    CheckScalarBinary("hours_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("hours_between", arr1, arr2, ArrayFromJSON(int64(), hours_between));
+    CheckScalarBinary("minutes_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("minutes_between", arr1, arr2,
+                      ArrayFromJSON(int64(), minutes_between));
+    CheckScalarBinary("seconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("seconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), seconds_between));
+    CheckScalarBinary("milliseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("milliseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), milliseconds_between));
+    CheckScalarBinary("microseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("microseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), microseconds_between));
+    CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("nanoseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), nanoseconds_between));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
+  auto ty = timestamp(TimeUnit::SECOND);
+  auto days = ArrayFromJSON(ty, R"([
+    "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",
+    "2021-08-16", "2021-08-17", "2021-08-18", "2021-08-19", "2021-08-20", "2021-08-21", "2021-08-22",
+    "2021-08-23", "2021-08-24", "2021-08-25", "2021-08-26", "2021-08-27", "2021-08-28", "2021-08-29"
+  ])");
+
+  DayOfWeekOptions options(/*one_based_numbering=*/false, /*week_start=Monday*/ 1);
+  EXPECT_THAT(CallFunction("weeks_between", {ScalarFromJSON(ty, R"("2021-08-16")"), days},
+                           &options),
+              ResultWith(Datum(ArrayFromJSON(int64(), R"([
+-1, -1, -1, -1, -1, -1, -1,
+0, 0, 0, 0, 0, 0, 0,
+1, 1, 1, 1, 1, 1, 1
+])"))));
+  EXPECT_THAT(CallFunction("weeks_between", {ScalarFromJSON(ty, R"("2021-08-17")"), days},
+                           &options),
+              ResultWith(Datum(ArrayFromJSON(int64(), R"([
+-1, -1, -1, -1, -1, -1, -1,
+0, 0, 0, 0, 0, 0, 0,
+1, 1, 1, 1, 1, 1, 1
+])"))));
+
+  options.week_start = 3;  // Wednesday
+  EXPECT_THAT(CallFunction("weeks_between", {ScalarFromJSON(ty, R"("2021-08-16")"), days},
+                           &options),
+              ResultWith(Datum(ArrayFromJSON(int64(), R"([
+-1, -1, 0, 0, 0, 0, 0,
+0, 0, 1, 1, 1, 1, 1,
+1, 1, 2, 2, 2, 2, 2
+])"))));
+  EXPECT_THAT(CallFunction("weeks_between", {ScalarFromJSON(ty, R"("2021-08-17")"), days},
+                           &options),
+              ResultWith(Datum(ArrayFromJSON(int64(), R"([
+-1, -1, 0, 0, 0, 0, 0,
+0, 0, 1, 1, 1, 1, 1,
+1, 1, 2, 2, 2, 2, 2
+])"))));
+  EXPECT_THAT(CallFunction("weeks_between", {ScalarFromJSON(ty, R"("2021-08-18")"), days},
+                           &options),
+              ResultWith(Datum(ArrayFromJSON(int64(), R"([
+-2, -2, -1, -1, -1, -1, -1,
+-1, -1, 0, 0, 0, 0, 0,
+0, 0, 1, 1, 1, 1, 1
+])"))));
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
+  Datum arr1 = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"),
+                             R"(["1970-01-01T00:00:59"])");
+  Datum arr2 = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                             R"(["1970-01-01T00:00:59"])");
+  Datum arr3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"(["1970-01-01T00:00:59"])");
+  Datum arr4 =
+      ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"(["1970-01-01T00:00:59"])");
+  for (auto fn :
+       {"years_between", "month_interval_between", "month_day_nano_interval_between",
+        "day_time_interval_between", "weeks_between", "days_between", "hours_between",
+        "minutes_between", "seconds_between", "milliseconds_between",
+        "microseconds_between", "nanoseconds_between"}) {
+    SCOPED_TRACE(fn);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr("Got differing time zone 'America/Phoenix' for argument 2; "
+                             "expected 'America/New_York'"),
+        CallFunction(fn, {arr1, arr2}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Got differing time zone 'America/Phoenix' for argument 2; expected ''"),
+        CallFunction(fn, {arr3, arr2}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr("Got differing time zone 'UTC' for argument 2; expected ''"),
+        CallFunction(fn, {arr3, arr4}));
+  }
+
+  DayOfWeekOptions options;
+  options.week_start = 20;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("week_start must follow ISO convention (Monday=1, Sunday=7). "
+                           "Got week_start=20"),
+      CallFunction("weeks_between", {arr1, arr1}, &options));
+}
+
 // TODO: We should test on windows once ARROW-13168 is resolved.
 #ifndef _WIN32
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
@@ -795,6 +1012,60 @@ TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
                                   testing::HasSubstr("Cannot find locale 'non-existent'"),
                                   Strftime(arr, options));
 }
+
+TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {
+  for (auto u : TimeUnit::values()) {
+    auto unit = timestamp(u, "Pacific/Marquesas");
+    auto arr1 = ArrayFromJSON(unit, times_seconds_precision);
+    auto arr2 = ArrayFromJSON(unit, times_seconds_precision2);
+    CheckScalarBinary("years_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("years_between", arr1, arr2,
+                      ArrayFromJSON(int64(), years_between_tz));
+    CheckScalarBinary("quarters_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("quarters_between", arr1, arr2,
+                      ArrayFromJSON(int64(), quarters_between_tz));
+    CheckScalarBinary(
+        "month_day_nano_interval_between", arr1, arr1,
+        ArrayFromJSON(month_day_nano_interval(), month_day_nano_interval_between_zeros));
+    CheckScalarBinary(
+        "month_day_nano_interval_between", arr1, arr2,
+        ArrayFromJSON(month_day_nano_interval(), month_day_nano_interval_between_tz));
+    CheckScalarBinary("month_interval_between", arr1, arr1,
+                      ArrayFromJSON(month_interval(), zeros));
+    CheckScalarBinary("month_interval_between", arr1, arr2,
+                      ArrayFromJSON(month_interval(), months_between_tz));
+    CheckScalarBinary(
+        "day_time_interval_between", arr1, arr1,
+        ArrayFromJSON(day_time_interval(), day_time_interval_between_zeros));
+    CheckScalarBinary("day_time_interval_between", arr1, arr2,
+                      ArrayFromJSON(day_time_interval(), day_time_interval_between_tz));
+    CheckScalarBinary("weeks_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("weeks_between", arr1, arr2,
+                      ArrayFromJSON(int64(), weeks_between_tz));
+    CheckScalarBinary("days_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("days_between", arr1, arr2,
+                      ArrayFromJSON(int64(), days_between_tz));
+    CheckScalarBinary("hours_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("hours_between", arr1, arr2,
+                      ArrayFromJSON(int64(), hours_between_tz));
+    CheckScalarBinary("minutes_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("minutes_between", arr1, arr2,
+                      ArrayFromJSON(int64(), minutes_between));
+    CheckScalarBinary("seconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("seconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), seconds_between));
+    CheckScalarBinary("milliseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("milliseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), milliseconds_between));
+    CheckScalarBinary("microseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("microseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), microseconds_between));
+    CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
+    CheckScalarBinary("nanoseconds_between", arr1, arr2,
+                      ArrayFromJSON(int64(), nanoseconds_between));
+  }
+}
+
 #endif  // !_WIN32
 
 }  // namespace compute

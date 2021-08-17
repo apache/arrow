@@ -923,6 +923,10 @@ using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryNotNullEqualTypes = ScalarBinaryNotNull<OutType, ArgType, ArgType, Op>;
 
+template <typename OutType, typename ArgType, typename Op>
+using ScalarBinaryNotNullStatefulEqualTypes =
+    ScalarBinaryNotNullStateful<OutType, ArgType, ArgType, Op>;
+
 }  // namespace applicator
 
 // ----------------------------------------------------------------------
