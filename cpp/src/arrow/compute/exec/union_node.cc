@@ -48,7 +48,8 @@ struct UnionNode : ExecNode {
       : ExecNode(plan, inputs, GetInputLabels(inputs),
                  /*output_schema=*/inputs[0]->output_schema(),
                  /*num_outputs=*/1) {
-    ARROW_DCHECK(this->input_count_.SetTotal(static_cast<int>(inputs.size())) == false);
+    bool counter_completed = input_count_.SetTotal(static_cast<int>(inputs.size()));
+    ARROW_DCHECK(counter_completed == false);
   }
 
   const char* kind_name() override { return "UnionNode"; }
@@ -64,17 +65,15 @@ struct UnionNode : ExecNode {
     for (auto input : inputs) {
       if (!input->output_schema()->Equals(schema)) {
         return Status::Invalid(
-            "UnionNode input schemas must all match, first schema was: ", *schema,
-            " got schema: ", *input->output_schema());
+            "UnionNode input schemas must all match, first schema was: ",
+            schema->ToString(), " got schema: ", input->output_schema()->ToString());
       }
     }
     return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
   }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
-    ARROW_DCHECK(std::find_if(inputs_.begin(), inputs_.end(), [input](ExecNode* n) {
-                   return n == input;
-                 }) != inputs_.end());
+    ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
       return;
@@ -93,15 +92,12 @@ struct UnionNode : ExecNode {
   }
 
   void InputFinished(ExecNode* input, int num_total) override {
-    ARROW_DCHECK(std::find_if(inputs_.begin(), inputs_.end(), [input](ExecNode* n) {
-                   return n == input;
-                 }) != inputs_.end());
-
-    total_batches_.fetch_add(num_total);
+    ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (input_count_.Increment()) {
-      outputs_[0]->InputFinished(this, total_batches_.load());
-      if (batch_count_.SetTotal(total_batches_.load())) {
+      int total_batches = batch_count_.count();
+      outputs_[0]->InputFinished(this, total_batches);
+      if (batch_count_.SetTotal(total_batches)) {
         finished_.MarkFinished();
       }
     }
@@ -140,7 +136,6 @@ struct UnionNode : ExecNode {
  private:
   AtomicCounter batch_count_;
   AtomicCounter input_count_;
-  std::atomic<int> total_batches_{0};
   Future<> finished_ = Future<>::MakeFinished();
 };
 

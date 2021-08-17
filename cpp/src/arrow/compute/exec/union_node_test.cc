@@ -30,7 +30,10 @@ namespace arrow {
 namespace compute {
 
 struct TestUnionNode : public ::testing::Test {
-  TestUnionNode() : rng_(seed_) {}
+  static constexpr int kNumBatches = 10;
+  static constexpr int kBatchSize = 10;
+
+  TestUnionNode() : rng_(0) {}
 
   std::shared_ptr<Schema> GenerateRandomSchema(size_t num_inputs) {
     static std::vector<std::shared_ptr<DataType>> some_arrow_types = {
@@ -39,8 +42,10 @@ struct TestUnionNode : public ::testing::Test {
         arrow::float64(), arrow::utf8(),    arrow::binary(),  arrow::date32()};
 
     std::vector<std::shared_ptr<Field>> fields(num_inputs);
+    unsigned int seed = static_cast<unsigned int>(time(NULL));
     for (size_t i = 0; i < num_inputs; i++) {
-      auto col_type = some_arrow_types.at(rand() % some_arrow_types.size());
+      int random = rand_r(&seed);
+      auto col_type = some_arrow_types.at(random % some_arrow_types.size());
       fields[i] =
           field("column_" + std::to_string(i) + "_" + col_type->ToString(), col_type);
     }
@@ -120,23 +125,23 @@ struct TestUnionNode : public ::testing::Test {
     CheckRunOutput(input_batches, exp_batches, parallel);
   }
 
-  ::arrow::random::SeedType seed_ = 0xdeadbeef;
   ::arrow::random::RandomArrayGenerator rng_;
-
-  static constexpr int kNumBatches = 10;
-  static constexpr int kBatchSize = 10;
 };
 
 TEST_F(TestUnionNode, TestNonEmpty) {
   for (bool parallel : {false, true}) {
     for (int64_t num_input_nodes : {1, 2, 4, 8}) {
-      this->CheckUnionExecNode(num_input_nodes, /*num_batches=*/kNumBatches, parallel);
+      this->CheckUnionExecNode(num_input_nodes, kNumBatches, parallel);
     }
   }
 }
-TEST_F(TestUnionNode, TestWithAnEmptyBatch) { this->CheckUnionExecNode(2, 0, false); }
+TEST_F(TestUnionNode, TestWithAnEmptyBatch) {
+  this->CheckUnionExecNode(/*num_input_nodes*/ 2, /*num_batches=*/0, /*parallel=*/false);
+}
 
-TEST_F(TestUnionNode, TestEmpty) { this->CheckUnionExecNode(0, 0, false); }
+TEST_F(TestUnionNode, TestEmpty) {
+  this->CheckUnionExecNode(/*num_input_nodes*/ 0, /*num_batches=*/0, /*parallel=*/false);
+}
 
 }  // namespace compute
 }  // namespace arrow
