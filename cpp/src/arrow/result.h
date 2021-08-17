@@ -26,6 +26,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/compare.h"
+#include "arrow/util/launder.h"
 
 namespace arrow {
 
@@ -33,15 +34,6 @@ template <typename>
 struct EnsureResult;
 
 namespace internal {
-
-#if __cplusplus >= 201703L
-using std::launder;
-#else
-template <class T>
-constexpr T* launder(T* p) noexcept {
-  return p;
-}
-#endif
 
 ARROW_EXPORT void DieWithMessage(const std::string& msg);
 

@@ -26,21 +26,11 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/util/launder.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
-
-#if __cplusplus >= 201703L
-using std::launder;
-#else
-// TODO factor out from result.h
-
-// template <class T>
-// constexpr T* launder(T* p) noexcept {
-//   return p;
-// }
-#endif
 
 template <typename T>
 class StaticVectorMixin {
@@ -163,7 +153,7 @@ class SmallVectorBase : public StaticVectorMixin<T> {
     if (dynamic_capacity_) {
       // Grow dynamic storage if necessary
       if (new_size > dynamic_capacity_) {
-        size_t new_capacity = std::max(dynamic_capacity_ * 3 / 2, new_size);
+        size_t new_capacity = std::max(dynamic_capacity_ * 2, new_size);
         auto new_data = new storage_type[new_capacity];
         this->move_storage(data_, new_data, size_);
         delete[] data_;
