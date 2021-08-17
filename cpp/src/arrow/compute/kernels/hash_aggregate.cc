@@ -2169,7 +2169,8 @@ const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
 
 const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"}};
+                               {"array", "group_id_array"},
+                               "ScalarAggregateOptions"};
 
 const FunctionDoc hash_product_doc{
     "Compute product of values of a numeric array",
@@ -2179,7 +2180,8 @@ const FunctionDoc hash_product_doc{
 
 const FunctionDoc hash_mean_doc{"Average values of a numeric array",
                                 ("Null values are ignored."),
-                                {"array", "group_id_array"}};
+                                {"array", "group_id_array"},
+                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_stddev_doc{
     "Calculate the standard deviation of a numeric array",

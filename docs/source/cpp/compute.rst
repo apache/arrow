@@ -288,23 +288,23 @@ The supported aggregation functions are as follows.
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
-| hash_all      | Unary | Boolean     | Scalar Int64   | :struct:`ScalarAggregateOptions` | \(1)  |
+| hash_all      | Unary | Boolean     | Int64          | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_any      | Unary | Any         | Scalar Int64   | :struct:`ScalarAggregateOptions` | \(1)  |
+| hash_any      | Unary | Any         | Int64          | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_count    | Unary | Boolean     | Scalar Int64   | :struct:`CountOptions`           | \(2)  |
+| hash_count    | Unary | Boolean     | Int64          | :struct:`CountOptions`           | \(2)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_mean     | Unary | Numeric     | Scalar Float64 |                                  |       |
+| hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_min_max  | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(3)  |
+| hash_min_max  | Unary | Numeric     | Struct         | :struct:`ScalarAggregateOptions` | \(3)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_stddev   | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
+| hash_stddev   | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_sum      | Unary | Numeric     | Scalar Numeric |                                  |       |
+| hash_sum      | Unary | Numeric     | Numeric        | :struct:`ScalarAggregateOptions` | \(4)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_tdigest  | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(4)  |
+| hash_tdigest  | Unary | Numeric     | Float64        | :struct:`TDigestOptions`         | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_variance | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
+| hash_variance | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -316,7 +316,9 @@ The supported aggregation functions are as follows.
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
-* \(4) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+
+* \(5) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
