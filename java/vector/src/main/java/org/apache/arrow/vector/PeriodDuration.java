@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import java.time.Duration;
 import java.time.Period;
 
+import org.apache.arrow.util.Preconditions;
+
 /**
  * Combination of Period and Duration for representing this interval type
  * as a POJO.
@@ -29,8 +31,8 @@ public class PeriodDuration {
   private final Duration duration;
 
   public PeriodDuration(Period period, Duration duration) {
-    this.period = period;
-    this.duration = duration;
+    this.period = Preconditions.checkNotNull(period);
+    this.duration = Preconditions.checkNotNull(duration);
   }
 
   public Period getPeriod() {

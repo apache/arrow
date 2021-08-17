@@ -61,12 +61,13 @@ public class TestIntervalMonthDayNanoVector {
       holder.nanoseconds = Long.MIN_VALUE;
 
 
-      vector.set(0, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-2);
-      vector.setSafe(2, /*moths=*/1, /*days=*/2, /*nanoseconds=*/-3);
+      vector.set(0, /*months=*/1, /*days=*/2, /*nanoseconds=*/-2);
+      vector.setSafe(2, /*months=*/1, /*days=*/2, /*nanoseconds=*/-3);
       vector.setSafe(/*index=*/4, nullableHolder);
       vector.set(3, holder);
       nullableHolder.isSet = 0;
       vector.setSafe(/*index=*/5, nullableHolder);
+      vector.setValueCount(5);
 
       assertEquals("P1M2D PT-0.000000002S ", vector.getAsStringBuilder(0).toString());
       assertEquals(null, vector.getAsStringBuilder(1));

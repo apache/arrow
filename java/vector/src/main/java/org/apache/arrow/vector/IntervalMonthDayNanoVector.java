@@ -34,10 +34,13 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * IntervalMonthDayNanoVectorimplements a fixed width vector (16 bytes) of
+ * IntervalMonthDayNanoVector implements a fixed width vector (16 bytes) of
  * interval (month, days and nanoseconds) values which could be null.
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
+ *
+ * Month, day and nanoseconds are indepndent from one another and there
+ * is no specific limits imposed on their values.
  */
 public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
@@ -219,7 +222,6 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   }
 
   private StringBuilder getAsStringBuilderHelper(int index) {
-    final long startIndex = (long) index * TYPE_WIDTH;
     return new StringBuilder().append(getObject(index).toString()).append(" ");
   }
 
@@ -259,7 +261,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
 
   /**
    * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
+   * If the value in holder is not indicated as set, element
    * at the given index will be null.
    *
    * @param index   position of element
