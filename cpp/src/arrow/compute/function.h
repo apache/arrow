@@ -52,6 +52,7 @@ class ARROW_EXPORT FunctionOptionsType {
   virtual Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const;
   virtual Result<std::unique_ptr<FunctionOptions>> Deserialize(
       const Buffer& buffer) const;
+  virtual std::unique_ptr<FunctionOptions> Copy(const FunctionOptions&) const = 0;
 };
 
 /// \brief Base class for specifying options configuring a function's behavior,
@@ -68,6 +69,7 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
   using util::EqualityComparable<FunctionOptions>::operator==;
   using util::EqualityComparable<FunctionOptions>::operator!=;
   std::string ToString() const;
+  std::unique_ptr<FunctionOptions> Copy() const;
   /// \brief Serialize an options struct to a buffer.
   Result<std::shared_ptr<Buffer>> Serialize() const;
   /// \brief Deserialize an options struct from a buffer.
