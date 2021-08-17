@@ -559,7 +559,7 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
   }
 }
 
-// A data type with only move constructors.
+// A data type with only move constructors (no copy, no default).
 struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
@@ -569,6 +569,14 @@ struct MoveOnlyDataType {
   MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
   MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
     MoveFrom(&other);
+    return *this;
+  }
+
+  MoveOnlyDataType& operator=(int x) {
+    if (data != nullptr) {
+      delete data;
+    }
+    data = new int(x);
     return *this;
   }
 

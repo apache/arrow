@@ -34,16 +34,6 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
-std::vector<T> MakeItems(int nitems);
-
-template <>
-std::vector<int> MakeItems(int nitems) {
-  std::vector<int> vec(nitems);
-  std::iota(vec.begin(), vec.end(), 42);
-  return vec;
-}
-
-template <typename T>
 T ValueInitializer();
 template <typename T>
 T ValueInitializer(int seed);
@@ -150,8 +140,9 @@ void CopyShortVector(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * kNumIters);
 }
 
+// With ARROW_NOINLINE, try to make sure the number of items is not constant-propagated
 template <typename Vector>
-void BenchmarkVectorPushBack(benchmark::State& state, const int nitems) {
+ARROW_NOINLINE void BenchmarkVectorPushBack(benchmark::State& state, const int nitems) {
   using T = typename Vector::value_type;
   constexpr int kNumIters = 1000;
 
@@ -161,6 +152,7 @@ void BenchmarkVectorPushBack(benchmark::State& state, const int nitems) {
     int64_t dummy = 0;
     for (int i = 0; i < kNumIters; ++i) {
       Vector vec;
+      vec.reserve(nitems);
       for (int j = 0; j < nitems; ++j) {
         vec.push_back(ValueInitializer<T>(j));
       }
@@ -183,22 +175,55 @@ void LongVectorPushBack(benchmark::State& state) {
   BenchmarkVectorPushBack<Vector>(state, 100);
 }
 
-#define SHORT_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                              \
-  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(int));                  \
-  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(std::string));          \
-  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
-  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(int));                  \
-  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(std::string));          \
-  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
-  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(int));                  \
-  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(std::string));          \
-  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
-  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(int));                  \
-  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(std::string));          \
-  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
-  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(int));              \
-  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(std::string));      \
-  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(std::shared_ptr<int>));
+// With ARROW_NOINLINE, try to make sure the source data is not constant-propagated
+// (we could also use random data)
+template <typename Vector, typename T = typename Vector::value_type>
+ARROW_NOINLINE void BenchmarkShortVectorInsert(benchmark::State& state,
+                                               const std::vector<T>& src) {
+  constexpr int kNumIters = 1000;
+
+  for (auto _ : state) {
+    int64_t dummy = 0;
+    for (int i = 0; i < kNumIters; ++i) {
+      Vector vec;
+      vec.reserve(4);
+      vec.insert(vec.begin(), src.begin(), src.begin() + 2);
+      vec.insert(vec.begin(), src.begin() + 2, src.end());
+      dummy += reinterpret_cast<intptr_t>(vec.data());
+      benchmark::ClobberMemory();
+    }
+    benchmark::DoNotOptimize(dummy);
+  }
+
+  state.SetItemsProcessed(state.iterations() * kNumIters * 4);
+}
+
+template <typename Vector>
+void ShortVectorInsert(benchmark::State& state) {
+  using T = typename Vector::value_type;
+  const std::vector<T> src(4, ValueInitializer<T>());
+  BenchmarkShortVectorInsert<Vector>(state, src);
+}
+
+#define SHORT_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                                  \
+  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(int));                      \
+  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(std::string));              \
+  BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(std::shared_ptr<int>));     \
+  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(int));                      \
+  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(std::string));              \
+  BENCHMARK_TEMPLATE(MoveShortVector, VEC_TYPE_FACTORY(std::shared_ptr<int>));     \
+  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(int));                      \
+  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(std::string));              \
+  BENCHMARK_TEMPLATE(CopyEmptyVector, VEC_TYPE_FACTORY(std::shared_ptr<int>));     \
+  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(int));                      \
+  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(std::string));              \
+  BENCHMARK_TEMPLATE(CopyShortVector, VEC_TYPE_FACTORY(std::shared_ptr<int>));     \
+  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(int));                  \
+  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(std::string));          \
+  BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
+  BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(int));                    \
+  BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(std::string));            \
+  BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(std::shared_ptr<int>));
 
 #define LONG_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                         \
   BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(int));         \

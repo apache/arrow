@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iterator>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -28,6 +29,7 @@
 #include "arrow/util/small_vector.h"
 
 using testing::ElementsAre;
+using testing::ElementsAreArray;
 
 namespace arrow {
 namespace internal {
@@ -104,6 +106,15 @@ class TestSmallStaticVector : public ::testing::Test {
 
   template <size_t N>
   using IntVectorType = VectorType<IntLike, N>;
+
+  template <size_t N>
+  IntVectorType<N> MakeVector(const std::vector<int>& init_values) {
+    IntVectorType<N> ints;
+    for (auto v : init_values) {
+      ints.emplace_back(v);
+    }
+    return ints;
+  }
 
   template <size_t N>
   IntVectorType<N> CheckFourValues() {
@@ -185,10 +196,7 @@ class TestSmallStaticVector : public ::testing::Test {
 
   template <size_t N>
   void CheckClear(bool expect_overflow) {
-    IntVectorType<N> ints;
-    for (int v : {5, 6, 7, 8, 9}) {
-      ints.emplace_back(v);
-    }
+    IntVectorType<N> ints = MakeVector<N>({5, 6, 7, 8, 9});
     ASSERT_EQ(ints.size(), 5);
     size_t capacity = ints.capacity();
 
@@ -254,12 +262,7 @@ class TestSmallStaticVector : public ::testing::Test {
 
   template <size_t N>
   void CheckMove(bool expect_overflow) {
-    IntVectorType<N> ints;
-    ints.emplace_back(4);
-    ints.emplace_back(5);
-    ints.emplace_back(6);
-    ints.emplace_back(7);
-    ints.emplace_back(8);
+    IntVectorType<N> ints = MakeVector<N>({4, 5, 6, 7, 8});
 
     IntVectorType<N> moved_ints(std::move(ints));
     ASSERT_EQ(moved_ints.size(), 5);
@@ -285,12 +288,7 @@ class TestSmallStaticVector : public ::testing::Test {
 
   template <size_t N>
   void CheckCopy(bool expect_overflow) {
-    IntVectorType<N> ints;
-    ints.emplace_back(4);
-    ints.emplace_back(5);
-    ints.emplace_back(6);
-    ints.emplace_back(7);
-    ints.emplace_back(8);
+    IntVectorType<N> ints = MakeVector<N>({4, 5, 6, 7, 8});
 
     IntVectorType<N> copied_ints(ints);
     ASSERT_EQ(copied_ints.size(), 5);
@@ -385,10 +383,7 @@ class TestSmallStaticVector : public ::testing::Test {
       ASSERT_EQ(ints.begin(), ints.end());
     }
     {
-      IntVectorType<N> underlying_ints;
-      for (int v : {5, 6, 7, 8, 42}) {
-        underlying_ints.emplace_back(v);
-      }
+      IntVectorType<N> underlying_ints = MakeVector<N>({5, 6, 7, 8, 42});
       const IntVectorType<N>& ints = underlying_ints;
       auto it = ints.begin();
       ASSERT_NE(it, ints.end());
@@ -406,6 +401,74 @@ class TestSmallStaticVector : public ::testing::Test {
       ASSERT_EQ(*it, 6);
       it += underlying_ints.end() - it;
       ASSERT_EQ(it, underlying_ints.end());
+    }
+  }
+
+  void TestInsertIteratorPair() {
+    // insert(const_iterator, InputIt first, InputIt last)
+    constexpr size_t N = Traits::TestSizeFor(10);
+    {
+      // empty source and destination
+      const std::vector<int> src{};
+      IntVectorType<N> ints;
+      ints.insert(ints.begin(), src.begin(), src.end());
+      ASSERT_EQ(ints.size(), 0);
+
+      ints.emplace_back(42);
+      ints.insert(ints.begin(), src.begin(), src.end());
+      ints.insert(ints.end(), src.begin(), src.end());
+      EXPECT_THAT(ints, ElementsAre(42));
+    }
+    const std::vector<int> src{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    {
+      // insert at start
+      IntVectorType<N> ints;
+      ints.insert(ints.begin(), src.begin() + 4, src.begin() + 7);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6));
+      ints.insert(ints.begin(), src.begin() + 1, src.begin() + 4);
+      EXPECT_THAT(ints, ElementsAre(1, 2, 3, 4, 5, 6));
+      ints.insert(ints.begin(), src.begin(), src.begin() + 1);
+      EXPECT_THAT(ints, ElementsAre(0, 1, 2, 3, 4, 5, 6));
+      ints.insert(ints.begin(), src.begin() + 7, src.begin() + 10);
+      EXPECT_THAT(ints, ElementsAre(7, 8, 9, 0, 1, 2, 3, 4, 5, 6));
+    }
+    {
+      // insert at end
+      IntVectorType<N> ints;
+      ints.insert(ints.end(), src.begin() + 4, src.begin() + 7);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6));
+      ints.insert(ints.end(), src.begin() + 1, src.begin() + 4);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 1, 2, 3));
+      ints.insert(ints.end(), src.begin(), src.begin() + 1);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 1, 2, 3, 0));
+      ints.insert(ints.end(), src.begin() + 7, src.begin() + 10);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 1, 2, 3, 0, 7, 8, 9));
+    }
+    {
+      // insert at some point inside
+      IntVectorType<N> ints;
+      ints.insert(ints.begin(), src.begin() + 4, src.begin() + 7);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6));
+      ints.insert(ints.begin() + 2, src.begin() + 1, src.begin() + 4);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 1, 2, 3, 6));
+      ints.insert(ints.begin() + 2, src.begin(), src.begin() + 1);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 0, 1, 2, 3, 6));
+      ints.insert(ints.begin() + 2, src.begin() + 7, src.begin() + 10);
+      EXPECT_THAT(ints, ElementsAre(4, 5, 7, 8, 9, 0, 1, 2, 3, 6));
+    }
+    {
+      // insert from a std::move_iterator (potentially move-only)
+      IntVectorType<N> src = MakeVector<N>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+      IntVectorType<N> ints;
+      auto move_it = [&](size_t i) { return std::make_move_iterator(src.begin() + i); };
+      ints.insert(ints.begin(), move_it(4), move_it(7));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6));
+      ints.insert(ints.begin() + 2, move_it(1), move_it(4));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 1, 2, 3, 6));
+      ints.insert(ints.begin() + 2, move_it(0), move_it(1));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 0, 1, 2, 3, 6));
+      ints.insert(ints.begin() + 2, move_it(7), move_it(10));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 7, 8, 9, 0, 1, 2, 3, 6));
     }
   }
 };
@@ -435,6 +498,8 @@ TYPED_TEST(TestSmallStaticVector, Sort) { this->TestSort(); }
 TYPED_TEST(TestSmallStaticVector, Iterators) { this->TestIterators(); }
 
 TYPED_TEST(TestSmallStaticVector, ConstIterators) { this->TestConstIterators(); }
+
+TYPED_TEST(TestSmallStaticVector, InsertIteratorPair) { this->TestInsertIteratorPair(); }
 
 TEST(StaticVector, Traits) {
   ASSERT_TRUE((std::is_trivially_destructible<StaticVector<int, 4>>::value));

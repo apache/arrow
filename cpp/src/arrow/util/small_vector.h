@@ -102,6 +102,8 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
     size_ += addend;
   }
 
+  void ensure_capacity(size_t min_capacity) { assert(min_capacity <= N); }
+
   void reduce_size(size_t reduce_by) {
     assert(reduce_by <= size_);
     size_ -= reduce_by;
@@ -143,21 +145,21 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
   constexpr const T* const_data_ptr() const { return this->ptr_at(data_, 0); }
 
   void bump_size(size_t addend) {
-    size_t new_size = size_ + addend;
+    const size_t new_size = size_ + addend;
+    ensure_capacity(new_size);
+    size_ = new_size;
+  }
+
+  void ensure_capacity(size_t min_capacity) {
     if (dynamic_capacity_) {
       // Grow dynamic storage if necessary
-      if (new_size > dynamic_capacity_) {
-        size_t new_capacity = std::max(dynamic_capacity_ * 2, new_size);
-        auto new_data = new storage_type[new_capacity];
-        this->move_storage(data_, new_data, size_);
-        delete[] data_;
-        dynamic_capacity_ = new_capacity;
-        data_ = new_data;
+      if (min_capacity > dynamic_capacity_) {
+        size_t new_capacity = std::max(dynamic_capacity_ * 2, min_capacity);
+        reallocate_dynamic(new_capacity);
       }
-    } else if (new_size > N) {
-      switch_to_dynamic(new_size);
+    } else if (min_capacity > N) {
+      switch_to_dynamic(min_capacity);
     }
-    size_ = new_size;
   }
 
   void reduce_size(size_t reduce_by) {
@@ -371,6 +373,34 @@ class StaticVectorImpl {
   void emplace_back(Args&&... args) {
     storage_.bump_size(1);
     new (data_ptr() + storage_.size_ - 1) T(std::forward<Args>(args)...);
+  }
+
+  template <typename InputIt>
+  iterator insert(const_iterator insert_at, InputIt first, InputIt last) {
+    const size_t n = storage_.size_;
+    const size_t it_size = static_cast<size_t>(last - first);  // XXX might be O(n)?
+    const size_t pos = static_cast<size_t>(insert_at - const_data_ptr());
+    storage_.bump_size(it_size);
+    auto* p = data_ptr();
+    if (it_size == 0) {
+      return p + pos;
+    }
+    const size_t end_pos = pos + it_size;
+
+    // Move [pos; n) to [end_pos; end_pos + n - pos)
+    for (size_t i = n - pos; i > 0; --i) {
+      new (&p[end_pos + i - 1]) T(std::move(p[pos + i - 1]));
+    }
+    // Copy [first; last) to [pos; end_pos)
+    size_t i = pos;
+    while (i < std::min(n, end_pos)) {
+      p[i++] = *first++;
+    }
+    while (i < end_pos) {
+      new (&p[i++]) T(*first++);
+    }
+    assert(first == last);
+    return p + pos;
   }
 
   void resize(size_t n) {
