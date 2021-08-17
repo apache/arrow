@@ -659,7 +659,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector("$data$", allocator, null, callBack);
+    UnionVector vector = new UnionVector("$data$", allocator, /* field type*/ null, callBack);
     replaceDataVector(vector);
     invalidateReader();
     if (callBack != null) {

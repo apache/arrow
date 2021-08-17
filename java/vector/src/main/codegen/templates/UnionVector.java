@@ -517,7 +517,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     private final UnionVector to;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      to = new UnionVector(name, allocator, null, callBack);
+      to = new UnionVector(name, allocator, /* field type */ null, callBack);
       internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 

@@ -392,7 +392,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector(name, allocator, null, null);
+    UnionVector vector = new UnionVector(name, allocator, /* field type */ null, /* call-back */ null);
     this.vector.clear();
     this.vector = vector;
     invalidateReader();
