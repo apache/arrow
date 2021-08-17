@@ -212,7 +212,7 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructWithCount(enable_if_t<!IsMoveOnly>* = 0) {
+  void TestConstructFromCount(enable_if_t<!IsMoveOnly>* = 0) {
     constexpr size_t N = Traits::TestSizeFor(4);
     {
       const IntVectorType<N> ints(3);
@@ -226,12 +226,12 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructWithCount(enable_if_t<IsMoveOnly>* = 0) {
+  void TestConstructFromCount(enable_if_t<IsMoveOnly>* = 0) {
     GTEST_SKIP() << "Cannot construct vector of move-only type with value count";
   }
 
   template <size_t N>
-  void CheckConstructWithValues() {
+  void CheckConstructFromValues() {
     {
       const IntVectorType<N> ints{};
       ASSERT_EQ(ints.size(), 0);
@@ -250,14 +250,118 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructWithValues(enable_if_t<!IsMoveOnly>* = 0) {
-    CheckConstructWithValues<Traits::TestSizeFor(4)>();
-    CheckConstructWithValues<5>();
+  void TestConstructFromValues(enable_if_t<!IsMoveOnly>* = 0) {
+    CheckConstructFromValues<Traits::TestSizeFor(4)>();
+    CheckConstructFromValues<5>();
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructWithValues(enable_if_t<IsMoveOnly>* = 0) {
+  void TestConstructFromValues(enable_if_t<IsMoveOnly>* = 0) {
     GTEST_SKIP() << "Cannot construct vector of move-only type with explicit values";
+  }
+
+  void CheckConstructFromMovedStdVector() {
+    constexpr size_t N = Traits::TestSizeFor(6);
+    {
+      std::vector<IntLike> src;
+      const IntVectorType<N> ints(std::move(src));
+      ASSERT_EQ(ints.size(), 0);
+      ASSERT_EQ(ints.capacity(), N);
+    }
+    {
+      std::vector<IntLike> src;
+      for (int i = 0; i < 6; ++i) {
+        src.emplace_back(i + 4);
+      }
+      const IntVectorType<N> ints(std::move(src));
+      ASSERT_EQ(ints.size(), 6);
+      ASSERT_EQ(ints.capacity(), std::max<size_t>(N, 6));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 7, 8, 9));
+    }
+  }
+
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void CheckConstructFromCopiedStdVector(enable_if_t<!IsMoveOnly>* = 0) {
+    constexpr size_t N = Traits::TestSizeFor(6);
+    {
+      const std::vector<IntLike> src;
+      const IntVectorType<N> ints(src);
+      ASSERT_EQ(ints.size(), 0);
+      ASSERT_EQ(ints.capacity(), N);
+    }
+    {
+      std::vector<IntLike> values;
+      for (int i = 0; i < 6; ++i) {
+        values.emplace_back(i + 4);
+      }
+      const auto& src = values;
+      const IntVectorType<N> ints(src);
+      ASSERT_EQ(ints.size(), 6);
+      ASSERT_EQ(ints.capacity(), std::max<size_t>(N, 6));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 7, 8, 9));
+    }
+  }
+
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void CheckConstructFromCopiedStdVector(enable_if_t<IsMoveOnly>* = 0) {}
+
+  void TestConstructFromStdVector() {
+    CheckConstructFromMovedStdVector();
+    CheckConstructFromCopiedStdVector();
+  }
+
+  void CheckAssignFromMovedStdVector() {
+    constexpr size_t N = Traits::TestSizeFor(6);
+    {
+      std::vector<IntLike> src;
+      IntVectorType<N> ints = MakeVector<N>({42});
+      ints = std::move(src);
+      ASSERT_EQ(ints.size(), 0);
+      ASSERT_EQ(ints.capacity(), N);
+    }
+    {
+      std::vector<IntLike> src;
+      for (int i = 0; i < 6; ++i) {
+        src.emplace_back(i + 4);
+      }
+      IntVectorType<N> ints = MakeVector<N>({42});
+      ints = std::move(src);
+      ASSERT_EQ(ints.size(), 6);
+      ASSERT_EQ(ints.capacity(), std::max<size_t>(N, 6));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 7, 8, 9));
+    }
+  }
+
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void CheckAssignFromCopiedStdVector(enable_if_t<!IsMoveOnly>* = 0) {
+    constexpr size_t N = Traits::TestSizeFor(6);
+    {
+      const std::vector<IntLike> src;
+      IntVectorType<N> ints = MakeVector<N>({42});
+      ints = src;
+      ASSERT_EQ(ints.size(), 0);
+      ASSERT_EQ(ints.capacity(), N);
+    }
+    {
+      std::vector<IntLike> values;
+      for (int i = 0; i < 6; ++i) {
+        values.emplace_back(i + 4);
+      }
+      const auto& src = values;
+      IntVectorType<N> ints = MakeVector<N>({42});
+      ints = src;
+      ASSERT_EQ(ints.size(), 6);
+      ASSERT_EQ(ints.capacity(), std::max<size_t>(N, 6));
+      EXPECT_THAT(ints, ElementsAre(4, 5, 6, 7, 8, 9));
+    }
+  }
+
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void CheckAssignFromCopiedStdVector(enable_if_t<IsMoveOnly>* = 0) {}
+
+  void TestAssignFromStdVector() {
+    CheckAssignFromMovedStdVector();
+    CheckAssignFromCopiedStdVector();
   }
 
   template <size_t N>
@@ -483,10 +587,18 @@ TYPED_TEST(TestSmallStaticVector, Reserve) { this->TestReserve(); }
 
 TYPED_TEST(TestSmallStaticVector, Clear) { this->TestClear(); }
 
-TYPED_TEST(TestSmallStaticVector, ConstructWithCount) { this->TestConstructWithCount(); }
+TYPED_TEST(TestSmallStaticVector, ConstructFromCount) { this->TestConstructFromCount(); }
 
-TYPED_TEST(TestSmallStaticVector, ConstructWithValues) {
-  this->TestConstructWithValues();
+TYPED_TEST(TestSmallStaticVector, ConstructFromValues) {
+  this->TestConstructFromValues();
+}
+
+TYPED_TEST(TestSmallStaticVector, ConstructFromStdVector) {
+  this->TestConstructFromStdVector();
+}
+
+TYPED_TEST(TestSmallStaticVector, AssignFromStdVector) {
+  this->TestAssignFromStdVector();
 }
 
 TYPED_TEST(TestSmallStaticVector, Move) { this->TestMove(); }

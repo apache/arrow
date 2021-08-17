@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstddef>
 #include <initializer_list>
+#include <iterator>
 #include <limits>
 #include <new>
 #include <type_traits>
@@ -245,6 +246,7 @@ class StaticVectorImpl {
 
   constexpr StaticVectorImpl() noexcept = default;
 
+  // Move and copy constructors
   StaticVectorImpl(StaticVectorImpl&& other) noexcept {
     storage_.move_from(std::move(other.storage_));
   }
@@ -258,44 +260,37 @@ class StaticVectorImpl {
   }
 
   StaticVectorImpl(const StaticVectorImpl& other) {
-    const size_t n = other.storage_.size_;
-    storage_.bump_size(n);
-    auto* src = other.const_data_ptr();
-    auto* dest = data_ptr();
-    for (size_t i = 0; i < n; ++i) {
-      new (&dest[i]) T(src[i]);
-    }
+    init_by_copying(other.storage_.size_, other.const_data_ptr());
   }
 
   StaticVectorImpl& operator=(const StaticVectorImpl& other) noexcept {
     if (&other == this) {
       return *this;
     }
-    const size_t n = other.storage_.size_;
-    const size_t old_size = storage_.size_;
-    auto* src = other.const_data_ptr();
-    if (n > old_size) {
-      storage_.bump_size(n);
-      auto* dest = data_ptr();
-      for (size_t i = 0; i < old_size; ++i) {
-        dest[i] = src[i];
-      }
-      for (size_t i = old_size; i < n; ++i) {
-        new (&dest[i]) T(src[i]);
-      }
-    } else {
-      auto* dest = data_ptr();
-      for (size_t i = 0; i < n; ++i) {
-        dest[i] = src[i];
-      }
-      for (size_t i = n; i < old_size; ++i) {
-        dest[i].~T();
-      }
-      storage_.reduce_size(n);
-    }
+    assign_by_copying(other.storage_.size_, other.data());
     return *this;
   }
 
+  // Automatic conversion from std::vector<T>, for convenience
+  StaticVectorImpl(const std::vector<T>& other) {  // NOLINT: explicit
+    init_by_copying(other.size(), other.data());
+  }
+
+  StaticVectorImpl(std::vector<T>&& other) noexcept {  // NOLINT: explicit
+    init_by_moving(other.size(), other.data());
+  }
+
+  StaticVectorImpl& operator=(const std::vector<T>& other) {
+    assign_by_copying(other.size(), other.data());
+    return *this;
+  }
+
+  StaticVectorImpl& operator=(std::vector<T>&& other) noexcept {
+    assign_by_moving(other.size(), other.data());
+    return *this;
+  }
+
+  // Constructing from count and optional initialization value
   explicit StaticVectorImpl(size_t count) {
     storage_.bump_size(count);
     auto* p = data_ptr();
@@ -406,7 +401,7 @@ class StaticVectorImpl {
   void resize(size_t n) {
     const size_t old_size = storage_.size_;
     if (n > storage_.size_) {
-      storage_.bump_size(n);
+      storage_.bump_size(n - old_size);
       auto* p = data_ptr();
       for (size_t i = old_size; i < n; ++i) {
         new (&p[i]) T{};
@@ -416,14 +411,14 @@ class StaticVectorImpl {
       for (size_t i = n; i < old_size; ++i) {
         p[i].~T();
       }
-      storage_.reduce_size(n);
+      storage_.reduce_size(old_size - n);
     }
   }
 
   void resize(size_t n, const T& value) {
     const size_t old_size = storage_.size_;
     if (n > storage_.size_) {
-      storage_.bump_size(n);
+      storage_.bump_size(n - old_size);
       auto* p = data_ptr();
       for (size_t i = old_size; i < n; ++i) {
         new (&p[i]) T(value);
@@ -433,8 +428,52 @@ class StaticVectorImpl {
       for (size_t i = n; i < old_size; ++i) {
         p[i].~T();
       }
-      storage_.reduce_size(n);
+      storage_.reduce_size(old_size - n);
     }
+  }
+
+ private:
+  template <typename InputIt>
+  void init_by_copying(size_t n, InputIt src) {
+    storage_.bump_size(n);
+    auto* dest = data_ptr();
+    for (size_t i = 0; i < n; ++i, ++src) {
+      new (&dest[i]) T(*src);
+    }
+  }
+
+  template <typename InputIt>
+  void init_by_moving(size_t n, InputIt src) {
+    init_by_copying(n, std::make_move_iterator(src));
+  }
+
+  template <typename InputIt>
+  void assign_by_copying(size_t n, InputIt src) {
+    const size_t old_size = storage_.size_;
+    if (n > old_size) {
+      storage_.bump_size(n - old_size);
+      auto* dest = data_ptr();
+      for (size_t i = 0; i < old_size; ++i, ++src) {
+        dest[i] = *src;
+      }
+      for (size_t i = old_size; i < n; ++i, ++src) {
+        new (&dest[i]) T(*src);
+      }
+    } else {
+      auto* dest = data_ptr();
+      for (size_t i = 0; i < n; ++i, ++src) {
+        dest[i] = *src;
+      }
+      for (size_t i = n; i < old_size; ++i) {
+        dest[i].~T();
+      }
+      storage_.reduce_size(old_size - n);
+    }
+  }
+
+  template <typename InputIt>
+  void assign_by_moving(size_t n, InputIt src) {
+    assign_by_copying(n, std::make_move_iterator(src));
   }
 };
 
