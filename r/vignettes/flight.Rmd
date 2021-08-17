@@ -12,7 +12,11 @@ is a general-purpose client-server framework for high performance
 transport of large datasets over network interfaces, built as part of the
 [Apache Arrow](https://arrow.apache.org) project.
 
-Flight allows for highly efficient data transfer as it removes the need for deserialization during data transfer, allows for parallel data streaming, and is highly optimized to take advantage of Arrow's columnar format.
+Flight allows for highly efficient data transfer as it:
+
+* removes the need for deserialization during data transfer
+* allows for parallel data streaming
+* is highly optimized to take advantage of Arrow's columnar format.
 
 The arrow package provides methods for connecting to Flight RPC servers
 to send and receive data.
