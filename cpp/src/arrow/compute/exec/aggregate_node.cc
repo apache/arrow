@@ -87,7 +87,8 @@ class ThreadIndexer {
   std::unordered_map<std::thread::id, size_t> id_to_index_;
 };
 
-struct ScalarAggregateNode : ExecNode {
+class ScalarAggregateNode : public ExecNode {
+ public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
                       std::vector<int> target_field_ids,
@@ -251,12 +252,12 @@ struct ScalarAggregateNode : ExecNode {
   AtomicCounter input_counter_;
 };
 
-struct GroupByNode : ExecNode {
+class GroupByNode : public ExecNode {
+ public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
-              const std::vector<int>&& key_field_ids,
-              const std::vector<int>&& agg_src_field_ids,
-              const std::vector<internal::Aggregate>&& aggs,
-              const std::vector<const HashAggregateKernel*>&& agg_kernels,
+              std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
+              std::vector<internal::Aggregate> aggs,
+              std::vector<const HashAggregateKernel*> agg_kernels,
               std::vector<std::unique_ptr<FunctionOptions>> owned_options)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
