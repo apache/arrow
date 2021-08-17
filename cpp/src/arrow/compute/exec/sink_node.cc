@@ -136,8 +136,8 @@ class SinkNode : public ExecNode {
     }
   }
 
- private:
-  void Finish() {
+ protected:
+  virtual void Finish() {
     if (producer_.Close()) {
       finished_.MarkFinished();
     }
@@ -149,7 +149,82 @@ class SinkNode : public ExecNode {
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
+// A sink node that accumulates inputs, then sorts them before emitting them.
+struct OrderBySinkNode final : public SinkNode {
+  OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs, SortOptions sort_options,
+                  AsyncGenerator<util::optional<ExecBatch>>* generator)
+      : SinkNode(plan, std::move(inputs), generator),
+        sort_options_(std::move(sort_options)) {}
+
+  const char* kind_name() override { return "OrderBySinkNode"; }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
+
+    const auto& sink_options = checked_cast<const OrderBySinkNodeOptions&>(options);
+    return plan->EmplaceNode<OrderBySinkNode>(
+        plan, std::move(inputs), sink_options.sort_options, sink_options.generator);
+  }
+
+  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    // Accumulate data
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
+                                             plan()->exec_context()->memory_pool());
+      if (ErrorIfNotOk(maybe_batch.status())) return;
+      batches_.push_back(maybe_batch.MoveValueUnsafe());
+    }
+
+    if (input_counter_.Increment()) {
+      Finish();
+    }
+  }
+
+ protected:
+  Status DoFinish() {
+    Datum sorted;
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      ARROW_ASSIGN_OR_RAISE(
+          auto table,
+          Table::FromRecordBatches(inputs_[0]->output_schema(), std::move(batches_)));
+      ARROW_ASSIGN_OR_RAISE(auto indices,
+                            SortIndices(table, sort_options_, plan()->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(sorted, Take(table, indices, TakeOptions::NoBoundsCheck(),
+                                         plan()->exec_context()));
+    }
+    TableBatchReader reader(*sorted.table());
+    while (true) {
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(reader.ReadNext(&batch));
+      if (!batch) break;
+      bool did_push = producer_.Push(ExecBatch(*batch));
+      if (!did_push) break;  // producer_ was Closed already
+    }
+    return Status::OK();
+  }
+
+  void Finish() override {
+    Status st = DoFinish();
+    if (ErrorIfNotOk(st)) {
+      producer_.Push(std::move(st));
+    }
+    SinkNode::Finish();
+  }
+
+ private:
+  SortOptions sort_options_;
+  std::mutex mutex_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+};
+
 ExecFactoryRegistry::AddOnLoad kRegisterSink("sink", SinkNode::Make);
+ExecFactoryRegistry::AddOnLoad kRegisterOrderBySink("order_by_sink",
+                                                    OrderBySinkNode::Make);
 
 }  // namespace
 }  // namespace compute

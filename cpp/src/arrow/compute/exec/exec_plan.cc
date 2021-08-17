@@ -24,7 +24,6 @@
 #include <unordered_set>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/exec_utils.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"

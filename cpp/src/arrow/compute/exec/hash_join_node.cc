@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <mutex>
 
 #include "arrow/api.h"
@@ -166,7 +167,15 @@ struct HashSemiJoinNode : ExecNode {
   // total reached at the end of consumption, all the local states will be merged, before
   // incrementing the total batches
   Status ConsumeBuildBatch(ExecBatch batch) {
+    auto executor = ::arrow::internal::GetCpuThreadPool();
+    std::cout << " executor->OwnsThisThread() = " << (executor->OwnsThisThread() ? 1 : 0)
+              << std::endl;
+    std::cout << "ConsumeBuildBatch: std::this_thread::get_id() = " << std::hex
+              << std::showbase << std::this_thread::get_id() << std::dec
+              << std::noshowbase;
     size_t thread_index = get_thread_index_();
+    std::cout << " get_thread_index_() = " << thread_index;
+    std::cout << std::endl;
     ARROW_DCHECK(thread_index < local_states_.size());
 
     ARROW_LOG(DEBUG) << "ConsumeBuildBatch tid:" << thread_index
@@ -197,8 +206,16 @@ struct HashSemiJoinNode : ExecNode {
 
   // consumes cached probe batches by invoking executor::Spawn.
   Status ConsumeCachedProbeBatches() {
+    auto executor = ::arrow::internal::GetCpuThreadPool();
+    std::cout << " executor->OwnsThisThread() = " << (executor->OwnsThisThread() ? 1 : 0)
+              << std::endl;
+    std::cout << "ConsumeCachedProbeBatches: std::this_thread::get_id() = " << std::hex
+              << std::showbase << std::this_thread::get_id() << std::dec
+              << std::noshowbase;
     ARROW_LOG(DEBUG) << "ConsumeCachedProbeBatches tid:" << get_thread_index_()
                      << " len:" << cached_probe_batches.size();
+    std::cout << " get_thread_index_() = " << get_thread_index_();
+    std::cout << std::endl;
 
     // acquire the mutex to access cached_probe_batches, because while consuming, other
     // batches should not be cached!
@@ -288,8 +305,16 @@ struct HashSemiJoinNode : ExecNode {
   // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
   //  directly consumed!
   bool AttemptToCacheProbeBatch(int seq_num, ExecBatch* batch) {
+    auto executor = ::arrow::internal::GetCpuThreadPool();
+    std::cout << " executor->OwnsThisThread() = " << (executor->OwnsThisThread() ? 1 : 0)
+              << std::endl;
+    std::cout << "AttemptToCacheProbeBatch: std::this_thread::get_id() = " << std::hex
+              << std::showbase << std::this_thread::get_id() << std::dec
+              << std::noshowbase;
     ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " seq:" << seq_num
                      << " len:" << batch->length;
+    std::cout << " get_thread_index_() = " << get_thread_index_();
+    std::cout << std::endl;
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
     if (cached_probe_batches_consumed) {
       return false;
@@ -303,6 +328,8 @@ struct HashSemiJoinNode : ExecNode {
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    std::cout << "InputReceived " << seq << std::endl;
+
     ARROW_LOG(DEBUG) << "input received input:" << (IsBuildInput(input) ? "b" : "p")
                      << " seq:" << seq << " len:" << batch.length;
 
@@ -374,6 +401,7 @@ struct HashSemiJoinNode : ExecNode {
   }
 
   Status StartProducing() override {
+    std::cout << "Start Producing" << std::endl;
     ARROW_LOG(DEBUG) << "start prod";
     finished_ = Future<>::Make();
 
