@@ -246,11 +246,11 @@ Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Grouped aggregations are not directly invokable, but are used as part of a
-group by operation. Like scalar aggregations, grouped aggregations reduce
-multiple input values to a single output value. Instead of aggregating all
-values of the input, however, grouped aggregations partition of the input
+SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
+reduce multiple input values to a single output value. Instead of aggregating
+all values of the input, however, grouped aggregations partition of the input
 values on some set of "key" columns, then aggregate each group individually,
-and emit one output per input group.
+emitting one output per input group.
 
 As an example, for the following table:
 
@@ -271,7 +271,8 @@ As an example, for the following table:
 +-----------------+--------------+
 
 We compute a sum of column "x", grouped on the key column "key". This gives us
-three groups:
+three groups, with the following results. Note that null is treated as a
+distinct key.
 
 +-----------------+--------------+
 | Column "sum(x)" | Column "key" |
@@ -283,7 +284,9 @@ three groups:
 | 5               | null         |
 +-----------------+--------------+
 
-The supported aggregation functions are as follows.
+The supported aggregation functions are as follows. Note that currently, all
+function names are prefixed with "hash\_", which differentiates them from their
+scalar equivalents above and reflects how they are implemented internally.
 
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
