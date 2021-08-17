@@ -16,9 +16,16 @@
 // under the License.
 
 include "Schema.fbs";
-include "Message.fbs";
 
 namespace org.apache.arrow.flatbuf.computeir;
+
+/// Avoid use of org.apache.arrow.Buffer because it requires a
+/// sidecar block of bytes.
+table InlineBuffer {
+  // ulong is used to guarantee alignment and padding of `bytes` so that flatbuffers
+  // and other alignment sensitive blobs can be stored here
+  bytes: [ulong] (required);
+}
 
 /// An expression is one of
 /// - a Literal datum
@@ -46,16 +53,23 @@ table Array {
 
 table Literal {
   /// Shape of this literal.
+  ///
+  /// Note that this is orthogonal to type and refers to the number
+  /// of rows spanned by this Literal - a Literal may be Scalar shaped
+  /// with multiple "columns" if `type` happens to be Struct.
   shape: Shape (required);
 
   /// The type of this literal.
   type: Type (required);
 
-  /// Buffers containing `length` elements of arrow-formatted data.
-  /// If `length` is absent (this Literal is scalar), these buffers
-  /// are sized to accommodate a single element of arrow-formatted data.
+  /// Buffers containing N elements of arrow-formatted data, where N
+  /// is Array.length if shape is Array or 1 if shape is Scalar.
   /// XXX this can be optimized for trivial scalars later
-  buffers: [Buffer];
+  buffers: [InlineBuffer];
+
+  /// If (and only if) this Literal has dictionary type, this field dictionary
+  /// into which the literal's indices refer.
+  dictionary: Literal;
 }
 
 table FieldRef {
@@ -81,7 +95,7 @@ table Call {
 
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
-  options: Buffer;
+  options: InlineBuffer;
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
@@ -111,7 +125,7 @@ table Relation {
 
   /// Parameters for `relation_name`; content/format may be unique to each
   /// value of `relation_name`.
-  options: Buffer;
+  options: InlineBuffer;
 
   /// The arguments passed to `relation_name`.
   arguments: [Relation] (required);
@@ -213,17 +227,14 @@ table UnionOptions {
 /// The contents of Relation.options will be LiteralOptions
 /// if Relation.relation_name = "literal"
 table LiteralOptions {
-  /// Batches of rows in this literal.
-  batches: [RecordBatch] (required);
+  /// The columns of this literal relation.
+  columns: [Literal] (required);
 }
 
 /// A specification of a query.
 table Plan {
   /// One or more output relations.
   sinks: [Relation] (required);
-
-  /// Dictionary batches which may be referenced by Literals.
-  dictionary_batch: [DictionaryBatch];
 
   /// If this Plan was derived from another (for example by running
   /// an optimization pass), that plan may be included here to
@@ -246,7 +257,7 @@ rpc_service Interactive {
   /// The Plan may contain a single Relation with
   /// relation_name="interactive_output", in which case data which
   /// is received by that sink will be streamed back to the client.
-  execute(Plan): Message (streaming: "server");
+  execute(Plan): Literal (streaming: "server");
 }
 
 root_type Plan;

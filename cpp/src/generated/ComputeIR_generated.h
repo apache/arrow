@@ -6,16 +6,16 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-#include "Message_generated.h"
 #include "Schema_generated.h"
-#include "SparseTensor_generated.h"
-#include "Tensor_generated.h"
 
 namespace org {
 namespace apache {
 namespace arrow {
 namespace flatbuf {
 namespace computeir {
+
+struct InlineBuffer;
+struct InlineBufferBuilder;
 
 struct Expression;
 struct ExpressionBuilder;
@@ -217,6 +217,61 @@ inline const char *EnumNameOrdering(Ordering e) {
   return EnumNamesOrdering()[index];
 }
 
+/// Avoid use of org.apache.arrow.Buffer because it requires a
+/// sidecar block of bytes.
+struct InlineBuffer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef InlineBufferBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_BYTES = 4
+  };
+  const flatbuffers::Vector<uint64_t> *bytes() const {
+    return GetPointer<const flatbuffers::Vector<uint64_t> *>(VT_BYTES);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_BYTES) &&
+           verifier.VerifyVector(bytes()) &&
+           verifier.EndTable();
+  }
+};
+
+struct InlineBufferBuilder {
+  typedef InlineBuffer Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_bytes(flatbuffers::Offset<flatbuffers::Vector<uint64_t>> bytes) {
+    fbb_.AddOffset(InlineBuffer::VT_BYTES, bytes);
+  }
+  explicit InlineBufferBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  InlineBufferBuilder &operator=(const InlineBufferBuilder &);
+  flatbuffers::Offset<InlineBuffer> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<InlineBuffer>(end);
+    fbb_.Required(o, InlineBuffer::VT_BYTES);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<InlineBuffer> CreateInlineBuffer(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint64_t>> bytes = 0) {
+  InlineBufferBuilder builder_(_fbb);
+  builder_.add_bytes(bytes);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<InlineBuffer> CreateInlineBufferDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint64_t> *bytes = nullptr) {
+  auto bytes__ = bytes ? _fbb.CreateVector<uint64_t>(*bytes) : 0;
+  return org::apache::arrow::flatbuf::computeir::CreateInlineBuffer(
+      _fbb,
+      bytes__);
+}
+
 struct Expression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ExpressionBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -373,12 +428,17 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_SHAPE = 6,
     VT_TYPE_TYPE = 8,
     VT_TYPE = 10,
-    VT_BUFFERS = 12
+    VT_BUFFERS = 12,
+    VT_DICTIONARY = 14
   };
   org::apache::arrow::flatbuf::computeir::Shape shape_type() const {
     return static_cast<org::apache::arrow::flatbuf::computeir::Shape>(GetField<uint8_t>(VT_SHAPE_TYPE, 0));
   }
   /// Shape of this literal.
+  ///
+  /// Note that this is orthogonal to type and refers to the number
+  /// of rows spanned by this Literal - a Literal may be Scalar shaped
+  /// with multiple "columns" if `type` happens to be Struct.
   const void *shape() const {
     return GetPointer<const void *>(VT_SHAPE);
   }
@@ -460,12 +520,16 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
   }
-  /// Buffers containing `length` elements of arrow-formatted data.
-  /// If `length` is absent (this Literal is scalar), these buffers
-  /// are sized to accommodate a single element of arrow-formatted data.
+  /// Buffers containing N elements of arrow-formatted data, where N
+  /// is Array.length if shape is Array or 1 if shape is Scalar.
   /// XXX this can be optimized for trivial scalars later
-  const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *buffers() const {
-    return GetPointer<const flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *> *>(VT_BUFFERS);
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>> *buffers() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>> *>(VT_BUFFERS);
+  }
+  /// If (and only if) this Literal has dictionary type, this field dictionary
+  /// into which the literal's indices refer.
+  const org::apache::arrow::flatbuf::computeir::Literal *dictionary() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::Literal *>(VT_DICTIONARY);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -477,6 +541,9 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyType(verifier, type(), type_type()) &&
            VerifyOffset(verifier, VT_BUFFERS) &&
            verifier.VerifyVector(buffers()) &&
+           verifier.VerifyVectorOfTables(buffers()) &&
+           VerifyOffset(verifier, VT_DICTIONARY) &&
+           verifier.VerifyTable(dictionary()) &&
            verifier.EndTable();
   }
 };
@@ -589,8 +656,11 @@ struct LiteralBuilder {
   void add_type(flatbuffers::Offset<void> type) {
     fbb_.AddOffset(Literal::VT_TYPE, type);
   }
-  void add_buffers(flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers) {
+  void add_buffers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>> buffers) {
     fbb_.AddOffset(Literal::VT_BUFFERS, buffers);
+  }
+  void add_dictionary(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal> dictionary) {
+    fbb_.AddOffset(Literal::VT_DICTIONARY, dictionary);
   }
   explicit LiteralBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -612,8 +682,10 @@ inline flatbuffers::Offset<Literal> CreateLiteral(
     flatbuffers::Offset<void> shape = 0,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>> buffers = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal> dictionary = 0) {
   LiteralBuilder builder_(_fbb);
+  builder_.add_dictionary(dictionary);
   builder_.add_buffers(buffers);
   builder_.add_type(type);
   builder_.add_shape(shape);
@@ -628,15 +700,17 @@ inline flatbuffers::Offset<Literal> CreateLiteralDirect(
     flatbuffers::Offset<void> shape = 0,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0,
-    const std::vector<org::apache::arrow::flatbuf::Buffer> *buffers = nullptr) {
-  auto buffers__ = buffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*buffers) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>> *buffers = nullptr,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal> dictionary = 0) {
+  auto buffers__ = buffers ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>(*buffers) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateLiteral(
       _fbb,
       shape_type,
       shape,
       type_type,
       type,
-      buffers__);
+      buffers__,
+      dictionary);
 }
 
 struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -901,8 +975,8 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
-  const org::apache::arrow::flatbuf::Buffer *options() const {
-    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_OPTIONS);
+  const org::apache::arrow::flatbuf::computeir::InlineBuffer *options() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::InlineBuffer *>(VT_OPTIONS);
   }
   /// The arguments passed to `function_name`.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments() const {
@@ -983,7 +1057,8 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_FUNCTION_NAME) &&
            verifier.VerifyString(function_name()) &&
-           VerifyField<org::apache::arrow::flatbuf::Buffer>(verifier, VT_OPTIONS) &&
+           VerifyOffset(verifier, VT_OPTIONS) &&
+           verifier.VerifyTable(options()) &&
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
            verifier.VerifyVector(arguments()) &&
            verifier.VerifyVectorOfTables(arguments()) &&
@@ -1085,8 +1160,8 @@ struct CallBuilder {
   void add_function_name(flatbuffers::Offset<flatbuffers::String> function_name) {
     fbb_.AddOffset(Call::VT_FUNCTION_NAME, function_name);
   }
-  void add_options(const org::apache::arrow::flatbuf::Buffer *options) {
-    fbb_.AddStruct(Call::VT_OPTIONS, options);
+  void add_options(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options) {
+    fbb_.AddOffset(Call::VT_OPTIONS, options);
   }
   void add_arguments(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments) {
     fbb_.AddOffset(Call::VT_ARGUMENTS, arguments);
@@ -1114,7 +1189,7 @@ struct CallBuilder {
 inline flatbuffers::Offset<Call> CreateCall(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> function_name = 0,
-    const org::apache::arrow::flatbuf::Buffer *options = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments = 0,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0) {
@@ -1130,7 +1205,7 @@ inline flatbuffers::Offset<Call> CreateCall(
 inline flatbuffers::Offset<Call> CreateCallDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *function_name = nullptr,
-    const org::apache::arrow::flatbuf::Buffer *options = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments = nullptr,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
     flatbuffers::Offset<void> type = 0) {
@@ -1174,8 +1249,8 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   /// Parameters for `relation_name`; content/format may be unique to each
   /// value of `relation_name`.
-  const org::apache::arrow::flatbuf::Buffer *options() const {
-    return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_OPTIONS);
+  const org::apache::arrow::flatbuf::computeir::InlineBuffer *options() const {
+    return GetPointer<const org::apache::arrow::flatbuf::computeir::InlineBuffer *>(VT_OPTIONS);
   }
   /// The arguments passed to `relation_name`.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *arguments() const {
@@ -1189,7 +1264,8 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_RELATION_NAME) &&
            verifier.VerifyString(relation_name()) &&
-           VerifyField<org::apache::arrow::flatbuf::Buffer>(verifier, VT_OPTIONS) &&
+           VerifyOffset(verifier, VT_OPTIONS) &&
+           verifier.VerifyTable(options()) &&
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
            verifier.VerifyVector(arguments()) &&
            verifier.VerifyVectorOfTables(arguments()) &&
@@ -1206,8 +1282,8 @@ struct RelationBuilder {
   void add_relation_name(flatbuffers::Offset<flatbuffers::String> relation_name) {
     fbb_.AddOffset(Relation::VT_RELATION_NAME, relation_name);
   }
-  void add_options(const org::apache::arrow::flatbuf::Buffer *options) {
-    fbb_.AddStruct(Relation::VT_OPTIONS, options);
+  void add_options(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options) {
+    fbb_.AddOffset(Relation::VT_OPTIONS, options);
   }
   void add_arguments(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>> arguments) {
     fbb_.AddOffset(Relation::VT_ARGUMENTS, arguments);
@@ -1232,7 +1308,7 @@ struct RelationBuilder {
 inline flatbuffers::Offset<Relation> CreateRelation(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> relation_name = 0,
-    const org::apache::arrow::flatbuf::Buffer *options = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>> arguments = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
   RelationBuilder builder_(_fbb);
@@ -1246,7 +1322,7 @@ inline flatbuffers::Offset<Relation> CreateRelation(
 inline flatbuffers::Offset<Relation> CreateRelationDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *relation_name = nullptr,
-    const org::apache::arrow::flatbuf::Buffer *options = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *arguments = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
   auto relation_name__ = relation_name ? _fbb.CreateString(relation_name) : 0;
@@ -1771,17 +1847,17 @@ inline flatbuffers::Offset<UnionOptions> CreateUnionOptions(
 struct LiteralOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LiteralOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BATCHES = 4
+    VT_COLUMNS = 4
   };
-  /// Batches of rows in this literal.
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>> *batches() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>> *>(VT_BATCHES);
+  /// The columns of this literal relation.
+  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>> *columns() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>> *>(VT_COLUMNS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_BATCHES) &&
-           verifier.VerifyVector(batches()) &&
-           verifier.VerifyVectorOfTables(batches()) &&
+           VerifyOffsetRequired(verifier, VT_COLUMNS) &&
+           verifier.VerifyVector(columns()) &&
+           verifier.VerifyVectorOfTables(columns()) &&
            verifier.EndTable();
   }
 };
@@ -1790,8 +1866,8 @@ struct LiteralOptionsBuilder {
   typedef LiteralOptions Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_batches(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>>> batches) {
-    fbb_.AddOffset(LiteralOptions::VT_BATCHES, batches);
+  void add_columns(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>>> columns) {
+    fbb_.AddOffset(LiteralOptions::VT_COLUMNS, columns);
   }
   explicit LiteralOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1801,26 +1877,26 @@ struct LiteralOptionsBuilder {
   flatbuffers::Offset<LiteralOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<LiteralOptions>(end);
-    fbb_.Required(o, LiteralOptions::VT_BATCHES);
+    fbb_.Required(o, LiteralOptions::VT_COLUMNS);
     return o;
   }
 };
 
 inline flatbuffers::Offset<LiteralOptions> CreateLiteralOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>>> batches = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>>> columns = 0) {
   LiteralOptionsBuilder builder_(_fbb);
-  builder_.add_batches(batches);
+  builder_.add_columns(columns);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<LiteralOptions> CreateLiteralOptionsDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>> *batches = nullptr) {
-  auto batches__ = batches ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::RecordBatch>>(*batches) : 0;
+    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>> *columns = nullptr) {
+  auto columns__ = columns ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal>>(*columns) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateLiteralOptions(
       _fbb,
-      batches__);
+      columns__);
 }
 
 /// A specification of a query.
@@ -1828,16 +1904,11 @@ struct Plan FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlanBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SINKS = 4,
-    VT_DICTIONARY_BATCH = 6,
-    VT_DERIVED_FROM = 8
+    VT_DERIVED_FROM = 6
   };
   /// One or more output relations.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *sinks() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *>(VT_SINKS);
-  }
-  /// Dictionary batches which may be referenced by Literals.
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>> *dictionary_batch() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>> *>(VT_DICTIONARY_BATCH);
   }
   /// If this Plan was derived from another (for example by running
   /// an optimization pass), that plan may be included here to
@@ -1850,9 +1921,6 @@ struct Plan FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffsetRequired(verifier, VT_SINKS) &&
            verifier.VerifyVector(sinks()) &&
            verifier.VerifyVectorOfTables(sinks()) &&
-           VerifyOffset(verifier, VT_DICTIONARY_BATCH) &&
-           verifier.VerifyVector(dictionary_batch()) &&
-           verifier.VerifyVectorOfTables(dictionary_batch()) &&
            VerifyOffset(verifier, VT_DERIVED_FROM) &&
            verifier.VerifyTable(derived_from()) &&
            verifier.EndTable();
@@ -1865,9 +1933,6 @@ struct PlanBuilder {
   flatbuffers::uoffset_t start_;
   void add_sinks(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>> sinks) {
     fbb_.AddOffset(Plan::VT_SINKS, sinks);
-  }
-  void add_dictionary_batch(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>>> dictionary_batch) {
-    fbb_.AddOffset(Plan::VT_DICTIONARY_BATCH, dictionary_batch);
   }
   void add_derived_from(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Plan> derived_from) {
     fbb_.AddOffset(Plan::VT_DERIVED_FROM, derived_from);
@@ -1888,11 +1953,9 @@ struct PlanBuilder {
 inline flatbuffers::Offset<Plan> CreatePlan(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>> sinks = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>>> dictionary_batch = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Plan> derived_from = 0) {
   PlanBuilder builder_(_fbb);
   builder_.add_derived_from(derived_from);
-  builder_.add_dictionary_batch(dictionary_batch);
   builder_.add_sinks(sinks);
   return builder_.Finish();
 }
@@ -1900,14 +1963,11 @@ inline flatbuffers::Offset<Plan> CreatePlan(
 inline flatbuffers::Offset<Plan> CreatePlanDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *sinks = nullptr,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>> *dictionary_batch = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Plan> derived_from = 0) {
   auto sinks__ = sinks ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>(*sinks) : 0;
-  auto dictionary_batch__ = dictionary_batch ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::DictionaryBatch>>(*dictionary_batch) : 0;
   return org::apache::arrow::flatbuf::computeir::CreatePlan(
       _fbb,
       sinks__,
-      dictionary_batch__,
       derived_from);
 }
 

@@ -45,21 +45,21 @@ class Interactive final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< flatbuffers::grpc::Message<Plan>>> PrepareAsyncexplain(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< flatbuffers::grpc::Message<Plan>>>(PrepareAsyncexplainRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Message>>> execute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
-      return std::unique_ptr< ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Message>>>(executeRaw(context, request));
+    std::unique_ptr< ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Literal>>> execute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
+      return std::unique_ptr< ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Literal>>>(executeRaw(context, request));
     }
-    std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>> Asyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
-      return std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>>(AsyncexecuteRaw(context, request, cq, tag));
+    std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>> Asyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
+      return std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>>(AsyncexecuteRaw(context, request, cq, tag));
     }
-    std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>> PrepareAsyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
-      return std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>>(PrepareAsyncexecuteRaw(context, request, cq));
+    std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>> PrepareAsyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>>(PrepareAsyncexecuteRaw(context, request, cq));
     }
   private:
     virtual ::grpc::ClientAsyncResponseReaderInterface< flatbuffers::grpc::Message<Plan>>* AsyncexplainRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) = 0;
     virtual ::grpc::ClientAsyncResponseReaderInterface< flatbuffers::grpc::Message<Plan>>* PrepareAsyncexplainRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) = 0;
-    virtual ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Message>>* executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) = 0;
-    virtual ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>* AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) = 0;
-    virtual ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Message>>* PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) = 0;
+    virtual ::grpc::ClientReaderInterface< flatbuffers::grpc::Message<Literal>>* executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) = 0;
+    virtual ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>* AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) = 0;
+    virtual ::grpc::ClientAsyncReaderInterface< flatbuffers::grpc::Message<Literal>>* PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) = 0;
   };
   class Stub final : public StubInterface {
    public:
@@ -71,23 +71,23 @@ class Interactive final {
     std::unique_ptr< ::grpc::ClientAsyncResponseReader< flatbuffers::grpc::Message<Plan>>> PrepareAsyncexplain(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
       return std::unique_ptr< ::grpc::ClientAsyncResponseReader< flatbuffers::grpc::Message<Plan>>>(PrepareAsyncexplainRaw(context, request, cq));
     }
-    std::unique_ptr< ::grpc::ClientReader< flatbuffers::grpc::Message<Message>>> execute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
-      return std::unique_ptr< ::grpc::ClientReader< flatbuffers::grpc::Message<Message>>>(executeRaw(context, request));
+    std::unique_ptr< ::grpc::ClientReader< flatbuffers::grpc::Message<Literal>>> execute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
+      return std::unique_ptr< ::grpc::ClientReader< flatbuffers::grpc::Message<Literal>>>(executeRaw(context, request));
     }
-    std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>> Asyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
-      return std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>>(AsyncexecuteRaw(context, request, cq, tag));
+    std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>> Asyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
+      return std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>>(AsyncexecuteRaw(context, request, cq, tag));
     }
-    std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>> PrepareAsyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
-      return std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>>(PrepareAsyncexecuteRaw(context, request, cq));
+    std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>> PrepareAsyncexecute(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
+      return std::unique_ptr< ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>>(PrepareAsyncexecuteRaw(context, request, cq));
     }
   
    private:
     std::shared_ptr< ::grpc::ChannelInterface> channel_;
     ::grpc::ClientAsyncResponseReader< flatbuffers::grpc::Message<Plan>>* AsyncexplainRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) override;
     ::grpc::ClientAsyncResponseReader< flatbuffers::grpc::Message<Plan>>* PrepareAsyncexplainRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) override;
-    ::grpc::ClientReader< flatbuffers::grpc::Message<Message>>* executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) override;
-    ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>* AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) override;
-    ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>* PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) override;
+    ::grpc::ClientReader< flatbuffers::grpc::Message<Literal>>* executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) override;
+    ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>* AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) override;
+    ::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>* PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) override;
     const ::grpc::internal::RpcMethod rpcmethod_explain_;
     const ::grpc::internal::RpcMethod rpcmethod_execute_;
   };
@@ -98,7 +98,7 @@ class Interactive final {
     Service();
     virtual ~Service();
     virtual ::grpc::Status explain(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, flatbuffers::grpc::Message<Plan>* response);
-    virtual ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Message>>* writer);
+    virtual ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Literal>>* writer);
   };
   template <class BaseClass>
   class WithAsyncMethod_explain : public BaseClass {
@@ -132,11 +132,11 @@ class Interactive final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Message>>* writer) final override {
+    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Literal>>* writer) final override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
-    void Requestexecute(::grpc::ServerContext* context, flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerAsyncWriter< flatbuffers::grpc::Message<Message>>* writer, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
+    void Requestexecute(::grpc::ServerContext* context, flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerAsyncWriter< flatbuffers::grpc::Message<Literal>>* writer, ::grpc::CompletionQueue* new_call_cq, ::grpc::ServerCompletionQueue* notification_cq, void *tag) {
       ::grpc::Service::RequestAsyncServerStreaming(1, context, request, writer, new_call_cq, notification_cq, tag);
     }
   };
@@ -170,7 +170,7 @@ class Interactive final {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable synchronous version of this method
-    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Message>>* writer) final override {
+    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Literal>>* writer) final override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
@@ -203,18 +203,18 @@ class Interactive final {
    public:
     WithSplitStreamingMethod_execute() {
       ::grpc::Service::MarkMethodStreamed(1,
-        new ::grpc::internal::SplitServerStreamingHandler< flatbuffers::grpc::Message<Plan>, flatbuffers::grpc::Message<Message>>(std::bind(&WithSplitStreamingMethod_execute<BaseClass>::Streamedexecute, this, std::placeholders::_1, std::placeholders::_2)));
+        new ::grpc::internal::SplitServerStreamingHandler< flatbuffers::grpc::Message<Plan>, flatbuffers::grpc::Message<Literal>>(std::bind(&WithSplitStreamingMethod_execute<BaseClass>::Streamedexecute, this, std::placeholders::_1, std::placeholders::_2)));
     }
     ~WithSplitStreamingMethod_execute() override {
       BaseClassMustBeDerivedFromService(this);
     }
     // disable regular version of this method
-    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Message>>* writer) final override {
+    ::grpc::Status execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Literal>>* writer) final override {
       abort();
       return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
     }
     // replace default version of method with split streamed
-    virtual ::grpc::Status Streamedexecute(::grpc::ServerContext* context, ::grpc::ServerSplitStreamer< flatbuffers::grpc::Message<Plan>,flatbuffers::grpc::Message<Message>>* server_split_streamer) = 0;
+    virtual ::grpc::Status Streamedexecute(::grpc::ServerContext* context, ::grpc::ServerSplitStreamer< flatbuffers::grpc::Message<Plan>,flatbuffers::grpc::Message<Literal>>* server_split_streamer) = 0;
   };
   typedef   WithSplitStreamingMethod_execute<  Service   >   SplitStreamedService;
   typedef   WithStreamedUnaryMethod_explain<  WithSplitStreamingMethod_execute<  Service   >   >   StreamedService;

@@ -7,10 +7,7 @@
 #include "flatbuffers/flatbuffers.h"
 
 #include "ComputeIR_generated.h"
-#include "Message_generated.h"
 #include "Schema_generated.h"
-#include "SparseTensor_generated.h"
-#include "Tensor_generated.h"
 
 namespace org {
 namespace apache {

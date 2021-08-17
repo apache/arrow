@@ -46,16 +46,16 @@ Interactive::Stub::Stub(const std::shared_ptr< ::grpc::ChannelInterface>& channe
   return ::grpc::internal::ClientAsyncResponseReaderFactory< flatbuffers::grpc::Message<Plan>>::Create(channel_.get(), cq, rpcmethod_explain_, context, request, false);
 }
 
-::grpc::ClientReader< flatbuffers::grpc::Message<Message>>* Interactive::Stub::executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
-  return ::grpc::internal::ClientReaderFactory< flatbuffers::grpc::Message<Message>>::Create(channel_.get(), rpcmethod_execute_, context, request);
+::grpc::ClientReader< flatbuffers::grpc::Message<Literal>>* Interactive::Stub::executeRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request) {
+  return ::grpc::internal::ClientReaderFactory< flatbuffers::grpc::Message<Literal>>::Create(channel_.get(), rpcmethod_execute_, context, request);
 }
 
-::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>* Interactive::Stub::AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
-  return ::grpc::internal::ClientAsyncReaderFactory< flatbuffers::grpc::Message<Message>>::Create(channel_.get(), cq, rpcmethod_execute_, context, request, true, tag);
+::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>* Interactive::Stub::AsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq, void* tag) {
+  return ::grpc::internal::ClientAsyncReaderFactory< flatbuffers::grpc::Message<Literal>>::Create(channel_.get(), cq, rpcmethod_execute_, context, request, true, tag);
 }
 
-::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Message>>* Interactive::Stub::PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
-  return ::grpc::internal::ClientAsyncReaderFactory< flatbuffers::grpc::Message<Message>>::Create(channel_.get(), cq, rpcmethod_execute_, context, request, false, nullptr);
+::grpc::ClientAsyncReader< flatbuffers::grpc::Message<Literal>>* Interactive::Stub::PrepareAsyncexecuteRaw(::grpc::ClientContext* context, const flatbuffers::grpc::Message<Plan>& request, ::grpc::CompletionQueue* cq) {
+  return ::grpc::internal::ClientAsyncReaderFactory< flatbuffers::grpc::Message<Literal>>::Create(channel_.get(), cq, rpcmethod_execute_, context, request, false, nullptr);
 }
 
 Interactive::Service::Service() {
@@ -67,7 +67,7 @@ Interactive::Service::Service() {
   AddMethod(new ::grpc::internal::RpcServiceMethod(
       Interactive_method_names[1],
       ::grpc::internal::RpcMethod::SERVER_STREAMING,
-      new ::grpc::internal::ServerStreamingHandler< Interactive::Service, flatbuffers::grpc::Message<Plan>, flatbuffers::grpc::Message<Message>>(
+      new ::grpc::internal::ServerStreamingHandler< Interactive::Service, flatbuffers::grpc::Message<Plan>, flatbuffers::grpc::Message<Literal>>(
           std::mem_fn(&Interactive::Service::execute), this)));
 }
 
@@ -81,7 +81,7 @@ Interactive::Service::~Service() {
   return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
 }
 
-::grpc::Status Interactive::Service::execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Message>>* writer) {
+::grpc::Status Interactive::Service::execute(::grpc::ServerContext* context, const flatbuffers::grpc::Message<Plan>* request, ::grpc::ServerWriter< flatbuffers::grpc::Message<Literal>>* writer) {
   (void) context;
   (void) request;
   (void) writer;
