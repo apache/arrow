@@ -426,10 +426,9 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SHAPE_TYPE = 4,
     VT_SHAPE = 6,
-    VT_TYPE_TYPE = 8,
-    VT_TYPE = 10,
-    VT_BUFFERS = 12,
-    VT_DICTIONARY = 14
+    VT_FIELD = 8,
+    VT_BUFFERS = 10,
+    VT_DICTIONARY = 12
   };
   org::apache::arrow::flatbuf::computeir::Shape shape_type() const {
     return static_cast<org::apache::arrow::flatbuf::computeir::Shape>(GetField<uint8_t>(VT_SHAPE_TYPE, 0));
@@ -438,7 +437,7 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   ///
   /// Note that this is orthogonal to type and refers to the number
   /// of rows spanned by this Literal - a Literal may be Scalar shaped
-  /// with multiple "columns" if `type` happens to be Struct.
+  /// with multiple "columns" if the type happens to be Struct.
   const void *shape() const {
     return GetPointer<const void *>(VT_SHAPE);
   }
@@ -449,76 +448,10 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::computeir::Scalar *shape_as_Scalar() const {
     return shape_type() == org::apache::arrow::flatbuf::computeir::Shape::Scalar ? static_cast<const org::apache::arrow::flatbuf::computeir::Scalar *>(shape()) : nullptr;
   }
-  org::apache::arrow::flatbuf::Type type_type() const {
-    return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
-  }
-  /// The type of this literal.
-  const void *type() const {
-    return GetPointer<const void *>(VT_TYPE);
-  }
-  template<typename T> const T *type_as() const;
-  const org::apache::arrow::flatbuf::Null *type_as_Null() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Null ? static_cast<const org::apache::arrow::flatbuf::Null *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Int *type_as_Int() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Int ? static_cast<const org::apache::arrow::flatbuf::Int *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FloatingPoint *type_as_FloatingPoint() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FloatingPoint ? static_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Binary *type_as_Binary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Binary ? static_cast<const org::apache::arrow::flatbuf::Binary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Utf8 *type_as_Utf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Utf8 ? static_cast<const org::apache::arrow::flatbuf::Utf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Bool *type_as_Bool() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Bool ? static_cast<const org::apache::arrow::flatbuf::Bool *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Decimal *type_as_Decimal() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Decimal ? static_cast<const org::apache::arrow::flatbuf::Decimal *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Date *type_as_Date() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Date ? static_cast<const org::apache::arrow::flatbuf::Date *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Time *type_as_Time() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Time ? static_cast<const org::apache::arrow::flatbuf::Time *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Timestamp *type_as_Timestamp() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Timestamp ? static_cast<const org::apache::arrow::flatbuf::Timestamp *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Interval *type_as_Interval() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Interval ? static_cast<const org::apache::arrow::flatbuf::Interval *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::List *type_as_List() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::List ? static_cast<const org::apache::arrow::flatbuf::List *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Struct_ *type_as_Struct_() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Struct_ ? static_cast<const org::apache::arrow::flatbuf::Struct_ *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Union *type_as_Union() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Union ? static_cast<const org::apache::arrow::flatbuf::Union *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeBinary *type_as_FixedSizeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeBinary ? static_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeList *type_as_FixedSizeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeList ? static_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Map *type_as_Map() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Map ? static_cast<const org::apache::arrow::flatbuf::Map *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Duration *type_as_Duration() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Duration ? static_cast<const org::apache::arrow::flatbuf::Duration *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeBinary *type_as_LargeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeBinary ? static_cast<const org::apache::arrow::flatbuf::LargeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeUtf8 *type_as_LargeUtf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeUtf8 ? static_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
+  /// The type of this literal. Field is used instead of Type to pick
+  /// up child fields, dictionary encoding, etc.
+  const org::apache::arrow::flatbuf::Field *field() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Field *>(VT_FIELD);
   }
   /// Buffers containing N elements of arrow-formatted data, where N
   /// is Array.length if shape is Array or 1 if shape is Scalar.
@@ -536,9 +469,8 @@ struct Literal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_SHAPE_TYPE) &&
            VerifyOffsetRequired(verifier, VT_SHAPE) &&
            VerifyShape(verifier, shape(), shape_type()) &&
-           VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
-           VerifyOffsetRequired(verifier, VT_TYPE) &&
-           VerifyType(verifier, type(), type_type()) &&
+           VerifyOffsetRequired(verifier, VT_FIELD) &&
+           verifier.VerifyTable(field()) &&
            VerifyOffset(verifier, VT_BUFFERS) &&
            verifier.VerifyVector(buffers()) &&
            verifier.VerifyVectorOfTables(buffers()) &&
@@ -556,90 +488,6 @@ template<> inline const org::apache::arrow::flatbuf::computeir::Scalar *Literal:
   return shape_as_Scalar();
 }
 
-template<> inline const org::apache::arrow::flatbuf::Null *Literal::type_as<org::apache::arrow::flatbuf::Null>() const {
-  return type_as_Null();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Int *Literal::type_as<org::apache::arrow::flatbuf::Int>() const {
-  return type_as_Int();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FloatingPoint *Literal::type_as<org::apache::arrow::flatbuf::FloatingPoint>() const {
-  return type_as_FloatingPoint();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Binary *Literal::type_as<org::apache::arrow::flatbuf::Binary>() const {
-  return type_as_Binary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Utf8 *Literal::type_as<org::apache::arrow::flatbuf::Utf8>() const {
-  return type_as_Utf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Bool *Literal::type_as<org::apache::arrow::flatbuf::Bool>() const {
-  return type_as_Bool();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Decimal *Literal::type_as<org::apache::arrow::flatbuf::Decimal>() const {
-  return type_as_Decimal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Date *Literal::type_as<org::apache::arrow::flatbuf::Date>() const {
-  return type_as_Date();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Time *Literal::type_as<org::apache::arrow::flatbuf::Time>() const {
-  return type_as_Time();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Timestamp *Literal::type_as<org::apache::arrow::flatbuf::Timestamp>() const {
-  return type_as_Timestamp();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Interval *Literal::type_as<org::apache::arrow::flatbuf::Interval>() const {
-  return type_as_Interval();
-}
-
-template<> inline const org::apache::arrow::flatbuf::List *Literal::type_as<org::apache::arrow::flatbuf::List>() const {
-  return type_as_List();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Struct_ *Literal::type_as<org::apache::arrow::flatbuf::Struct_>() const {
-  return type_as_Struct_();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Union *Literal::type_as<org::apache::arrow::flatbuf::Union>() const {
-  return type_as_Union();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeBinary *Literal::type_as<org::apache::arrow::flatbuf::FixedSizeBinary>() const {
-  return type_as_FixedSizeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeList *Literal::type_as<org::apache::arrow::flatbuf::FixedSizeList>() const {
-  return type_as_FixedSizeList();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Map *Literal::type_as<org::apache::arrow::flatbuf::Map>() const {
-  return type_as_Map();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Duration *Literal::type_as<org::apache::arrow::flatbuf::Duration>() const {
-  return type_as_Duration();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeBinary *Literal::type_as<org::apache::arrow::flatbuf::LargeBinary>() const {
-  return type_as_LargeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeUtf8 *Literal::type_as<org::apache::arrow::flatbuf::LargeUtf8>() const {
-  return type_as_LargeUtf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeList *Literal::type_as<org::apache::arrow::flatbuf::LargeList>() const {
-  return type_as_LargeList();
-}
-
 struct LiteralBuilder {
   typedef Literal Table;
   flatbuffers::FlatBufferBuilder &fbb_;
@@ -650,11 +498,8 @@ struct LiteralBuilder {
   void add_shape(flatbuffers::Offset<void> shape) {
     fbb_.AddOffset(Literal::VT_SHAPE, shape);
   }
-  void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
-    fbb_.AddElement<uint8_t>(Literal::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
-  }
-  void add_type(flatbuffers::Offset<void> type) {
-    fbb_.AddOffset(Literal::VT_TYPE, type);
+  void add_field(flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field) {
+    fbb_.AddOffset(Literal::VT_FIELD, field);
   }
   void add_buffers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>> buffers) {
     fbb_.AddOffset(Literal::VT_BUFFERS, buffers);
@@ -671,7 +516,7 @@ struct LiteralBuilder {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Literal>(end);
     fbb_.Required(o, Literal::VT_SHAPE);
-    fbb_.Required(o, Literal::VT_TYPE);
+    fbb_.Required(o, Literal::VT_FIELD);
     return o;
   }
 };
@@ -680,16 +525,14 @@ inline flatbuffers::Offset<Literal> CreateLiteral(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::computeir::Shape shape_type = org::apache::arrow::flatbuf::computeir::Shape::NONE,
     flatbuffers::Offset<void> shape = 0,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>> buffers = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal> dictionary = 0) {
   LiteralBuilder builder_(_fbb);
   builder_.add_dictionary(dictionary);
   builder_.add_buffers(buffers);
-  builder_.add_type(type);
+  builder_.add_field(field);
   builder_.add_shape(shape);
-  builder_.add_type_type(type_type);
   builder_.add_shape_type(shape_type);
   return builder_.Finish();
 }
@@ -698,8 +541,7 @@ inline flatbuffers::Offset<Literal> CreateLiteralDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::computeir::Shape shape_type = org::apache::arrow::flatbuf::computeir::Shape::NONE,
     flatbuffers::Offset<void> shape = 0,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0,
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>> *buffers = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Literal> dictionary = 0) {
   auto buffers__ = buffers ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer>>(*buffers) : 0;
@@ -707,8 +549,7 @@ inline flatbuffers::Offset<Literal> CreateLiteralDirect(
       _fbb,
       shape_type,
       shape,
-      type_type,
-      type,
+      field,
       buffers__,
       dictionary);
 }
@@ -718,8 +559,7 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PATH = 4,
     VT_RELATION_INDEX = 6,
-    VT_TYPE_TYPE = 8,
-    VT_TYPE = 10
+    VT_FIELD = 8
   };
   /// A sequence of field names to allow referencing potentially nested fields
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *path() const {
@@ -732,76 +572,10 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t relation_index() const {
     return GetField<int32_t>(VT_RELATION_INDEX, 0);
   }
-  org::apache::arrow::flatbuf::Type type_type() const {
-    return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
-  }
-  /// The type of data in the referenced Field.
-  const void *type() const {
-    return GetPointer<const void *>(VT_TYPE);
-  }
-  template<typename T> const T *type_as() const;
-  const org::apache::arrow::flatbuf::Null *type_as_Null() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Null ? static_cast<const org::apache::arrow::flatbuf::Null *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Int *type_as_Int() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Int ? static_cast<const org::apache::arrow::flatbuf::Int *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FloatingPoint *type_as_FloatingPoint() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FloatingPoint ? static_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Binary *type_as_Binary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Binary ? static_cast<const org::apache::arrow::flatbuf::Binary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Utf8 *type_as_Utf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Utf8 ? static_cast<const org::apache::arrow::flatbuf::Utf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Bool *type_as_Bool() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Bool ? static_cast<const org::apache::arrow::flatbuf::Bool *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Decimal *type_as_Decimal() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Decimal ? static_cast<const org::apache::arrow::flatbuf::Decimal *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Date *type_as_Date() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Date ? static_cast<const org::apache::arrow::flatbuf::Date *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Time *type_as_Time() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Time ? static_cast<const org::apache::arrow::flatbuf::Time *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Timestamp *type_as_Timestamp() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Timestamp ? static_cast<const org::apache::arrow::flatbuf::Timestamp *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Interval *type_as_Interval() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Interval ? static_cast<const org::apache::arrow::flatbuf::Interval *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::List *type_as_List() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::List ? static_cast<const org::apache::arrow::flatbuf::List *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Struct_ *type_as_Struct_() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Struct_ ? static_cast<const org::apache::arrow::flatbuf::Struct_ *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Union *type_as_Union() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Union ? static_cast<const org::apache::arrow::flatbuf::Union *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeBinary *type_as_FixedSizeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeBinary ? static_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeList *type_as_FixedSizeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeList ? static_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Map *type_as_Map() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Map ? static_cast<const org::apache::arrow::flatbuf::Map *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Duration *type_as_Duration() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Duration ? static_cast<const org::apache::arrow::flatbuf::Duration *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeBinary *type_as_LargeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeBinary ? static_cast<const org::apache::arrow::flatbuf::LargeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeUtf8 *type_as_LargeUtf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeUtf8 ? static_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
+  /// The type of the referenced Field. Field is used instead of Type to pick
+  /// up child fields, dictionary encoding, etc.
+  const org::apache::arrow::flatbuf::Field *field() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Field *>(VT_FIELD);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -809,96 +583,11 @@ struct FieldRef FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(path()) &&
            verifier.VerifyVectorOfStrings(path()) &&
            VerifyField<int32_t>(verifier, VT_RELATION_INDEX) &&
-           VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
-           VerifyOffset(verifier, VT_TYPE) &&
-           VerifyType(verifier, type(), type_type()) &&
+           VerifyOffset(verifier, VT_FIELD) &&
+           verifier.VerifyTable(field()) &&
            verifier.EndTable();
   }
 };
-
-template<> inline const org::apache::arrow::flatbuf::Null *FieldRef::type_as<org::apache::arrow::flatbuf::Null>() const {
-  return type_as_Null();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Int *FieldRef::type_as<org::apache::arrow::flatbuf::Int>() const {
-  return type_as_Int();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FloatingPoint *FieldRef::type_as<org::apache::arrow::flatbuf::FloatingPoint>() const {
-  return type_as_FloatingPoint();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Binary *FieldRef::type_as<org::apache::arrow::flatbuf::Binary>() const {
-  return type_as_Binary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Utf8 *FieldRef::type_as<org::apache::arrow::flatbuf::Utf8>() const {
-  return type_as_Utf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Bool *FieldRef::type_as<org::apache::arrow::flatbuf::Bool>() const {
-  return type_as_Bool();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Decimal *FieldRef::type_as<org::apache::arrow::flatbuf::Decimal>() const {
-  return type_as_Decimal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Date *FieldRef::type_as<org::apache::arrow::flatbuf::Date>() const {
-  return type_as_Date();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Time *FieldRef::type_as<org::apache::arrow::flatbuf::Time>() const {
-  return type_as_Time();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Timestamp *FieldRef::type_as<org::apache::arrow::flatbuf::Timestamp>() const {
-  return type_as_Timestamp();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Interval *FieldRef::type_as<org::apache::arrow::flatbuf::Interval>() const {
-  return type_as_Interval();
-}
-
-template<> inline const org::apache::arrow::flatbuf::List *FieldRef::type_as<org::apache::arrow::flatbuf::List>() const {
-  return type_as_List();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Struct_ *FieldRef::type_as<org::apache::arrow::flatbuf::Struct_>() const {
-  return type_as_Struct_();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Union *FieldRef::type_as<org::apache::arrow::flatbuf::Union>() const {
-  return type_as_Union();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeBinary *FieldRef::type_as<org::apache::arrow::flatbuf::FixedSizeBinary>() const {
-  return type_as_FixedSizeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeList *FieldRef::type_as<org::apache::arrow::flatbuf::FixedSizeList>() const {
-  return type_as_FixedSizeList();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Map *FieldRef::type_as<org::apache::arrow::flatbuf::Map>() const {
-  return type_as_Map();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Duration *FieldRef::type_as<org::apache::arrow::flatbuf::Duration>() const {
-  return type_as_Duration();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeBinary *FieldRef::type_as<org::apache::arrow::flatbuf::LargeBinary>() const {
-  return type_as_LargeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeUtf8 *FieldRef::type_as<org::apache::arrow::flatbuf::LargeUtf8>() const {
-  return type_as_LargeUtf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeList *FieldRef::type_as<org::apache::arrow::flatbuf::LargeList>() const {
-  return type_as_LargeList();
-}
 
 struct FieldRefBuilder {
   typedef FieldRef Table;
@@ -910,11 +599,8 @@ struct FieldRefBuilder {
   void add_relation_index(int32_t relation_index) {
     fbb_.AddElement<int32_t>(FieldRef::VT_RELATION_INDEX, relation_index, 0);
   }
-  void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
-    fbb_.AddElement<uint8_t>(FieldRef::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
-  }
-  void add_type(flatbuffers::Offset<void> type) {
-    fbb_.AddOffset(FieldRef::VT_TYPE, type);
+  void add_field(flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field) {
+    fbb_.AddOffset(FieldRef::VT_FIELD, field);
   }
   explicit FieldRefBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -932,13 +618,11 @@ inline flatbuffers::Offset<FieldRef> CreateFieldRef(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> path = 0,
     int32_t relation_index = 0,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
   FieldRefBuilder builder_(_fbb);
-  builder_.add_type(type);
+  builder_.add_field(field);
   builder_.add_relation_index(relation_index);
   builder_.add_path(path);
-  builder_.add_type_type(type_type);
   return builder_.Finish();
 }
 
@@ -946,15 +630,13 @@ inline flatbuffers::Offset<FieldRef> CreateFieldRefDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *path = nullptr,
     int32_t relation_index = 0,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
   auto path__ = path ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*path) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateFieldRef(
       _fbb,
       path__,
       relation_index,
-      type_type,
-      type);
+      field);
 }
 
 struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -963,8 +645,7 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_FUNCTION_NAME = 4,
     VT_OPTIONS = 6,
     VT_ARGUMENTS = 8,
-    VT_TYPE_TYPE = 10,
-    VT_TYPE = 12
+    VT_FIELD = 10
   };
   /// The namespaced name of the function whose invocation this Call represents.
   /// For example: "arrow::add" or "gandiva::jit_3432".
@@ -982,76 +663,11 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_ARGUMENTS);
   }
-  org::apache::arrow::flatbuf::Type type_type() const {
-    return static_cast<org::apache::arrow::flatbuf::Type>(GetField<uint8_t>(VT_TYPE_TYPE, 0));
-  }
   /// The type of data which invoking `function_name` will return.
-  const void *type() const {
-    return GetPointer<const void *>(VT_TYPE);
-  }
-  template<typename T> const T *type_as() const;
-  const org::apache::arrow::flatbuf::Null *type_as_Null() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Null ? static_cast<const org::apache::arrow::flatbuf::Null *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Int *type_as_Int() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Int ? static_cast<const org::apache::arrow::flatbuf::Int *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FloatingPoint *type_as_FloatingPoint() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FloatingPoint ? static_cast<const org::apache::arrow::flatbuf::FloatingPoint *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Binary *type_as_Binary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Binary ? static_cast<const org::apache::arrow::flatbuf::Binary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Utf8 *type_as_Utf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Utf8 ? static_cast<const org::apache::arrow::flatbuf::Utf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Bool *type_as_Bool() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Bool ? static_cast<const org::apache::arrow::flatbuf::Bool *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Decimal *type_as_Decimal() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Decimal ? static_cast<const org::apache::arrow::flatbuf::Decimal *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Date *type_as_Date() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Date ? static_cast<const org::apache::arrow::flatbuf::Date *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Time *type_as_Time() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Time ? static_cast<const org::apache::arrow::flatbuf::Time *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Timestamp *type_as_Timestamp() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Timestamp ? static_cast<const org::apache::arrow::flatbuf::Timestamp *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Interval *type_as_Interval() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Interval ? static_cast<const org::apache::arrow::flatbuf::Interval *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::List *type_as_List() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::List ? static_cast<const org::apache::arrow::flatbuf::List *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Struct_ *type_as_Struct_() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Struct_ ? static_cast<const org::apache::arrow::flatbuf::Struct_ *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Union *type_as_Union() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Union ? static_cast<const org::apache::arrow::flatbuf::Union *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeBinary *type_as_FixedSizeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeBinary ? static_cast<const org::apache::arrow::flatbuf::FixedSizeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::FixedSizeList *type_as_FixedSizeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::FixedSizeList ? static_cast<const org::apache::arrow::flatbuf::FixedSizeList *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Map *type_as_Map() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Map ? static_cast<const org::apache::arrow::flatbuf::Map *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::Duration *type_as_Duration() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::Duration ? static_cast<const org::apache::arrow::flatbuf::Duration *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeBinary *type_as_LargeBinary() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeBinary ? static_cast<const org::apache::arrow::flatbuf::LargeBinary *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeUtf8 *type_as_LargeUtf8() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeUtf8 ? static_cast<const org::apache::arrow::flatbuf::LargeUtf8 *>(type()) : nullptr;
-  }
-  const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
-    return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
+  /// Field is used instead of Type to pick up child fields,
+  /// dictionary encoding, etc.
+  const org::apache::arrow::flatbuf::Field *field() const {
+    return GetPointer<const org::apache::arrow::flatbuf::Field *>(VT_FIELD);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1062,96 +678,11 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
            verifier.VerifyVector(arguments()) &&
            verifier.VerifyVectorOfTables(arguments()) &&
-           VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
-           VerifyOffset(verifier, VT_TYPE) &&
-           VerifyType(verifier, type(), type_type()) &&
+           VerifyOffset(verifier, VT_FIELD) &&
+           verifier.VerifyTable(field()) &&
            verifier.EndTable();
   }
 };
-
-template<> inline const org::apache::arrow::flatbuf::Null *Call::type_as<org::apache::arrow::flatbuf::Null>() const {
-  return type_as_Null();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Int *Call::type_as<org::apache::arrow::flatbuf::Int>() const {
-  return type_as_Int();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FloatingPoint *Call::type_as<org::apache::arrow::flatbuf::FloatingPoint>() const {
-  return type_as_FloatingPoint();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Binary *Call::type_as<org::apache::arrow::flatbuf::Binary>() const {
-  return type_as_Binary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Utf8 *Call::type_as<org::apache::arrow::flatbuf::Utf8>() const {
-  return type_as_Utf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Bool *Call::type_as<org::apache::arrow::flatbuf::Bool>() const {
-  return type_as_Bool();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Decimal *Call::type_as<org::apache::arrow::flatbuf::Decimal>() const {
-  return type_as_Decimal();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Date *Call::type_as<org::apache::arrow::flatbuf::Date>() const {
-  return type_as_Date();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Time *Call::type_as<org::apache::arrow::flatbuf::Time>() const {
-  return type_as_Time();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Timestamp *Call::type_as<org::apache::arrow::flatbuf::Timestamp>() const {
-  return type_as_Timestamp();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Interval *Call::type_as<org::apache::arrow::flatbuf::Interval>() const {
-  return type_as_Interval();
-}
-
-template<> inline const org::apache::arrow::flatbuf::List *Call::type_as<org::apache::arrow::flatbuf::List>() const {
-  return type_as_List();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Struct_ *Call::type_as<org::apache::arrow::flatbuf::Struct_>() const {
-  return type_as_Struct_();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Union *Call::type_as<org::apache::arrow::flatbuf::Union>() const {
-  return type_as_Union();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeBinary *Call::type_as<org::apache::arrow::flatbuf::FixedSizeBinary>() const {
-  return type_as_FixedSizeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::FixedSizeList *Call::type_as<org::apache::arrow::flatbuf::FixedSizeList>() const {
-  return type_as_FixedSizeList();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Map *Call::type_as<org::apache::arrow::flatbuf::Map>() const {
-  return type_as_Map();
-}
-
-template<> inline const org::apache::arrow::flatbuf::Duration *Call::type_as<org::apache::arrow::flatbuf::Duration>() const {
-  return type_as_Duration();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeBinary *Call::type_as<org::apache::arrow::flatbuf::LargeBinary>() const {
-  return type_as_LargeBinary();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeUtf8 *Call::type_as<org::apache::arrow::flatbuf::LargeUtf8>() const {
-  return type_as_LargeUtf8();
-}
-
-template<> inline const org::apache::arrow::flatbuf::LargeList *Call::type_as<org::apache::arrow::flatbuf::LargeList>() const {
-  return type_as_LargeList();
-}
 
 struct CallBuilder {
   typedef Call Table;
@@ -1166,11 +697,8 @@ struct CallBuilder {
   void add_arguments(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments) {
     fbb_.AddOffset(Call::VT_ARGUMENTS, arguments);
   }
-  void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
-    fbb_.AddElement<uint8_t>(Call::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
-  }
-  void add_type(flatbuffers::Offset<void> type) {
-    fbb_.AddOffset(Call::VT_TYPE, type);
+  void add_field(flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field) {
+    fbb_.AddOffset(Call::VT_FIELD, field);
   }
   explicit CallBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1191,14 +719,12 @@ inline flatbuffers::Offset<Call> CreateCall(
     flatbuffers::Offset<flatbuffers::String> function_name = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments = 0,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
   CallBuilder builder_(_fbb);
-  builder_.add_type(type);
+  builder_.add_field(field);
   builder_.add_arguments(arguments);
   builder_.add_options(options);
   builder_.add_function_name(function_name);
-  builder_.add_type_type(type_type);
   return builder_.Finish();
 }
 
@@ -1207,8 +733,7 @@ inline flatbuffers::Offset<Call> CreateCallDirect(
     const char *function_name = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments = nullptr,
-    org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
   auto function_name__ = function_name ? _fbb.CreateString(function_name) : 0;
   auto arguments__ = arguments ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*arguments) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateCall(
@@ -1216,8 +741,7 @@ inline flatbuffers::Offset<Call> CreateCallDirect(
       function_name__,
       options,
       arguments__,
-      type_type,
-      type);
+      field);
 }
 
 /// A relation is a set of rows with consistent schema.

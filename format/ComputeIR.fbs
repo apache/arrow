@@ -56,11 +56,12 @@ table Literal {
   ///
   /// Note that this is orthogonal to type and refers to the number
   /// of rows spanned by this Literal - a Literal may be Scalar shaped
-  /// with multiple "columns" if `type` happens to be Struct.
+  /// with multiple "columns" if the type happens to be Struct.
   shape: Shape (required);
 
-  /// The type of this literal.
-  type: Type (required);
+  /// The type of this literal. Field is used instead of Type to pick
+  /// up child fields, dictionary encoding, etc.
+  field: Field (required);
 
   /// Buffers containing N elements of arrow-formatted data, where N
   /// is Array.length if shape is Array or 1 if shape is Scalar.
@@ -82,8 +83,9 @@ table FieldRef {
   /// 0 refers to the left relation and 1 to the right relation.
   relation_index: int;
 
-  /// The type of data in the referenced Field.
-  type: Type;
+  /// The type of the referenced Field. Field is used instead of Type to pick
+  /// up child fields, dictionary encoding, etc.
+  field: Field;
 }
 
 table Call {
@@ -101,7 +103,9 @@ table Call {
   arguments: [Expression] (required);
 
   /// The type of data which invoking `function_name` will return.
-  type: Type;
+  /// Field is used instead of Type to pick up child fields,
+  /// dictionary encoding, etc.
+  field: Field;
 }
 
 /// A relation is a set of rows with consistent schema.
