@@ -35,7 +35,7 @@ using internal::checked_cast;
 namespace compute {
 
 namespace {
-std::vector<std::string> GetInputLabels(ExecNode::NodeVector inputs) {
+std::vector<std::string> GetInputLabels(const ExecNode::NodeVector& inputs) {
   std::vector<std::string> labels(inputs.size());
   for (size_t i = 0; i < inputs.size(); i++) {
     labels[i] = "input_" + std::to_string(i) + "_label";
@@ -48,30 +48,28 @@ struct UnionNode : ExecNode {
       : ExecNode(plan, inputs, GetInputLabels(inputs),
                  /*output_schema=*/inputs[0]->output_schema(),
                  /*num_outputs=*/1) {
-    if (this->input_count_.SetTotal(static_cast<int>(inputs.size()))) {
-      finished_.MarkFinished();
-    }
+    ARROW_DCHECK(this->input_count_.SetTotal(static_cast<int>(inputs.size())) == false);
   }
 
   const char* kind_name() override { return "UnionNode"; }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, inputs.size(), "UnionNode"));
-    if (inputs.size() < 2) {
-      return Status::Invalid("Constructing a `UnionNode` with inputs size less than 2");
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, static_cast<int>(inputs.size()),
+                                         "UnionNode"));
+    if (inputs.size() < 1) {
+      return Status::Invalid("Constructing a `UnionNode` with inputs size less than 1");
     }
     auto schema = inputs.at(0)->output_schema();
     for (auto input : inputs) {
       if (!input->output_schema()->Equals(schema)) {
         return Status::Invalid(
-            "Constructing a `UnionNode` with inputs with different schemas");
+            "UnionNode input schemas must all match, first schema was: ", *schema,
+            " got schema: ", *input->output_schema());
       }
     }
     return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
   }
-
-  inline bool IsLeftInput(ExecNode* input) { return input == inputs_[0]; }
 
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     ARROW_DCHECK(std::find_if(inputs_.begin(), inputs_.end(), [input](ExecNode* n) {
@@ -121,7 +119,7 @@ struct UnionNode : ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
-      finished_.MakeFinished();
+      finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {
       input->StopProducing(this);
@@ -130,9 +128,11 @@ struct UnionNode : ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-      finished_.MakeFinished();
+      finished_.MarkFinished();
     }
-    inputs_[0]->StopProducing(this);
+    for (auto&& input : inputs_) {
+      input->StopProducing(this);
+    }
   }
 
   Future<> finished() override { return finished_; }
