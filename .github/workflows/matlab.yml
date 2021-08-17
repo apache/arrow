@@ -38,7 +38,7 @@ concurrency:
 jobs:
 
   matlab:
-    name: MATLAB 
+    name: AMD64 Ubuntu 20.04 MATLAB 
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
