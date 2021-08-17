@@ -1447,7 +1447,7 @@ struct JoinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JoinOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ON_EXPRESSION = 4,
-    VT_JOIN_KIND = 6
+    VT_JOIN_NAME = 6
   };
   /// The expression which will be evaluated against rows from each
   /// input to determine whether they should be included in the
@@ -1455,15 +1455,22 @@ struct JoinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::computeir::Expression *on_expression() const {
     return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_ON_EXPRESSION);
   }
-  const flatbuffers::String *join_kind() const {
-    return GetPointer<const flatbuffers::String *>(VT_JOIN_KIND);
+  /// The namespaced name of the join to use. Non-namespaced names are
+  /// reserved for canonicalization. Current names include:
+  ///   "inner"
+  ///   "left"
+  ///   "right"
+  ///   "outer"
+  ///   "cross"
+  const flatbuffers::String *join_name() const {
+    return GetPointer<const flatbuffers::String *>(VT_JOIN_NAME);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_ON_EXPRESSION) &&
            verifier.VerifyTable(on_expression()) &&
-           VerifyOffset(verifier, VT_JOIN_KIND) &&
-           verifier.VerifyString(join_kind()) &&
+           VerifyOffset(verifier, VT_JOIN_NAME) &&
+           verifier.VerifyString(join_name()) &&
            verifier.EndTable();
   }
 };
@@ -1475,8 +1482,8 @@ struct JoinOptionsBuilder {
   void add_on_expression(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression) {
     fbb_.AddOffset(JoinOptions::VT_ON_EXPRESSION, on_expression);
   }
-  void add_join_kind(flatbuffers::Offset<flatbuffers::String> join_kind) {
-    fbb_.AddOffset(JoinOptions::VT_JOIN_KIND, join_kind);
+  void add_join_name(flatbuffers::Offset<flatbuffers::String> join_name) {
+    fbb_.AddOffset(JoinOptions::VT_JOIN_NAME, join_name);
   }
   explicit JoinOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1494,9 +1501,9 @@ struct JoinOptionsBuilder {
 inline flatbuffers::Offset<JoinOptions> CreateJoinOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
-    flatbuffers::Offset<flatbuffers::String> join_kind = 0) {
+    flatbuffers::Offset<flatbuffers::String> join_name = 0) {
   JoinOptionsBuilder builder_(_fbb);
-  builder_.add_join_kind(join_kind);
+  builder_.add_join_name(join_name);
   builder_.add_on_expression(on_expression);
   return builder_.Finish();
 }
@@ -1504,12 +1511,12 @@ inline flatbuffers::Offset<JoinOptions> CreateJoinOptions(
 inline flatbuffers::Offset<JoinOptions> CreateJoinOptionsDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
-    const char *join_kind = nullptr) {
-  auto join_kind__ = join_kind ? _fbb.CreateString(join_kind) : 0;
+    const char *join_name = nullptr) {
+  auto join_name__ = join_name ? _fbb.CreateString(join_name) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateJoinOptions(
       _fbb,
       on_expression,
-      join_kind__);
+      join_name__);
 }
 
 struct SortKey FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
