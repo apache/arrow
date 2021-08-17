@@ -35,7 +35,10 @@ table Uri {
 }
 
 /// The contents of Relation.options will be Sql_FromOptions
-/// if Relation.name = "sql::from"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "sql",
+///   .name = "from",
+/// }
 table Sql_FromOptions {
   /// The name of a table referenced as a source relation.
   name: string (required);
@@ -56,7 +59,10 @@ table FileFormat {
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetScanOptions
-/// if Relation.name = "arrow::filesystem_dataset_scan"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "filesystem_dataset_scan",
+/// }
 table Arrow_FileSystemDatasetScanOptions {
   /// The base directory of a dataset which should be scanned
   /// as a source relation. A URI is used to accommodate potentially
@@ -74,7 +80,10 @@ table Arrow_FileSystemDatasetScanOptions {
 // Example output relations:
 
 /// The contents of Relation.options will be Sql_IntoOptions
-/// if Relation.name = "sql::into"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "sql",
+///   .name = "into",
+/// }
 table Sql_IntoOptions {
   /// The name of a table into which rows will be inserted.
   name: string (required);
@@ -86,14 +95,20 @@ table Sql_IntoOptions {
 }
 
 /// The contents of Relation.options will be Arrow_StreamOutOptions
-/// if Relation.name = "arrow::stream_out"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "stream_out",
+/// }
 table Arrow_StreamOutOptions {
   /// The URI to which RecordBatches of output should be streamed.
   destination: Uri (required);
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetWriteOptions
-/// if Relation.name = "arrow::filesystem_dataset_write"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "filesystem_dataset_write",
+/// }
 table Arrow_FileSystemDatasetWriteOptions {
   /// The base directory of a dataset into which output batches should be
   /// written. A URI is used to accommodate potentially remote file systems.

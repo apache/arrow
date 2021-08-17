@@ -88,12 +88,63 @@ table FieldRef {
   field: Field;
 }
 
+/// A canonical (probably SQL equivalent) function
+enum CanonicalFunctionId : uint32 {
+  // logical
+  And,
+  Not,
+  Or,
+
+  // arithmetic
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
+  Power,
+  AbsoluteValue,
+  Negate,
+  Sign,
+
+  // comparison
+  Equal,
+  NotEqual,
+  Greater,
+  GreaterOrEqual,
+  Less,
+  LessOrEqual,
+
+  // aggregations
+  All,
+  Any,
+  Count,
+  Mean,
+  Min,
+  Max,
+  Mode,
+  Product,
+  Sum,
+  Tdigest,
+  Quantile,
+  Variance,
+  StandardDeviation,
+}
+
+table CanonicalFunction {
+  id: CanonicalFunctionId;
+}
+
+table NonCanonicalFunction {
+  name_space: string (required);
+  name: string (required);
+}
+
+union Function {
+  CanonicalFunction, NonCanonicalFunction
+}
+
 table Call {
-  /// The namespaced name of the function whose invocation this Call represents.
-  /// For example: "arrow::add" or "gandiva::jit_3432".
-  ///
-  /// Names with no namespace are reserved for canonicalization.
-  function_name: string (required);
+  /// The function whose invocation this Call represents.
+  function: Function (required);
 
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
@@ -108,30 +159,42 @@ table Call {
   field: Field;
 }
 
+enum CanonicalOperationId : uint32 {
+  Literal,
+  Filter,
+  Project,
+  Aggregate,
+  Join,
+  OrderBy,
+  Limit,
+  Common,
+  Union,
+  InteractiveOutput,
+}
+
+table CanonicalOperation {
+  id: CanonicalOperationId;
+}
+
+table NonCanonicalOperation {
+  name_space: string (required);
+  name: string (required);
+}
+
+union Operation {
+  CanonicalOperation, NonCanonicalFunction
+}
+
 /// A relation is a set of rows with consistent schema.
 table Relation {
-  /// The namespaced name of this Relation.
-  /// For example: "arrow::hash_join" or "gandiva::filter_and_project".
-  ///
-  /// Names with no namespace are reserved for canonical, "pure" relational
-  /// algebraic operations, which currently include:
-  ///   "filter"
-  ///   "project"
-  ///   "aggregate"
-  ///   "join"
-  ///   "order_by"
-  ///   "limit"
-  ///   "common"
-  ///   "union"
-  ///   "literal"
-  ///   "interactive_output"
-  relation_name: string (required);
+  /// The operation which this Relation wraps.
+  operation: Operation (required);
 
-  /// Parameters for `relation_name`; content/format may be unique to each
-  /// value of `relation_name`.
+  /// Parameters for `operation`; content/format may be unique to each
+  /// value of `operation`.
   options: InlineBuffer;
 
-  /// The arguments passed to `relation_name`.
+  /// The arguments passed to `operation`.
   arguments: [Relation] (required);
 
   /// The schema of rows in this Relation
@@ -139,47 +202,62 @@ table Relation {
 }
 
 /// The contents of Relation.options will be FilterOptions
-/// if Relation.relation_name = "filter"
+/// if Relation.operation = CanonicalOperation::Filter
 table FilterOptions {
   /// The expression which will be evaluated against input rows
   /// to determine whether they should be excluded from the
-  /// "filter" relation's output.
+  /// filter relation's output.
   filter_expression: Expression (required);
 }
 
 /// The contents of Relation.options will be ProjectOptions
-/// if Relation.relation_name = "project"
+/// if Relation.operation = CanonicalOperation::Project
 table ProjectOptions {
   /// Expressions which will be evaluated to produce to
-  /// the rows of the "project" relation's output.
+  /// the rows of the project relation's output.
   expressions: [Expression] (required);
 }
 
 /// The contents of Relation.options will be AggregateOptions
-/// if Relation.relation_name = "aggregate"
+/// if Relation.operation = CanonicalOperation::Aggregate
 table AggregateOptions {
   /// Expressions which will be evaluated to produce to
-  /// the rows of the "aggregate" relation's output.
+  /// the rows of the aggregate relation's output.
   aggregations: [Expression] (required);
   /// Keys by which `aggregations` will be grouped.
   keys: [Expression] (required);
 }
 
+enum CanonicalJoinKindId : uint32 {
+  Inner,
+  LeftOuter,
+  RightOuter,
+  FullOuter,
+  Cross,
+}
+
+table CanonicalJoinKind {
+  id: CanonicalJoinKindId;
+}
+
+table NonCanonicalJoinKind {
+  name_space: string (required);
+  name: string (required);
+}
+
+union JoinKind {
+  CanonicalJoinKind, NonCanonicalFunction
+}
+
 /// The contents of Relation.options will be JoinOptions
-/// if Relation.relation_name = "join"
+/// if Relation.operation = CanonicalOperation::Join
 table JoinOptions {
   /// The expression which will be evaluated against rows from each
   /// input to determine whether they should be included in the
-  /// "join" relation's output.
+  /// join relation's output.
   on_expression: Expression (required);
-  /// The namespaced name of the join to use. Non-namespaced names are
-  /// reserved for canonicalization. Current names include:
-  ///   "inner"
-  ///   "left"
-  ///   "right"
-  ///   "outer"
-  ///   "cross"
-  join_name: string;
+  /// The kind of join to use.
+  join_kind: JoinKind (required);
 }
 
 /// Whether lesser values should precede greater or vice versa,
@@ -197,7 +275,7 @@ table SortKey {
 }
 
 /// The contents of Relation.options will be OrderByOptions
-/// if Relation.relation_name = "order_by"
+/// if Relation.operation = CanonicalOperation::OrderBy
 table OrderByOptions {
   /// Define sort order for rows of output.
   /// Keys with higher precedence are ordered ahead of other keys.
@@ -205,14 +283,14 @@ table OrderByOptions {
 }
 
 /// The contents of Relation.options will be LimitOptions
-/// if Relation.relation_name = "limit"
+/// if Relation.operation = CanonicalOperation::Limit
 table LimitOptions {
   /// Set the maximum number of rows of output.
   count: long;
 }
 
 /// The contents of Relation.options will be CommonOptions
-/// if Relation.relation_name = "common"
+/// if Relation.operation = CanonicalOperation::Common
 table CommonOptions {
   /// Commons (CTEs in SQL) allow assigning a name to a stream
   /// of data and reusing it, potentially multiple times and
@@ -221,15 +299,15 @@ table CommonOptions {
 }
 
 /// The contents of Relation.options will be UnionOptions
-/// if Relation.relation_name = "union"
+/// if Relation.operation = CanonicalOperation::Union
 table UnionOptions {
-  /// For simplicity, all rows from any input to a "union" relation
+  /// For simplicity, all rows from any input to a union relation
   /// will always be concatenated into a single output- establishing
   /// uniqueness of output rows is deferred to other relations.
 }
 
 /// The contents of Relation.options will be LiteralOptions
-/// if Relation.relation_name = "literal"
+/// if Relation.operation = CanonicalOperation::Literal
 table LiteralOptions {
   /// The columns of this literal relation.
   columns: [Literal] (required);
@@ -259,7 +337,7 @@ rpc_service Interactive {
 
   /// Execute a Plan.
   /// The Plan may contain a single Relation with
-  /// relation_name="interactive_output", in which case data which
+  /// operation=InteractiveOutput, in which case data which
   /// is received by that sink will be streamed back to the client.
   execute(Plan): Literal (streaming: "server");
 }

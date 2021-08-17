@@ -180,7 +180,10 @@ inline flatbuffers::Offset<Uri> CreateUriDirect(
 }
 
 /// The contents of Relation.options will be Sql_FromOptions
-/// if Relation.name = "sql::from"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "sql",
+///   .name = "from",
+/// }
 struct Sql_FromOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Sql_FromOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -371,7 +374,10 @@ inline flatbuffers::Offset<FileFormat> CreateFileFormatDirect(
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetScanOptions
-/// if Relation.name = "arrow::filesystem_dataset_scan"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "filesystem_dataset_scan",
+/// }
 struct Arrow_FileSystemDatasetScanOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Arrow_FileSystemDatasetScanOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -446,7 +452,10 @@ inline flatbuffers::Offset<Arrow_FileSystemDatasetScanOptions> CreateArrow_FileS
 
 /////////////////////////////////////////////////////////////
 /// The contents of Relation.options will be Sql_IntoOptions
-/// if Relation.name = "sql::into"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "sql",
+///   .name = "into",
+/// }
 struct Sql_IntoOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Sql_IntoOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -517,7 +526,10 @@ inline flatbuffers::Offset<Sql_IntoOptions> CreateSql_IntoOptionsDirect(
 }
 
 /// The contents of Relation.options will be Arrow_StreamOutOptions
-/// if Relation.name = "arrow::stream_out"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "stream_out",
+/// }
 struct Arrow_StreamOutOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Arrow_StreamOutOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -564,7 +576,10 @@ inline flatbuffers::Offset<Arrow_StreamOutOptions> CreateArrow_StreamOutOptions(
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetWriteOptions
-/// if Relation.name = "arrow::filesystem_dataset_write"
+/// if Relation.operation = NonCanonicalOperation{
+///   .name_space = "arrow",
+///   .name = "filesystem_dataset_write",
+/// }
 struct Arrow_FileSystemDatasetWriteOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef Arrow_FileSystemDatasetWriteOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {

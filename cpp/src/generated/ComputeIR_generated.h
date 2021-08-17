@@ -32,8 +32,20 @@ struct LiteralBuilder;
 struct FieldRef;
 struct FieldRefBuilder;
 
+struct CanonicalFunction;
+struct CanonicalFunctionBuilder;
+
+struct NonCanonicalFunction;
+struct NonCanonicalFunctionBuilder;
+
 struct Call;
 struct CallBuilder;
+
+struct CanonicalOperation;
+struct CanonicalOperationBuilder;
+
+struct NonCanonicalOperation;
+struct NonCanonicalOperationBuilder;
 
 struct Relation;
 struct RelationBuilder;
@@ -46,6 +58,12 @@ struct ProjectOptionsBuilder;
 
 struct AggregateOptions;
 struct AggregateOptionsBuilder;
+
+struct CanonicalJoinKind;
+struct CanonicalJoinKindBuilder;
+
+struct NonCanonicalJoinKind;
+struct NonCanonicalJoinKindBuilder;
 
 struct JoinOptions;
 struct JoinOptionsBuilder;
@@ -178,6 +196,358 @@ template<> struct ShapeTraits<org::apache::arrow::flatbuf::computeir::Scalar> {
 
 bool VerifyShape(flatbuffers::Verifier &verifier, const void *obj, Shape type);
 bool VerifyShapeVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
+/// A canonical (probably SQL equivalent) function
+enum class CanonicalFunctionId : uint32_t {
+  And = 0,
+  Not = 1,
+  Or = 2,
+  Add = 3,
+  Subtract = 4,
+  Multiply = 5,
+  Divide = 6,
+  Power = 7,
+  AbsoluteValue = 8,
+  Negate = 9,
+  Sign = 10,
+  Equal = 11,
+  NotEqual = 12,
+  Greater = 13,
+  GreaterOrEqual = 14,
+  Less = 15,
+  LessOrEqual = 16,
+  All = 17,
+  Any = 18,
+  Count = 19,
+  Mean = 20,
+  Min = 21,
+  Max = 22,
+  Mode = 23,
+  Product = 24,
+  Sum = 25,
+  Tdigest = 26,
+  Quantile = 27,
+  Variance = 28,
+  StandardDeviation = 29,
+  MIN = And,
+  MAX = StandardDeviation
+};
+
+inline const CanonicalFunctionId (&EnumValuesCanonicalFunctionId())[30] {
+  static const CanonicalFunctionId values[] = {
+    CanonicalFunctionId::And,
+    CanonicalFunctionId::Not,
+    CanonicalFunctionId::Or,
+    CanonicalFunctionId::Add,
+    CanonicalFunctionId::Subtract,
+    CanonicalFunctionId::Multiply,
+    CanonicalFunctionId::Divide,
+    CanonicalFunctionId::Power,
+    CanonicalFunctionId::AbsoluteValue,
+    CanonicalFunctionId::Negate,
+    CanonicalFunctionId::Sign,
+    CanonicalFunctionId::Equal,
+    CanonicalFunctionId::NotEqual,
+    CanonicalFunctionId::Greater,
+    CanonicalFunctionId::GreaterOrEqual,
+    CanonicalFunctionId::Less,
+    CanonicalFunctionId::LessOrEqual,
+    CanonicalFunctionId::All,
+    CanonicalFunctionId::Any,
+    CanonicalFunctionId::Count,
+    CanonicalFunctionId::Mean,
+    CanonicalFunctionId::Min,
+    CanonicalFunctionId::Max,
+    CanonicalFunctionId::Mode,
+    CanonicalFunctionId::Product,
+    CanonicalFunctionId::Sum,
+    CanonicalFunctionId::Tdigest,
+    CanonicalFunctionId::Quantile,
+    CanonicalFunctionId::Variance,
+    CanonicalFunctionId::StandardDeviation
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesCanonicalFunctionId() {
+  static const char * const names[31] = {
+    "And",
+    "Not",
+    "Or",
+    "Add",
+    "Subtract",
+    "Multiply",
+    "Divide",
+    "Power",
+    "AbsoluteValue",
+    "Negate",
+    "Sign",
+    "Equal",
+    "NotEqual",
+    "Greater",
+    "GreaterOrEqual",
+    "Less",
+    "LessOrEqual",
+    "All",
+    "Any",
+    "Count",
+    "Mean",
+    "Min",
+    "Max",
+    "Mode",
+    "Product",
+    "Sum",
+    "Tdigest",
+    "Quantile",
+    "Variance",
+    "StandardDeviation",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameCanonicalFunctionId(CanonicalFunctionId e) {
+  if (flatbuffers::IsOutRange(e, CanonicalFunctionId::And, CanonicalFunctionId::StandardDeviation)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesCanonicalFunctionId()[index];
+}
+
+enum class Function : uint8_t {
+  NONE = 0,
+  CanonicalFunction = 1,
+  NonCanonicalFunction = 2,
+  MIN = NONE,
+  MAX = NonCanonicalFunction
+};
+
+inline const Function (&EnumValuesFunction())[3] {
+  static const Function values[] = {
+    Function::NONE,
+    Function::CanonicalFunction,
+    Function::NonCanonicalFunction
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesFunction() {
+  static const char * const names[4] = {
+    "NONE",
+    "CanonicalFunction",
+    "NonCanonicalFunction",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameFunction(Function e) {
+  if (flatbuffers::IsOutRange(e, Function::NONE, Function::NonCanonicalFunction)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesFunction()[index];
+}
+
+template<typename T> struct FunctionTraits {
+  static const Function enum_value = Function::NONE;
+};
+
+template<> struct FunctionTraits<org::apache::arrow::flatbuf::computeir::CanonicalFunction> {
+  static const Function enum_value = Function::CanonicalFunction;
+};
+
+template<> struct FunctionTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction> {
+  static const Function enum_value = Function::NonCanonicalFunction;
+};
+
+bool VerifyFunction(flatbuffers::Verifier &verifier, const void *obj, Function type);
+bool VerifyFunctionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
+enum class CanonicalOperationId : uint32_t {
+  Literal = 0,
+  Filter = 1,
+  Project = 2,
+  Aggregate = 3,
+  Join = 4,
+  OrderBy = 5,
+  Limit = 6,
+  Common = 7,
+  Union = 8,
+  InteractiveOutput = 9,
+  MIN = Literal,
+  MAX = InteractiveOutput
+};
+
+inline const CanonicalOperationId (&EnumValuesCanonicalOperationId())[10] {
+  static const CanonicalOperationId values[] = {
+    CanonicalOperationId::Literal,
+    CanonicalOperationId::Filter,
+    CanonicalOperationId::Project,
+    CanonicalOperationId::Aggregate,
+    CanonicalOperationId::Join,
+    CanonicalOperationId::OrderBy,
+    CanonicalOperationId::Limit,
+    CanonicalOperationId::Common,
+    CanonicalOperationId::Union,
+    CanonicalOperationId::InteractiveOutput
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesCanonicalOperationId() {
+  static const char * const names[11] = {
+    "Literal",
+    "Filter",
+    "Project",
+    "Aggregate",
+    "Join",
+    "OrderBy",
+    "Limit",
+    "Common",
+    "Union",
+    "InteractiveOutput",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameCanonicalOperationId(CanonicalOperationId e) {
+  if (flatbuffers::IsOutRange(e, CanonicalOperationId::Literal, CanonicalOperationId::InteractiveOutput)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesCanonicalOperationId()[index];
+}
+
+enum class Operation : uint8_t {
+  NONE = 0,
+  CanonicalOperation = 1,
+  NonCanonicalFunction = 2,
+  MIN = NONE,
+  MAX = NonCanonicalFunction
+};
+
+inline const Operation (&EnumValuesOperation())[3] {
+  static const Operation values[] = {
+    Operation::NONE,
+    Operation::CanonicalOperation,
+    Operation::NonCanonicalFunction
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesOperation() {
+  static const char * const names[4] = {
+    "NONE",
+    "CanonicalOperation",
+    "NonCanonicalFunction",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameOperation(Operation e) {
+  if (flatbuffers::IsOutRange(e, Operation::NONE, Operation::NonCanonicalFunction)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesOperation()[index];
+}
+
+template<typename T> struct OperationTraits {
+  static const Operation enum_value = Operation::NONE;
+};
+
+template<> struct OperationTraits<org::apache::arrow::flatbuf::computeir::CanonicalOperation> {
+  static const Operation enum_value = Operation::CanonicalOperation;
+};
+
+template<> struct OperationTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction> {
+  static const Operation enum_value = Operation::NonCanonicalFunction;
+};
+
+bool VerifyOperation(flatbuffers::Verifier &verifier, const void *obj, Operation type);
+bool VerifyOperationVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
+enum class CanonicalJoinKindId : uint32_t {
+  Inner = 0,
+  LeftOuter = 1,
+  RightOuter = 2,
+  FullOuter = 3,
+  Cross = 4,
+  MIN = Inner,
+  MAX = Cross
+};
+
+inline const CanonicalJoinKindId (&EnumValuesCanonicalJoinKindId())[5] {
+  static const CanonicalJoinKindId values[] = {
+    CanonicalJoinKindId::Inner,
+    CanonicalJoinKindId::LeftOuter,
+    CanonicalJoinKindId::RightOuter,
+    CanonicalJoinKindId::FullOuter,
+    CanonicalJoinKindId::Cross
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesCanonicalJoinKindId() {
+  static const char * const names[6] = {
+    "Inner",
+    "LeftOuter",
+    "RightOuter",
+    "FullOuter",
+    "Cross",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameCanonicalJoinKindId(CanonicalJoinKindId e) {
+  if (flatbuffers::IsOutRange(e, CanonicalJoinKindId::Inner, CanonicalJoinKindId::Cross)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesCanonicalJoinKindId()[index];
+}
+
+enum class JoinKind : uint8_t {
+  NONE = 0,
+  CanonicalJoinKind = 1,
+  NonCanonicalFunction = 2,
+  MIN = NONE,
+  MAX = NonCanonicalFunction
+};
+
+inline const JoinKind (&EnumValuesJoinKind())[3] {
+  static const JoinKind values[] = {
+    JoinKind::NONE,
+    JoinKind::CanonicalJoinKind,
+    JoinKind::NonCanonicalFunction
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesJoinKind() {
+  static const char * const names[4] = {
+    "NONE",
+    "CanonicalJoinKind",
+    "NonCanonicalFunction",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameJoinKind(JoinKind e) {
+  if (flatbuffers::IsOutRange(e, JoinKind::NONE, JoinKind::NonCanonicalFunction)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesJoinKind()[index];
+}
+
+template<typename T> struct JoinKindTraits {
+  static const JoinKind enum_value = JoinKind::NONE;
+};
+
+template<> struct JoinKindTraits<org::apache::arrow::flatbuf::computeir::CanonicalJoinKind> {
+  static const JoinKind enum_value = JoinKind::CanonicalJoinKind;
+};
+
+template<> struct JoinKindTraits<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction> {
+  static const JoinKind enum_value = JoinKind::NonCanonicalFunction;
+};
+
+bool VerifyJoinKind(flatbuffers::Verifier &verifier, const void *obj, JoinKind type);
+bool VerifyJoinKindVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
 /// Whether lesser values should precede greater or vice versa,
 /// also whether nulls should preced or follow values.
@@ -639,20 +1009,138 @@ inline flatbuffers::Offset<FieldRef> CreateFieldRefDirect(
       field);
 }
 
+struct CanonicalFunction FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CanonicalFunctionBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  org::apache::arrow::flatbuf::computeir::CanonicalFunctionId id() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::CanonicalFunctionId>(GetField<uint32_t>(VT_ID, 0));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID) &&
+           verifier.EndTable();
+  }
+};
+
+struct CanonicalFunctionBuilder {
+  typedef CanonicalFunction Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_id(org::apache::arrow::flatbuf::computeir::CanonicalFunctionId id) {
+    fbb_.AddElement<uint32_t>(CanonicalFunction::VT_ID, static_cast<uint32_t>(id), 0);
+  }
+  explicit CanonicalFunctionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  CanonicalFunctionBuilder &operator=(const CanonicalFunctionBuilder &);
+  flatbuffers::Offset<CanonicalFunction> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CanonicalFunction>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CanonicalFunction> CreateCanonicalFunction(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::computeir::CanonicalFunctionId id = org::apache::arrow::flatbuf::computeir::CanonicalFunctionId::And) {
+  CanonicalFunctionBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct NonCanonicalFunction FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NonCanonicalFunctionBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME_SPACE = 4,
+    VT_NAME = 6
+  };
+  const flatbuffers::String *name_space() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME_SPACE);
+  }
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_NAME_SPACE) &&
+           verifier.VerifyString(name_space()) &&
+           VerifyOffsetRequired(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           verifier.EndTable();
+  }
+};
+
+struct NonCanonicalFunctionBuilder {
+  typedef NonCanonicalFunction Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name_space(flatbuffers::Offset<flatbuffers::String> name_space) {
+    fbb_.AddOffset(NonCanonicalFunction::VT_NAME_SPACE, name_space);
+  }
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(NonCanonicalFunction::VT_NAME, name);
+  }
+  explicit NonCanonicalFunctionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  NonCanonicalFunctionBuilder &operator=(const NonCanonicalFunctionBuilder &);
+  flatbuffers::Offset<NonCanonicalFunction> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<NonCanonicalFunction>(end);
+    fbb_.Required(o, NonCanonicalFunction::VT_NAME_SPACE);
+    fbb_.Required(o, NonCanonicalFunction::VT_NAME);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<NonCanonicalFunction> CreateNonCanonicalFunction(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name_space = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0) {
+  NonCanonicalFunctionBuilder builder_(_fbb);
+  builder_.add_name(name);
+  builder_.add_name_space(name_space);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<NonCanonicalFunction> CreateNonCanonicalFunctionDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name_space = nullptr,
+    const char *name = nullptr) {
+  auto name_space__ = name_space ? _fbb.CreateString(name_space) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return org::apache::arrow::flatbuf::computeir::CreateNonCanonicalFunction(
+      _fbb,
+      name_space__,
+      name__);
+}
+
 struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef CallBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_FUNCTION_NAME = 4,
-    VT_OPTIONS = 6,
-    VT_ARGUMENTS = 8,
-    VT_FIELD = 10
+    VT_FUNCTION_TYPE = 4,
+    VT_FUNCTION = 6,
+    VT_OPTIONS = 8,
+    VT_ARGUMENTS = 10,
+    VT_FIELD = 12
   };
-  /// The namespaced name of the function whose invocation this Call represents.
-  /// For example: "arrow::add" or "gandiva::jit_3432".
-  ///
-  /// Names with no namespace are reserved for canonicalization.
-  const flatbuffers::String *function_name() const {
-    return GetPointer<const flatbuffers::String *>(VT_FUNCTION_NAME);
+  org::apache::arrow::flatbuf::computeir::Function function_type() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::Function>(GetField<uint8_t>(VT_FUNCTION_TYPE, 0));
+  }
+  /// The function whose invocation this Call represents.
+  const void *function() const {
+    return GetPointer<const void *>(VT_FUNCTION);
+  }
+  template<typename T> const T *function_as() const;
+  const org::apache::arrow::flatbuf::computeir::CanonicalFunction *function_as_CanonicalFunction() const {
+    return function_type() == org::apache::arrow::flatbuf::computeir::Function::CanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::CanonicalFunction *>(function()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *function_as_NonCanonicalFunction() const {
+    return function_type() == org::apache::arrow::flatbuf::computeir::Function::NonCanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(function()) : nullptr;
   }
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
@@ -671,8 +1159,9 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_FUNCTION_NAME) &&
-           verifier.VerifyString(function_name()) &&
+           VerifyField<uint8_t>(verifier, VT_FUNCTION_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_FUNCTION) &&
+           VerifyFunction(verifier, function(), function_type()) &&
            VerifyOffset(verifier, VT_OPTIONS) &&
            verifier.VerifyTable(options()) &&
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
@@ -684,12 +1173,23 @@ struct Call FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
+template<> inline const org::apache::arrow::flatbuf::computeir::CanonicalFunction *Call::function_as<org::apache::arrow::flatbuf::computeir::CanonicalFunction>() const {
+  return function_as_CanonicalFunction();
+}
+
+template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *Call::function_as<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction>() const {
+  return function_as_NonCanonicalFunction();
+}
+
 struct CallBuilder {
   typedef Call Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_function_name(flatbuffers::Offset<flatbuffers::String> function_name) {
-    fbb_.AddOffset(Call::VT_FUNCTION_NAME, function_name);
+  void add_function_type(org::apache::arrow::flatbuf::computeir::Function function_type) {
+    fbb_.AddElement<uint8_t>(Call::VT_FUNCTION_TYPE, static_cast<uint8_t>(function_type), 0);
+  }
+  void add_function(flatbuffers::Offset<void> function) {
+    fbb_.AddOffset(Call::VT_FUNCTION, function);
   }
   void add_options(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options) {
     fbb_.AddOffset(Call::VT_OPTIONS, options);
@@ -708,7 +1208,7 @@ struct CallBuilder {
   flatbuffers::Offset<Call> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Call>(end);
-    fbb_.Required(o, Call::VT_FUNCTION_NAME);
+    fbb_.Required(o, Call::VT_FUNCTION);
     fbb_.Required(o, Call::VT_ARGUMENTS);
     return o;
   }
@@ -716,7 +1216,8 @@ struct CallBuilder {
 
 inline flatbuffers::Offset<Call> CreateCall(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> function_name = 0,
+    org::apache::arrow::flatbuf::computeir::Function function_type = org::apache::arrow::flatbuf::computeir::Function::NONE,
+    flatbuffers::Offset<void> function = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>> arguments = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
@@ -724,59 +1225,168 @@ inline flatbuffers::Offset<Call> CreateCall(
   builder_.add_field(field);
   builder_.add_arguments(arguments);
   builder_.add_options(options);
-  builder_.add_function_name(function_name);
+  builder_.add_function(function);
+  builder_.add_function_type(function_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Call> CreateCallDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const char *function_name = nullptr,
+    org::apache::arrow::flatbuf::computeir::Function function_type = org::apache::arrow::flatbuf::computeir::Function::NONE,
+    flatbuffers::Offset<void> function = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *arguments = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Field> field = 0) {
-  auto function_name__ = function_name ? _fbb.CreateString(function_name) : 0;
   auto arguments__ = arguments ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>>(*arguments) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateCall(
       _fbb,
-      function_name__,
+      function_type,
+      function,
       options,
       arguments__,
       field);
+}
+
+struct CanonicalOperation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CanonicalOperationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  org::apache::arrow::flatbuf::computeir::CanonicalOperationId id() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::CanonicalOperationId>(GetField<uint32_t>(VT_ID, 0));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID) &&
+           verifier.EndTable();
+  }
+};
+
+struct CanonicalOperationBuilder {
+  typedef CanonicalOperation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_id(org::apache::arrow::flatbuf::computeir::CanonicalOperationId id) {
+    fbb_.AddElement<uint32_t>(CanonicalOperation::VT_ID, static_cast<uint32_t>(id), 0);
+  }
+  explicit CanonicalOperationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  CanonicalOperationBuilder &operator=(const CanonicalOperationBuilder &);
+  flatbuffers::Offset<CanonicalOperation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CanonicalOperation>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CanonicalOperation> CreateCanonicalOperation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::computeir::CanonicalOperationId id = org::apache::arrow::flatbuf::computeir::CanonicalOperationId::Literal) {
+  CanonicalOperationBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct NonCanonicalOperation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NonCanonicalOperationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME_SPACE = 4,
+    VT_NAME = 6
+  };
+  const flatbuffers::String *name_space() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME_SPACE);
+  }
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_NAME_SPACE) &&
+           verifier.VerifyString(name_space()) &&
+           VerifyOffsetRequired(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           verifier.EndTable();
+  }
+};
+
+struct NonCanonicalOperationBuilder {
+  typedef NonCanonicalOperation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name_space(flatbuffers::Offset<flatbuffers::String> name_space) {
+    fbb_.AddOffset(NonCanonicalOperation::VT_NAME_SPACE, name_space);
+  }
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(NonCanonicalOperation::VT_NAME, name);
+  }
+  explicit NonCanonicalOperationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  NonCanonicalOperationBuilder &operator=(const NonCanonicalOperationBuilder &);
+  flatbuffers::Offset<NonCanonicalOperation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<NonCanonicalOperation>(end);
+    fbb_.Required(o, NonCanonicalOperation::VT_NAME_SPACE);
+    fbb_.Required(o, NonCanonicalOperation::VT_NAME);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<NonCanonicalOperation> CreateNonCanonicalOperation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name_space = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0) {
+  NonCanonicalOperationBuilder builder_(_fbb);
+  builder_.add_name(name);
+  builder_.add_name_space(name_space);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<NonCanonicalOperation> CreateNonCanonicalOperationDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name_space = nullptr,
+    const char *name = nullptr) {
+  auto name_space__ = name_space ? _fbb.CreateString(name_space) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return org::apache::arrow::flatbuf::computeir::CreateNonCanonicalOperation(
+      _fbb,
+      name_space__,
+      name__);
 }
 
 /// A relation is a set of rows with consistent schema.
 struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RelationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_RELATION_NAME = 4,
-    VT_OPTIONS = 6,
-    VT_ARGUMENTS = 8,
-    VT_SCHEMA = 10
+    VT_OPERATION_TYPE = 4,
+    VT_OPERATION = 6,
+    VT_OPTIONS = 8,
+    VT_ARGUMENTS = 10,
+    VT_SCHEMA = 12
   };
-  /// The namespaced name of this Relation.
-  /// For example: "arrow::hash_join" or "gandiva::filter_and_project".
-  ///
-  /// Names with no namespace are reserved for canonical, "pure" relational
-  /// algebraic operations, which currently include:
-  ///   "filter"
-  ///   "project"
-  ///   "aggregate"
-  ///   "join"
-  ///   "order_by"
-  ///   "limit"
-  ///   "common"
-  ///   "union"
-  ///   "literal"
-  ///   "interactive_output"
-  const flatbuffers::String *relation_name() const {
-    return GetPointer<const flatbuffers::String *>(VT_RELATION_NAME);
+  org::apache::arrow::flatbuf::computeir::Operation operation_type() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::Operation>(GetField<uint8_t>(VT_OPERATION_TYPE, 0));
   }
-  /// Parameters for `relation_name`; content/format may be unique to each
-  /// value of `relation_name`.
+  /// The operation which this Relation wraps.
+  const void *operation() const {
+    return GetPointer<const void *>(VT_OPERATION);
+  }
+  template<typename T> const T *operation_as() const;
+  const org::apache::arrow::flatbuf::computeir::CanonicalOperation *operation_as_CanonicalOperation() const {
+    return operation_type() == org::apache::arrow::flatbuf::computeir::Operation::CanonicalOperation ? static_cast<const org::apache::arrow::flatbuf::computeir::CanonicalOperation *>(operation()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *operation_as_NonCanonicalFunction() const {
+    return operation_type() == org::apache::arrow::flatbuf::computeir::Operation::NonCanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(operation()) : nullptr;
+  }
+  /// Parameters for `operation`; content/format may be unique to each
+  /// value of `operation`.
   const org::apache::arrow::flatbuf::computeir::InlineBuffer *options() const {
     return GetPointer<const org::apache::arrow::flatbuf::computeir::InlineBuffer *>(VT_OPTIONS);
   }
-  /// The arguments passed to `relation_name`.
+  /// The arguments passed to `operation`.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *arguments() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *>(VT_ARGUMENTS);
   }
@@ -786,8 +1396,9 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffsetRequired(verifier, VT_RELATION_NAME) &&
-           verifier.VerifyString(relation_name()) &&
+           VerifyField<uint8_t>(verifier, VT_OPERATION_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_OPERATION) &&
+           VerifyOperation(verifier, operation(), operation_type()) &&
            VerifyOffset(verifier, VT_OPTIONS) &&
            verifier.VerifyTable(options()) &&
            VerifyOffsetRequired(verifier, VT_ARGUMENTS) &&
@@ -799,12 +1410,23 @@ struct Relation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
+template<> inline const org::apache::arrow::flatbuf::computeir::CanonicalOperation *Relation::operation_as<org::apache::arrow::flatbuf::computeir::CanonicalOperation>() const {
+  return operation_as_CanonicalOperation();
+}
+
+template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *Relation::operation_as<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction>() const {
+  return operation_as_NonCanonicalFunction();
+}
+
 struct RelationBuilder {
   typedef Relation Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_relation_name(flatbuffers::Offset<flatbuffers::String> relation_name) {
-    fbb_.AddOffset(Relation::VT_RELATION_NAME, relation_name);
+  void add_operation_type(org::apache::arrow::flatbuf::computeir::Operation operation_type) {
+    fbb_.AddElement<uint8_t>(Relation::VT_OPERATION_TYPE, static_cast<uint8_t>(operation_type), 0);
+  }
+  void add_operation(flatbuffers::Offset<void> operation) {
+    fbb_.AddOffset(Relation::VT_OPERATION, operation);
   }
   void add_options(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options) {
     fbb_.AddOffset(Relation::VT_OPTIONS, options);
@@ -823,7 +1445,7 @@ struct RelationBuilder {
   flatbuffers::Offset<Relation> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Relation>(end);
-    fbb_.Required(o, Relation::VT_RELATION_NAME);
+    fbb_.Required(o, Relation::VT_OPERATION);
     fbb_.Required(o, Relation::VT_ARGUMENTS);
     return o;
   }
@@ -831,7 +1453,8 @@ struct RelationBuilder {
 
 inline flatbuffers::Offset<Relation> CreateRelation(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> relation_name = 0,
+    org::apache::arrow::flatbuf::computeir::Operation operation_type = org::apache::arrow::flatbuf::computeir::Operation::NONE,
+    flatbuffers::Offset<void> operation = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>> arguments = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
@@ -839,28 +1462,30 @@ inline flatbuffers::Offset<Relation> CreateRelation(
   builder_.add_schema(schema);
   builder_.add_arguments(arguments);
   builder_.add_options(options);
-  builder_.add_relation_name(relation_name);
+  builder_.add_operation(operation);
+  builder_.add_operation_type(operation_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Relation> CreateRelationDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const char *relation_name = nullptr,
+    org::apache::arrow::flatbuf::computeir::Operation operation_type = org::apache::arrow::flatbuf::computeir::Operation::NONE,
+    flatbuffers::Offset<void> operation = 0,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::InlineBuffer> options = 0,
     const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>> *arguments = nullptr,
     flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> schema = 0) {
-  auto relation_name__ = relation_name ? _fbb.CreateString(relation_name) : 0;
   auto arguments__ = arguments ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Relation>>(*arguments) : 0;
   return org::apache::arrow::flatbuf::computeir::CreateRelation(
       _fbb,
-      relation_name__,
+      operation_type,
+      operation,
       options,
       arguments__,
       schema);
 }
 
 /// The contents of Relation.options will be FilterOptions
-/// if Relation.relation_name = "filter"
+/// if Relation.operation = CanonicalOperation::Filter
 struct FilterOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef FilterOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -868,7 +1493,7 @@ struct FilterOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   };
   /// The expression which will be evaluated against input rows
   /// to determine whether they should be excluded from the
-  /// "filter" relation's output.
+  /// filter relation's output.
   const org::apache::arrow::flatbuf::computeir::Expression *filter_expression() const {
     return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_FILTER_EXPRESSION);
   }
@@ -909,14 +1534,14 @@ inline flatbuffers::Offset<FilterOptions> CreateFilterOptions(
 }
 
 /// The contents of Relation.options will be ProjectOptions
-/// if Relation.relation_name = "project"
+/// if Relation.operation = CanonicalOperation::Project
 struct ProjectOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ProjectOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXPRESSIONS = 4
   };
   /// Expressions which will be evaluated to produce to
-  /// the rows of the "project" relation's output.
+  /// the rows of the project relation's output.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *expressions() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_EXPRESSIONS);
   }
@@ -967,7 +1592,7 @@ inline flatbuffers::Offset<ProjectOptions> CreateProjectOptionsDirect(
 }
 
 /// The contents of Relation.options will be AggregateOptions
-/// if Relation.relation_name = "aggregate"
+/// if Relation.operation = CanonicalOperation::Aggregate
 struct AggregateOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef AggregateOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -975,7 +1600,7 @@ struct AggregateOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_KEYS = 6
   };
   /// Expressions which will be evaluated to produce to
-  /// the rows of the "aggregate" relation's output.
+  /// the rows of the aggregate relation's output.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *aggregations() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression>> *>(VT_AGGREGATIONS);
   }
@@ -1041,39 +1666,163 @@ inline flatbuffers::Offset<AggregateOptions> CreateAggregateOptionsDirect(
       keys__);
 }
 
+struct CanonicalJoinKind FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef CanonicalJoinKindBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  org::apache::arrow::flatbuf::computeir::CanonicalJoinKindId id() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::CanonicalJoinKindId>(GetField<uint32_t>(VT_ID, 0));
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID) &&
+           verifier.EndTable();
+  }
+};
+
+struct CanonicalJoinKindBuilder {
+  typedef CanonicalJoinKind Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_id(org::apache::arrow::flatbuf::computeir::CanonicalJoinKindId id) {
+    fbb_.AddElement<uint32_t>(CanonicalJoinKind::VT_ID, static_cast<uint32_t>(id), 0);
+  }
+  explicit CanonicalJoinKindBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  CanonicalJoinKindBuilder &operator=(const CanonicalJoinKindBuilder &);
+  flatbuffers::Offset<CanonicalJoinKind> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CanonicalJoinKind>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CanonicalJoinKind> CreateCanonicalJoinKind(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    org::apache::arrow::flatbuf::computeir::CanonicalJoinKindId id = org::apache::arrow::flatbuf::computeir::CanonicalJoinKindId::Inner) {
+  CanonicalJoinKindBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct NonCanonicalJoinKind FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef NonCanonicalJoinKindBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME_SPACE = 4,
+    VT_NAME = 6
+  };
+  const flatbuffers::String *name_space() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME_SPACE);
+  }
+  const flatbuffers::String *name() const {
+    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffsetRequired(verifier, VT_NAME_SPACE) &&
+           verifier.VerifyString(name_space()) &&
+           VerifyOffsetRequired(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           verifier.EndTable();
+  }
+};
+
+struct NonCanonicalJoinKindBuilder {
+  typedef NonCanonicalJoinKind Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name_space(flatbuffers::Offset<flatbuffers::String> name_space) {
+    fbb_.AddOffset(NonCanonicalJoinKind::VT_NAME_SPACE, name_space);
+  }
+  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+    fbb_.AddOffset(NonCanonicalJoinKind::VT_NAME, name);
+  }
+  explicit NonCanonicalJoinKindBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  NonCanonicalJoinKindBuilder &operator=(const NonCanonicalJoinKindBuilder &);
+  flatbuffers::Offset<NonCanonicalJoinKind> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<NonCanonicalJoinKind>(end);
+    fbb_.Required(o, NonCanonicalJoinKind::VT_NAME_SPACE);
+    fbb_.Required(o, NonCanonicalJoinKind::VT_NAME);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<NonCanonicalJoinKind> CreateNonCanonicalJoinKind(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> name_space = 0,
+    flatbuffers::Offset<flatbuffers::String> name = 0) {
+  NonCanonicalJoinKindBuilder builder_(_fbb);
+  builder_.add_name(name);
+  builder_.add_name_space(name_space);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<NonCanonicalJoinKind> CreateNonCanonicalJoinKindDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name_space = nullptr,
+    const char *name = nullptr) {
+  auto name_space__ = name_space ? _fbb.CreateString(name_space) : 0;
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return org::apache::arrow::flatbuf::computeir::CreateNonCanonicalJoinKind(
+      _fbb,
+      name_space__,
+      name__);
+}
+
 /// The contents of Relation.options will be JoinOptions
-/// if Relation.relation_name = "join"
+/// if Relation.operation = CanonicalOperation::Join
 struct JoinOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef JoinOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ON_EXPRESSION = 4,
-    VT_JOIN_NAME = 6
+    VT_JOIN_KIND_TYPE = 6,
+    VT_JOIN_KIND = 8
   };
   /// The expression which will be evaluated against rows from each
   /// input to determine whether they should be included in the
-  /// "join" relation's output.
+  /// join relation's output.
   const org::apache::arrow::flatbuf::computeir::Expression *on_expression() const {
     return GetPointer<const org::apache::arrow::flatbuf::computeir::Expression *>(VT_ON_EXPRESSION);
   }
-  /// The namespaced name of the join to use. Non-namespaced names are
-  /// reserved for canonicalization. Current names include:
-  ///   "inner"
-  ///   "left"
-  ///   "right"
-  ///   "outer"
-  ///   "cross"
-  const flatbuffers::String *join_name() const {
-    return GetPointer<const flatbuffers::String *>(VT_JOIN_NAME);
+  org::apache::arrow::flatbuf::computeir::JoinKind join_kind_type() const {
+    return static_cast<org::apache::arrow::flatbuf::computeir::JoinKind>(GetField<uint8_t>(VT_JOIN_KIND_TYPE, 0));
+  }
+  /// The kind of join to use.
+  const void *join_kind() const {
+    return GetPointer<const void *>(VT_JOIN_KIND);
+  }
+  template<typename T> const T *join_kind_as() const;
+  const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *join_kind_as_CanonicalJoinKind() const {
+    return join_kind_type() == org::apache::arrow::flatbuf::computeir::JoinKind::CanonicalJoinKind ? static_cast<const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *>(join_kind()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *join_kind_as_NonCanonicalFunction() const {
+    return join_kind_type() == org::apache::arrow::flatbuf::computeir::JoinKind::NonCanonicalFunction ? static_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(join_kind()) : nullptr;
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffsetRequired(verifier, VT_ON_EXPRESSION) &&
            verifier.VerifyTable(on_expression()) &&
-           VerifyOffset(verifier, VT_JOIN_NAME) &&
-           verifier.VerifyString(join_name()) &&
+           VerifyField<uint8_t>(verifier, VT_JOIN_KIND_TYPE) &&
+           VerifyOffsetRequired(verifier, VT_JOIN_KIND) &&
+           VerifyJoinKind(verifier, join_kind(), join_kind_type()) &&
            verifier.EndTable();
   }
 };
+
+template<> inline const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *JoinOptions::join_kind_as<org::apache::arrow::flatbuf::computeir::CanonicalJoinKind>() const {
+  return join_kind_as_CanonicalJoinKind();
+}
+
+template<> inline const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *JoinOptions::join_kind_as<org::apache::arrow::flatbuf::computeir::NonCanonicalFunction>() const {
+  return join_kind_as_NonCanonicalFunction();
+}
 
 struct JoinOptionsBuilder {
   typedef JoinOptions Table;
@@ -1082,8 +1831,11 @@ struct JoinOptionsBuilder {
   void add_on_expression(flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression) {
     fbb_.AddOffset(JoinOptions::VT_ON_EXPRESSION, on_expression);
   }
-  void add_join_name(flatbuffers::Offset<flatbuffers::String> join_name) {
-    fbb_.AddOffset(JoinOptions::VT_JOIN_NAME, join_name);
+  void add_join_kind_type(org::apache::arrow::flatbuf::computeir::JoinKind join_kind_type) {
+    fbb_.AddElement<uint8_t>(JoinOptions::VT_JOIN_KIND_TYPE, static_cast<uint8_t>(join_kind_type), 0);
+  }
+  void add_join_kind(flatbuffers::Offset<void> join_kind) {
+    fbb_.AddOffset(JoinOptions::VT_JOIN_KIND, join_kind);
   }
   explicit JoinOptionsBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1094,6 +1846,7 @@ struct JoinOptionsBuilder {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<JoinOptions>(end);
     fbb_.Required(o, JoinOptions::VT_ON_EXPRESSION);
+    fbb_.Required(o, JoinOptions::VT_JOIN_KIND);
     return o;
   }
 };
@@ -1101,22 +1854,13 @@ struct JoinOptionsBuilder {
 inline flatbuffers::Offset<JoinOptions> CreateJoinOptions(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
-    flatbuffers::Offset<flatbuffers::String> join_name = 0) {
+    org::apache::arrow::flatbuf::computeir::JoinKind join_kind_type = org::apache::arrow::flatbuf::computeir::JoinKind::NONE,
+    flatbuffers::Offset<void> join_kind = 0) {
   JoinOptionsBuilder builder_(_fbb);
-  builder_.add_join_name(join_name);
+  builder_.add_join_kind(join_kind);
   builder_.add_on_expression(on_expression);
+  builder_.add_join_kind_type(join_kind_type);
   return builder_.Finish();
-}
-
-inline flatbuffers::Offset<JoinOptions> CreateJoinOptionsDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::computeir::Expression> on_expression = 0,
-    const char *join_name = nullptr) {
-  auto join_name__ = join_name ? _fbb.CreateString(join_name) : 0;
-  return org::apache::arrow::flatbuf::computeir::CreateJoinOptions(
-      _fbb,
-      on_expression,
-      join_name__);
 }
 
 struct SortKey FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -1174,7 +1918,7 @@ inline flatbuffers::Offset<SortKey> CreateSortKey(
 }
 
 /// The contents of Relation.options will be OrderByOptions
-/// if Relation.relation_name = "order_by"
+/// if Relation.operation = CanonicalOperation::OrderBy
 struct OrderByOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef OrderByOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1232,7 +1976,7 @@ inline flatbuffers::Offset<OrderByOptions> CreateOrderByOptionsDirect(
 }
 
 /// The contents of Relation.options will be LimitOptions
-/// if Relation.relation_name = "limit"
+/// if Relation.operation = CanonicalOperation::Limit
 struct LimitOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LimitOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1277,7 +2021,7 @@ inline flatbuffers::Offset<LimitOptions> CreateLimitOptions(
 }
 
 /// The contents of Relation.options will be CommonOptions
-/// if Relation.relation_name = "common"
+/// if Relation.operation = CanonicalOperation::Common
 struct CommonOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef CommonOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1335,7 +2079,7 @@ inline flatbuffers::Offset<CommonOptions> CreateCommonOptionsDirect(
 }
 
 /// The contents of Relation.options will be UnionOptions
-/// if Relation.relation_name = "union"
+/// if Relation.operation = CanonicalOperation::Union
 struct UnionOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef UnionOptionsBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
@@ -1367,7 +2111,7 @@ inline flatbuffers::Offset<UnionOptions> CreateUnionOptions(
 }
 
 /// The contents of Relation.options will be LiteralOptions
-/// if Relation.relation_name = "literal"
+/// if Relation.operation = CanonicalOperation::Literal
 struct LiteralOptions FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef LiteralOptionsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1551,6 +2295,93 @@ inline bool VerifyShapeVector(flatbuffers::Verifier &verifier, const flatbuffers
   for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
     if (!VerifyShape(
         verifier,  values->Get(i), types->GetEnum<Shape>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool VerifyFunction(flatbuffers::Verifier &verifier, const void *obj, Function type) {
+  switch (type) {
+    case Function::NONE: {
+      return true;
+    }
+    case Function::CanonicalFunction: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::CanonicalFunction *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Function::NonCanonicalFunction: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyFunctionVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyFunction(
+        verifier,  values->Get(i), types->GetEnum<Function>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool VerifyOperation(flatbuffers::Verifier &verifier, const void *obj, Operation type) {
+  switch (type) {
+    case Operation::NONE: {
+      return true;
+    }
+    case Operation::CanonicalOperation: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::CanonicalOperation *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case Operation::NonCanonicalFunction: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyOperationVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyOperation(
+        verifier,  values->Get(i), types->GetEnum<Operation>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool VerifyJoinKind(flatbuffers::Verifier &verifier, const void *obj, JoinKind type) {
+  switch (type) {
+    case JoinKind::NONE: {
+      return true;
+    }
+    case JoinKind::CanonicalJoinKind: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::CanonicalJoinKind *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case JoinKind::NonCanonicalFunction: {
+      auto ptr = reinterpret_cast<const org::apache::arrow::flatbuf::computeir::NonCanonicalFunction *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyJoinKindVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyJoinKind(
+        verifier,  values->Get(i), types->GetEnum<JoinKind>(i))) {
       return false;
     }
   }
