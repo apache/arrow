@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gmock/gmock-matchers.h>
+#include <random>
 
 #include "arrow/api.h"
 #include "arrow/compute/exec/options.h"
@@ -42,10 +43,12 @@ struct TestUnionNode : public ::testing::Test {
         arrow::float64(), arrow::utf8(),    arrow::binary(),  arrow::date32()};
 
     std::vector<std::shared_ptr<Field>> fields(num_inputs);
-    unsigned int seed = static_cast<unsigned int>(time(NULL));
+    std::default_random_engine gen(42);
+    std::uniform_int_distribution<int> types_dist(
+        0, static_cast<int>(some_arrow_types.size()) - 1);
     for (size_t i = 0; i < num_inputs; i++) {
-      int random = rand_r(&seed);
-      auto col_type = some_arrow_types.at(random % some_arrow_types.size());
+      int random_index = types_dist(gen);
+      auto col_type = some_arrow_types.at(random_index);
       fields[i] =
           field("column_" + std::to_string(i) + "_" + col_type->ToString(), col_type);
     }

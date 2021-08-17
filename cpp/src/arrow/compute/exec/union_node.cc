@@ -94,10 +94,11 @@ struct UnionNode : ExecNode {
   void InputFinished(ExecNode* input, int num_total) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
+    total_batches_.fetch_add(num_total);
+
     if (input_count_.Increment()) {
-      int total_batches = batch_count_.count();
-      outputs_[0]->InputFinished(this, total_batches);
-      if (batch_count_.SetTotal(total_batches)) {
+      outputs_[0]->InputFinished(this, total_batches_.load());
+      if (batch_count_.SetTotal(total_batches_.load())) {
         finished_.MarkFinished();
       }
     }
@@ -136,6 +137,7 @@ struct UnionNode : ExecNode {
  private:
   AtomicCounter batch_count_;
   AtomicCounter input_count_;
+  std::atomic<int> total_batches_{0};
   Future<> finished_ = Future<>::MakeFinished();
 };
 
