@@ -1795,21 +1795,16 @@ template <typename ArrowType>
 struct TestDropNullKernelTyped : public TestDropNullKernel {
   TestDropNullKernelTyped() : rng_(seed_) {}
 
-  template <typename OffsetType>
-  std::vector<OffsetType> Offsets(int32_t length, int32_t slice_count) {
-    std::vector<OffsetType> offsets(static_cast<std::size_t>(slice_count + 1));
-    std::default_random_engine gen(seed_);
-    std::uniform_int_distribution<OffsetType> dist(0, length);
-    std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
-    std::sort(offsets.begin(), offsets.end());
-    return offsets;
+  std::shared_ptr<Int32Array> Offsets(int32_t length, int32_t slice_count) {
+    return checked_pointer_cast<Int32Array>(rng_.Offsets(slice_count, 0, length));
   }
 
   ArrayVector Slices(const std::shared_ptr<Array>& array,
-                     const std::vector<int32_t>& offsets) {
-    ArrayVector slices(offsets.size() - 1);
-    for (size_t i = 0; i != slices.size(); ++i) {
-      slices[i] = array->Slice(offsets[i], offsets[i + 1] - offsets[i]);
+                     const std::shared_ptr<Int32Array>& offsets) {
+    ArrayVector slices(offsets->length() - 1);
+    for (int64_t i = 0; i != static_cast<int64_t>(slices.size()); ++i) {
+      slices[i] =
+          array->Slice(offsets->Value(i), offsets->Value(i + 1) - offsets->Value(i));
     }
     return slices;
   }
@@ -2096,7 +2091,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
 
   this->AssertDropNull(int8(), {"[null]", "[null, null]"}, {"[]"});
   this->AssertDropNull(int8(), {"[7]", "[8, 9]"}, {"[7]", "[8, 9]"});
-  this->AssertDropNull(int8(), {"[]", "[]"}, {"[]"});
+  this->AssertDropNull(int8(), {"[]", "[]"}, {"[]", "[]"});
 }
 
 TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
@@ -2105,7 +2100,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
                                        std::shared_ptr<ChunkedArray>* out_chunked_array,
                                        std::shared_ptr<Array>* out_concatenated_array) {
     auto array = std::make_shared<NullArray>(size);
-    auto offsets = this->Offsets<int32_t>(size, 3);
+    auto offsets = this->Offsets(size, 3);
     auto slices = this->Slices(array, offsets);
     *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
 
@@ -2117,7 +2112,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
                                        std::shared_ptr<ChunkedArray>* out_chunked_array,
                                        std::shared_ptr<Array>* out_concatenated_array) {
     auto array = this->rng_.ArrayOf(int16(), size, null_probability);
-    auto offsets = this->Offsets<int32_t>(size, 3);
+    auto offsets = this->Offsets(size, 3);
     auto slices = this->Slices(array, offsets);
     *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
 
@@ -2230,9 +2225,9 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
     auto col_b = std::make_shared<NullArray>(size);
     std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
 
-    auto offsets_a = this->Offsets<int32_t>(size, 3);
+    auto offsets_a = this->Offsets(size, 3);
     auto slices_a = this->Slices(col_a, offsets_a);
-    auto offsets_b = this->Offsets<int32_t>(size, 3);
+    auto offsets_b = this->Offsets(size, 3);
     auto slices_b = this->Slices(col_b, offsets_b);
 
     table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);
@@ -2262,9 +2257,9 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
     auto col_b = this->rng_.ArrayOf(utf8(), size, null_probability);
     std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
 
-    auto offsets_a = this->Offsets<int32_t>(size, 3);
+    auto offsets_a = this->Offsets(size, 3);
     auto slices_a = this->Slices(col_a, offsets_a);
-    auto offsets_b = this->Offsets<int32_t>(size, 3);
+    auto offsets_b = this->Offsets(size, 3);
     auto slices_b = this->Slices(col_b, offsets_b);
 
     table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);

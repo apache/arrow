@@ -2195,13 +2195,16 @@ Result<std::shared_ptr<Array>> DropNullArray(const std::shared_ptr<Array>& value
   return result.make_array();
 }
 
-Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(const ChunkedArray& values,
-                                                           ExecContext* ctx) {
-  if (values.null_count() == values.length()) {
-    return CreateEmptyChunkedArray(values.type(), ctx->memory_pool());
+Result<std::shared_ptr<ChunkedArray>> DropNullChunkedArray(
+    const std::shared_ptr<ChunkedArray>& values, ExecContext* ctx) {
+  if (values->null_count() == 0) {
+    return values;
+  }
+  if (values->null_count() == values->length()) {
+    return CreateEmptyChunkedArray(values->type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
-  for (const auto& chunk : values.chunks()) {
+  for (const auto& chunk : values->chunks()) {
     ARROW_ASSIGN_OR_RAISE(auto new_chunk, DropNullArray(chunk, ctx));
     if (new_chunk->length() > 0) {
       new_chunks.push_back(new_chunk);
@@ -2236,7 +2239,7 @@ Result<std::shared_ptr<RecordBatch>> DropNullRecordBatch(const RecordBatch& batc
   auto drop_null_filter =
       std::make_shared<BooleanArray>(batch.num_rows(), dst, nullptr, 0, 0);
   if (drop_null_filter->null_count() == batch.num_rows()) {
-    std::vector<std::shared_ptr<Array>> empty_batch(batch.num_columns());
+    ArrayVector empty_batch(batch.num_columns());
     for (int i = 0; i < batch.num_columns(); i++) {
       ARROW_ASSIGN_OR_RAISE(
           empty_batch[i], CreateEmptyArray(batch.column(i)->type(), ctx->memory_pool()));
@@ -2330,7 +2333,7 @@ class DropNullMetaFunction : public MetaFunction {
       }  // namespace
       break;
       case Datum::CHUNKED_ARRAY: {
-        return DropNullChunkedArray(*args[0].chunked_array(), ctx);
+        return DropNullChunkedArray(args[0].chunked_array(), ctx);
       } break;
       case Datum::RECORD_BATCH: {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,
