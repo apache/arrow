@@ -105,21 +105,28 @@ func (enc *DeltaByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []
 }
 
 // Flush flushes any remaining data out and returns the finished encoded buffer.
-func (enc *DeltaByteArrayEncoder) FlushValues() Buffer {
+// or returns nil and any error encountered during flushing.
+func (enc *DeltaByteArrayEncoder) FlushValues() (Buffer, error) {
 	if enc.prefixEncoder == nil {
 		enc.initEncoders()
 	}
-	prefixBuf := enc.prefixEncoder.FlushValues()
+	prefixBuf, err := enc.prefixEncoder.FlushValues()
+	if err != nil {
+		return nil, err
+	}
 	defer prefixBuf.Release()
 
-	suffixBuf := enc.suffixEncoder.FlushValues()
+	suffixBuf, err := enc.suffixEncoder.FlushValues()
+	if err != nil {
+		return nil, err
+	}
 	defer suffixBuf.Release()
 
 	ret := bufferPool.Get().(*memory.Buffer)
 	ret.ResizeNoShrink(prefixBuf.Len() + suffixBuf.Len())
 	copy(ret.Bytes(), prefixBuf.Bytes())
 	copy(ret.Bytes()[prefixBuf.Len():], suffixBuf.Bytes())
-	return poolBuffer{ret}
+	return poolBuffer{ret}, nil
 }
 
 // DeltaByteArrayDecoder is a decoder for a column of data encoded using incremental or prefix encoding.
