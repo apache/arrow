@@ -159,8 +159,6 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
   TypeClass::MonthDayNanos GetView(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return sizeof(TypeClass::MonthDayNanos); }
-  static_assert(sizeof(TypeClass::MonthDayNanos) == 16,
-                "MonthDayNanos should only take 16 bytes");
 
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
 };

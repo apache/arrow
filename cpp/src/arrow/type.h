@@ -1317,7 +1317,10 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
-/// \brief Represents a number of days and milliseconds (fraction of day).
+/// \brief Represents a number of months, days and nanoseconds between
+/// two dates.
+///
+/// All fields are independent from one another.
 class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
  public:
   struct MonthDayNanos {
@@ -1334,7 +1337,7 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
   using PhysicalType = MonthDayNanoIntervalType;
 
   static_assert(sizeof(MonthDayNanos) == 16,
-                "MonthDayNanos  struct assumed to be of size 8 bytes");
+                "MonthDayNanos struct assumed to be of size 16 bytes");
   static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
 
   static constexpr const char* type_name() { return "month_day_nano_interval"; }

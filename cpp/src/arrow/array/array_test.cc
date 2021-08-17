@@ -808,17 +808,20 @@ struct UniformIntSampleType<int8_t> {
                                         \
   static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
 
-#define PINT_DECL(CapType, c_type)                                                 \
-  struct P##CapType {                                                              \
-    PTYPE_DECL(CapType, c_type)                                                    \
-    static void draw(int64_t N, std::vector<T>* draws) {                           \
-      using sample_type = typename UniformIntSampleType<c_type>::type;             \
-      const T lower = std::numeric_limits<T>::min();                               \
-      const T upper = std::numeric_limits<T>::max();                               \
-      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
-              draws);                                                              \
-    }                                                                              \
-    static T Modify(T inp) { return inp / 2; }                                     \
+#define PINT_DECL(CapType, c_type)                                                     \
+  struct P##CapType {                                                                  \
+    PTYPE_DECL(CapType, c_type)                                                        \
+    static void draw(int64_t N, std::vector<T>* draws) {                               \
+      using sample_type = typename UniformIntSampleType<c_type>::type;                 \
+      const T lower = std::numeric_limits<T>::min();                                   \
+      const T upper = std::numeric_limits<T>::max();                                   \
+      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper),     \
+              draws);                                                                  \
+    }                                                                                  \
+    static T Modify(T inp) { return inp / 2; }                                         \
+    typedef                                                                            \
+        typename std::conditional<std::is_unsigned<T>::value, uint64_t, int64_t>::type \
+            ConversionType;                                                            \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)       \
@@ -828,6 +831,7 @@ struct UniformIntSampleType<int8_t> {
       random_real(N, 0, LOWER, UPPER, draws);            \
     }                                                    \
     static T Modify(T inp) { return inp / 2; }           \
+    typedef double ConversionType;                       \
   }
 
 PINT_DECL(UInt8, uint8_t);
@@ -846,6 +850,7 @@ PFLOAT_DECL(Double, double, -1000.0, 1000.0);
 struct PBoolean {
   PTYPE_DECL(Boolean, uint8_t)
   static T Modify(T inp) { return !inp; }
+  typedef int64_t ConversionType;
 };
 
 struct PDayTimeInterval {
@@ -857,6 +862,7 @@ struct PDayTimeInterval {
     inp.days /= 2;
     return inp;
   }
+  typedef DayMilliseconds ConversionType;
 };
 
 struct PMonthDayNanoInterval {
@@ -869,6 +875,7 @@ struct PMonthDayNanoInterval {
     inp.days /= 2;
     return inp;
   }
+  typedef MonthDayNanos ConversionType;
 };
 
 template <>
@@ -1368,14 +1375,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
   typedef typename TestFixture::CType T;
   // find type we can safely convert the tested values to and from
-  using conversion_type = typename std::conditional<
-      std::is_floating_point<T>::value, double,
-      typename std::conditional<
-          std::is_same<T, DayTimeIntervalType::DayMilliseconds>::value ||
-              std::is_same<T, MonthDayNanoIntervalType::MonthDayNanos>::value,
-          T,
-          typename std::conditional<std::is_unsigned<T>::value, uint64_t,
-                                    int64_t>::type>::type>::type;
+  using conversion_type = typename TestFixture::TestAttrs::ConversionType;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -3101,8 +3101,13 @@ TEST(TestSwapEndianArrayData, ExtensionType) {
 TEST(TestSwapEndianArrayData, MonthDayNanoInterval) {
   auto array = ArrayFromJSON(month_day_nano_interval(), R"([[0, 1, 2],
                                                           [5000, 200, 3000000000]])");
+  auto expected_array =
+      ArrayFromJSON(month_day_nano_interval(), R"([[0, 16777216, 144115188075855872],
+                                                          [-2012020736, -939524096, 26688110733557760]])");
+
   auto swap_array = MakeArray(*::arrow::internal::SwapEndianArrayData(array->data()));
   EXPECT_TRUE(!swap_array->Equals(array));
+  ASSERT_ARRAYS_EQUAL(*swap_array, *expected_array);
   ASSERT_ARRAYS_EQUAL(
       *MakeArray(*::arrow::internal::SwapEndianArrayData(swap_array->data())), *array);
   ASSERT_OK(swap_array->ValidateFull());

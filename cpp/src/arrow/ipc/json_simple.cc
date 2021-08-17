@@ -428,8 +428,7 @@ class MonthDayNanoIntervalConverter final
     }
     if (json_obj.Size() != 3) {
       return Status::Invalid(
-          "month day nanos interval pair must have exactly two elements, had ",
-          json_obj.Size());
+          "month_day_nano_interval  must have exactly 3 elements, had ", json_obj.Size());
     }
     RETURN_NOT_OK(ConvertNumber<Int32Type>(json_obj[0], *this->type_, &value.months));
     RETURN_NOT_OK(ConvertNumber<Int32Type>(json_obj[1], *this->type_, &value.days));
