@@ -24,7 +24,7 @@ The `flight` functions in the package use [reticulate](https://rstudio.github.io
 
 Before using them for the first time,
 you'll need to be sure you have reticulate, and you'll also need to
-install `pyarrow`:
+install pyarrow:
 
 ```r
 install.packages("reticulate")
