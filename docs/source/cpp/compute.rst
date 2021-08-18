@@ -966,8 +966,8 @@ Structural transforms
 
 * \(8) Output is true iff the corresponding input element is NaN.
 
-* \(9) Output is true if the corresponding input element is null or if NaN
-  values are treated as null via the :struct:`NanNullOptions`.
+* \(9) Output is true if the corresponding input element is null. NaN values
+  can be considered as null via the :struct:`NanNullOptions`.
 
 * \(10) Output is true iff the corresponding input element is non-null.
 
