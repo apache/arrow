@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Copyright 2014 Cloudera, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
