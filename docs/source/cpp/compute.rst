@@ -285,7 +285,7 @@ treated as a distinct key value.
 +-----------------+-------------------+
 
 The supported aggregation functions are as follows. All function names are
-prefixed with "hash\_", which differentiates them from their scalar
+prefixed with ``hash\_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
 +---------------+-------+-------------+----------------+----------------------------------+-------+
