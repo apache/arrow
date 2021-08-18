@@ -91,7 +91,7 @@ Result<const time_zone*> LocateZone(const std::string& timezone) {
 
 Result<std::locale> GetLocale(const std::string& locale) {
   try {
-    return std::locale(locale);
+    return std::locale(locale.c_str());
   } catch (const std::runtime_error& ex) {
     return Status::Invalid("Cannot find locale '", locale, "': ", ex.what());
   }
