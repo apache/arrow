@@ -302,7 +302,8 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
   /// The intended type must be given as a template argument.
   /// The value is constructed in-place using the given function arguments.
   template <typename U, typename... A, uint8_t I = index_of<U>()>
-  void emplace(A&&... args) try {
+  void emplace(A&&... args) {
+    try {
     this->destroy();
     new (this) U(std::forward<A>(args)...);
     this->index_ = I;
@@ -310,15 +311,18 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
     construct_default();
     throw;
   }
+  }
 
   template <typename U, typename E, typename... A, uint8_t I = index_of<U>()>
-  void emplace(std::initializer_list<E> il, A&&... args) try {
+  void emplace(std::initializer_list<E> il, A&&... args) {
+    try {
     this->destroy();
     new (this) U(il, std::forward<A>(args)...);
     this->index_ = I;
   } catch (...) {
     construct_default();
     throw;
+  }
   }
 
   /// \brief Swap with another variant's contents
