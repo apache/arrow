@@ -115,7 +115,7 @@ public class FlightSqlClient {
     } catch (final InterruptedException | ExecutionException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
-      throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
   }
 
@@ -412,8 +412,8 @@ public class FlightSqlClient {
     }
 
     /**
-     * Empty the {@link #parameterBindingRoot}, which contains the parameter binding from
-     * a {@link PreparedStatement} operation.
+     * Closes the {@link #parameterBindingRoot}, which contains the parameter binding from
+     * a {@link PreparedStatement} operation, releasing its resources.
      */
     public void clearParameters() {
       if (parameterBindingRoot != null) {
@@ -496,6 +496,7 @@ public class FlightSqlClient {
      * Executes the prepared statement update on the server.
      *
      * @param options RPC-layer hints for this call.
+     * @return the count of updated records
      */
     public long executeUpdate(final CallOption... options) {
       checkOpen();

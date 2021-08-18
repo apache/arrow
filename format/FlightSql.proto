@@ -224,8 +224,8 @@ message CommandGetTableTypes {
  *  schema_name: utf8,
  *  table_name: utf8,
  *  column_name: utf8,
- *  key_name: utf8
- *  key_sequence: int,
+ *  key_name: utf8,
+ *  key_sequence: int
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
  */
@@ -265,7 +265,7 @@ message CommandGetPrimaryKeys {
  *  update_rule: uint1,
  *  delete_rule: uint1
  * >
- * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ * The returned data should be ordered by fk_catalog_name, fk_schema_name, fk_table_name, fk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
  *    - 0 = CASCADE
  *    - 1 = RESTRICT
@@ -308,7 +308,7 @@ message CommandGetExportedKeys {
  *  update_rule: uint1,
  *  delete_rule: uint1
  * >
- * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
+ * The returned data should be ordered by pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
  *    - 0 = CASCADE
  *    - 1 = RESTRICT
@@ -384,9 +384,6 @@ message CommandStatementQuery {
 
   // The SQL syntax.
   string query = 1;
-
-  // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 2;
 }
 
 /*
@@ -398,11 +395,8 @@ message CommandStatementQuery {
 message CommandPreparedStatementQuery {
   option (experimental) = true;
 
-  // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1;
-
   // Opaque handle for the prepared statement on the server.
-  bytes prepared_statement_handle = 2;
+  bytes prepared_statement_handle = 1;
 }
 
 /*
@@ -424,11 +418,8 @@ message CommandStatementUpdate {
 message CommandPreparedStatementUpdate {
   option (experimental) = true;
 
-  // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1;
-
   // Opaque handle for the prepared statement on the server.
-  bytes prepared_statement_handle = 2;
+  bytes prepared_statement_handle = 1;
 }
 
 /*
