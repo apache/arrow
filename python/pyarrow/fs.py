@@ -31,6 +31,8 @@ from pyarrow._fs import (  # noqa
     _MockFileSystem,
     FileSystemHandler,
     PyFileSystem,
+    _copy_files,
+    _copy_files_selector,
 )
 
 # For backward compatibility.
@@ -180,6 +182,59 @@ def _resolve_filesystem_and_path(
                 raise
 
     return filesystem, path
+
+
+def copy_files(source, destination,
+               source_filesystem=None, destination_filesystem=None):
+    """
+    Copy files between FileSystems.
+
+    This functions allows you to recursively copy directories of files from
+    one file system to another, such as from S3 to your local machine.
+
+    Parameters
+    ----------
+    source : string
+        Source file path or URI to a single file or directory.
+        If a directory, files will be copied recursively from this path.
+    destination : string
+        Destination file path or URI. If `source` is a file, `destination`
+        is also interpreted as the destination file (not directory).
+        Directories will be created as necessary.
+    source_filesystem : FileSystem, optional
+        Source filesystem, needs to be specified if `source` is not a URI,
+        otherwise inferred.
+    destination_filesystem : FileSystem, optional
+        Destination filesystem, needs to be specified if `destination` is not
+        a URI, otherwise inferred.
+
+    Examples
+    --------
+    Copy an S3 bucket's files to a local directory:
+
+    >>> copy_files("s3://your-bucket-name", "local-directory")
+
+    Using a FileSystem object:
+
+    >>> copy_files("your-bucket-name", "local-directory",
+    ...            source_filesystem=S3FileSystem(...))
+
+    """
+    source_fs, source_path = _resolve_filesystem_and_path(
+        source, source_filesystem
+    )
+    destination_fs, destination_path = _resolve_filesystem_and_path(
+        destination, destination_filesystem
+    )
+
+    file_info = source_fs.get_file_info(source_path)
+    if file_info.type == FileType.Directory:
+        source_sel = FileSelector(source_path, recursive=True)
+        _copy_files_selector(source_fs, source_sel,
+                             destination_fs, destination_path)
+    else:
+        _copy_files(source_fs, source_path,
+                    destination_fs, destination_path)
 
 
 class FSSpecHandler(FileSystemHandler):
