@@ -72,13 +72,13 @@ struct UnionNode : ExecNode {
     return plan->EmplaceNode<UnionNode>(plan, std::move(inputs));
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
       return;
     }
-    outputs_[0]->InputReceived(this, seq, std::move(batch));
+    outputs_[0]->InputReceived(this, std::move(batch));
     if (batch_count_.Increment()) {
       finished_.MarkFinished();
     }

@@ -64,7 +64,7 @@ struct DummyNode : ExecNode {
 
   const char* kind_name() override { return "Dummy"; }
 
-  void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {}
+  void InputReceived(ExecNode* input, ExecBatch batch) override {}
 
   void ErrorReceived(ExecNode* input, Status error) override {}
 

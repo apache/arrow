@@ -175,7 +175,7 @@ class ScalarAggregateNode : public ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = get_thread_index_();
@@ -237,7 +237,7 @@ class ScalarAggregateNode : public ExecNode {
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
 
-    outputs_[0]->InputReceived(this, 0, std::move(batch));
+    outputs_[0]->InputReceived(this, std::move(batch));
     finished_.MarkFinished();
     return Status::OK();
   }
@@ -441,7 +441,7 @@ class GroupByNode : public ExecNode {
     if (finished_.is_finished()) return;
 
     int64_t batch_size = output_batch_size();
-    outputs_[0]->InputReceived(this, n, out_data_.Slice(batch_size * n, batch_size));
+    outputs_[0]->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
 
     if (output_counter_.Increment()) {
       finished_.MarkFinished();
@@ -471,7 +471,7 @@ class GroupByNode : public ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 

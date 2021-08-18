@@ -87,14 +87,14 @@ class ProjectNode : public ExecNode {
     return ExecBatch{std::move(values), target.length};
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_projected = DoProject(std::move(batch));
     if (ErrorIfNotOk(maybe_projected.status())) return;
 
     maybe_projected->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, seq, maybe_projected.MoveValueUnsafe());
+    outputs_[0]->InputReceived(this, maybe_projected.MoveValueUnsafe());
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {

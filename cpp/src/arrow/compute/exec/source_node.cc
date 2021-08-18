@@ -61,7 +61,7 @@ struct SourceNode : ExecNode {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
+  [[noreturn]] void InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
   [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
@@ -95,7 +95,7 @@ struct SourceNode : ExecNode {
                         }
                         lock.unlock();
 
-                        outputs_[0]->InputReceived(this, seq, *batch);
+                        outputs_[0]->InputReceived(this, *batch);
                         return Continue();
                       },
                       [=](const Status& error) -> ControlFlow<int> {

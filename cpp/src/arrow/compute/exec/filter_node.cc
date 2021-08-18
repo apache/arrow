@@ -96,14 +96,14 @@ class FilterNode : public ExecNode {
     return ExecBatch::Make(std::move(values));
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_filtered = DoFilter(std::move(batch));
     if (ErrorIfNotOk(maybe_filtered.status())) return;
 
     maybe_filtered->guarantee = batch.guarantee;
-    outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
+    outputs_[0]->InputReceived(this, maybe_filtered.MoveValueUnsafe());
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {

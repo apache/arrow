@@ -105,15 +105,11 @@ class SinkNode : public ExecNode {
 
   Future<> finished() override { return finished_; }
 
-  void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     bool did_push = producer_.Push(std::move(batch));
     if (!did_push) return;  // producer_ was Closed already
-
-    if (auto total = input_counter_.total()) {
-      DCHECK_LE(seq_num, *total);
-    }
 
     if (input_counter_.Increment()) {
       Finish();
@@ -168,7 +164,7 @@ struct OrderBySinkNode final : public SinkNode {
         plan, std::move(inputs), sink_options.sort_options, sink_options.generator);
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     // Accumulate data
