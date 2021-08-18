@@ -255,34 +255,34 @@ emitting one output value per input group.
 As an example, for the following table:
 
 +-----------------+--------------+
-| Column "x"      | Column "key" |
+| Column ``key``  | Column ``x`` |
 +=================+==============+
-| 2               | "a"          |
+| "a"             | 2            |
 +-----------------+--------------+
-| 5               | "a"          |
+| "a"             | 5            |
 +-----------------+--------------+
-| null            | "b"          |
+| "b"             | null         |
 +-----------------+--------------+
-| null            | "b"          |
+| "b"             | null         |
 +-----------------+--------------+
 | null            | null         |
 +-----------------+--------------+
-| 9               | null         |
+| null            | 9            |
 +-----------------+--------------+
 
-we can compute a sum of the column "x", grouped on the column "key".
+we can compute a sum of the column ``x``, grouped on the column ``key``.
 This gives us three groups, with the following results. Note that null is
 treated as a distinct key value.
 
-+-----------------+--------------+
-| Column "sum(x)" | Column "key" |
-+=================+==============+
-| 7               | "a"          |
-+-----------------+--------------+
-| null            | "b"          |
-+-----------------+--------------+
-| 9               | null         |
-+-----------------+--------------+
++-----------------+-------------------+
+| Column ``key``  | Column ``sum(x)`` |
++=================+===================+
+| "a"             | 7                 |
++-----------------+-------------------+
+| "b"             | null              |
++-----------------+-------------------+
+| null            | 9                 |
++-----------------+-------------------+
 
 The supported aggregation functions are as follows. All function names are
 prefixed with "hash\_", which differentiates them from their scalar
