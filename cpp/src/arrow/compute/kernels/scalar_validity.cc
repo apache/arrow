@@ -257,8 +257,8 @@ const FunctionDoc is_inf_doc(
     {"values"});
 
 const FunctionDoc is_null_doc(
-    "Return true if null, NaN can be considered as null",
-    ("For each input value, emit true iff the value is null. Default behavior is to emit "
+    "Return true if null, NaN values can be considered as null",
+    ("For each input value, emit true if the value is null. Default behavior is to emit "
      "false for NaN values. True can be emitted for NaN values by toggling "
      "NanNullOptions flag."),
     {"values"}, "NanNullOptions");
