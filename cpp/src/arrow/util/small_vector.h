@@ -98,6 +98,7 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
 
   constexpr const T* const_data_ptr() const { return this->ptr_at(static_data_, 0); }
 
+  // Adjust storage size, but don't initialize any objects
   void bump_size(size_t addend) {
     assert(size_ + addend <= N);
     size_ += addend;
@@ -105,11 +106,16 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
 
   void ensure_capacity(size_t min_capacity) { assert(min_capacity <= N); }
 
+  // Adjust storage size, but don't destroy any objects
   void reduce_size(size_t reduce_by) {
     assert(reduce_by <= size_);
     size_ -= reduce_by;
   }
 
+  // Move objects from another storage, but don't destroy any objects currently
+  // stored in *this.
+  // You need to call destroy() first if necessary (e.g. in a
+  // move assignment operator).
   void move_from(StaticVectorStorage&& other) noexcept {
     size_ = other.size_;
     this->move_storage(other.static_data_, static_data_, size_);
@@ -383,16 +389,22 @@ class StaticVectorImpl {
     const size_t end_pos = pos + it_size;
 
     // Move [pos; n) to [end_pos; end_pos + n - pos)
-    for (size_t i = n - pos; i > 0; --i) {
-      new (&p[end_pos + i - 1]) T(std::move(p[pos + i - 1]));
+    size_t i = n;
+    size_t j = end_pos + n - pos;
+    while (i > pos && j > n) {
+      new (&p[--j]) T(std::move(p[--i]));
     }
+    while (i > pos) {
+      p[--j] = std::move(p[--i]);
+    }
+    assert(j == end_pos);
     // Copy [first; last) to [pos; end_pos)
-    size_t i = pos;
-    while (i < std::min(n, end_pos)) {
-      p[i++] = *first++;
+    j = pos;
+    while (j < std::min(n, end_pos)) {
+      p[j++] = *first++;
     }
-    while (i < end_pos) {
-      new (&p[i++]) T(*first++);
+    while (j < end_pos) {
+      new (&p[j++]) T(*first++);
     }
     assert(first == last);
     return p + pos;

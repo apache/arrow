@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -33,6 +34,38 @@ using testing::ElementsAreArray;
 
 namespace arrow {
 namespace internal {
+
+struct HeapInt {
+  HeapInt() : HeapInt(0) {}
+
+  explicit HeapInt(int x) : ptr(new int(x)) {}
+
+  HeapInt& operator=(int x) {
+    ptr.reset(new int(x));
+    return *this;
+  }
+
+  HeapInt(const HeapInt& other) : HeapInt(other.ToInt()) {}
+
+  HeapInt& operator=(const HeapInt& other) {
+    *this = other.ToInt();
+    return *this;
+  }
+
+  int ToInt() const { return ptr == nullptr ? -98 : *ptr; }
+
+  bool operator==(const HeapInt& other) const {
+    return ptr != nullptr && other.ptr != nullptr && *ptr == *other.ptr;
+  }
+  bool operator<(const HeapInt& other) const {
+    return ptr == nullptr || (other.ptr != nullptr && *ptr < *other.ptr);
+  }
+
+  bool operator==(int other) const { return ptr != nullptr && *ptr == other; }
+  friend bool operator==(int left, const HeapInt& right) { return right == left; }
+
+  std::unique_ptr<int> ptr;
+};
 
 template <typename Vector>
 bool UsesStaticStorage(const Vector& v) {
@@ -83,6 +116,8 @@ struct VectorIntLikeParam {
 using VectorIntLikeParams =
     ::testing::Types<VectorIntLikeParam<StaticVectorTraits, int>,
                      VectorIntLikeParam<SmallVectorTraits, int>,
+                     VectorIntLikeParam<StaticVectorTraits, HeapInt>,
+                     VectorIntLikeParam<SmallVectorTraits, HeapInt>,
                      VectorIntLikeParam<StaticVectorTraits, MoveOnlyDataType>,
                      VectorIntLikeParam<SmallVectorTraits, MoveOnlyDataType>>;
 
