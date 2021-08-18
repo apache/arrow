@@ -1793,5 +1793,533 @@ TEST(TestTake, RandomFixedSizeBinary) {
   TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(16));
 }
 
+// ----------------------------------------------------------------------
+// DropNull tests
+
+void AssertDropNullArrays(const std::shared_ptr<Array>& values,
+                          const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, DropNull(*values));
+  ValidateOutput(actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+Status DropNullJSON(const std::shared_ptr<DataType>& type, const std::string& values,
+                    std::shared_ptr<Array>* out) {
+  return DropNull(*ArrayFromJSON(type, values)).Value(out);
+}
+
+void CheckDropNull(const std::shared_ptr<DataType>& type, const std::string& values,
+                   const std::string& expected) {
+  std::shared_ptr<Array> actual;
+
+  ASSERT_OK(DropNullJSON(type, values, &actual));
+  ValidateOutput(actual);
+  AssertArraysEqual(*ArrayFromJSON(type, expected), *actual, /*verbose=*/true);
+}
+
+struct TestDropNullKernel : public ::testing::Test {
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<Array>& values) {
+    ASSERT_EQ(values->null_count(), 0);
+    auto expected = (*DropNull(values)).make_array();
+
+    auto new_values = MakeArray(values->data()->Copy());
+    new_values->data()->buffers[0].reset();
+    new_values->data()->null_count = kUnknownNullCount;
+    auto result = (*DropNull(new_values)).make_array();
+    AssertArraysEqual(*expected, *result);
+  }
+
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<DataType>& type,
+                                               const std::string& values) {
+    TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values));
+  }
+};
+
+TEST_F(TestDropNullKernel, DropNull) {
+  CheckDropNull(null(), "[null, null, null]", "[]");
+  CheckDropNull(null(), "[null]", "[]");
+}
+
+TEST_F(TestDropNullKernel, DropNullBoolean) {
+  CheckDropNull(boolean(), "[true, false, true]", "[true, false, true]");
+  CheckDropNull(boolean(), "[null, false, true]", "[false, true]");
+  CheckDropNull(boolean(), "[]", "[]");
+  CheckDropNull(boolean(), "[null, null]", "[]");
+
+  TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]");
+}
+
+template <typename ArrowType>
+struct TestDropNullKernelTyped : public TestDropNullKernel {
+  TestDropNullKernelTyped() : rng_(seed_) {}
+
+  std::shared_ptr<Int32Array> Offsets(int32_t length, int32_t slice_count) {
+    return checked_pointer_cast<Int32Array>(rng_.Offsets(slice_count, 0, length));
+  }
+
+  // Slice `array` into multiple chunks along `offsets`
+  ArrayVector Slices(const std::shared_ptr<Array>& array,
+                     const std::shared_ptr<Int32Array>& offsets) {
+    ArrayVector slices(offsets->length() - 1);
+    for (int64_t i = 0; i != static_cast<int64_t>(slices.size()); ++i) {
+      slices[i] =
+          array->Slice(offsets->Value(i), offsets->Value(i + 1) - offsets->Value(i));
+    }
+    return slices;
+  }
+
+  random::SeedType seed_ = 0xdeadbeef;
+  random::RandomArrayGenerator rng_;
+};
+
+template <typename ArrowType>
+class TestDropNullKernelWithNumeric : public TestDropNullKernelTyped<ArrowType> {
+ protected:
+  void AssertDropNull(const std::string& values, const std::string& expected) {
+    CheckDropNull(type_singleton(), values, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+};
+
+TYPED_TEST_SUITE(TestDropNullKernelWithNumeric, NumericArrowTypes);
+TYPED_TEST(TestDropNullKernelWithNumeric, DropNullNumeric) {
+  this->AssertDropNull("[7, 8, 9]", "[7, 8, 9]");
+  this->AssertDropNull("[null, 8, 9]", "[8, 9]");
+  this->AssertDropNull("[null, null, null]", "[]");
+}
+
+template <typename TypeClass>
+class TestDropNullKernelWithString : public TestDropNullKernelTyped<TypeClass> {
+ public:
+  std::shared_ptr<DataType> value_type() {
+    return TypeTraits<TypeClass>::type_singleton();
+  }
+
+  void AssertDropNull(const std::string& values, const std::string& expected) {
+    CheckDropNull(value_type(), values, expected);
+  }
+
+  void AssertDropNullDictionary(const std::string& dictionary_values,
+                                const std::string& dictionary_indices,
+                                const std::string& expected_indices) {
+    auto dict = ArrayFromJSON(value_type(), dictionary_values);
+    auto type = dictionary(int8(), value_type());
+    ASSERT_OK_AND_ASSIGN(auto values,
+                         DictionaryArray::FromArrays(
+                             type, ArrayFromJSON(int8(), dictionary_indices), dict));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
+    AssertDropNullArrays(values, expected);
+  }
+};
+
+TYPED_TEST_SUITE(TestDropNullKernelWithString, BinaryArrowTypes);
+
+TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
+  this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");
+  this->AssertDropNull(R"([null, "b", "c"])", "[\"b\", \"c\"]");
+  this->AssertDropNull(R"(["a", "b", null])", R"(["a", "b"])");
+
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])");
+}
+
+TYPED_TEST(TestDropNullKernelWithString, DropNullDictionary) {
+  auto dict = R"(["a", "b", "c", "d", "e"])";
+  this->AssertDropNullDictionary(dict, "[3, 4, 2]", "[3, 4, 2]");
+  this->AssertDropNullDictionary(dict, "[null, 4, 2]", "[4, 2]");
+}
+
+class TestDropNullKernelFSB : public TestDropNullKernelTyped<FixedSizeBinaryType> {
+ public:
+  std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
+
+  void AssertDropNull(const std::string& values, const std::string& expected) {
+    CheckDropNull(value_type(), values, expected);
+  }
+};
+
+TEST_F(TestDropNullKernelFSB, DropNullFixedSizeBinary) {
+  this->AssertDropNull(R"(["aaa", "bbb", "ccc"])", R"(["aaa", "bbb", "ccc"])");
+  this->AssertDropNull(R"([null, "bbb", "ccc"])", "[\"bbb\", \"ccc\"]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(),
+                                                R"(["aaa", "bbb", "ccc"])");
+}
+
+class TestDropNullKernelWithList : public TestDropNullKernelTyped<ListType> {};
+
+TEST_F(TestDropNullKernelWithList, DropNullListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  CheckDropNull(list(int32()), list_json, "[[], [1,2], [3]]");
+  this->TestNoValidityBitmapButUnknownNullCount(list(int32()), "[[], [1,2], [3]]");
+}
+
+TEST_F(TestDropNullKernelWithList, DropNullListListInt32) {
+  std::string list_json = R"([
+    [],
+    [[1], [2, null, 2], []],
+    null,
+    [[3, null], null]
+  ])";
+  auto type = list(list(int32()));
+  CheckDropNull(type, list_json, R"([
+    [],
+    [[1], [2, null, 2], []],
+    [[3, null], null]
+  ])");
+
+  this->TestNoValidityBitmapButUnknownNullCount(type,
+                                                "[[[1], [2, null, 2], []], [[3, null]]]");
+}
+
+class TestDropNullKernelWithLargeList : public TestDropNullKernelTyped<LargeListType> {};
+
+TEST_F(TestDropNullKernelWithLargeList, DropNullLargeListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  CheckDropNull(large_list(int32()), list_json, "[[], [1,2],  [3]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(
+      fixed_size_list(int32(), 3), "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
+}
+
+class TestDropNullKernelWithFixedSizeList
+    : public TestDropNullKernelTyped<FixedSizeListType> {};
+
+TEST_F(TestDropNullKernelWithFixedSizeList, DropNullFixedSizeListInt32) {
+  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
+  CheckDropNull(fixed_size_list(int32(), 3), list_json,
+                "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(
+      fixed_size_list(int32(), 3), "[[1, null, 3], [4, 5, 6], [7, 8, null]]");
+}
+
+class TestDropNullKernelWithMap : public TestDropNullKernelTyped<MapType> {};
+
+TEST_F(TestDropNullKernelWithMap, DropNullMapStringToInt32) {
+  std::string map_json = R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])";
+  std::string expected_json = R"([
+    [["joe", 0], ["mark", null]],
+    [["cap", 8]],
+    []
+  ])";
+  CheckDropNull(map(utf8(), int32()), map_json, expected_json);
+}
+
+class TestDropNullKernelWithStruct : public TestDropNullKernelTyped<StructType> {};
+
+TEST_F(TestDropNullKernelWithStruct, DropNullStruct) {
+  auto struct_type = struct_({field("a", int32()), field("b", utf8())});
+  auto struct_json = R"([
+    null,
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  auto expected_struct_json = R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  CheckDropNull(struct_type, struct_json, expected_struct_json);
+  this->TestNoValidityBitmapButUnknownNullCount(struct_type, expected_struct_json);
+}
+
+class TestDropNullKernelWithUnion : public TestDropNullKernelTyped<UnionType> {};
+
+TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
+  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
+  auto union_json = R"([
+      [2, null],
+      [2, 222],
+      [5, "hello"],
+      [5, "eh"],
+      [2, null],
+      [2, 111],
+      [5, null]
+    ])";
+  CheckDropNull(union_type, union_json, union_json);
+}
+
+class TestDropNullKernelWithRecordBatch : public TestDropNullKernelTyped<RecordBatch> {
+ public:
+  void AssertDropNull(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                      const std::string& expected_batch) {
+    std::shared_ptr<RecordBatch> actual;
+
+    ASSERT_OK(this->DoDropNull(schm, batch_json, &actual));
+    ValidateOutput(actual);
+    ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                    std::shared_ptr<RecordBatch>* out) {
+    auto batch = RecordBatchFromJSON(schm, batch_json);
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(batch));
+    *out = out_datum.record_batch();
+    return Status::OK();
+  }
+};
+
+TEST_F(TestDropNullKernelWithRecordBatch, DropNullRecordBatch) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  auto batch_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  this->AssertDropNull(schm, batch_json, R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])");
+
+  batch_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": null},
+    {"a": null, "b": "hello"},
+    {"a": 4, "b": null}
+  ])";
+  this->AssertDropNull(schm, batch_json, R"([])");
+  this->AssertDropNull(schm, R"([])", R"([])");
+}
+
+class TestDropNullKernelWithChunkedArray : public TestDropNullKernelTyped<ChunkedArray> {
+ public:
+  TestDropNullKernelWithChunkedArray()
+      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
+  void AssertDropNull(const std::shared_ptr<DataType>& type,
+                      const std::vector<std::string>& values,
+                      const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->DoDropNull(type, values, &actual));
+    ValidateOutput(actual);
+
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<DataType>& type,
+                    const std::vector<std::string>& values,
+                    std::shared_ptr<ChunkedArray>* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(ChunkedArrayFromJSON(type, values)));
+    *out = out_datum.chunked_array();
+    return Status::OK();
+  }
+
+  template <typename ArrayFactory>
+  void CheckDropNullWithSlices(ArrayFactory&& factory) {
+    for (auto size : this->sizes_) {
+      for (auto null_probability : this->null_probabilities_) {
+        std::shared_ptr<Array> concatenated_array;
+        std::shared_ptr<ChunkedArray> chunked_array;
+        factory(size, null_probability, &chunked_array, &concatenated_array);
+
+        ASSERT_OK_AND_ASSIGN(auto out_datum, DropNull(chunked_array));
+        auto actual_chunked_array = out_datum.chunked_array();
+        ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(actual_chunked_array->chunks()));
+
+        ASSERT_OK_AND_ASSIGN(out_datum, DropNull(*concatenated_array));
+        auto expected = out_datum.make_array();
+
+        AssertArraysEqual(*expected, *actual);
+      }
+    }
+  }
+
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
+};
+
+TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
+  this->AssertDropNull(int8(), {"[]"}, {"[]"});
+  this->AssertDropNull(int8(), {"[null]", "[8, null]"}, {"[8]"});
+
+  this->AssertDropNull(int8(), {"[null]", "[null, null]"}, {"[]"});
+  this->AssertDropNull(int8(), {"[7]", "[8, 9]"}, {"[7]", "[8, 9]"});
+  this->AssertDropNull(int8(), {"[]", "[]"}, {"[]", "[]"});
+}
+
+TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
+  // With Null Arrays
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
+                                       std::shared_ptr<ChunkedArray>* out_chunked_array,
+                                       std::shared_ptr<Array>* out_concatenated_array) {
+    auto array = std::make_shared<NullArray>(size);
+    auto offsets = this->Offsets(size, 3);
+    auto slices = this->Slices(array, offsets);
+    *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
+
+    ASSERT_OK_AND_ASSIGN(*out_concatenated_array,
+                         Concatenate((*out_chunked_array)->chunks()));
+  });
+  // Without Null Arrays
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
+                                       std::shared_ptr<ChunkedArray>* out_chunked_array,
+                                       std::shared_ptr<Array>* out_concatenated_array) {
+    auto array = this->rng_.ArrayOf(int16(), size, null_probability);
+    auto offsets = this->Offsets(size, 3);
+    auto slices = this->Slices(array, offsets);
+    *out_chunked_array = std::make_shared<ChunkedArray>(std::move(slices));
+
+    ASSERT_OK_AND_ASSIGN(*out_concatenated_array,
+                         Concatenate((*out_chunked_array)->chunks()));
+  });
+}
+
+class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
+ public:
+  TestDropNullKernelWithTable()
+      : sizes_({0, 1, 4, 31, 1234}), null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
+  void AssertDropNull(const std::shared_ptr<Schema>& schm,
+                      const std::vector<std::string>& table_json,
+                      const std::vector<std::string>& expected_table) {
+    std::shared_ptr<Table> actual;
+    ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
+    ValidateOutput(actual);
+    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+  }
+
+  Status DoDropNull(const std::shared_ptr<Schema>& schm,
+                    const std::vector<std::string>& values, std::shared_ptr<Table>* out) {
+    ARROW_ASSIGN_OR_RAISE(Datum out_datum, DropNull(TableFromJSON(schm, values)));
+    *out = out_datum.table();
+    return Status::OK();
+  }
+
+  template <typename ArrayFactory>
+  void CheckDropNullWithSlices(ArrayFactory&& factory) {
+    for (auto size : this->sizes_) {
+      for (auto null_probability : this->null_probabilities_) {
+        std::shared_ptr<Table> table_w_slices;
+        std::shared_ptr<Table> table_wo_slices;
+
+        factory(size, null_probability, &table_w_slices, &table_wo_slices);
+
+        ASSERT_OK_AND_ASSIGN(auto out_datum, DropNull(table_w_slices));
+        ValidateOutput(out_datum);
+        auto actual = out_datum.table();
+
+        ASSERT_OK_AND_ASSIGN(out_datum, DropNull(table_wo_slices));
+        ValidateOutput(out_datum);
+        auto expected = out_datum.table();
+        if (actual->num_rows() > 0) {
+          ASSERT_TRUE(actual->num_rows() == expected->num_rows());
+          for (int index = 0; index < actual->num_columns(); index++) {
+            ASSERT_OK_AND_ASSIGN(auto actual_col,
+                                 Concatenate(actual->column(index)->chunks()));
+            ASSERT_OK_AND_ASSIGN(auto expected_col,
+                                 Concatenate(expected->column(index)->chunks()));
+            AssertArraysEqual(*actual_col, *expected_col);
+          }
+        }
+      }
+    }
+  }
+
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
+};
+
+TEST_F(TestDropNullKernelWithTable, DropNullTable) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  {
+    std::vector<std::string> table_json = {R"([
+      {"a": null, "b": "yo"},
+      {"a": 1, "b": ""}
+    ])",
+                                           R"([
+      {"a": 2, "b": "hello"},
+      {"a": 4, "b": "eh"}
+    ])"};
+    std::vector<std::string> expected_table_json = {R"([
+      {"a": 1, "b": ""}
+    ])",
+                                                    R"([
+      {"a": 2, "b": "hello"},
+      {"a": 4, "b": "eh"}
+    ])"};
+    this->AssertDropNull(schm, table_json, expected_table_json);
+  }
+  {
+    std::vector<std::string> table_json = {R"([
+      {"a": null, "b": "yo"},
+      {"a": 1, "b": null}
+    ])",
+                                           R"([
+      {"a": 2, "b": null},
+      {"a": null, "b": "eh"}
+    ])"};
+    std::shared_ptr<Table> actual;
+    ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
+    AssertSchemaEqual(schm, actual->schema());
+    ASSERT_EQ(actual->num_rows(), 0);
+  }
+}
+
+TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
+  // With Null Arrays
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
+                                       std::shared_ptr<Table>* out_table_w_slices,
+                                       std::shared_ptr<Table>* out_table_wo_slices) {
+    FieldVector fields = {field("a", int32()), field("b", utf8())};
+    auto schm = schema(fields);
+    ASSERT_OK_AND_ASSIGN(auto col_a, MakeArrayOfNull(int32(), size));
+    ASSERT_OK_AND_ASSIGN(auto col_b, MakeArrayOfNull(utf8(), size));
+
+    // Compute random chunkings of columns `a` and `b`
+    auto slices_a = this->Slices(col_a, this->Offsets(size, 3));
+    auto slices_b = this->Slices(col_b, this->Offsets(size, 3));
+
+    ChunkedArrayVector table_content_w_slices{
+        std::make_shared<ChunkedArray>(std::move(slices_a)),
+        std::make_shared<ChunkedArray>(std::move(slices_b))};
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
+
+    ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
+                                               std::make_shared<ChunkedArray>(col_b)};
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
+  });
+
+  // Without Null Arrays
+  this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
+                                       std::shared_ptr<Table>* out_table_w_slices,
+                                       std::shared_ptr<Table>* out_table_wo_slices) {
+    FieldVector fields = {field("a", int32()), field("b", utf8())};
+    auto schm = schema(fields);
+    auto col_a = this->rng_.ArrayOf(int32(), size, null_probability);
+    auto col_b = this->rng_.ArrayOf(utf8(), size, null_probability);
+
+    // Compute random chunkings of columns `a` and `b`
+    auto slices_a = this->Slices(col_a, this->Offsets(size, 3));
+    auto slices_b = this->Slices(col_b, this->Offsets(size, 3));
+
+    ChunkedArrayVector table_content_w_slices{
+        std::make_shared<ChunkedArray>(std::move(slices_a)),
+        std::make_shared<ChunkedArray>(std::move(slices_b))};
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
+
+    ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
+                                               std::make_shared<ChunkedArray>(col_b)};
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
+  });
+}
+
 }  // namespace compute
 }  // namespace arrow

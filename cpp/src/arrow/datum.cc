@@ -112,14 +112,20 @@ const std::shared_ptr<Schema>& Datum::schema() const {
 }
 
 int64_t Datum::length() const {
-  if (this->kind() == Datum::ARRAY) {
-    return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
-  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
-  } else if (this->kind() == Datum::SCALAR) {
-    return 1;
+  switch (this->kind()) {
+    case Datum::ARRAY:
+      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+    case Datum::CHUNKED_ARRAY:
+      return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
+    case Datum::RECORD_BATCH:
+      return util::get<std::shared_ptr<RecordBatch>>(this->value)->num_rows();
+    case Datum::TABLE:
+      return util::get<std::shared_ptr<Table>>(this->value)->num_rows();
+    case Datum::SCALAR:
+      return 1;
+    default:
+      return kUnknownLength;
   }
-  return kUnknownLength;
 }
 
 int64_t Datum::null_count() const {
