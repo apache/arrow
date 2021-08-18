@@ -19,12 +19,42 @@ include "Schema.fbs";
 
 namespace org.apache.arrow.flatbuf.computeir;
 
-/// Avoid use of org.apache.arrow.Buffer because it requires a
-/// sidecar block of bytes.
+table Int8Buffer { items: [uint8] (required); }
+table Int16Buffer { items: [uint16] (required); }
+table Int32Buffer { items: [uint32] (required); }
+table Int64Buffer { items: [uint64] (required); }
+table UInt8Buffer { items: [uint8] (required); }
+table UInt16Buffer { items: [uint16] (required); }
+table UInt32Buffer { items: [uint32] (required); }
+table UInt64Buffer { items: [uint64] (required); }
+table Float32Buffer { items: [float32] (required); }
+table Float64Buffer { items: [float64] (required); }
+table TableBuffer { items: [ubyte] (required, nested_flatbuffer: "InlineBuffer"); }
+union InlineBufferImpl {
+  Int8Buffer,
+  Int16Buffer,
+  Int32Buffer,
+  Int64Buffer,
+  UInt8Buffer,
+  UInt16Buffer,
+  UInt32Buffer,
+  UInt64Buffer,
+  Float32Buffer,
+  Float64Buffer,
+  TableBuffer,
+}
+
+/// An inline replacement for org.apache.arrow.Buffer because that
+/// requires a sidecar block of bytes into which offsets can point.
+/// A union of buffers of each primitive type is provided to avoid
+/// the need for reinterpret_cast, std::mem::transmute, ...
+/// The final member of the union is a bytes buffer aligned suitably
+/// to hold any flatbuffer Table.
 table InlineBuffer {
-  // ulong is used to guarantee alignment and padding of `bytes` so that flatbuffers
-  // and other alignment sensitive blobs can be stored here
-  bytes: [ulong] (required);
+  // Ideally we'd simply have `union InlineBuffer { ... }`
+  // but not all generators support vectors of unions so we provide minimal
+  // indirection to support them.
+  impl: InlineBufferImpl (required);
 }
 
 /// An expression is one of
@@ -37,9 +67,12 @@ union ExpressionImpl {
 }
 
 table Expression {
-  // Ideally we'd simply have `union Expression { Literal, FieldRef, Call }`
-  // but not all generators support vectors of unions so we provide minimal
-  // indirection to support them.
+  /// The type of this literal. Field is used instead of Type to pick
+  /// up child fields, dictionary encoding, etc.
+  /// Field.name should always be absent since it is not meaningful
+  /// for Expressions.
+  field: Field (required);
+
   impl: ExpressionImpl (required);
 }
 
@@ -62,10 +95,6 @@ table Literal {
   /// with multiple "columns" if the type happens to be Struct.
   shape: Shape (required);
 
-  /// The type of this literal. Field is used instead of Type to pick
-  /// up child fields, dictionary encoding, etc.
-  field: Field (required);
-
   /// Buffers containing N elements of arrow-formatted data, where N
   /// is Array.length if shape is Array or 1 if shape is Scalar.
   /// XXX this can be optimized for trivial scalars later
@@ -85,10 +114,6 @@ table FieldRef {
   /// `path` points into. For example in the case of a join,
   /// 0 refers to the left relation and 1 to the right relation.
   relation_index: int;
-
-  /// The type of the referenced Field. Field is used instead of Type to pick
-  /// up child fields, dictionary encoding, etc.
-  field: Field;
 }
 
 /// A canonical (probably SQL equivalent) function
@@ -155,11 +180,6 @@ table Call {
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
-
-  /// The type of data which invoking `function_name` will return.
-  /// Field is used instead of Type to pick up child fields,
-  /// dictionary encoding, etc.
-  field: Field;
 }
 
 enum CanonicalOperationId : uint32 {
