@@ -254,38 +254,38 @@ emitting one output value per input group.
 
 As an example, for the following table:
 
-+-----------------+--------------+
-| Column ``key``  | Column ``x`` |
-+=================+==============+
-| "a"             | 2            |
-+-----------------+--------------+
-| "a"             | 5            |
-+-----------------+--------------+
-| "b"             | null         |
-+-----------------+--------------+
-| "b"             | null         |
-+-----------------+--------------+
-| null            | null         |
-+-----------------+--------------+
-| null            | 9            |
-+-----------------+--------------+
++------------------+-----------------+
+| Column ``key``   | Column ``x``    |
++==================+=================+
+| "a"              | 2               |
++------------------+-----------------+
+| "a"              | 5               |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| null             | null            |
++------------------+-----------------+
+| null             | 9               |
++------------------+-----------------+
 
 we can compute a sum of the column ``x``, grouped on the column ``key``.
 This gives us three groups, with the following results. Note that null is
 treated as a distinct key value.
 
-+-----------------+-------------------+
-| Column ``key``  | Column ``sum(x)`` |
-+=================+===================+
-| "a"             | 7                 |
-+-----------------+-------------------+
-| "b"             | null              |
-+-----------------+-------------------+
-| null            | 9                 |
-+-----------------+-------------------+
++------------------+-------------------+
+| Column ``key``   | Column ``sum(x)`` |
++==================+===================+
+| "a"              | 7                 |
++------------------+-------------------+
+| "b"              | null              |
++------------------+-------------------+
+| null             | 9                 |
++------------------+-------------------+
 
 The supported aggregation functions are as follows. All function names are
-prefixed with ``hash\_``, which differentiates them from their scalar
+prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
 +---------------+-------+-------------+----------------+----------------------------------+-------+
