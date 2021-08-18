@@ -361,7 +361,6 @@ public class FlightSqlClient {
   public static class PreparedStatement implements AutoCloseable {
     private final FlightClient client;
     private final ActionCreatePreparedStatementResult preparedStatementResult;
-    private final AtomicLong invocationCount;
     private VectorSchemaRoot parameterBindingRoot;
     private boolean isClosed;
     private Schema resultSetSchema;
@@ -389,7 +388,6 @@ public class FlightSqlClient {
           preparedStatementResults.next().getBody(),
           ActionCreatePreparedStatementResult.class);
 
-      invocationCount = new AtomicLong(0);
       isClosed = false;
     }
 
@@ -464,8 +462,6 @@ public class FlightSqlClient {
 
       final FlightDescriptor descriptor = FlightDescriptor
           .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
-                  .setClientExecutionHandle(
-                      ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
                   .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                   .build())
               .toByteArray());
@@ -502,8 +498,6 @@ public class FlightSqlClient {
       checkOpen();
       final FlightDescriptor descriptor = FlightDescriptor
           .command(Any.pack(FlightSql.CommandPreparedStatementUpdate.newBuilder()
-                  .setClientExecutionHandle(
-                      ByteString.copyFrom(ByteBuffer.allocate(Long.BYTES).putLong(invocationCount.getAndIncrement())))
                   .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                   .build())
               .toByteArray());
