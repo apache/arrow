@@ -80,9 +80,9 @@ struct SourceNode : ExecNode {
 
     finished_ = Loop([this, options] {
                   std::unique_lock<std::mutex> lock(mutex_);
-                  int seq = batch_count_++;
+                  int total_batches = batch_count_++;
                   if (stop_requested_) {
-                    return Future<ControlFlow<int>>::MakeFinished(Break(seq));
+                    return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
                   }
                   lock.unlock();
 
@@ -91,7 +91,7 @@ struct SourceNode : ExecNode {
                         std::unique_lock<std::mutex> lock(mutex_);
                         if (IsIterationEnd(batch) || stop_requested_) {
                           stop_requested_ = true;
-                          return Break(seq);
+                          return Break(total_batches);
                         }
                         lock.unlock();
 
@@ -108,10 +108,12 @@ struct SourceNode : ExecNode {
                         stop_requested_ = true;
                         lock.unlock();
                         outputs_[0]->ErrorReceived(this, error);
-                        return Break(seq);
+                        return Break(total_batches);
                       },
                       options);
-                }).Then([&](int seq) { outputs_[0]->InputFinished(this, seq); });
+                }).Then([&](int total_batches) {
+      outputs_[0]->InputFinished(this, total_batches);
+    });
 
     return Status::OK();
   }
