@@ -1502,6 +1502,11 @@ if(ARROW_JEMALLOC)
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
+  if(DEFINED ARROW_JEMALLOC_LG_PAGE)
+    # Used for arm64 manylinux wheels in order to make the wheel work on both
+    # 4k and 64k page arm64 systems.
+    list(APPEND JEMALLOC_CONFIGURE_COMMAND "--with-lg-page=${ARROW_JEMALLOC_LG_PAGE}")
+  endif()
   list(APPEND
        JEMALLOC_CONFIGURE_COMMAND
        "--prefix=${JEMALLOC_PREFIX}"

@@ -58,7 +58,8 @@ Result<FieldVector> ResolveKernels(
 
 namespace {
 
-struct ScalarAggregateNode : ExecNode {
+class ScalarAggregateNode : public ExecNode {
+ public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
                       std::vector<int> target_field_ids,
@@ -222,19 +223,21 @@ struct ScalarAggregateNode : ExecNode {
   AtomicCounter input_counter_;
 };
 
-struct GroupByNode : ExecNode {
+class GroupByNode : public ExecNode {
+ public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
-              const std::vector<int>&& key_field_ids,
-              const std::vector<int>&& agg_src_field_ids,
-              const std::vector<internal::Aggregate>&& aggs,
-              const std::vector<const HashAggregateKernel*>&& agg_kernels)
+              std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
+              std::vector<internal::Aggregate> aggs,
+              std::vector<const HashAggregateKernel*> agg_kernels,
+              std::vector<std::unique_ptr<FunctionOptions>> owned_options)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
         ctx_(ctx),
         key_field_ids_(std::move(key_field_ids)),
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
-        agg_kernels_(std::move(agg_kernels)) {}
+        agg_kernels_(std::move(agg_kernels)),
+        owned_options_(std::move(owned_options)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -243,7 +246,8 @@ struct GroupByNode : ExecNode {
     auto input = inputs[0];
     const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
     const auto& keys = aggregate_options.keys;
-    const auto& aggs = aggregate_options.aggregates;
+    // Copy (need to modify options pointer below)
+    auto aggs = aggregate_options.aggregates;
     const auto& field_names = aggregate_options.names;
 
     // Get input schema
@@ -299,11 +303,17 @@ struct GroupByNode : ExecNode {
       output_fields[base + i] = input_schema->field(key_field_id);
     }
 
-    auto aggs_copy = aggs;
+    std::vector<std::unique_ptr<FunctionOptions>> owned_options;
+    owned_options.reserve(aggs.size());
+    for (auto& agg : aggs) {
+      owned_options.push_back(agg.options ? agg.options->Copy() : nullptr);
+      agg.options = owned_options.back().get();
+    }
 
     return input->plan()->EmplaceNode<GroupByNode>(
         input, schema(std::move(output_fields)), ctx, std::move(key_field_ids),
-        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels));
+        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels),
+        std::move(owned_options));
   }
 
   const char* kind_name() override { return "GroupByNode"; }
@@ -544,6 +554,8 @@ struct GroupByNode : ExecNode {
   const std::vector<int> agg_src_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
+  // ARROW-13638: must hold owned copy of function options
+  const std::vector<std::unique_ptr<FunctionOptions>> owned_options_;
 
   ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_, output_counter_;

@@ -55,6 +55,10 @@ bool FunctionOptions::Equals(const FunctionOptions& other) const {
   return options_type()->Compare(*this, other);
 }
 
+std::unique_ptr<FunctionOptions> FunctionOptions::Copy() const {
+  return options_type()->Copy(*this);
+}
+
 Result<std::shared_ptr<Buffer>> FunctionOptions::Serialize() const {
   return options_type()->Serialize(*this);
 }
