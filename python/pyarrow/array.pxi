@@ -1039,11 +1039,11 @@ cdef class Array(_PandasConvertible):
         else:
             return 0
 
-    def is_null(self):
+    def is_null(self, nan_is_null=False):
         """
         Return BooleanArray indicating the null values.
         """
-        return _pc().is_null(self)
+        return _pc().is_null(self, nan_is_null)
 
     def is_valid(self):
         """
