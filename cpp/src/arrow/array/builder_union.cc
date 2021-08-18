@@ -64,6 +64,7 @@ BasicUnionBuilder::BasicUnionBuilder(
   type_codes_ = union_type.type_codes();
   children_ = children;
 
+  type_id_to_child_id_.resize(union_type.max_type_code() + 1, -1);
   type_id_to_children_.resize(union_type.max_type_code() + 1, nullptr);
   DCHECK_LE(
       type_id_to_children_.size() - 1,
@@ -73,6 +74,7 @@ BasicUnionBuilder::BasicUnionBuilder(
     child_fields_[i] = union_type.field(static_cast<int>(i));
 
     auto type_id = union_type.type_codes()[i];
+    type_id_to_child_id_[type_id] = i;
     type_id_to_children_[type_id] = children[i].get();
   }
 }
@@ -82,6 +84,7 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
   children_.push_back(new_child);
   auto new_type_id = NextTypeId();
 
+  type_id_to_child_id_[new_type_id] = static_cast<int>(children_.size() - 1);
   type_id_to_children_[new_type_id] = new_child.get();
   child_fields_.push_back(field(field_name, nullptr));
   type_codes_.push_back(static_cast<int8_t>(new_type_id));
@@ -114,6 +117,7 @@ int8_t BasicUnionBuilder::NextTypeId() {
       static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeCode));
 
   // type_id_to_children_ is already densely packed, so just append the new child
+  type_id_to_child_id_.resize(type_id_to_child_id_.size() + 1);
   type_id_to_children_.resize(type_id_to_children_.size() + 1);
   return dense_type_id_++;
 }

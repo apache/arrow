@@ -74,6 +74,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   UnionMode::type mode_;
 
   std::vector<ArrayBuilder*> type_id_to_children_;
+  std::vector<int> type_id_to_child_id_;
   // for all type_id < dense_type_id_, type_id_to_children_[type_id] != nullptr
   int8_t dense_type_id_ = 0;
   TypedBufferBuilder<int8_t> types_builder_;
@@ -155,6 +156,21 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return offsets_builder_.Append(offset);
   }
 
+  Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
+                                   const int64_t length) override {
+    const int8_t* type_codes = array.GetValues<int8_t>(1);
+    const int32_t* offsets = array.GetValues<int32_t>(2);
+    for (int64_t row = offset; row < offset + length; row++) {
+      const int8_t type_code = type_codes[row];
+      const int child_id = type_id_to_child_id_[type_code];
+      const int32_t union_offset = offsets[row];
+      RETURN_NOT_OK(Append(type_code));
+      RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySliceUnchecked(
+          *array.child_data[child_id], union_offset, /*length=*/1));
+    }
+    return Status::OK();
+  }
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  private:
@@ -230,6 +246,17 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// The corresponding child builder must be appended to independently after this method
   /// is called, and all other child builders must have null or empty value appended.
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
+
+  Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
+                                   const int64_t length) override {
+    for (size_t i = 0; i < type_codes_.size(); i++) {
+      type_id_to_children_[type_codes_[i]]->AppendArraySliceUnchecked(
+          *array.child_data[i], array.offset + offset, length);
+    }
+    const int8_t* type_codes = array.GetValues<int8_t>(1);
+    types_builder_.Append(type_codes + offset, length);
+    return Status::OK();
+  }
 };
 
 }  // namespace arrow

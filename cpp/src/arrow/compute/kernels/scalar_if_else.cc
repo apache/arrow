@@ -1454,11 +1454,11 @@ static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& ba
   return Status::OK();
 }
 
-template <typename ReserveData, typename AppendScalar, typename AppendArray>
+// TODO: untemplate on ReserveData to avoid generating so many overloads
+template <typename ReserveData, typename AppendScalar>
 static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch,
                                         Datum* out, ReserveData reserve_data,
-                                        AppendScalar append_scalar,
-                                        AppendArray append_array) {
+                                        AppendScalar append_scalar) {
   const auto& conds_array = *batch.values[0].array();
   ArrayData* output = out->mutable_array();
   const bool have_else_arg =
@@ -1498,7 +1498,7 @@ static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& bat
       const auto& array = source.array();
       if (!array->buffers[0] ||
           BitUtil::GetBit(array->buffers[0]->data(), array->offset + row)) {
-        RETURN_NOT_OK(append_array(raw_builder.get(), array, row));
+        RETURN_NOT_OK(raw_builder->AppendArraySliceUnchecked(*array, row, /*length=*/1));
       } else {
         RETURN_NOT_OK(raw_builder->AppendNull());
       }
@@ -1554,267 +1554,9 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
           return checked_cast<BuilderType*>(raw_builder)
               ->Append(scalar.value->data(),
                        static_cast<offset_type>(scalar.value->size()));
-        },
-        // AppendArray
-        [](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-           const int64_t row) {
-          const offset_type* offsets = array->GetValues<offset_type>(1);
-          return checked_cast<BuilderType*>(raw_builder)
-              ->Append(array->buffers[2]->data() + offsets[row],
-                       offsets[row + 1] - offsets[row]);
         });
   }
 };
-
-// Given an array and a builder, append a slice of the array to the builder
-using ArrayAppenderFunc = std::function<Status(
-    ArrayBuilder*, const std::shared_ptr<ArrayData>&, int64_t, int64_t)>;
-
-static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_appender);
-
-struct GetAppenders {
-  template <typename T>
-  enable_if_t<has_c_type<T>::value && !is_boolean_type<T>::value, Status> Visit(
-      const T&) {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using c_type = typename T::c_type;
-    array_appender = [](ArrayBuilder* raw_builder,
-                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                        const int64_t length) {
-      return checked_cast<BuilderType*>(raw_builder)
-          ->AppendValues(array->GetValues<c_type>(1) + offset, length,
-                         array->GetValues<uint8_t>(0, 0), array->offset + offset);
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType&) {
-    array_appender = [](ArrayBuilder* raw_builder,
-                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                        const int64_t length) {
-      return checked_cast<BooleanBuilder*>(raw_builder)
-          ->AppendValues(array->GetValues<uint8_t>(1, 0), length,
-                         array->GetValues<uint8_t>(0, 0), array->offset + offset);
-    };
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_fixed_size_binary<T, Status> Visit(const T& ty) {
-    const int32_t width = static_cast<const FixedSizeBinaryType&>(ty).byte_width();
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      return checked_cast<FixedSizeBinaryBuilder*>(raw_builder)
-          ->AppendValues(
-              array->GetValues<uint8_t>(1, 0) + ((array->offset + offset) * width),
-              length, array->GetValues<uint8_t>(0, 0), array->offset + offset);
-    };
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using offset_type = typename T::offset_type;
-    array_appender = [](ArrayBuilder* raw_builder,
-                        const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                        const int64_t length) {
-      auto builder = checked_cast<BuilderType*>(raw_builder);
-      auto bitmap = array->GetValues<uint8_t>(0, 0);
-      auto offsets = array->GetValues<offset_type>(1);
-      auto data = array->GetValues<uint8_t>(2, 0);
-      for (int64_t i = 0; i < length; i++) {
-        if (!bitmap || BitUtil::GetBit(bitmap, offset + i)) {
-          const offset_type start = offsets[offset + i];
-          const offset_type end = offsets[offset + i + 1];
-          RETURN_NOT_OK(builder->Append(data + start, end - start));
-        } else {
-          RETURN_NOT_OK(builder->AppendNull());
-        }
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& ty) {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using offset_type = typename T::offset_type;
-    const auto& list_ty = checked_cast<const T&>(ty);
-    ArrayAppenderFunc sub_appender;
-    RETURN_NOT_OK(GetValueAppenders(*list_ty.value_type(), &sub_appender));
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<BuilderType*>(raw_builder);
-      auto child_builder = builder->value_builder();
-      const offset_type* offsets = array->GetValues<offset_type>(1);
-      const uint8_t* validity =
-          array->MayHaveNulls() ? array->buffers[0]->data() : nullptr;
-      for (int64_t row = offset; row < offset + length; row++) {
-        if (!validity || BitUtil::GetBit(validity, array->offset + row)) {
-          RETURN_NOT_OK(builder->Append());
-          int64_t length = offsets[row + 1] - offsets[row];
-          RETURN_NOT_OK(
-              sub_appender(child_builder, array->child_data[0], offsets[row], length));
-        } else {
-          RETURN_NOT_OK(builder->AppendNull());
-        }
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const MapType& ty) {
-    const auto& map_ty = checked_cast<const MapType&>(ty);
-    ArrayAppenderFunc key_appender, item_appender;
-    RETURN_NOT_OK(GetValueAppenders(*map_ty.key_type(), &key_appender));
-    RETURN_NOT_OK(GetValueAppenders(*map_ty.item_type(), &item_appender));
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<MapBuilder*>(raw_builder);
-      auto key_builder = builder->key_builder();
-      auto item_builder = builder->item_builder();
-      const int32_t* offsets = array->GetValues<int32_t>(1);
-      const uint8_t* validity =
-          array->MayHaveNulls() ? array->buffers[0]->data() : nullptr;
-      for (int64_t row = offset; row < offset + length; row++) {
-        if (!validity || BitUtil::GetBit(validity, array->offset + row)) {
-          RETURN_NOT_OK(builder->Append());
-          int64_t length = offsets[row + 1] - offsets[row];
-          RETURN_NOT_OK(key_appender(key_builder, array->child_data[0]->child_data[0],
-                                     offsets[row], length));
-          RETURN_NOT_OK(item_appender(item_builder, array->child_data[0]->child_data[1],
-                                      offsets[row], length));
-        } else {
-          RETURN_NOT_OK(builder->AppendNull());
-        }
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const StructType& ty) {
-    const auto& struct_ty = checked_cast<const StructType&>(ty);
-    std::vector<ArrayAppenderFunc> appenders(struct_ty.num_fields());
-    for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
-      RETURN_NOT_OK(GetValueAppenders(*struct_ty.field(i)->type(), &appenders[i]));
-    }
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<StructBuilder*>(raw_builder);
-      for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
-        RETURN_NOT_OK(appenders[i](builder->field_builder(i), array->child_data[i],
-                                   array->offset + offset, length));
-      }
-      const uint8_t* validity =
-          array->MayHaveNulls() ? array->buffers[0]->data() : nullptr;
-      for (int64_t row = offset; row < offset + length; row++) {
-        RETURN_NOT_OK(
-            builder->Append(!validity || BitUtil::GetBit(validity, array->offset + row)));
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const FixedSizeListType& ty) {
-    const auto& list_ty = checked_cast<const FixedSizeListType&>(ty);
-    const int64_t width = list_ty.list_size();
-    ArrayAppenderFunc sub_appender;
-    RETURN_NOT_OK(GetValueAppenders(*list_ty.value_type(), &sub_appender));
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<FixedSizeListBuilder*>(raw_builder);
-      auto child_builder = builder->value_builder();
-      const uint8_t* validity =
-          array->MayHaveNulls() ? array->buffers[0]->data() : nullptr;
-      for (int64_t row = offset; row < offset + length; row++) {
-        if (!validity || BitUtil::GetBit(validity, array->offset + row)) {
-          RETURN_NOT_OK(sub_appender(child_builder, array->child_data[0],
-                                     width * (array->offset + row), width));
-          RETURN_NOT_OK(builder->Append());
-        } else {
-          RETURN_NOT_OK(builder->AppendNull());
-        }
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const DenseUnionType& ty) {
-    const auto& union_ty = checked_cast<const UnionType&>(ty);
-    std::vector<ArrayAppenderFunc> appenders(union_ty.num_fields());
-    for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
-      RETURN_NOT_OK(GetValueAppenders(*union_ty.field(i)->type(), &appenders[i]));
-    }
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<DenseUnionBuilder*>(raw_builder);
-      const int8_t* type_codes = array->GetValues<int8_t>(1);
-      for (int64_t row = offset; row < offset + length; row++) {
-        const int8_t type_code = type_codes[row];
-        const int child_id =
-            checked_cast<const UnionType&>(*builder->type()).child_ids()[type_code];
-        const int32_t union_offset = array->GetValues<int32_t>(2)[row];
-        RETURN_NOT_OK(builder->Append(type_code));
-        RETURN_NOT_OK(appenders[child_id](builder->child_builder(child_id).get(),
-                                          array->child_data[child_id], union_offset,
-                                          /*length=*/1));
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const SparseUnionType& ty) {
-    const auto& union_ty = checked_cast<const UnionType&>(ty);
-    std::vector<ArrayAppenderFunc> appenders(union_ty.num_fields());
-    for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
-      RETURN_NOT_OK(GetValueAppenders(*union_ty.field(i)->type(), &appenders[i]));
-    }
-    array_appender = [=](ArrayBuilder* raw_builder,
-                         const std::shared_ptr<ArrayData>& array, const int64_t offset,
-                         const int64_t length) {
-      auto builder = checked_cast<SparseUnionBuilder*>(raw_builder);
-      for (int i = 0; static_cast<size_t>(i) < appenders.size(); i++) {
-        RETURN_NOT_OK(appenders[i](builder->child_builder(i).get(), array->child_data[i],
-                                   array->offset + offset, length));
-      }
-      const int8_t* type_codes = array->GetValues<int8_t>(1);
-      for (int64_t row = offset; row < offset + length; row++) {
-        RETURN_NOT_OK(builder->Append(type_codes[row]));
-      }
-      return Status::OK();
-    };
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& ty) {
-    return Status::NotImplemented("Appender for type ", ty);
-  }
-
-  ArrayAppenderFunc GetArrayAppender() { return array_appender; }
-
-  ArrayAppenderFunc array_appender;
-};
-
-static Status GetValueAppenders(const DataType& type, ArrayAppenderFunc* array_appender) {
-  // We could extend this to cover scalars too, avoiding a type check in AppendScalar
-  GetAppenders get_appenders;
-  RETURN_NOT_OK(VisitTypeInline(type, &get_appenders));
-  *array_appender = std::move(get_appenders.array_appender);
-  return Status::OK();
-}
 
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
@@ -1831,9 +1573,6 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& ty = checked_cast<const Type&>(*out->type());
-    ArrayAppenderFunc array_appender;
-    RETURN_NOT_OK(GetValueAppenders(ty, &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
@@ -1859,11 +1598,6 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
-        },
-        // AppendArray
-        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-            const int64_t row) {
-          return array_appender(raw_builder, array, row, /*length=*/1);
         });
   }
 };
@@ -1881,8 +1615,6 @@ struct CaseWhenFunctor<MapType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayAppenderFunc array_appender;
-    RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
@@ -1890,11 +1622,6 @@ struct CaseWhenFunctor<MapType> {
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
-        },
-        // AppendArray
-        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-            const int64_t row) {
-          return array_appender(raw_builder, array, row, /*length=*/1);
         });
   }
 };
@@ -1912,8 +1639,6 @@ struct CaseWhenFunctor<StructType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayAppenderFunc array_appender;
-    RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
@@ -1921,11 +1646,6 @@ struct CaseWhenFunctor<StructType> {
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
-        },
-        // AppendArray
-        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-            const int64_t row) {
-          return array_appender(raw_builder, array, row, /*length=*/1);
         });
   }
 };
@@ -1945,8 +1665,6 @@ struct CaseWhenFunctor<FixedSizeListType> {
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& ty = checked_cast<const FixedSizeListType&>(*out->type());
     const int64_t width = ty.list_size();
-    ArrayAppenderFunc array_appender;
-    RETURN_NOT_OK(GetValueAppenders(ty, &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
@@ -1959,11 +1677,6 @@ struct CaseWhenFunctor<FixedSizeListType> {
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
-        },
-        // AppendArray
-        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-            const int64_t row) {
-          return array_appender(raw_builder, array, row, /*length=*/1);
         });
   }
 };
@@ -1981,8 +1694,6 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ArrayAppenderFunc array_appender;
-    RETURN_NOT_OK(GetValueAppenders(*out->type(), &array_appender));
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
@@ -1990,11 +1701,6 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
         // AppendScalar
         [](ArrayBuilder* raw_builder, const Scalar& scalar) {
           return raw_builder->AppendScalar(scalar);
-        },
-        // AppendArray
-        [&](ArrayBuilder* raw_builder, const std::shared_ptr<ArrayData>& array,
-            const int64_t row) {
-          return array_appender(raw_builder, array, row, /*length=*/1);
         });
   }
 };
