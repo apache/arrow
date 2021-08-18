@@ -986,13 +986,15 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| Function name            | Arity      | Input types        | Output type           | Options class                              |
-+==========================+============+====================+=======================+============================================+
-| cast                     | Unary      | Many               | Variable              | :struct:`CastOptions`                      |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| strptime                 | Unary      | String-like        | Timestamp             | :struct:`StrptimeOptions`                  |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
++--------------------------+------------+--------------------+------------------+------------------------------+
+| Function name            | Arity      | Input types        | Output type      | Options class                |
++==========================+============+====================+==================+==============================+
+| cast                     | Unary      | Many               | Variable         | :struct:`CastOptions`        |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strftime                 | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strptime                 | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.

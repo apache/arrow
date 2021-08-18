@@ -178,6 +178,21 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   TimeUnit::type unit;
 };
 
+class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
+ public:
+  explicit StrftimeOptions(std::string format, std::string locale = "C");
+  StrftimeOptions();
+
+  constexpr static char const kTypeName[] = "StrftimeOptions";
+
+  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%SZ";
+
+  /// The desired format string.
+  std::string format;
+  /// The desired output locale string.
+  std::string locale;
+};
+
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
   explicit PadOptions(int64_t width, std::string padding = " ");
@@ -998,6 +1013,21 @@ Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Format timestamps according to a format string
+///
+/// Return formatted time strings according to the format string
+/// `StrftimeOptions::format` and to the locale specifier `Strftime::locale`.
+///
+/// \param[in] values input timestamps
+/// \param[in] options for setting format string and locale
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

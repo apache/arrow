@@ -494,6 +494,9 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
   return out;
 }
 
+ARROW_TESTING_EXPORT
+bool LocaleExists(const char* locale);
+
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the
 // new locale doesn't exist on the local machine.

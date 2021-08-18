@@ -981,6 +981,18 @@ class StrptimeOptions(_StrptimeOptions):
         self._set_options(format, unit)
 
 
+cdef class _StrftimeOptions(FunctionOptions):
+    def _set_options(self, format, locale):
+        self.wrapped.reset(
+            new CStrftimeOptions(tobytes(format), tobytes(locale))
+        )
+
+
+class StrftimeOptions(_StrftimeOptions):
+    def __init__(self, format="%Y-%m-%dT%H:%M:%SZ", locale="C"):
+        self._set_options(format, locale)
+
+
 cdef class _DayOfWeekOptions(FunctionOptions):
     def _set_options(self, one_based_numbering, week_start):
         self.wrapped.reset(
