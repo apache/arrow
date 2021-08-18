@@ -46,7 +46,56 @@ test_that("summarize", {
     tbl,
     warning = TRUE
   )
+  
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(mean_int = mean(int)),
+    tbl,
+    warning = TRUE
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(sd_int = sd(int)),
+    tbl,
+    warning = TRUE
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(var_int = var(int)),
+    tbl,
+    warning = TRUE
+  )
 })
+
+
+test_that("mean, sd, and var", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = mean(dbl)),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = sd(dbl)),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = var(dbl)),
+    tbl
+  )
+})
+
 
 test_that("Can aggregate in Arrow", {
   expect_dplyr_equal(
