@@ -638,10 +638,24 @@ TEST(GroupBy, Errors) {
 
 namespace {
 void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
-  SortOptions options{{SortKey("key_0", SortOrder::Ascending)}};
+  SortOptions options;
+  for (auto&& name : names) {
+    options.sort_keys.emplace_back(std::move(name), SortOrder::Ascending);
+  }
 
   ASSERT_OK_AND_ASSIGN(
       auto batch, RecordBatch::FromStructArray(aggregated_and_grouped->make_array()));
+
+  // decode any dictionary columns:
+  ArrayVector cols = batch->columns();
+  for (auto& col : cols) {
+    if (col->type_id() != Type::DICTIONARY) continue;
+
+    auto dict_col = checked_cast<const DictionaryArray*>(col.get());
+    ASSERT_OK_AND_ASSIGN(col, Take(*dict_col->dictionary(), *dict_col->indices()));
+  }
+  batch = RecordBatch::Make(batch->schema(), batch->num_rows(), std::move(cols));
+
   ASSERT_OK_AND_ASSIGN(Datum sort_indices, SortIndices(batch, options));
 
   ASSERT_OK_AND_ASSIGN(*aggregated_and_grouped,
@@ -1293,9 +1307,7 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
                                            {
                                                {"hash_sum", nullptr},
                                            }));
-    if (key_type->Equals(utf8())) {
-      SortBy({"key_0"}, &aggregated_and_grouped);
-    }
+    SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("hash_sum", float64()),
