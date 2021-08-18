@@ -182,7 +182,10 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
  public:
   explicit StrftimeOptions(std::string format, std::string locale = "C");
   StrftimeOptions();
+
   constexpr static char const kTypeName[] = "StrftimeOptions";
+
+  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%SZ";
 
   /// The desired format string.
   std::string format;
@@ -1011,11 +1014,13 @@ Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Strftime returns formatted time strings as specified by time format string and
-/// locale string for each element of `values`.
+/// \brief Format timestamps according to a format string
 ///
-/// \param[in] values input to print time string from
-/// \param[in] options for setting time format string and locale
+/// Return formatted time strings according to the format string
+/// `StrftimeOptions::format` and to the locale specifier `Strftime::locale`.
+///
+/// \param[in] values input timestamps
+/// \param[in] options for setting format string and locale
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///

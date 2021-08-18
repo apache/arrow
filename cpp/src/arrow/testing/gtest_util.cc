@@ -566,6 +566,15 @@ std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
   return MakeArray(data);
 }
 
+bool LocaleExists(const char* locale) {
+  try {
+    std::locale loc(locale);
+    return true;
+  } catch (std::runtime_error&) {
+    return false;
+  }
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {

@@ -244,8 +244,9 @@ StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
     : FunctionOptions(internal::kStrftimeOptionsType),
       format(std::move(format)),
       locale(std::move(locale)) {}
-StrftimeOptions::StrftimeOptions() : StrftimeOptions("%Y-%m-%dT%H:%M:%SZ") {}
+StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
+constexpr const char* StrftimeOptions::kDefaultFormat;
 
 PadOptions::PadOptions(int64_t width, std::string padding)
     : FunctionOptions(internal::kPadOptionsType),

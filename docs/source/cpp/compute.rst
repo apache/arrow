@@ -986,13 +986,15 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| Function name            | Arity      | Input types        | Output type           | Options class                              |
-+==========================+============+====================+=======================+============================================+
-| cast                     | Unary      | Many               | Variable              | :struct:`CastOptions`                      |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| strptime                 | Unary      | String-like        | Timestamp             | :struct:`StrptimeOptions`                  |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
++--------------------------+------------+--------------------+------------------+------------------------------+
+| Function name            | Arity      | Input types        | Output type      | Options class                |
++==========================+============+====================+==================+==============================+
+| cast                     | Unary      | Many               | Variable         | :struct:`CastOptions`        |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strftime                 | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strptime                 | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
@@ -1120,8 +1122,6 @@ If the input timestamps have a non-empty timezone, localized timestamp component
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | subsecond          | Unary      | Timestamp         | Double        |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| strftime           | Unary      | Temporal          | String        | :struct:`StrftimeOptions`  | \(4)  |
-+--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
   represented by 0 and ends on Sunday represented by 6. :member:`DayOfWeekOptions::week_start` can be used to set
@@ -1131,7 +1131,6 @@ If the input timestamps have a non-empty timezone, localized timestamp component
   starts with the first ISO week.
   See `ISO 8601 week date definition`_ for more details.
 * \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
-* \(4) Output is a timestamp string. To define timestamp format :member:`StrftimeOptions::format` can be used.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 

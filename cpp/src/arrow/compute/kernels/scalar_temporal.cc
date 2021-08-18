@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -63,6 +65,10 @@ const std::shared_ptr<DataType>& IsoCalendarType() {
   return type;
 }
 
+const std::string& GetInputTimezone(const DataType& type) {
+  return checked_cast<const TimestampType&>(type).timezone();
+}
+
 const std::string& GetInputTimezone(const Datum& datum) {
   return checked_cast<const TimestampType&>(*datum.type()).timezone();
 }
@@ -75,14 +81,20 @@ const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
 }
 
-Result<const time_zone*> LocateZone(std::string timezone) {
-  const time_zone* tz;
+Result<const time_zone*> LocateZone(const std::string& timezone) {
   try {
-    tz = locate_zone(timezone);
+    return locate_zone(timezone);
   } catch (const std::runtime_error& ex) {
-    return Status::Invalid(ex.what());
+    return Status::Invalid("Cannot locate timezone '", timezone, "': ", ex.what());
   }
-  return tz;
+}
+
+Result<std::locale> GetLocale(const std::string& locale) {
+  try {
+    return std::locale(locale);
+  } catch (const std::runtime_error& ex) {
+    return Status::Invalid("Cannot find locale '", locale, "': ", ex.what());
+  }
 }
 
 struct NonZonedLocalizer {
@@ -455,29 +467,34 @@ struct Nanosecond {
 
 #ifndef _WIN32
 template <typename Duration>
-inline static std::string strftime(int64_t arg, const std::locale* locale,
-                                   const time_zone* tz, const std::string* format) {
-  auto zt =
-      arrow_vendored::date::zoned_time<Duration>{tz, sys_time<Duration>(Duration{arg})};
-  return arrow_vendored::date::format(*locale, *format, zt);
-}
-
-template <typename Duration>
 struct Strftime {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const auto& timezone = GetInputTimezone(in);
+  const StrftimeOptions& options;
+  const time_zone* tz;
+  const std::locale locale;
+
+  static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
+    const StrftimeOptions& options = StrftimeState::Get(ctx);
+
+    const auto& timezone = GetInputTimezone(type);
     if (timezone.empty()) {
       return Status::Invalid(
-          "Timestamps without a time zone cannot be reliably printed.");
+          "Timestamps without a time zone cannot be reliably formatted.");
     }
-    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-    const StrftimeOptions options = StrftimeState::Get(ctx);
-    const std::locale locale = std::locale(options.locale.c_str());
+    ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
+
+    ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
+
+    return Strftime{options, tz, std::move(locale)};
+  }
+
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+    TimestampFormatter formatter{self.options.format, self.tz, self.locale};
 
     if (in.is_valid) {
-      const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      *checked_cast<StringScalar*>(out) =
-          StringScalar(strftime<Duration>(in_val, &locale, tz, &options.format));
+      const int64_t in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
+      ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(in_val));
+      checked_cast<StringScalar*>(out)->value = Buffer::FromString(std::move(formatted));
     } else {
       out->is_valid = false;
     }
@@ -485,24 +502,23 @@ struct Strftime {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    const auto& timezone = GetInputTimezone(in);
-    if (timezone.empty()) {
-      return Status::Invalid("Timestamp without a time zone cannot be reliably printed.");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
-    const StrftimeOptions options = StrftimeState::Get(ctx);
-    const std::locale locale = std::locale(options.locale.c_str());
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+    TimestampFormatter formatter{self.options.format, self.tz, self.locale};
 
     StringBuilder string_builder;
-    auto string_size = static_cast<int64_t>(
-        ceil(strftime<Duration>(-1, &locale, tz, &options.format).size() * 1.1));
-    RETURN_NOT_OK(string_builder.Reserve(in.length));
-    RETURN_NOT_OK(
-        string_builder.ReserveData((in.length - in.GetNullCount()) * string_size));
+    // Presize string data using a heuristic
+    {
+      ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(42));
+      const auto string_size = static_cast<int64_t>(ceil(formatted.size() * 1.1));
+      RETURN_NOT_OK(string_builder.Reserve(in.length));
+      RETURN_NOT_OK(
+          string_builder.ReserveData((in.length - in.GetNullCount()) * string_size));
+    }
 
     auto visit_null = [&]() { return string_builder.AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      return string_builder.Append(strftime<Duration>(arg, &locale, tz, &options.format));
+      ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(arg));
+      return string_builder.Append(std::move(formatted));
     };
     RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
@@ -512,6 +528,36 @@ struct Strftime {
 
     return Status::OK();
   }
+
+  struct TimestampFormatter {
+    const char* format;
+    const time_zone* tz;
+    std::ostringstream bufstream;
+
+    explicit TimestampFormatter(const std::string& format, const time_zone* tz,
+                                const std::locale& locale)
+        : format(format.c_str()), tz(tz) {
+      bufstream.imbue(locale);
+      // Propagate errors as C++ exceptions (to get an actual error message)
+      bufstream.exceptions(std::ios::failbit | std::ios::badbit);
+    }
+
+    Result<std::string> operator()(int64_t arg) {
+      bufstream.str("");
+      const auto zt = arrow_vendored::date::zoned_time<Duration>{
+          tz, sys_time<Duration>(Duration{arg})};
+      try {
+        arrow_vendored::date::to_stream(bufstream, format, zt);
+      } catch (const std::runtime_error& ex) {
+        bufstream.clear();
+        return Status::Invalid("Failed formatting timestamp: ", ex.what());
+      }
+      // XXX could return a view with std::ostringstream::view() (C++20)
+      return std::move(bufstream).str();
+    }
+  };
+};
+
 #else
 template <typename Duration>
 struct Strftime {
@@ -521,8 +567,8 @@ struct Strftime {
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     return Status::NotImplemented("Strftime not yet implemented on windows.");
   }
-#endif
 };
+#endif
 
 // ----------------------------------------------------------------------
 // Extract ISO calendar values from timestamp
@@ -786,12 +832,12 @@ const FunctionDoc subsecond_doc{
     {"values"}};
 
 const FunctionDoc strftime_doc{
-    "Convert timestamp to a string",
-    ("Strftime returns a string representation of a timestmap with a given format "
-     "and locale.\n"
-     "The time format string and locale can be set via options.\n"
-     "Returns an error if timestamp does not have a defined timezone."),
-    {"values"},
+    "Format timestamps according to a format string",
+    ("For each input timestamp, emit a formatted string.\n"
+     "The time format string and locale can be set using StrftimeOptions.\n"
+     "An error is returned if the timestamps don't have a defined timezone,\n"
+     "or if the timezone cannot be found in the timezone database."),
+    {"timestamps"},
     "StrftimeOptions"};
 
 }  // namespace

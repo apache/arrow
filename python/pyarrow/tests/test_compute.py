@@ -129,13 +129,11 @@ def test_option_class_equality():
         pc.SplitPatternOptions(pattern="pattern"),
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
+        pc.StrftimeOptions(),
     ]
-    if sys.platform != 'win32':
-        options.append(pc.StrftimeOptions())
     classes = {type(option) for option in options}
     for cls in exported_option_classes:
-        if cls not in classes and sys.platform != 'win32' and \
-                cls != pc.StrftimeOptions:
+        if cls not in classes:
             try:
                 options.append(cls())
             except TypeError:
@@ -1426,9 +1424,9 @@ def test_strftime():
     for unit in ["s", "ms", "us", "ns"]:
         tsa = pa.array(ts, type=pa.timestamp(unit))
         for fmt in formats:
-            with pytest.raises(pa.ArrowInvalid, match="Timestamp without a "
-                                                      "time zone cannot be "
-                                                      "reliably printed."):
+            with pytest.raises(pa.ArrowInvalid,
+                               match="Timestamps without a time zone "
+                                     "cannot be reliably formatted"):
                 pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
 
 
