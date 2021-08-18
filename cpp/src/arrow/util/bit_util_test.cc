@@ -1939,7 +1939,7 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 #undef U64
 #undef S64
 
-static void TestZigZag(int32_t v, uint8_t* buffer_expect) {
+static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
   uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLength] = {};
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
@@ -1955,25 +1955,17 @@ static void TestZigZag(int32_t v, uint8_t* buffer_expect) {
 }
 
 TEST(BitStreamUtil, ZigZag) {
-  uint8_t buffer_expect0[5] = {0, 0, 0, 0, 0};
-  uint8_t buffer_expect1[5] = {2, 0, 0, 0, 0};
-  uint8_t buffer_expect2[5] = {164, 19, 0, 0, 0};
-  uint8_t buffer_expect3[5] = {1, 0, 0, 0, 0};
-  uint8_t buffer_expect4[5] = {163, 19, 0, 0, 0};
-  uint8_t buffer_expect5[5] = {254, 255, 255, 255, 15};
-  uint8_t buffer_expect6[5] = {253, 255, 255, 255, 15};
-  uint8_t buffer_expect7[5] = {255, 255, 255, 255, 15};
-  TestZigZag(0, buffer_expect0);
-  TestZigZag(1, buffer_expect1);
-  TestZigZag(1234, buffer_expect2);
-  TestZigZag(-1, buffer_expect3);
-  TestZigZag(-1234, buffer_expect4);
-  TestZigZag(std::numeric_limits<int32_t>::max(), buffer_expect5);
-  TestZigZag(-std::numeric_limits<int32_t>::max(), buffer_expect6);
-  TestZigZag(std::numeric_limits<int32_t>::min(), buffer_expect7);
+  TestZigZag(0, {0, 0, 0, 0, 0});
+  TestZigZag(1, {2, 0, 0, 0, 0});
+  TestZigZag(1234, {164, 19, 0, 0, 0});
+  TestZigZag(-1, {1, 0, 0, 0, 0});
+  TestZigZag(-1234, {163, 19, 0, 0, 0});
+  TestZigZag(std::numeric_limits<int32_t>::max(), {254, 255, 255, 255, 15});
+  TestZigZag(-std::numeric_limits<int32_t>::max(), {253, 255, 255, 255, 15});
+  TestZigZag(std::numeric_limits<int32_t>::min(), {255, 255, 255, 255, 15});
 }
 
-static void TestZigZag64(int64_t v, uint8_t* buffer_expect) {
+static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
   uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLengthForInt64] = {};
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
@@ -1994,22 +1986,14 @@ static void TestZigZag64(int64_t v, uint8_t* buffer_expect) {
 }
 
 TEST(BitStreamUtil, ZigZag64) {
-  uint8_t buffer_expect0[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-  uint8_t buffer_expect1[10] = {2, 0, 0, 0, 0, 0, 0, 0, 0};
-  uint8_t buffer_expect2[10] = {164, 19, 0, 0, 0, 0, 0, 0, 0};
-  uint8_t buffer_expect3[10] = {1, 0, 0, 0, 0, 0, 0, 0, 0};
-  uint8_t buffer_expect4[10] = {163, 19, 0, 0, 0, 0, 0, 0, 0};
-  uint8_t buffer_expect5[10] = {254, 255, 255, 255, 255, 255, 255, 255, 255, 1};
-  uint8_t buffer_expect6[10] = {253, 255, 255, 255, 255, 255, 255, 255, 255, 1};
-  uint8_t buffer_expect7[10] = {255, 255, 255, 255, 255, 255, 255, 255, 255, 1};
-  TestZigZag64(0, buffer_expect0);
-  TestZigZag64(1, buffer_expect1);
-  TestZigZag64(1234, buffer_expect2);
-  TestZigZag64(-1, buffer_expect3);
-  TestZigZag64(-1234, buffer_expect4);
-  TestZigZag64(std::numeric_limits<int64_t>::max(), buffer_expect5);
-  TestZigZag64(-std::numeric_limits<int64_t>::max(), buffer_expect6);
-  TestZigZag64(std::numeric_limits<int64_t>::min(), buffer_expect7);
+  TestZigZag64(0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(1, {2, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(1234, {164, 19, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(-1, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(-1234, {163, 19, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(std::numeric_limits<int64_t>::max(), {254, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(-std::numeric_limits<int64_t>::max(), {253, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(std::numeric_limits<int64_t>::min(), {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
 }
 
 TEST(BitUtil, RoundTripLittleEndianTest) {

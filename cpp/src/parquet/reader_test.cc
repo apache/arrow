@@ -18,10 +18,8 @@
 #include <fcntl.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -36,6 +34,7 @@
 #include "arrow/util/make_unique.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
+
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"

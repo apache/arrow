@@ -21,6 +21,12 @@
 #pragma warning(disable : 4800)
 #endif
 
+#ifdef ARROW_CSV
+#include "arrow/csv/api.h"
+#endif
+
+#include "gtest/gtest.h"
+
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -34,7 +40,6 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/csv/api.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -48,9 +53,10 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
-#include "gtest/gtest.h"
+
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
+
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -4055,6 +4061,7 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
   ::arrow::AssertTablesEqual(*table, *actual);
 }
 
+#ifdef ARROW_CSV
 TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   auto file = test::get_data_file("delta_binary_packed.parquet");
   auto expect_file = test::get_data_file("delta_binary_packed_expect.csv");
@@ -4081,6 +4088,7 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
 
   ::arrow::AssertTablesEqual(*table, *expect_table);
 }
+#endif
 
 }  // namespace arrow
 }  // namespace parquet

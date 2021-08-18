@@ -407,3 +407,7 @@ endif()
 if(ARROW_WITH_ZSTD)
   add_definitions(-DARROW_WITH_ZSTD)
 endif()
+
+if(ARROW_CSV)
+  add_definitions(-DARROW_CSV)
+endif()

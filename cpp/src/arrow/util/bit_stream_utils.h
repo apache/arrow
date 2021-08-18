@@ -284,7 +284,10 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
-    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < 64)) {
+    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
+      // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
+      // change and the following code may cause a runtime error that the shift exponent
+      // is too large
       *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
                                << (num_bits - *bit_offset));
     }
