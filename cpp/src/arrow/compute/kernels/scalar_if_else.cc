@@ -1454,11 +1454,11 @@ static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& ba
   return Status::OK();
 }
 
-// TODO: untemplate on ReserveData to avoid generating so many overloads
-template <typename ReserveData, typename AppendScalar>
-static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch,
-                                        Datum* out, ReserveData reserve_data,
-                                        AppendScalar append_scalar) {
+// Use std::function for reserve_data to avoid instantiating template so much
+template <typename AppendScalar>
+static Status ExecVarWidthArrayCaseWhenImpl(
+    KernelContext* ctx, const ExecBatch& batch, Datum* out,
+    std::function<Status(ArrayBuilder*)> reserve_data, AppendScalar append_scalar) {
   const auto& conds_array = *batch.values[0].array();
   ArrayData* output = out->mutable_array();
   const bool have_else_arg =
@@ -1510,6 +1510,17 @@ static Status ExecVarWidthArrayCaseWhen(KernelContext* ctx, const ExecBatch& bat
   return Status::OK();
 }
 
+// Single instantiation using ArrayBuilder::AppendScalar for append_scalar
+static Status ExecVarWidthArrayCaseWhen(
+    KernelContext* ctx, const ExecBatch& batch, Datum* out,
+    std::function<Status(ArrayBuilder*)> reserve_data) {
+  return ExecVarWidthArrayCaseWhenImpl(
+      ctx, batch, out, std::move(reserve_data),
+      [](ArrayBuilder* raw_builder, const Scalar& scalar) {
+        return raw_builder->AppendScalar(scalar);
+      });
+}
+
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
@@ -1525,7 +1536,7 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(
+    return ExecVarWidthArrayCaseWhenImpl(
         ctx, batch, out,
         // ReserveData
         [&](ArrayBuilder* raw_builder) {
@@ -1594,10 +1605,6 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
             }
           }
           return child_builder->Reserve(reservation);
-        },
-        // AppendScalar
-        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
-          return raw_builder->AppendScalar(scalar);
         });
   }
 };
@@ -1615,14 +1622,9 @@ struct CaseWhenFunctor<MapType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(
-        ctx, batch, out,
-        // ReserveData
-        [](ArrayBuilder*) { return Status::OK(); },
-        // AppendScalar
-        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
-          return raw_builder->AppendScalar(scalar);
-        });
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out,
+                                     // ReserveData
+                                     [](ArrayBuilder*) { return Status::OK(); });
   }
 };
 
@@ -1639,14 +1641,9 @@ struct CaseWhenFunctor<StructType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(
-        ctx, batch, out,
-        // ReserveData
-        [](ArrayBuilder*) { return Status::OK(); },
-        // AppendScalar
-        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
-          return raw_builder->AppendScalar(scalar);
-        });
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out,
+                                     // ReserveData
+                                     [](ArrayBuilder*) { return Status::OK(); });
   }
 };
 
@@ -1673,10 +1670,6 @@ struct CaseWhenFunctor<FixedSizeListType> {
           return checked_cast<FixedSizeListBuilder*>(raw_builder)
               ->value_builder()
               ->Reserve(children);
-        },
-        // AppendScalar
-        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
-          return raw_builder->AppendScalar(scalar);
         });
   }
 };
@@ -1697,11 +1690,7 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
     return ExecVarWidthArrayCaseWhen(
         ctx, batch, out,
         // ReserveData
-        [&](ArrayBuilder* raw_builder) { return Status::OK(); },
-        // AppendScalar
-        [](ArrayBuilder* raw_builder, const Scalar& scalar) {
-          return raw_builder->AppendScalar(scalar);
-        });
+        [&](ArrayBuilder* raw_builder) { return Status::OK(); });
   }
 };
 
