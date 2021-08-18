@@ -238,7 +238,7 @@ cdef class Expression(_Weakrefable):
         """Checks whether the expression is null"""
         cdef:
             shared_ptr[CFunctionOptions] c_options
-        
+
         c_options.reset(new CNanNullOptions(nan_is_null))
         return Expression._call("is_null", [self], c_options)
 

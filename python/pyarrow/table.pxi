@@ -170,11 +170,12 @@ cdef class ChunkedArray(_PandasConvertible):
             else:
                 index -= self.chunked_array.chunk(j).get().length()
 
-    def is_null(self):
+    def is_null(self, nan_is_null=False):
         """
         Return BooleanArray indicating the null values.
         """
-        return _pc().is_null(self)
+        options = _pc().NanNullOptions(nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
