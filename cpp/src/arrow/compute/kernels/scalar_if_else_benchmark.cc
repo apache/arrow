@@ -159,12 +159,6 @@ static void CaseWhenBench(benchmark::State& state) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
 
-  auto cond1 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond2 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond3 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
   auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
@@ -198,12 +192,6 @@ static void CaseWhenBenchList(benchmark::State& state) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
 
-  auto cond1 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond2 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond3 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
   auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),

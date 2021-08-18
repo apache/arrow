@@ -1417,8 +1417,8 @@ struct CaseWhenFunctor<NullType> {
   }
 };
 
-static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch,
-                                         Datum* out) {
+Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch,
+                                  Datum* out) {
   const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
   Datum result;
   for (size_t i = 0; i < batch.values.size() - 1; i++) {
@@ -1435,6 +1435,7 @@ static Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& ba
     }
   }
   if (out->is_scalar()) {
+    DCHECK(result.is_scalar() || result.kind() == Datum::NONE);
     *out = result.is_scalar() ? result.scalar() : MakeNullScalar(out->type());
     return Status::OK();
   }
