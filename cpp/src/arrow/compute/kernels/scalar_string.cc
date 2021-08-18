@@ -680,7 +680,8 @@ template <typename Type>
 using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 
 struct AsciiTitleTransform : public StringTransformBase {
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits, uint8_t* output) {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     const uint8_t* const end = input + input_string_ncodeunits;
     while (input <= end) {
       const uint8_t* c_;
@@ -4159,7 +4160,8 @@ const FunctionDoc ascii_capitalize_doc(
     {"strings"});
 
 const FunctionDoc ascii_title_doc(
-    "Transform ASCII input to a string where the first alpha character in each word is uppercase and all other characters are lowercase",
+    "Transform ASCII input to a string where the first alpha character in each word is "
+    "uppercase and all other characters are lowercase",
     ("For each string in `strings`, return a title version.\n\n"
      "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_title\" instead."),
