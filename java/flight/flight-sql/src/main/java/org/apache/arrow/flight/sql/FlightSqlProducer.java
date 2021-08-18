@@ -730,5 +730,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final int SQL_IDENTIFIER_CASE = 503;
     public static final int SQL_IDENTIFIER_QUOTE_CHAR = 504;
     public static final int SQL_QUOTED_IDENTIFIER_CASE = 505;
+
+    private SqlInfo() {
+      // Prevent instantiation.
+    }
   }
 }
