@@ -808,3 +808,32 @@ agg_funcs$all <- function(x, na.rm = FALSE) {
     options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
+
+agg_funcs$mean <- function(x, na.rm = FALSE) {
+  list(
+    fun = "mean",
+    data = x,
+    options = arrow_na_rm(na.rm = na.rm)
+  )
+}
+agg_funcs$sd <- function(x, na.rm = FALSE) {
+  list(
+    fun = "stddev",
+    data = x,
+    options = arrow_na_rm(na.rm = na.rm)
+  )
+}
+agg_funcs$var <- function(x, na.rm = FALSE) {
+  list(
+    fun = "variance",
+    data = x,
+    options = arrow_na_rm(na.rm = na.rm)
+  )
+}
+arrow_na_rm <- function(na.rm) {
+  if (!isTRUE(na.rm)) {
+    # TODO: ARROW-13497
+    arrow_not_supported(paste("na.rm =", na.rm))
+  }
+  list(na.rm = na.rm, na.min_count = 0L)
+}
