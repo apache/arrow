@@ -274,15 +274,15 @@ we can compute a sum of the column ``x``, grouped on the column ``key``.
 This gives us three groups, with the following results. Note that null is
 treated as a distinct key value.
 
-+------------------+-------------------+
-| Column ``key``   | Column ``sum(x)`` |
-+==================+===================+
-| "a"              | 7                 |
-+------------------+-------------------+
-| "b"              | null              |
-+------------------+-------------------+
-| null             | 9                 |
-+------------------+-------------------+
++------------------+-----------------------+
+| Column ``key``   | Column ``sum(x)``     |
++==================+=======================+
+| "a"              | 7                     |
++------------------+-----------------------+
+| "b"              | null                  |
++------------------+-----------------------+
+| null             | 9                     |
++------------------+-----------------------+
 
 The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
