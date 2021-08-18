@@ -70,6 +70,11 @@ ARROW_NOINLINE int64_t ConsumeVector(Vector v) {
   return reinterpret_cast<intptr_t>(v.data());
 }
 
+// NOTE: The Move* benchmarks measure the overhead of constructing a
+// stack-allocated vector in addition to the actual cost of moving.
+// Unfortunately, other strategies such as allocating a large vector of
+// vectors up front seem to fare even worse.
+
 template <typename Vector>
 void MoveEmptyVector(benchmark::State& state) {
   constexpr int kNumIters = 1000;
