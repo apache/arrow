@@ -1446,8 +1446,8 @@ def test_extract_datetime_components():
     if sys.platform == 'win32':
         # TODO: We should test on windows once ARROW-13168 is resolved.
         pytest.skip('Timezone database is not available on Windows yet')
-    elif Version(pd.__version__) <= Version('0.23.0'):
-        pytest.skip('Pandas 0.23.0 extracts time components incorrectly.')
+    elif Version(pd.__version__) < Version('1.0.0'):
+        pytest.skip('Pandas < 1.0 extracts time components incorrectly.')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
