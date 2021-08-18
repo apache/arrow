@@ -248,9 +248,9 @@ Grouped Aggregations ("group by")
 Grouped aggregations are not directly invokable, but are used as part of a
 SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
 reduce multiple input values to a single output value. Instead of aggregating
-all values of the input, however, grouped aggregations partition of the input
+all values of the input, however, grouped aggregations partition the input
 values on some set of "key" columns, then aggregate each group individually,
-emitting one output per input group.
+emitting one output value per input group.
 
 As an example, for the following table:
 
@@ -267,12 +267,12 @@ As an example, for the following table:
 +-----------------+--------------+
 | null            | null         |
 +-----------------+--------------+
-| 5               | null         |
+| 9               | null         |
 +-----------------+--------------+
 
-We compute a sum of column "x", grouped on the key column "key". This gives us
-three groups, with the following results. Note that null is treated as a
-distinct key.
+we can compute a sum of the column "x", grouped on the column "key".
+This gives us three groups, with the following results. Note that null is
+treated as a distinct key value.
 
 +-----------------+--------------+
 | Column "sum(x)" | Column "key" |
@@ -281,12 +281,12 @@ distinct key.
 +-----------------+--------------+
 | null            | "b"          |
 +-----------------+--------------+
-| 5               | null         |
+| 9               | null         |
 +-----------------+--------------+
 
-The supported aggregation functions are as follows. Note that currently, all
-function names are prefixed with "hash\_", which differentiates them from their
-scalar equivalents above and reflects how they are implemented internally.
+The supported aggregation functions are as follows. All function names are
+prefixed with "hash\_", which differentiates them from their scalar
+equivalents above and reflects how they are implemented internally.
 
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
@@ -311,7 +311,7 @@ scalar equivalents above and reflects how they are implemented internally.
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
-  ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
+  :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
   logic is applied. The min_count option is not respected.
 
 * \(2) CountMode controls whether only non-null values are counted (the
@@ -321,7 +321,7 @@ scalar equivalents above and reflects how they are implemented internally.
 
 * \(4) Output is Int64, UInt64 or Float64, depending on the input type.
 
-* \(5) tdigest/t-digest computes approximate quantiles, and so only needs a
+* \(5) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
