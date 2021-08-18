@@ -32,9 +32,6 @@ namespace compute {
 namespace internal {
 namespace {
 
-template <typename T, typename R = T>
-using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, R>;
-
 struct IsValidOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
@@ -78,9 +75,11 @@ struct IsInfOperator {
   }
 };
 
+using NanNullState = OptionsWrapper<NanNullOptions>;
+
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+    const auto options = NanNullState::Get(ctx);
     bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
     if (in.is_valid) {
       if (is_floating(in.type->id())) {
@@ -98,7 +97,6 @@ struct IsNullOperator {
         }
       } else {
         *out_value = false;
-
       }
     } else {
       *out_value = true;
@@ -108,8 +106,7 @@ struct IsNullOperator {
   }
 
   template <typename T>
-  static enable_if_floating_point<T, void> SetNanBits(const ArrayData& arr,
-                                                      ArrayData* out) {
+  static void SetNanBits(const ArrayData& arr, ArrayData* out) {
     const T* data = arr.GetValues<T>(1);
     for (int64_t i = 0; i < arr.length; ++i) {
       if (std::isnan(data[i])) {
@@ -130,7 +127,7 @@ struct IsNullOperator {
     }
 
     if (is_floating(arr.type->id())) {
-      const auto options = OptionsWrapper<NanNullOptions>::Get(ctx);
+      const auto options = NanNullState::Get(ctx);
       if (options.nan_is_null) {
         switch (arr.type->id()) {
           case Type::FLOAT:
@@ -279,8 +276,7 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
 
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
-               /*can_write_into_slices=*/true, &kNanNullOptions,
-               OptionsWrapper<NanNullOptions>::Init);
+               /*can_write_into_slices=*/true, &kNanNullOptions, NanNullState::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
