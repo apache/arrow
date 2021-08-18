@@ -129,7 +129,7 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
@@ -139,7 +139,7 @@ class ARROW_EXPORT ExecNode {
   /// This may be called before all inputs are received.  This simply fixes
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
-  virtual void InputFinished(ExecNode* input, int seq_stop) = 0;
+  virtual void InputFinished(ExecNode* input, int total_batches) = 0;
 
   /// Lifecycle API:
   /// - start / stop to initiate and terminate production
