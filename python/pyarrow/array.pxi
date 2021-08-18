@@ -1043,7 +1043,8 @@ cdef class Array(_PandasConvertible):
         """
         Return BooleanArray indicating the null values.
         """
-        return _pc().is_null(self, nan_is_null)
+        options = _pc().NanNullOptions(nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """
