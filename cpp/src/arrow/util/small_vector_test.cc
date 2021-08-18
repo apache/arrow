@@ -465,6 +465,66 @@ class TestSmallStaticVector : public ::testing::Test {
     GTEST_SKIP() << "Cannot copy vector of move-only type";
   }
 
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void TestResize(enable_if_t<!IsMoveOnly>* = 0) {
+    constexpr size_t N = Traits::TestSizeFor(8);
+    {
+      IntVectorType<N> ints;
+      ints.resize(2);
+      ASSERT_GE(ints.capacity(), 2);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(2, 0)));
+      ints.resize(3);
+      ASSERT_GE(ints.capacity(), 3);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(3, 0)));
+      ints.resize(8);
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(8, 0)));
+      ints.resize(6);
+      ints.resize(6);  // no-op
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(6, 0)));
+      ints.resize(0);
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(0, 0)));
+      ints.resize(5);
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(5, 0)));
+      ints.resize(7);
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(7, 0)));
+    }
+    {
+      IntVectorType<N> ints;
+      ints.resize(2, IntLike(2));
+      ASSERT_GE(ints.capacity(), 2);
+      EXPECT_THAT(ints, ElementsAre(2, 2));
+      ints.resize(3, IntLike(3));
+      ASSERT_GE(ints.capacity(), 3);
+      EXPECT_THAT(ints, ElementsAre(2, 2, 3));
+      ints.resize(8, IntLike(8));
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAre(2, 2, 3, 8, 8, 8, 8, 8));
+      ints.resize(6, IntLike(6));
+      ints.resize(6, IntLike(6));  // no-op
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAre(2, 2, 3, 8, 8, 8));
+      ints.resize(0, IntLike(0));
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAre());
+      ints.resize(5, IntLike(5));
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAre(5, 5, 5, 5, 5));
+      ints.resize(7, IntLike(7));
+      ASSERT_GE(ints.capacity(), 8);
+      EXPECT_THAT(ints, ElementsAre(5, 5, 5, 5, 5, 7, 7));
+    }
+  }
+
+  template <bool IsMoveOnly = Param::IsMoveOnly()>
+  void TestResize(enable_if_t<IsMoveOnly>* = 0) {
+    GTEST_SKIP() << "Cannot resize vector of move-only type";
+  }
+
   template <size_t N>
   void CheckSort() {
     IntVectorType<N> ints;
@@ -639,6 +699,8 @@ TYPED_TEST(TestSmallStaticVector, AssignFromStdVector) {
 TYPED_TEST(TestSmallStaticVector, Move) { this->TestMove(); }
 
 TYPED_TEST(TestSmallStaticVector, Copy) { this->TestCopy(); }
+
+TYPED_TEST(TestSmallStaticVector, Resize) { this->TestResize(); }
 
 TYPED_TEST(TestSmallStaticVector, Sort) { this->TestSort(); }
 
