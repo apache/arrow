@@ -1492,3 +1492,23 @@ test_that("coalesce()", {
     fixed = TRUE
   )
 })
+
+test_that("mean, sd, and var", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = mean(int)),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = sd(int)),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(agg = var(int)),
+    tbl
+  )
+})
