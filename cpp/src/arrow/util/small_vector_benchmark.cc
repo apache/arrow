@@ -241,6 +241,46 @@ void ShortVectorInsert(benchmark::State& state) {
   BenchmarkShortVectorInsert<Vector>(state, src);
 }
 
+template <typename Vector>
+ARROW_NOINLINE void BenchmarkVectorInsertAtEnd(benchmark::State& state,
+                                               const int nitems) {
+  using T = typename Vector::value_type;
+  constexpr int kNumIters = 1000;
+
+  ARROW_CHECK_LE(static_cast<size_t>(nitems), Vector{}.max_size());
+  ARROW_CHECK_EQ(nitems % 2, 0);
+
+  std::vector<T> src;
+  for (int j = 0; j < nitems / 2; ++j) {
+    src.push_back(ValueInitializer<T>(j));
+  }
+
+  for (auto _ : state) {
+    int64_t dummy = 0;
+    for (int i = 0; i < kNumIters; ++i) {
+      Vector vec;
+      vec.reserve(nitems);
+      vec.insert(vec.end(), src.begin(), src.end());
+      vec.insert(vec.end(), src.begin(), src.end());
+      dummy += reinterpret_cast<intptr_t>(vec.data());
+      benchmark::ClobberMemory();
+    }
+    benchmark::DoNotOptimize(dummy);
+  }
+
+  state.SetItemsProcessed(state.iterations() * kNumIters * nitems);
+}
+
+template <typename Vector>
+void ShortVectorInsertAtEnd(benchmark::State& state) {
+  BenchmarkVectorInsertAtEnd<Vector>(state, 4);
+}
+
+template <typename Vector>
+void LongVectorInsertAtEnd(benchmark::State& state) {
+  BenchmarkVectorInsertAtEnd<Vector>(state, 100);
+}
+
 #define SHORT_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                                  \
   BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(int));                      \
   BENCHMARK_TEMPLATE(MoveEmptyVector, VEC_TYPE_FACTORY(std::string));              \
@@ -267,12 +307,18 @@ void ShortVectorInsert(benchmark::State& state) {
   BENCHMARK_TEMPLATE(ShortVectorPushBack, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
   BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(int));                    \
   BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(std::string));            \
-  BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(std::shared_ptr<int>));
+  BENCHMARK_TEMPLATE(ShortVectorInsert, VEC_TYPE_FACTORY(std::shared_ptr<int>));   \
+  BENCHMARK_TEMPLATE(ShortVectorInsertAtEnd, VEC_TYPE_FACTORY(int));               \
+  BENCHMARK_TEMPLATE(ShortVectorInsertAtEnd, VEC_TYPE_FACTORY(std::string));       \
+  BENCHMARK_TEMPLATE(ShortVectorInsertAtEnd, VEC_TYPE_FACTORY(std::shared_ptr<int>));
 
-#define LONG_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                         \
-  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(int));         \
-  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(std::string)); \
-  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(std::shared_ptr<int>));
+#define LONG_VECTOR_BENCHMARKS(VEC_TYPE_FACTORY)                                  \
+  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(int));                  \
+  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(std::string));          \
+  BENCHMARK_TEMPLATE(LongVectorPushBack, VEC_TYPE_FACTORY(std::shared_ptr<int>)); \
+  BENCHMARK_TEMPLATE(LongVectorInsertAtEnd, VEC_TYPE_FACTORY(int));               \
+  BENCHMARK_TEMPLATE(LongVectorInsertAtEnd, VEC_TYPE_FACTORY(std::string));       \
+  BENCHMARK_TEMPLATE(LongVectorInsertAtEnd, VEC_TYPE_FACTORY(std::shared_ptr<int>));
 
 // NOTE: the macro name below (STD_VECTOR etc.) is reflected in the
 // benchmark name, so use descriptive names.
