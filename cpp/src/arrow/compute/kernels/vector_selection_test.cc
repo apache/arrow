@@ -1799,6 +1799,7 @@ struct TestDropNullKernelTyped : public TestDropNullKernel {
     return checked_pointer_cast<Int32Array>(rng_.Offsets(slice_count, 0, length));
   }
 
+  // Slice `array` into multiple chunks along `offsets`
   ArrayVector Slices(const std::shared_ptr<Array>& array,
                      const std::shared_ptr<Int32Array>& offsets) {
     ArrayVector slices(offsets->length() - 1);
@@ -2124,8 +2125,7 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
 class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
  public:
   TestDropNullKernelWithTable()
-      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
-        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+      : sizes_({0, 1, 4, 31, 1234}), null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
 
   void AssertDropNull(const std::shared_ptr<Schema>& schm,
                       const std::vector<std::string>& table_json,
@@ -2153,9 +2153,11 @@ class TestDropNullKernelWithTable : public TestDropNullKernelTyped<Table> {
         factory(size, null_probability, &table_w_slices, &table_wo_slices);
 
         ASSERT_OK_AND_ASSIGN(auto out_datum, DropNull(table_w_slices));
+        ValidateOutput(out_datum);
         auto actual = out_datum.table();
 
         ASSERT_OK_AND_ASSIGN(out_datum, DropNull(table_wo_slices));
+        ValidateOutput(out_datum);
         auto expected = out_datum.table();
         if (actual->num_rows() > 0) {
           ASSERT_TRUE(actual->num_rows() == expected->num_rows());
@@ -2208,73 +2210,56 @@ TEST_F(TestDropNullKernelWithTable, DropNullTable) {
     ])"};
     std::shared_ptr<Table> actual;
     ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
+    AssertSchemaEqual(schm, actual->schema());
     ASSERT_EQ(actual->num_rows(), 0);
   }
 }
 
-TEST_F(TestDropNullKernelWithTable, DropNullTableWithWithSlices) {
+TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
   // With Null Arrays
   this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<Table>* out_table_w_slices,
                                        std::shared_ptr<Table>* out_table_wo_slices) {
-    std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
-                                                  field("b", utf8())};
+    FieldVector fields = {field("a", int32()), field("b", utf8())};
     auto schm = schema(fields);
-    std::vector<std::shared_ptr<ChunkedArray>> empty_table(fields.size());
-    auto col_a = std::make_shared<NullArray>(size);
-    auto col_b = std::make_shared<NullArray>(size);
-    std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
+    ASSERT_OK_AND_ASSIGN(auto col_a, MakeArrayOfNull(int32(), size));
+    ASSERT_OK_AND_ASSIGN(auto col_b, MakeArrayOfNull(utf8(), size));
 
-    auto offsets_a = this->Offsets(size, 3);
-    auto slices_a = this->Slices(col_a, offsets_a);
-    auto offsets_b = this->Offsets(size, 3);
-    auto slices_b = this->Slices(col_b, offsets_b);
+    // Compute random chunkings of columns `a` and `b`
+    auto slices_a = this->Slices(col_a, this->Offsets(size, 3));
+    auto slices_b = this->Slices(col_b, this->Offsets(size, 3));
 
-    table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);
-    table_content_w_slices[1] = std::make_shared<ChunkedArray>(slices_b);
-    *out_table_w_slices =
-        Table::Make(schm, table_content_w_slices, table_content_w_slices[0]->length());
+    ChunkedArrayVector table_content_w_slices{
+        std::make_shared<ChunkedArray>(std::move(slices_a)),
+        std::make_shared<ChunkedArray>(std::move(slices_b))};
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
 
-    std::vector<std::shared_ptr<ChunkedArray>> table_content_wo_slices(fields.size());
-    table_content_wo_slices[0] =
-        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_a)});
-    table_content_wo_slices[1] =
-        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_b)});
-
-    *out_table_wo_slices =
-        Table::Make(schm, table_content_wo_slices, table_content_wo_slices[0]->length());
+    ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
+                                               std::make_shared<ChunkedArray>(col_b)};
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
   });
 
   // Without Null Arrays
   this->CheckDropNullWithSlices([this](int32_t size, double null_probability,
                                        std::shared_ptr<Table>* out_table_w_slices,
                                        std::shared_ptr<Table>* out_table_wo_slices) {
-    std::vector<std::shared_ptr<Field>> fields = {field("a", int32()),
-                                                  field("b", utf8())};
+    FieldVector fields = {field("a", int32()), field("b", utf8())};
     auto schm = schema(fields);
-    std::vector<std::shared_ptr<ChunkedArray>> empty_table(fields.size());
     auto col_a = this->rng_.ArrayOf(int32(), size, null_probability);
     auto col_b = this->rng_.ArrayOf(utf8(), size, null_probability);
-    std::vector<std::shared_ptr<ChunkedArray>> table_content_w_slices(fields.size());
 
-    auto offsets_a = this->Offsets(size, 3);
-    auto slices_a = this->Slices(col_a, offsets_a);
-    auto offsets_b = this->Offsets(size, 3);
-    auto slices_b = this->Slices(col_b, offsets_b);
+    // Compute random chunkings of columns `a` and `b`
+    auto slices_a = this->Slices(col_a, this->Offsets(size, 3));
+    auto slices_b = this->Slices(col_b, this->Offsets(size, 3));
 
-    table_content_w_slices[0] = std::make_shared<ChunkedArray>(slices_a);
-    table_content_w_slices[1] = std::make_shared<ChunkedArray>(slices_b);
-    *out_table_w_slices =
-        Table::Make(schm, table_content_w_slices, table_content_w_slices[0]->length());
+    ChunkedArrayVector table_content_w_slices{
+        std::make_shared<ChunkedArray>(std::move(slices_a)),
+        std::make_shared<ChunkedArray>(std::move(slices_b))};
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
 
-    std::vector<std::shared_ptr<ChunkedArray>> table_content_wo_slices(fields.size());
-    table_content_wo_slices[0] =
-        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_a)});
-    table_content_wo_slices[1] =
-        std::make_shared<ChunkedArray>(ArrayVector{*Concatenate(slices_b)});
-
-    *out_table_wo_slices =
-        Table::Make(schm, table_content_wo_slices, table_content_wo_slices[0]->length());
+    ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
+                                               std::make_shared<ChunkedArray>(col_b)};
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
   });
 }
 

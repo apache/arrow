@@ -2185,10 +2185,7 @@ Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* c
   }
   ARROW_ASSIGN_OR_RAISE(auto drop_null_filter,
                         GetDropNullFilter(*values, ctx->memory_pool()));
-
-  auto options = FilterOptions::Defaults();
-  return CallFunction("array_filter", {Datum(*values), Datum(*drop_null_filter)},
-                      &options, ctx);
+  return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
 }
 
 Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
@@ -2211,6 +2208,7 @@ Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
 
 Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
                                   ExecContext* ctx) {
+  // Compute an upper bound of the final null count
   int64_t null_count = 0;
   for (const auto& column : batch->columns()) {
     null_count += column->null_count();
@@ -2232,9 +2230,9 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
                                    dst->mutable_data());
     }
   }
-  auto drop_null_filter =
-      std::make_shared<BooleanArray>(batch->num_rows(), dst, nullptr, 0, 0);
-  if (drop_null_filter->null_count() == batch->num_rows()) {
+  auto drop_null_filter = std::make_shared<BooleanArray>(batch->num_rows(), dst);
+  if (drop_null_filter->true_count() == 0) {
+    // Shortcut: construct empty result
     ArrayVector empty_batch(batch->num_columns());
     for (int i = 0; i < batch->num_columns(); i++) {
       ARROW_ASSIGN_OR_RAISE(
@@ -2247,8 +2245,9 @@ Result<Datum> DropNullRecordBatch(const std::shared_ptr<RecordBatch>& batch,
 
 Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ctx) {
   if (table->num_rows() == 0) {
-    return Table::Make(table->schema(), table->columns(), 0);
+    return table;
   }
+  // Compute an upper bound of the final null count
   int64_t null_count = 0;
   for (const auto& col : table->columns()) {
     for (const auto& column_chunk : col->chunks()) {
@@ -2258,23 +2257,27 @@ Result<Datum> DropNullTable(const std::shared_ptr<Table>& table, ExecContext* ct
   if (null_count == 0) {
     return table;
   }
-  arrow::RecordBatchVector batches;
-  std::shared_ptr<RecordBatch> batch;
+
+  arrow::RecordBatchVector filtered_batches;
   TableBatchReader batch_iter(*table);
-  RETURN_NOT_OK(batch_iter.ReadNext(&batch));
-  while (batch != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(auto output_batch, DropNullRecordBatch(batch, ctx));
-    batches.push_back(output_batch.record_batch());
-    RETURN_NOT_OK(batch_iter.ReadNext(&batch));
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batch_iter.Next());
+    if (batch == nullptr) {
+      break;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto filtered_datum, DropNullRecordBatch(batch, ctx))
+    if (filtered_datum.length() > 0) {
+      filtered_batches.push_back(filtered_datum.record_batch());
+    }
   }
-  return Table::FromRecordBatches(batches);
+  return Table::FromRecordBatches(table->schema(), filtered_batches);
 }
 
 const FunctionDoc drop_null_doc(
     "Drop nulls from the input",
     ("The output is populated with values from the input (Array, ChunkedArray,\n"
      "RecordBatch, or Table) without the null values.\n"
-     "Note that for the RecordBatch/Table cases, `drop_null` drops the full row if\n"
+     "For the RecordBatch and Table cases, `drop_null` drops the full row if\n"
      "there is any null."),
     {"input"});
 
@@ -2300,13 +2303,13 @@ class DropNullMetaFunction : public MetaFunction {
       } break;
       default:
         break;
-    }  // namespace internal
+    }
     return Status::NotImplemented(
         "Unsupported types for drop_null operation: "
         "values=",
         args[0].ToString());
-  }  // namespace compute
-};   // namespace arrow
+  }
+};
 
 // ----------------------------------------------------------------------
 
