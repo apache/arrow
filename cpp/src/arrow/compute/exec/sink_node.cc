@@ -127,8 +127,8 @@ class SinkNode : public ExecNode {
     inputs_[0]->StopProducing(this);
   }
 
-  void InputFinished(ExecNode* input, int seq_stop) override {
-    if (input_counter_.SetTotal(seq_stop)) {
+  void InputFinished(ExecNode* input, int total_batches) override {
+    if (input_counter_.SetTotal(total_batches)) {
       Finish();
     }
   }

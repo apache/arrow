@@ -192,10 +192,10 @@ class ScalarAggregateNode : public ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int num_total) override {
+  void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (input_counter_.SetTotal(num_total)) {
+    if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(Finish());
     }
   }
@@ -490,13 +490,13 @@ class GroupByNode : public ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int num_total) override {
+  void InputFinished(ExecNode* input, int total_batches) override {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (input_counter_.SetTotal(num_total)) {
+    if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(OutputResult());
     }
   }

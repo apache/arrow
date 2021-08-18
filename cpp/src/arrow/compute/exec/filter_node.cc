@@ -111,9 +111,9 @@ class FilterNode : public ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int seq) override {
+  void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
-    outputs_[0]->InputFinished(this, seq);
+    outputs_[0]->InputFinished(this, total_batches);
   }
 
   Status StartProducing() override { return Status::OK(); }

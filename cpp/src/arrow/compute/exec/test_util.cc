@@ -68,7 +68,7 @@ struct DummyNode : ExecNode {
 
   void ErrorReceived(ExecNode* input, Status error) override {}
 
-  void InputFinished(ExecNode* input, int seq_stop) override {}
+  void InputFinished(ExecNode* input, int total_batches) override {}
 
   Status StartProducing() override {
     if (start_producing_) {
