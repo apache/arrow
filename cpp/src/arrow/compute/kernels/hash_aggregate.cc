@@ -1979,9 +1979,6 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    if (!grouper_) {
-      ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make(batch.GetDescriptors(), ctx_));
-    }
     return grouper_->Consume(batch).status();
   }
 
@@ -2024,6 +2021,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   MemoryPool* pool_;
   int64_t num_groups_;
   std::unique_ptr<Grouper> grouper_;
+  std::shared_ptr<DataType> out_type_;
 };
 
 struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
@@ -2036,14 +2034,16 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
   }
 
   std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
-
-  std::shared_ptr<DataType> out_type_;
 };
 
+template <typename Impl>
 Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
                                                          const KernelInitArgs& args) {
-  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedDistinctImpl>(ctx, args));
-  static_cast<GroupedDistinctImpl*>(impl.get())->out_type_ = args.inputs[0].type;
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl>(ctx, args));
+  auto instance = static_cast<Impl*>(impl.get());
+  instance->out_type_ = args.inputs[0].type;
+  ARROW_ASSIGN_OR_RAISE(instance->grouper_,
+                        Grouper::Make(args.inputs, ctx->exec_context()));
   return std::move(impl);
 }
 
@@ -2512,14 +2512,15 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc);
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountDistinctImpl>)));
+        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedCountDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_distinct", Arity::Binary(),
                                                         &hash_distinct_doc);
-    DCHECK_OK(func->AddKernel(MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit)));
+    DCHECK_OK(func->AddKernel(
+        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
