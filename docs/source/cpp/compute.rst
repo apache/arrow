@@ -183,6 +183,9 @@ recommend you try it out.  Unsupported input types return a ``TypeError``
 Aggregations
 ------------
 
+Scalar aggregations operate on a (chunked) array or scalar value and reduce
+the input to a single output value.
+
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
@@ -208,15 +211,16 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
+| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(7)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | variance      | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 
 Notes:
 
-* \(1) If null values are taken into account by setting ScalarAggregateOptions
-  parameter skip_nulls = false then `Kleene logic`_ logic is applied.
+* \(1) If null values are taken into account, by setting the
+  ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
 
 * \(2) CountMode controls whether only non-null values are counted (the
   default), only null values are counted, or all values are counted.
@@ -233,6 +237,93 @@ Notes:
 * \(5) Output is Int64, UInt64 or Float64, depending on the input type.
 
 * \(6) Output is Float64 or input type, depending on QuantileOptions.
+
+* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
+
+Grouped Aggregations ("group by")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Grouped aggregations are not directly invokable, but are used as part of a
+SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
+reduce multiple input values to a single output value. Instead of aggregating
+all values of the input, however, grouped aggregations partition the input
+values on some set of "key" columns, then aggregate each group individually,
+emitting one output value per input group.
+
+As an example, for the following table:
+
++------------------+-----------------+
+| Column ``key``   | Column ``x``    |
++==================+=================+
+| "a"              | 2               |
++------------------+-----------------+
+| "a"              | 5               |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| null             | null            |
++------------------+-----------------+
+| null             | 9               |
++------------------+-----------------+
+
+we can compute a sum of the column ``x``, grouped on the column ``key``.
+This gives us three groups, with the following results. Note that null is
+treated as a distinct key value.
+
++------------------+-----------------------+
+| Column ``key``   | Column ``sum(x)``     |
++==================+=======================+
+| "a"              | 7                     |
++------------------+-----------------------+
+| "b"              | null                  |
++------------------+-----------------------+
+| null             | 9                     |
++------------------+-----------------------+
+
+The supported aggregation functions are as follows. All function names are
+prefixed with ``hash_``, which differentiates them from their scalar
+equivalents above and reflects how they are implemented internally.
+
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| Function name | Arity | Input types | Output type    | Options class                    | Notes |
++===============+=======+=============+================+==================================+=======+
+| hash_all      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_any      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_count    | Unary | Any         | Int64          | :struct:`CountOptions`           | \(2)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_min_max  | Unary | Numeric     | Struct         | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_stddev   | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_sum      | Unary | Numeric     | Numeric        | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_tdigest  | Unary | Numeric     | Float64        | :struct:`TDigestOptions`         | \(5)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_variance | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+
+* \(1) If null values are taken into account, by setting the
+  :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
+
+* \(2) CountMode controls whether only non-null values are counted (the
+  default), only null values are counted, or all values are counted.
+
+* \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
+
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+
+* \(5) T-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
 
 Element-wise ("scalar") functions
 ---------------------------------
