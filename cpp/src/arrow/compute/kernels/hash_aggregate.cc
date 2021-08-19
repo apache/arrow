@@ -906,17 +906,17 @@ struct GroupedCountImpl : public GroupedAggregator {
 };
 
 // ----------------------------------------------------------------------
-// Sum implementation
+// Sum/Mean/Product implementation
 
-template <typename Type>
-struct GroupedSumImpl : public GroupedAggregator {
+template <typename Type, typename Impl>
+struct GroupedReducingAggregator : public GroupedAggregator {
   using AccType = typename FindAccumulatorType<Type>::Type;
-  using SumType = typename TypeTraits<AccType>::CType;
+  using c_type = typename TypeTraits<AccType>::CType;
 
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     pool_ = ctx->memory_pool();
     options_ = checked_cast<const ScalarAggregateOptions&>(*options);
-    sums_ = TypedBufferBuilder<SumType>(pool_);
+    reduced_ = TypedBufferBuilder<c_type>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
     out_type_ = TypeTraits<AccType>::type_singleton();
@@ -926,47 +926,38 @@ struct GroupedSumImpl : public GroupedAggregator {
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    RETURN_NOT_OK(sums_.Append(added_groups, SumType()));
+    RETURN_NOT_OK(reduced_.Append(added_groups, Impl::NullValue()));
     RETURN_NOT_OK(counts_.Append(added_groups, 0));
     RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
-    SumType* sums = sums_.mutable_data();
+    c_type* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
 
-    // XXX this uses naive summation; we should switch to pairwise summation as was
-    // done for the scalar aggregate kernel in ARROW-11758
     auto g = batch[1].array()->GetValues<uint32_t>(1);
-    VisitArrayDataInline<Type>(
-        *batch[0].array(),
-        [&](typename TypeTraits<Type>::CType value) {
-          sums[*g] += value;
-          counts[*g] += 1;
-          ++g;
-        },
-        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
-    return Status::OK();
+
+    return Impl::Consume(*batch[0].array(), reduced, counts, no_nulls, g);
   }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
-    auto other = checked_cast<GroupedSumImpl*>(&raw_other);
+    auto other = checked_cast<GroupedReducingAggregator<Type, Impl>*>(&raw_other);
 
-    SumType* sums = sums_.mutable_data();
+    c_type* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
 
-    const SumType* other_sums = other->sums_.data();
+    const c_type* other_reduced = other->reduced_.data();
     const int64_t* other_counts = other->counts_.data();
     const uint8_t* other_no_nulls = no_nulls_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
-      sums[*g] += other_sums[other_g];
+      Impl::UpdateGroupWith(reduced, *g, other_reduced[other_g]);
       BitUtil::SetBitTo(
           no_nulls, *g,
           BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
@@ -974,22 +965,35 @@ struct GroupedSumImpl : public GroupedAggregator {
     return Status::OK();
   }
 
+  // Generate the values/nulls buffers
+  static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
+                                                const ScalarAggregateOptions& options,
+                                                const int64_t* counts,
+                                                TypedBufferBuilder<c_type>* reduced,
+                                                int64_t num_groups, int64_t* null_count,
+                                                std::shared_ptr<Buffer>* null_bitmap) {
+    for (int64_t i = 0; i < num_groups; ++i) {
+      if (counts[i] >= options.min_count) continue;
+
+      if ((*null_bitmap) == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(num_groups, pool));
+        BitUtil::SetBitsTo((*null_bitmap)->mutable_data(), 0, num_groups, true);
+      }
+
+      (*null_count)++;
+      BitUtil::SetBitTo((*null_bitmap)->mutable_data(), i, false);
+    }
+    return reduced->Finish();
+  }
+
   Result<Datum> Finalize() override {
-    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
     const int64_t* counts = counts_.data();
     int64_t null_count = 0;
 
-    for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] >= options_.min_count) continue;
-
-      if (null_bitmap == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
-        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
-      }
-
-      null_count += 1;
-      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
-    }
+    ARROW_ASSIGN_OR_RAISE(auto values,
+                          Impl::Finish(pool_, options_, counts, &reduced_, num_groups_,
+                                       &null_count, &null_bitmap));
 
     if (!options_.skip_nulls) {
       null_count = kUnknownNullCount;
@@ -1002,21 +1006,54 @@ struct GroupedSumImpl : public GroupedAggregator {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto sums, sums_.Finish());
-    return ArrayData::Make(std::move(out_type_), num_groups_,
-                           {std::move(null_bitmap), std::move(sums)}, null_count);
+    return ArrayData::Make(out_type(), num_groups_,
+                           {std::move(null_bitmap), std::move(values)}, null_count);
   }
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
-  // NB: counts are used here to support Mean below
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
-  TypedBufferBuilder<SumType> sums_;
+  TypedBufferBuilder<c_type> reduced_;
   TypedBufferBuilder<int64_t> counts_;
   TypedBufferBuilder<bool> no_nulls_;
   std::shared_ptr<DataType> out_type_;
   MemoryPool* pool_;
+};
+
+// ----------------------------------------------------------------------
+// Sum implementation
+
+template <typename Type>
+struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Type>> {
+  using Base = GroupedReducingAggregator<Type, GroupedSumImpl<Type>>;
+  using c_type = typename Base::c_type;
+
+  // Default value for a group
+  static c_type NullValue() { return c_type(0); }
+
+  // Update all groups
+  static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
+                        uint8_t* no_nulls, const uint32_t* g) {
+    // XXX this uses naive summation; we should switch to pairwise summation as was
+    // done for the scalar aggregate kernel in ARROW-11758
+    VisitArrayDataInline<Type>(
+        values,
+        [&](typename TypeTraits<Type>::CType value) {
+          reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) +
+                                            to_unsigned(static_cast<c_type>(value)));
+          counts[*g++] += 1;
+        },
+        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
+    return Status::OK();
+  }
+
+  // Update a single group during merge
+  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
+    reduced[g] += value;
+  }
+
+  using Base::Finish;
 };
 
 struct GroupedSumFactory {
@@ -1049,111 +1086,31 @@ struct GroupedSumFactory {
 // Product implementation
 
 template <typename Type>
-struct GroupedProductImpl final : public GroupedAggregator {
-  using AccType = typename FindAccumulatorType<Type>::Type;
-  using ProductType = typename TypeTraits<AccType>::CType;
+struct GroupedProductImpl final
+    : public GroupedReducingAggregator<Type, GroupedProductImpl<Type>> {
+  using Base = GroupedReducingAggregator<Type, GroupedProductImpl<Type>>;
+  using c_type = typename Base::c_type;
 
-  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    pool_ = ctx->memory_pool();
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
-    products_ = TypedBufferBuilder<ProductType>(pool_);
-    counts_ = TypedBufferBuilder<int64_t>(pool_);
-    out_type_ = TypeTraits<AccType>::type_singleton();
-    return Status::OK();
-  }
+  static c_type NullValue() { return c_type(1); }
 
-  Status Resize(int64_t new_num_groups) override {
-    auto added_groups = new_num_groups - num_groups_;
-    num_groups_ = new_num_groups;
-    RETURN_NOT_OK(products_.Append(added_groups * sizeof(AccType), 1));
-    RETURN_NOT_OK(counts_.Append(added_groups, 0));
-    RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
-    return Status::OK();
-  }
-
-  Status Consume(const ExecBatch& batch) override {
-    ProductType* products = products_.mutable_data();
-    int64_t* counts = counts_.mutable_data();
-    uint8_t* no_nulls = no_nulls_.mutable_data();
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
+  static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
+                        uint8_t* no_nulls, const uint32_t* g) {
     VisitArrayDataInline<Type>(
-        *batch[0].array(),
+        values,
         [&](typename TypeTraits<Type>::CType value) {
-          products[*g] = static_cast<ProductType>(
-              to_unsigned(products[*g]) * to_unsigned(static_cast<ProductType>(value)));
+          reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) *
+                                            to_unsigned(static_cast<c_type>(value)));
           counts[*g++] += 1;
         },
         [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
     return Status::OK();
   }
 
-  Status Merge(GroupedAggregator&& raw_other,
-               const ArrayData& group_id_mapping) override {
-    auto other = checked_cast<GroupedProductImpl*>(&raw_other);
-
-    int64_t* counts = counts_.mutable_data();
-    ProductType* products = products_.mutable_data();
-    uint8_t* no_nulls = no_nulls_.mutable_data();
-
-    const int64_t* other_counts = other->counts_.data();
-    const ProductType* other_products = other->products_.data();
-    const uint8_t* other_no_nulls = other->no_nulls_.data();
-    const uint32_t* g = group_id_mapping.GetValues<uint32_t>(1);
-
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      products[*g] = static_cast<ProductType>(to_unsigned(products[*g]) *
-                                              to_unsigned(other_products[other_g]));
-      counts[*g] += other_counts[other_g];
-      BitUtil::SetBitTo(
-          no_nulls, *g,
-          BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
-    }
-    return Status::OK();
+  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
+    reduced[g] *= value;
   }
 
-  Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto products, products_.Finish());
-    const int64_t* counts = counts_.data();
-
-    std::shared_ptr<Buffer> null_bitmap;
-    int64_t null_count = 0;
-
-    for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] >= options_.min_count) continue;
-
-      if (null_bitmap == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
-        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
-      }
-
-      null_count += 1;
-      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
-    }
-
-    if (!options_.skip_nulls) {
-      null_count = kUnknownNullCount;
-      if (null_bitmap) {
-        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
-                                   no_nulls_.data(), /*right_offset=*/0, num_groups_,
-                                   /*out_offset=*/0, null_bitmap->mutable_data());
-      } else {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
-      }
-    }
-
-    return ArrayData::Make(std::move(out_type_), num_groups_,
-                           {std::move(null_bitmap), std::move(products)}, null_count);
-  }
-
-  std::shared_ptr<DataType> out_type() const override { return out_type_; }
-
-  int64_t num_groups_ = 0;
-  ScalarAggregateOptions options_;
-  TypedBufferBuilder<ProductType> products_;
-  TypedBufferBuilder<int64_t> counts_;
-  TypedBufferBuilder<bool> no_nulls_;
-  std::shared_ptr<DataType> out_type_;
-  MemoryPool* pool_;
+  using Base::Finish;
 };
 
 struct GroupedProductFactory {
@@ -1187,56 +1144,60 @@ struct GroupedProductFactory {
 // Mean implementation
 
 template <typename Type>
-struct GroupedMeanImpl : public GroupedSumImpl<Type> {
-  Result<Datum> Finalize() override {
-    using SumType = typename GroupedSumImpl<Type>::SumType;
-    std::shared_ptr<Buffer> null_bitmap;
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
-                          AllocateBuffer(num_groups_ * sizeof(double), pool_));
-    int64_t null_count = 0;
+struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>> {
+  using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>>;
+  using c_type = typename Base::c_type;
 
-    const int64_t* counts = counts_.data();
-    const SumType* sums = sums_.data();
+  static c_type NullValue() { return c_type(0); }
+
+  static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
+                        uint8_t* no_nulls, const uint32_t* g) {
+    // XXX this uses naive summation; we should switch to pairwise summation as was
+    // done for the scalar aggregate kernel in ARROW-11758
+    VisitArrayDataInline<Type>(
+        values,
+        [&](typename TypeTraits<Type>::CType value) {
+          reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) +
+                                            to_unsigned(static_cast<c_type>(value)));
+          counts[*g++] += 1;
+        },
+        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
+    return Status::OK();
+  }
+
+  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
+    reduced[g] += value;
+  }
+
+  static Result<std::shared_ptr<Buffer>> Finish(MemoryPool* pool,
+                                                const ScalarAggregateOptions& options,
+                                                const int64_t* counts,
+                                                TypedBufferBuilder<c_type>* reduced_,
+                                                int64_t num_groups, int64_t* null_count,
+                                                std::shared_ptr<Buffer>* null_bitmap) {
+    const c_type* reduced = reduced_->data();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
+                          AllocateBuffer(num_groups * sizeof(double), pool));
     double* means = reinterpret_cast<double*>(values->mutable_data());
-    for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] >= options_.min_count) {
-        means[i] = static_cast<double>(sums[i]) / counts[i];
+    for (int64_t i = 0; i < num_groups; ++i) {
+      if (counts[i] >= options.min_count) {
+        means[i] = static_cast<double>(reduced[i]) / counts[i];
         continue;
       }
       means[i] = 0;
 
-      if (null_bitmap == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
-        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      if ((*null_bitmap) == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(num_groups, pool));
+        BitUtil::SetBitsTo((*null_bitmap)->mutable_data(), 0, num_groups, true);
       }
 
-      null_count += 1;
-      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+      (*null_count)++;
+      BitUtil::SetBitTo((*null_bitmap)->mutable_data(), i, false);
     }
-
-    if (!options_.skip_nulls) {
-      null_count = kUnknownNullCount;
-      if (null_bitmap) {
-        arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
-                                   no_nulls_.data(), /*right_offset=*/0, num_groups_,
-                                   /*out_offset=*/0, null_bitmap->mutable_data());
-      } else {
-        ARROW_ASSIGN_OR_RAISE(null_bitmap, no_nulls_.Finish());
-      }
-    }
-
-    return ArrayData::Make(float64(), num_groups_,
-                           {std::move(null_bitmap), std::move(values)}, null_count);
+    return std::move(values);
   }
 
   std::shared_ptr<DataType> out_type() const override { return float64(); }
-
-  using GroupedSumImpl<Type>::num_groups_;
-  using GroupedSumImpl<Type>::options_;
-  using GroupedSumImpl<Type>::pool_;
-  using GroupedSumImpl<Type>::counts_;
-  using GroupedSumImpl<Type>::sums_;
-  using GroupedSumImpl<Type>::no_nulls_;
 };
 
 struct GroupedMeanFactory {
