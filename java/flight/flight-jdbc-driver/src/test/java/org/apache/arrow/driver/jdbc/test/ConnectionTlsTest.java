@@ -28,7 +28,7 @@ import java.sql.SQLException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.impl.BareArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -135,8 +135,8 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    try (ArrowFlightClientHandler client =
-             ArrowFlightClientHandler.createNewHandler(
+    try (BareArrowFlightClientHandler client =
+             BareArrowFlightClientHandler.createNewHandler(
                  new SimpleImmutableEntry<>(address.getHost(), address.getPort()),
                  new SimpleImmutableEntry<>(credentials.getUserName(), credentials.getPassword()),
                  new SimpleImmutableEntry<>(keyStorePath, keyStorePass), allocator, true)) {
@@ -154,8 +154,8 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
     final String noCertificateKeyStorePassword = "flight1";
 
-    try (ArrowFlightClientHandler client =
-             ArrowFlightClientHandler
+    try (BareArrowFlightClientHandler client =
+             BareArrowFlightClientHandler
                  .createNewHandler(
                      new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
                      null,
@@ -172,8 +172,8 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
-    try (ArrowFlightClientHandler client =
-             ArrowFlightClientHandler
+    try (BareArrowFlightClientHandler client =
+             BareArrowFlightClientHandler
                  .createNewHandler(
                      new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
                      null, new SimpleImmutableEntry<>(keyStorePath, keyStorePass),
@@ -192,8 +192,8 @@ public class ConnectionTlsTest {
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
     String keyStoreBadPassword = "badPassword";
 
-    try (ArrowFlightClientHandler client =
-             ArrowFlightClientHandler.createNewHandler(
+    try (BareArrowFlightClientHandler client =
+             BareArrowFlightClientHandler.createNewHandler(
                  new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
                  null, new SimpleImmutableEntry<>(keyStorePath, keyStoreBadPassword),
                  allocator, true)) {

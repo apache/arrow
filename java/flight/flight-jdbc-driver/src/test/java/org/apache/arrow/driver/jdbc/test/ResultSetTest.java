@@ -17,11 +17,17 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static java.lang.String.format;
 import static java.util.Collections.synchronizedSet;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.*;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -377,7 +383,7 @@ public class ResultSetTest {
       collector.checkThat(comparisonCause,
           is(instanceOf(SQLTimeoutException.class)));
       collector.checkThat(comparisonCause.getMessage(),
-          is(String.format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit)));
+          is(format("Query failed to be retrieved after %d %s", timeoutValue, timeoutUnit)));
     }
   }
 

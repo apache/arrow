@@ -38,7 +38,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
@@ -51,6 +51,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
+import org.apache.calcite.avatica.AvaticaStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,13 +118,40 @@ public class ArrowFlightConnection extends AvaticaConnection {
         keyStorePath == null ? null :
             new SimpleImmutableEntry<>(keyStorePath, manager.getPropertyAsString(KEYSTORE_PASS));
     try {
-      final FlightClientHandler handler = ArrowFlightClientHandler.createNewHandler(
+      final FlightClientHandler handler = ArrowFlightSqlClientHandler.createNewHandler(
           address, credentials, keyStoreInfo, allocator, manager.getPropertyAsBoolean(USE_TLS), manager.toCallOption());
       return new ArrowFlightConnection(driver, factory, url, manager, allocator, handler);
     } catch (final GeneralSecurityException | IOException e) {
       manager.close();
       throw AvaticaConnection.HELPER.createException("Failed to establish a valid connection to the Flight Client.", e);
     }
+  }
+
+  void reset() throws SQLException {
+    final Set<SQLException> exceptions = new HashSet<>();
+    // Clean up any open Statements
+    for (final AvaticaStatement statement : statementMap.values()) {
+      try {
+        AutoCloseables.close(statement);
+      } catch (final Exception e) {
+        exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
+      }
+    }
+    statementMap.clear();
+    try {
+      // Reset Holdability
+      this.setHoldability(this.metaData.getResultSetHoldability());
+    } catch (final SQLException e) {
+      exceptions.add(e);
+    }
+    // Reset Meta
+    ((ArrowFlightMetaImpl) this.meta).setDefaultConnectionProperties();
+    if (exceptions.isEmpty()) {
+      return;
+    }
+    final SQLException exception = AvaticaConnection.HELPER.createException("Failed to reset connection.");
+    exceptions.forEach(exception::setNextException);
+    throw exception;
   }
 
   /**
@@ -148,6 +176,11 @@ public class ArrowFlightConnection extends AvaticaConnection {
     }
 
     return executorService;
+  }
+
+  @Override
+  public Properties getClientInfo() {
+    return info;
   }
 
   @Override
