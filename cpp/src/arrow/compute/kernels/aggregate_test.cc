@@ -176,6 +176,10 @@ TEST(TestBooleanAggregation, Sum) {
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   EXPECT_THAT(Sum(MakeScalar(true)),
               ResultWith(Datum(std::make_shared<UInt64Scalar>(1))));
@@ -226,6 +230,12 @@ TEST(TestBooleanAggregation, Product) {
   ValidateBooleanAgg<Product>(
       json, std::make_shared<UInt64Scalar>(),
       ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Product>(
+      "[]", std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg<Product>(
+      json, std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   EXPECT_THAT(Product(MakeScalar(true)),
               ResultWith(Datum(std::make_shared<UInt64Scalar>(1))));
@@ -273,6 +283,10 @@ TEST(TestBooleanAggregation, Mean) {
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   EXPECT_THAT(Mean(MakeScalar(true)), ResultWith(ScalarFromJSON(float64(), "1.0")));
   EXPECT_THAT(Mean(MakeScalar(false)), ResultWith(ScalarFromJSON(float64(), "0.0")));
