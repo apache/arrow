@@ -18,12 +18,14 @@
 # cython: profile=False
 # distutils: language = c++
 
+from datetime import timedelta
 import io
 from textwrap import indent
 import warnings
 
 import numpy as np
-from datetime import timedelta
+
+from libcpp cimport nullptr
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
@@ -1222,7 +1224,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_byte_stream_split=False,
         column_encoding=None,
         data_page_version=None,
-        encryption_properties=None) except *:
+        FileEncryptionProperties encryption_properties=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1348,9 +1350,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # encryption
 
     if encryption_properties is not None:
-        if not isinstance(encryption_properties, FileEncryptionProperties):
-            raise TypeError("encryption_properties must be of type " +
-                            "FileEncryptionProperties")
         props.encryption(
             (<FileEncryptionProperties>encryption_properties).unwrap())
 
@@ -1429,7 +1428,7 @@ cdef ParquetCipher cipher_from_name(name):
         raise ValueError('Invalid value for algorithm: {0}'.format(name))
 
 
-def cipher_to_name(ParquetCipher cipher):
+cdef cipher_to_name(ParquetCipher cipher):
     if ParquetCipher_AES_GCM_V1 == cipher:
         return 'AES_GCM_V1'
     elif ParquetCipher_AES_GCM_CTR_V1 == cipher:
@@ -1452,22 +1451,6 @@ cdef class FileDecryptionProperties:
         return result
 
     cdef inline shared_ptr[CFileDecryptionProperties] unwrap(self):
-        return self.properties
-
-cdef class FileEncryptionProperties:
-    """File-level encryption properties for the low-level API"""
-    cdef:
-        shared_ptr[CFileEncryptionProperties] properties
-
-    @staticmethod
-    cdef FileEncryptionProperties wrap(
-            shared_ptr[CFileEncryptionProperties] properties):
-
-        result = FileEncryptionProperties()
-        result.properties = properties
-        return result
-
-    cdef inline shared_ptr[CFileEncryptionProperties] unwrap(self):
         return self.properties
 
 
@@ -1629,11 +1612,12 @@ cdef class EncryptionConfiguration(_Weakrefable):
     @property
     def column_keys(self):
         """
-        List of columns to encrypt, with master key IDs (see HIVE-21848).
-        Format: "masterKeyID:colName,colName;masterKeyID:colName..."
+        List of columns to encrypt, with master key IDs.
         """
         column_keys_str = frombytes(self.configuration.get().column_keys)
-        column_keys_to_key_list_str = dict(subString.split(
+        # Convert from "masterKeyID:colName,colName;masterKeyID:colName..."
+        # (see HIVE-21848) to dictionary of master key ID to column name lists
+        column_keys_to_key_list_str = dict(subString.replace(" ", "").split(
             ":") for subString in column_keys_str.split(";"))
         column_keys_dict = {k: v.split(
             ",") for k, v in column_keys_to_key_list_str.items()}
@@ -1643,8 +1627,9 @@ cdef class EncryptionConfiguration(_Weakrefable):
     def column_keys(self, dict value):
         if value is not None:
             # convert a dictionary such as
-            # '{"footer": ["b ", "d"], "a": ["a ", "f"]}''
-            # to the string defined by the spec  'footer: b , d; a: a , f'
+            # '{"key1": ["col1 ", "col2"], "key2": ["col3 ", "col4"]}''
+            # to the string defined by the spec
+            # 'key1: col1 , col2; key2: col3 , col4'
             column_keys = "; ".join(
                 ["{}: {}".format(k, ", ".join(v)) for k, v in value.items()])
             self.configuration.get().column_keys = tobytes(column_keys)
@@ -1874,9 +1859,11 @@ cdef class KmsClient(_Weakrefable):
         self.client.reset(new CPyKmsClient(self, vtable))
 
     def wrap_key(self, key_bytes, master_key_identifier):
+        """Wrap a key - encrypt it with the master key."""
         raise NotImplementedError()
 
     def unwrap_key(self, wrapped_key, master_key_identifier):
+        """Unwrap a key - decrypt it with the master key."""
         raise NotImplementedError()
 
     cdef inline shared_ptr[CKmsClient] unwrap(self) nogil:
@@ -1952,15 +1939,13 @@ cdef class CryptoFactory(_Weakrefable):
 
         Returns
         -------
-        file_encryption_properties : FileEncryptionProperties or None
+        file_encryption_properties : FileEncryptionProperties
             File encryption properties.
         """
         file_encryption_properties = \
             self.factory.get().GetFileEncryptionProperties(
                 deref(kms_connection_config.unwrap().get()),
                 deref(encryption_config.unwrap().get()))
-        if file_encryption_properties == NULL:
-            return None
         return FileEncryptionProperties.wrap(file_encryption_properties)
 
     def file_decryption_properties(
@@ -1980,7 +1965,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         Returns
         -------
-        file_decryption_properties : FileDecryptionProperties or None
+        file_decryption_properties : FileDecryptionProperties
             File decryption properties.
         """
         cdef CDecryptionConfiguration c_decryption_config
@@ -1992,8 +1977,6 @@ cdef class CryptoFactory(_Weakrefable):
             self.factory.get().GetFileDecryptionProperties(
                 deref(kms_connection_config.unwrap().get()),
                 c_decryption_config)
-        if file_decryption_properties == NULL:
-            return None
         return FileDecryptionProperties.wrap(file_decryption_properties)
 
     def remove_cache_entries_for_token(self, access_token):

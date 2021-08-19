@@ -16,19 +16,17 @@
 # under the License.
 
 """A sample KmsClient implementation."""
+import argparse
+import base64
+import os
+
+import requests
 
 import pyarrow as pa
-
 try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
-
-import requests
-import base64
-from typing import OrderedDict
-import os
-import argparse
 
 
 class VaultClient(pq.KmsClient):
@@ -95,13 +93,11 @@ def parquet_write_read_with_vault(parquet_filename):
     """
     path = parquet_filename
 
-    table = pa.Table.from_pydict(
-        OrderedDict([
-            ('a', pa.array([1, 2, 3])),
-            ('b', pa.array(['a', 'b', 'c'])),
-            ('c', pa.array(['x', 'y', 'z']))
-        ])
-    )
+    table = pa.Table.from_pydict({
+        'a': pa.array([1, 2, 3]),
+        'b': pa.array(['a', 'b', 'c']),
+        'c': pa.array(['x', 'y', 'z'])
+    })
 
     # Encrypt the footer with the footer key,
     # encrypt column `a` with one key
@@ -147,16 +143,16 @@ def parquet_write_read_with_vault(parquet_filename):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Write and read an encrypted parquet using master keys " /
-        "managed by Hashicorp Vault.\nBefore using please enable the " /
-        "transit engine in Vault and set VAULT_URL and VAULT_TOKEN " /
+        description="Write and read an encrypted parquet using master keys "
+        "managed by Hashicorp Vault.\nBefore using please enable the "
+        "transit engine in Vault and set VAULT_URL and VAULT_TOKEN "
         "environment variables.")
     parser.add_argument('--filename', dest='filename', type=str,
                         default='/tmp/encrypted_table.vault.parquet',
-                        help='Filename of the parquet file to be created ' /
+                        help='Filename of the parquet file to be created '
                              '(default: /tmp/encrypted_table.vault.parquet')
     args = parser.parse_args()
-    filename = args.path
+    filename = args.filename
     parquet_write_read_with_vault(filename)
 
 

@@ -526,6 +526,21 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         const CFileMetaData& file_metadata,
         const COutputStream* sink)
 
+cdef class FileEncryptionProperties:
+    """File-level encryption properties for the low-level API"""
+    cdef:
+        shared_ptr[CFileEncryptionProperties] properties
+
+    @staticmethod
+    cdef inline FileEncryptionProperties wrap(
+            shared_ptr[CFileEncryptionProperties] properties):
+
+        result = FileEncryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CFileEncryptionProperties] unwrap(self):
+        return self.properties
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
     use_dictionary=*,
@@ -537,7 +552,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     use_byte_stream_split=*,
     column_encoding=*,
     data_page_version=*,
-    encryption_properties=*) except *
+    FileEncryptionProperties encryption_properties=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
@@ -589,10 +604,6 @@ cdef class Statistics(_Weakrefable):
                      ColumnChunkMetaData parent):
         self.statistics = statistics
         self.parent = parent
-
-cdef extern from "parquet/exception.h" namespace "parquet" nogil:
-    cdef cppclass ParquetException:
-        pass
 
 cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
     cdef cppclass CFileDecryptionProperties\

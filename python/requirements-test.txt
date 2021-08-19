@@ -5,4 +5,3 @@ pickle5; python_version == "3.7"
 pytest
 pytest-lazy-fixture
 pytz
-cryptography
