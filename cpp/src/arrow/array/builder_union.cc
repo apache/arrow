@@ -144,7 +144,7 @@ Status SparseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_
         *array.child_data[i], array.offset + offset, length));
   }
   const int8_t* type_codes = array.GetValues<int8_t>(1);
-  types_builder_.Append(type_codes + offset, length);
+  RETURN_NOT_OK(types_builder_.Append(type_codes + offset, length));
   return Status::OK();
 }
 
