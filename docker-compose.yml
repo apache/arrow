@@ -1059,6 +1059,8 @@ services:
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-only-r:
+    environment:
+      ARROW_DEPENDENCY_SOURCE: ''
     extends: ubuntu-r
     command: >
       /bin/bash -c "
