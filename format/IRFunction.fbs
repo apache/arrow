@@ -1,0 +1,71 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+include "Schema.fbs";
+
+namespace org.apache.arrow.ir.flatbuf;
+
+// A unique identifier for a particular function definition. 
+table FunctionId {
+  // the function description identifier.
+  id: uint32;
+  
+  // The origin of the function definition. Should be mapped to a domain such as "org.apache.arrow"
+  // The github definition paths for definitions are defined in 
+  // github.com/apache/arrow/format/functions.txt. Org 0 == Apache Arrow canonical definitions.
+  // Organizations < 1B are canonical organizations. For private functions, use
+  // Org id > 1B
+  org: uint32;
+}
+
+// List of function signatures available.
+message FunctionSignature {
+    function_id: FunctionId;
+    name: string;
+    argument: [Argument];
+    output: OutputDerivation;
+}
+
+union OutputDerivation {DirectOutputType, ComplexOutputType}
+
+// A well defined completely known type.
+table DirectOutputType {
+  type: Type;
+}
+
+table ComplexOutputBehavior {
+  // TODO. Complex output behaviors. For example Decimal math type derivation.
+}
+
+union Argument {WildcardArgument, DirectArgument}
+
+
+// Argument that supports [minimum_count..maximum_count] arguments of this type. A WildCardArgument must always be declared last.
+table WildcardArgument {
+  minimum_count: uint32;
+  maximum_count: uint32;
+  type: DirectArgument;
+}
+
+table DirectArgument {
+  // An Arrow datatype. Note that this type can incompletely formed to match a subset of types. 
+  // This is the one place a type can be incompletely formed. For example, List<nothing> 
+  // can be declared to match any list type, Decimal(na,na) can be used to match any decimal value, etc.
+  types: [Type];
+}
+
+

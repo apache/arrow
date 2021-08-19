@@ -1,0 +1,107 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace org.apache.arrow.ir.flatbuf;
+
+import "Schema.fbs";
+import "IRLiteral.fbs";
+import "IRFunctionExpression.fbs";
+
+table RexFunction {
+    id: FunctionId;
+    arguments: [Rex];
+}
+
+// a reference inside a simple or complex structure
+union RexDereferenceElement {RexStructField, RexName, RexArrayItem, RexArraySlice}
+
+table RexMapKey {
+  // describes a map key to retrieve
+  name: string;
+}
+
+table RexStructField {
+  // ordinal position of field in struct in schema
+    ordinal: int32;
+}
+
+table RexArrayPosition {
+  // starting from 1 position of value in array (per sql standard)
+  position: int32;
+}
+
+table RexArrayItem {
+  // returns a single value of the array's inner type.
+  // 0-index position of value in array
+  // Note: we use 0-index here despite sql standard 1-index due to this being an 
+  // lower level construct.
+  // if negative, is offset from end instead of beginning.
+  position: int64;
+}
+
+table RexArraySlice {
+  // returns an array
+  start_inclusive: int64;
+  end_exclusive: int64;
+}
+
+table RexDereference {
+    positions: [RexDereferenceElement];
+}
+
+table BoundPreceding {
+  offset: int64;
+}
+
+table BoundFollowing {
+  offset: int64;
+}
+
+table CurrentRow {}
+
+
+union Bound {BoundPreceding, BoundFollowing, CurrentRow
+
+
+enum SortType: byte {
+  UNKNOWN = 0,
+  ASC_NULLS_FIRST = 1,
+  ASC_NULLS_LAST = 2,
+  DESC_NULLS_FIRST = 3,
+  DESC_NULLS_LAST = 4,
+  // same values are collected together but their ordering is not guaranteed.
+  CLUSTERED = 5
+}
+    
+table SortField {
+    expr: Rex;
+    type: SortType;
+    // TODO: collation
+}
+
+table RexWindowFunction {
+    partitions: [Rex];
+    sorts: [SortField];
+    upper_bound: Bound;
+    lower_bound: Bound;
+}
+
+// TODO: evaluate the inclusion of conditions as first class entities.
+// TODO: evaluate the inclusion of boolean operations as first class entities.
+union Rex {RexLiteral, RexDereference, RexFunction, RexWindowFunction}
+
+root_type Rex;

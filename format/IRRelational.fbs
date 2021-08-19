@@ -1,0 +1,223 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace org.apache.arrow.ir.flatbuf;
+
+import "Schema.fbs";
+import "IRRowExpression.fbs";
+
+table EmitRemap {
+  output_mapping: [uint32];
+}
+
+table EmitDirect {}
+
+union Emit {Remap, Direct}
+
+table RelCommon {
+  // describes the emitting rules of the operation.
+  emit: Emit;
+  hints: Hints;
+  constraint: RuntimeConstraint;
+}
+
+table Hints {
+  
+  // one or more hints about operations. Can potentially inform 
+  // operations but should not logically change result.
+  hints: [HintKeyValue];
+  
+    // optional information about expected output of relational operation.
+  stats: Stats;
+}
+
+table RuntimeConstraint {
+  // TODO: nodes, cpu threads/%, memory, iops, etc.
+}
+
+table HintKeyValue {
+  key: string;
+  value: [uint8];
+}
+
+table Stats {
+  row_count: double;
+  record_size: double;
+}
+
+
+// Operation that redistributes data based on some type of expression
+// the direct emit mapping is equal to the incoming mapping.
+table RedistributeRel {
+  common: RelCommon;
+  redistribution: RedistributionMethod;
+}
+
+// A redistribution method that creates separate streams of data based on an expression.
+table ExpressionRedistribution {
+  // the number of buckets generated
+  bucket_count: int32;
+  
+  // an expression that returns a bucket based on a record.
+  expression: Rex;
+}
+
+// A redistribution method that maintains a set of ordered streams.
+table ExpressionRedistribution {
+  // the number of buckets generated
+  bucket_count: int32;
+  
+  // an expression that returns a stream position based on a record.
+  distribution_expression: Rex;
+  
+  //
+  sort_fields: [uint32];
+}
+
+// A redistribution algorithm that is best redistribution of data. Similar to round-robin 
+// but does not guarantee exact distribution. For example, a batch-by-batch round-robin 
+// redistribution would be sufficient even though some targets may receive more information 
+// than others.
+table EvenRedistribution {
+}
+
+union RedistributionMethod {ExpressionRedistribution, EvenRedistribution}
+
+table Grouping {
+  field: [Rex]
+}
+
+// An operation that collects values in one or more groupings.
+// Direct order is: 
+//   grouping_ordinal (if more than one), 
+//   grouping fields (using first appearance in grouping lists),
+//   measures (in order of declaration). 
+table AggRel {
+  common: RelCommon;
+  input: Rel;
+  groupings: [Grouping];
+  measures: [Rex];
+}
+
+
+enum CorrelateType {
+  // Output left and right for each match.
+  REGULAR = 1, 
+  
+  // Output LEFT for each record that matches at least one record from RIGHT.
+  SEMI = 2, 
+  
+  // Output LEFT for each record that matches zero records from RIGHT.
+  ANTI = 3
+}
+
+// An operation that behaves similar to a nested loop join based on a set of comparison columns. Output is based on the type of the left input.
+// Output schema is: REGULAR returns both sets of records. SEMI and ANTI only return records from left table.
+table CorrelateRel {
+  common: RelCommon;
+  type: CorrelateType;
+  left: Rel;
+  right: Rel;
+  // the expression that correlates the left and right inputs. Should only be used in cases that cannot be expressed using JoinRel.
+  expression: Rex; 
+}
+
+enum JoinType {
+  INNER, LEFT, RIGHT, OUTER
+}
+
+table JoinRel {
+  common: RelCommon;
+  join_type: JoinType;
+  left: Rel;
+  right: Rel;
+  
+  // field references are referred to left-first. So if left has three fields 
+  // and Right has two: 0..2 => left, 3..4 => right
+  condition: Rex;
+}
+
+enum SetOpType: byte {
+  // remove all matching inputs 1..N from input 0.
+  MINUS,
+  
+  // include data from all inputs.
+  UNION_ALL, 
+
+  // Return all records that exist in either set, eliminating duplicates.
+  UNION_DISTINCT,
+  
+  // Include data that exists in all inputs
+  INTERSECTION
+}
+
+// generic set operations
+// fields are ordered based the same as the input data.
+// output type maps to the fields of initial input.
+// all inputs must have matching schema types.    
+table SetRel {
+  inputs: [Rel];
+  set_op_type: SetOpType;
+}
+
+table SortRel {
+  common: RelCommon;
+  input: Rel;
+  sort: [SortField];
+}
+
+table ProjectRel {
+  common: RelCommon;
+  input: Rel;
+  exprs: [Rex];
+}
+
+table FetchRel {
+  common: RelCommon;
+  input: Rel;
+  start: int64;
+  end: int64;
+}
+
+table FilterRel {
+  common: RelCommon;
+  input: Rel;
+  condition: Rex;
+}
+
+table ReadRel {
+  common: RelCommon;
+  config: [byte];
+}
+
+table LiteralRel {
+  common: RelCommon;
+  values: [StructLiteral];
+}
+
+table WriteRel {
+  common: RelCommon;
+  schema: 
+  input: Rel;
+  config: [byte];
+}
+
+// TODO, Collect, Uncollect, Match, RepeatUnion.
+union Rel {AggRel, SortRel, FetchRel, ProjectRel, FilterRel, WriteRel, ReadRel, JoinRel, RedistributeRel}
+
+root_type Rel;
+
