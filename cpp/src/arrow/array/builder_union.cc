@@ -89,7 +89,7 @@ BasicUnionBuilder::BasicUnionBuilder(
     child_fields_[i] = union_type.field(static_cast<int>(i));
 
     auto type_id = union_type.type_codes()[i];
-    type_id_to_child_id_[type_id] = i;
+    type_id_to_child_id_[type_id] = static_cast<int>(i);
     type_id_to_children_[type_id] = children[i].get();
   }
 }
