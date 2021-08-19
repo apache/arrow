@@ -1470,9 +1470,17 @@ message CommandStatementQuery {
 
   // The SQL syntax.
   string query = 1;
+}
+
+/**
+ * Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
+ * This should be treated as an opaque value, that is, clients should not attempt to parse this.
+ */
+message TicketStatementQuery {
+  option (experimental) = true;
 
   // Unique identifier for the instance of the statement to execute.
-  bytes client_execution_handle = 2;
+  bytes statement_handle = 1;
 }
 
 /**
