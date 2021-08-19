@@ -243,11 +243,17 @@ UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
 
+// set max/min str length for space_int32, space_int64, lpad_utf8_int32_utf8
+// and rpad_utf8_int32_utf8 to avoid exceptions
+static const gdv_int32 max_str_length = 65536;
+static const gdv_int32 min_str_length = 0;
 // Returns a string of 'n' spaces.
 #define SPACE_STR(IN_TYPE)                                                              \
   GANDIVA_EXPORT                                                                        \
   const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
     gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
+    n_times = std::min(max_str_length, n_times);                                        \
+    n_times = std::max(min_str_length, n_times);                                        \
     if (n_times <= 0) {                                                                 \
       *out_len = 0;                                                                     \
       return "";                                                                        \
@@ -1768,6 +1774,8 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
                                  gdv_int32 fill_text_len, gdv_int32* out_len) {
   // if the text length or the defined return length (number of characters to return)
   // is <=0, then return an empty string.
+  return_length = std::min(max_str_length, return_length);
+  return_length = std::max(min_str_length, return_length);
   if (text_len == 0 || return_length <= 0) {
     *out_len = 0;
     return "";
@@ -1830,6 +1838,8 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
                                  gdv_int32 fill_text_len, gdv_int32* out_len) {
   // if the text length or the defined return length (number of characters to return)
   // is <=0, then return an empty string.
+  return_length = std::min(max_str_length, return_length);
+  return_length = std::max(min_str_length, return_length);
   if (text_len == 0 || return_length <= 0) {
     *out_len = 0;
     return "";
