@@ -53,8 +53,8 @@ Status DenseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_t
     const int8_t type_code = type_codes[row];
     const int child_id = type_id_to_child_id_[type_code];
     const int32_t union_offset = offsets[row];
-    ARROW_RETURN_NOT_OK(Append(type_code));
-    ARROW_RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySlice(
+    RETURN_NOT_OK(Append(type_code));
+    RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySlice(
         *array.child_data[child_id], union_offset, /*length=*/1));
   }
   return Status::OK();
@@ -140,8 +140,8 @@ int8_t BasicUnionBuilder::NextTypeId() {
 Status SparseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_t offset,
                                             const int64_t length) {
   for (size_t i = 0; i < type_codes_.size(); i++) {
-    type_id_to_children_[type_codes_[i]]->AppendArraySlice(*array.child_data[i],
-                                                           array.offset + offset, length);
+    RETURN_NOT_OK(type_id_to_children_[type_codes_[i]]->AppendArraySlice(
+        *array.child_data[i], array.offset + offset, length));
   }
   const int8_t* type_codes = array.GetValues<int8_t>(1);
   types_builder_.Append(type_codes + offset, length);
