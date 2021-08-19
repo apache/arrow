@@ -50,18 +50,6 @@ public class ArrowFlightSqlClientHandler extends BareArrowFlightClientHandler im
   }
 
   /**
-   * Instantiates a new {@link ArrowFlightSqlClientHandler} wrapping the provided {@code client}.
-   *
-   * @param client  the client to wrap.
-   * @param options the options for subsequent calls.
-   * @return a new handler.
-   */
-  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
-                                                             final CallOption... options) {
-    return new ArrowFlightSqlClientHandler(client, new FlightSqlClient(client), options);
-  }
-
-  /**
    * Gets a new client based upon provided info.
    *
    * @param address      the host and port to use.

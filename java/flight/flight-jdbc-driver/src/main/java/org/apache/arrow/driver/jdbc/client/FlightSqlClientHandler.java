@@ -48,8 +48,6 @@ public interface FlightSqlClientHandler extends BareFlightClientHandler {
 
   @Override
   default FlightInfo getInfo(final String query) {
-    // FIXME Throws `FlightRuntimeException`: UNAUTHENTICATED
-    // TODO Implement `FlightSqlClient#execute(String, CallOption[])`
-    return getSqlClient().execute(query /*, getOptions().toArray(new CallOption[0]) */);
+    return getSqlClient().execute(query, getOptions().toArray(new CallOption[0]));
   }
 }
