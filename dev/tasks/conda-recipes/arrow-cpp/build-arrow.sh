@@ -43,6 +43,12 @@ else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON"
 fi
 
+if [[ "${target_platform}" == "linux-aarch64" ]]; then
+    # To support both 4k and 64k page arm64 systems
+    # See https://github.com/apache/arrow/pull/10940
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_JEMALLOC_LG_PAGE=16"
+fi
+
 cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_BENCHMARKS=OFF \
