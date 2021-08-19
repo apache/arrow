@@ -35,6 +35,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
@@ -276,17 +277,44 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
                                    int64_t length) override {
+    if (length == 0) return Status::OK();
     auto bitmap = array.GetValues<uint8_t>(0, 0);
-    auto offsets = array.GetValues<offset_type>(1);
+    auto offsets = array.GetValues<offset_type>(1) + offset;
     auto data = array.GetValues<uint8_t>(2, 0);
-    for (int64_t i = 0; i < length; i++) {
-      if (!bitmap || BitUtil::GetBit(bitmap, array.offset + offset + i)) {
-        const offset_type start = offsets[offset + i];
-        const offset_type end = offsets[offset + i + 1];
-        ARROW_RETURN_NOT_OK(Append(data + start, end - start));
-      } else {
-        ARROW_RETURN_NOT_OK(AppendNull());
+    ARROW_RETURN_NOT_OK(Reserve(length));
+
+    auto copy_values = [&](int64_t position, int64_t length) {
+      const offset_type first_offset = offsets[position];
+      const offset_type last_offset = offsets[position + length];
+      const offset_type data_length = last_offset - first_offset;
+      ARROW_RETURN_NOT_OK(ReserveData(data_length));
+      UnsafeAppendNextOffset();
+      const offset_type base_offset =
+          offsets_builder_.data()[offsets_builder_.length() - 1];
+      ARROW_RETURN_NOT_OK(value_data_builder_.Append(data + first_offset, data_length));
+      for (int64_t i = 1; i < length; i++) {
+        offsets_builder_.UnsafeAppend(base_offset +
+                                      (offsets[position + i] - first_offset));
       }
+      UnsafeAppendToBitmap(length, true);
+      return Status::OK();
+    };
+
+    if (!bitmap) {
+      return copy_values(0, length);
+    }
+    internal::BitRunReader reader(bitmap, array.offset + offset, length);
+    int64_t position = 0;
+    while (true) {
+      internal::BitRun run = reader.NextRun();
+      if (run.length == 0) break;
+
+      if (run.set) {
+        ARROW_RETURN_NOT_OK(copy_values(position, run.length));
+      } else {
+        ARROW_RETURN_NOT_OK(AppendNulls(run.length));
+      }
+      position += run.length;
     }
     return Status::OK();
   }
