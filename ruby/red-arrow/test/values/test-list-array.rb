@@ -423,9 +423,8 @@ module ValuesListArrayTests
   def test_map
     values = [
       [
-        {"key1" => true},
+        {"key1" => true, "key2" => nil},
         nil,
-        {"key2" => nil},
       ],
       nil,
     ]

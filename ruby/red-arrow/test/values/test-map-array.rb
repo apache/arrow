@@ -38,9 +38,8 @@ module ValuesMapArrayTests
 
   def test_boolean
     values = [
-      {"key1" => false},
+      {"key1" => false, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:boolean, values)
     assert_equal(values, target.values)
@@ -48,9 +47,8 @@ module ValuesMapArrayTests
 
   def test_int8
     values = [
-      {"key1" => (2 ** 7) - 1},
+      {"key1" => (2 ** 7) - 1, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:int8, values)
     assert_equal(values, target.values)
@@ -58,9 +56,8 @@ module ValuesMapArrayTests
 
   def test_uint8
     values = [
-      {"key1" => (2 ** 8) - 1},
+      {"key1" => (2 ** 8) - 1, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:uint8, values)
     assert_equal(values, target.values)
@@ -68,9 +65,8 @@ module ValuesMapArrayTests
 
   def test_uint16
     values = [
-      {"key1" => (2 ** 16) - 1},
+      {"key1" => (2 ** 16) - 1, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:uint16, values)
     assert_equal(values, target.values)
@@ -78,9 +74,8 @@ module ValuesMapArrayTests
 
   def test_int32
     values = [
-      {"key1" => -(2 ** 31)},
+      {"key1" => -(2 ** 31), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:int32, values)
     assert_equal(values, target.values)
@@ -88,9 +83,8 @@ module ValuesMapArrayTests
 
   def test_uint32
     values = [
-      {"key1" => (2 ** 32) - 1},
+      {"key1" => (2 ** 32) - 1, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:uint32, values)
     assert_equal(values, target.values)
@@ -98,9 +92,8 @@ module ValuesMapArrayTests
 
   def test_int64
     values = [
-      {"key1" => -(2 ** 63)},
+      {"key1" => -(2 ** 63), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:int64, values)
     assert_equal(values, target.values)
@@ -108,9 +101,8 @@ module ValuesMapArrayTests
 
   def test_uint64
     values = [
-      {"key1" => (2 ** 64) - 1},
+      {"key1" => (2 ** 64) - 1, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:uint64, values)
     assert_equal(values, target.values)
@@ -118,9 +110,8 @@ module ValuesMapArrayTests
 
   def test_float
     values = [
-      {"key1" => -1.0},
+      {"key1" => -1.0, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:float, values)
     assert_equal(values, target.values)
@@ -128,9 +119,8 @@ module ValuesMapArrayTests
 
   def test_double
     values = [
-      {"key1" => -1.0},
+      {"key1" => -1.0, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:double, values)
     assert_equal(values, target.values)
@@ -138,9 +128,8 @@ module ValuesMapArrayTests
 
   def test_binary
     values = [
-      {"key1" => "\xff".b},
+      {"key1" => "\xff".b, "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:binary, values)
     assert_equal(values, target.values)
@@ -148,9 +137,8 @@ module ValuesMapArrayTests
 
   def test_string
     values = [
-      {"key1" => "Ruby"},
+      {"key1" => "Ruby", "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:string, values)
     assert_equal(values, target.values)
@@ -158,9 +146,8 @@ module ValuesMapArrayTests
 
   def test_date32
     values = [
-      {"key1" => Date.new(1960, 1, 1)},
+      {"key1" => Date.new(1960, 1, 1), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:date32, values)
     assert_equal(values, target.values)
@@ -168,9 +155,8 @@ module ValuesMapArrayTests
 
   def test_date64
     values = [
-      {"key1" => DateTime.new(1960, 1, 1, 2, 9, 30)},
+      {"key1" => DateTime.new(1960, 1, 1, 2, 9, 30), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build(:date64, values)
     assert_equal(values, target.values)
@@ -178,9 +164,8 @@ module ValuesMapArrayTests
 
   def test_timestamp_second
     values = [
-      {"key1" => Time.parse("1960-01-01T02:09:30Z")},
+      {"key1" => Time.parse("1960-01-01T02:09:30Z"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :timestamp,
@@ -192,9 +177,8 @@ module ValuesMapArrayTests
 
   def test_timestamp_milli
     values = [
-      {"key1" => Time.parse("1960-01-01T02:09:30.123Z")},
+      {"key1" => Time.parse("1960-01-01T02:09:30.123Z"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :timestamp,
@@ -206,9 +190,8 @@ module ValuesMapArrayTests
 
   def test_timestamp_micro
     values = [
-      {"key1" => Time.parse("1960-01-01T02:09:30.123456Z")},
+      {"key1" => Time.parse("1960-01-01T02:09:30.123456Z"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :timestamp,
@@ -220,9 +203,8 @@ module ValuesMapArrayTests
 
   def test_timestamp_nano
     values = [
-      {"key1" => Time.parse("1960-01-01T02:09:30.123456789Z")},
+      {"key1" => Time.parse("1960-01-01T02:09:30.123456789Z"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :timestamp,
@@ -236,9 +218,8 @@ module ValuesMapArrayTests
     unit = Arrow::TimeUnit::SECOND
     values = [
       # 00:10:00
-      {"key1" => Arrow::Time.new(unit, 60 * 10)},
+      {"key1" => Arrow::Time.new(unit, 60 * 10), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :time32,
@@ -252,9 +233,8 @@ module ValuesMapArrayTests
     unit = Arrow::TimeUnit::MILLI
     values = [
       # 00:10:00.123
-      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)},
+      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :time32,
@@ -268,9 +248,8 @@ module ValuesMapArrayTests
     unit = Arrow::TimeUnit::MICRO
     values = [
       # 00:10:00.123456
-      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)},
+      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :time64,
@@ -284,9 +263,8 @@ module ValuesMapArrayTests
     unit = Arrow::TimeUnit::NANO
     values = [
       # 00:10:00.123456789
-      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)},
+      {"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :time64,
@@ -298,9 +276,8 @@ module ValuesMapArrayTests
 
   def test_decimal128
     values = [
-      {"key1" => BigDecimal("92.92")},
+      {"key1" => BigDecimal("92.92"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :decimal128,
@@ -313,9 +290,8 @@ module ValuesMapArrayTests
 
   def test_decimal256
     values = [
-      {"key1" => BigDecimal("92.92")},
+      {"key1" => BigDecimal("92.92"), "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :decimal256,
@@ -328,9 +304,8 @@ module ValuesMapArrayTests
 
   def test_list
     values = [
-      {"key1" => [true, nil, false]},
+      {"key1" => [true, nil, false], "key2" => nil},
       nil,
-      {"key3" => nil},
     ]
     target = build({
                      type: :list,
@@ -345,10 +320,8 @@ module ValuesMapArrayTests
 
   def test_struct
     values = [
-      {"key1" => {"field" => true}},
+      {"key1" => {"field" => true}, "key2" => nil, "key3" => {"field" => nil}},
       nil,
-      {"key3" => nil},
-      {"key4" => {"field" => nil}},
     ]
     target = build({
                      type: :struct,
@@ -365,10 +338,8 @@ module ValuesMapArrayTests
 
   def test_map
     values = [
-      {"key1" => {"sub_key1" => true}},
+      {"key1" => {"sub_key1" => true, "sub_key2" => nil}, "key2" => nil},
       nil,
-      {"key3" => nil},
-      {"key4" => {"sub_key2" => nil}},
     ]
     target = build({
                      type: :map,
@@ -382,10 +353,8 @@ module ValuesMapArrayTests
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [
-      {"key1" => {"field1" => true}},
+      {"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}},
       nil,
-      {"key3" => nil},
-      {"key4" => {"field2" => nil}},
     ]
     target = build({
                      type: :sparse_union,
@@ -408,10 +377,8 @@ module ValuesMapArrayTests
   def test_dense_union
     omit("Need to add support for DenseUnionArrayBuilder")
     values = [
-      {"key1" => {"field1" => true}},
+      {"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}},
       nil,
-      {"key3" => nil},
-      {"key4" => {"field2" => nil}},
     ]
     target = build({
                      type: :dense_union,
@@ -434,10 +401,8 @@ module ValuesMapArrayTests
   def test_dictionary
     omit("Need to add support for DictionaryArrayBuilder")
     values = [
-      {"key1" => "Ruby"},
+      {"key1" => "Ruby", "key2" => nil, "key3" => "GLib"},
       nil,
-      {"key3" => nil},
-      {"key4" => "GLib"},
     ]
     dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({

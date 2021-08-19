@@ -375,9 +375,8 @@ module ValuesSparseUnionArrayTests
 
   def test_map
     values = [
-      {"0" => {"key1" => true}},
+      {"0" => {"key1" => true, "key2" => nil}},
       {"1" => nil},
-      {"0" => {"key2" => nil}},
     ]
     target = build({
                      type: :map,
@@ -387,6 +386,7 @@ module ValuesSparseUnionArrayTests
                    values)
     assert_equal(values, target.values)
   end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [

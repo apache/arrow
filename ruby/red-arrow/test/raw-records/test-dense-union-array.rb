@@ -396,9 +396,8 @@ module RawRecordsDenseUnionArrayTests
 
   def test_map
     records = [
-      [{"0" => {"sub_key1" => true}}],
+      [{"0" => {"key1" => true, "key2" => nil}}],
       [{"1" => nil}],
-      [{"0" => {"sub_key2" => nil}}],
     ]
     target = build({
                      type: :map,

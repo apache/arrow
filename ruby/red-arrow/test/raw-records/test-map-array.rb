@@ -28,7 +28,7 @@ module RawRecordsMapArrayTests
 
   def test_null
     records = [
-      [{"Key1" => nil}],
+      [{"key1" => nil}],
       [nil],
     ]
     target = build(:null, records)
@@ -37,9 +37,8 @@ module RawRecordsMapArrayTests
 
   def test_boolean
     records = [
-      [{"Key1" => true}],
+      [{"key1" => true, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:boolean, records)
     assert_equal(records, target.raw_records)
@@ -47,9 +46,8 @@ module RawRecordsMapArrayTests
 
   def test_int8
     records = [
-      [{"Key1" => -(2 ** 7)}],
+      [{"key1" => -(2 ** 7), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:int8, records)
     assert_equal(records, target.raw_records)
@@ -57,9 +55,8 @@ module RawRecordsMapArrayTests
 
   def test_uint8
     records = [
-      [{"Key1" => (2 ** 8) - 1}],
+      [{"key1" => (2 ** 8) - 1, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:uint8, records)
     assert_equal(records, target.raw_records)
@@ -67,9 +64,8 @@ module RawRecordsMapArrayTests
 
   def test_int16
     records = [
-      [{"Key1" => -(2 ** 15)}],
+      [{"key1" => -(2 ** 15), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:int16, records)
     assert_equal(records, target.raw_records)
@@ -77,9 +73,8 @@ module RawRecordsMapArrayTests
 
   def test_uint16
     records = [
-      [{"Key1" => (2 ** 16) - 1}],
+      [{"key1" => (2 ** 16) - 1, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:uint16, records)
     assert_equal(records, target.raw_records)
@@ -87,9 +82,8 @@ module RawRecordsMapArrayTests
 
   def test_int32
     records = [
-      [{"Key1" => -(2 ** 31)}],
+      [{"key1" => -(2 ** 31), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:int32, records)
     assert_equal(records, target.raw_records)
@@ -97,9 +91,8 @@ module RawRecordsMapArrayTests
 
   def test_uint32
     records = [
-      [{"Key1" => (2 ** 32) - 1}],
+      [{"key1" => (2 ** 32) - 1, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:uint32, records)
     assert_equal(records, target.raw_records)
@@ -107,9 +100,8 @@ module RawRecordsMapArrayTests
 
   def test_int64
     records = [
-      [{"Key1" => -(2 ** 63)}],
+      [{"key1" => -(2 ** 63), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:int64, records)
     assert_equal(records, target.raw_records)
@@ -117,9 +109,8 @@ module RawRecordsMapArrayTests
 
   def test_uint64
     records = [
-      [{"Key1" => (2 ** 64) - 1}],
+      [{"key1" => (2 ** 64) - 1, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:uint64, records)
     assert_equal(records, target.raw_records)
@@ -127,9 +118,8 @@ module RawRecordsMapArrayTests
 
   def test_float
     records = [
-      [{"Key1" => -1.0}],
+      [{"key1" => -1.0, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:float, records)
     assert_equal(records, target.raw_records)
@@ -137,9 +127,8 @@ module RawRecordsMapArrayTests
 
   def test_double
     records = [
-      [{"Key1" => -1.0}],
+      [{"key1" => -1.0, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:double, records)
     assert_equal(records, target.raw_records)
@@ -147,9 +136,8 @@ module RawRecordsMapArrayTests
 
   def test_binary
     records = [
-      [{"Key1" => "\xff".b}],
+      [{"key1" => "\xff".b, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:binary, records)
     assert_equal(records, target.raw_records)
@@ -157,9 +145,8 @@ module RawRecordsMapArrayTests
 
   def test_string
     records = [
-      [{"Key1" => "Ruby"}],
+      [{"key1" => "Ruby", "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:string, records)
     assert_equal(records, target.raw_records)
@@ -167,9 +154,8 @@ module RawRecordsMapArrayTests
 
   def test_date32
     records = [
-      [{"Key1" => Date.new(1960, 1, 1)}],
+      [{"key1" => Date.new(1960, 1, 1), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:date32, records)
     assert_equal(records, target.raw_records)
@@ -177,9 +163,8 @@ module RawRecordsMapArrayTests
 
   def test_date64
     records = [
-      [{"Key1" => DateTime.new(1960, 1, 1, 2, 9, 30)}],
+      [{"key1" => DateTime.new(1960, 1, 1, 2, 9, 30), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build(:date64, records)
     assert_equal(records, target.raw_records)
@@ -187,9 +172,8 @@ module RawRecordsMapArrayTests
 
   def test_timestamp_second
     records = [
-      [{"Key1" => Time.parse("1960-01-01T02:09:30Z")}],
+      [{"key1" => Time.parse("1960-01-01T02:09:30Z"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -201,9 +185,8 @@ module RawRecordsMapArrayTests
 
   def test_timestamp_milli
     records = [
-      [{"Key1" => Time.parse("1960-01-01T02:09:30.123Z")}],
+      [{"key1" => Time.parse("1960-01-01T02:09:30.123Z"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -215,9 +198,8 @@ module RawRecordsMapArrayTests
 
   def test_timestamp_micro
     records = [
-      [{"Key1" => Time.parse("1960-01-01T02:09:30.123456Z")}],
+      [{"key1" => Time.parse("1960-01-01T02:09:30.123456Z"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -229,9 +211,8 @@ module RawRecordsMapArrayTests
 
   def test_timestamp_nano
     records = [
-      [{"Key1" => Time.parse("1960-01-01T02:09:30.123456789Z")}],
+      [{"key1" => Time.parse("1960-01-01T02:09:30.123456789Z"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :timestamp,
@@ -245,9 +226,8 @@ module RawRecordsMapArrayTests
     unit = Arrow::TimeUnit::SECOND
     records = [
       # 00:10:00
-      [{"Key1" => Arrow::Time.new(unit, 60 * 10)}],
+      [{"key1" => Arrow::Time.new(unit, 60 * 10), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time32,
@@ -261,9 +241,8 @@ module RawRecordsMapArrayTests
     unit = Arrow::TimeUnit::MILLI
     records = [
       # 00:10:00.123
-      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
+      [{"key1" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time32,
@@ -277,9 +256,8 @@ module RawRecordsMapArrayTests
     unit = Arrow::TimeUnit::MICRO
     records = [
       # 00:10:00.123456
-      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
+      [{"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time64,
@@ -293,9 +271,8 @@ module RawRecordsMapArrayTests
     unit = Arrow::TimeUnit::NANO
     records = [
       # 00:10:00.123456789
-      [{"Key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
+      [{"key1" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :time64,
@@ -307,9 +284,8 @@ module RawRecordsMapArrayTests
 
   def test_decimal128
     records = [
-      [{"Key1" => BigDecimal("92.92")}],
+      [{"key1" => BigDecimal("92.92"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :decimal128,
@@ -322,9 +298,8 @@ module RawRecordsMapArrayTests
 
   def test_decimal256
     records = [
-      [{"Key1" => BigDecimal("92.92")}],
+      [{"key1" => BigDecimal("92.92"), "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
     ]
     target = build({
                      type: :decimal256,
@@ -337,9 +312,8 @@ module RawRecordsMapArrayTests
 
   def test_list
     records = [
-      [{"Key1" => [true, nil, false]}],
+      [{"key1" => [true, nil, false], "key2" => nil}],
       [nil],
-      [{"Key2" => nil}],
     ]
     target = build({
                      type: :list,
@@ -354,10 +328,8 @@ module RawRecordsMapArrayTests
 
   def test_struct
     records = [
-      [{"Key1" => {"field" => true}}],
+      [{"key1" => {"field" => true}, "key2" => nil, "key3" => {"field" => nil}}],
       [nil],
-      [{"Key3" => nil}],
-      [{"Key3" => {"field" => nil}}],
     ]
     target = build({
                      type: :struct,
@@ -374,10 +346,8 @@ module RawRecordsMapArrayTests
 
   def test_map
     records = [
-      [{"Key1" => {"sub_key1" => true}}],
+      [{"key1" => {"sub_key1" => true, "sub_key2" => nil}, "key2" => nil}],
       [nil],
-      [{"Key3" => nil}],
-      [{"Key3" => {"sub_key2" => nil}}],
     ]
     target = build({
                      type: :map,
@@ -391,10 +361,8 @@ module RawRecordsMapArrayTests
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     records = [
-      [{"Key1" => {"field1" => true}}],
+      [{"key1" => {"field" => true, "key2" => nil, "key3" => {"field" => nil}}}],
       [nil],
-      [{"Key3" => nil}],
-      [{"Key4" => {"field2" => nil}}],
     ]
     target = build({
                      type: :sparse_union,
@@ -417,10 +385,8 @@ module RawRecordsMapArrayTests
   def test_dense_union
     omit("Need to add support for DenseUnionArrayBuilder")
     records = [
-      [{"Key1" => {"field1" => true}}],
+      [{"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}}],
       [nil],
-      [{"Key3" => nil}],
-      [{"Key4" => {"field2" => nil}}],
     ]
     target = build({
                      type: :dense_union,
@@ -443,10 +409,8 @@ module RawRecordsMapArrayTests
   def test_dictionary
     omit("Need to add support for DictionaryArrayBuilder")
     records = [
-      [{"Key1" => "Ruby"}],
+      [{"key1" => "Ruby", "key2" => nil, "key3" => "GLib"}],
       [nil],
-      [{"Key3" => nil}],
-      [{"Key4" => "GLib"}],
     ]
     dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({

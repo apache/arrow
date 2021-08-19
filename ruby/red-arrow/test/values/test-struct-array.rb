@@ -380,10 +380,9 @@ module ValuesStructArrayTests
 
   def test_map
     values = [
-      {"field" => {"key1" => true}},
+      {"field" => {"key1" => true, "key2" => nil}},
       nil,
       {"field" => nil},
-      {"field" => {"key3" => nil}},
     ]
     target = build({
                      type: :map,

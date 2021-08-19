@@ -383,10 +383,9 @@ module RawRecordsStructArrayTests
 
   def test_map
     records = [
-      [{"field" => {"sub_key1" => true}}],
+      [{"field" => {"key1" => true, "key2" => nil}}],
       [nil],
       [{"field" => nil}],
-      [{"field" => {"sub_key2" => nil}}],
     ]
     target = build({
                      type: :map,

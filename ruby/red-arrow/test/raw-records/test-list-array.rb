@@ -451,13 +451,12 @@ module RawRecordsListArrayTests
     assert_equal(records, target.raw_records)
   end
 
-  def test_struct
+  def test_map
     records = [
       [
         [
-          {"key1" => true},
+          {"key1" => true, "key2" => nil},
           nil,
-          {"key3" => nil},
         ],
       ],
       [nil],
