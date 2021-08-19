@@ -249,6 +249,8 @@ class StaticVectorImpl {
   using const_reference = const T&;
   using iterator = T*;
   using const_iterator = const T*;
+  using reverse_iterator = std::reverse_iterator<iterator>;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
   constexpr StaticVectorImpl() noexcept = default;
 
@@ -317,10 +319,12 @@ class StaticVectorImpl {
     storage_.bump_size(values.size());
     auto* p = data_ptr();
     for (auto&& v : values) {
-      // XXX cannot move initializer values?
+      // Unfortunately, cannot move initializer values
       new (p++) T(v);
     }
   }
+
+  // Size inspection
 
   constexpr bool empty() const { return storage_.size_ == 0; }
 
@@ -329,6 +333,8 @@ class StaticVectorImpl {
   constexpr size_t capacity() const { return storage_.capacity(); }
 
   constexpr size_t max_size() const { return storage_.max_size(); }
+
+  // Data access
 
   T& operator[](size_t i) { return data_ptr()[i]; }
 
@@ -346,15 +352,45 @@ class StaticVectorImpl {
 
   constexpr const T* data() const { return const_data_ptr(); }
 
+  // Iterators
+
   iterator begin() { return iterator(data_ptr()); }
 
   constexpr const_iterator begin() const { return const_iterator(const_data_ptr()); }
+
+  constexpr const_iterator cbegin() const { return const_iterator(const_data_ptr()); }
 
   iterator end() { return iterator(data_ptr() + storage_.size_); }
 
   constexpr const_iterator end() const {
     return const_iterator(const_data_ptr() + storage_.size_);
   }
+
+  constexpr const_iterator cend() const {
+    return const_iterator(const_data_ptr() + storage_.size_);
+  }
+
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+
+  constexpr const_reverse_iterator rbegin() const {
+    return const_reverse_iterator(end());
+  }
+
+  constexpr const_reverse_iterator crbegin() const {
+    return const_reverse_iterator(end());
+  }
+
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+
+  constexpr const_reverse_iterator rend() const {
+    return const_reverse_iterator(begin());
+  }
+
+  constexpr const_reverse_iterator crend() const {
+    return const_reverse_iterator(begin());
+  }
+
+  // Mutations
 
   void reserve(size_t n) { storage_.reserve(n); }
 

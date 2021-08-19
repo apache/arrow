@@ -542,37 +542,76 @@ class TestSmallStaticVector : public ::testing::Test {
 
   void TestIterators() {
     constexpr size_t N = Traits::TestSizeFor(5);
-    IntVectorType<N> ints;
-    ASSERT_EQ(ints.begin(), ints.end());
+    {
+      // Forward iterators
+      IntVectorType<N> ints;
+      ASSERT_EQ(ints.begin(), ints.end());
 
-    for (int v : {5, 6, 7, 8, 42}) {
-      ints.emplace_back(v);
+      for (int v : {5, 6, 7, 8, 42}) {
+        ints.emplace_back(v);
+      }
+
+      auto it = ints.begin();
+      ASSERT_NE(it, ints.end());
+      ASSERT_EQ(*it++, 5);
+      ASSERT_EQ(ints.end() - it, 4);
+
+      auto it2 = ++it;
+      ASSERT_EQ(*it, 7);
+      ASSERT_EQ(*it2, 7);
+      ASSERT_EQ(it, it2);
+
+      ASSERT_EQ(ints.end() - it, 3);
+      ASSERT_EQ(*it--, 7);
+      ASSERT_NE(it, it2);
+
+      ASSERT_EQ(ints.end() - it, 4);
+      ASSERT_NE(it, ints.end());
+      ASSERT_EQ(*--it, 5);
+      ASSERT_EQ(*it, 5);
+      ASSERT_EQ(ints.end() - it, 5);
+      it += 4;
+      ASSERT_EQ(*it, 42);
+      ASSERT_EQ(ints.end() - it, 1);
+      ASSERT_NE(it, ints.end());
+      ASSERT_EQ(*(it - 3), 6);
+      ASSERT_EQ(++it, ints.end());
     }
-    auto it = ints.begin();
-    ASSERT_NE(it, ints.end());
-    ASSERT_EQ(*it++, 5);
-    ASSERT_EQ(ints.end() - it, 4);
+    {
+      // Reverse iterators
+      IntVectorType<N> ints;
+      ASSERT_EQ(ints.rbegin(), ints.rend());
 
-    auto it2 = ++it;
-    ASSERT_EQ(*it, 7);
-    ASSERT_EQ(*it2, 7);
-    ASSERT_EQ(it, it2);
+      for (int v : {42, 8, 7, 6, 5}) {
+        ints.emplace_back(v);
+      }
 
-    ASSERT_EQ(ints.end() - it, 3);
-    ASSERT_EQ(*it--, 7);
-    ASSERT_NE(it, it2);
+      auto it = ints.rbegin();
+      ASSERT_NE(it, ints.rend());
+      ASSERT_EQ(*it++, 5);
+      ASSERT_EQ(ints.rend() - it, 4);
 
-    ASSERT_EQ(ints.end() - it, 4);
-    ASSERT_NE(it, ints.end());
-    ASSERT_EQ(*--it, 5);
-    ASSERT_EQ(*it, 5);
-    ASSERT_EQ(ints.end() - it, 5);
-    it += 4;
-    ASSERT_EQ(*it, 42);
-    ASSERT_EQ(ints.end() - it, 1);
-    ASSERT_NE(it, ints.end());
-    ASSERT_EQ(*(it - 3), 6);
-    ASSERT_EQ(++it, ints.end());
+      auto it2 = ++it;
+      ASSERT_EQ(*it, 7);
+      ASSERT_EQ(*it2, 7);
+      ASSERT_EQ(it, it2);
+
+      ASSERT_EQ(ints.rend() - it, 3);
+      ASSERT_EQ(*it--, 7);
+      ASSERT_NE(it, it2);
+
+      ASSERT_EQ(ints.rend() - it, 4);
+      ASSERT_NE(it, ints.rend());
+      ASSERT_EQ(*--it, 5);
+      ASSERT_EQ(*it, 5);
+      ASSERT_EQ(ints.rend() - it, 5);
+      it += 4;
+      ASSERT_EQ(*it, 42);
+      ASSERT_EQ(ints.rend() - it, 1);
+      ASSERT_NE(it, ints.rend());
+      ASSERT_EQ(*(it - 3), 6);
+      ASSERT_EQ(++it, ints.rend());
+    }
   }
 
   void TestConstIterators() {
@@ -580,10 +619,13 @@ class TestSmallStaticVector : public ::testing::Test {
     {
       const IntVectorType<N> ints{};
       ASSERT_EQ(ints.begin(), ints.end());
+      ASSERT_EQ(ints.rbegin(), ints.rend());
     }
     {
+      // Forward iterators
       IntVectorType<N> underlying_ints = MakeVector<N>({5, 6, 7, 8, 42});
       const IntVectorType<N>& ints = underlying_ints;
+
       auto it = ints.begin();
       ASSERT_NE(it, ints.end());
       ASSERT_EQ(*it++, 5);
@@ -600,6 +642,28 @@ class TestSmallStaticVector : public ::testing::Test {
       ASSERT_EQ(*it, 6);
       it += underlying_ints.end() - it;
       ASSERT_EQ(it, underlying_ints.end());
+    }
+    {
+      // Reverse iterators
+      IntVectorType<N> underlying_ints = MakeVector<N>({42, 8, 7, 6, 5});
+      const IntVectorType<N>& ints = underlying_ints;
+
+      auto it = ints.rbegin();
+      ASSERT_NE(it, ints.rend());
+      ASSERT_EQ(*it++, 5);
+      auto it2 = it++;
+      ASSERT_EQ(*it2, 6);
+      ASSERT_EQ(*it, 7);
+      ASSERT_NE(it, it2);
+      ASSERT_EQ(*++it2, 7);
+      ASSERT_EQ(it, it2);
+
+      // Conversion from non-const iterator
+      it = underlying_ints.rbegin() + 1;
+      ASSERT_NE(it, underlying_ints.rend());
+      ASSERT_EQ(*it, 6);
+      it += underlying_ints.rend() - it;
+      ASSERT_EQ(it, underlying_ints.rend());
     }
   }
 
