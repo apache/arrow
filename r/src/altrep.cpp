@@ -57,20 +57,36 @@ namespace r {
 
 namespace altrep {
 
-// specialized altrep vector for when there are some nulls
+// altrep R vector shadowing an Array.
+//
+// This tries as much as possible to directly use the data
+// from the Array and minimize data copies.
+//
+// Both slots of the altrep object (data1 and data2) are used:
+//
+// data1: always used, stores an R external pointer to a
+//        shared pointer of the Array
+// data2: starts as NULL, and becomes a standard R vector with the same
+//        data if necessary (if materialization is needed)
 template <int sexp_type>
 struct AltrepArrayPrimitive {
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
+  using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
+
+  // singleton altrep class description
   static R_altrep_class_t class_t;
 
-  using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
-  constexpr static int r_type = sexp_type;
+  // the altrep R object
+  SEXP alt_;
 
-  explicit AltrepArrayPrimitive(SEXP alt)
-      : alt_(alt), array_(*Pointer(R_altrep_data1(alt_))) {}
+  // The data1 slot of `alt_` points to this shared pointer
+  const std::shared_ptr<Array>& array_;
 
+  // This constructor is used to create the altrep object from
+  // an Array. Used by MakeAltrepArrayPrimitive() which is used
+  // in array_to_vector.cpp
   explicit AltrepArrayPrimitive(const std::shared_ptr<Array>& array)
       : alt_(R_new_altrep(class_t, Pointer(new std::shared_ptr<Array>(array)),
                           R_NilValue)),
@@ -78,106 +94,136 @@ struct AltrepArrayPrimitive {
     MARK_NOT_MUTABLE(alt_);
   }
 
-  SEXP data1() { return R_altrep_data1(alt_); }
-
-  SEXP data2() { return R_altrep_data2(alt_); }
+  // This constructor is used when R calls altrep methods.
+  //
+  // For example in the Length() method below:
+  //
+  // template <typename AltrepClass>
+  // R_xlen_t Length(SEXP alt) {
+  //   return AltrepClass(alt).Length();
+  // }
+  explicit AltrepArrayPrimitive(SEXP alt)
+      : alt_(alt), array_(*Pointer(R_altrep_data1(alt_))) {}
 
   R_xlen_t Length() { return array_->length(); }
 
-  bool IsMaterialized() { return !Rf_isNull(data2()); }
+  // Does the data2 slot of the altrep object contain a
+  // standard R vector with the same data as the array
+  bool IsMaterialized() { return !Rf_isNull(R_altrep_data2(alt_)); }
 
+  // Force materialization. After calling this, the data2 slot of the altrep
+  // object contains a standard R vector with the same data, with
+  // R sentinels where the Array has nulls.
   void Materialize() {
     if (!IsMaterialized()) {
       auto size = array_->length();
 
       // create a standard R vector
-      SEXP copy = PROTECT(Rf_allocVector(sexp_type, array_->length()));
+      SEXP copy = PROTECT(Rf_allocVector(sexp_type, size));
 
       // copy the data from the array, through Get_region
-      Get_region(0, size, reinterpret_cast<data_type*>(DATAPTR(copy)));
+      Get_region(0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
-      // store as data2
+      // mark as immutable and store as data2
       MARK_NOT_MUTABLE(copy);
-
       R_set_altrep_data2(alt_, copy);
+
       UNPROTECT(1);
     }
   }
 
+  // Duplication is done by first materializing the vector and
+  // then make a lazy duplicate of data2
   SEXP Duplicate(Rboolean deep) {
     Materialize();
-    return Rf_lazy_duplicate(data2());
+    return Rf_lazy_duplicate(R_altrep_data2(alt_));
   }
 
+  // What gets printed on .Internal(inspect(<the altrep object>))
   Rboolean Inspect(int pre, int deep, int pvec,
                    void (*inspect_subtree)(SEXP, int, int, int)) {
     Rprintf("arrow::Array<%s, %d nulls, %s> len=%d, Array=<%p>\n",
             array_->type()->ToString().c_str(), array_->null_count(),
             IsMaterialized() ? "materialized" : "not materialized", array_->length(),
             array_.get());
-    inspect_subtree(data1(), pre, deep + 1, pvec);
+    inspect_subtree(R_altrep_data1(alt_), pre, deep + 1, pvec);
     if (IsMaterialized()) {
-      inspect_subtree(data2(), pre, deep + 1, pvec);
+      inspect_subtree(R_altrep_data2(alt_), pre, deep + 1, pvec);
     }
     return TRUE;
   }
 
+  // R calls this to get a pointer to the start of the vector data
+  // but only of getting it isn't too much work. Potentially the R
+  // code calling this will prefer going through the vector by region.
+  //
+  // For this implementation we can return the data in these cases
+  // - the Array has no nulls, we can directly return the start of its data
+  // - data2 has been created, and so the R sentinels are in place where the array
+  //         has nulls
+  //
+  // Otherwise: if the array has nulls and data2 has not been generated: give up
   const void* Dataptr_or_null() {
     if (array_->null_count() == 0) {
-      return reinterpret_cast<const void*>(const_array_data());
+      return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
     }
 
     if (IsMaterialized()) {
-      return DATAPTR_RO(data2());
+      return DATAPTR_RO(R_altrep_data2(alt_));
     }
 
     return NULL;
   }
 
-  // force materialization, and then return data ptr
+  // R calls this to get a pointer to the start of the data, no matter what the cost is.
+  //
+  // Again, if the array has no nulls, we can directly return the start of its data.
+  // Otherwise, data2 is created and its DATAPTR() is returned
   void* Dataptr(Rboolean writeable) {
+    // TODO: understand what writable is about and (probably) don't return
+    //       arrow dats if it's true
     if (array_->null_count() == 0) {
-      return reinterpret_cast<void*>(array_data());
+      return reinterpret_cast<void*>(
+          const_cast<c_type*>(array_->data()->template GetValues<c_type>(1)));
     }
 
     Materialize();
-    return DATAPTR(data2());
+    return DATAPTR(R_altrep_data2(alt_));
   }
 
-  // by design, there are missing values in this vector
+  // Does the Array have no nulls ?
   int No_NA() { return array_->null_count() != 0; }
 
-  // There are no guarantee that the data is the R sentinel,
-  // so we have to treat it specially
-  data_type Elt(R_xlen_t i) {
-    return array_->IsNull(i) ? cpp11::na<data_type>()
-                             : array_->data()->template GetValues<data_type>(1)[i];
+  // The value at position i
+  c_type Elt(R_xlen_t i) {
+    return array_->IsNull(i) ? cpp11::na<c_type>()
+                             : array_->data()->template GetValues<c_type>(1)[i];
   }
 
-  SEXP alt_;
-  const std::shared_ptr<Array>& array_;
-
-  const data_type* const_array_data() const {
-    return array_->data()->template GetValues<data_type>(1);
-  }
-
-  data_type* array_data() const {
-    return const_cast<data_type*>(array_->data()->template GetValues<data_type>(1));
-  }
-
-  R_xlen_t Get_region(R_xlen_t i, R_xlen_t n, data_type* buf) {
+  // R calls this when it wants data from position `i` to `i + n` copied into `buf`
+  // The returned value is the number of values that were really copied
+  // (this can be lower than n)
+  R_xlen_t Get_region(R_xlen_t i, R_xlen_t n, c_type* buf) {
     auto slice = array_->Slice(i, n);
 
     R_xlen_t ncopy = slice->length();
 
     if (IsMaterialized()) {
-      // just use data2
-      memcpy(buf, reinterpret_cast<data_type*>(DATAPTR(data2())) + i,
-             ncopy * sizeof(data_type));
+      // The vector was already materialized fully, including
+      // setting the R sentinels where the array has nulls.
+      //
+      // So we can copy the relevant slice from data2 directly
+      memcpy(buf, reinterpret_cast<c_type*>(DATAPTR(R_altrep_data2(alt_))) + i,
+             ncopy * sizeof(c_type));
     } else {
+      // The vector was not materialized, aka we don't have data2
+      //
+      // In that case, we copy the data from the Array, and then
+      // do a second pass to force the R sentinels for where the
+      // array has nulls
+
       // first copy the data buffer
-      memcpy(buf, slice->data()->template GetValues<data_type>(1),
-             ncopy * sizeof(data_type));
+      memcpy(buf, slice->data()->template GetValues<c_type>(1), ncopy * sizeof(c_type));
 
       // then set the R NA sentinels if needed
       if (slice->null_count() > 0) {
@@ -186,7 +232,7 @@ struct AltrepArrayPrimitive {
 
         for (R_xlen_t j = 0; j < ncopy; j++, bitmap_reader.Next()) {
           if (bitmap_reader.IsNotSet()) {
-            buf[j] = cpp11::na<data_type>();
+            buf[j] = cpp11::na<c_type>();
           }
         }
       }
@@ -198,6 +244,10 @@ struct AltrepArrayPrimitive {
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
 
+// The methods below are how R interacts with the altrep objects.
+//
+// They all use the same pattern: create a C++ object of the
+// class parameter, and then call the method.
 template <typename AltrepClass>
 R_xlen_t Length(SEXP alt) {
   return AltrepClass(alt).Length();
@@ -235,8 +285,7 @@ int No_NA(SEXP alt) {
 }
 
 template <typename AltrepClass>
-R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n,
-                    typename AltrepClass::data_type* buf) {
+R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, typename AltrepClass::c_type* buf) {
   return AltrepClass(alt).Get_region(i, n, buf);
 }
 
@@ -319,6 +368,7 @@ static SEXP Sum(SEXP alt, Rboolean narm) {
   }
 }
 
+// initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
 void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altrep_Length_method(class_t, Length<AltrepClass>);
@@ -370,11 +420,13 @@ void InitAltIntegerClass(DllInfo* dll, const char* name) {
   InitAltIntegerMethods<AltrepClass>(AltrepClass::class_t, dll);
 }
 
+// initialize the altrep classes
 void Init_Altrep_classes(DllInfo* dll) {
   InitAltRealClass<AltrepArrayPrimitive<REALSXP>>(dll, "array_dbl_vector");
   InitAltIntegerClass<AltrepArrayPrimitive<INTSXP>>(dll, "array_int_vector");
 }
 
+// return an altrep R vector that shadows the array if possible
 SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array) {
   switch (array->type()->id()) {
     case arrow::Type::DOUBLE:
