@@ -65,9 +65,7 @@ struct TDigestImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     auto& other = checked_cast<ThisType&>(src);
-    std::vector<TDigest> other_tdigest;
-    other_tdigest.push_back(std::move(other.tdigest));
-    this->tdigest.Merge(&other_tdigest);
+    this->tdigest.Merge(other.tdigest);
     return Status::OK();
   }
 
