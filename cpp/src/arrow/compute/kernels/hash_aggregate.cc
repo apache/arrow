@@ -2027,9 +2027,9 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(
-        auto groupings,
-        grouper_->MakeGroupings(*uniques[1].array_as<UInt32Array>(), num_groups_, ctx_));
+    ARROW_ASSIGN_OR_RAISE(auto groupings, grouper_->MakeGroupings(
+                                              *uniques[1].array_as<UInt32Array>(),
+                                              static_cast<uint32_t>(num_groups_), ctx_));
     return grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_);
   }
 
