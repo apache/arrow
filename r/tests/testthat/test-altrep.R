@@ -60,18 +60,18 @@ test_that("altrep vectors from int32 and dbl arrays with nulls", {
   c_dbl <- ChunkedArray$create(c(1, NA, 3))
 
   expect_true(is_altrep(as.vector(v_int)))
-  # expect_true(is_altrep(as.vector(v_int$Slice(1))))
+  expect_true(is_altrep(as.vector(v_int$Slice(1))))
   expect_true(is_altrep(as.vector(v_dbl)))
-  # expect_true(is_altrep(as.vector(v_dbl$Slice(1))))
+  expect_true(is_altrep(as.vector(v_dbl$Slice(1))))
   expect_true(is_altrep(as.vector(c_int)))
-  # expect_true(is_altrep(as.vector(c_int$Slice(1))))
+  expect_true(is_altrep(as.vector(c_int$Slice(1))))
   expect_true(is_altrep(as.vector(c_dbl)))
-  # expect_true(is_altrep(as.vector(c_dbl$Slice(1))))
+  expect_true(is_altrep(as.vector(c_dbl$Slice(1))))
 
-  # expect_true(is_altrep(as.vector(v_int$Slice(2))))
-  # expect_true(is_altrep(as.vector(v_dbl$Slice(2))))
-  # expect_true(is_altrep(as.vector(c_int$Slice(2))))
-  # expect_true(is_altrep(as.vector(c_dbl$Slice(2))))
+  expect_true(is_altrep(as.vector(v_int$Slice(2))))
+  expect_true(is_altrep(as.vector(v_dbl$Slice(2))))
+  expect_true(is_altrep(as.vector(c_int$Slice(2))))
+  expect_true(is_altrep(as.vector(c_dbl$Slice(2))))
 
   # chunked array with 2 chunks cannot be altrep
   c_int <- ChunkedArray$create(0L, c(1L, NA, 3L))
@@ -81,8 +81,8 @@ test_that("altrep vectors from int32 and dbl arrays with nulls", {
 
   expect_false(is_altrep(as.vector(c_int)))
   expect_false(is_altrep(as.vector(c_dbl)))
-  # expect_true(is_altrep(as.vector(c_int$Slice(3))))
-  # expect_true(is_altrep(as.vector(c_dbl$Slice(3))))
+  expect_true(is_altrep(as.vector(c_int$Slice(3))))
+  expect_true(is_altrep(as.vector(c_dbl$Slice(3))))
 })
 
 test_that("empty vectors are not altrep", {
