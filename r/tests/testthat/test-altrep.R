@@ -136,8 +136,14 @@ test_that("altrep min/max/sum identical to R versions for double", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_real_, 3)
-  expect_warning(expect_altrep_rountrip(x, min, na.rm = TRUE))
-  expect_warning(expect_altrep_rountrip(x, max, na.rm = TRUE))
+  expect_warning(
+    expect_altrep_rountrip(x, min, na.rm = TRUE),
+    "no non-missing arguments to min"
+  )
+  expect_warning(
+    expect_altrep_rountrip(x, max, na.rm = TRUE),
+    "no non-missing arguments to max"
+  )
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
@@ -165,8 +171,14 @@ test_that("altrep min/max/sum identical to R versions for int", {
   expect_altrep_rountrip(x, sum)
 
   x <- rep(NA_integer_, 3)
-  expect_warning(expect_altrep_rountrip(x, min, na.rm = TRUE))
-  expect_warning(expect_altrep_rountrip(x, max, na.rm = TRUE))
+  expect_warning(
+    expect_altrep_rountrip(x, min, na.rm = TRUE),
+    "no non-missing arguments to min"
+  )
+  expect_warning(
+    expect_altrep_rountrip(x, max, na.rm = TRUE),
+    "no non-missing arguments to max"
+  )
   expect_altrep_rountrip(x, sum, na.rm = TRUE)
 
   expect_altrep_rountrip(x, min)
