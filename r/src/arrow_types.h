@@ -175,11 +175,13 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
 #if defined(HAS_ALTREP)
+
+namespace altrep {
+
 void Init_Altrep_classes(DllInfo* dll);
+SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array);
 
-template <int RTYPE>
-SEXP MakeAltrepArray(const std::shared_ptr<Array>& array, RTasks& tasks);
-
+}  // namespace altrep
 #endif
 
 }  // namespace r
