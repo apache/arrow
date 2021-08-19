@@ -291,11 +291,11 @@ equivalents above and reflects how they are implemented internally.
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
-| hash_all      | Unary | Boolean     | Int64          | :struct:`ScalarAggregateOptions` | \(1)  |
+| hash_all      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_any      | Unary | Any         | Int64          | :struct:`ScalarAggregateOptions` | \(1)  |
+| hash_any      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_count    | Unary | Boolean     | Int64          | :struct:`CountOptions`           | \(2)  |
+| hash_count    | Unary | Any         | Int64          | :struct:`CountOptions`           | \(2)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
