@@ -125,7 +125,7 @@ class BaseListBuilder : public ArrayBuilder {
   Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
                                    int64_t length) override {
     const offset_type* offsets = array.GetValues<offset_type>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
@@ -295,7 +295,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
                                    int64_t length) override {
     const int32_t* offsets = array.GetValues<int32_t>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
@@ -412,7 +412,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
                                    int64_t length) final {
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySliceUnchecked(
@@ -524,7 +524,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
       ARROW_RETURN_NOT_OK(children_[i]->AppendArraySliceUnchecked(
           *array.child_data[i], array.offset + offset, length));
     }
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       ARROW_RETURN_NOT_OK(
           Append(!validity || BitUtil::GetBit(validity, array.offset + row)));

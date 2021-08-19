@@ -126,8 +126,8 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
-                                           const int64_t length) {
+  virtual Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
+                                           int64_t length) {
     return Status::NotImplemented("AppendArraySliceUnchecked for builder for ", *type());
   }
 
