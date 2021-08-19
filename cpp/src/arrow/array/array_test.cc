@@ -641,31 +641,31 @@ TEST_F(TestArray, TestAppendArraySlice) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
 
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 0, 4));
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 4));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 4));
     ASSERT_EQ(8, builder->length());
 
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 0, 4));
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 4));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 4));
     ASSERT_EQ(16, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(8, builder->null_count());
@@ -683,13 +683,13 @@ TEST_F(TestArray, TestAppendArraySlice) {
   {
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(null(), 16));
     NullBuilder builder(pool_);
-    ASSERT_OK(builder.AppendArraySliceUnchecked(*array->data(), 0, 4));
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 4));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySliceUnchecked(*array->data(), 0, 0));
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySliceUnchecked(*array->data(), 1, 0));
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySliceUnchecked(*array->data(), 1, 4));
+    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 4));
     ASSERT_EQ(8, builder.length());
     std::shared_ptr<Array> result;
     ASSERT_OK(builder.Finish(&result));

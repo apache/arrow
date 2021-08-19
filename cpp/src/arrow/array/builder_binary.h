@@ -274,8 +274,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
-                                   int64_t length) override {
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
     auto bitmap = array.GetValues<uint8_t>(0, 0);
     auto offsets = array.GetValues<offset_type>(1);
     auto data = array.GetValues<uint8_t>(2, 0);
@@ -512,8 +512,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status AppendEmptyValue() final;
   Status AppendEmptyValues(int64_t length) final;
 
-  Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
-                                   int64_t length) override {
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
     return AppendValues(
         array.GetValues<uint8_t>(1, 0) + ((array.offset + offset) * byte_width_), length,
         array.GetValues<uint8_t>(0, 0), array.offset + offset);

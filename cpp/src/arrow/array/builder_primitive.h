@@ -53,7 +53,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 
-  Status AppendArraySliceUnchecked(const ArrayData&, int64_t, int64_t length) override {
+  Status AppendArraySlice(const ArrayData&, int64_t, int64_t length) override {
     return AppendNulls(length);
   }
 
@@ -275,8 +275,8 @@ class NumericBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
-                                   int64_t length) override {
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
     return AppendValues(array.GetValues<value_type>(1) + offset, length,
                         array.GetValues<uint8_t>(0, 0), array.offset + offset);
   }
@@ -493,8 +493,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status AppendValues(int64_t length, bool value);
 
-  Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
-                                   int64_t length) override {
+  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+                          int64_t length) override {
     return AppendValues(array.GetValues<uint8_t>(1, 0), length,
                         array.GetValues<uint8_t>(0, 0), array.offset + offset);
   }

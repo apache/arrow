@@ -1499,7 +1499,7 @@ static Status ExecVarWidthArrayCaseWhenImpl(
       const auto& array = source.array();
       if (!array->buffers[0] ||
           BitUtil::GetBit(array->buffers[0]->data(), array->offset + row)) {
-        RETURN_NOT_OK(raw_builder->AppendArraySliceUnchecked(*array, row, /*length=*/1));
+        RETURN_NOT_OK(raw_builder->AppendArraySlice(*array, row, /*length=*/1));
       } else {
         RETURN_NOT_OK(raw_builder->AppendNull());
       }
