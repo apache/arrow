@@ -525,10 +525,8 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
           *array.child_data[i], array.offset + offset, length));
     }
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
-    for (int64_t row = offset; row < offset + length; row++) {
-      ARROW_RETURN_NOT_OK(
-          Append(!validity || BitUtil::GetBit(validity, array.offset + row)));
-    }
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(validity, array.offset + offset, length);
     return Status::OK();
   }
 
