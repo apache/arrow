@@ -166,7 +166,7 @@ struct AltrepArrayPrimitive {
   }
 
   R_xlen_t Get_region(R_xlen_t i, R_xlen_t n, data_type* buf) {
-    const auto& slice = array_->Slice(i, n);
+    auto slice = array_->Slice(i, n);
 
     R_xlen_t ncopy = slice->length();
 
