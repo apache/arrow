@@ -1820,8 +1820,9 @@ struct GroupedAnyImpl : public GroupedAggregator {
           input.buffers[0], input.offset, input.length,
           [&](int64_t position) {
             counts[*g]++;
-            BitUtil::SetBitTo(
-                seen, *g, BitUtil::GetBit(seen, *g) || BitUtil::GetBit(bitmap, position));
+            if (!BitUtil::GetBit(seen, *g) && BitUtil::GetBit(bitmap, position)) {
+              BitUtil::SetBit(seen, *g);
+            }
             g++;
           },
           [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
