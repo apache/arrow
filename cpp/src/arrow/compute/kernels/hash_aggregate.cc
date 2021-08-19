@@ -2029,40 +2029,10 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
-
-    // Assemble the final list via Take
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> offsets_buffer,
-                          AllocateBuffer((num_groups_ + 1) * sizeof(int32_t), pool_));
-    int32_t* offsets = reinterpret_cast<int32_t*>(offsets_buffer->mutable_data());
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> take_indices,
-                          AllocateBuffer(uniques.length * sizeof(int64_t), pool_));
-    int32_t* indices = reinterpret_cast<int32_t*>(take_indices->mutable_data());
-
-    std::vector<std::vector<int32_t>> grouped_slices(num_groups_);
-
-    auto* g = uniques[1].array()->GetValues<uint32_t>(1);
-    for (int32_t i = 0; i < uniques.length; i++) {
-      grouped_slices[g[i]].push_back(i);
-    }
-
-    offsets[0] = 0;
-    for (size_t i = 0; i < grouped_slices.size(); i++) {
-      indices = std::copy(grouped_slices[i].begin(), grouped_slices[i].end(), indices);
-      offsets[i + 1] = offsets[i] + static_cast<int32_t>(grouped_slices[i].size());
-    }
-
     ARROW_ASSIGN_OR_RAISE(
-        auto child_array,
-        Take(uniques[0],
-             Datum(ArrayData::Make(int32(), uniques.length,
-                                   {nullptr, std::move(take_indices)}, /*null_count=*/0)),
-             TakeOptions::NoBoundsCheck(), ctx_));
-
-    return ArrayData::Make(out_type(), num_groups_, {nullptr, std::move(offsets_buffer)},
-                           {child_array.array()},
-                           /*null_count=*/0);
+        auto groupings,
+        grouper_->MakeGroupings(*uniques[1].array_as<UInt32Array>(), num_groups_, ctx_));
+    return grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_);
   }
 
   std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
