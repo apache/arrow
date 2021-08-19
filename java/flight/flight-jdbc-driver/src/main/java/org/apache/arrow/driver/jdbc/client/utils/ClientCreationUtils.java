@@ -22,7 +22,7 @@ import static org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtil
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map.Entry;
 
 import org.apache.arrow.flight.FlightClient;
@@ -38,7 +38,6 @@ public class ClientCreationUtils {
   private ClientCreationUtils() {
     // Prevent instantiation.
   }
-
 
   /**
    * Instantiates a new {@link FlightClient} from the provided info.
@@ -73,7 +72,7 @@ public class ClientCreationUtils {
                                              final Entry<String, String> keyStoreInfo,
                                              final boolean useTls,
                                              final BufferAllocator allocator,
-                                             final List<FlightClientMiddleware.Factory> middlewareFactories)
+                                             final Collection<FlightClientMiddleware.Factory> middlewareFactories)
       throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(address, "Address cannot be null!");
     Preconditions.checkNotNull(allocator, "Allocator cannot be null!");

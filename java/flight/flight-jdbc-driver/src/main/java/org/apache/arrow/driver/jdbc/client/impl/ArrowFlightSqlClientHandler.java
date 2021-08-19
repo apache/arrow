@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.client;
+package org.apache.arrow.driver.jdbc.client.impl;
 
-import java.util.Arrays;
-import java.util.Collection;
-
+import org.apache.arrow.driver.jdbc.client.FlightSqlClientHandler;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.sql.FlightSqlClient;
@@ -28,17 +26,12 @@ import org.apache.arrow.util.Preconditions;
 /**
  * Wrapper for a {@link FlightSqlClient}.
  */
-public class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler implements FlightSqlClientHandler {
+public class ArrowFlightSqlClientHandler extends BareArrowFlightClientHandler implements FlightSqlClientHandler {
 
   private final FlightSqlClient sqlClient;
 
   protected ArrowFlightSqlClientHandler(final FlightClient client, final FlightSqlClient sqlClient,
                                         final CallOption... options) {
-    this(client, sqlClient, Arrays.asList(options));
-  }
-
-  protected ArrowFlightSqlClientHandler(final FlightClient client, final FlightSqlClient sqlClient,
-                                        final Collection<CallOption> options) {
     super(client, options);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
   }
