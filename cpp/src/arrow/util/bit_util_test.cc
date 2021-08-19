@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -1944,11 +1945,7 @@ static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
-  EXPECT_EQ(buffer_expect[0], buffer[0]);
-  EXPECT_EQ(buffer_expect[1], buffer[1]);
-  EXPECT_EQ(buffer_expect[2], buffer[2]);
-  EXPECT_EQ(buffer_expect[3], buffer[3]);
-  EXPECT_EQ(buffer_expect[4], buffer[4]);
+  EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int32_t result;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
   EXPECT_EQ(v, result);
@@ -1970,16 +1967,7 @@ static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
-  EXPECT_EQ(buffer_expect[0], buffer[0]);
-  EXPECT_EQ(buffer_expect[1], buffer[1]);
-  EXPECT_EQ(buffer_expect[2], buffer[2]);
-  EXPECT_EQ(buffer_expect[3], buffer[3]);
-  EXPECT_EQ(buffer_expect[4], buffer[4]);
-  EXPECT_EQ(buffer_expect[5], buffer[5]);
-  EXPECT_EQ(buffer_expect[6], buffer[6]);
-  EXPECT_EQ(buffer_expect[7], buffer[7]);
-  EXPECT_EQ(buffer_expect[8], buffer[8]);
-  EXPECT_EQ(buffer_expect[9], buffer[9]);
+  EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int64_t result;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
   EXPECT_EQ(v, result);
@@ -1991,9 +1979,12 @@ TEST(BitStreamUtil, ZigZag64) {
   TestZigZag64(1234, {164, 19, 0, 0, 0, 0, 0, 0, 0, 0});
   TestZigZag64(-1, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
   TestZigZag64(-1234, {163, 19, 0, 0, 0, 0, 0, 0, 0, 0});
-  TestZigZag64(std::numeric_limits<int64_t>::max(), {254, 255, 255, 255, 255, 255, 255, 255, 255, 1});
-  TestZigZag64(-std::numeric_limits<int64_t>::max(), {253, 255, 255, 255, 255, 255, 255, 255, 255, 1});
-  TestZigZag64(std::numeric_limits<int64_t>::min(), {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(std::numeric_limits<int64_t>::max(),
+               {254, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(-std::numeric_limits<int64_t>::max(),
+               {253, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(std::numeric_limits<int64_t>::min(),
+               {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
 }
 
 TEST(BitUtil, RoundTripLittleEndianTest) {

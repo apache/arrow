@@ -4088,6 +4088,10 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
 
   ::arrow::AssertTablesEqual(*table, *expect_table);
 }
+#else
+TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
 #endif
 
 }  // namespace arrow

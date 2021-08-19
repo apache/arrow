@@ -338,7 +338,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else if (sizeof(T) == 8 && num_bits > 32) {
-    // Use unpack64 only if num_bits is larger then 32
+    // Use unpack64 only if num_bits is larger than 32
     // TODO: improve the performance of internal::unpack64 and remove the restriction of
     // num_bits
     int num_unpacked =

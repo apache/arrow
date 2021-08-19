@@ -2115,9 +2115,10 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
     delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
     values_per_mini_block_ = values_per_block_ / mini_blocks_per_block_;
-    if (values_per_mini_block_ % 8 != 0) {
-      throw ParquetException("miniBlockSize must be multiple of 8, but it's " +
-                             std::to_string(values_per_mini_block_));
+    if (values_per_mini_block_ % 32 != 0) {
+      throw ParquetException(
+          "the number of values in a miniblock must be multiple of 32, but it's " +
+          std::to_string(values_per_mini_block_));
     }
 
     block_initialized_ = false;
