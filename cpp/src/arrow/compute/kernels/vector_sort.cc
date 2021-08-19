@@ -2096,8 +2096,8 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   auto part_bottomk =
       std::make_shared<VectorFunction>("array_bottom_k", Arity::Unary(), &bottom_k_doc);
   base.init = SelectKOptionsState::Init;
-  AddSortingKernels<ArraySelectNth>(base, part_topk.get());
-  DCHECK_OK(registry->AddFunction(std::move(part_topk)));
+  AddSortingKernels<ArraySelectNth>(base, part_bottomk.get());
+  DCHECK_OK(registry->AddFunction(std::move(part_bottomk)));
   DCHECK_OK(registry->AddFunction(std::make_shared<BottomKMetaFunction>()));
 }
 
