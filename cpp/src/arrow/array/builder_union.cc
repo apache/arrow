@@ -45,6 +45,22 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
+Status DenseUnionBuilder::AppendArraySliceUnchecked(const ArrayData& array,
+                                                    const int64_t offset,
+                                                    const int64_t length) {
+  const int8_t* type_codes = array.GetValues<int8_t>(1);
+  const int32_t* offsets = array.GetValues<int32_t>(2);
+  for (int64_t row = offset; row < offset + length; row++) {
+    const int8_t type_code = type_codes[row];
+    const int child_id = type_id_to_child_id_[type_code];
+    const int32_t union_offset = offsets[row];
+    ARROW_RETURN_NOT_OK(Append(type_code));
+    ARROW_RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySliceUnchecked(
+        *array.child_data[child_id], union_offset, /*length=*/1));
+  }
+  return Status::OK();
+}
+
 Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_RETURN_NOT_OK(BasicUnionBuilder::FinishInternal(out));
   (*out)->buffers.resize(3);
@@ -120,6 +136,18 @@ int8_t BasicUnionBuilder::NextTypeId() {
   type_id_to_child_id_.resize(type_id_to_child_id_.size() + 1);
   type_id_to_children_.resize(type_id_to_children_.size() + 1);
   return dense_type_id_++;
+}
+
+Status SparseUnionBuilder::AppendArraySliceUnchecked(const ArrayData& array,
+                                                     const int64_t offset,
+                                                     const int64_t length) {
+  for (size_t i = 0; i < type_codes_.size(); i++) {
+    type_id_to_children_[type_codes_[i]]->AppendArraySliceUnchecked(
+        *array.child_data[i], array.offset + offset, length);
+  }
+  const int8_t* type_codes = array.GetValues<int8_t>(1);
+  types_builder_.Append(type_codes + offset, length);
+  return Status::OK();
 }
 
 }  // namespace arrow

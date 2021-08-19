@@ -157,19 +157,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   }
 
   Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
-                                   const int64_t length) override {
-    const int8_t* type_codes = array.GetValues<int8_t>(1);
-    const int32_t* offsets = array.GetValues<int32_t>(2);
-    for (int64_t row = offset; row < offset + length; row++) {
-      const int8_t type_code = type_codes[row];
-      const int child_id = type_id_to_child_id_[type_code];
-      const int32_t union_offset = offsets[row];
-      ARROW_RETURN_NOT_OK(Append(type_code));
-      ARROW_RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySliceUnchecked(
-          *array.child_data[child_id], union_offset, /*length=*/1));
-    }
-    return Status::OK();
-  }
+                                   const int64_t length) override;
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -248,15 +236,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
 
   Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
-                                   const int64_t length) override {
-    for (size_t i = 0; i < type_codes_.size(); i++) {
-      type_id_to_children_[type_codes_[i]]->AppendArraySliceUnchecked(
-          *array.child_data[i], array.offset + offset, length);
-    }
-    const int8_t* type_codes = array.GetValues<int8_t>(1);
-    types_builder_.Append(type_codes + offset, length);
-    return Status::OK();
-  }
+                                   const int64_t length) override;
 };
 
 }  // namespace arrow
