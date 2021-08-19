@@ -33,6 +33,7 @@ import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 
@@ -104,7 +105,9 @@ public class BareArrowFlightClientHandler extends ArrowFlightClientHandler imple
     } else {
       client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
     }
-    return new BareArrowFlightClientHandler(client, theseOptions.toArray(new CallOption[0]));
+    return new ArrowFlightSqlClientHandler(
+        client, new FlightSqlClient(client),
+        theseOptions.toArray(new CallOption[0]));
   }
 
 
