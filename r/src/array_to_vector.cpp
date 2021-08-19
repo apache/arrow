@@ -131,16 +131,6 @@ class Converter {
 
  protected:
   std::shared_ptr<ChunkedArray> chunked_array_;
-
- private:
-  bool CanAltrep(const std::shared_ptr<Array>& array) {
-    if (array->null_count() == 0) {
-      return true;
-    }
-
-    return array->data().use_count() == 1 && array->data()->buffers[1].use_count() == 1 &&
-           array->data()->buffers[1]->is_mutable();
-  }
 };
 
 template <typename SetNonNull, typename SetNull>
