@@ -164,8 +164,8 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
       const int8_t type_code = type_codes[row];
       const int child_id = type_id_to_child_id_[type_code];
       const int32_t union_offset = offsets[row];
-      RETURN_NOT_OK(Append(type_code));
-      RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySliceUnchecked(
+      ARROW_RETURN_NOT_OK(Append(type_code));
+      ARROW_RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySliceUnchecked(
           *array.child_data[child_id], union_offset, /*length=*/1));
     }
     return Status::OK();

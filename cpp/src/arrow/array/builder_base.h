@@ -123,22 +123,13 @@ class ARROW_EXPORT ArrayBuilder {
   Status AppendScalar(const Scalar& scalar, int64_t n_repeats);
   Status AppendScalars(const ScalarVector& scalars);
 
-  /// \brief Append a range of values from an array
-  Status AppendArraySlice(const ArrayData& array, const int64_t offset,
-                          const int64_t length) {
-    if (!type()->Equals(*array.type)) {
-      // TODO: test this
-      return Status::TypeError("Expected array of type ", *type(),
-                               " but got array of type ", *array.type);
-    }
-    return AppendArraySliceUnchecked(array, offset, length);
-  }
-  /// \brief Append a range of values from an array without checking type compatibility
+  /// \brief Append a range of values from an array.
+  ///
+  /// The given array must be the same type as the builder.
   virtual Status AppendArraySliceUnchecked(const ArrayData& array, const int64_t offset,
                                            const int64_t length) {
     return Status::NotImplemented("AppendArraySliceUnchecked for builder for ", *type());
   }
-  // TODO: overloads for arrays
 
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use

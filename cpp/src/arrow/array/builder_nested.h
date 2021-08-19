@@ -128,12 +128,12 @@ class BaseListBuilder : public ArrayBuilder {
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
-        RETURN_NOT_OK(Append());
+        ARROW_RETURN_NOT_OK(Append());
         int64_t slot_length = offsets[row + 1] - offsets[row];
-        value_builder_->AppendArraySliceUnchecked(*array.child_data[0], offsets[row],
-                                                  slot_length);
+        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySliceUnchecked(
+            *array.child_data[0], offsets[row], slot_length));
       } else {
-        RETURN_NOT_OK(AppendNull());
+        ARROW_RETURN_NOT_OK(AppendNull());
       }
     }
     return Status::OK();
@@ -298,14 +298,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
-        RETURN_NOT_OK(Append());
+        ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
-        key_builder_->AppendArraySliceUnchecked(*array.child_data[0]->child_data[0],
-                                                offsets[row], slot_length);
-        item_builder_->AppendArraySliceUnchecked(*array.child_data[0]->child_data[1],
-                                                 offsets[row], slot_length);
+        ARROW_RETURN_NOT_OK(key_builder_->AppendArraySliceUnchecked(
+            *array.child_data[0]->child_data[0], offsets[row], slot_length));
+        ARROW_RETURN_NOT_OK(item_builder_->AppendArraySliceUnchecked(
+            *array.child_data[0]->child_data[1], offsets[row], slot_length));
       } else {
-        RETURN_NOT_OK(AppendNull());
+        ARROW_RETURN_NOT_OK(AppendNull());
       }
     }
     return Status::OK();
@@ -415,11 +415,11 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || BitUtil::GetBit(validity, array.offset + row)) {
-        RETURN_NOT_OK(value_builder_->AppendArraySliceUnchecked(
+        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySliceUnchecked(
             *array.child_data[0], list_size_ * (array.offset + row), list_size_));
-        RETURN_NOT_OK(Append());
+        ARROW_RETURN_NOT_OK(Append());
       } else {
-        RETURN_NOT_OK(AppendNull());
+        ARROW_RETURN_NOT_OK(AppendNull());
       }
     }
     return Status::OK();
@@ -521,12 +521,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   Status AppendArraySliceUnchecked(const ArrayData& array, int64_t offset,
                                    int64_t length) override {
     for (int i = 0; static_cast<size_t>(i) < children_.size(); i++) {
-      children_[i]->AppendArraySliceUnchecked(*array.child_data[i], array.offset + offset,
-                                              length);
+      ARROW_RETURN_NOT_OK(children_[i]->AppendArraySliceUnchecked(
+          *array.child_data[i], array.offset + offset, length));
     }
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : nullptr;
     for (int64_t row = offset; row < offset + length; row++) {
-      RETURN_NOT_OK(Append(!validity || BitUtil::GetBit(validity, array.offset + row)));
+      ARROW_RETURN_NOT_OK(
+          Append(!validity || BitUtil::GetBit(validity, array.offset + row)));
     }
     return Status::OK();
   }

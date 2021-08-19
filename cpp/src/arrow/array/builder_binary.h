@@ -283,9 +283,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
       if (!bitmap || BitUtil::GetBit(bitmap, array.offset + offset + i)) {
         const offset_type start = offsets[offset + i];
         const offset_type end = offsets[offset + i + 1];
-        RETURN_NOT_OK(Append(data + start, end - start));
+        ARROW_RETURN_NOT_OK(Append(data + start, end - start));
       } else {
-        RETURN_NOT_OK(AppendNull());
+        ARROW_RETURN_NOT_OK(AppendNull());
       }
     }
     return Status::OK();
