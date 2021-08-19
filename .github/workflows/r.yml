@@ -180,7 +180,6 @@ jobs:
       matrix:
         rtools: [35, 40]
     env:
-      TEST_R_WITH_ARROW: "TRUE"
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:

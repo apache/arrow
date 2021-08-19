@@ -17,8 +17,9 @@
 
 context("General checks")
 
-if (identical(tolower(Sys.getenv("TEST_R_WITH_ARROW")), "true")) {
+if (!identical(tolower(Sys.getenv("TEST_R_WITHOUT_LIBARROW")), "true")) {
   testthat::test_that("Arrow C++ is available", {
+    skip_on_cran()
     expect_true(arrow_available())
   })
 }

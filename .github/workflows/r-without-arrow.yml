@@ -73,7 +73,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run -e LIBARROW_DOWNLOAD=FALSE -e LIBARROW_BUILD=FALSE -e TEST_R_WITH_ARROW=FALSE -e NOT_CRAN=FALSE r
+          archery docker run -e LIBARROW_DOWNLOAD=FALSE -e LIBARROW_BUILD=FALSE -e TEST_R_WITHOUT_LIBARROW=true -e NOT_CRAN=FALSE r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
