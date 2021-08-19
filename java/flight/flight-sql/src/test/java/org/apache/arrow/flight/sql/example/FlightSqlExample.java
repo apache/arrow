@@ -18,7 +18,6 @@
 package org.apache.arrow.flight.sql.example;
 
 import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
@@ -663,14 +662,23 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    final CommandStatementQuery identifiableRequest = getIdentifiableRequest(request);
-    createStatementIfNotPresent(identifiableRequest);
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+
     try {
-      final ResultSet resultSet =
-          commandExecuteStatementLoadingCache.get(identifiableRequest.getClientExecutionHandle());
-      return getFlightInfoForSchema(identifiableRequest, descriptor,
+      // Ownership of the connection will be passed to the context. Do NOT close!
+      final Connection connection = dataSource.getConnection();
+      final Statement statement = connection.createStatement();
+      StatementContext<Statement> statementContext = new StatementContext<>(statement, request.getQuery());
+
+      statementLoadingCache.put(handle, statementContext);
+      final ResultSet resultSet = commandExecuteStatementLoadingCache.get(handle);
+
+      FlightSql.TicketStatementQuery ticket = FlightSql.TicketStatementQuery.newBuilder()
+          .setStatementHandle(handle)
+          .build();
+      return getFlightInfoForSchema(ticket, descriptor,
           jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (final SQLException | ExecutionException e) {
+    } catch (final ExecutionException | SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -727,29 +735,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
     // TODO - build example implementation
     throw CallStatus.UNIMPLEMENTED.toRuntimeException();
-  }
-
-  private CommandStatementQuery getIdentifiableRequest(final CommandStatementQuery request) {
-    final String identity = request.getClientExecutionHandle().toStringUtf8();
-    return isNullOrEmpty(identity) ?
-        request.toBuilder().setClientExecutionHandle(copyFrom(randomUUID().toString().getBytes(
-            StandardCharsets.UTF_8))).build() : request;
-  }
-
-  private void createStatementIfNotPresent(final CommandStatementQuery request) {
-    Objects.requireNonNull(request, "request cannot be null.");
-    final ByteString handle = request.getClientExecutionHandle();
-    if (!isNull(statementLoadingCache.getIfPresent(handle))) {
-      return;
-    }
-    try {
-      // Ownership of the connection will be passed to the context. Do NOT close!
-      final Connection connection = dataSource.getConnection();
-      final Statement statement = connection.createStatement();
-      statementLoadingCache.put(handle, new StatementContext<>(statement, request.getQuery()));
-    } catch (final SQLException e) {
-      LOGGER.error(format("Failed to createStatement: <%s>.", e.getMessage()), e);
-    }
   }
 
   @Override
@@ -1662,9 +1647,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamStatement(final CommandStatementQuery command, final CallContext context, final Ticket ticket,
+  public void getStreamStatement(final FlightSql.TicketStatementQuery ticket, final CallContext context,
                                  final ServerStreamListener listener) {
-    final ByteString handle = command.getClientExecutionHandle();
+    final ByteString handle = ticket.getStatementHandle();
     try (final ResultSet resultSet = Objects.requireNonNull(commandExecuteStatementLoadingCache.getIfPresent(handle),
         "Got a null ResultSet.")) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);

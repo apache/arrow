@@ -49,6 +49,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
+import org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -167,9 +168,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return;
     }
 
-    if (command.is(CommandStatementQuery.class)) {
+    if (command.is(TicketStatementQuery.class)) {
       getStreamStatement(
-          FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, ticket, listener);
+          FlightSqlUtils.unpackOrThrow(command, TicketStatementQuery.class), context, listener);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       getStreamPreparedStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
@@ -323,12 +324,11 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Returns data for a SQL query based data stream.
    *
-   * @param command  The sql command to generate the data stream.
-   * @param context  Per-call context.
    * @param ticket   The application-defined ticket identifying this stream.
+   * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamStatement(CommandStatementQuery command, CallContext context, Ticket ticket,
+  void getStreamStatement(TicketStatementQuery ticket, CallContext context,
                           ServerStreamListener listener);
 
   /**
