@@ -121,6 +121,25 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 };
 
 /// \brief Partitioning options for NthToIndices
+class ARROW_EXPORT SelectKOptions : public FunctionOptions {
+ public:
+  explicit SelectKOptions(int64_t pivot = 0, std::vector<std::string> keys = {},
+                          std::string keep = "first",
+                          SortOrder order = SortOrder::Ascending);
+  constexpr static char const kTypeName[] = "SelectKOptions";
+  static SelectKOptions TopKDefault() {
+    return SelectKOptions{0, {}, "first", SortOrder::Ascending};
+  }
+  static SelectKOptions BottomKDefault() {
+    return SelectKOptions{0, {}, "first", SortOrder::Descending};
+  }
+  int64_t k;
+  std::vector<std::string> keys;
+  std::string keep;
+  SortOrder order;
+};
+
+/// \brief Partitioning options for NthToIndices
 class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
   explicit PartitionNthOptions(int64_t pivot);
@@ -251,6 +270,17 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = 
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
                                             ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
+                                    const std::string& keep = "first",
+                                    ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
+                   ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the
 /// specified order.

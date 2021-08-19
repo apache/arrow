@@ -32,6 +32,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/heap.h"
 #include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
 
@@ -357,6 +358,254 @@ struct PartitionNthToIndices {
                        });
     }
     return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
+// TopK/BottomK implementations
+
+using SelectKOptionsState = internal::OptionsWrapper<SelectKOptions>;
+const auto kDefaultTopKOptions = SelectKOptions::TopKDefault();
+const auto kDefaultBottomKOptions = SelectKOptions::BottomKDefault();
+
+template <typename OutType, typename InType>
+struct ArraySelectNth {
+  using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    using GetView = GetViewType<InType>;
+
+    if (ctx->state() == nullptr) {
+      return Status::Invalid("NthToIndices requires PartitionNthOptions");
+    }
+
+    ArrayType arr(batch[0].array());
+
+    int64_t pivot = SelectKOptionsState::Get(ctx).k;
+    SortOrder order = SelectKOptionsState::Get(ctx).order;
+    std::string keep = SelectKOptionsState::Get(ctx).keep;
+    if (pivot > arr.length()) {
+      return Status::IndexError("NthToIndices index out of bound");
+    }
+    ArrayData* out_arr = out->mutable_array();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    uint64_t* out_end = out_begin + arr.length();
+    std::iota(out_begin, out_end, 0);
+    if (pivot == arr.length()) {
+      return Status::OK();
+    }
+    auto nulls_begin =
+        PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr, 0);
+    auto nth_begin = out_begin + pivot;
+    if (nth_begin < nulls_begin) {
+      std::function<bool(uint64_t, uint64_t)> cmp;
+      if (order == SortOrder::Ascending) {
+        cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+          const auto lval = GetView::LogicalValue(arr.GetView(left));
+          const auto rval = GetView::LogicalValue(arr.GetView(right));
+          return lval < rval;
+        };
+      } else {
+        cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+          const auto lval = GetView::LogicalValue(arr.GetView(left));
+          const auto rval = GetView::LogicalValue(arr.GetView(right));
+          return rval < lval;
+        };
+      }
+      arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
+
+      for (uint64_t* iter = out_begin; iter != nth_begin; ++iter) {
+        heap.Push(*iter);
+      }
+      for (uint64_t* iter = out_begin; iter != nulls_begin; ++iter) {
+        uint64_t x_index = *iter;
+        const auto lval = GetView::LogicalValue(arr.GetView(x_index));
+        const auto rval = GetView::LogicalValue(arr.GetView(heap.Top()));
+        if (order == SortOrder::Ascending) {
+          if (keep == "first") {
+            if (lval < rval) {
+              heap.ReplaceTop(x_index);
+            }
+          }
+        } else {
+          if (rval < lval) {
+            heap.ReplaceTop(x_index);
+          }
+        }
+      }
+      std::copy(heap.Data(), heap.Data() + pivot, out_begin);
+    }
+    return Status::OK();
+  }
+};
+
+const FunctionDoc top_k_doc(
+    "Return the indices that would partition an array array, record batch or table\n"
+    "around a pivot",
+    ("@TODO"), {"input"}, "PartitionNthOptions");
+
+const FunctionDoc bottom_k_doc(
+    "Return the indices that would partition an array array, record batch or table\n"
+    "around a pivot",
+    ("@TODO"), {"input"}, "PartitionNthOptions");
+
+class ChunkedArraySelecter : public TypeVisitor {
+ public:
+  ChunkedArraySelecter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                       int64_t pivot, const ChunkedArray& chunked_array,
+                       const SortOrder order)
+      : TypeVisitor(),
+        indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        pivot_(pivot),
+        chunked_array_(chunked_array),
+        physical_type_(GetPhysicalType(chunked_array.type())),
+        physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
+        order_(order),
+        ctx_(ctx) {}
+
+  Status Run() { return physical_type_->Accept(this); }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return SelectNthInternal<TYPE>(); }
+
+  VISIT_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+  template <typename InType>
+  Status SelectNthInternal() {
+    using GetView = GetViewType<InType>;
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    const auto num_chunks = chunked_array_.num_chunks();
+    if (num_chunks == 0) {
+      return Status::OK();
+    }
+
+    for (const auto& chunk : physical_chunks_) {
+      ArrayType arr(chunk->data());
+
+      auto nulls_begin = PartitionNulls<ArrayType, NonStablePartitioner>(
+          indices_begin_, indices_end_, arr, 0);
+
+      auto nth_begin = indices_begin_ + pivot_;
+      if (nth_begin < nulls_begin) {
+        std::function<bool(uint64_t, uint64_t)> cmp;
+        if (order_ == SortOrder::Ascending) {
+          cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+            const auto lval = GetView::LogicalValue(arr.GetView(left));
+            const auto rval = GetView::LogicalValue(arr.GetView(right));
+            return lval < rval;
+          };
+        } else {
+          cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+            const auto lval = GetView::LogicalValue(arr.GetView(left));
+            const auto rval = GetView::LogicalValue(arr.GetView(right));
+            return rval < lval;
+          };
+        }
+        arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
+
+        for (uint64_t* iter = indices_begin_; iter != nth_begin; ++iter) {
+          heap.Push(*iter);
+        }
+        for (uint64_t* iter = indices_begin_; iter != nulls_begin; ++iter) {
+          auto x = *iter;
+          if (x < heap.Top()) {
+            heap.ReplaceTop(x);
+          }
+        }
+        std::copy(heap.Data(), heap.Data() + pivot_, indices_begin_);
+      }
+    }
+    return Status::OK();
+  }
+
+  uint64_t* indices_begin_;
+  uint64_t* indices_end_;
+  int64_t pivot_;
+  const ChunkedArray& chunked_array_;
+  const std::shared_ptr<DataType> physical_type_;
+  const ArrayVector physical_chunks_;
+  const SortOrder order_;
+  ExecContext* ctx_;
+};
+template <SortOrder sort_order>
+class SelectNthMetaFunction {
+ public:
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options, ExecContext* ctx) const {
+    const SelectKOptions& partition_options =
+        static_cast<const SelectKOptions&>(*options);
+
+    switch (args[0].kind()) {
+      case Datum::ARRAY:
+        return SelectNth(*args[0].make_array(), partition_options, ctx);
+        break;
+      case Datum::CHUNKED_ARRAY:
+        return SelectNth(*args[0].chunked_array(), partition_options, ctx);
+        break;
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Unsupported types for sort_indices operation: "
+        "values=",
+        args[0].ToString());
+  }
+
+ private:
+  Result<Datum> SelectNth(const Array& values, const SelectKOptions& options,
+                          ExecContext* ctx) const {
+    return CallFunction("partition_nth_indices_doc", {values}, &options, ctx);
+  }
+
+  Result<Datum> SelectNth(const ChunkedArray& chunked_array,
+                          const SelectKOptions& options, ExecContext* ctx) const {
+    int64_t pivot = options.k;
+    SortOrder order = sort_order;
+    auto out_type = uint64();
+    auto length = chunked_array.length();
+    auto buffer_size = BitUtil::BytesForBits(
+        length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
+    std::vector<std::shared_ptr<Buffer>> buffers(2);
+    ARROW_ASSIGN_OR_RAISE(buffers[1],
+                          AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
+    auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
+    auto out_begin = out->GetMutableValues<uint64_t>(1);
+    auto out_end = out_begin + length;
+    std::iota(out_begin, out_end, 0);
+
+    ChunkedArraySelecter partitioner(ctx, out_begin, out_end, pivot, chunked_array,
+                                     order);
+    ARROW_RETURN_NOT_OK(partitioner.Run());
+    return Datum(out);
+  }
+};
+
+class TopKMetaFunction : public MetaFunction {
+ public:
+  TopKMetaFunction()
+      : MetaFunction("top_k", Arity::Unary(), &top_k_doc, &kDefaultTopKOptions) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    SelectNthMetaFunction</*sort_order=*/SortOrder::Descending> impl;
+    return impl.ExecuteImpl(args, options, ctx);
+  }
+};
+
+class BottomKMetaFunction : public MetaFunction {
+ public:
+  BottomKMetaFunction()
+      : MetaFunction("bottom_k", Arity::Unary(), &top_k_doc, &kDefaultBottomKOptions) {}
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    SelectNthMetaFunction</*sort_order=*/SortOrder::Ascending> impl;
+    return impl.ExecuteImpl(args, options, ctx);
   }
 };
 
@@ -1806,6 +2055,11 @@ const FunctionDoc partition_nth_indices_doc(
      "The pivot index `N` must be given in PartitionNthOptions."),
     {"array"}, "PartitionNthOptions");
 
+const FunctionDoc array_top_k_doc("Return the indices that would sort an array",
+                                  ("@TODO."), {"array"}, "ArraySortOptions");
+
+const FunctionDoc array_bottom_k_doc("Return the indices that would sort an array",
+                                     ("@TODO"), {"array"}, "ArraySortOptions");
 }  // namespace
 
 void RegisterVectorSort(FunctionRegistry* registry) {
@@ -1829,6 +2083,22 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   base.init = PartitionNthToIndicesState::Init;
   AddSortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
+
+  // top_k
+  auto part_topk = std::make_shared<VectorFunction>("array_top_k", Arity::Unary(),
+                                                    &array_bottom_k_doc);
+  base.init = SelectKOptionsState::Init;
+  AddSortingKernels<ArraySelectNth>(base, part_topk.get());
+  DCHECK_OK(registry->AddFunction(std::move(part_topk)));
+  DCHECK_OK(registry->AddFunction(std::make_shared<TopKMetaFunction>()));
+
+  // bottom_k
+  auto part_bottomk =
+      std::make_shared<VectorFunction>("array_bottom_k", Arity::Unary(), &bottom_k_doc);
+  base.init = SelectKOptionsState::Init;
+  AddSortingKernels<ArraySelectNth>(base, part_topk.get());
+  DCHECK_OK(registry->AddFunction(std::move(part_topk)));
+  DCHECK_OK(registry->AddFunction(std::make_shared<BottomKMetaFunction>()));
 }
 
 #undef VISIT_PHYSICAL_TYPES

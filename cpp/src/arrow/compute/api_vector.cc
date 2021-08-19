@@ -111,6 +111,10 @@ static auto kSortOptionsType =
     GetFunctionOptionsType<SortOptions>(DataMember("sort_keys", &SortOptions::sort_keys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(
     DataMember("pivot", &PartitionNthOptions::pivot));
+static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
+    DataMember("k", &SelectKOptions::k), DataMember("keys", &SelectKOptions::keys),
+    DataMember("order", &SelectKOptions::order),
+    DataMember("keep", &SelectKOptions::keep));
 }  // namespace
 }  // namespace internal
 
@@ -140,6 +144,15 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot)
     : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
+SelectKOptions::SelectKOptions(int64_t k, std::vector<std::string> keys, std::string keep,
+                               SortOrder order)
+    : FunctionOptions(internal::kSelectKOptionsType),
+      k(k),
+      keys(std::move(keys)),
+      keep(keep),
+      order(order) {}
+constexpr char SelectKOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -148,6 +161,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
 }
 }  // namespace internal
 
@@ -160,6 +174,22 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("partition_nth_indices",
                                                    {Datum(values)}, &options, ctx));
   return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
+                                    const std::string& keep, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep);
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("array_top_k", {Datum(values)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
+                   ExecContext* ctx) {
+  options.k = k;
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("top_k", {Datum(datum)}, &options, ctx));
+  return result;
 }
 
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
