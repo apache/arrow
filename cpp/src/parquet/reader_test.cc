@@ -32,9 +32,9 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"

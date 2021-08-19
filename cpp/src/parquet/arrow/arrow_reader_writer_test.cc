@@ -21,10 +21,6 @@
 #pragma warning(disable : 4800)
 #endif
 
-#ifdef ARROW_CSV
-#include "arrow/csv/api.h"
-#endif
-
 #include "gtest/gtest.h"
 
 #include <cstdint>
@@ -53,6 +49,10 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+
+#ifdef ARROW_CSV
+#include "arrow/csv/api.h"
+#endif
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
