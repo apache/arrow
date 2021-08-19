@@ -17,7 +17,9 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static java.util.Collections.synchronizedSet;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.*;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.*;
 
@@ -46,8 +48,6 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -55,11 +55,9 @@ import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
-  private static final Logger LOGGER = LoggerFactory.getLogger(ResultSetTest.class);
   @ClassRule
   public static FlightServerTestRule rule;
   private static Connection connection;
-  private static Map<BaseProperty, Object> properties;
 
   static {
     Map<BaseProperty, Object> properties = new HashMap<>();
@@ -354,7 +352,7 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          is(format("Error while executing SQL \"%s\": Query canceled", query)));
+          is(String.format("Error while executing SQL \"%s\": Query canceled", query)));
     }
   }
 
