@@ -37,7 +37,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
-#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -635,8 +634,6 @@ TEST_F(TestArray, TestAppendArraySlice) {
     // TODO(ARROW-13573): appending dictionary arrays not implemented
     if (is_dictionary(scalar->type->id())) continue;
 
-    auto is_union = arrow::is_union(scalar->type->id());
-
     ARROW_SCOPED_TRACE(*scalar->type);
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 16));
     ASSERT_OK_AND_ASSIGN(auto nulls, MakeArrayOfNull(scalar->type, 16));
@@ -644,9 +641,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
 
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 0, 2));
-    ASSERT_EQ(2, builder->length());
-    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 2, 2));
+    ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 0, 4));
     ASSERT_EQ(4, builder->length());
     ASSERT_OK(builder->AppendArraySliceUnchecked(*array->data(), 0, 0));
     ASSERT_EQ(4, builder->length());
@@ -657,39 +652,31 @@ TEST_F(TestArray, TestAppendArraySlice) {
 
     ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 0, 4));
     ASSERT_EQ(12, builder->length());
-    ASSERT_EQ(is_union ? 0 : 4, builder->null_count());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
     ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 0, 0));
     ASSERT_EQ(12, builder->length());
-    ASSERT_EQ(is_union ? 0 : 4, builder->null_count());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
     ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 1, 0));
     ASSERT_EQ(12, builder->length());
-    ASSERT_EQ(is_union ? 0 : 4, builder->null_count());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(4, builder->null_count());
+    }
     ASSERT_OK(builder->AppendArraySliceUnchecked(*nulls->data(), 1, 4));
     ASSERT_EQ(16, builder->length());
-    ASSERT_EQ(is_union ? 0 : 8, builder->null_count());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, builder->null_count());
+    }
 
-    if (is_union) {
-      // Concatenate not supported by union
-      std::shared_ptr<Array> result;
-      ASSERT_OK(builder->Finish(&result));
-      ASSERT_OK(result->ValidateFull());
-      ASSERT_EQ(16, result->length());
-      ASSERT_EQ(0, result->null_count());
-    } else {
-      ASSERT_OK_AND_ASSIGN(auto both, Concatenate({array, nulls}));
-      ASSERT_OK(builder->AppendArraySliceUnchecked(*both->data(), 14, 4));
-      ASSERT_EQ(20, builder->length());
-      ASSERT_EQ(10, builder->null_count());
-      std::shared_ptr<Array> result;
-      ASSERT_OK(builder->Finish(&result));
-      ASSERT_OK(result->ValidateFull());
-      ASSERT_EQ(20, result->length());
-      ASSERT_EQ(10, result->null_count());
-
-      ASSERT_OK_AND_ASSIGN(auto expected,
-                           Concatenate({array->Slice(0, 4), array->Slice(1, 4),
-                                        nulls->Slice(0, 8), both->Slice(14, 4)}));
-      AssertArraysApproxEqual(*expected, *result, /*verbose=*/true);
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder->Finish(&result));
+    ASSERT_OK(result->ValidateFull());
+    ASSERT_EQ(16, result->length());
+    if (!is_union(scalar->type->id())) {
+      ASSERT_EQ(8, result->null_count());
     }
   }
 
