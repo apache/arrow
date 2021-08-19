@@ -30,7 +30,7 @@ class MapDataTypeTest < Test::Unit::TestCase
     test("description") do
       assert_equal("map<int8, string>",
                    Arrow::MapDataType.new(key: @key,
-                                          item: @item,).to_s)
+                                          item: @item).to_s)
     end
   end
 end
