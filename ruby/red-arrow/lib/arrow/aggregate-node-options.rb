@@ -16,26 +16,20 @@
 # under the License.
 
 module Arrow
-  # TODO: Almost codes should be implemented in Apache Arrow C++.
-  class TableListFormatter < TableFormatter
-    private
-    def format_header(text, columns)
-    end
-
-    def format_rows(text, column_formatters, rows, n_digits, start_offset)
-      rows.each_with_index do |row, nth_row|
-        text << ("=" * 20 + " #{start_offset + nth_row} " + "=" * 20 + "\n")
-        row.each_with_index do |column_value, nth_column|
-          column_formatter = column_formatters[nth_column]
-          formatted_name = column_formatter.name
-          formatted_value = column_formatter.format_value(column_value)
-          text << "#{formatted_name}: #{formatted_value}\n"
+  class AggregateNodeOptions
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Hash
+          aggregations = value[:aggregations]
+          return nil if aggregations.nil?
+          keys = value[:keys]
+          new(aggregations, keys)
+        else
+          nil
         end
       end
-    end
-
-    def format_ellipsis(text)
-      text << "...\n"
     end
   end
 end
