@@ -71,6 +71,7 @@ import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -100,6 +101,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 
 /**
@@ -430,7 +432,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           toProtocol.setAccessible(true);
           Flight.Location location = (Flight.Location) toProtocol.invoke(new Location("grpc+tcp://localhost"));
 
-          final String commandString = new String(flightDescriptor.getCommand(), StandardCharsets.UTF_8);
+          final String commandString = Any.parseFrom(flightDescriptor.getCommand())
+              .unpack(FlightSql.CommandStatementQuery.class)
+              .getQuery();
 
           final Flight.FlightInfo.Builder flightInfoBuilder = Flight.FlightInfo.newBuilder()
               .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
