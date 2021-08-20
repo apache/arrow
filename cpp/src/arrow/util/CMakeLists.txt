@@ -26,56 +26,57 @@ arrow_install_all_headers("arrow/util")
 # arrow_test_main
 #
 
-if(WIN32)
-  # This manifest enables long file paths on Windows 10+
-  # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
-  if(MSVC)
-    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.manifest)
-  else()
-    set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.rc)
-  endif()
-else()
-  set(IO_UTIL_TEST_SOURCES io_util_test.cc)
-endif()
+if (WIN32)
+    # This manifest enables long file paths on Windows 10+
+    # See https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#enable-long-paths-in-windows-10-version-1607-and-later
+    if (MSVC)
+        set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.manifest)
+    else ()
+        set(IO_UTIL_TEST_SOURCES io_util_test.cc io_util_test.rc)
+    endif ()
+else ()
+    set(IO_UTIL_TEST_SOURCES io_util_test.cc)
+endif ()
 
 add_arrow_test(utility-test
-               SOURCES
-               align_util_test.cc
-               async_generator_test.cc
-               bit_block_counter_test.cc
-               bit_util_test.cc
-               cache_test.cc
-               checked_cast_test.cc
-               compression_test.cc
-               decimal_test.cc
-               formatting_util_test.cc
-               key_value_metadata_test.cc
-               hashing_test.cc
-               int_util_test.cc
-               ${IO_UTIL_TEST_SOURCES}
-               iterator_test.cc
-               logging_test.cc
-               queue_test.cc
-               range_test.cc
-               reflection_test.cc
-               rle_encoding_test.cc
-               stl_util_test.cc
-               string_test.cc
-               tdigest_test.cc
-               test_common.cc
-               time_test.cc
-               trie_test.cc
-               uri_test.cc
-               utf8_util_test.cc
-               value_parsing_test.cc
-               variant_test.cc)
+        SOURCES
+        align_util_test.cc
+        async_generator_test.cc
+        async_nursery_test.cc
+        bit_block_counter_test.cc
+        bit_util_test.cc
+        cache_test.cc
+        checked_cast_test.cc
+        compression_test.cc
+        decimal_test.cc
+        formatting_util_test.cc
+        key_value_metadata_test.cc
+        hashing_test.cc
+        int_util_test.cc
+        ${IO_UTIL_TEST_SOURCES}
+        iterator_test.cc
+        logging_test.cc
+        queue_test.cc
+        range_test.cc
+        reflection_test.cc
+        rle_encoding_test.cc
+        stl_util_test.cc
+        string_test.cc
+        tdigest_test.cc
+        test_common.cc
+        time_test.cc
+        trie_test.cc
+        uri_test.cc
+        utf8_util_test.cc
+        value_parsing_test.cc
+        variant_test.cc)
 
 add_arrow_test(threading-utility-test
-               SOURCES
-               cancel_test.cc
-               future_test.cc
-               task_group_test.cc
-               thread_pool_test.cc)
+        SOURCES
+        cancel_test.cc
+        future_test.cc
+        task_group_test.cc
+        thread_pool_test.cc)
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
