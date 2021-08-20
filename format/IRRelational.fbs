@@ -15,10 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+include "Schema.fbs";
+include "IRLiteral.fbs";
+include "IRFunction.fbs";
+include "IRRowExpression.fbs";
+
 namespace org.apache.arrow.ir.flatbuf;
 
-import "Schema.fbs";
-import "IRRowExpression.fbs";
+// TODO, Collect, Uncollect, Match, RepeatUnion.
+union Rel {AggRel, SortRel, FetchRel, ProjectRel, FilterRel, WriteRel, ReadRel, JoinRel, RedistributeRel}
 
 table EmitRemap {
   output_mapping: [uint32];
@@ -26,7 +31,7 @@ table EmitRemap {
 
 table EmitDirect {}
 
-union Emit {Remap, Direct}
+union Emit {EmitDirect, EmitRemap}
 
 table RelCommon {
   // describes the emitting rules of the operation.
@@ -60,12 +65,7 @@ table Stats {
 }
 
 
-// Operation that redistributes data based on some type of expression
-// the direct emit mapping is equal to the incoming mapping.
-table RedistributeRel {
-  common: RelCommon;
-  redistribution: RedistributionMethod;
-}
+
 
 // A redistribution method that creates separate streams of data based on an expression.
 table ExpressionRedistribution {
@@ -77,7 +77,7 @@ table ExpressionRedistribution {
 }
 
 // A redistribution method that maintains a set of ordered streams.
-table ExpressionRedistribution {
+table OrderedRedistribution {
   // the number of buckets generated
   bucket_count: int32;
   
@@ -95,10 +95,17 @@ table ExpressionRedistribution {
 table EvenRedistribution {
 }
 
-union RedistributionMethod {ExpressionRedistribution, EvenRedistribution}
+union RedistributionMethod {ExpressionRedistribution, EvenRedistribution, OrderedRedistribution}
+
+// Operation that redistributes data based on some type of expression
+// the direct emit mapping is equal to the incoming mapping.
+table RedistributeRel {
+  common: RelCommon;
+  redistribution: RedistributionMethod;
+}
 
 table Grouping {
-  field: [Rex]
+  field: [Rex];
 }
 
 // An operation that collects values in one or more groupings.
@@ -114,15 +121,15 @@ table AggRel {
 }
 
 
-enum CorrelateType {
+enum CorrelateType: byte {
   // Output left and right for each match.
-  REGULAR = 1, 
+  REGULAR,
   
   // Output LEFT for each record that matches at least one record from RIGHT.
-  SEMI = 2, 
+  SEMI,
   
   // Output LEFT for each record that matches zero records from RIGHT.
-  ANTI = 3
+  ANTI
 }
 
 // An operation that behaves similar to a nested loop join based on a set of comparison columns. Output is based on the type of the left input.
@@ -136,7 +143,7 @@ table CorrelateRel {
   expression: Rex; 
 }
 
-enum JoinType {
+enum JoinType: byte {
   INNER, LEFT, RIGHT, OUTER
 }
 
@@ -211,13 +218,7 @@ table LiteralRel {
 
 table WriteRel {
   common: RelCommon;
-  schema: 
+  schema: org.apache.arrow.flatbuf.Struct_;
   input: Rel;
   config: [byte];
 }
-
-// TODO, Collect, Uncollect, Match, RepeatUnion.
-union Rel {AggRel, SortRel, FetchRel, ProjectRel, FilterRel, WriteRel, ReadRel, JoinRel, RedistributeRel}
-
-root_type Rel;
-

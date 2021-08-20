@@ -32,19 +32,11 @@ table FunctionId {
   org: uint32;
 }
 
-// List of function signatures available.
-message FunctionSignature {
-    function_id: FunctionId;
-    name: string;
-    argument: [Argument];
-    output: OutputDerivation;
-}
-
-union OutputDerivation {DirectOutputType, ComplexOutputType}
+union OutputDerivation {DirectOutputType, ComplexOutputBehavior}
 
 // A well defined completely known type.
 table DirectOutputType {
-  type: Type;
+  type: org.apache.arrow.flatbuf.Type;
 }
 
 table ComplexOutputBehavior {
@@ -52,7 +44,6 @@ table ComplexOutputBehavior {
 }
 
 union Argument {WildcardArgument, DirectArgument}
-
 
 // Argument that supports [minimum_count..maximum_count] arguments of this type. A WildCardArgument must always be declared last.
 table WildcardArgument {
@@ -65,7 +56,13 @@ table DirectArgument {
   // An Arrow datatype. Note that this type can incompletely formed to match a subset of types. 
   // This is the one place a type can be incompletely formed. For example, List<nothing> 
   // can be declared to match any list type, Decimal(na,na) can be used to match any decimal value, etc.
-  types: [Type];
+  types: [org.apache.arrow.flatbuf.Type];
 }
 
-
+// List of function signatures available.
+table FunctionSignature {
+    function_id: FunctionId;
+    name: string;
+    argument: [Argument];
+    output: OutputDerivation;
+}

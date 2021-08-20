@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+include "Schema.fbs";
+include "IRLiteral.fbs";
+include "IRFunction.fbs";
+
 namespace org.apache.arrow.ir.flatbuf;
 
-import "Schema.fbs";
-import "IRLiteral.fbs";
-import "IRFunctionExpression.fbs";
+// TODO: evaluate the inclusion of conditions as first class entities.
+// TODO: evaluate the inclusion of boolean operations as first class entities.
+union Rex {RexDereference, RexFunction, RexWindowFunction /**, RexLiteral **/}
 
 table RexFunction {
     id: FunctionId;
@@ -27,7 +31,7 @@ table RexFunction {
 }
 
 // a reference inside a simple or complex structure
-union RexDereferenceElement {RexStructField, RexName, RexArrayItem, RexArraySlice}
+union RexDereferenceElement {RexStructField, RexMapKey, RexArrayItem, RexArraySlice}
 
 table RexMapKey {
   // describes a map key to retrieve
@@ -74,7 +78,7 @@ table BoundFollowing {
 table CurrentRow {}
 
 
-union Bound {BoundPreceding, BoundFollowing, CurrentRow
+union Bound {BoundPreceding, BoundFollowing, CurrentRow}
 
 
 enum SortType: byte {
@@ -99,9 +103,3 @@ table RexWindowFunction {
     upper_bound: Bound;
     lower_bound: Bound;
 }
-
-// TODO: evaluate the inclusion of conditions as first class entities.
-// TODO: evaluate the inclusion of boolean operations as first class entities.
-union Rex {RexLiteral, RexDereference, RexFunction, RexWindowFunction}
-
-root_type Rex;
