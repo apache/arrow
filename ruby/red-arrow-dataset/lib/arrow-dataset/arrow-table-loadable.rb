@@ -21,15 +21,7 @@ module ArrowDataset
     def load_from_uri
       format = FileFormat.resolve(@options[:format])
       dataset = FileSystemDataset.build(format) do |factory|
-        if @input.scheme.nil?
-          input = @input.dup
-          input.path = File.expand_path(input.path)
-          input.scheme = "file"
-          uri = input.to_s
-        else
-          uri = @input.to_s
-        end
-        factory.file_system_uri = uri
+        factory.file_system_uri = @input
       end
       dataset.to_table
     end

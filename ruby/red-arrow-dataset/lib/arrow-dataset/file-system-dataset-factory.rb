@@ -16,23 +16,19 @@
 # under the License.
 
 module ArrowDataset
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowDataset", ArrowDataset)
+  class FileSystemDatasetFactory
+    alias_method :set_file_system_uri_raw, :set_file_system_uri
+    def set_file_system_uri(uri)
+      if uri.is_a?(URI)
+        if uri.scheme.nil?
+          uri = uri.dup
+          uri.path = File.expand_path(uri.path)
+          uri.scheme = "file"
+        end
+        uri = uri.to_s
       end
+      set_file_system_uri_raw(uri)
     end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-dataset/arrow-table-loadable"
-      require "arrow-dataset/dataset"
-      require "arrow-dataset/file-format"
-      require "arrow-dataset/file-system-dataset-factory"
-    end
+    alias_method :file_system_uri=, :set_file_system_uri
   end
 end
