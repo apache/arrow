@@ -238,8 +238,6 @@ func NewFileMetaData(data []byte, fileDecryptor encryption.FileDecryptor) (*File
 	f.initSchema()
 	f.initColumnOrders()
 
-	// init keyvalue metadata
-
 	return f, nil
 }
 

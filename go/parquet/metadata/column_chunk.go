@@ -299,7 +299,7 @@ func (c *ColumnChunkMetaDataBuilder) Finish(nvalues, dictPageOffset, indexPageOf
 	c.chunk.MetaData.TotalUncompressedSize = uncompressed
 	c.chunk.MetaData.TotalCompressedSize = compressed
 
-	thriftEncodings := make([]format.Encoding, 0)
+	thriftEncodings := make([]format.Encoding, 0, 3)
 	if hasDict {
 		thriftEncodings = append(thriftEncodings, format.Encoding(c.props.DictionaryIndexEncoding()))
 		if c.props.Version() == parquet.V1 {
