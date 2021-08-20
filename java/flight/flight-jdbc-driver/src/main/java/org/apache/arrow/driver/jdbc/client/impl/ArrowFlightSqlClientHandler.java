@@ -17,24 +17,20 @@
 
 package org.apache.arrow.driver.jdbc.client.impl;
 
+import org.apache.arrow.driver.jdbc.client.FlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
+import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.sql.FlightSqlClient;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
+
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
-
-import org.apache.arrow.driver.jdbc.client.FlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
-import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
-import org.apache.arrow.flight.CallOption;
-import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
-import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
-import org.apache.arrow.flight.sql.FlightSqlClient;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.Preconditions;
 
 /**
  * Wrapper for a {@link FlightSqlClient}.
@@ -94,20 +90,15 @@ public class ArrowFlightSqlClientHandler extends BareArrowFlightClientHandler im
                                                              final boolean useTls,
                                                              final Collection<CallOption> options)
       throws GeneralSecurityException, IOException {
-    final boolean authenticate = credentials != null;
-    final List<CallOption> theseOptions = new ArrayList<>(options);
-    final FlightClient client;
-    if (authenticate) {
-      final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
-          new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator, authFactory);
-      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, credentials, authFactory));
-    } else {
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
-    }
+    final Entry<FlightClient, List<CallOption>> clientInfo =
+            ClientCreationUtils.createAndGetClientInfo(
+                    address, credentials, keyStoreInfo,
+                    allocator, useTls, options);
+    final FlightClient client = clientInfo.getKey();
+    final List<CallOption> theseOptions = clientInfo.getValue();
     return new ArrowFlightSqlClientHandler(
-        client, new FlightSqlClient(client),
-        theseOptions.toArray(new CallOption[0]));
+            client, new FlightSqlClient(client),
+            theseOptions.toArray(new CallOption[0]));
   }
 
   @Override
