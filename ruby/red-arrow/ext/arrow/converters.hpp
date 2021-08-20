@@ -29,6 +29,7 @@
 namespace red_arrow {
   class ListArrayValueConverter;
   class StructArrayValueConverter;
+  class MapArrayValueConverter;
   class UnionArrayValueConverter;
   class DictionaryArrayValueConverter;
 
@@ -38,16 +39,19 @@ namespace red_arrow {
       : decimal_buffer_(),
         list_array_value_converter_(nullptr),
         struct_array_value_converter_(nullptr),
+        map_array_value_converter_(nullptr),
         union_array_value_converter_(nullptr),
         dictionary_array_value_converter_(nullptr) {
     }
 
     inline void set_sub_value_converters(ListArrayValueConverter* list_array_value_converter,
                                          StructArrayValueConverter* struct_array_value_converter,
+                                         MapArrayValueConverter* map_array_value_converter,
                                          UnionArrayValueConverter* union_array_value_converter,
                                          DictionaryArrayValueConverter* dictionary_array_value_converter) {
       list_array_value_converter_ = list_array_value_converter;
       struct_array_value_converter_ = struct_array_value_converter;
+      map_array_value_converter_ = map_array_value_converter;
       union_array_value_converter_ = union_array_value_converter;
       dictionary_array_value_converter_ = dictionary_array_value_converter;
     }
@@ -204,6 +208,9 @@ namespace red_arrow {
     VALUE convert(const arrow::StructArray& array,
                   const int64_t i);
 
+    VALUE convert(const arrow::MapArray& array,
+                  const int64_t i);
+
     VALUE convert(const arrow::UnionArray& array,
                   const int64_t i);
 
@@ -234,6 +241,7 @@ namespace red_arrow {
     std::string decimal_buffer_;
     ListArrayValueConverter* list_array_value_converter_;
     StructArrayValueConverter* struct_array_value_converter_;
+    MapArrayValueConverter* map_array_value_converter_;
     UnionArrayValueConverter* union_array_value_converter_;
     DictionaryArrayValueConverter* dictionary_array_value_converter_;
   };
@@ -294,6 +302,7 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
+    VISIT(Map)
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
@@ -399,6 +408,7 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
+    VISIT(Map)
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
@@ -429,6 +439,117 @@ namespace red_arrow {
     VALUE key_;
     int64_t index_;
     VALUE result_;
+  };
+
+  class MapArrayValueConverter : public arrow::ArrayVisitor {
+  public:
+    explicit MapArrayValueConverter(ArrayValueConverter* converter)
+      : array_value_converter_(converter),
+        offset_(0),
+        length_(0),
+        values_(Qnil) {}
+
+    VALUE convert(const arrow::MapArray& array,
+                  const int64_t index) {
+      auto key_array = array.keys().get();
+      auto item_array = array.items().get();
+      auto offset_keep = offset_;
+      auto length_keep = length_;
+      auto values_keep = values_;
+      offset_ = array.value_offset(index);
+      length_ = array.value_length(index);
+      auto keys = rb_ary_new_capa(length_);
+      values_ = keys;
+      check_status(key_array->Accept(this),
+                   "[raw-records][map-array][keys]");
+      auto items = rb_ary_new_capa(length_);
+      values_ = items;
+      check_status(item_array->Accept(this),
+                   "[raw-records][map-array][items]");
+      auto map = rb_hash_new();
+      auto n = RARRAY_LEN(keys);
+      auto raw_keys = RARRAY_CONST_PTR(keys);
+      auto raw_items = RARRAY_CONST_PTR(items);
+      for (long i = 0; i < n; ++i) {
+        rb_hash_aset(map, raw_keys[i], raw_items[i]);
+      }
+      offset_ = offset_keep;
+      length_ = length_keep;
+      values_ = values_keep;
+      return map;
+    }
+
+#define VISIT(TYPE)                                                     \
+    arrow::Status Visit(const arrow::TYPE ## Array& array) override {   \
+      return visit_value(array);                                        \
+    }
+
+    VISIT(Null)
+    VISIT(Boolean)
+    VISIT(Int8)
+    VISIT(Int16)
+    VISIT(Int32)
+    VISIT(Int64)
+    VISIT(UInt8)
+    VISIT(UInt16)
+    VISIT(UInt32)
+    VISIT(UInt64)
+    // TODO
+    // VISIT(HalfFloat)
+    VISIT(Float)
+    VISIT(Double)
+    VISIT(Binary)
+    VISIT(String)
+    VISIT(FixedSizeBinary)
+    VISIT(Date32)
+    VISIT(Date64)
+    VISIT(Time32)
+    VISIT(Time64)
+    VISIT(Timestamp)
+    // TODO
+    // VISIT(Interval)
+    VISIT(List)
+    VISIT(Struct)
+    VISIT(Map)
+    VISIT(SparseUnion)
+    VISIT(DenseUnion)
+    VISIT(Dictionary)
+    VISIT(Decimal128)
+    VISIT(Decimal256)
+    // TODO
+    // VISIT(Extension)
+
+#undef VISIT
+
+  private:
+    template <typename ArrayType>
+    inline VALUE convert_value(const ArrayType& array,
+                               const int64_t i) {
+      return array_value_converter_->convert(array, i);
+    }
+
+    template <typename ArrayType>
+    arrow::Status visit_value(const ArrayType& array) {
+      if (array.null_count() > 0) {
+        for (int64_t i = 0; i < length_; ++i) {
+          auto value = Qnil;
+          if (!array.IsNull(i + offset_)) {
+            value = convert_value(array, i + offset_);
+          }
+          rb_ary_push(values_, value);
+        }
+      } else {
+        for (int64_t i = 0; i < length_; ++i) {
+          rb_ary_push(values_, convert_value(array, i + offset_));
+        }
+      }
+      return arrow::Status::OK();
+    }
+
+    ArrayValueConverter* array_value_converter_;
+    int32_t offset_;
+    int32_t length_;
+    VALUE values_;
   };
 
   class UnionArrayValueConverter : public arrow::ArrayVisitor {
@@ -492,6 +613,7 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
+    VISIT(Map)
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
@@ -617,6 +739,7 @@ namespace red_arrow {
     // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
+    VISIT(Map)
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
@@ -645,11 +768,13 @@ namespace red_arrow {
       : array_value_converter_(),
         list_array_value_converter_(&array_value_converter_),
         struct_array_value_converter_(&array_value_converter_),
+        map_array_value_converter_(&array_value_converter_),
         union_array_value_converter_(&array_value_converter_),
         dictionary_array_value_converter_(&array_value_converter_) {
       array_value_converter_.
         set_sub_value_converters(&list_array_value_converter_,
                                  &struct_array_value_converter_,
+                                 &map_array_value_converter_,
                                  &union_array_value_converter_,
                                  &dictionary_array_value_converter_);
     }
@@ -663,6 +788,7 @@ namespace red_arrow {
     ArrayValueConverter array_value_converter_;
     ListArrayValueConverter list_array_value_converter_;
     StructArrayValueConverter struct_array_value_converter_;
+    MapArrayValueConverter map_array_value_converter_;
     UnionArrayValueConverter union_array_value_converter_;
     DictionaryArrayValueConverter dictionary_array_value_converter_;
   };
