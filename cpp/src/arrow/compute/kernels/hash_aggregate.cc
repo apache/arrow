@@ -1989,12 +1989,18 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     // Get (group_id, value) pairs, then translate the group IDs and consume them
     // ourselves
     ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(auto remapped_g,
+                          AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
 
     const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
-    auto* other_g = uniques[1].array()->GetMutableValues<uint32_t>(1);
+    const auto* other_g = uniques[1].array()->GetValues<uint32_t>(1);
+    auto* g = reinterpret_cast<uint32_t*>(remapped_g->mutable_data());
+
     for (int64_t i = 0; i < uniques.length; i++) {
-      other_g[i] = g_mapping[other_g[i]];
+      g[i] = g_mapping[other_g[i]];
     }
+    uniques.values[1] =
+        ArrayData::Make(uint32(), uniques.length, {nullptr, std::move(remapped_g)});
 
     return Consume(std::move(uniques));
   }
