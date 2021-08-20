@@ -32,65 +32,70 @@ class GatingDoClose : public AsyncCloseable {
  public:
   GatingDoClose(AsyncCloseable* parent, Future<> close_future)
       : AsyncCloseable(parent), close_future_(std::move(close_future)) {}
+  GatingDoClose(Future<> close_future) : close_future_(std::move(close_future)) {}
 
   Future<> DoClose() override { return close_future_; }
 
   Future<> close_future_;
 };
 
-class GatingDoCloseWithChild : public AsyncCloseable {
+class GatingDoCloseWithUniqueChild : public AsyncCloseable {
  public:
-  GatingDoCloseWithChild(AsyncCloseable* parent, Future<> close_future)
-      : AsyncCloseable(parent), child_(this, std::move(close_future)) {}
+  GatingDoCloseWithUniqueChild(Nursery* nursery, Future<> close_future)
+      : child_(
+            nursery->MakeUniqueCloseable<GatingDoClose>(this, std::move(close_future))) {}
 
   Future<> DoClose() override { return Future<>::MakeFinished(); }
 
-  GatingDoClose child_;
+  std::unique_ptr<GatingDoClose, DestroyingDeleter<GatingDoClose>> child_;
+};
+
+class GatingDoCloseWithSharedChild : public AsyncCloseable {
+ public:
+  GatingDoCloseWithSharedChild(Nursery* nursery, Future<> close_future)
+      : child_(
+            nursery->MakeSharedCloseable<GatingDoClose>(this, std::move(close_future))) {}
+
+  Future<> DoClose() override { return Future<>::MakeFinished(); }
+
+  std::shared_ptr<GatingDoClose> child_;
 };
 
 class GatingDoCloseAsDependentTask : public AsyncCloseable {
  public:
-  GatingDoCloseAsDependentTask(AsyncCloseable* parent, Future<> close_future)
-      : AsyncCloseable(parent) {
+  GatingDoCloseAsDependentTask(Future<> close_future) {
     AddDependentTask(std::move(close_future));
   }
 
   Future<> DoClose() override { return Future<>::MakeFinished(); }
 };
 
-class EvictableChild : public OwnedAsyncCloseable {
+class MarkWhenDestroyed : public GatingDoClose {
  public:
-  EvictableChild(AsyncCloseable* parent, Future<> close_future)
-      : OwnedAsyncCloseable(parent), close_future_(std::move(close_future)) {}
-
-  Future<> DoClose() override { return close_future_; }
+  MarkWhenDestroyed(Future<> close_future, bool* destroyed)
+      : GatingDoClose(std::move(close_future)), destroyed_(destroyed) {}
+  ~MarkWhenDestroyed() { *destroyed_ = true; }
 
  private:
-  Future<> close_future_;
+  bool* destroyed_;
 };
 
 class EvictsChild : public AsyncCloseable {
  public:
-  EvictsChild(AsyncCloseable* parent, Future<> child_future, Future<> final_future)
-      : AsyncCloseable(parent), final_close_future_(std::move(final_future)) {
-    owned_child_ = std::make_shared<EvictableChild>(this, std::move(child_future));
-    owned_child_->Init();
-    child_ = owned_child_;
+  EvictsChild(Nursery* nursery, bool* child_destroyed, Future<> child_future,
+              Future<> final_future)
+      : final_close_future_(std::move(final_future)) {
+    owned_child_ = nursery->MakeSharedCloseable<MarkWhenDestroyed>(
+        std::move(child_future), child_destroyed);
   }
 
-  void EvictChild() {
-    owned_child_->Evict();
-    owned_child_.reset();
-  }
-
-  bool ChildIsExpired() { return child_.expired(); }
+  void EvictChild() { owned_child_.reset(); }
 
   Future<> DoClose() override { return final_close_future_; }
 
  private:
   Future<> final_close_future_;
-  std::shared_ptr<EvictableChild> owned_child_;
-  std::weak_ptr<EvictableChild> child_;
+  std::shared_ptr<GatingDoClose> owned_child_;
 };
 
 template <typename T>
@@ -98,10 +103,25 @@ void AssertDoesNotCloseEarly() {
   Future<> gate = Future<>::Make();
   std::atomic<bool> finished{false};
   std::thread thread([&] {
-    ASSERT_OK(Nursery::RunInNursery([&](Nursery* nursery) {
-      nursery->AddRoot<T>(
-          [&](AsyncCloseable* parent) { return std::make_shared<T>(parent, gate); });
-    }));
+    ASSERT_OK(Nursery::RunInNursery(
+        [&](Nursery* nursery) { nursery->MakeSharedCloseable<T>(gate); }));
+    finished.store(true);
+  });
+
+  SleepABit();
+  ASSERT_FALSE(finished.load());
+  gate.MarkFinished();
+  BusyWait(10, [&] { return finished.load(); });
+  thread.join();
+};
+
+template <typename T>
+void AssertDoesNotCloseEarlyWithChild() {
+  Future<> gate = Future<>::Make();
+  std::atomic<bool> finished{false};
+  std::thread thread([&] {
+    ASSERT_OK(Nursery::RunInNursery(
+        [&](Nursery* nursery) { nursery->MakeSharedCloseable<T>(nursery, gate); }));
     finished.store(true);
   });
 
@@ -114,7 +134,13 @@ void AssertDoesNotCloseEarly() {
 
 TEST(AsyncNursery, DoClose) { AssertDoesNotCloseEarly<GatingDoClose>(); }
 
-TEST(AsyncNursery, ChildDoClose) { AssertDoesNotCloseEarly<GatingDoCloseWithChild>(); }
+TEST(AsyncNursery, SharedChildDoClose) {
+  AssertDoesNotCloseEarlyWithChild<GatingDoCloseWithSharedChild>();
+}
+
+TEST(AsyncNursery, UniqueChildDoClose) {
+  AssertDoesNotCloseEarlyWithChild<GatingDoCloseWithUniqueChild>();
+}
 
 TEST(AsyncNursery, DependentTask) {
   AssertDoesNotCloseEarly<GatingDoCloseAsDependentTask>();
@@ -126,16 +152,16 @@ TEST(AsyncNursery, EvictedChild) {
   std::atomic<bool> finished{false};
   std::thread thread([&] {
     ASSERT_OK(Nursery::RunInNursery([&](Nursery* nursery) {
+      bool child_destroyed = false;
       std::shared_ptr<EvictsChild> evicts_child =
-          nursery->AddRoot<EvictsChild>([&](AsyncCloseable* parent) {
-            return std::make_shared<EvictsChild>(parent, child_future, final_future);
-          });
+          nursery->MakeSharedCloseable<EvictsChild>(nursery, &child_destroyed,
+                                                    child_future, final_future);
       evicts_child->EvictChild();
       // Owner no longer has reference to child here but it's kept alive by nursery
       // because it isn't done
-      ASSERT_FALSE(evicts_child->ChildIsExpired());
+      ASSERT_FALSE(child_destroyed);
       child_future.MarkFinished();
-      ASSERT_TRUE(evicts_child->ChildIsExpired());
+      ASSERT_TRUE(child_destroyed);
     }));
     finished.store(true);
   });

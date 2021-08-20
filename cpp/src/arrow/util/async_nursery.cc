@@ -22,45 +22,62 @@
 namespace arrow {
 namespace util {
 
-AsyncCloseable::AsyncCloseable(AsyncCloseable* parent) : on_closed_(Future<>::Make()) {
-  if (parent) {
-    Mutex::Guard guard = mutex_.Lock();
-    parent->children_.push_back(this);
-    self_itr_ = --parent->children_.end();
-  }
+AsyncCloseable::AsyncCloseable() = default;
+AsyncCloseable::AsyncCloseable(AsyncCloseable* parent) {
+  AddDependentTask(parent->OnClosed());
 }
 
-AsyncCloseable::~AsyncCloseable() { DCHECK(close_complete_.load()); }
+AsyncCloseable::~AsyncCloseable() {
+  // FIXME - Would be awesome if there were a way to enforce this at compile time
+  DCHECK_NE(nursery_, nullptr) << "An AsyncCloseable must be created with a nursery "
+                                  "using MakeSharedCloseable or MakeUniqueCloseable";
+}
 
-Future<> AsyncCloseable::OnClosed() { return on_closed_; }
+const Future<>& AsyncCloseable::OnClosed() {
+  // Lazily create the future to save effort if we don't need it
+  if (!on_closed_.is_valid()) {
+    on_closed_ = Future<>::Make();
+  }
+  return on_closed_;
+}
 
-Future<> AsyncCloseable::Close() {
-  {
-    Mutex::Guard guard = mutex_.Lock();
-    if (closed_.load()) {
-      return Future<>::MakeFinished();
+void AsyncCloseable::AddDependentTask(const Future<>& task) {
+  DCHECK(!closed_);
+  if (num_tasks_outstanding_.fetch_add(1) == 1) {
+    tasks_finished_ = Future<>::Make();
+  };
+  task.AddCallback([this](const Status& st) {
+    if (num_tasks_outstanding_.fetch_sub(1) == 1 && closed_.load()) {
+      tasks_finished_.MarkFinished(st);
     }
-    closed_.store(true);
-  }
-  return DoClose()
-      .Then([this] {
-        close_complete_.store(true);
-        on_closed_.MarkFinished();
-        return CloseChildren();
-      })
-      .Then([] {},
-            [this](const Status& err) {
-              close_complete_.store(true);
-              on_closed_.MarkFinished(err);
-              return err;
-            });
+  });
 }
 
-Future<> AsyncCloseable::CloseChildren() {
-  for (auto& child : children_) {
-    tasks_.push_back(child->Close());
+void AsyncCloseable::SetNursery(Nursery* nursery) { nursery_ = nursery; }
+
+void AsyncCloseable::Destroy() {
+  DCHECK_NE(nursery_, nullptr);
+  closed_ = true;
+  nursery_->num_closeables_destroyed_.fetch_add(1);
+  Future<> finish_fut;
+  if (tasks_finished_.is_valid()) {
+    if (num_tasks_outstanding_.fetch_sub(1) > 1) {
+      finish_fut = AllComplete({DoClose(), tasks_finished_});
+    } else {
+      // Any added tasks have already finished so there is nothing to wait for
+      finish_fut = DoClose();
+    }
+  } else {
+    // No dependent tasks were added
+    finish_fut = DoClose();
   }
-  return AllComplete(tasks_);
+  finish_fut.AddCallback([this](const Status& st) {
+    if (on_closed_.is_valid()) {
+      on_closed_.MarkFinished(st);
+    }
+    nursery_->OnTaskFinished(st);
+    delete this;
+  });
 }
 
 Status AsyncCloseable::CheckClosed() const {
@@ -70,56 +87,38 @@ Status AsyncCloseable::CheckClosed() const {
   return Status::OK();
 }
 
-void AsyncCloseable::AssertNotCloseComplete() const { DCHECK(!close_complete_); }
+Nursery::Nursery() : finished_(Future<>::Make()){};
 
-void AsyncCloseable::AddDependentTask(Future<> task) {
-  tasks_.push_back(std::move(task));
-}
-
-OwnedAsyncCloseable::OwnedAsyncCloseable(AsyncCloseable* parent)
-    : AsyncCloseable(parent) {
-  parent_ = parent;
-}
-
-void OwnedAsyncCloseable::Init() {
-  Mutex::Guard lock = parent_->mutex_.Lock();
-  parent_->owned_children_.push_back(shared_from_this());
-  owned_self_itr_ = --parent_->owned_children_.end();
-}
-
-void OwnedAsyncCloseable::Evict() {
-  {
-    Mutex::Guard lock = parent_->mutex_.Lock();
-    if (parent_->closed_) {
-      // Parent is already closing, no need to do anything, the parent will call close on
-      // this instance eventually
-      return;
-    }
-    parent_->children_.erase(self_itr_);
+Status Nursery::WaitForFinish() {
+  if (num_closeables_destroyed_.load() != num_closeables_created_.load()) {
+    return Status::UnknownError(
+        "Not all closeables that were created during the nursery were destroyed.  "
+        "Something must be holding onto a shared_ptr/unique_ptr reference.");
   }
-  // We need to add a dependent task to make sure our parent does not close itself
-  // while we are shutting down.
-  parent_->AddDependentTask(Close().Then([this] {
-    Mutex::Guard lock = parent_->mutex_.Lock();
-    parent_->owned_children_.erase(owned_self_itr_);
-  }));
+  if (num_tasks_outstanding_.fetch_sub(1) == 1) {
+    // All tasks done, nothing to wait for
+    return Status::OK();
+  }
+  return finished_.status();
 }
 
-NurseryPimpl::~NurseryPimpl() = default;
-
-Nursery::Nursery() : AsyncCloseable(nullptr) {}
-Future<> Nursery::DoClose() { return Future<>::MakeFinished(); }
+void Nursery::OnTaskFinished(Status st) {
+  if (num_tasks_outstanding_.fetch_sub(1) == 1) {
+    finished_.MarkFinished(std::move(st));
+  }
+}
 
 Status Nursery::RunInNursery(std::function<void(Nursery*)> task) {
   Nursery nursery;
   task(&nursery);
-  return nursery.Close().status();
+  return nursery.WaitForFinish();
 }
 
 Status Nursery::RunInNurserySt(std::function<Status(Nursery*)> task) {
   Nursery nursery;
   Status task_st = task(&nursery);
-  Status close_st = nursery.Close().status();
+  // Need to wait for everything to finish, even if invalid status
+  Status close_st = nursery.WaitForFinish();
   return task_st & close_st;
 }
 
