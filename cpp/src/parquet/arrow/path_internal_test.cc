@@ -170,6 +170,24 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
 
+TEST_F(MultipathLevelBuilderTest, EmptyLists) {
+  // ARROW-13676 - ensure no out of bounds list memory accesses.
+  auto entries = field("Entries", ::arrow::int64());
+  auto list_type = list(entries);
+  // Number of elements is important, to work past buffer padding hiding
+  // the issue.
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([
+    [],[],[],[],[],[],[],[],[],[],[],[],[],[],[]])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  const CapturedResult& result = results_[0];
+  result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/15, 1),
+                     /*rep_levels=*/std::vector<int16_t>(15, 0));
+}
+
 TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
   auto list_type = list(entries);

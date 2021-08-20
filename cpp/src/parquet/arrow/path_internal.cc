@@ -333,7 +333,6 @@ class ListPathNode {
     if (range->Empty()) {
       return kDone;
     }
-
     // Find the first non-empty list (skipping a run of empties).
     int64_t start = range->start;
     // Retrieves the range of elements that this list contains.
@@ -342,7 +341,9 @@ class ListPathNode {
     *child_range = selector_.GetRange(range->start);
     while (child_range->Empty() && !range->Empty()) {
       ++range->start;
-      *child_range = selector_.GetRange(range->start);
+      if (!range->Empty()) {
+        *child_range = selector_.GetRange(range->start);
+      }
     }
     // Loops post-condition:
     //   * range is either empty (we are done processing at this node)
