@@ -93,17 +93,12 @@ public class BareArrowFlightClientHandler extends ArrowFlightClientHandler imple
                                                               final boolean useTls,
                                                               final Collection<CallOption> options)
       throws GeneralSecurityException, IOException {
-    final boolean authenticate = credentials != null;
-    final List<CallOption> theseOptions = new ArrayList<>(options);
-    final FlightClient client;
-    if (authenticate) {
-      final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
-          new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator, authFactory);
-      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, credentials, authFactory));
-    } else {
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
-    }
+    final Entry<FlightClient, List<CallOption>> clientInfo =
+            ClientCreationUtils.createAndGetClientInfo(
+                    address, credentials, keyStoreInfo,
+                    allocator, useTls, options);
+    final FlightClient client = clientInfo.getKey();
+    final List<CallOption> theseOptions = clientInfo.getValue();
     return new BareArrowFlightClientHandler(client, theseOptions.toArray(new CallOption[0]));
   }
 

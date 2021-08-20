@@ -17,19 +17,25 @@
 
 package org.apache.arrow.driver.jdbc.client.utils;
 
-import static org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils.getCertificateStream;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map.Entry;
-
+import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map.Entry;
+
+import static org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils.getCertificateStream;
 
 /**
  * Utility class for creating a client.
@@ -54,8 +60,28 @@ public class ClientCreationUtils {
                                              final boolean useTls,
                                              final BufferAllocator allocator,
                                              final FlightClientMiddleware.Factory... middlewareFactories)
-      throws GeneralSecurityException, IOException {
+          throws GeneralSecurityException, IOException {
     return createNewClient(address, keyStoreInfo, useTls, allocator, Arrays.asList(middlewareFactories));
+  }
+
+  public static Entry<FlightClient, List<CallOption>> createAndGetClientInfo(final Entry<String, Integer> address,
+                                                                             final Entry<String, String> credentials,
+                                                                             final Entry<String, String> keyStoreInfo,
+                                                                             final BufferAllocator allocator,
+                                                                             final boolean useTls,
+                                                                             final Collection<CallOption> options)
+          throws GeneralSecurityException, IOException {
+    final List<CallOption> theseOptions = new ArrayList<>(options);
+    final FlightClient client;
+    if (credentials != null) {
+      final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
+              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator, authFactory);
+      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, credentials, authFactory));
+    } else {
+      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
+    }
+    return new SimpleImmutableEntry<>(client, theseOptions);
   }
 
   /**
