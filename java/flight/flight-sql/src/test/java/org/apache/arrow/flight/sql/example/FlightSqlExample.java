@@ -1631,9 +1631,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public void getStreamStatement(final FlightSql.TicketStatementQuery ticket, final CallContext context,
-                                 final ServerStreamListener listener) {
-    final ByteString handle = ticket.getStatementHandle();
+  public void getStreamStatement(final FlightSql.TicketStatementQuery ticketStatementQuery, final CallContext context,
+                                 final ServerStreamListener listener, Ticket ticket) {
+    final ByteString handle = ticketStatementQuery.getStatementHandle();
     try (final ResultSet resultSet = Objects.requireNonNull(commandExecuteStatementLoadingCache.getIfPresent(handle),
         "Got a null ResultSet.")) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
