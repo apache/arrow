@@ -180,7 +180,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
-  private final LoadingCache<ByteString, ResultSet> commandExecutePreparedStatementLoadingCache;
   private final BufferAllocator rootAllocator = new RootAllocator();
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
@@ -207,13 +206,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .removalListener(new StatementRemovalListener<PreparedStatement>())
             .build();
-
-    commandExecutePreparedStatementLoadingCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(100)
-            .expireAfterWrite(10, TimeUnit.MINUTES)
-            .removalListener(new CommandExecuteStatementRemovalListener())
-            .build(new CommandExecutePreparedStatementCacheLoader(preparedStatementLoadingCache));
 
     statementLoadingCache =
         CacheBuilder.newBuilder()
@@ -620,9 +612,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final ByteString handle = command.getPreparedStatementHandle();
     StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
     Objects.requireNonNull(statementContext);
-    try (final PreparedStatement statement = statementContext.getStatement();
-         final ResultSet resultSet = statement.executeQuery()) {
-
+    final PreparedStatement statement = statementContext.getStatement();
+    try (final ResultSet resultSet = statement.executeQuery()) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
         final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
@@ -716,12 +707,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   @Override
   public void close() throws Exception {
-    try {
-      commandExecutePreparedStatementLoadingCache.cleanUp();
-    } catch (Throwable t) {
-      LOGGER.error(format("Failed to close resources: <%s>", t.getMessage()), t);
-    }
-
     try {
       preparedStatementLoadingCache.cleanUp();
     } catch (Throwable t) {
@@ -1673,6 +1658,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     } finally {
       listener.completed();
       commandExecuteStatementLoadingCache.invalidate(handle);
+      statementLoadingCache.invalidate(handle);
     }
   }
 
@@ -1731,22 +1717,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       Objects.requireNonNull(statementContext, "statementContext cannot be null.");
       return statementContext.getStatement()
           .executeQuery(statementContext.getQuery().orElseThrow(IllegalStateException::new));
-    }
-  }
-
-  private static class CommandExecutePreparedStatementCacheLoader
-      extends CommandExecuteQueryCacheLoader<PreparedStatement> {
-    public CommandExecutePreparedStatementCacheLoader(
-        final Cache<ByteString, StatementContext<PreparedStatement>> statementLoadingCache) {
-      super(statementLoadingCache);
-    }
-
-    @Override
-    protected ResultSet generateResultSetExecutingQuery(final ByteString handle) throws SQLException {
-      final StatementContext<PreparedStatement> preparedStatementContext =
-          getStatementLoadingCache().getIfPresent(handle);
-      Objects.requireNonNull(preparedStatementContext, "preparedStatementContext cannot be null.");
-      return preparedStatementContext.getStatement().executeQuery();
     }
   }
 

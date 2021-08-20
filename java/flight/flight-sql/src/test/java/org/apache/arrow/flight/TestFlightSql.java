@@ -567,9 +567,16 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testCreateStatementSchema() {
+  public void testCreateStatementSchema() throws Exception {
     final FlightInfo info = sqlClient.execute("SELECT * FROM intTable");
     collector.checkThat(info.getSchema(), is(SCHEMA_INT_TABLE));
+
+    // Consume statement to close connection before cache eviction
+    try (FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
+      while (stream.next()) {
+        // Do nothing
+      }
+    }
   }
 
   @Test
