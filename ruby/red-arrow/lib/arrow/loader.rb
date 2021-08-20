@@ -40,6 +40,8 @@ module Arrow
       require "arrow/record-containable"
       require "arrow/symbol-values-appendable"
 
+      require "arrow/aggregate-node-options"
+      require "arrow/aggregation"
       require "arrow/array"
       require "arrow/array-builder"
       require "arrow/bigdecimal-extension"
@@ -91,6 +93,7 @@ module Arrow
       require "arrow/slicer"
       require "arrow/sort-key"
       require "arrow/sort-options"
+      require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/struct-array"
