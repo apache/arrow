@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -27,8 +29,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
@@ -94,7 +94,7 @@
 
 #define ARROW_EXPECT_OK(expr)                                           \
   do {                                                                  \
-    auto _res = (expr);                                                 \
+    const auto& _res = (expr);                                          \
     ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);     \
     EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
                           << _st.ToString();                            \
@@ -643,6 +643,9 @@ class ARROW_TESTING_EXPORT GatingTask {
   ///
   /// Note: The GatingTask must outlive any Task instances
   std::function<void()> Task();
+  /// \brief Creates a new waiting task as a future.  The future will not complete
+  /// until unlocked.
+  Future<> AsyncTask();
   /// \brief Waits until at least count tasks are running.
   Status WaitForRunning(int count);
   /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting task has

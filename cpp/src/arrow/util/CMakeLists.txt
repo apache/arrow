@@ -48,6 +48,7 @@ add_arrow_test(utility-test
                cache_test.cc
                checked_cast_test.cc
                compression_test.cc
+               counting_semaphore_test.cc
                decimal_test.cc
                formatting_util_test.cc
                key_value_metadata_test.cc

@@ -15,24 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+// Can't import test_util.h before gtest.h because it depends on ASSERT_GE but clang
+// wants the "related import" to come first so we need to disable here
+// clang-format off
+#include "arrow/filesystem/test_util.h"
+// clang-format on
+
 #include <algorithm>
 #include <chrono>
-#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
-#include "arrow/filesystem/test_util.h"
-#include "arrow/filesystem/util_internal.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
 
@@ -165,6 +168,27 @@ void AssertFileInfo(FileSystem* fs, const std::string& path, FileType type,
                     int64_t size) {
   ASSERT_OK_AND_ASSIGN(FileInfo info, fs->GetFileInfo(path));
   AssertFileInfo(info, path, type, size);
+}
+
+GatedMockFilesystem::GatedMockFilesystem(TimePoint current_time,
+                                         const io::IOContext& io_context)
+    : internal::MockFileSystem(current_time, io_context) {}
+GatedMockFilesystem::~GatedMockFilesystem() = default;
+
+Result<std::shared_ptr<io::OutputStream>> GatedMockFilesystem::OpenOutputStream(
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  RETURN_NOT_OK(open_output_sem_.Acquire(1));
+  return MockFileSystem::OpenOutputStream(path, metadata);
+}
+
+// Wait until at least num_waiters are waiting on OpenOutputStream
+Status GatedMockFilesystem::WaitForOpenOutputStream(uint32_t num_waiters) {
+  return open_output_sem_.WaitForWaiters(num_waiters);
+}
+
+// Unlocks `num_waiters` individual calls to OpenOutputStream
+Status GatedMockFilesystem::UnlockOpenOutputStream(uint32_t num_waiters) {
+  return open_output_sem_.Release(num_waiters);
 }
 
 ////////////////////////////////////////////////////////////////////////////

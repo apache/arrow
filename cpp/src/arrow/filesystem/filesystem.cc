@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/filesystem/filesystem.h"
+
 #include <sstream>
 #include <utility>
 
 #include "arrow/util/config.h"
-
-#include "arrow/filesystem/filesystem.h"
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
@@ -172,6 +172,15 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   Status st = Status::OK();
   for (const auto& path : paths) {
     st &= DeleteFile(path);
+  }
+  return st;
+}
+
+Status FileSystem::DeleteFiles(const FileSelector& select) {
+  Status st = Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto file_infos, GetFileInfo(select));
+  for (const auto& file_info : file_infos) {
+    st &= DeleteFile(file_info.path());
   }
   return st;
 }
