@@ -538,6 +538,15 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                       FlightDescriptor descriptor);
 
   /**
+   * Gets schema about the get primary keys data stream.
+   *
+   * @return Schema for the stream.
+   */
+  default SchemaResult getSchemaPrimaryKeys() {
+    return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
+  }
+
+  /**
    * Returns data for primary keys based data stream.
    *
    * @param command  The command to generate the data stream.
