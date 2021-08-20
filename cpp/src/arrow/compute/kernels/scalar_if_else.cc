@@ -1623,9 +1623,10 @@ struct CaseWhenFunctor<MapType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(ctx, batch, out,
-                                     // ReserveData
-                                     [](ArrayBuilder*) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
+      return Status::OK();
+    };
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
 
@@ -1642,9 +1643,10 @@ struct CaseWhenFunctor<StructType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(ctx, batch, out,
-                                     // ReserveData
-                                     [](ArrayBuilder*) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
+      return Status::OK();
+    };
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
 
@@ -1688,10 +1690,10 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return ExecVarWidthArrayCaseWhen(
-        ctx, batch, out,
-        // ReserveData
-        [&](ArrayBuilder* raw_builder) { return Status::OK(); });
+    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
+      return Status::OK();
+    };
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
 
