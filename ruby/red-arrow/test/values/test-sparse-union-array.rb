@@ -387,7 +387,6 @@ module ValuesSparseUnionArrayTests
     assert_equal(values, target.values)
   end
 
-
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [
