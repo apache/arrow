@@ -103,9 +103,14 @@ module Arrow
           function = $1
           input = $2.strip
           normalized_aggregations << {function: function, input: input}
-        when "count", "hash_count", "any", "hash_any", "all", "hash_all"
+        when "count", "hash_count"
           function = aggregation
           target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
+          end
+        when "any", "hash_any", "all", "hash_all"
+          function = aggregation
+          boolean_target_columns.each do |column|
             normalized_aggregations << {function: function, input: column.name}
           end
         when String
@@ -128,6 +133,16 @@ module Arrow
       key_names = @keys.collect(&:to_s)
       @table.columns.find_all do |column|
         not key_names.include?(column.name)
+      end
+    end
+
+    def boolean_target_columns
+      @boolean_target_columns ||= find_boolean_target_columns
+    end
+
+    def find_boolean_target_columns
+      target_columns.find_all do |column|
+        column.data_type.is_a?(BooleanDataType)
       end
     end
 
