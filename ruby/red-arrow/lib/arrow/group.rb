@@ -93,7 +93,7 @@ module Arrow
             "hash_mean",
             "hash_stddev",
             "hash_variance",
-            "hash_tdigest",
+            # "hash_tdigest",
             "hash_min_max",
             "hash_any",
             "hash_all",
