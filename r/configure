@@ -278,7 +278,7 @@ else
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
-  if [ "$UNAME" != "SunOS" ] && [ "$TEST_R_WITHOUT_LIBARROW" != "true" ]; then
+  if [ "$UNAME" != "SunOS" ] && [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
     # We should build fine on Solaris, but because we don't have CI for it,
     # allow the build to proceed with most R package features disabled.
     # But on every other platforom stop here if libarrow was not found.

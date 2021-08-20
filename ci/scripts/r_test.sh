@@ -43,7 +43,7 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
 fi
 
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
-if [ "$TEST_R_WITHOUT_LIBARROW" != "true" ]; then
+if [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
   # --run-donttest was used in R < 4.0, this is used now
   export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 fi
