@@ -15,31 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class PathExtension
-    def initialize(path)
-      @path = path
+class TestArrowTable < Test::Unit::TestCase
+  def setup
+    Dir.mktmpdir do |tmpdir|
+      @dir = tmpdir
+      @path = File.join(@dir, "table.arrow")
+      @table = Arrow::Table.new(visible: [true, false, true],
+                                point: [1, 2, 3])
+      @table.save(@path)
+      yield
+    end
+  end
+
+  sub_test_case("load") do
+    def test_no_scheme
+      uri = URI(@path)
+      assert_equal(@table, Arrow::Table.load(uri))
     end
 
-    def extract
-      basename = ::File.basename(@path)
-      components = basename.split(".")
-      return {} if components.size < 2
-
-      extension = components.last.downcase
-      if components.size > 2
-        compression = CompressionType.resolve_extension(extension)
-        if compression
-          {
-            format: components[-2].downcase,
-            compression: compression,
-          }
-        else
-          {format: extension}
-        end
-      else
-        {format: extension}
-      end
+    def test_file
+      uri = URI(URI("file://#{File.expand_path@path}"))
+      assert_equal(@table, Arrow::Table.load(uri))
     end
   end
 end
