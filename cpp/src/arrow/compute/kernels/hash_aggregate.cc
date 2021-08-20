@@ -1489,10 +1489,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     auto other = checked_cast<GroupedTDigestImpl*>(&raw_other);
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    std::vector<TDigest> other_tdigest(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      other_tdigest[0] = std::move(other->tdigests_[other_g]);
-      tdigests_[*g].Merge(&other_tdigest);
+      tdigests_[*g].Merge(other->tdigests_[other_g]);
     }
 
     return Status::OK();
