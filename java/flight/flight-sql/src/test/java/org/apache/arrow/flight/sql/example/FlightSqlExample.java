@@ -634,7 +634,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       listener.error(e);
     } finally {
       listener.completed();
-      commandExecutePreparedStatementLoadingCache.invalidate(handle);
     }
   }
 
