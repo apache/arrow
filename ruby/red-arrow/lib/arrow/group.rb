@@ -22,35 +22,36 @@ module Arrow
       @keys = keys
     end
 
-    def count
-      aggregate(["hash_count"])
+    def count(*target_names)
+      aggregate(*build_aggregations("hash_count", target_names))
     end
 
-    def sum
-      aggregate(["hash_sum"])
+    def sum(*target_names)
+      aggregate(*build_aggregations("hash_sum", target_names))
     end
 
-    def product
-      aggregate(["hash_product"])
+    def product(*target_names)
+      aggregate(*build_aggregations("hash_product", target_names))
     end
 
-    def mean
-      aggregate(["hash_mean"])
+    def mean(*target_names)
+      aggregate(*build_aggregations("hash_mean", target_names))
     end
 
-    def min_max
-      aggregate(["hash_min_max"])
+    def min_max(*target_names)
+      aggregate(*build_aggregations("hash_min_max", target_names))
     end
 
-    def stddev
-      aggregate(["hash_stddev"])
+    def stddev(*target_names)
+      aggregate(*build_aggregations("hash_stddev", target_names))
     end
 
-    def variance
-      aggregate(["hash_variance"])
+    def variance(*target_names)
+      aggregate(*build_aggregations("hash_variance", target_names))
     end
 
-    def aggregate(aggregations)
+    def aggregate(aggregation, *more_aggregations)
+      aggregations = [aggregation] + more_aggregations
       normalized_aggregations = normalize_aggregations(aggregations)
       plan = ExecutePlan.new
       source_node = plan.build_source_node(@table)
@@ -70,6 +71,16 @@ module Arrow
     end
 
     private
+    def build_aggregations(function_name, target_names)
+      if target_names.empty?
+        [function_name]
+      else
+        target_names.collect do |name|
+          "#{function_name}(#{name})"
+        end
+      end
+    end
+
     def normalize_aggregations(aggregations)
       normalized_aggregations = []
       aggregations.each do |aggregation|
@@ -88,17 +99,19 @@ module Arrow
             "hash_all",
           ]
           normalized_aggregations.concat(normalize_aggregations(all_functions))
+        when /\A([a-zA-Z0-9_].+?)\((.+?)\)\z/
+          function = $1
+          input = $2.strip
+          normalized_aggregations << {function: function, input: input}
+        when "count", "hash_count", "any", "hash_any", "all", "hash_all"
+          function = aggregation
+          target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
+          end
         when String
           function = aggregation
-          case function
-          when "count", "hash_count", "any", "hash_any", "all", "hash_all"
-            target_columns.each do |column|
-              normalized_aggregations << {function: function, input: column.name}
-            end
-          else
-            numeric_target_columns.each do |column|
-              normalized_aggregations << {function: function, input: column.name}
-            end
+          numeric_target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
           end
         else
           normalized_aggregations << aggregation

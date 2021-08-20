@@ -68,6 +68,17 @@ class GroupTest < Test::Unit::TestCase
 3	         2	          2	           2	            2	         3	         2
       TABLE
     end
+
+    test("column") do
+      group = @table.group(:group_key1, :group_key2)
+      assert_equal(<<-TABLE, group.count(:int, :uint).to_s)
+	count(int)	count(uint)	group_key1	group_key2
+0	         2	          1	         1	         1
+1	         0	          1	         2	         1
+2	         1	          1	         3	         1
+3	         2	          2	         3	         2
+      TABLE
+    end
   end
 
   sub_test_case("#sum") do
@@ -129,6 +140,19 @@ class GroupTest < Test::Unit::TestCase
 1	{min: (null), max: (null)}	{min: 3, max: 3}	{min:   3.300000, max:   3.300000}	         2	         1
 2	{min:     -4, max:     -4}	{min: 4, max: 4}	{min:   4.400000, max:   4.400000}	         3	         1
 3	{min:     -6, max:     -5}	{min: 5, max: 6}	{min:   5.500000, max:   6.600000}	         3	         2
+      TABLE
+    end
+  end
+
+  sub_test_case("#aggregate") do
+    test("function()") do
+      group = @table.group(:group_key1, :group_key2)
+      assert_equal(<<-TABLE, group.aggregate("count(int)", "sum(uint)").to_s)
+	count(int)	sum(uint)	group_key1	group_key2
+0	         2	        1	         1	         1
+1	         0	        3	         2	         1
+2	         1	        4	         3	         1
+3	         2	       11	         3	         2
       TABLE
     end
   end
