@@ -15,31 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class PathExtension
-    def initialize(path)
-      @path = path
-    end
-
-    def extract
-      basename = ::File.basename(@path)
-      components = basename.split(".")
-      return {} if components.size < 2
-
-      extension = components.last.downcase
-      if components.size > 2
-        compression = CompressionType.resolve_extension(extension)
-        if compression
-          {
-            format: components[-2].downcase,
-            compression: compression,
-          }
-        else
-          {format: extension}
-        end
-      else
-        {format: extension}
+module ArrowDataset
+  module ArrowTableLoadable
+    private
+    def load_from_uri
+      format = FileFormat.resolve(@options[:format])
+      dataset = FileSystemDataset.build(format) do |factory|
+        factory.file_system_uri = @input
       end
+      dataset.to_table
     end
+  end
+end
+
+module Arrow
+  class TableLoader
+    include ArrowDataset::ArrowTableLoadable
   end
 end

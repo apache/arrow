@@ -15,31 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class PathExtension
-    def initialize(path)
-      @path = path
-    end
-
-    def extract
-      basename = ::File.basename(@path)
-      components = basename.split(".")
-      return {} if components.size < 2
-
-      extension = components.last.downcase
-      if components.size > 2
-        compression = CompressionType.resolve_extension(extension)
-        if compression
-          {
-            format: components[-2].downcase,
-            compression: compression,
-          }
-        else
-          {format: extension}
+module ArrowDataset
+  class FileSystemDatasetFactory
+    alias_method :set_file_system_uri_raw, :set_file_system_uri
+    def set_file_system_uri(uri)
+      if uri.is_a?(URI)
+        if uri.scheme.nil?
+          uri = uri.dup
+          absolute_path = File.expand_path(uri.path)
+          if absolute_path.start_with?("/")
+            uri.path = absolute_path
+          else
+            uri.path = "/#{absolute_path}"
+          end
+          uri.scheme = "file"
         end
-      else
-        {format: extension}
+        uri = uri.to_s
       end
+      set_file_system_uri_raw(uri)
     end
+    alias_method :file_system_uri=, :set_file_system_uri
   end
 end
