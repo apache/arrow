@@ -22,7 +22,12 @@ module ArrowDataset
       if uri.is_a?(URI)
         if uri.scheme.nil?
           uri = uri.dup
-          uri.path = File.expand_path(uri.path)
+          absolute_path = File.expand_path(uri.path)
+          if absolute_path.start_with?("/")
+            uri.path = absolute_path
+          else
+            uri.path = "/#{absolute_path}"
+          end
           uri.scheme = "file"
         end
         uri = uri.to_s

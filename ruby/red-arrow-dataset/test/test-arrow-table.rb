@@ -27,14 +27,25 @@ class TestArrowTable < Test::Unit::TestCase
     end
   end
 
+  def build_file_uri(path)
+    absolute_path = File.expand_path(path)
+    if absolute_path.start_with?("/")
+      URI("file://#{absolute_path}")
+    else
+      URI("file:///#{absolute_path}")
+    end
+  end
+
   sub_test_case("load") do
     def test_no_scheme
-      uri = URI(@path)
-      assert_equal(@table, Arrow::Table.load(uri))
+      Dir.chdir(@dir) do
+        uri = URI(File.basename(@path))
+        assert_equal(@table, Arrow::Table.load(uri))
+      end
     end
 
     def test_file
-      uri = URI(URI("file://#{File.expand_path@path}"))
+      uri = build_file_uri(@path)
       assert_equal(@table, Arrow::Table.load(uri))
     end
   end
