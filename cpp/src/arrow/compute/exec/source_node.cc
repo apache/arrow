@@ -111,7 +111,9 @@ struct SourceNode : ExecNode {
                         return Break(seq);
                       },
                       options);
-                }).Then([&](int seq) { outputs_[0]->InputFinished(this, seq); });
+                })
+                    .Then([&](int seq) { outputs_[0]->InputFinished(this, seq); },
+                          [](const Status& err) { return err; }, options);
 
     return Status::OK();
   }
