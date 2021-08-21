@@ -209,14 +209,13 @@ struct HashSemiJoinNode : ExecNode {
       for (auto&& cached : cached_probe_batches) {
         if (executor) {
           Status lambda_status;
-          RETURN_NOT_OK(executor->Spawn([&] {
-            lambda_status = ConsumeProbeBatch(cached.first, std::move(cached.second));
-          }));
+          RETURN_NOT_OK(executor->Spawn(
+              [&] { lambda_status = ConsumeProbeBatch(std::move(cached)); }));
 
           // if the lambda execution failed internally, return status
           RETURN_NOT_OK(lambda_status);
         } else {
-          RETURN_NOT_OK(ConsumeProbeBatch(cached.first, std::move(cached.second)));
+          RETURN_NOT_OK(ConsumeProbeBatch(std::move(cached)));
         }
       }
       // cached vector will be cleared. exec batches are expected to be moved to the
@@ -229,11 +228,11 @@ struct HashSemiJoinNode : ExecNode {
     return Status::OK();
   }
 
-  Status GenerateOutput(int seq, const ArrayData& group_ids_data, ExecBatch batch) {
+  Status GenerateOutput(const ArrayData& group_ids_data, ExecBatch batch) {
     if (group_ids_data.GetNullCount() == batch.length) {
       // All NULLS! hence, there are no valid outputs!
-      ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
-      outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
+      ARROW_LOG(DEBUG) << "output seq:";
+      outputs_[0]->InputReceived(this, batch.Slice(0, 0));
     } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
       auto filter_arr =
           std::make_shared<BooleanArray>(group_ids_data.length, group_ids_data.buffers[0],
@@ -246,11 +245,13 @@ struct HashSemiJoinNode : ExecNode {
           Filter(rec_batch, filter_arr,
                  /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
       auto out_batch = ExecBatch(*filtered.record_batch());
-      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
-      outputs_[0]->InputReceived(this, seq, std::move(out_batch));
+      ARROW_LOG(DEBUG) << "output seq:"
+                       << " " << out_batch.length;
+      outputs_[0]->InputReceived(this, std::move(out_batch));
     } else {  // all values are valid for output
-      ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
-      outputs_[0]->InputReceived(this, seq, std::move(batch));
+      ARROW_LOG(DEBUG) << "output seq:"
+                       << " " << batch.length;
+      outputs_[0]->InputReceived(this, std::move(batch));
     }
 
     return Status::OK();
@@ -258,8 +259,8 @@ struct HashSemiJoinNode : ExecNode {
 
   // consumes a probe batch and increment probe batches count. Probing would query the
   // grouper[build_result_index] which have been merged with all others.
-  Status ConsumeProbeBatch(int seq, ExecBatch batch) {
-    ARROW_LOG(DEBUG) << "ConsumeProbeBatch seq:" << seq;
+  Status ConsumeProbeBatch(ExecBatch batch) {
+    ARROW_LOG(DEBUG) << "ConsumeProbeBatch seq:";
 
     auto& final_grouper = *local_states_[build_result_index].grouper;
 
@@ -275,7 +276,7 @@ struct HashSemiJoinNode : ExecNode {
     ARROW_ASSIGN_OR_RAISE(Datum group_ids, final_grouper.Find(key_batch));
     auto group_ids_data = *group_ids.array();
 
-    RETURN_NOT_OK(GenerateOutput(seq, group_ids_data, std::move(batch)));
+    RETURN_NOT_OK(GenerateOutput(group_ids_data, std::move(batch)));
 
     if (out_counter_.Increment()) {
       finished_.MarkFinished();
@@ -287,14 +288,13 @@ struct HashSemiJoinNode : ExecNode {
   // if cached_probe_batches_consumed is true, by the time a thread acquires
   // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
   //  directly consumed!
-  bool AttemptToCacheProbeBatch(int seq_num, ExecBatch* batch) {
-    ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " seq:" << seq_num
-                     << " len:" << batch->length;
+  bool AttemptToCacheProbeBatch(ExecBatch* batch) {
+    ARROW_LOG(DEBUG) << "cache tid:" << get_thread_index_() << " len:" << batch->length;
     std::lock_guard<std::mutex> lck(cached_probe_batches_mutex);
     if (cached_probe_batches_consumed) {
       return false;
     }
-    cached_probe_batches.emplace_back(seq_num, std::move(*batch));
+    cached_probe_batches.push_back(std::move(*batch));
     return true;
   }
 
@@ -302,9 +302,9 @@ struct HashSemiJoinNode : ExecNode {
 
   // If all build side batches received? continue streaming using probing
   // else cache the batches in thread-local state
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     ARROW_LOG(DEBUG) << "input received input:" << (IsBuildInput(input) ? "b" : "p")
-                     << " seq:" << seq << " len:" << batch.length;
+                     << " seq:" << 0 << " len:" << batch.length;
 
     ARROW_DCHECK(input == inputs_[0] || input == inputs_[1]);
 
@@ -323,11 +323,11 @@ struct HashSemiJoinNode : ExecNode {
         // guaranteed that some thread has already called the ConsumeCachedProbeBatches
 
         // consume this probe batch
-        ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
+        ErrorIfNotOk(ConsumeProbeBatch(std::move(batch)));
       } else {  // build side not completed. Cache this batch!
-        if (!AttemptToCacheProbeBatch(seq, &batch)) {
+        if (!AttemptToCacheProbeBatch(&batch)) {
           // if the cache attempt fails, consume the batch
-          ErrorIfNotOk(ConsumeProbeBatch(seq, std::move(batch)));
+          ErrorIfNotOk(ConsumeProbeBatch(std::move(batch)));
         }
       }
     }
@@ -438,7 +438,7 @@ struct HashSemiJoinNode : ExecNode {
   bool hash_table_built_;
 
   std::mutex cached_probe_batches_mutex;
-  std::vector<std::pair<int, ExecBatch>> cached_probe_batches{};
+  std::vector<ExecBatch> cached_probe_batches{};
   // a flag is required to indicate if the cached probe batches have already been
   // consumed! if cached_probe_batches_consumed is true, by the time a thread aquires
   // cached_probe_batches_mutex, it should no longer be cached! instead, it can be
@@ -449,12 +449,12 @@ struct HashSemiJoinNode : ExecNode {
 // template specialization for anti joins. For anti joins, group_ids_data needs to be
 // inverted. Output will be taken for indices which are NULL
 template <>
-Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_ids_data,
+Status HashSemiJoinNode<true>::GenerateOutput(const ArrayData& group_ids_data,
                                               ExecBatch batch) {
   if (group_ids_data.GetNullCount() == group_ids_data.length) {
     // All NULLS! hence, all values are valid for output
-    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << batch.length;
-    outputs_[0]->InputReceived(this, seq, std::move(batch));
+    ARROW_LOG(DEBUG) << "output seq: " << batch.length;
+    outputs_[0]->InputReceived(this, std::move(batch));
   } else if (group_ids_data.MayHaveNulls()) {  // values need to be filtered
     // invert the validity buffer
     arrow::internal::InvertBitmap(
@@ -472,12 +472,12 @@ Status HashSemiJoinNode<true>::GenerateOutput(int seq, const ArrayData& group_id
         Filter(rec_batch, filter_arr,
                /* null_selection = DROP*/ FilterOptions::Defaults(), ctx_));
     auto out_batch = ExecBatch(*filtered.record_batch());
-    ARROW_LOG(DEBUG) << "output seq:" << seq << " " << out_batch.length;
-    outputs_[0]->InputReceived(this, seq, std::move(out_batch));
+    ARROW_LOG(DEBUG) << "output seq:" << out_batch.length;
+    outputs_[0]->InputReceived(this, std::move(out_batch));
   } else {
     // No NULLS! hence, there are no valid outputs!
-    ARROW_LOG(DEBUG) << "output seq:" << seq << " 0";
-    outputs_[0]->InputReceived(this, seq, batch.Slice(0, 0));
+    ARROW_LOG(DEBUG) << "output seq:";
+    outputs_[0]->InputReceived(this, batch.Slice(0, 0));
   }
   return Status::OK();
 }
