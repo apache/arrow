@@ -31,6 +31,7 @@ from pyarrow._compute import (  # noqa
     # Option classes
     ArraySortOptions,
     CastOptions,
+    CountOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
@@ -52,6 +53,7 @@ from pyarrow._compute import (  # noqa
     SplitOptions,
     SplitPatternOptions,
     StrptimeOptions,
+    StrftimeOptions,
     DayOfWeekOptions,
     TakeOptions,
     TDigestOptions,

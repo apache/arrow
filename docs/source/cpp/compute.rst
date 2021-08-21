@@ -183,6 +183,9 @@ recommend you try it out.  Unsupported input types return a ``TypeError``
 Aggregations
 ------------
 
+Scalar aggregations operate on a (chunked) array or scalar value and reduce
+the input to a single output value.
+
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
@@ -190,44 +193,137 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| count         | Unary | Any         | Scalar Int64   | :struct:`ScalarAggregateOptions` |       |
+| count         | Unary | Any         | Scalar Int64   | :struct:`CountOptions`           | \(2)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | index         | Unary | Any         | Scalar Int64   | :struct:`IndexOptions`           |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | mean          | Unary | Numeric     | Scalar Float64 | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(2)  |
+| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(3)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(3)  |
+| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(4)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(4)  |
+| product       | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(6)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | stddev        | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
+| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(7)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | variance      | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 
 Notes:
 
-* \(1) If null values are taken into account by setting ScalarAggregateOptions
-  parameter skip_nulls = false then `Kleene logic`_ logic is applied.
+* \(1) If null values are taken into account, by setting the
+  ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
 
-* \(2) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(2) CountMode controls whether only non-null values are counted (the
+  default), only null values are counted, or all values are counted.
 
-* \(3) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(3) Output is a ``{"min": input type, "max": input type}`` Struct.
+
+* \(4) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(4) Output is Float64 or input type, depending on QuantileOptions.
-
 * \(5) Output is Int64, UInt64 or Float64, depending on the input type.
+
+* \(6) Output is Float64 or input type, depending on QuantileOptions.
+
+* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
+
+Grouped Aggregations ("group by")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Grouped aggregations are not directly invokable, but are used as part of a
+SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
+reduce multiple input values to a single output value. Instead of aggregating
+all values of the input, however, grouped aggregations partition the input
+values on some set of "key" columns, then aggregate each group individually,
+emitting one output value per input group.
+
+As an example, for the following table:
+
++------------------+-----------------+
+| Column ``key``   | Column ``x``    |
++==================+=================+
+| "a"              | 2               |
++------------------+-----------------+
+| "a"              | 5               |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| null             | null            |
++------------------+-----------------+
+| null             | 9               |
++------------------+-----------------+
+
+we can compute a sum of the column ``x``, grouped on the column ``key``.
+This gives us three groups, with the following results. Note that null is
+treated as a distinct key value.
+
++------------------+-----------------------+
+| Column ``key``   | Column ``sum(x)``     |
++==================+=======================+
+| "a"              | 7                     |
++------------------+-----------------------+
+| "b"              | null                  |
++------------------+-----------------------+
+| null             | 9                     |
++------------------+-----------------------+
+
+The supported aggregation functions are as follows. All function names are
+prefixed with ``hash_``, which differentiates them from their scalar
+equivalents above and reflects how they are implemented internally.
+
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| Function name | Arity | Input types | Output type    | Options class                    | Notes |
++===============+=======+=============+================+==================================+=======+
+| hash_all      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_any      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_count    | Unary | Any         | Int64          | :struct:`CountOptions`           | \(2)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_min_max  | Unary | Numeric     | Struct         | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_stddev   | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_sum      | Unary | Numeric     | Numeric        | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_tdigest  | Unary | Numeric     | Float64        | :struct:`TDigestOptions`         | \(5)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_variance | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+
+* \(1) If null values are taken into account, by setting the
+  :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
+
+* \(2) CountMode controls whether only non-null values are counted (the
+  default), only null values are counted, or all values are counted.
+
+* \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
+
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+
+* \(5) T-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -388,6 +484,10 @@ variants that check for domain errors if needed.
 | log2                     | Unary      | Float32/Float64    | Float32/Float64     |
 +--------------------------+------------+--------------------+---------------------+
 | log2_checked             | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| logb                     | Binary     | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| logb_checked             | Binary     | Float32/Float64    | Float32/Float64     |
 +--------------------------+------------+--------------------+---------------------+
 
 Trigonometric functions
@@ -977,13 +1077,15 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| Function name            | Arity      | Input types        | Output type           | Options class                              |
-+==========================+============+====================+=======================+============================================+
-| cast                     | Unary      | Many               | Variable              | :struct:`CastOptions`                      |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| strptime                 | Unary      | String-like        | Timestamp             | :struct:`StrptimeOptions`                  |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
++--------------------------+------------+--------------------+------------------+------------------------------+
+| Function name            | Arity      | Input types        | Output type      | Options class                |
++==========================+============+====================+==================+==============================+
+| cast                     | Unary      | Many               | Variable         | :struct:`CastOptions`        |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strftime                 | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strptime                 | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
@@ -1074,42 +1176,42 @@ Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These functions extract datetime components (year, month, day, etc) from timestamp type.
-Note: this is currently not supported for timestamps with timezone information.
+If the input timestamps have a non-empty timezone, localized timestamp components will be returned.
 
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class              | Notes |
 +====================+============+===================+===============+============================+=======+
-| year               | Unary      | Temporal          | Int64         |                            |       |
+| year               | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| month              | Unary      | Temporal          | Int64         |                            |       |
+| month              | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day                | Unary      | Temporal          | Int64         |                            |       |
+| day                | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day_of_week        | Unary      | Temporal          | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
+| day_of_week        | Unary      | Timestamp         | Int64         | :struct:`DayOfWeekOptions` | \(1)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| day_of_year        | Unary      | Temporal          | Int64         |                            |       |
+| day_of_year        | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
+| iso_year           | Unary      | Timestamp         | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
+| iso_week           | Unary      | Timestamp         | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
+| iso_calendar       | Unary      | Timestamp         | Struct        |                            | \(3)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| quarter            | Unary      | Temporal          | Int64         |                            |       |
+| quarter            | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| hour               | Unary      | Temporal          | Int64         |                            |       |
+| hour               | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| minute             | Unary      | Temporal          | Int64         |                            |       |
+| minute             | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| second             | Unary      | Temporal          | Int64         |                            |       |
+| second             | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| millisecond        | Unary      | Temporal          | Int64         |                            |       |
+| millisecond        | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| microsecond        | Unary      | Temporal          | Int64         |                            |       |
+| microsecond        | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| nanosecond         | Unary      | Temporal          | Int64         |                            |       |
+| nanosecond         | Unary      | Timestamp         | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| subsecond          | Unary      | Temporal          | Double        |                            |       |
+| subsecond          | Unary      | Timestamp         | Double        |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
@@ -1155,23 +1257,30 @@ Associative transforms
 Selections
 ~~~~~~~~~~
 
-These functions select a subset of the first input defined by the second input.
+These functions select and return a subset of their input.
 
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(2) |
+| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(3) |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
++---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
-* \(1) Unions are unsupported.
+* \(1) Sparse unions are unsupported.
 
-* \(2) Each element in input 1 is appended to the output iff the corresponding
-  element in input 2 is true.
+* \(2) Each element in the input is appended to the output iff it is non-null.
+  If the input is a record batch or table, any null value in a column drops
+  the entire row.
 
-* \(3) For each element *i* in input 2, the *i*'th element in input 1 is
-  appended to the output.
+* \(3) Each element in input 1 (the values) is appended to the output iff
+  the corresponding element in input 2 (the filter) is true.  How
+  nulls in the filter are handled can be configured using FilterOptions.
+
+* \(4) For each element *i* in input 2 (the indices), the *i*'th element
+  in input 1 (the values) is appended to the output.
 
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~

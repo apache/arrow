@@ -360,9 +360,8 @@ size of the Plasma object.
   # is done to determine the size of buffer to request from the object store.
   object_id = plasma.ObjectID(np.random.bytes(20))
   mock_sink = pa.MockOutputStream()
-  stream_writer = pa.RecordBatchStreamWriter(mock_sink, record_batch.schema)
-  stream_writer.write_batch(record_batch)
-  stream_writer.close()
+  with pa.RecordBatchStreamWriter(mock_sink, record_batch.schema) as stream_writer:
+      stream_writer.write_batch(record_batch)
   data_size = mock_sink.size()
   buf = client.create(object_id, data_size)
 
@@ -372,9 +371,8 @@ The DataFrame can now be written to the buffer as follows.
 
   # Write the PyArrow RecordBatch to Plasma
   stream = pa.FixedSizeBufferWriter(buf)
-  stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
-  stream_writer.write_batch(record_batch)
-  stream_writer.close()
+  with pa.RecordBatchStreamWriter(stream, record_batch.schema) as stream_writer:
+      stream_writer.write_batch(record_batch)
 
 Finally, seal the finished object for use by all clients:
 

@@ -1013,6 +1013,26 @@ tasks:
   test-r-devdocs:
     ci: github
     template: r/github.devdocs.yml
+    
+  test-r-depsource-auto:
+      ci: azure
+      template: r/azure.linux.yml
+      params:
+        r_org: rocker
+        r_image: r-base
+        r_tag: latest
+        flags: '-e ARROW_DEPENDENCY_SOURCE=AUTO'
+
+  test-r-depsource-system:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
+      image: ubuntu-r-only-r
+
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
@@ -1039,7 +1059,6 @@ tasks:
       r_org: rhub
       r_image: debian-gcc-devel-lto
       r_tag: latest
-      with_arrow: "FALSE"
       flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
@@ -1051,7 +1070,7 @@ tasks:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
-      image: ubuntu-r
+      image: ubuntu-r-only-r
 
   # This also has -flto=auto
   test-r-gcc-11:

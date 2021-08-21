@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 
@@ -1483,6 +1484,138 @@ TEST_F(TestDenseUnionScalar, GetScalar) {
   CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
   CheckGetNullUnionScalar(arr, 3);
   CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
+}
+
+#define UUID_STRING1 "abcdefghijklmnop"
+#define UUID_STRING2 "zyxwvutsrqponmlk"
+
+class TestExtensionScalar : public ::testing::Test {
+ public:
+  void SetUp() {
+    type_ = uuid();
+    storage_type_ = fixed_size_binary(16);
+    uuid_type_ = checked_cast<const UuidType*>(type_.get());
+  }
+
+ protected:
+  ExtensionScalar MakeUuidScalar(util::string_view value) {
+    return ExtensionScalar(std::make_shared<FixedSizeBinaryScalar>(
+                               std::make_shared<Buffer>(value), storage_type_),
+                           type_);
+  }
+
+  std::shared_ptr<DataType> type_, storage_type_;
+  const UuidType* uuid_type_{nullptr};
+
+  const util::string_view uuid_string1_{UUID_STRING1};
+  const util::string_view uuid_string2_{UUID_STRING2};
+  const util::string_view uuid_json_{"[\"" UUID_STRING1 "\", \"" UUID_STRING2
+                                     "\", null]"};
+};
+
+#undef UUID_STRING1
+#undef UUID_STRING2
+
+TEST_F(TestExtensionScalar, Basics) {
+  const ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
+  ASSERT_OK(uuid_scalar.ValidateFull());
+  ASSERT_TRUE(uuid_scalar.is_valid);
+
+  const ExtensionScalar uuid_scalar2 = MakeUuidScalar(uuid_string2_);
+  ASSERT_OK(uuid_scalar2.ValidateFull());
+  ASSERT_TRUE(uuid_scalar2.is_valid);
+
+  const ExtensionScalar uuid_scalar3 = MakeUuidScalar(uuid_string2_);
+  ASSERT_OK(uuid_scalar2.ValidateFull());
+  ASSERT_TRUE(uuid_scalar2.is_valid);
+
+  const ExtensionScalar null_scalar(type_);
+  ASSERT_OK(null_scalar.ValidateFull());
+  ASSERT_FALSE(null_scalar.is_valid);
+
+  ASSERT_FALSE(uuid_scalar.Equals(uuid_scalar2));
+  ASSERT_TRUE(uuid_scalar2.Equals(uuid_scalar3));
+  ASSERT_FALSE(uuid_scalar.Equals(null_scalar));
+}
+
+TEST_F(TestExtensionScalar, MakeScalar) {
+  const ExtensionScalar null_scalar(type_);
+  const ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
+
+  auto scalar = CheckMakeNullScalar(type_);
+  ASSERT_OK(scalar->ValidateFull());
+  ASSERT_FALSE(scalar->is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar2,
+                       MakeScalar(type_, std::make_shared<Buffer>(uuid_string1_)));
+  ASSERT_OK(scalar2->ValidateFull());
+  ASSERT_TRUE(scalar2->is_valid);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar3,
+                       MakeScalar(type_, std::make_shared<Buffer>(uuid_string2_)));
+  ASSERT_OK(scalar3->ValidateFull());
+  ASSERT_TRUE(scalar3->is_valid);
+
+  ASSERT_TRUE(scalar->Equals(null_scalar));
+  ASSERT_TRUE(scalar2->Equals(uuid_scalar));
+  ASSERT_FALSE(scalar3->Equals(uuid_scalar));
+}
+
+TEST_F(TestExtensionScalar, GetScalar) {
+  const ExtensionScalar null_scalar(type_);
+  const ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
+  const ExtensionScalar uuid_scalar2 = MakeUuidScalar(uuid_string2_);
+
+  auto storage_array = ArrayFromJSON(storage_type_, uuid_json_);
+  auto array = ExtensionType::WrapArray(type_, storage_array);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+  ASSERT_OK(scalar->ValidateFull());
+  AssertTypeEqual(scalar->type, type_);
+  ASSERT_TRUE(scalar->is_valid);
+  ASSERT_TRUE(scalar->Equals(uuid_scalar));
+  ASSERT_FALSE(scalar->Equals(uuid_scalar2));
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(1));
+  ASSERT_OK(scalar->ValidateFull());
+  AssertTypeEqual(scalar->type, type_);
+  ASSERT_TRUE(scalar->is_valid);
+  ASSERT_TRUE(scalar->Equals(uuid_scalar2));
+  ASSERT_FALSE(scalar->Equals(uuid_scalar));
+
+  ASSERT_OK_AND_ASSIGN(scalar, array->GetScalar(2));
+  ASSERT_OK(scalar->ValidateFull());
+  AssertTypeEqual(scalar->type, type_);
+  ASSERT_FALSE(scalar->is_valid);
+  ASSERT_TRUE(scalar->Equals(null_scalar));
+  ASSERT_FALSE(scalar->Equals(uuid_scalar));
+}
+
+TEST_F(TestExtensionScalar, ValidateErrors) {
+  // Mismatching is_valid and value
+  ExtensionScalar null_scalar(type_);
+  null_scalar.is_valid = true;
+  AssertValidationFails(null_scalar);
+
+  ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
+  uuid_scalar.is_valid = false;
+  AssertValidationFails(uuid_scalar);
+
+  // Null storage scalar
+  auto null_storage = std::make_shared<FixedSizeBinaryScalar>(storage_type_);
+  ExtensionScalar scalar(null_storage, type_);
+  scalar.is_valid = true;
+  AssertValidationFails(scalar);
+  scalar.is_valid = false;
+  AssertValidationFails(scalar);
+
+  // Invalid storage scalar (wrong length)
+  auto invalid_storage = std::make_shared<FixedSizeBinaryScalar>(storage_type_);
+  invalid_storage->is_valid = true;
+  invalid_storage->value = std::make_shared<Buffer>("123");
+  AssertValidationFails(*invalid_storage);
+  scalar = ExtensionScalar(invalid_storage, type_);
+  AssertValidationFails(scalar);
 }
 
 }  // namespace arrow

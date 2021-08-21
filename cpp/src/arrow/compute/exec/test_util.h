@@ -61,7 +61,7 @@ struct BatchesWithSchema {
       // emulate batches completing initial decode-after-scan on a cpu thread
       gen = MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
                                     ::arrow::internal::GetCpuThreadPool())
-                                        .ValueOrDie();
+                .ValueOrDie();
 
       // ensure that callbacks are not executed immediately on a background thread
       gen =

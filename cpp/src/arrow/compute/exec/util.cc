@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/util.h"
 
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/thread_pool.h"
@@ -316,6 +317,16 @@ size_t ThreadIndexer::Check(size_t thread_index) {
       << "thread index " << thread_index << " is out of range [0, " << Capacity() << ")";
 
   return thread_index;
+}
+
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches) {
+  RecordBatchVector batches;
+  for (const auto& batch : exec_batches) {
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema));
+    batches.push_back(std::move(rb));
+  }
+  return Table::FromRecordBatches(schema, batches);
 }
 
 }  // namespace compute

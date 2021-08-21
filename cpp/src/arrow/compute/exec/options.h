@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/util/optional.h"
@@ -136,6 +137,20 @@ class ARROW_EXPORT JoinNodeOptions : public ExecNodeOptions {
   // index keys of the join
   std::vector<FieldRef> left_keys;
   std::vector<FieldRef> right_keys;
+};
+
+/// \brief Make a node which sorts rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then sorted, by the given
+/// fields. Then sorted batches will be forwarded to the generator in sorted order.
+class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit OrderBySinkNodeOptions(
+      SortOptions sort_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
+
+  SortOptions sort_options;
 };
 
 }  // namespace compute

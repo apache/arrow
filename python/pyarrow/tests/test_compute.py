@@ -21,6 +21,7 @@ import inspect
 import pickle
 import pytest
 import random
+import sys
 import textwrap
 
 import numpy as np
@@ -128,6 +129,7 @@ def test_option_class_equality():
         pc.SplitPatternOptions(pattern="pattern"),
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
+        pc.StrftimeOptions(),
     ]
     classes = {type(option) for option in options}
     for cls in exported_option_classes:
@@ -975,6 +977,82 @@ def test_take_null_type():
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_drop_null(ty, values):
+    arr = pa.array(values, type=ty)
+    result = arr.drop_null()
+    result.validate(full=True)
+    indices = [i for i in range(len(arr)) if arr[i].is_valid]
+    expected = arr.take(pa.array(indices))
+    assert result.equals(expected)
+
+
+def test_drop_null_chunked_array():
+    arr = pa.chunked_array([["a", None], ["c", "d", None], [None], []])
+    expected_drop = pa.chunked_array([["a"], ["c", "d"], [], []])
+
+    result = arr.drop_null()
+    assert result.equals(expected_drop)
+
+
+def test_drop_null_record_batch():
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", None])], names=["a'"])
+    result = batch.drop_null()
+    expected = pa.record_batch([pa.array(["a", "c", "d"])], names=["a'"])
+    assert result.equals(expected)
+
+    batch = pa.record_batch(
+        [pa.array(["a", None, "c", "d", None]),
+         pa.array([None, None, "c", None, "e"])], names=["a'", "b'"])
+
+    result = batch.drop_null()
+    expected = pa.record_batch(
+        [pa.array(["c"]), pa.array(["c"])], names=["a'", "b'"])
+    assert result.equals(expected)
+
+
+def test_drop_null_table():
+    table = pa.table([pa.array(["a", None, "c", "d", None])], names=["a"])
+    expected = pa.table([pa.array(["a", "c", "d"])], names=["a"])
+    result = table.drop_null()
+    assert result.equals(expected)
+
+    table = pa.table([pa.chunked_array([["a", None], ["c", "d", None]]),
+                      pa.chunked_array([["a", None], [None, "d", None]]),
+                      pa.chunked_array([["a"], ["b"], [None], ["d", None]])],
+                     names=["a", "b", "c"])
+    expected = pa.table([pa.array(["a", "d"]),
+                         pa.array(["a", "d"]),
+                         pa.array(["a", "d"])],
+                        names=["a", "b", "c"])
+    result = table.drop_null()
+    assert result.equals(expected)
+
+    table = pa.table([pa.chunked_array([["a", "b"], ["c", "d", "e"]]),
+                      pa.chunked_array([["A"], ["B"], [None], ["D", None]]),
+                      pa.chunked_array([["a`", None], ["c`", "d`", None]])],
+                     names=["a", "b", "c"])
+    expected = pa.table([pa.array(["a", "d"]),
+                         pa.array(["A", "D"]),
+                         pa.array(["a`", "d`"])],
+                        names=["a", "b", "c"])
+    result = table.drop_null()
+    assert result.equals(expected)
+
+
+def test_drop_null_null_type():
+    arr = pa.array([None] * 10)
+    chunked_arr = pa.chunked_array([[None] * 5] * 2)
+    batch = pa.record_batch([arr], names=['a'])
+    table = pa.table({'a': arr})
+
+    assert len(arr.drop_null()) == 0
+    assert len(chunked_arr.drop_null()) == 0
+    assert len(batch.drop_null().column(0)) == 0
+    assert len(table.drop_null().column(0)) == 0
+
+
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_filter(ty, values):
     arr = pa.array(values, type=ty)
 
@@ -1362,11 +1440,78 @@ def test_strptime():
     assert got == expected
 
 
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
+def test_strftime():
+    from pyarrow.vendored.version import Version
+
+    def _fix_timestamp(s):
+        if Version(pd.__version__) <= Version("0.23.0"):
+            return s.to_series().replace("NaT", pd.NaT)
+        else:
+            return s
+
+    times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
+    timezones = ["CET", "UTC", "Europe/Ljubljana"]
+
+    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
+               "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
+               "%X", "%%", "%G", "%V", "%u", "%V"]
+
+    for timezone in timezones:
+        ts = pd.to_datetime(times).tz_localize(timezone)
+        for unit in ["s", "ms", "us", "ns"]:
+            tsa = pa.array(ts, type=pa.timestamp(unit, timezone))
+            for fmt in formats:
+                options = pc.StrftimeOptions(fmt)
+                result = pc.strftime(tsa, options=options)
+                expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+                assert result.equals(expected)
+
+        # Default format
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        result = pc.strftime(tsa, options=pc.StrftimeOptions())
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        assert result.equals(expected)
+
+        # Pandas %S is equivalent to %S in arrow for unit="s"
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        options = pc.StrftimeOptions("%S")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%S")))
+        assert result.equals(expected)
+
+        # Pandas %S.%f is equivalent to %S in arrow for unit="us"
+        tsa = pa.array(ts, type=pa.timestamp("us", timezone))
+        options = pc.StrftimeOptions("%S")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%S.%f")))
+        assert result.equals(expected)
+
+        # Test setting locale
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
+        result = pc.strftime(tsa, options=options)
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        assert result.equals(expected)
+
+    for unit in ["s", "ms", "us", "ns"]:
+        tsa = pa.array(ts, type=pa.timestamp(unit))
+        for fmt in formats:
+            with pytest.raises(pa.ArrowInvalid,
+                               match="Timestamps without a time zone "
+                                     "cannot be reliably formatted"):
+                pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+
+
 def _check_datetime_components(timestamps, timezone=None):
     from pyarrow.vendored.version import Version
 
-    ts = pd.to_datetime(timestamps).to_series()
-    tsa = pa.array(ts)
+    ts = pd.to_datetime(timestamps).tz_localize(
+        "UTC").tz_convert(timezone).to_series()
+    tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
 
     subseconds = ((ts.dt.microsecond * 10**3 +
                    ts.dt.nanosecond) * 10**-9).round(9)
@@ -1412,11 +1557,13 @@ def _check_datetime_components(timestamps, timezone=None):
     day_of_week_options = pc.DayOfWeekOptions(
         one_based_numbering=True, week_start=1)
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
-        pa.array(ts.dt.dayofweek+1))
+        pa.array(ts.dt.dayofweek + 1))
 
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
+    from pyarrow.vendored.version import Version
+
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1432,18 +1579,29 @@ def test_extract_datetime_components():
                   "2008-12-28",
                   "2008-12-29",
                   "2012-01-01 01:02:03"]
+    timezones = ["UTC", "US/Central", "Asia/Kolkata",
+                 "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
+    # Test timezone naive timestamp array
     _check_datetime_components(timestamps)
+
+    # Test timezone aware timestamp array
+    if sys.platform == 'win32':
+        # TODO: We should test on windows once ARROW-13168 is resolved.
+        pytest.skip('Timezone database is not available on Windows yet')
+    elif Version(pd.__version__) < Version('1.0.0'):
+        pytest.skip('Pandas < 1.0 extracts time components incorrectly.')
+    else:
+        for timezone in timezones:
+            _check_datetime_components(timestamps, timezone)
 
 
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, skip_nulls=True).as_py() == 3
-    assert pc.count(arr, skip_nulls=False).as_py() == 2
-
-    with pytest.raises(TypeError, match="an integer is required"):
-        pc.count(arr, min_count='zzz')
+    assert pc.count(arr, mode='only_valid').as_py() == 3
+    assert pc.count(arr, mode='only_null').as_py() == 2
+    assert pc.count(arr, mode='all').as_py() == 5
 
 
 def test_index():

@@ -146,7 +146,7 @@ struct ScalarAggregateNode : ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = get_thread_index_();
@@ -163,10 +163,10 @@ struct ScalarAggregateNode : ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int num_total) override {
+  void InputFinished(ExecNode* input, int total_batches) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    if (input_counter_.SetTotal(num_total)) {
+    if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(Finish());
     }
   }
@@ -208,7 +208,7 @@ struct ScalarAggregateNode : ExecNode {
       RETURN_NOT_OK(kernels_[i]->finalize(&ctx, &batch.values[i]));
     }
 
-    outputs_[0]->InputReceived(this, 0, std::move(batch));
+    outputs_[0]->InputReceived(this, std::move(batch));
     finished_.MarkFinished();
     return Status::OK();
   }
@@ -223,19 +223,21 @@ struct ScalarAggregateNode : ExecNode {
   AtomicCounter input_counter_;
 };
 
-struct GroupByNode : ExecNode {
+class GroupByNode : public ExecNode {
+ public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
-              const std::vector<int>&& key_field_ids,
-              const std::vector<int>&& agg_src_field_ids,
-              const std::vector<internal::Aggregate>&& aggs,
-              const std::vector<const HashAggregateKernel*>&& agg_kernels)
+              std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
+              std::vector<internal::Aggregate> aggs,
+              std::vector<const HashAggregateKernel*> agg_kernels,
+              std::vector<std::unique_ptr<FunctionOptions>> owned_options)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
         ctx_(ctx),
         key_field_ids_(std::move(key_field_ids)),
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
-        agg_kernels_(std::move(agg_kernels)) {}
+        agg_kernels_(std::move(agg_kernels)),
+        owned_options_(std::move(owned_options)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -244,7 +246,8 @@ struct GroupByNode : ExecNode {
     auto input = inputs[0];
     const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
     const auto& keys = aggregate_options.keys;
-    const auto& aggs = aggregate_options.aggregates;
+    // Copy (need to modify options pointer below)
+    auto aggs = aggregate_options.aggregates;
     const auto& field_names = aggregate_options.names;
 
     // Get input schema
@@ -300,11 +303,17 @@ struct GroupByNode : ExecNode {
       output_fields[base + i] = input_schema->field(key_field_id);
     }
 
-    auto aggs_copy = aggs;
+    std::vector<std::unique_ptr<FunctionOptions>> owned_options;
+    owned_options.reserve(aggs.size());
+    for (auto& agg : aggs) {
+      owned_options.push_back(agg.options ? agg.options->Copy() : nullptr);
+      agg.options = owned_options.back().get();
+    }
 
     return input->plan()->EmplaceNode<GroupByNode>(
         input, schema(std::move(output_fields)), ctx, std::move(key_field_ids),
-        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels));
+        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels),
+        std::move(owned_options));
   }
 
   const char* kind_name() override { return "GroupByNode"; }
@@ -403,7 +412,7 @@ struct GroupByNode : ExecNode {
     if (finished_.is_finished()) return;
 
     int64_t batch_size = output_batch_size();
-    outputs_[0]->InputReceived(this, n, out_data_.Slice(batch_size * n, batch_size));
+    outputs_[0]->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
 
     if (output_counter_.Increment()) {
       finished_.MarkFinished();
@@ -423,7 +432,8 @@ struct GroupByNode : ExecNode {
         // bail if StopProducing was called
         if (finished_.is_finished()) break;
 
-        RETURN_NOT_OK(executor->Spawn([this, i] { OutputNthBatch(i); }));
+        auto plan = this->plan()->shared_from_this();
+        RETURN_NOT_OK(executor->Spawn([plan, this, i] { OutputNthBatch(i); }));
       } else {
         OutputNthBatch(i);
       }
@@ -432,7 +442,7 @@ struct GroupByNode : ExecNode {
     return Status::OK();
   }
 
-  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
@@ -451,13 +461,13 @@ struct GroupByNode : ExecNode {
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
-  void InputFinished(ExecNode* input, int num_total) override {
+  void InputFinished(ExecNode* input, int total_batches) override {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (input_counter_.SetTotal(num_total)) {
+    if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(OutputResult());
     }
   }
@@ -545,6 +555,8 @@ struct GroupByNode : ExecNode {
   const std::vector<int> agg_src_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
+  // ARROW-13638: must hold owned copy of function options
+  const std::vector<std::unique_ptr<FunctionOptions>> owned_options_;
 
   ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_, output_counter_;

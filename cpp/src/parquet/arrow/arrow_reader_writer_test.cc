@@ -36,6 +36,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -48,6 +49,10 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+
+#ifdef ARROW_CSV
+#include "arrow/csv/api.h"
+#endif
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -4159,6 +4164,39 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
 
   ::arrow::AssertTablesEqual(*table, *actual);
 }
+
+#ifdef ARROW_CSV
+TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  auto file = test::get_data_file("delta_binary_packed.parquet");
+  auto expect_file = test::get_data_file("delta_binary_packed_expect.csv");
+  auto pool = ::arrow::default_memory_pool();
+  std::unique_ptr<FileReader> parquet_reader;
+  std::shared_ptr<::arrow::Table> table;
+  ASSERT_OK(
+      FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), &parquet_reader));
+  ASSERT_OK(parquet_reader->ReadTable(&table));
+
+  ASSERT_OK_AND_ASSIGN(auto input_file, ::arrow::io::ReadableFile::Open(expect_file));
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  for (int i = 0; i <= 64; ++i) {
+    std::string column_name = "bitwidth" + std::to_string(i);
+    convert_options.column_types[column_name] = ::arrow::int64();
+  }
+  convert_options.column_types["int_value"] = ::arrow::int32();
+  ASSERT_OK_AND_ASSIGN(auto csv_reader,
+                       ::arrow::csv::TableReader::Make(
+                           ::arrow::io::default_io_context(), input_file,
+                           ::arrow::csv::ReadOptions::Defaults(),
+                           ::arrow::csv::ParseOptions::Defaults(), convert_options));
+  ASSERT_OK_AND_ASSIGN(auto expect_table, csv_reader->Read());
+
+  ::arrow::AssertTablesEqual(*table, *expect_table);
+}
+#else
+TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
+  GTEST_SKIP() << "Test needs CSV reader";
+}
+#endif
 
 }  // namespace arrow
 }  // namespace parquet

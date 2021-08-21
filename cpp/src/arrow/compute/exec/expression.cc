@@ -540,9 +540,13 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   auto options = call->options.get();
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, descrs, options}));
 
-  auto listener = std::make_shared<compute::detail::DatumAccumulator>();
-  RETURN_NOT_OK(executor->Execute(arguments, listener.get()));
-  return executor->WrapResults(arguments, listener->values());
+  compute::detail::DatumAccumulator listener;
+  RETURN_NOT_OK(executor->Execute(arguments, &listener));
+  const auto out = executor->WrapResults(arguments, listener.values());
+#ifndef NDEBUG
+  DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
+#endif
+  return out;
 }
 
 namespace {

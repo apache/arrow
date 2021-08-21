@@ -86,20 +86,20 @@ class CSVLoaderTest < Test::Unit::TestCase
     test("null: with double quote") do
       path = fixture_path("null-with-double-quote.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	score
-0	alice	   10
-1	bob 	     
-2	chris	   -1
+	name	 score
+0	alice	    10
+1	bob 	(null)
+2	chris	    -1
       TABLE
     end
 
     test("null: without double quote") do
       path = fixture_path("null-without-double-quote.csv").to_s
       assert_equal(<<-TABLE, load_csv(path).to_s)
-	name	score
-0	alice	   10
-1	bob 	     
-2	chris	   -1
+	name	 score
+0	alice	    10
+1	bob 	(null)
+2	chris	    -1
       TABLE
     end
 

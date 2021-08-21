@@ -92,7 +92,7 @@ class ARROW_EXPORT Table {
       const std::shared_ptr<ChunkedArray>& array);
 
   /// \brief Return the table schema
-  std::shared_ptr<Schema> schema() const { return schema_; }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Return a column by index
   virtual std::shared_ptr<ChunkedArray> column(int i) const = 0;

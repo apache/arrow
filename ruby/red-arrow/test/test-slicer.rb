@@ -45,15 +45,15 @@ class SlicerTest < Test::Unit::TestCase
         slicer.visible
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    1	true   
-2	     	       
-3	    8	true   
-4	   16	true   
-5	     	       
-6	     	       
-7	  256	true   
+	 count	visible
+0	(null)	 (null)
+1	     1	true   
+2	(null)	 (null)
+3	     8	true   
+4	    16	true   
+5	(null)	 (null)
+6	(null)	 (null)
+7	   256	true   
       TABLE
     end
 
@@ -62,16 +62,16 @@ class SlicerTest < Test::Unit::TestCase
         slicer.count
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    1	true   
-1	    2	false  
-2	    4	       
-3	    8	true   
-4	   16	true   
-5	   32	false  
-6	   64	       
-7	     	       
-8	  256	true   
+	 count	visible
+0	     1	true   
+1	     2	false  
+2	     4	 (null)
+3	     8	true   
+4	    16	true   
+5	    32	false  
+6	    64	 (null)
+7	(null)	 (null)
+8	   256	true   
       TABLE
     end
   end
@@ -82,13 +82,13 @@ class SlicerTest < Test::Unit::TestCase
         !slicer.visible
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	     	       
-3	   32	false  
-4	     	       
-5	     	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	(null)	 (null)
+3	    32	false  
+4	(null)	 (null)
+5	(null)	 (null)
       TABLE
     end
 
@@ -97,9 +97,9 @@ class SlicerTest < Test::Unit::TestCase
         !slicer.count
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	     	       
+	 count	visible
+0	     0	 (null)
+1	(null)	 (null)
       TABLE
     end
   end
@@ -109,11 +109,11 @@ class SlicerTest < Test::Unit::TestCase
       slicer.visible.null?
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    4	       
-2	   64	       
-3	     	       
+	 count	visible
+0	     0	 (null)
+1	     4	 (null)
+2	    64	 (null)
+3	(null)	 (null)
     TABLE
   end
 
@@ -138,11 +138,11 @@ class SlicerTest < Test::Unit::TestCase
         slicer.visible == nil
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    4	       
-2	   64	       
-3	     	       
+	 count	visible
+0	     0	 (null)
+1	     4	 (null)
+2	    64	 (null)
+3	(null)	 (null)
       TABLE
     end
 
@@ -151,15 +151,15 @@ class SlicerTest < Test::Unit::TestCase
         slicer.visible == true
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    1	true   
-2	     	       
-3	    8	true   
-4	   16	true   
-5	     	       
-6	     	       
-7	  256	true   
+	 count	visible
+0	(null)	 (null)
+1	     1	true   
+2	(null)	 (null)
+3	     8	true   
+4	    16	true   
+5	(null)	 (null)
+6	(null)	 (null)
+7	   256	true   
       TABLE
     end
   end
@@ -185,13 +185,13 @@ class SlicerTest < Test::Unit::TestCase
         !(slicer.visible == true)
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	     	       
-3	   32	false  
-4	     	       
-5	     	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	(null)	 (null)
+3	    32	false  
+4	(null)	 (null)
+5	(null)	 (null)
       TABLE
     end
   end
@@ -217,13 +217,13 @@ class SlicerTest < Test::Unit::TestCase
         slicer.visible != true
       end
       assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	     	       
-3	   32	false  
-4	     	       
-5	     	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	(null)	 (null)
+3	    32	false  
+4	(null)	 (null)
+5	(null)	 (null)
       TABLE
     end
   end
@@ -233,13 +233,13 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count < 16
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    2	false  
-3	    4	       
-4	    8	true   
-5	     	       
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     2	false  
+3	     4	 (null)
+4	     8	true   
+5	(null)	 (null)
     TABLE
   end
 
@@ -248,12 +248,12 @@ class SlicerTest < Test::Unit::TestCase
       !(slicer.count < 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
-2	   64	       
-3	     	       
-4	  256	true   
+	 count	visible
+0	    16	true   
+1	    32	false  
+2	    64	 (null)
+3	(null)	 (null)
+4	   256	true   
     TABLE
   end
 
@@ -262,14 +262,14 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count <= 16
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    2	false  
-3	    4	       
-4	    8	true   
-5	   16	true   
-6	     	       
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     2	false  
+3	     4	 (null)
+4	     8	true   
+5	    16	true   
+6	(null)	 (null)
     TABLE
   end
 
@@ -278,11 +278,11 @@ class SlicerTest < Test::Unit::TestCase
       !(slicer.count <= 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	   32	false  
-1	   64	       
-2	     	       
-3	  256	true   
+	 count	visible
+0	    32	false  
+1	    64	 (null)
+2	(null)	 (null)
+3	   256	true   
     TABLE
   end
 
@@ -291,11 +291,11 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count > 16
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	   32	false  
-1	   64	       
-2	     	       
-3	  256	true   
+	 count	visible
+0	    32	false  
+1	    64	 (null)
+2	(null)	 (null)
+3	   256	true   
     TABLE
   end
 
@@ -304,14 +304,14 @@ class SlicerTest < Test::Unit::TestCase
       !(slicer.count > 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    2	false  
-3	    4	       
-4	    8	true   
-5	   16	true   
-6	     	       
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     2	false  
+3	     4	 (null)
+4	     8	true   
+5	    16	true   
+6	(null)	 (null)
     TABLE
   end
 
@@ -320,12 +320,12 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count >= 16
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	   16	true   
-1	   32	false  
-2	   64	       
-3	     	       
-4	  256	true   
+	 count	visible
+0	    16	true   
+1	    32	false  
+2	    64	 (null)
+3	(null)	 (null)
+4	   256	true   
     TABLE
   end
 
@@ -334,13 +334,13 @@ class SlicerTest < Test::Unit::TestCase
       !(slicer.count >= 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    2	false  
-3	    4	       
-4	    8	true   
-5	     	       
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     2	false  
+3	     4	 (null)
+4	     8	true   
+5	(null)	 (null)
     TABLE
   end
 
@@ -349,12 +349,12 @@ class SlicerTest < Test::Unit::TestCase
       slicer.count.in?([1, 4, 16, 64])
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    1	true   
-1	    4	       
-2	   16	true   
-3	   64	       
-4	     	       
+	 count	visible
+0	     1	true   
+1	     4	 (null)
+2	    16	true   
+3	    64	 (null)
+4	(null)	 (null)
     TABLE
   end
 
@@ -363,13 +363,13 @@ class SlicerTest < Test::Unit::TestCase
       !slicer.count.in?([1, 4, 16, 64])
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    2	false  
-2	    8	true   
-3	   32	false  
-4	     	       
-5	  256	true   
+	 count	visible
+0	     0	 (null)
+1	     2	false  
+2	     8	true   
+3	    32	false  
+4	(null)	 (null)
+5	   256	true   
     TABLE
   end
 
@@ -378,13 +378,13 @@ class SlicerTest < Test::Unit::TestCase
       slicer.visible & (slicer.count >= 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	     	       
-2	   16	true   
-3	     	       
-4	     	       
-5	  256	true   
+	 count	visible
+0	(null)	 (null)
+1	(null)	 (null)
+2	    16	true   
+3	(null)	 (null)
+4	(null)	 (null)
+5	   256	true   
     TABLE
   end
 
@@ -393,16 +393,16 @@ class SlicerTest < Test::Unit::TestCase
       slicer.visible | (slicer.count >= 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    1	true   
-2	     	       
-3	    8	true   
-4	   16	true   
-5	   32	false  
-6	     	       
-7	     	       
-8	  256	true   
+	 count	visible
+0	(null)	 (null)
+1	     1	true   
+2	(null)	 (null)
+3	     8	true   
+4	    16	true   
+5	    32	false  
+6	(null)	 (null)
+7	(null)	 (null)
+8	   256	true   
     TABLE
   end
 
@@ -411,14 +411,14 @@ class SlicerTest < Test::Unit::TestCase
       slicer.visible ^ (slicer.count >= 16)
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	     	       
-1	    1	true   
-2	     	       
-3	    8	true   
-4	   32	false  
-5	     	       
-6	     	       
+	 count	visible
+0	(null)	 (null)
+1	     1	true   
+2	(null)	 (null)
+3	     8	true   
+4	    32	false  
+5	(null)	 (null)
+6	(null)	 (null)
     TABLE
   end
 
@@ -429,15 +429,15 @@ class SlicerTest < Test::Unit::TestCase
       end
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    4	       
-3	    8	true   
-4	   16	true   
-5	   64	       
-6	     	       
-7	  256	true   
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     4	 (null)
+3	     8	true   
+4	    16	true   
+5	    64	 (null)
+6	(null)	 (null)
+7	   256	true   
     TABLE
   end
 
@@ -474,15 +474,15 @@ class SlicerTest < Test::Unit::TestCase
       end
     end
     assert_equal(<<-TABLE, sliced_table.to_s)
-	count	visible
-0	    0	       
-1	    1	true   
-2	    4	       
-3	    8	true   
-4	   16	true   
-5	   64	       
-6	     	       
-7	  256	true   
+	 count	visible
+0	     0	 (null)
+1	     1	true   
+2	     4	 (null)
+3	     8	true   
+4	    16	true   
+5	    64	 (null)
+6	(null)	 (null)
+7	   256	true   
     TABLE
   end
 end

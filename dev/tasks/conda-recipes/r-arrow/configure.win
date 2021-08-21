@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euxo pipefail
 
-echo "PKG_CPPFLAGS=-DNDEBUG -I\"${LIBRARY_PREFIX}/include\" -I\"${PREFIX}/include\" -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_S3" > src/Makevars.win
+# Remove the -I../inst/include/ when unvendoring cpp11 in ARROW-13610
+echo "PKG_CPPFLAGS=-DNDEBUG -I\"${LIBRARY_PREFIX}/include\" -I\"${PREFIX}/include\" -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_S3 -I../inst/include/" > src/Makevars.win
 echo "PKG_CXXFLAGS=\$(CXX_VISIBILITY)" >> src/Makevars.win
 echo 'CXX_STD=CXX11' >> src/Makevars.win
 echo "PKG_LIBS=-L\"${LIBRARY_PREFIX}/lib\" -larrow_dataset -lparquet -larrow" >> src/Makevars.win

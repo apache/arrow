@@ -39,6 +39,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -878,7 +879,7 @@ Status AddHashAggKernels(
 
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const CountOptions&>(*options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
   }
@@ -908,25 +909,36 @@ struct GroupedCountImpl : public GroupedAggregator {
 
     const auto& input = batch[0].array();
 
-    if (options_.skip_nulls) {
-      auto g_begin =
-          reinterpret_cast<const uint32_t*>(batch[1].array()->buffers[1]->data());
-
-      arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
-                                           input->length,
-                                           [&](int64_t offset, int64_t length) {
-                                             auto g = g_begin + offset;
-                                             for (int64_t i = 0; i < length; ++i, ++g) {
-                                               counts[*g] += 1;
-                                             }
-                                           });
-    } else if (input->MayHaveNulls()) {
-      auto g = batch[1].array()->GetValues<uint32_t>(1);
-
-      auto end = input->offset + input->length;
-      for (int64_t i = input->offset; i < end; ++i, ++g) {
-        counts[*g] += !BitUtil::GetBit(input->buffers[0]->data(), i);
+    auto g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    switch (options_.mode) {
+      case CountOptions::ONLY_VALID: {
+        arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
+                                             input->length,
+                                             [&](int64_t offset, int64_t length) {
+                                               auto g = g_begin + offset;
+                                               for (int64_t i = 0; i < length; ++i, ++g) {
+                                                 counts[*g] += 1;
+                                               }
+                                             });
+        break;
       }
+      case CountOptions::ONLY_NULL: {
+        if (input->MayHaveNulls()) {
+          auto end = input->offset + input->length;
+          for (int64_t i = input->offset; i < end; ++i, ++g_begin) {
+            counts[*g_begin] += !BitUtil::GetBit(input->buffers[0]->data(), i);
+          }
+        }
+        break;
+      }
+      case CountOptions::ALL: {
+        for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
+          counts[*g_begin] += 1;
+        }
+        break;
+      }
+      default:
+        DCHECK(false) << "unreachable";
     }
     return Status::OK();
   }
@@ -939,7 +951,7 @@ struct GroupedCountImpl : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   int64_t num_groups_ = 0;
-  ScalarAggregateOptions options_;
+  CountOptions options_;
   BufferBuilder counts_;
 };
 
@@ -951,8 +963,9 @@ struct GroupedSumImpl : public GroupedAggregator {
   using AccType = typename FindAccumulatorType<Type>::Type;
   using SumType = typename TypeTraits<AccType>::CType;
 
-  Status Init(ExecContext* ctx, const FunctionOptions*) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     pool_ = ctx->memory_pool();
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
     sums_ = BufferBuilder(pool_);
     counts_ = BufferBuilder(pool_);
     out_type_ = TypeTraits<AccType>::type_singleton();
@@ -1005,10 +1018,11 @@ struct GroupedSumImpl : public GroupedAggregator {
 
   Result<Datum> Finalize() override {
     std::shared_ptr<Buffer> null_bitmap;
+    const int64_t* counts = reinterpret_cast<const int64_t*>(counts_.data());
     int64_t null_count = 0;
 
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (reinterpret_cast<const int64_t*>(counts_.data())[i] > 0) continue;
+      if (counts[i] >= options_.min_count) continue;
 
       if (null_bitmap == nullptr) {
         ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
@@ -1030,6 +1044,7 @@ struct GroupedSumImpl : public GroupedAggregator {
   // NB: counts are used here instead of a simple "has_values_" bitmap since
   // we expect to reuse this kernel to handle Mean
   int64_t num_groups_ = 0;
+  ScalarAggregateOptions options_;
   BufferBuilder sums_, counts_;
   std::shared_ptr<DataType> out_type_;
   MemoryPool* pool_;
@@ -1062,6 +1077,125 @@ struct GroupedSumFactory {
 };
 
 // ----------------------------------------------------------------------
+// Product implementation
+
+template <typename Type>
+struct GroupedProductImpl final : public GroupedAggregator {
+  using AccType = typename FindAccumulatorType<Type>::Type;
+  using ProductType = typename TypeTraits<AccType>::CType;
+
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    pool_ = ctx->memory_pool();
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    products_ = TypedBufferBuilder<ProductType>(pool_);
+    counts_ = TypedBufferBuilder<int64_t>(pool_);
+    out_type_ = TypeTraits<AccType>::type_singleton();
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    RETURN_NOT_OK(products_.Append(added_groups * sizeof(AccType), 1));
+    RETURN_NOT_OK(counts_.Append(added_groups, 0));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    ProductType* products = products_.mutable_data();
+    int64_t* counts = counts_.mutable_data();
+    auto g = batch[1].array()->GetValues<uint32_t>(1);
+    VisitArrayDataInline<Type>(
+        *batch[0].array(),
+        [&](typename TypeTraits<Type>::CType value) {
+          products[*g] = static_cast<ProductType>(
+              to_unsigned(products[*g]) * to_unsigned(static_cast<ProductType>(value)));
+          counts[*g++] += 1;
+        },
+        [&] { ++g; });
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedProductImpl*>(&raw_other);
+
+    int64_t* counts = counts_.mutable_data();
+    ProductType* products = products_.mutable_data();
+
+    const int64_t* other_counts = other->counts_.mutable_data();
+    const ProductType* other_products = other->products_.mutable_data();
+    const uint32_t* g = group_id_mapping.GetValues<uint32_t>(1);
+
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      products[*g] = static_cast<ProductType>(to_unsigned(products[*g]) *
+                                              to_unsigned(other_products[other_g]));
+      counts[*g] += other_counts[other_g];
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto products, products_.Finish());
+    const int64_t* counts = counts_.data();
+
+    std::shared_ptr<Buffer> null_bitmap;
+    int64_t null_count = 0;
+
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (counts[i] >= options_.min_count) continue;
+
+      if (null_bitmap == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
+      }
+
+      null_count += 1;
+      BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
+    }
+
+    return ArrayData::Make(std::move(out_type_), num_groups_,
+                           {std::move(null_bitmap), std::move(products)}, null_count);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  int64_t num_groups_ = 0;
+  ScalarAggregateOptions options_;
+  TypedBufferBuilder<ProductType> products_;
+  TypedBufferBuilder<int64_t> counts_;
+  std::shared_ptr<DataType> out_type_;
+  MemoryPool* pool_;
+};
+
+struct GroupedProductFactory {
+  template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
+  Status Visit(const T&) {
+    kernel =
+        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedProductImpl<T>>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Taking product of data of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Taking product of data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedProductFactory factory;
+    factory.argument_type = InputType::Array(type);
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
+// ----------------------------------------------------------------------
 // Mean implementation
 
 template <typename Type>
@@ -1077,7 +1211,7 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
     const auto* sums = reinterpret_cast<const SumType*>(sums_.data());
     double* means = reinterpret_cast<double*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups_; ++i) {
-      if (counts[i] > 0) {
+      if (counts[i] >= options_.min_count) {
         means[i] = static_cast<double>(sums[i]) / counts[i];
         continue;
       }
@@ -1099,6 +1233,7 @@ struct GroupedMeanImpl : public GroupedSumImpl<Type> {
   std::shared_ptr<DataType> out_type() const override { return float64(); }
 
   using GroupedSumImpl<Type>::num_groups_;
+  using GroupedSumImpl<Type>::options_;
   using GroupedSumImpl<Type>::pool_;
   using GroupedSumImpl<Type>::counts_;
   using GroupedSumImpl<Type>::sums_;
@@ -1404,10 +1539,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     auto other = checked_cast<GroupedTDigestImpl*>(&raw_other);
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    std::vector<TDigest> other_tdigest(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      other_tdigest[0] = std::move(other->tdigests_[other_g]);
-      tdigests_[*g].Merge(&other_tdigest);
+      tdigests_[*g].Merge(other->tdigests_[other_g]);
     }
 
     return Status::OK();
@@ -1503,13 +1636,25 @@ struct AntiExtrema<double> {
   static constexpr double anti_max() { return -std::numeric_limits<double>::infinity(); }
 };
 
+template <>
+struct AntiExtrema<Decimal128> {
+  static constexpr Decimal128 anti_min() { return BasicDecimal128::GetMaxSentinel(); }
+  static constexpr Decimal128 anti_max() { return BasicDecimal128::GetMinSentinel(); }
+};
+
+template <>
+struct AntiExtrema<Decimal256> {
+  static constexpr Decimal256 anti_min() { return BasicDecimal256::GetMaxSentinel(); }
+  static constexpr Decimal256 anti_max() { return BasicDecimal256::GetMinSentinel(); }
+};
+
 template <typename Type>
 struct GroupedMinMaxImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
 
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     options_ = *checked_cast<const ScalarAggregateOptions*>(options);
-    type_ = TypeTraits<Type>::type_singleton();
+    // type_ initialized by MinMaxInit
     mins_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     maxes_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -1532,7 +1677,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
     auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
 
-    VisitArrayDataInline<Type>(
+    VisitArrayValuesInline<Type>(
         *batch[0].array(),
         [&](CType val) {
           raw_maxes[*g] = std::max(raw_maxes[*g], val);
@@ -1599,25 +1744,38 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   ScalarAggregateOptions options_;
 };
 
+template <typename T>
+Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
+                                                const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
+  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].type;
+  return std::move(impl);
+}
+
 struct GroupedMinMaxFactory {
   template <typename T>
   enable_if_number<T, Status> Visit(const T&) {
-    kernel =
-        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedMinMaxImpl<T>>);
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
     return Status::OK();
   }
 
   Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
-    return Status::NotImplemented("Summing data of type ", type);
+    return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedMinMaxFactory factory;
-    factory.argument_type = InputType::Array(type);
+    factory.argument_type = InputType::Array(type->id());
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1630,15 +1788,18 @@ struct GroupedMinMaxFactory {
 // Any/All implementation
 
 struct GroupedAnyImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const FunctionOptions*) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    return seen_.Append(added_groups, false);
+    RETURN_NOT_OK(seen_.Append(added_groups, false));
+    return has_nulls_.Append(added_groups, false);
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -1647,29 +1808,51 @@ struct GroupedAnyImpl : public GroupedAggregator {
 
     auto seen = seen_.mutable_data();
     auto other_seen = other->seen_.data();
+    auto has_nulls = has_nulls_.mutable_data();
+    auto other_has_nulls = other->has_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       if (BitUtil::GetBit(other_seen, other_g)) BitUtil::SetBitTo(seen, *g, true);
+      if (BitUtil::GetBit(other_has_nulls, other_g)) {
+        BitUtil::SetBitTo(has_nulls, *g, true);
+      }
     }
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
     auto seen = seen_.mutable_data();
+    auto has_nulls = has_nulls_.mutable_data();
 
     const auto& input = *batch[0].array();
 
     auto g = batch[1].array()->GetValues<uint32_t>(1);
-    arrow::internal::VisitTwoBitBlocksVoid(
-        input.buffers[0], input.offset, input.buffers[1], input.offset, input.length,
-        [&](int64_t) { BitUtil::SetBitTo(seen, *g++, true); }, [&]() { g++; });
+    auto values = input.buffers[1]->data();
+    arrow::internal::VisitBitBlocksVoid(
+        input.buffers[0], input.offset, input.length,
+        [&](int64_t offset) {
+          BitUtil::SetBitTo(seen, *g,
+                            BitUtil::GetBit(seen, *g) ||
+                                BitUtil::GetBit(values, input.offset + offset));
+          g++;
+        },
+        [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    if (options_.skip_nulls) {
+      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
+    // null if (~seen & has_nulls) -> not null if (seen | ~has_nulls)
+    ::arrow::internal::BitmapOrNot(seen->data(), /*left_offset=*/0, bitmap->data(),
+                                   /*right_offset=*/0, num_groups_, /*out_offset=*/0,
+                                   bitmap->mutable_data());
+    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
+                                          std::move(bitmap));
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
@@ -1677,18 +1860,22 @@ struct GroupedAnyImpl : public GroupedAggregator {
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
   TypedBufferBuilder<bool> seen_;
+  TypedBufferBuilder<bool> has_nulls_;
 };
 
 struct GroupedAllImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const FunctionOptions*) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     seen_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    return seen_.Append(added_groups, true);
+    RETURN_NOT_OK(seen_.Append(added_groups, true));
+    return has_nulls_.Append(added_groups, false);
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -1697,17 +1884,23 @@ struct GroupedAllImpl : public GroupedAggregator {
 
     auto seen = seen_.mutable_data();
     auto other_seen = other->seen_.data();
+    auto has_nulls = has_nulls_.mutable_data();
+    auto other_has_nulls = other->has_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       BitUtil::SetBitTo(
           seen, *g, BitUtil::GetBit(seen, *g) && BitUtil::GetBit(other_seen, other_g));
+      if (BitUtil::GetBit(other_has_nulls, other_g)) {
+        BitUtil::SetBitTo(has_nulls, *g, true);
+      }
     }
     return Status::OK();
   }
 
   Status Consume(const ExecBatch& batch) override {
     auto seen = seen_.mutable_data();
+    auto has_nulls = has_nulls_.mutable_data();
 
     const auto& input = *batch[0].array();
 
@@ -1722,7 +1915,7 @@ struct GroupedAllImpl : public GroupedAggregator {
                                   BitUtil::GetBit(bitmap, input.offset + position));
             g++;
           },
-          [&]() { g++; });
+          [&]() { BitUtil::SetBitTo(has_nulls, *g++, true); });
     } else {
       arrow::internal::VisitBitBlocksVoid(
           input.buffers[1], input.offset, input.length, [&](int64_t) { g++; },
@@ -1733,7 +1926,18 @@ struct GroupedAllImpl : public GroupedAggregator {
 
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
-    return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    if (options_.skip_nulls) {
+      return std::make_shared<BooleanArray>(num_groups_, std::move(seen));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto bitmap, has_nulls_.Finish());
+    // null if (seen & has_nulls)
+    ::arrow::internal::BitmapAnd(seen->data(), /*left_offset=*/0, bitmap->data(),
+                                 /*right_offset=*/0, num_groups_, /*out_offset=*/0,
+                                 bitmap->mutable_data());
+    ::arrow::internal::InvertBitmap(bitmap->data(), /*offset=*/0, num_groups_,
+                                    bitmap->mutable_data(), /*dest_offset=*/0);
+    return std::make_shared<BooleanArray>(num_groups_, std::move(seen),
+                                          std::move(bitmap));
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
@@ -1741,6 +1945,7 @@ struct GroupedAllImpl : public GroupedAggregator {
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
   TypedBufferBuilder<bool> seen_;
+  TypedBufferBuilder<bool> has_nulls_;
 };
 
 }  // namespace
@@ -2009,15 +2214,23 @@ const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
                                  ("By default, non-null values are counted.\n"
                                   "This can be changed through ScalarAggregateOptions."),
                                  {"array", "group_id_array"},
-                                 "ScalarAggregateOptions"};
+                                 "CountOptions"};
 
 const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"}};
+                               {"array", "group_id_array"},
+                               "ScalarAggregateOptions"};
+
+const FunctionDoc hash_product_doc{
+    "Compute product of values of a numeric array",
+    ("Null values are ignored.\n"
+     "Overflow will wrap around as if the calculation was done with unsigned integers."),
+    {"array", "group_id_array"}};
 
 const FunctionDoc hash_mean_doc{"Average values of a numeric array",
                                 ("Null values are ignored."),
-                                {"array", "group_id_array"}};
+                                {"array", "group_id_array"},
+                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_stddev_doc{
     "Calculate the standard deviation of a numeric array",
@@ -2040,7 +2253,8 @@ const FunctionDoc hash_tdigest_doc{
     ("By default, the 0.5 quantile (median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
      "A null array is returned if there are no valid data points."),
-    {"array", "group_id_array"}};
+    {"array", "group_id_array"},
+    "TDigestOptions"};
 
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
@@ -2059,11 +2273,14 @@ const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
+  static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+  static auto default_tdigest_options = TDigestOptions::Defaults();
+  static auto default_variance_options = VarianceOptions::Defaults();
+
   {
-    static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+    static auto default_count_options = CountOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Binary(), &hash_count_doc,
-        &default_scalar_aggregate_options);
+        "hash_count", Arity::Binary(), &hash_count_doc, &default_count_options);
 
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountImpl>)));
@@ -2071,8 +2288,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_sum", Arity::Binary(),
-                                                        &hash_sum_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_sum", Arity::Binary(), &hash_sum_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
@@ -2082,8 +2299,22 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_mean", Arity::Binary(),
-                                                        &hash_mean_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_product", Arity::Binary(), &hash_product_doc,
+        &default_scalar_aggregate_options);
+    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedProductFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(SignedIntTypes(), GroupedProductFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(UnsignedIntTypes(), GroupedProductFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels(FloatingPointTypes(), GroupedProductFactory::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_mean", Arity::Binary(), &hash_mean_doc, &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels({boolean()}, GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(
@@ -2093,7 +2324,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
-  static auto default_variance_options = VarianceOptions::Defaults();
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_stddev", Arity::Binary(), &hash_stddev_doc, &default_variance_options);
@@ -2118,7 +2348,6 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
-  static auto default_tdigest_options = TDigestOptions::Defaults();
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_tdigest", Arity::Binary(), &hash_tdigest_doc, &default_tdigest_options);
@@ -2132,25 +2361,26 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_min_max", Arity::Binary(), &hash_min_max_doc,
         &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
+    // Type parameters are ignored
+    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
+                                GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_any", Arity::Binary(),
-                                                        &hash_any_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_any", Arity::Binary(), &hash_any_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAnyImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_all", Arity::Binary(),
-                                                        &hash_all_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_all", Arity::Binary(), &hash_all_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel(boolean(), HashAggregateInit<GroupedAllImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }

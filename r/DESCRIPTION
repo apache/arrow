@@ -57,7 +57,6 @@ Suggests:
     testthat,
     tibble,
     withr
-LinkingTo: cpp11 (>= 0.2.0)
 Collate:
     'arrowExports.R'
     'enums.R'
@@ -116,4 +115,3 @@ Collate:
     'reexports-tidyselect.R'
     'schema.R'
     'util.R'
-UseLTO: false

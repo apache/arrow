@@ -287,6 +287,7 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   using ScalarType = Decimal128Scalar;
+  using CType = Decimal128;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -295,6 +296,7 @@ struct TypeTraits<Decimal256Type> {
   using ArrayType = Decimal256Array;
   using BuilderType = Decimal256Builder;
   using ScalarType = Decimal256Scalar;
+  using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
 };
 

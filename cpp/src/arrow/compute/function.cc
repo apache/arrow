@@ -30,6 +30,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -52,6 +53,10 @@ bool FunctionOptions::Equals(const FunctionOptions& other) const {
   if (this == &other) return true;
   if (options_type() != other.options_type()) return false;
   return options_type()->Compare(*this, other);
+}
+
+std::unique_ptr<FunctionOptions> FunctionOptions::Copy() const {
+  return options_type()->Copy(*this);
 }
 
 Result<std::shared_ptr<Buffer>> FunctionOptions::Serialize() const {
@@ -230,9 +235,13 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
-  auto listener = std::make_shared<detail::DatumAccumulator>();
-  RETURN_NOT_OK(executor->Execute(implicitly_cast_args, listener.get()));
-  return executor->WrapResults(implicitly_cast_args, listener->values());
+  detail::DatumAccumulator listener;
+  RETURN_NOT_OK(executor->Execute(implicitly_cast_args, &listener));
+  const auto out = executor->WrapResults(implicitly_cast_args, listener.values());
+#ifndef NDEBUG
+  DCHECK_OK(executor->CheckResultType(out, name_.c_str()));
+#endif
+  return out;
 }
 
 Status Function::Validate() const {

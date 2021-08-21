@@ -93,11 +93,6 @@ static void CheckCastFails(std::shared_ptr<Array> input, CastOptions options) {
       << "\n  to_type: " << options.to_type->ToString()
       << "\n  input:   " << input->ToString();
 
-  if (input->type_id() == Type::EXTENSION) {
-    // ExtensionScalar not implemented
-    return;
-  }
-
   // For the scalars, check that at least one of the input fails (since many
   // of the tests contains a mix of passing and failing values). In some
   // cases we will want to check more precisely

@@ -208,21 +208,12 @@ We can similarly write a Parquet file with multiple row groups by using
 
 .. ipython:: python
 
-   writer = pq.ParquetWriter('example2.parquet', table.schema)
-   for i in range(3):
-       writer.write_table(table)
-   writer.close()
+   with pq.ParquetWriter('example2.parquet', table.schema) as writer:
+      for i in range(3):
+         writer.write_table(table)
 
    pf2 = pq.ParquetFile('example2.parquet')
    pf2.num_row_groups
-
-Alternatively python ``with`` syntax can also be use:
-
-.. ipython:: python
-
-   with pq.ParquetWriter('example3.parquet', table.schema) as writer:
-       for i in range(3):
-           writer.write_table(table)
 
 Inspecting the Parquet File Metadata
 ------------------------------------
