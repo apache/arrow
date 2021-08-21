@@ -87,6 +87,10 @@ Status AsyncCloseable::CheckClosed() const {
   return Status::OK();
 }
 
+void AsyncCloseablePimpl::Init(AsyncCloseable* impl) { impl_ = impl; }
+void AsyncCloseablePimpl::Destroy() { impl_->Destroy(); }
+void AsyncCloseablePimpl::SetNursery(Nursery* nursery) { impl_->SetNursery(nursery); }
+
 Nursery::Nursery() : finished_(Future<>::Make()){};
 
 Status Nursery::WaitForFinish() {

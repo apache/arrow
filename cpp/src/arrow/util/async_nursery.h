@@ -29,6 +29,7 @@ namespace arrow {
 namespace util {
 
 class Nursery;
+class AsyncCloseablePimpl;
 
 template <typename T>
 struct DestroyingDeleter {
@@ -62,6 +63,8 @@ class AsyncCloseable : public std::enable_shared_from_this<AsyncCloseable> {
   /// return an invalid status if this object has started closing
   Status CheckClosed() const;
 
+  Nursery* nursery_;
+
  private:
   void SetNursery(Nursery* nursery);
   void Destroy();
@@ -70,7 +73,22 @@ class AsyncCloseable : public std::enable_shared_from_this<AsyncCloseable> {
   Future<> tasks_finished_;
   std::atomic<bool> closed_{false};
   std::atomic<uint32_t> num_tasks_outstanding_{1};
-  Nursery* nursery_;
+
+  friend Nursery;
+  template <typename T>
+  friend struct DestroyingDeleter;
+  friend AsyncCloseablePimpl;
+};
+
+class AsyncCloseablePimpl {
+ protected:
+  void Init(AsyncCloseable* impl);
+
+ private:
+  void SetNursery(Nursery* nursery);
+  void Destroy();
+
+  AsyncCloseable* impl_;
 
   friend Nursery;
   template <typename T>
