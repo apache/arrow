@@ -25,7 +25,8 @@ class CSharpTester(Tester):
     PRODUCER = True
     CONSUMER = True
 
-    EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTester.exe')
+    EXE_PATH = os.path.join(
+        ARROW_ROOT_DEFAULT, 'csharp/artifacts/Apache.Arrow.IntegrationTest/Debug/netcoreapp3.1/Apache.Arrow.IntegrationTester.exe')
 
     name = 'csharp'
 
