@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 using FlatBuffers;
 
@@ -46,6 +47,7 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
@@ -106,6 +108,12 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
+
+            public void Visit(FixedSizeBinaryArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }  
 
             public void Visit(Decimal128Array array)
             {
