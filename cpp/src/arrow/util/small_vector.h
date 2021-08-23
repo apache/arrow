@@ -28,46 +28,11 @@
 #include <type_traits>
 #include <utility>
 
-#include "arrow/util/launder.h"
+#include "arrow/util/aligned_storage.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
-
-template <typename T>
-class AlignedStorage {
- public:
-  static constexpr bool can_memcpy =
-      std::is_trivially_destructible<T>::value && std::is_trivially_copyable<T>::value;
-
-  T* get() { return launder(reinterpret_cast<T*>(&data_)); }
-  constexpr const T* get() const { return launder(reinterpret_cast<const T*>(&data_)); }
-
-  void destroy() noexcept {
-    if (!std::is_trivially_destructible<T>::value) {
-      get()->~T();
-    }
-  }
-
-  template <typename... A>
-  void construct(A&&... args) noexcept {
-    new (get()) T(std::forward<A>(args)...);
-  }
-
-  template <typename V>
-  void assign(V&& v) noexcept {
-    *get() = std::forward<V>(v);
-  }
-
-  void move_construct(AlignedStorage* other) noexcept {
-    new (get()) T(std::move(*other->get()));
-  }
-
-  void move_assign(AlignedStorage* other) noexcept { *get() = std::move(*other->get()); }
-
- private:
-  typename std::aligned_storage<sizeof(T), alignof(T)>::type data_;
-};
 
 template <typename T>
 struct StaticVectorMixin {
@@ -122,7 +87,11 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
 
   StaticVectorStorage() noexcept = default;
 
+#if __cpp_constexpr >= 201304L  // non-const constexpr
+  constexpr storage_type* storage_ptr() { return static_data_; }
+#else
   storage_type* storage_ptr() { return static_data_; }
+#endif
 
   constexpr const storage_type* const_storage_ptr() const { return static_data_; }
 
@@ -186,7 +155,11 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
 
   ~SmallVectorStorage() { destroy(); }
 
+#if __cpp_constexpr >= 201304L  // non-const constexpr
+  constexpr storage_type* storage_ptr() { return data_; }
+#else
   storage_type* storage_ptr() { return data_; }
+#endif
 
   constexpr const storage_type* const_storage_ptr() const { return data_; }
 
