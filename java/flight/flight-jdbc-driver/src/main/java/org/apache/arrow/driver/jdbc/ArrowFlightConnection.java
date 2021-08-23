@@ -63,7 +63,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
   private final PropertyManager manager;
-  private final FlightClientHandler handler;
+  private final FlightClientHandler clientHandler;
   private ExecutorService executorService;
 
   /**
@@ -74,18 +74,18 @@ public class ArrowFlightConnection extends AvaticaConnection {
    * @param url       the URL to establish the connection.
    * @param manager   the {@link PropertyManager} for this connection.
    * @param allocator the {@link BufferAllocator} to use.
-   * @param handler   the {@link FlightClientHandler} to use.
+   * @param clientHandler   the {@link FlightClientHandler} to use.
    */
   protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
                                   final String url, final PropertyManager manager,
-                                  final BufferAllocator allocator, final FlightClientHandler handler) {
+                                  final BufferAllocator allocator, final FlightClientHandler clientHandler) {
     super(
         driver,
         factory,
         url,
         Preconditions.checkNotNull(manager, "Manager cannot be null!").getProperties());
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
-    this.handler = Preconditions.checkNotNull(handler, "Handler cannot be null!");
+    this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null!");
     this.manager = manager;
   }
 
@@ -147,12 +147,12 @@ public class ArrowFlightConnection extends AvaticaConnection {
   }
 
   /**
-   * Gets the client {@link #handler} backing this connection.
+   * Gets the client {@link #clientHandler} backing this connection.
    *
    * @return the handler.
    */
-  protected final FlightClientHandler getHandler() {
-    return handler;
+  protected final FlightClientHandler getClientHandler() {
+    return clientHandler;
   }
 
   /**
@@ -184,7 +184,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     final Set<SQLException> exceptions = new HashSet<>();
 
     try {
-      AutoCloseables.close(handler, manager);
+      AutoCloseables.close(clientHandler, manager);
     } catch (final Exception e) {
       exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
     }
