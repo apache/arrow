@@ -165,7 +165,7 @@ TEST(TestBooleanAggregation, Sum) {
   ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
                           options_min_count_zero);
 
-  const char* json = "[true, null, false, null]";
+  std::string json = "[true, null, false, null]";
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
@@ -178,6 +178,14 @@ TEST(TestBooleanAggregation, Sum) {
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(),
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+
+  json = "[true, false]";
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
@@ -694,7 +702,7 @@ void ValidateMean(const Array& input, Datum expected,
 
 template <typename ArrowType>
 void ValidateMean(
-    const char* json, Datum expected,
+    const std::string& json, Datum expected,
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
   ValidateMean<ArrowType>(*array, expected, options);
@@ -750,7 +758,7 @@ TYPED_TEST(TestNumericMeanKernel, ScalarAggregateOptions) {
   auto expected_result = Datum(std::make_shared<ScalarType>(3));
   auto null_result = Datum(std::make_shared<ScalarType>());
   auto nan_result = Datum(std::make_shared<ScalarType>(NAN));
-  const char* json = "[1, null, 2, 2, null, 7]";
+  std::string json = "[1, null, 2, 2, null, 7]";
 
   ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
@@ -775,6 +783,21 @@ TYPED_TEST(TestNumericMeanKernel, ScalarAggregateOptions) {
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateMean<TypeParam>(json, null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+
+  json = "[1, 2, 2, 7]";
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5));
 
   EXPECT_THAT(Mean(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
                    ScalarAggregateOptions(/*skip_nulls=*/false)),
