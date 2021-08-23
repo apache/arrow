@@ -2372,7 +2372,7 @@ endmacro()
 
 macro(build_absl_once)
   if(NOT BUILD_ABSL_RUN_ONCE)
-    set(BUILD_ABSL_RUN_ONCE)
+    set(BUILD_ABSL_RUN_ONCE ON)
     message(STATUS "Building Abseil from source")
 
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
