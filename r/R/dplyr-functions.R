@@ -551,6 +551,15 @@ nse_funcs$pmax <- function(..., na.rm = FALSE) {
   )
 }
 
+nse_funcs$mean <- function(..., na.rm = FALSE) {
+  build_expr(
+    "mean",
+    ...,
+    options = list(na.rm = na.rm)
+  )
+}
+
+
 nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), pad = " ") {
   assert_that(is_integerish(width))
   side <- match.arg(side)
@@ -816,18 +825,18 @@ agg_funcs$mean <- function(x, na.rm = FALSE) {
     options = arrow_na_rm(na.rm = na.rm)
   )
 }
-agg_funcs$sd <- function(x, na.rm = FALSE) {
+agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "stddev",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(ddof = ddof)
   )
 }
-agg_funcs$var <- function(x, na.rm = FALSE) {
+agg_funcs$var <- function(x, y = NULL, na.rm = FALSE, ddof = 1) {
   list(
     fun = "variance",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(ddof = ddof)
   )
 }
 arrow_na_rm <- function(na.rm) {
