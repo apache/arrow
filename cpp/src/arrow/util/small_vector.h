@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstring>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -34,30 +33,9 @@
 namespace arrow {
 namespace internal {
 
-template <typename T>
-struct StaticVectorMixin {
-  using storage_type = AlignedStorage<T>;
-
-  static void move_construct_storage(storage_type* src, storage_type* dest, size_t n,
-                                     bool destroy_source = false) {
-    for (size_t i = 0; i < n; ++i) {
-      dest[i].move_construct(&src[i]);
-      if (destroy_source) {
-        src[i].destroy();
-      }
-    }
-  }
-
-  static void destroy_storage(storage_type* p, size_t n) {
-    for (size_t i = 0; i < n; ++i) {
-      p[i].destroy();
-    }
-  }
-};
-
 template <typename T, size_t N, bool NonTrivialDestructor>
-struct StaticVectorStorageBase : public StaticVectorMixin<T> {
-  using typename StaticVectorMixin<T>::storage_type;
+struct StaticVectorStorageBase {
+  using storage_type = AlignedStorage<T>;
 
   storage_type static_data_[N];
   size_t size_ = 0;
@@ -66,15 +44,15 @@ struct StaticVectorStorageBase : public StaticVectorMixin<T> {
 };
 
 template <typename T, size_t N>
-struct StaticVectorStorageBase<T, N, true> : public StaticVectorMixin<T> {
-  using typename StaticVectorMixin<T>::storage_type;
+struct StaticVectorStorageBase<T, N, true> {
+  using storage_type = AlignedStorage<T>;
 
   storage_type static_data_[N];
   size_t size_ = 0;
 
   ~StaticVectorStorageBase() noexcept { destroy(); }
 
-  void destroy() noexcept { this->destroy_storage(static_data_, size_); }
+  void destroy() noexcept { storage_type::destroy_several(static_data_, size_); }
 };
 
 template <typename T, size_t N, bool D = !std::is_trivially_destructible<T>::value>
@@ -116,13 +94,8 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
   void move_construct(StaticVectorStorage&& other) noexcept {
     size_ = other.size_;
     if (size_ != 0) {
-      if (storage_type::can_memcpy) {
-        // memcpy with a small compile-time constant size will be compiled
-        // as a very fast sequence as CPU instructions
-        memcpy(static_data_, other.static_data_, N * sizeof(T));
-      } else {
-        this->move_construct_storage(other.static_data_, static_data_, size_);
-      }
+      // Use a compile-time memcpy size (N) for trivial types
+      storage_type::move_construct_several(other.static_data_, static_data_, size_, N);
     }
   }
 
@@ -133,18 +106,14 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
   void reserve(size_t n) {}
 
   void clear() {
-    this->destroy_storage(static_data_, size_);
+    storage_type::destroy_several(static_data_, size_);
     size_ = 0;
   }
-
- private:
-  static constexpr bool can_memcpy =
-      std::is_trivially_destructible<T>::value && std::is_trivially_copyable<T>::value;
 };
 
 template <typename T, size_t N>
-struct SmallVectorStorage : public StaticVectorMixin<T> {
-  using typename StaticVectorMixin<T>::storage_type;
+struct SmallVectorStorage {
+  using storage_type = AlignedStorage<T>;
 
   storage_type static_data_[N];
   size_t size_ = 0;
@@ -187,7 +156,7 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
   }
 
   void destroy() noexcept {
-    this->destroy_storage(data_, size_);
+    storage_type::destroy_several(data_, size_);
     if (dynamic_capacity_) {
       delete[] data_;
     }
@@ -202,11 +171,8 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
       other.dynamic_capacity_ = 0;
       other.size_ = 0;
     } else if (size_ != 0) {
-      if (storage_type::can_memcpy) {
-        memcpy(static_data_, other.static_data_, N * sizeof(T));
-      } else {
-        this->move_construct_storage(other.data_, data_, size_);
-      }
+      // Use a compile-time memcpy size (N) for trivial types
+      storage_type::move_construct_several(other.static_data_, static_data_, size_, N);
     }
   }
 
@@ -225,7 +191,7 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
   }
 
   void clear() {
-    this->destroy_storage(data_, size_);
+    storage_type::destroy_several(data_, size_);
     size_ = 0;
   }
 
@@ -233,13 +199,13 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
   void switch_to_dynamic(size_t new_capacity) {
     dynamic_capacity_ = new_capacity;
     data_ = new storage_type[new_capacity];
-    this->move_construct_storage(static_data_, data_, size_, /*destroy_source=*/true);
+    storage_type::move_construct_several_and_destroy_source(static_data_, data_, size_);
   }
 
   void reallocate_dynamic(size_t new_capacity) {
     assert(new_capacity >= size_);
     auto new_data = new storage_type[new_capacity];
-    this->move_construct_storage(data_, new_data, size_, /*destroy_source=*/true);
+    storage_type::move_construct_several_and_destroy_source(data_, new_data, size_);
     delete[] data_;
     dynamic_capacity_ = new_capacity;
     data_ = new_data;

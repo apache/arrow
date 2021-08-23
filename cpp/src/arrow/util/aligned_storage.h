@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include <cstring>
 #include <type_traits>
 #include <utility>
 
 #include "arrow/util/launder.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
@@ -61,6 +63,61 @@ class AlignedStorage {
   }
 
   void move_assign(AlignedStorage* other) noexcept { *get() = std::move(*other->get()); }
+
+  template <bool CanMemcpy = can_memcpy>
+  static typename std::enable_if<CanMemcpy>::type move_construct_several(
+      AlignedStorage* ARROW_RESTRICT src, AlignedStorage* ARROW_RESTRICT dest, size_t n,
+      size_t memcpy_length) noexcept {
+    memcpy(dest->get(), src->get(), memcpy_length * sizeof(T));
+  }
+
+  template <bool CanMemcpy = can_memcpy>
+  static typename std::enable_if<CanMemcpy>::type
+  move_construct_several_and_destroy_source(AlignedStorage* ARROW_RESTRICT src,
+                                            AlignedStorage* ARROW_RESTRICT dest, size_t n,
+                                            size_t memcpy_length) noexcept {
+    memcpy(dest->get(), src->get(), memcpy_length * sizeof(T));
+  }
+
+  template <bool CanMemcpy = can_memcpy>
+  static typename std::enable_if<!CanMemcpy>::type move_construct_several(
+      AlignedStorage* ARROW_RESTRICT src, AlignedStorage* ARROW_RESTRICT dest, size_t n,
+      size_t memcpy_length) noexcept {
+    for (size_t i = 0; i < n; ++i) {
+      new (dest[i].get()) T(std::move(*src[i].get()));
+    }
+  }
+
+  template <bool CanMemcpy = can_memcpy>
+  static typename std::enable_if<!CanMemcpy>::type
+  move_construct_several_and_destroy_source(AlignedStorage* ARROW_RESTRICT src,
+                                            AlignedStorage* ARROW_RESTRICT dest, size_t n,
+                                            size_t memcpy_length) noexcept {
+    for (size_t i = 0; i < n; ++i) {
+      new (dest[i].get()) T(std::move(*src[i].get()));
+      src[i].destroy();
+    }
+  }
+
+  static void move_construct_several(AlignedStorage* ARROW_RESTRICT src,
+                                     AlignedStorage* ARROW_RESTRICT dest,
+                                     size_t n) noexcept {
+    move_construct_several(src, dest, n, n);
+  }
+
+  static void move_construct_several_and_destroy_source(
+      AlignedStorage* ARROW_RESTRICT src, AlignedStorage* ARROW_RESTRICT dest,
+      size_t n) noexcept {
+    move_construct_several_and_destroy_source(src, dest, n, n);
+  }
+
+  static void destroy_several(AlignedStorage* p, size_t n) noexcept {
+    if (!std::is_trivially_destructible<T>::value) {
+      for (size_t i = 0; i < n; ++i) {
+        p[i].destroy();
+      }
+    }
+  }
 
  private:
   typename std::aligned_storage<sizeof(T), alignof(T)>::type data_;
