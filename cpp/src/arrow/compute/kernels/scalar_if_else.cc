@@ -1610,6 +1610,9 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
   }
 };
 
+// No-op reserve function, pulled out to avoid apparent miscompilation on MinGW
+Status ReserveNoData(ArrayBuilder*) { return Status::OK(); }
+
 template <>
 struct CaseWhenFunctor<MapType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -1623,9 +1626,7 @@ struct CaseWhenFunctor<MapType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
-      return Status::OK();
-    };
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
     return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
@@ -1643,9 +1644,7 @@ struct CaseWhenFunctor<StructType> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
-      return Status::OK();
-    };
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
     return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
@@ -1690,9 +1689,7 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    std::function<Status(ArrayBuilder*)> reserve_data = [](ArrayBuilder*) {
-      return Status::OK();
-    };
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
     return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
   }
 };
