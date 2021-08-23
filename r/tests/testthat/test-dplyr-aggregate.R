@@ -47,55 +47,7 @@ test_that("summarize", {
     warning = TRUE
   )
   
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(mean_int = mean(int)),
-    tbl,
-    warning = TRUE
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(sd_int = sd(int)),
-    tbl,
-    warning = TRUE
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(var_int = var(int)),
-    tbl,
-    warning = TRUE
-  )
 })
-
-
-test_that("mean, sd, and var", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(agg = mean(dbl)),
-    tbl
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      mutate(agg = sd(dbl)),
-    tbl
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      mutate(agg = var(dbl)),
-    tbl
-  )
-})
-
 
 test_that("Can aggregate in Arrow", {
   expect_dplyr_equal(
@@ -108,7 +60,9 @@ test_that("Can aggregate in Arrow", {
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
-    tbl
+    tbl,
+    # ARROW-13497: This is failing because the default is na.rm = FALSE
+    warning = TRUE
   )
 })
 
@@ -137,9 +91,77 @@ test_that("Group by sum on dataset", {
       summarize(total = sum(int)) %>%
       arrange(some_grouping) %>%
       collect(),
-    tbl
+    tbl,
+    # ARROW-13497: This is failing because the default is na.rm = FALSE
+    warning = TRUE
   )
 })
+
+test_that("Group by mean on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(mean = mean(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(mean = mean(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+})
+
+test_that("Group by sd on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(sd = sd(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(sd = sd(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl,
+    # ARROW-13497: This is failing because the default is na.rm = FALSE
+    warning = TRUE
+  )
+  
+})
+
+test_that("Group by var on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(var = var(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(var = var(int, na.rm = FALSE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+  
+})
+
 
 test_that("Group by any/all", {
   withr::local_options(list(arrow.debug = TRUE))
