@@ -830,10 +830,3 @@ agg_funcs$var <- function(x, y = NULL, na.rm = FALSE, ddof = 1) {
     options = list(ddof = ddof)
   )
 }
-arrow_na_rm <- function(na.rm) {
-  if (!isTRUE(na.rm)) {
-    # TODO: ARROW-13497
-    arrow_not_supported(paste("na.rm =", na.rm))
-  }
-  list(na.rm = na.rm, na.min_count = 0L)
-}
