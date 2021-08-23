@@ -28,8 +28,7 @@ namespace internal {
 template <typename T>
 class AlignedStorage {
  public:
-  static constexpr bool can_memcpy =
-      std::is_trivially_destructible<T>::value && std::is_trivially_copyable<T>::value;
+  static constexpr bool can_memcpy = std::is_trivial<T>::value;
 
 #if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr T* get() noexcept { return launder(reinterpret_cast<T*>(&data_)); }
