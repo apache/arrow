@@ -774,7 +774,12 @@ class ColumnReaderImplBase {
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
 
-        case Encoding::DELTA_BINARY_PACKED:
+        case Encoding::DELTA_BINARY_PACKED: {
+          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
         case Encoding::DELTA_LENGTH_BYTE_ARRAY:
         case Encoding::DELTA_BYTE_ARRAY:
           ParquetException::NYI("Unsupported encoding");

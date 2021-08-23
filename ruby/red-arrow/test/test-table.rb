@@ -53,26 +53,26 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
     test("Array: boolean") do
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -100,7 +100,7 @@ class TableTest < Test::Unit::TestCase
     test("Range: positive: include end") do
       assert_equal(<<-TABLE, @table.slice(2..4).to_s)
 	count	visible
-0	    4	       
+0	    4	 (null)
 1	    8	true   
 2	   16	true   
       TABLE
@@ -109,7 +109,7 @@ class TableTest < Test::Unit::TestCase
     test("Range: positive: exclude end") do
       assert_equal(<<-TABLE, @table.slice(2...4).to_s)
 	count	visible
-0	    4	       
+0	    4	 (null)
 1	    8	true   
       TABLE
     end
@@ -119,7 +119,7 @@ class TableTest < Test::Unit::TestCase
 	count	visible
 0	   16	true   
 1	   32	false  
-2	   64	       
+2	   64	 (null)
       TABLE
     end
 
@@ -214,12 +214,12 @@ class TableTest < Test::Unit::TestCase
 	count	visible	name
 0	    1	true   	a   
 1	    2	false  	b   
-2	    4	       	c   
+2	    4	 (null)	c   
 3	    8	true   	d   
 4	   16	true   	e   
 5	   32	false  	f   
-6	   64	       	g   
-7	  128	       	h   
+6	   64	 (null)	g   
+7	  128	 (null)	h   
         TABLE
       end
 
@@ -261,12 +261,12 @@ class TableTest < Test::Unit::TestCase
 	count	visible	name
 0	    1	true   	a   
 1	    2	false  	b   
-2	    4	       	c   
+2	    4	 (null)	c   
 3	    8	true   	d   
 4	   16	true   	e   
 5	   32	false  	f   
-6	   64	       	g   
-7	  128	       	h   
+6	   64	 (null)	g   
+7	  128	 (null)	h   
         TABLE
       end
 
@@ -614,12 +614,12 @@ chris\t-1
 	count	visible
 0	    1	true   
 1	    2	false  
-2	    4	       
+2	    4	 (null)
 3	    8	true   
 4	   16	true   
 5	   32	false  
-6	   64	       
-7	  128	       
+6	   64	 (null)
+7	  128	 (null)
     TABLE
   end
 
@@ -707,13 +707,13 @@ visible: false
     test("Array: boolean") do
       filter = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -721,13 +721,13 @@ visible: false
       array = [nil, true, true, false, true, false, true, true]
       filter = Arrow::BooleanArray.new(array)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -739,13 +739,13 @@ visible: false
       ]
       filter = Arrow::ChunkedArray.new(filter_chunks)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
   end
@@ -757,7 +757,7 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
     end
 
@@ -767,7 +767,7 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
     end
 
@@ -781,7 +781,7 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
     end
   end

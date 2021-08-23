@@ -68,6 +68,13 @@ struct SumImpl : public ScalarAggregator {
     if (batch[0].is_array()) {
       const auto& data = batch[0].array();
       this->count += data->length - data->GetNullCount();
+      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+
+      if (!options.skip_nulls && this->nulls_observed) {
+        // Short-circuit
+        return Status::OK();
+      }
+
       if (is_boolean_type<ArrowType>::value) {
         this->sum +=
             static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
@@ -79,6 +86,7 @@ struct SumImpl : public ScalarAggregator {
     } else {
       const auto& data = *batch[0].scalar();
       this->count += data.is_valid * batch.length;
+      this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
         this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
       }
@@ -90,11 +98,13 @@ struct SumImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
     this->sum += other.sum;
+    this->nulls_observed = this->nulls_observed || other.nulls_observed;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
       out->value = std::make_shared<OutputType>();
     } else {
       out->value = MakeScalar(this->sum);
@@ -103,6 +113,7 @@ struct SumImpl : public ScalarAggregator {
   }
 
   size_t count = 0;
+  bool nulls_observed = false;
   typename SumType::c_type sum = 0;
   ScalarAggregateOptions options;
 };
@@ -110,7 +121,8 @@ struct SumImpl : public ScalarAggregator {
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       const double mean = static_cast<double>(this->sum) / this->count;

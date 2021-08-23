@@ -16,157 +16,144 @@
 # under the License.
 
 module Arrow
-  # Experimental
-  #
-  # TODO: Almost codes should be implemented in Apache Arrow C++.
   class Group
     def initialize(table, keys)
       @table = table
       @keys = keys
     end
 
-    def count
-      key_names = @keys.collect(&:to_s)
-      target_columns = @table.columns.reject do |column|
-        key_names.include?(column.name)
-      end
-      aggregate(target_columns) do |column, indexes|
-        n = 0
-        indexes.each do |index|
-          n += 1 unless column.null?(index)
-        end
-        n
-      end
+    def count(*target_names)
+      aggregate(*build_aggregations("hash_count", target_names))
     end
 
-    def sum
-      key_names = @keys.collect(&:to_s)
-      target_columns = @table.columns.reject do |column|
-        key_names.include?(column.name) or
-          not column.data_type.is_a?(NumericDataType)
-      end
-      aggregate(target_columns) do |column, indexes|
-        n = 0
-        indexes.each do |index|
-          value = column[index]
-          n += value unless value.nil?
-        end
-        n
-      end
+    def sum(*target_names)
+      aggregate(*build_aggregations("hash_sum", target_names))
     end
 
-    def average
-      key_names = @keys.collect(&:to_s)
-      target_columns = @table.columns.reject do |column|
-        key_names.include?(column.name) or
-          not column.data_type.is_a?(NumericDataType)
-      end
-      aggregate(target_columns) do |column, indexes|
-        average = 0.0
-        n = 0
-        indexes.each do |index|
-          value = column[index]
-          unless value.nil?
-            n += 1
-            average += (value - average) / n
-          end
-        end
-        average
-      end
+    def product(*target_names)
+      aggregate(*build_aggregations("hash_product", target_names))
     end
 
-    def min
-      key_names = @keys.collect(&:to_s)
-      target_columns = @table.columns.reject do |column|
-        key_names.include?(column.name) or
-          not column.data_type.is_a?(NumericDataType)
-      end
-      aggregate(target_columns) do |column, indexes|
-        n = nil
-        indexes.each do |index|
-          value = column[index]
-          next if value.nil?
-          n ||= value
-          n = value if value < n
-        end
-        n
-      end
+    def mean(*target_names)
+      aggregate(*build_aggregations("hash_mean", target_names))
     end
 
-    def max
-      key_names = @keys.collect(&:to_s)
-      target_columns = @table.columns.reject do |column|
-        key_names.include?(column.name) or
-          not column.data_type.is_a?(NumericDataType)
-      end
-      aggregate(target_columns) do |column, indexes|
-        n = nil
-        indexes.each do |index|
-          value = column[index]
-          next if value.nil?
-          n ||= value
-          n = value if value > n
-        end
-        n
-      end
+    def min_max(*target_names)
+      aggregate(*build_aggregations("hash_min_max", target_names))
+    end
+
+    def stddev(*target_names)
+      aggregate(*build_aggregations("hash_stddev", target_names))
+    end
+
+    def variance(*target_names)
+      aggregate(*build_aggregations("hash_variance", target_names))
+    end
+
+    def aggregate(aggregation, *more_aggregations)
+      aggregations = [aggregation] + more_aggregations
+      normalized_aggregations = normalize_aggregations(aggregations)
+      plan = ExecutePlan.new
+      source_node = plan.build_source_node(@table)
+      aggregate_node =
+        plan.build_aggregate_node(source_node,
+                                  {
+                                    aggregations: normalized_aggregations,
+                                    keys: @keys
+                                  })
+      sink_node_options = SinkNodeOptions.new
+      plan.build_sink_node(aggregate_node, sink_node_options)
+      plan.validate
+      plan.start
+      plan.wait
+      reader = sink_node_options.get_reader(aggregate_node.output_schema)
+      reader.read_all
     end
 
     private
-    def aggregate(target_columns)
-      sort_values = @table.n_rows.times.collect do |i|
-        key_values = @keys.collect do |key|
-          @table[key][i]
+    def build_aggregations(function_name, target_names)
+      if target_names.empty?
+        [function_name]
+      else
+        target_names.collect do |name|
+          "#{function_name}(#{name})"
         end
-        [key_values, i]
       end
-      sorted = sort_values.sort_by do |key_values, i|
-        key_values
-      end
+    end
 
-      grouped_keys = []
-      aggregated_arrays_raw = []
-      target_columns.size.times do
-        aggregated_arrays_raw << []
-      end
-      indexes = []
-      sorted.each do |key_values, i|
-        if grouped_keys.empty?
-          grouped_keys << key_values
-          indexes.clear
-          indexes << i
-        else
-          if key_values == grouped_keys.last
-            indexes << i
-          else
-            grouped_keys << key_values
-            target_columns.each_with_index do |column, j|
-              aggregated_arrays_raw[j] << yield(column, indexes)
-            end
-            indexes.clear
-            indexes << i
+    def normalize_aggregations(aggregations)
+      normalized_aggregations = []
+      aggregations.each do |aggregation|
+        case aggregation
+        when :all
+          all_functions = [
+            "hash_count",
+            "hash_sum",
+            "hash_product",
+            "hash_mean",
+            "hash_stddev",
+            "hash_variance",
+            # "hash_tdigest",
+            "hash_min_max",
+            "hash_any",
+            "hash_all",
+          ]
+          normalized_aggregations.concat(normalize_aggregations(all_functions))
+        when /\A([a-zA-Z0-9_].+?)\((.+?)\)\z/
+          function = $1
+          input = $2.strip
+          normalized_aggregations << {function: function, input: input}
+        when "count", "hash_count"
+          function = aggregation
+          target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
           end
+        when "any", "hash_any", "all", "hash_all"
+          function = aggregation
+          boolean_target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
+          end
+        when String
+          function = aggregation
+          numeric_target_columns.each do |column|
+            normalized_aggregations << {function: function, input: column.name}
+          end
+        else
+          normalized_aggregations << aggregation
         end
       end
-      target_columns.each_with_index do |column, j|
-        aggregated_arrays_raw[j] << yield(column, indexes)
-      end
+      normalized_aggregations
+    end
 
-      grouped_key_arrays_raw = grouped_keys.transpose
-      fields = []
-      arrays = []
-      @keys.each_with_index do |key, i|
-        key_column = @table[key]
-        key_column_array_raw = grouped_key_arrays_raw[i]
-        key_column_array = key_column.data_type.build_array(key_column_array_raw)
-        fields << key_column.field
-        arrays << key_column_array
+    def target_columns
+      @target_columns ||= find_target_columns
+    end
+
+    def find_target_columns
+      key_names = @keys.collect(&:to_s)
+      @table.columns.find_all do |column|
+        not key_names.include?(column.name)
       end
-      target_columns.each_with_index do |column, i|
-        array = ArrayBuilder.build(aggregated_arrays_raw[i])
-        arrays << array
-        fields << Field.new(column.field.name, array.value_data_type)
+    end
+
+    def boolean_target_columns
+      @boolean_target_columns ||= find_boolean_target_columns
+    end
+
+    def find_boolean_target_columns
+      target_columns.find_all do |column|
+        column.data_type.is_a?(BooleanDataType)
       end
-      Table.new(fields, arrays)
+    end
+
+    def numeric_target_columns
+      @numeric_target_columns ||= find_numeric_target_columns
+    end
+
+    def find_numeric_target_columns
+      target_columns.find_all do |column|
+        column.data_type.is_a?(NumericDataType)
+      end
     end
   end
 end

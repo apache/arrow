@@ -183,6 +183,9 @@ recommend you try it out.  Unsupported input types return a ``TypeError``
 Aggregations
 ------------
 
+Scalar aggregations operate on a (chunked) array or scalar value and reduce
+the input to a single output value.
+
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
@@ -208,15 +211,16 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
+| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(7)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | variance      | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 
 Notes:
 
-* \(1) If null values are taken into account by setting ScalarAggregateOptions
-  parameter skip_nulls = false then `Kleene logic`_ logic is applied.
+* \(1) If null values are taken into account, by setting the
+  ScalarAggregateOptions parameter skip_nulls = false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
 
 * \(2) CountMode controls whether only non-null values are counted (the
   default), only null values are counted, or all values are counted.
@@ -233,6 +237,93 @@ Notes:
 * \(5) Output is Int64, UInt64 or Float64, depending on the input type.
 
 * \(6) Output is Float64 or input type, depending on QuantileOptions.
+
+* \(7) tdigest/t-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
+
+Grouped Aggregations ("group by")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Grouped aggregations are not directly invokable, but are used as part of a
+SQL-style "group by" operation. Like scalar aggregations, grouped aggregations
+reduce multiple input values to a single output value. Instead of aggregating
+all values of the input, however, grouped aggregations partition the input
+values on some set of "key" columns, then aggregate each group individually,
+emitting one output value per input group.
+
+As an example, for the following table:
+
++------------------+-----------------+
+| Column ``key``   | Column ``x``    |
++==================+=================+
+| "a"              | 2               |
++------------------+-----------------+
+| "a"              | 5               |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| "b"              | null            |
++------------------+-----------------+
+| null             | null            |
++------------------+-----------------+
+| null             | 9               |
++------------------+-----------------+
+
+we can compute a sum of the column ``x``, grouped on the column ``key``.
+This gives us three groups, with the following results. Note that null is
+treated as a distinct key value.
+
++------------------+-----------------------+
+| Column ``key``   | Column ``sum(x)``     |
++==================+=======================+
+| "a"              | 7                     |
++------------------+-----------------------+
+| "b"              | null                  |
++------------------+-----------------------+
+| null             | 9                     |
++------------------+-----------------------+
+
+The supported aggregation functions are as follows. All function names are
+prefixed with ``hash_``, which differentiates them from their scalar
+equivalents above and reflects how they are implemented internally.
+
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| Function name | Arity | Input types | Output type    | Options class                    | Notes |
++===============+=======+=============+================+==================================+=======+
+| hash_all      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_any      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_count    | Unary | Any         | Int64          | :struct:`CountOptions`           | \(2)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_min_max  | Unary | Numeric     | Struct         | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_stddev   | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_sum      | Unary | Numeric     | Numeric        | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_tdigest  | Unary | Numeric     | Float64        | :struct:`TDigestOptions`         | \(5)  |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+| hash_variance | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+----------------+----------------------------------+-------+
+
+* \(1) If null values are taken into account, by setting the
+  :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
+  logic is applied. The min_count option is not respected.
+
+* \(2) CountMode controls whether only non-null values are counted (the
+  default), only null values are counted, or all values are counted.
+
+* \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
+
+* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+
+* \(5) T-digest computes approximate quantiles, and so only needs a
+  fixed amount of memory. See the `reference implementation
+  <https://github.com/tdunning/t-digest>`_ for details.
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -899,33 +990,33 @@ Structural transforms
 
 .. XXX (this category is a bit of a hodgepodge)
 
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| Function name     | Arity   | Input types                                       | Output type    | Options class               | Notes |
-+===================+=========+===================================================+================+=============================+=======+
-| case_when         | Varargs | Struct of Boolean (Arg 0), Any fixed-width (rest) | Input type     |                             | \(1)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| choose            | Varargs | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type     |                             | \(2)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| coalesce          | Varargs | Any                                               | Input type     |                             | \(3)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| fill_null         | Binary  | Boolean, Null, Numeric, Temporal, String-like     | Input type     |                             | \(4)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| if_else           | Ternary | Boolean, Null, Numeric, Temporal                  | Input type     |                             | \(5)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| is_finite         | Unary   | Float, Double                                     | Boolean        |                             | \(6)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| is_inf            | Unary   | Float, Double                                     | Boolean        |                             | \(7)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| is_nan            | Unary   | Float, Double                                     | Boolean        |                             | \(8)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| is_null           | Unary   | Any                                               | Boolean        | :struct:`NanNullOptions`    | \(9)  |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| is_valid          | Unary   | Any                                               | Boolean        |                             | \(10) |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| list_value_length | Unary   | List-like                                         | Int32 or Int64 |                             | \(11) |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
-| make_struct       | Varargs | Any                                               | Struct         | :struct:`MakeStructOptions` | \(12) |
-+-------------------+---------+---------------------------------------------------+----------------+-----------------------------+-------+
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| Function name            | Arity      | Input types                                       | Output type         | Notes   |
++==========================+============+===================================================+=====================+=========+
+| case_when                | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| choose                   | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| coalesce                 | Varargs    | Any                                               | Input type          | \(3)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(4)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(5)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_finite                | Unary      | Float, Double                                     | Boolean             | \(6)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_inf                   | Unary      | Float, Double                                     | Boolean             | \(7)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_nan                   | Unary      | Float, Double                                     | Boolean             | \(8)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_null                  | Unary      | Any                                               | Boolean             | \(9)    |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| is_valid                 | Unary      | Any                                               | Boolean             | \(10)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                         | Int32 or Int64      | \(11)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
+| make_struct              | Varargs    | Any                                               | Struct              | \(12)   |
++--------------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL 'case when' statement or switch-case. The
   input is a "condition" value, which is a struct of Booleans, followed by the
@@ -935,6 +1026,9 @@ Structural transforms
   same type as the value inputs; each row will be the corresponding value from
   the first value datum for which the corresponding Boolean is true, or the
   corresponding value from the 'default' input, or null otherwise.
+
+  Note that currently, while all types are supported, dictionaries will be
+  unpacked.
 
 * \(2) The first input must be an integral type. The rest of the arguments can be
   any type, but must all be the same type or promotable to a common type. Each
@@ -987,13 +1081,15 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| Function name            | Arity      | Input types        | Output type           | Options class                              |
-+==========================+============+====================+=======================+============================================+
-| cast                     | Unary      | Many               | Variable              | :struct:`CastOptions`                      |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| strptime                 | Unary      | String-like        | Timestamp             | :struct:`StrptimeOptions`                  |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
++--------------------------+------------+--------------------+------------------+------------------------------+
+| Function name            | Arity      | Input types        | Output type      | Options class                |
++==========================+============+====================+==================+==============================+
+| cast                     | Unary      | Many               | Variable         | :struct:`CastOptions`        |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strftime                 | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
+| strptime                 | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |
++--------------------------+------------+--------------------+------------------+------------------------------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
@@ -1165,23 +1261,30 @@ Associative transforms
 Selections
 ~~~~~~~~~~
 
-These functions select a subset of the first input defined by the second input.
+These functions select and return a subset of their input.
 
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(2) |
+| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(3) |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
++---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
-* \(1) Unions are unsupported.
+* \(1) Sparse unions are unsupported.
 
-* \(2) Each element in input 1 is appended to the output iff the corresponding
-  element in input 2 is true.
+* \(2) Each element in the input is appended to the output iff it is non-null.
+  If the input is a record batch or table, any null value in a column drops
+  the entire row.
 
-* \(3) For each element *i* in input 2, the *i*'th element in input 1 is
-  appended to the output.
+* \(3) Each element in input 1 (the values) is appended to the output iff
+  the corresponding element in input 2 (the filter) is true.  How
+  nulls in the filter are handled can be configured using FilterOptions.
+
+* \(4) For each element *i* in input 2 (the indices), the *i*'th element
+  in input 1 (the values) is appended to the output.
 
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~

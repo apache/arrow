@@ -382,5 +382,112 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                 DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
                                                        /*week_start=*/8)));
 }
+
+#ifndef _WIN32
+TEST_F(ScalarTemporalTest, Strftime) {
+  auto options_default = StrftimeOptions();
+  auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z");
+
+  const char* seconds = R"(["1970-01-01T00:00:59", "2021-08-18T15:11:50", null])";
+  const char* milliseconds = R"(["1970-01-01T00:00:59.123", null])";
+  const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
+
+  const char* default_seconds = R"(
+      ["1970-01-01T00:00:59Z", "2021-08-18T15:11:50Z", null])";
+  const char* string_seconds = R"(
+      ["1970-01-01T00:00:59+0000", "2021-08-18T15:11:50+0000", null])";
+  const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
+  const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
+  const char* string_nanoseconds = R"(["1969-12-31T14:00:59.123456789-1000", null])";
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   default_seconds, &options_default);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   string_seconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "GMT"), milliseconds, utf8(),
+                   string_milliseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_nanoseconds, &options);
+}
+
+TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Timestamps without a time zone cannot be reliably formatted"),
+      Strftime(arr, StrftimeOptions()));
+}
+
+TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "non-existent"), seconds);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Cannot locate timezone 'non-existent'"),
+      Strftime(arr, StrftimeOptions()));
+}
+
+TEST_F(ScalarTemporalTest, StrftimeCLocale) {
+  auto options_default = StrftimeOptions();
+  auto options = StrftimeOptions("%Y-%m-%dT%H:%M:%S%z", "C");
+  auto options_locale_specific = StrftimeOptions("%a", "C");
+
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  const char* milliseconds = R"(["1970-01-01T00:00:59.123", null])";
+  const char* microseconds = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
+
+  const char* default_seconds = R"(["1970-01-01T00:00:59Z", null])";
+  const char* string_seconds = R"(["1970-01-01T00:00:59+0000", null])";
+  const char* string_milliseconds = R"(["1970-01-01T00:00:59.123+0000", null])";
+  const char* string_microseconds = R"(["1970-01-01T05:30:59.123456+0530", null])";
+  const char* string_nanoseconds = R"(["1969-12-31T14:00:59.123456789-1000", null])";
+
+  const char* string_locale_specific = R"(["Wed", null])";
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   default_seconds, &options_default);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND, "UTC"), seconds, utf8(),
+                   string_seconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "GMT"), milliseconds, utf8(),
+                   string_milliseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO, "Asia/Kolkata"), microseconds,
+                   utf8(), string_microseconds, &options);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_nanoseconds, &options);
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO, "US/Hawaii"), nanoseconds,
+                   utf8(), string_locale_specific, &options_locale_specific);
+}
+
+TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
+  if (!LocaleExists("fr_FR.UTF-8")) {
+    GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
+  }
+
+  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "fr_FR.UTF-8");
+  const char* milliseconds = R"(
+      ["1970-01-01T00:00:59.123", "2021-08-18T15:11:50.456", null])";
+  const char* expected = R"(
+      ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
+                   expected, &options);
+}
+
+TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
+  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
+  const char* seconds = R"(["1970-01-01T00:00:59", null])";
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Cannot find locale 'non-existent'"),
+                                  Strftime(arr, options));
+}
+
+#endif
+
 }  // namespace compute
 }  // namespace arrow

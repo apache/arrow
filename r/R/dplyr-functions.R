@@ -784,28 +784,20 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
-}
-
-arrow_na_rm <- function(na.rm) {
-  if (!isTRUE(na.rm)) {
-    # TODO: ARROW-13497
-    arrow_not_supported(paste("na.rm =", na.rm))
-  }
-  list(na.rm = na.rm, na.min_count = 0L)
 }

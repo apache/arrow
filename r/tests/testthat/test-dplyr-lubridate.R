@@ -26,6 +26,7 @@ library(dplyr)
 # TODO: consider reevaluating this workaround after ARROW-12980
 withr::local_timezone("UTC")
 
+# TODO: We should test on windows once ARROW-13168 is resolved.
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
   test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 } else {

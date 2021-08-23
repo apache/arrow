@@ -442,9 +442,12 @@ class NullArrayFactory {
     // First buffer is always null
     out_->buffers[0] = nullptr;
 
-    // Type codes are all zero, so we can use buffer_ which has had it's memory
-    // zeroed
     out_->buffers[1] = buffer_;
+    // buffer_ is zeroed, but 0 may not be a valid type code
+    if (type.type_codes()[0] != 0) {
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[1], AllocateBuffer(length_, pool_));
+      std::memset(out_->buffers[1]->mutable_data(), type.type_codes()[0], length_);
+    }
 
     // For sparse unions, we now create children with the same length as the
     // parent
