@@ -70,44 +70,41 @@ ARROW_NOINLINE int64_t ConsumeVector(Vector v) {
   return reinterpret_cast<intptr_t>(v.data());
 }
 
-// NOTE: The Move* benchmarks measure the overhead of constructing a
-// stack-allocated vector in addition to the actual cost of moving.
-// Unfortunately, other strategies such as allocating a large vector of
-// vectors up front seem to fare even worse.
-
 template <typename Vector>
-void MoveEmptyVector(benchmark::State& state) {
+ARROW_NOINLINE int64_t IngestVector(const Vector& v) {
+  return reinterpret_cast<intptr_t>(v.data());
+}
+
+// With ARROW_NOINLINE, try to make sure the number of items is not constant-propagated
+template <typename Vector>
+ARROW_NOINLINE void BenchmarkMoveVector(benchmark::State& state, Vector vec) {
   constexpr int kNumIters = 1000;
 
   for (auto _ : state) {
     int64_t dummy = 0;
     for (int i = 0; i < kNumIters; ++i) {
-      Vector vec{};
-      dummy += ConsumeVector(std::move(vec));
+      Vector tmp(std::move(vec));
+      dummy += IngestVector(tmp);
+      vec = std::move(tmp);
     }
     benchmark::DoNotOptimize(dummy);
   }
 
-  state.SetItemsProcessed(state.iterations() * kNumIters);
+  state.SetItemsProcessed(state.iterations() * kNumIters * 2);
+}
+
+template <typename Vector>
+void MoveEmptyVector(benchmark::State& state) {
+  BenchmarkMoveVector(state, Vector{});
 }
 
 template <typename Vector>
 void MoveShortVector(benchmark::State& state) {
   using T = typename Vector::value_type;
   constexpr int kSize = 3;
-  constexpr int kNumIters = 1000;
   const auto initializer = ValueInitializer<T>();
 
-  for (auto _ : state) {
-    int64_t dummy = 0;
-    for (int i = 0; i < kNumIters; ++i) {
-      Vector vec(kSize, initializer);
-      dummy += ConsumeVector(std::move(vec));
-    }
-    benchmark::DoNotOptimize(dummy);
-  }
-
-  state.SetItemsProcessed(state.iterations() * kNumIters);
+  BenchmarkMoveVector(state, Vector(kSize, initializer));
 }
 
 template <typename Vector>
@@ -157,8 +154,7 @@ ARROW_NOINLINE void BenchmarkConstructFromStdVector(benchmark::State& state,
     int64_t dummy = 0;
     for (int i = 0; i < kNumIters; ++i) {
       Vector vec(src);
-      dummy += reinterpret_cast<intptr_t>(vec.data());
-      benchmark::ClobberMemory();
+      dummy += IngestVector(vec);
     }
     benchmark::DoNotOptimize(dummy);
   }
