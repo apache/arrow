@@ -251,9 +251,9 @@ static const gdv_int32 min_str_length = 0;
 #define SPACE_STR(IN_TYPE)                                                              \
   GANDIVA_EXPORT                                                                        \
   const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
+    n = std::min(static_cast<gdv_##IN_TYPE>(max_str_length), n);                        \
+    n = std::max(static_cast<gdv_##IN_TYPE>(min_str_length), n);                        \
     gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
-    n_times = std::min(max_str_length, n_times);                                        \
-    n_times = std::max(min_str_length, n_times);                                        \
     if (n_times <= 0) {                                                                 \
       *out_len = 0;                                                                     \
       return "";                                                                        \
@@ -1769,6 +1769,24 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
 }
 
 FORCE_INLINE
+gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 text_char_count,
+                                      gdv_int32 return_length, const char* fill_text,
+                                      gdv_int32 fill_text_len) {
+  gdv_int32 fill_text_char_count = utf8_length_ignore_invalid(fill_text, fill_text_len);
+  gdv_int32 repeat_times = (return_length - text_char_count) / fill_text_char_count;
+  gdv_int32 return_char_length = repeat_times * fill_text_len + text_len;
+  gdv_int32 mod = (return_length - text_char_count) % fill_text_char_count;
+  gdv_int32 char_len = 0;
+  gdv_int32 fill_index = 0;
+  for (gdv_int32 i = 0; i < mod; i++) {
+    char_len = utf8_char_length(fill_text[fill_index]);
+    fill_index += char_len;
+    return_char_length += char_len;
+  }
+  return return_char_length;
+}
+
+FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
                                  gdv_int32 fill_text_len, gdv_int32* out_len) {
@@ -1798,8 +1816,10 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // case (return_length > text_char_count)
     // case where it needs to copy "fill_text" on the string left. The total number
     // of chars to copy is given by (return_length -  text_char_count)
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, return_length));
+    gdv_int32 return_char_length = evaluate_return_char_length(
+        text_len, text_char_count, return_length, fill_text, fill_text_len);
+    char* ret = reinterpret_cast<gdv_binary>(
+        gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
@@ -1861,8 +1881,10 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   } else {
     // case (return_length > text_char_count)
     // case where it needs to copy "fill_text" on the string right
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, return_length));
+    gdv_int32 return_char_length = evaluate_return_char_length(
+        text_len, text_char_count, return_length, fill_text, fill_text_len);
+    char* ret = reinterpret_cast<gdv_binary>(
+        gdv_fn_context_arena_malloc(context, return_char_length));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
