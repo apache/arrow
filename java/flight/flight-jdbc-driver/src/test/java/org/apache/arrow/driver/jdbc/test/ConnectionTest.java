@@ -27,7 +27,8 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.client.impl.BareArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -158,7 +159,7 @@ public class ConnectionTest {
   public void testGetBasicClientAuthenticatedShouldOpenConnection()
       throws Exception {
 
-    try (BareArrowFlightClientHandler client = BareArrowFlightClientHandler.createNewHandler(
+    try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
         new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
         new SimpleImmutableEntry<>(flightTestUtils.getUsername1(), flightTestUtils.getPassword1()),
         null, allocator, false)) {
@@ -195,7 +196,7 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    try (BareArrowFlightClientHandler client = BareArrowFlightClientHandler.createNewHandler(
+    try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
         new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
         null, null, allocator, false)) {
       assertNotNull(client);

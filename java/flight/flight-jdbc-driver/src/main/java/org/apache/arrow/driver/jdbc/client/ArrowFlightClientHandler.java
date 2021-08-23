@@ -17,30 +17,38 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.util.Preconditions;
 
 /**
- * A wrapper for a {@link FlightClient}.
+ * Handler for a {@link FlightClient}.
  */
 public abstract class ArrowFlightClientHandler implements FlightClientHandler {
-  private final List<CallOption> options = new ArrayList<>();
+  private final Set<CallOption> options = new HashSet<>();
+  private final FlightClient client;
 
-  protected ArrowFlightClientHandler(final CallOption... options) {
-    this(Arrays.asList(options));
+  protected ArrowFlightClientHandler(final FlightClient client, final CallOption... options) {
+    this(client, Arrays.asList(options));
   }
 
-  protected ArrowFlightClientHandler(final Collection<CallOption> options) {
+  protected ArrowFlightClientHandler(final FlightClient client, final Collection<CallOption> options) {
+    this.client = Preconditions.checkNotNull(client);
     this.options.addAll(options);
   }
 
   @Override
-  public final List<CallOption> getOptions() {
-    return options;
+  public final FlightClient getClient() {
+    return client;
+  }
+
+  @Override
+  public final CallOption[] getOptions() {
+    return options.toArray(new CallOption[0]);
   }
 }
