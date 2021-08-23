@@ -24,7 +24,7 @@ namespace util {
 
 AsyncCloseable::AsyncCloseable() = default;
 AsyncCloseable::AsyncCloseable(AsyncCloseable* parent) {
-  AddDependentTask(parent->OnClosed());
+  parent->AddDependentTask(OnClosed());
 }
 
 AsyncCloseable::~AsyncCloseable() {

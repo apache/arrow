@@ -45,7 +45,10 @@ class GatingDoCloseWithUniqueChild : public AsyncCloseable {
       : child_(
             nursery->MakeUniqueCloseable<GatingDoClose>(this, std::move(close_future))) {}
 
-  Future<> DoClose() override { return Future<>::MakeFinished(); }
+  Future<> DoClose() override {
+    child_.reset();
+    return Future<>::MakeFinished();
+  }
 
   std::unique_ptr<GatingDoClose, DestroyingDeleter<GatingDoClose>> child_;
 };
@@ -56,7 +59,10 @@ class GatingDoCloseWithSharedChild : public AsyncCloseable {
       : child_(
             nursery->MakeSharedCloseable<GatingDoClose>(this, std::move(close_future))) {}
 
-  Future<> DoClose() override { return Future<>::MakeFinished(); }
+  Future<> DoClose() override {
+    child_.reset();
+    return Future<>::MakeFinished();
+  }
 
   std::shared_ptr<GatingDoClose> child_;
 };
