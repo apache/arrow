@@ -993,7 +993,7 @@ Structural transforms
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
 | Function name            | Arity      | Input types                                       | Output type         | Notes   |
 +==========================+============+===================================================+=====================+=========+
-| case_when                | Varargs    | Struct of Boolean (Arg 0), Any fixed-width (rest) | Input type          | \(1)    |
+| case_when                | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
 | choose                   | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
@@ -1026,6 +1026,9 @@ Structural transforms
   same type as the value inputs; each row will be the corresponding value from
   the first value datum for which the corresponding Boolean is true, or the
   corresponding value from the 'default' input, or null otherwise.
+
+  Note that currently, while all types are supported, dictionaries will be
+  unpacked.
 
 * \(2) The first input must be an integral type. The rest of the arguments can be
   any type, but must all be the same type or promotable to a common type. Each
