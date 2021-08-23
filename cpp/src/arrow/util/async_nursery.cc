@@ -45,7 +45,7 @@ void AsyncCloseable::AddDependentTask(const Future<>& task) {
   DCHECK(!closed_);
   if (num_tasks_outstanding_.fetch_add(1) == 1) {
     tasks_finished_ = Future<>::Make();
-  };
+  }
   task.AddCallback([this](const Status& st) {
     if (num_tasks_outstanding_.fetch_sub(1) == 1 && closed_.load()) {
       tasks_finished_.MarkFinished(st);
@@ -91,7 +91,7 @@ void AsyncCloseablePimpl::Init(AsyncCloseable* impl) { impl_ = impl; }
 void AsyncCloseablePimpl::Destroy() { impl_->Destroy(); }
 void AsyncCloseablePimpl::SetNursery(Nursery* nursery) { impl_->SetNursery(nursery); }
 
-Nursery::Nursery() : finished_(Future<>::Make()){};
+Nursery::Nursery() : finished_(Future<>::Make()) {}
 
 Status Nursery::WaitForFinish() {
   if (num_closeables_destroyed_.load() != num_closeables_created_.load()) {

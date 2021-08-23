@@ -32,7 +32,8 @@ class GatingDoClose : public AsyncCloseable {
  public:
   GatingDoClose(AsyncCloseable* parent, Future<> close_future)
       : AsyncCloseable(parent), close_future_(std::move(close_future)) {}
-  GatingDoClose(Future<> close_future) : close_future_(std::move(close_future)) {}
+  explicit GatingDoClose(Future<> close_future)
+      : close_future_(std::move(close_future)) {}
 
   Future<> DoClose() override { return close_future_; }
 
@@ -69,7 +70,7 @@ class GatingDoCloseWithSharedChild : public AsyncCloseable {
 
 class GatingDoCloseAsDependentTask : public AsyncCloseable {
  public:
-  GatingDoCloseAsDependentTask(Future<> close_future) {
+  explicit GatingDoCloseAsDependentTask(Future<> close_future) {
     AddDependentTask(std::move(close_future));
   }
 
@@ -119,7 +120,7 @@ void AssertDoesNotCloseEarly() {
   gate.MarkFinished();
   BusyWait(10, [&] { return finished.load(); });
   thread.join();
-};
+}
 
 template <typename T>
 void AssertDoesNotCloseEarlyWithChild() {
@@ -136,7 +137,7 @@ void AssertDoesNotCloseEarlyWithChild() {
   gate.MarkFinished();
   BusyWait(10, [&] { return finished.load(); });
   thread.join();
-};
+}
 
 TEST(AsyncNursery, DoClose) { AssertDoesNotCloseEarly<GatingDoClose>(); }
 
