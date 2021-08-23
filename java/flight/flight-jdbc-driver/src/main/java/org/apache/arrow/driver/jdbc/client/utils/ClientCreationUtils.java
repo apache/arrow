@@ -48,50 +48,59 @@ public class ClientCreationUtils {
   /**
    * Instantiates a new {@link FlightClient} from the provided info.
    *
-   * @param address             the host and port for the connection to be established.
-   * @param keyStoreInfo        the keystore path and keystore password for TLS encryption.
+   * @param host                the host for the connection to be established.
+   * @param port                the port for the connection to be established
+   * @param keyStorePath        the keystore path for TLS encryption.
+   * @param keyStorePassword    the keystore password for TLS encryption.
    * @param allocator           the {@link BufferAllocator} to use.
    * @param middlewareFactories the authentication middleware factory.
    * @param useTls              whether to use TLS encryption.
    * @return a new client associated to its call options.
    */
-  public static FlightClient createNewClient(final Entry<String, Integer> address,
-                                             final Entry<String, String> keyStoreInfo,
+  public static FlightClient createNewClient(final String host, final int port,
+                                             final String keyStorePath, final String keyStorePassword,
                                              final boolean useTls,
                                              final BufferAllocator allocator,
                                              final FlightClientMiddleware.Factory... middlewareFactories)
-          throws GeneralSecurityException, IOException {
-    return createNewClient(address, keyStoreInfo, useTls, allocator, Arrays.asList(middlewareFactories));
+      throws GeneralSecurityException, IOException {
+    return createNewClient(
+        host, port, keyStorePath, keyStorePassword, useTls,
+        allocator, Arrays.asList(middlewareFactories));
   }
 
   /**
    * Creates and get a new {@link FlightClient} and its {@link CallOption}s.
-   * @param address the address.
-   * @param credentials the credentials.
-   * @param keyStoreInfo the KeyStore info.
+   *
+   * @param host      the host.
+   * @param port      the port.
+   * @param username  the username.
+   * @param password  the password.
    * @param allocator the {@link BufferAllocator}.
-   * @param useTls whether to use TLS encryption.
-   * @param options the {@code CallOption}s.
+   * @param useTls    whether to use TLS encryption.
+   * @param options   the {@code CallOption}s.
    * @return a new {@code FlightClient} and its {@code CallOption}s.
    * @throws GeneralSecurityException on error.
-   * @throws IOException on error.
+   * @throws IOException              on error.
    */
-  public static Entry<FlightClient, CallOption[]> createAndGetClientInfo(final Entry<String, Integer> address,
-                                                                         final Entry<String, String> credentials,
-                                                                         final Entry<String, String> keyStoreInfo,
+  public static Entry<FlightClient, CallOption[]> createAndGetClientInfo(final String host, final int port,
+                                                                         final String username, final String password,
+                                                                         final String keyStorePath,
+                                                                         final String keyStorePassword,
                                                                          final BufferAllocator allocator,
                                                                          final boolean useTls,
                                                                          final Collection<CallOption> options)
-          throws GeneralSecurityException, IOException {
+      throws GeneralSecurityException, IOException {
     final Set<CallOption> theseOptions = new HashSet<>(options);
     final FlightClient client;
-    if (credentials != null) {
+    if (username != null) {
       final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
-              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator, authFactory);
-      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, credentials, authFactory));
+          new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+      client =
+          ClientCreationUtils.createNewClient(
+              host, port, keyStorePath, keyStorePassword, useTls, allocator, authFactory);
+      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
     } else {
-      client = ClientCreationUtils.createNewClient(address, keyStoreInfo, useTls, allocator);
+      client = ClientCreationUtils.createNewClient(host, port, keyStorePath, keyStorePassword, useTls, allocator);
     }
     return new SimpleImmutableEntry<>(client, theseOptions.toArray(new CallOption[0]));
   }
@@ -99,26 +108,26 @@ public class ClientCreationUtils {
   /**
    * Instantiates a new {@link FlightClient} from the provided info.
    *
-   * @param address             the host and port for the connection to be established.
-   * @param keyStoreInfo        the keystore path and keystore password for TLS encryption.
+   * @param host                the host for the connection to be established.
+   * @param port                the port for the connection to be established.
+   * @param keyStorePath        the keystore path for TLS encryption.
+   * @param keyStorePassword    the keystore password for TLS encryption.
    * @param allocator           the {@link BufferAllocator} to use.
    * @param middlewareFactories the authentication middleware factory.
    * @param useTls              whether to use TLS encryption.
    * @return a new client associated to its call options.
    */
-  public static FlightClient createNewClient(final Entry<String, Integer> address,
-                                             final Entry<String, String> keyStoreInfo,
+  public static FlightClient createNewClient(final String host, final int port,
+                                             final String keyStorePath, final String keyStorePassword,
                                              final boolean useTls,
                                              final BufferAllocator allocator,
                                              final Collection<FlightClientMiddleware.Factory> middlewareFactories)
       throws GeneralSecurityException, IOException {
-    Preconditions.checkNotNull(address, "Address cannot be null!");
+    Preconditions.checkNotNull(host, "Host cannot be null!");
     Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
     Preconditions.checkNotNull(middlewareFactories, "Middleware factories cannot be null!");
     FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
     middlewareFactories.forEach(clientBuilder::intercept);
-    final String host = address.getKey();
-    final int port = address.getValue();
     Location location;
     if (useTls) {
       location = Location.forGrpcTls(host, port);
@@ -127,9 +136,9 @@ public class ClientCreationUtils {
       location = Location.forGrpcInsecure(host, port);
     }
     clientBuilder.location(location);
-    if (keyStoreInfo != null) {
+    if (keyStorePath != null) {
       Preconditions.checkState(useTls, "KeyStore info cannot be provided when TLS encryption is disabled.");
-      clientBuilder.trustedCertificates(getCertificateStream(keyStoreInfo));
+      clientBuilder.trustedCertificates(getCertificateStream(keyStorePath, keyStorePassword));
     }
     return clientBuilder.build();
   }

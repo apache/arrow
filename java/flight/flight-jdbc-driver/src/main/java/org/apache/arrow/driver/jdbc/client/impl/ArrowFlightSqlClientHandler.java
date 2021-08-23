@@ -54,52 +54,56 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   /**
    * Gets a new client based upon provided info.
    *
-   * @param address      the host and port to use.
-   * @param credentials  the username and password to use.
-   * @param keyStoreInfo the KeyStore path and password to use.
-   * @param allocator    the {@link BufferAllocator}.
-   * @param useTls       whether to use TLS encryption.
-   * @param options      the options.
+   * @param host      the host to use.
+   * @param port      the port to use.
+   * @param username  the username to use.
+   * @param password  the password to use.
+   * @param allocator the {@link BufferAllocator}.
+   * @param useTls    whether to use TLS encryption.
+   * @param options   the options.
    * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
    * @throws GeneralSecurityException If a certificate-related error occurs.
    * @throws IOException              If an error occurs while trying to establish a connection to the
    *                                  client.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final Entry<String, Integer> address,
-                                                             final Entry<String, String> credentials,
-                                                             final Entry<String, String> keyStoreInfo,
-                                                             final BufferAllocator allocator,
-                                                             final boolean useTls,
+  public static ArrowFlightSqlClientHandler createNewHandler(final String host, final int port,
+                                                             final String username, final String password,
+                                                             final String keyStorePath, final String keyStorePassword,
+                                                             final BufferAllocator allocator, final boolean useTls,
                                                              final CallOption... options)
       throws GeneralSecurityException, IOException {
-    return createNewHandler(address, credentials, keyStoreInfo, allocator, useTls, Arrays.asList(options));
+    return createNewHandler(
+        host, port, username, password, keyStorePath, keyStorePassword, allocator, useTls, Arrays.asList(options));
   }
 
   /**
    * Gets a new client based upon provided info.
    *
-   * @param address      the host and port to use.
-   * @param credentials  the username and password to use.
-   * @param keyStoreInfo the KeyStore path and password to use.
-   * @param allocator    the {@link BufferAllocator}.
-   * @param useTls       whether to use TLS encryption.
-   * @param options      the options.
+   * @param host             the host to use.
+   * @param port             the port to use.
+   * @param username         the username to use.
+   * @param password         the password to use.
+   * @param keyStorePath     the KeyStore path to use.
+   * @param keyStorePassword the keyStore password to use.
+   * @param allocator        the {@link BufferAllocator}.
+   * @param useTls           whether to use TLS encryption.
+   * @param options          the options.
    * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
    * @throws GeneralSecurityException If a certificate-related error occurs.
    * @throws IOException              If an error occurs while trying to establish a connection to the
    *                                  client.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final Entry<String, Integer> address,
-                                                             final Entry<String, String> credentials,
-                                                             final Entry<String, String> keyStoreInfo,
+  public static ArrowFlightSqlClientHandler createNewHandler(final String host, final int port,
+                                                             final String username, final String password,
+                                                             final String keyStorePath, final String keyStorePassword,
                                                              final BufferAllocator allocator,
                                                              final boolean useTls,
                                                              final Collection<CallOption> options)
       throws GeneralSecurityException, IOException {
     return createNewHandler(
         ClientCreationUtils.createAndGetClientInfo(
-            address, credentials, keyStoreInfo,
-            allocator, useTls, options));
+            host, port, username, password, keyStorePath,
+            keyStorePassword, allocator, useTls, options));
   }
 
   /**
@@ -115,8 +119,8 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   /**
    * Gets a new client based upon provided info.
    *
-   * @param client       the client.
-   * @param options      the options.
+   * @param client  the client.
+   * @param options the options.
    * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
    */
   public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
@@ -126,9 +130,9 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   @Override
   public List<FlightStream> getStreams(String query) {
     return getInfo(query).getEndpoints().stream()
-            .map(FlightEndpoint::getTicket)
-            .map(ticket -> sqlClient.getStream(ticket, getOptions()))
-            .collect(Collectors.toList());
+        .map(FlightEndpoint::getTicket)
+        .map(ticket -> sqlClient.getStream(ticket, getOptions()))
+        .collect(Collectors.toList());
   }
 
   @Override
