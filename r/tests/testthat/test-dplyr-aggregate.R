@@ -60,9 +60,7 @@ test_that("Can aggregate in Arrow", {
     input %>%
       summarize(total = sum(int)) %>%
       collect(),
-    tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+    tbl
   )
 })
 
@@ -92,8 +90,6 @@ test_that("Group by sum on dataset", {
       arrange(some_grouping) %>%
       collect(),
     tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
   )
 })
 
@@ -134,11 +130,8 @@ test_that("Group by sd on dataset", {
       summarize(sd = sd(int, na.rm = FALSE)) %>%
       arrange(some_grouping) %>%
       collect(),
-    tbl,
-    # ARROW-13497: This is failing because the default is na.rm = FALSE
-    warning = TRUE
+    tbl
   )
-  
 })
 
 test_that("Group by var on dataset", {
