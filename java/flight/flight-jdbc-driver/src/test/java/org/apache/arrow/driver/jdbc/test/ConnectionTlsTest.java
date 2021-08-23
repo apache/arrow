@@ -25,7 +25,6 @@ import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
@@ -138,9 +137,9 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler.createNewHandler(
-                 new SimpleImmutableEntry<>(address.getHost(), address.getPort()),
-                 new SimpleImmutableEntry<>(credentials.getUserName(), credentials.getPassword()),
-                 new SimpleImmutableEntry<>(keyStorePath, keyStorePass), allocator, true)) {
+                 address.getHost(), address.getPort(),
+                 credentials.getUserName(), credentials.getPassword(),
+                 keyStorePath, keyStorePass, allocator, true)) {
       assertNotNull(client);
     }
   }
@@ -158,9 +157,9 @@ public class ConnectionTlsTest {
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler
                  .createNewHandler(
-                     new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
-                     null,
-                     new SimpleImmutableEntry<>(noCertificateKeyStorePath, noCertificateKeyStorePassword),
+                     flightTestUtils.getLocalhost(), tlsServer.getPort(),
+                     null, null,
+                     noCertificateKeyStorePath, noCertificateKeyStorePassword,
                      allocator, true)) {
       Assert.fail();
     }
@@ -176,9 +175,8 @@ public class ConnectionTlsTest {
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler
                  .createNewHandler(
-                     new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
-                     null, new SimpleImmutableEntry<>(keyStorePath, keyStorePass),
-                     allocator, true)) {
+                     flightTestUtils.getLocalhost(), tlsServer.getPort(),
+                     null, null, keyStorePath, keyStorePass, allocator, true)) {
       assertNotNull(client);
     }
   }
@@ -195,8 +193,8 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler.createNewHandler(
-                 new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), tlsServer.getPort()),
-                 null, new SimpleImmutableEntry<>(keyStorePath, keyStoreBadPassword),
+                 flightTestUtils.getLocalhost(), tlsServer.getPort(),
+                 null, null, keyStorePath, keyStoreBadPassword,
                  allocator, true)) {
       Assert.fail();
     }

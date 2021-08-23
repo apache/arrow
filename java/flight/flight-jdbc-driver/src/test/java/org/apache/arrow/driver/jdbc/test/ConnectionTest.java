@@ -23,7 +23,6 @@ import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
@@ -160,9 +159,9 @@ public class ConnectionTest {
       throws Exception {
 
     try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
-        new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
-        new SimpleImmutableEntry<>(flightTestUtils.getUsername1(), flightTestUtils.getPassword1()),
-        null, allocator, false)) {
+        flightTestUtils.getLocalhost(), server.getPort(),
+        flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
+        null, null, allocator, false)) {
       assertNotNull(client);
     }
   }
@@ -197,8 +196,9 @@ public class ConnectionTest {
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
     try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
-        new SimpleImmutableEntry<>(flightTestUtils.getLocalhost(), server.getPort()),
-        null, null, allocator, false)) {
+        flightTestUtils.getLocalhost(), server.getPort(),
+        null, null, null, null,
+        allocator, false)) {
       assertNotNull(client);
     }
   }

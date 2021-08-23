@@ -30,9 +30,7 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.sql.SQLException;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.HashSet;
-import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -108,18 +106,12 @@ public class ArrowFlightConnection extends AvaticaConnection {
                                                           final BufferAllocator allocator)
       throws SQLException {
     final PropertyManager manager = new PropertyManager(info);
-    final Entry<String, Integer> address =
-        new SimpleImmutableEntry<>(manager.getPropertyAsString(HOST), manager.getPropertyAsInteger(PORT));
-    final String username = manager.getPropertyAsString(USERNAME);
-    final Entry<String, String> credentials =
-        username == null ? null : new SimpleImmutableEntry<>(username, manager.getPropertyAsString(PASSWORD));
-    final String keyStorePath = manager.getPropertyAsString(KEYSTORE_PATH);
-    final Entry<String, String> keyStoreInfo =
-        keyStorePath == null ? null :
-            new SimpleImmutableEntry<>(keyStorePath, manager.getPropertyAsString(KEYSTORE_PASS));
     try {
       final FlightClientHandler handler = ArrowFlightSqlClientHandler.createNewHandler(
-          address, credentials, keyStoreInfo, allocator, manager.getPropertyAsBoolean(USE_TLS), manager.toCallOption());
+          manager.getPropertyAsString(HOST), manager.getPropertyAsInteger(PORT),
+          manager.getPropertyAsString(USERNAME), manager.getPropertyAsString(PASSWORD),
+          manager.getPropertyAsString(KEYSTORE_PATH), manager.getPropertyAsString(KEYSTORE_PASS),
+          allocator, manager.getPropertyAsBoolean(USE_TLS), manager.toCallOption());
       return new ArrowFlightConnection(driver, factory, url, manager, allocator, handler);
     } catch (final GeneralSecurityException | IOException e) {
       manager.close();

@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Map.Entry;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.flight.CallOption;
@@ -53,30 +52,23 @@ public final class ClientAuthenticationUtils {
   }
 
   /**
-   * Helper method to authenticate provided {@link FlightClient} instance
-   * against an Arrow Flight server endpoint.
+   * Gets the {@link CredentialCallOption} for the provided authentication info.
    *
-   * @param client      the FlightClient instance to connect to Arrow Flight.
-   * @param credentials the Arrow Flight server username and password.
-   * @param factory     the factory to create {@link ClientIncomingAuthHeaderMiddleware}.
-   * @param options     the options.
-   * @return the call option encapsulating the bearer token to use in subsequent requests.
+   * @param client   the client.
+   * @param username the username.
+   * @param password the password.
+   * @param factory  the {@link ClientIncomingAuthHeaderMiddleware.Factory} to use.
+   * @param options  the {@link CallOption}s to use.
+   * @return the credential call option.
    */
-  public static CredentialCallOption getAuthenticate(final FlightClient client, final Entry<String, String> credentials,
+  public static CredentialCallOption getAuthenticate(final FlightClient client,
+                                                     final String username, final String password,
                                                      final ClientIncomingAuthHeaderMiddleware.Factory factory,
                                                      final CallOption... options) {
-    return getAuthenticate(client, credentials.getKey(), credentials.getValue(), factory, options);
-  }
-
-
-  private static CredentialCallOption getAuthenticate(final FlightClient client,
-                                                      final String username, final String password,
-                                                      final ClientIncomingAuthHeaderMiddleware.Factory factory,
-                                                      final CallOption... options) {
 
     return getAuthenticate(client,
-        new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
-        factory, options);
+            new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
+            factory, options);
   }
 
   private static CredentialCallOption getAuthenticate(final FlightClient client,
@@ -94,27 +86,22 @@ public final class ClientAuthenticationUtils {
    * Generates an {@link InputStream} that contains certificates for a private
    * key.
    *
-   * @param keyStoreInfo The path and password of the KeyStore.
+   * @param keyStorePath The path of the KeyStore.
+   * @param keyStorePass The password of the KeyStore.
    * @return a new {code InputStream} containing the certificates.
    * @throws GeneralSecurityException on error.
    * @throws IOException              on error.
    */
-  public static InputStream getCertificateStream(final Entry<String, String> keyStoreInfo)
-      throws GeneralSecurityException, IOException {
-    Preconditions.checkNotNull(keyStoreInfo, "KeyStore info cannot be null!");
-    return getCertificateStream(keyStoreInfo.getKey(), keyStoreInfo.getValue());
-  }
-
-  private static InputStream getCertificateStream(final String keyStorePath, final String keyStorePass)
-      throws GeneralSecurityException, IOException {
+  public static InputStream getCertificateStream(final String keyStorePath, final String keyStorePass)
+          throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(keyStorePath, "KeyStore path cannot be null!");
     Preconditions.checkNotNull(keyStorePass, "KeyStorePass cannot be null!");
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
     try (final InputStream keyStoreStream = Files
-        .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
+            .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
       keyStore.load(keyStoreStream,
-          Preconditions.checkNotNull(keyStorePass).toCharArray());
+              Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
     final Enumeration<String> aliases = keyStore.aliases();
@@ -130,7 +117,7 @@ public final class ClientAuthenticationUtils {
   }
 
   private static InputStream toInputStream(final Certificate certificate)
-      throws IOException {
+          throws IOException {
 
     try (final StringWriter writer = new StringWriter();
          final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
@@ -138,7 +125,7 @@ public final class ClientAuthenticationUtils {
       pemWriter.writeObject(certificate);
       pemWriter.flush();
       return new ByteArrayInputStream(
-          writer.toString().getBytes(StandardCharsets.UTF_8));
+              writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 }
