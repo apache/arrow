@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -34,30 +35,57 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
+class AlignedStorage {
+ public:
+  static constexpr bool can_memcpy =
+      std::is_trivially_destructible<T>::value && std::is_trivially_copyable<T>::value;
+
+  T* get() { return launder(reinterpret_cast<T*>(&data_)); }
+  constexpr const T* get() const { return launder(reinterpret_cast<const T*>(&data_)); }
+
+  void destroy() noexcept {
+    if (!std::is_trivially_destructible<T>::value) {
+      get()->~T();
+    }
+  }
+
+  template <typename... A>
+  void construct(A&&... args) noexcept {
+    new (get()) T(std::forward<A>(args)...);
+  }
+
+  template <typename V>
+  void assign(V&& v) noexcept {
+    *get() = std::forward<V>(v);
+  }
+
+  void move_construct(AlignedStorage* other) noexcept {
+    new (get()) T(std::move(*other->get()));
+  }
+
+  void move_assign(AlignedStorage* other) noexcept { *get() = std::move(*other->get()); }
+
+ private:
+  typename std::aligned_storage<sizeof(T), alignof(T)>::type data_;
+};
+
+template <typename T>
 struct StaticVectorMixin {
-  // properly aligned uninitialized storage for N T's
-  using storage_type = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+  using storage_type = AlignedStorage<T>;
 
-  static T* ptr_at(storage_type* p, size_t i) {
-    return launder(reinterpret_cast<T*>(&p[i]));
-  }
-
-  static constexpr const T* ptr_at(const storage_type* p, size_t i) {
-    return launder(reinterpret_cast<const T*>(&p[i]));
-  }
-
-  static void move_storage(storage_type* src, storage_type* dest, size_t n) {
+  static void move_construct_storage(storage_type* src, storage_type* dest, size_t n,
+                                     bool destroy_source = false) {
     for (size_t i = 0; i < n; ++i) {
-      T* src_item = ptr_at(src, i);
-      T* dest_item = ptr_at(dest, i);
-      new (dest_item) T(std::move(*src_item));
-      src_item->~T();
+      dest[i].move_construct(&src[i]);
+      if (destroy_source) {
+        src[i].destroy();
+      }
     }
   }
 
   static void destroy_storage(storage_type* p, size_t n) {
     for (size_t i = 0; i < n; ++i) {
-      ptr_at(p, i)->~T();
+      p[i].destroy();
     }
   }
 };
@@ -69,7 +97,7 @@ struct StaticVectorStorageBase : public StaticVectorMixin<T> {
   storage_type static_data_[N];
   size_t size_ = 0;
 
-  void destroy() {}
+  void destroy() noexcept {}
 };
 
 template <typename T, size_t N>
@@ -94,9 +122,9 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
 
   StaticVectorStorage() noexcept = default;
 
-  T* data_ptr() { return this->ptr_at(static_data_, 0); }
+  storage_type* storage_ptr() { return static_data_; }
 
-  constexpr const T* const_data_ptr() const { return this->ptr_at(static_data_, 0); }
+  constexpr const storage_type* const_storage_ptr() const { return static_data_; }
 
   // Adjust storage size, but don't initialize any objects
   void bump_size(size_t addend) {
@@ -116,10 +144,17 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
   // stored in *this.
   // You need to call destroy() first if necessary (e.g. in a
   // move assignment operator).
-  void move_from(StaticVectorStorage&& other) noexcept {
+  void move_construct(StaticVectorStorage&& other) noexcept {
     size_ = other.size_;
-    this->move_storage(other.static_data_, static_data_, size_);
-    other.size_ = 0;
+    if (size_ != 0) {
+      if (storage_type::can_memcpy) {
+        // memcpy with a small compile-time constant size will be compiled
+        // as a very fast sequence as CPU instructions
+        memcpy(static_data_, other.static_data_, N * sizeof(T));
+      } else {
+        this->move_construct_storage(other.static_data_, static_data_, size_);
+      }
+    }
   }
 
   constexpr size_t capacity() const { return N; }
@@ -132,6 +167,10 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
     this->destroy_storage(static_data_, size_);
     size_ = 0;
   }
+
+ private:
+  static constexpr bool can_memcpy =
+      std::is_trivially_destructible<T>::value && std::is_trivially_copyable<T>::value;
 };
 
 template <typename T, size_t N>
@@ -147,9 +186,9 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
 
   ~SmallVectorStorage() { destroy(); }
 
-  T* data_ptr() { return this->ptr_at(data_, 0); }
+  storage_type* storage_ptr() { return data_; }
 
-  constexpr const T* const_data_ptr() const { return this->ptr_at(data_, 0); }
+  constexpr const storage_type* const_storage_ptr() const { return data_; }
 
   void bump_size(size_t addend) {
     const size_t new_size = size_ + addend;
@@ -174,24 +213,28 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
     size_ -= reduce_by;
   }
 
-  void destroy() {
+  void destroy() noexcept {
     this->destroy_storage(data_, size_);
     if (dynamic_capacity_) {
       delete[] data_;
     }
   }
 
-  void move_from(SmallVectorStorage&& other) noexcept {
+  void move_construct(SmallVectorStorage&& other) noexcept {
     size_ = other.size_;
     dynamic_capacity_ = other.dynamic_capacity_;
     if (dynamic_capacity_) {
       data_ = other.data_;
-      other.data_ = NULLPTR;
+      other.data_ = other.static_data_;
       other.dynamic_capacity_ = 0;
-    } else {
-      this->move_storage(other.data_, data_, size_);
+      other.size_ = 0;
+    } else if (size_ != 0) {
+      if (storage_type::can_memcpy) {
+        memcpy(static_data_, other.static_data_, N * sizeof(T));
+      } else {
+        this->move_construct_storage(other.data_, data_, size_);
+      }
     }
-    other.size_ = 0;
   }
 
   constexpr size_t capacity() const { return dynamic_capacity_ ? dynamic_capacity_ : N; }
@@ -217,13 +260,13 @@ struct SmallVectorStorage : public StaticVectorMixin<T> {
   void switch_to_dynamic(size_t new_capacity) {
     dynamic_capacity_ = new_capacity;
     data_ = new storage_type[new_capacity];
-    this->move_storage(static_data_, data_, size_);
+    this->move_construct_storage(static_data_, data_, size_, /*destroy_source=*/true);
   }
 
   void reallocate_dynamic(size_t new_capacity) {
     assert(new_capacity >= size_);
     auto new_data = new storage_type[new_capacity];
-    this->move_storage(data_, new_data, size_);
+    this->move_construct_storage(data_, new_data, size_, /*destroy_source=*/true);
     delete[] data_;
     dynamic_capacity_ = new_capacity;
     data_ = new_data;
@@ -235,9 +278,11 @@ class StaticVectorImpl {
  private:
   Storage storage_;
 
-  T* data_ptr() { return storage_.data_ptr(); }
+  T* data_ptr() { return storage_.storage_ptr()->get(); }
 
-  constexpr const T* const_data_ptr() const { return storage_.const_data_ptr(); }
+  constexpr const T* const_data_ptr() const {
+    return storage_.const_storage_ptr()->get();
+  }
 
  public:
   using size_type = size_t;
@@ -256,13 +301,14 @@ class StaticVectorImpl {
 
   // Move and copy constructors
   StaticVectorImpl(StaticVectorImpl&& other) noexcept {
-    storage_.move_from(std::move(other.storage_));
+    storage_.move_construct(std::move(other.storage_));
   }
 
   StaticVectorImpl& operator=(StaticVectorImpl&& other) noexcept {
-    if (&other != this) {
+    if (ARROW_PREDICT_TRUE(&other != this)) {
+      // TODO move_assign?
       storage_.destroy();
-      storage_.move_from(std::move(other.storage_));
+      storage_.move_construct(std::move(other.storage_));
     }
     return *this;
   }
@@ -272,10 +318,9 @@ class StaticVectorImpl {
   }
 
   StaticVectorImpl& operator=(const StaticVectorImpl& other) noexcept {
-    if (&other == this) {
-      return *this;
+    if (ARROW_PREDICT_TRUE(&other != this)) {
+      assign_by_copying(other.storage_.size_, other.data());
     }
-    assign_by_copying(other.storage_.size_, other.data());
     return *this;
   }
 
@@ -301,26 +346,26 @@ class StaticVectorImpl {
   // Constructing from count and optional initialization value
   explicit StaticVectorImpl(size_t count) {
     storage_.bump_size(count);
-    auto* p = data_ptr();
+    auto* p = storage_.storage_ptr();
     for (size_t i = 0; i < count; ++i) {
-      new (&p[i]) T();
+      p[i].construct();
     }
   }
 
   StaticVectorImpl(size_t count, const T& value) {
     storage_.bump_size(count);
-    auto* p = data_ptr();
+    auto* p = storage_.storage_ptr();
     for (size_t i = 0; i < count; ++i) {
-      new (&p[i]) T(value);
+      p[i].construct(value);
     }
   }
 
   StaticVectorImpl(std::initializer_list<T> values) {
     storage_.bump_size(values.size());
-    auto* p = data_ptr();
+    auto* p = storage_.storage_ptr();
     for (auto&& v : values) {
       // Unfortunately, cannot move initializer values
-      new (p++) T(v);
+      p++->construct(v);
     }
   }
 
@@ -398,18 +443,18 @@ class StaticVectorImpl {
 
   void push_back(const T& value) {
     storage_.bump_size(1);
-    new (data_ptr() + storage_.size_ - 1) T(value);
+    storage_.storage_ptr()[storage_.size_ - 1].construct(value);
   }
 
   void push_back(T&& value) {
     storage_.bump_size(1);
-    new (data_ptr() + storage_.size_ - 1) T(std::move(value));
+    storage_.storage_ptr()[storage_.size_ - 1].construct(std::move(value));
   }
 
   template <typename... Args>
   void emplace_back(Args&&... args) {
     storage_.bump_size(1);
-    new (data_ptr() + storage_.size_ - 1) T(std::forward<Args>(args)...);
+    storage_.storage_ptr()[storage_.size_ - 1].construct(std::forward<Args>(args)...);
   }
 
   template <typename InputIt>
@@ -418,46 +463,46 @@ class StaticVectorImpl {
     const size_t it_size = static_cast<size_t>(last - first);  // XXX might be O(n)?
     const size_t pos = static_cast<size_t>(insert_at - const_data_ptr());
     storage_.bump_size(it_size);
-    auto* p = data_ptr();
+    auto* p = storage_.storage_ptr();
     if (it_size == 0) {
-      return p + pos;
+      return p[pos].get();
     }
     const size_t end_pos = pos + it_size;
 
     // Move [pos; n) to [end_pos; end_pos + n - pos)
     size_t i = n;
     size_t j = end_pos + n - pos;
-    while (i > pos && j > n) {
-      new (&p[--j]) T(std::move(p[--i]));
+    while (j > std::max(n, end_pos)) {
+      p[--j].move_construct(&p[--i]);
     }
-    while (i > pos) {
-      p[--j] = std::move(p[--i]);
+    while (j > end_pos) {
+      p[--j].move_assign(&p[--i]);
     }
     assert(j == end_pos);
     // Copy [first; last) to [pos; end_pos)
     j = pos;
     while (j < std::min(n, end_pos)) {
-      p[j++] = *first++;
+      p[j++].assign(*first++);
     }
     while (j < end_pos) {
-      new (&p[j++]) T(*first++);
+      p[j++].construct(*first++);
     }
     assert(first == last);
-    return p + pos;
+    return p[pos].get();
   }
 
   void resize(size_t n) {
     const size_t old_size = storage_.size_;
     if (n > storage_.size_) {
       storage_.bump_size(n - old_size);
-      auto* p = data_ptr();
+      auto* p = storage_.storage_ptr();
       for (size_t i = old_size; i < n; ++i) {
-        new (&p[i]) T{};
+        p[i].construct(T{});
       }
     } else {
-      auto* p = data_ptr();
+      auto* p = storage_.storage_ptr();
       for (size_t i = n; i < old_size; ++i) {
-        p[i].~T();
+        p[i].destroy();
       }
       storage_.reduce_size(old_size - n);
     }
@@ -467,14 +512,14 @@ class StaticVectorImpl {
     const size_t old_size = storage_.size_;
     if (n > storage_.size_) {
       storage_.bump_size(n - old_size);
-      auto* p = data_ptr();
+      auto* p = storage_.storage_ptr();
       for (size_t i = old_size; i < n; ++i) {
-        new (&p[i]) T(value);
+        p[i].construct(value);
       }
     } else {
-      auto* p = data_ptr();
+      auto* p = storage_.storage_ptr();
       for (size_t i = n; i < old_size; ++i) {
-        p[i].~T();
+        p[i].destroy();
       }
       storage_.reduce_size(old_size - n);
     }
@@ -484,9 +529,9 @@ class StaticVectorImpl {
   template <typename InputIt>
   void init_by_copying(size_t n, InputIt src) {
     storage_.bump_size(n);
-    auto* dest = data_ptr();
+    auto* dest = storage_.storage_ptr();
     for (size_t i = 0; i < n; ++i, ++src) {
-      new (&dest[i]) T(*src);
+      dest[i].construct(*src);
     }
   }
 
@@ -500,20 +545,20 @@ class StaticVectorImpl {
     const size_t old_size = storage_.size_;
     if (n > old_size) {
       storage_.bump_size(n - old_size);
-      auto* dest = data_ptr();
+      auto* dest = storage_.storage_ptr();
       for (size_t i = 0; i < old_size; ++i, ++src) {
-        dest[i] = *src;
+        dest[i].assign(*src);
       }
       for (size_t i = old_size; i < n; ++i, ++src) {
-        new (&dest[i]) T(*src);
+        dest[i].construct(*src);
       }
     } else {
-      auto* dest = data_ptr();
+      auto* dest = storage_.storage_ptr();
       for (size_t i = 0; i < n; ++i, ++src) {
-        dest[i] = *src;
+        dest[i].assign(*src);
       }
       for (size_t i = n; i < old_size; ++i) {
-        dest[i].~T();
+        dest[i].destroy();
       }
       storage_.reduce_size(old_size - n);
     }

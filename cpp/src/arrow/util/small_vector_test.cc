@@ -405,13 +405,12 @@ class TestSmallStaticVector : public ::testing::Test {
 
     IntVectorType<N> moved_ints(std::move(ints));
     ASSERT_EQ(moved_ints.size(), 5);
-    ASSERT_EQ(ints.size(), 0);
     EXPECT_THAT(moved_ints, ElementsAre(4, 5, 6, 7, 8));
     ASSERT_EQ(UsesStaticStorage(moved_ints), !expect_overflow);
+    ASSERT_TRUE(UsesStaticStorage(ints));
 
     IntVectorType<N> moved_moved_ints = std::move(moved_ints);
     ASSERT_EQ(moved_moved_ints.size(), 5);
-    ASSERT_EQ(moved_ints.size(), 0);
     EXPECT_THAT(moved_moved_ints, ElementsAre(4, 5, 6, 7, 8));
 
     // Move into itself
