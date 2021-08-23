@@ -887,6 +887,39 @@ TEST_F(TestProjector, TestQuote) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_quote, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestChr) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_chr = field("chr", arrow::utf8());
+
+  // Build expression
+  auto chr_expr = TreeExprBuilder::MakeExpression("chr", {field0}, field_chr);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {chr_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({65, 84, 0, 340}, {true, true, true, true});
+  // expected output
+  auto exp_chr = MakeArrowArrayUtf8({"A", "T", "", "T"}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_chr, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestBase64) {
   // schema for input fields
   auto field0 = field("f0", arrow::binary());

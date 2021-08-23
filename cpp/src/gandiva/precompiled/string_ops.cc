@@ -1363,6 +1363,26 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   return static_cast<gdv_int32>(data[0]);
 }
 
+// Returns the ASCII character having the binary equivalent to A.
+// If A is larger than 256 the result is equivalent to chr(A % 256).
+GANDIVA_EXPORT
+const char* chr_int32(gdv_int64 context, gdv_int32 in, gdv_int32* out_len) {
+  in = in > 255 ? in % 256 : in;
+  if (in <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  *out_len = 1;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  ret[0] = in;
+  return ret;
+}
+
 FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
