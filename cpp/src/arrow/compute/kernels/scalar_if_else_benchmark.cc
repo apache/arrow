@@ -331,45 +331,6 @@ static void CoalesceScalarStringBench(benchmark::State& state) {
 }
 
 template <typename Type>
-static void FillNullScalarBench(benchmark::State& state) {
-  using CType = typename Type::c_type;
-  auto type = TypeTraits<Type>::type_singleton();
-
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-
-  random::RandomArrayGenerator rand(/*seed=*/0);
-
-  std::vector<Datum> arguments = {
-      rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset),
-      Datum(CType(42)),
-  };
-
-  for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("fill_null", arguments));
-  }
-
-  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
-}
-
-static void FillNullScalarStringBench(benchmark::State& state) {
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-
-  random::RandomArrayGenerator rand(/*seed=*/0);
-
-  auto arr = rand.ArrayOf(utf8(), len, /*null_probability=*/0.25)->Slice(offset);
-  std::vector<Datum> arguments = {arr, Datum("foobar")};
-
-  for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("fill_null", arguments));
-  }
-
-  state.SetBytesProcessed(state.iterations() *
-                          static_cast<const StringArray&>(*arr).total_values_length());
-}
-
-template <typename Type>
 static void CoalesceNonNullBench(benchmark::State& state) {
   using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
@@ -398,10 +359,6 @@ static void CoalesceBench64(benchmark::State& state) {
 
 static void CoalesceScalarBench64(benchmark::State& state) {
   return CoalesceScalarBench<Int64Type>(state);
-}
-
-static void FillNullScalarBench64(benchmark::State& state) {
-  return FillNullScalarBench<Int64Type>(state);
 }
 
 static void CoalesceNonNullBench64(benchmark::State& state) {
@@ -476,9 +433,7 @@ BENCHMARK(CoalesceBench64)->Args({kNumItems, 0});
 BENCHMARK(CoalesceBench64)->Args({kNumItems, 99});
 
 BENCHMARK(CoalesceScalarBench64)->Args({kNumItems, 0});
-BENCHMARK(FillNullScalarBench64)->Args({kNumItems, 0});
 BENCHMARK(CoalesceScalarStringBench)->Args({kNumItems, 0});
-BENCHMARK(FillNullScalarStringBench)->Args({kNumItems, 0});
 
 BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 0});
 BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 99});

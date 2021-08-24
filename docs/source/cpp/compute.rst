@@ -47,9 +47,8 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, the ``fill_null`` function requires its second input
-to be a scalar, while ``sort_indices`` requires its first and only input to
-be an array.
+either.  For example, while ``sort_indices`` requires its first and only
+input to be an array.
 
 Invoking functions
 ------------------
@@ -1034,9 +1033,7 @@ depending on a condition.
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 | coalesce         | Varargs    | Any                                               | Input type          | \(3)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
-| fill_null        | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(4)    |
-+------------------+------------+---------------------------------------------------+---------------------+---------+
-| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(5)    |
+| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(4)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL "case when" statement or switch-case. The
@@ -1062,11 +1059,7 @@ depending on a condition.
 * \(3) Each row of the output will be the corresponding value of the first
   input which is non-null for that row, otherwise null.
 
-* \(4) First input must be an array, second input a scalar of the same type.
-  Output is an array of the same type as the inputs, and with the same values
-  as the first input, except for nulls replaced with the second input value.
-
-* \(5) First input must be a Boolean scalar or array. Second and third inputs
+* \(4) First input must be a Boolean scalar or array. Second and third inputs
   could be scalars or arrays and must be of the same type. Output is an array
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the

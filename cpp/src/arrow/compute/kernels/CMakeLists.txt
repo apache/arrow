@@ -29,7 +29,6 @@ add_arrow_compute_test(scalar_test
                        scalar_string_test.cc
                        scalar_temporal_test.cc
                        scalar_validity_test.cc
-                       scalar_fill_null_test.cc
                        scalar_if_else_test.cc
                        test_util.cc)
 
