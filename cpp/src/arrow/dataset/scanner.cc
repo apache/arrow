@@ -241,7 +241,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
   }
 
   void PushScanTask() {
-    if (no_more_tasks) return;
+    if (no_more_tasks || !task_group->ok()) {
+      return;
+    }
     std::unique_lock<std::mutex> lock(mutex);
     auto maybe_task = scan_tasks.Next();
     if (!maybe_task.ok()) {
@@ -260,12 +262,18 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
 
     lock.unlock();
     task_group->Append([state, id, scan_task]() {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
-      for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
-        state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
-      }
-      return state->Finish(id);
+      // If we were to return an error to the task group, subsequent tasks
+      // may never be executed, which would produce a deadlock in Pop()
+      // (ARROW-13480).
+      auto status_unused = [&]() {
+        ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
+        for (auto maybe_batch : batch_it) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
+          state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
+        }
+        return state->Finish(id);
+      }();
+      return Status::OK();
     });
   }
 
@@ -289,6 +297,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
       // all scan tasks drained (or getting next task failed), terminate
       return true;
     });
+
+    // We're not bubbling any task errors into the task group
+    DCHECK(task_group->ok());
 
     if (pop_cursor == task_batches.size()) {
       // Don't report an error until we yield up everything we can first
