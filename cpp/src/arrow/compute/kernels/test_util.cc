@@ -183,12 +183,11 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                    ArrayFromJSON(out_ty, json_expected), options);
 }
 
-void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
+void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options) {
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}, options));
-  std::shared_ptr<Array> actual = std::move(out).make_array();
-  ValidateOutput(*actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, {input}, options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
 void CheckScalarBinary(std::string func_name, Datum left_input, Datum right_input,
