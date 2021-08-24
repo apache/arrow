@@ -167,7 +167,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
 
     if (command.is(TicketStatementQuery.class)) {
       getStreamStatement(
-          FlightSqlUtils.unpackOrThrow(command, TicketStatementQuery.class), context, listener, ticket);
+          FlightSqlUtils.unpackOrThrow(command, TicketStatementQuery.class), context, ticket, listener);
     } else if (command.is(CommandPreparedStatementQuery.class)) {
       getStreamPreparedStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandPreparedStatementQuery.class), context, ticket, listener);
@@ -321,12 +321,12 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Returns data for a SQL query based data stream.
    *
-   * @param ticket   The application-defined ticket identifying this stream.
    * @param context  Per-call context.
+   * @param ticket   The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
   void getStreamStatement(TicketStatementQuery ticketStatementQuery, CallContext context,
-                          ServerStreamListener listener, Ticket ticket);
+                          Ticket ticket, ServerStreamListener listener);
 
   /**
    * Returns data for a particular prepared statement query instance.
