@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stdint.h>
+
 #include "arrow/c/abi.h"
 
 #ifdef __cplusplus
@@ -25,26 +26,31 @@ extern "C" {
 #endif
 
 #define DS_PARQUET_FORMAT 0
-#define DS_CSV_FORMAT     1
-#define DS_IPC_FORMAT     2
+#define DS_CSV_FORMAT 1
+#define DS_IPC_FORMAT 2
 
 extern const int kInspectAllFragments;
 #define DEFAULT_NUM_FRAGMENTS 1
 #define DISABLE_INSPECT_FRAGMENTS 0
 
-typedef uintptr_t Dataset;
-typedef uintptr_t DatasetFactory;
-typedef uintptr_t Scanner;
+struct Dataset {
+    int (*get_schema)(struct Dataset* dataset, struct ArrowSchema* out);
+    const char* (*get_dataset_type_name)(struct Dataset*);
+    const char* (*last_error)(struct Dataset*);
+    void (*release)(struct Dataset*);
+    void* private_data;
+};
 
-DatasetFactory factory_from_path(const char* uri, const int file_format_id);
-void release_dataset_factory(DatasetFactory factory);
-struct ArrowSchema inspect_schema(DatasetFactory factory, const int num_fragments);
+struct DatasetFactory {
+  int (*inspect_schema)(struct DatasetFactory* factory, const int num_fragments_to_inspect, struct ArrowSchema* out);
+  int (*create_dataset)(struct DatasetFactory* factory, struct Dataset* out);
+  const char* (*last_error)(struct DatasetFactory* factory);
+  void (*release)(struct DatasetFactory*);
+  void* private_data;
+};
 
-Dataset create_dataset(DatasetFactory factory);
-void close_dataset(Dataset dataset_id);
-struct ArrowSchema get_dataset_schema(Dataset dataset_id);
+int dataset_factory_from_path(const char* uri, const int file_format_id, struct DatasetFactory* out);
 
-const char* dataset_type_name(Dataset dataset_id);
 #ifdef __cplusplus
 }
 #endif

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	dsf, err := dataset.CreateDatasetFactory("file:///home/vscode/arrow/go/dataset/cmd/test/example.parquet")
+	dsf, err := dataset.CreateDatasetFactory("file:///workspace/example.parquet")
 	if err != nil {
 		log.Fatal(err)
 	}

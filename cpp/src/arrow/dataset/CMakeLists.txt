@@ -20,7 +20,7 @@ add_custom_target(arrow_dataset)
 arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
-    c/wrappers.cc
+    c/dataset.cc
     dataset.cc
     discovery.cc
     file_base.cc
