@@ -17,3 +17,5 @@
 
 _build
 source/python/generated
+venv/
+bigfile.arrow

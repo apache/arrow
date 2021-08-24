@@ -140,8 +140,6 @@ variants which detect domain errors.
    log1p_checked
    log2
    log2_checked
-   logb
-   logb_checked
 
 Trigonometric Functions
 -----------------------
@@ -226,6 +224,7 @@ characters of a given class.
    ascii_is_lower
    ascii_is_printable
    ascii_is_space
+   ascii_is_title
    ascii_is_upper
    utf8_is_alnum
    utf8_is_alpha
@@ -235,6 +234,7 @@ characters of a given class.
    utf8_is_numeric
    utf8_is_printable
    utf8_is_space
+   utf8_is_title
    utf8_is_upper
 
 The second set of functions also consider the order of characters
@@ -345,7 +345,39 @@ String Slicing
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_center
+   ascii_lower
+   ascii_lpad
+   ascii_ltrim
+   ascii_ltrim_whitespace
+   ascii_reverse
+   ascii_rpad
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_trim
+   ascii_trim_whitespace
+   ascii_upper
+   binary_length
+   binary_replace_slice
+   replace_substring
+   replace_substring_regex
+   utf8_center
+   utf8_length
+   utf8_lower
+   utf8_lpad
+   utf8_ltrim
+   utf8_ltrim_whitespace
+   utf8_replace_slice
+   utf8_reverse
+   utf8_rpad
+   utf8_rtrim
+   utf8_rtrim_whitespace
    utf8_slice_codeunits
+   utf8_swapcase
+   utf8_title
+   utf8_trim
+   utf8_trim_whitespace
+   utf8_upper
 
 Containment Tests
 -----------------
@@ -490,6 +522,16 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   binary_length
+   case_when
+   coalesce
+   fill_null
+   if_else
+   is_finite
+   is_inf
+   is_nan
+   is_null
+   is_valid
    list_element
    list_flatten
    list_parent_indices
