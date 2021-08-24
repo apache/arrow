@@ -177,11 +177,11 @@ class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
 
     auto col_vector = to_string_vec(columns, n_cols);
     if (!col_vector.empty()) {
-      builder->Project(col_vector);
+      RETURN_NOT_OK(builder->Project(col_vector));
     }
 
-    builder->BatchSize(batch_size);
-    builder->UseThreads(true);
+    RETURN_NOT_OK(builder->BatchSize(batch_size));
+    RETURN_NOT_OK(builder->UseThreads(true));
 
     ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
     return ExportScanner(scanner, out);

@@ -112,7 +112,8 @@ x-hierarchy:
     - debian-c-glib:
       - debian-ruby
     - debian-python
-  - debian-go
+  - debian-go:
+    - debian-go-cgo
   - debian-java:
     - debian-java-jni
   - debian-js
@@ -1195,6 +1196,28 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/go_test.sh /arrow"
+
+  debian-go-cgo:
+    # Usage:
+    #   docker-compose build debian-go-cgo
+    #   docker-compose run debian-go-cgo
+    image: ${REPO}:${ARCH}-debian-10-go-${GO}-cgo
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-cgo.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-10-go-${GO}-cgo
+      args:
+        base: ${REPO}:${ARCH}-debian-10-go-${GO}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &cgo-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/go_build.sh /arrow /build &&
+        /arrow/ci/scripts/go_test.sh /arrow /build"
+
 
   ############################# JavaScript ####################################
 
