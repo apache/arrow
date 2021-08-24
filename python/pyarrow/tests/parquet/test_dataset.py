@@ -1621,6 +1621,7 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
 
+
 @pytest.mark.dataset
 def test_parquet_dataset_deprecated_properties(tempdir):
     table = pa.table({'a': [1, 2, 3]})
