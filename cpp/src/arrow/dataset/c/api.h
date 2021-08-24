@@ -33,8 +33,16 @@ extern const int kInspectAllFragments;
 #define DEFAULT_NUM_FRAGMENTS 1
 #define DISABLE_INSPECT_FRAGMENTS 0
 
+struct Scanner {
+    int (*to_stream)(struct Scanner* scanner, struct ArrowArrayStream* out);
+    const char* (*last_error)(struct Scanner*);
+    void (*release)(struct Scanner*);
+    void* private_data;
+};
+
 struct Dataset {
     int (*get_schema)(struct Dataset* dataset, struct ArrowSchema* out);
+    int (*new_scan)(struct Dataset* dataset, const char** columns, const int n_cols, uint64_t batch_size, struct Scanner* out);
     const char* (*get_dataset_type_name)(struct Dataset*);
     const char* (*last_error)(struct Dataset*);
     void (*release)(struct Dataset*);

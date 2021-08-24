@@ -43,6 +43,7 @@ extern "C" {
 
 DEFINE_DATASET_CFUNCS(DatasetFactory, DatasetFactory)  
 DEFINE_DATASET_CFUNCS(Dataset, Dataset)
+DEFINE_DATASET_CFUNCS(Scanner, Scanner)
 
 #ifdef __cplusplus
 }

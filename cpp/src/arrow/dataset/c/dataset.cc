@@ -46,6 +46,16 @@ int ToCError(const Status& status) {
   }
 }
 
+std::vector<std::string> to_string_vec(const char** vals, int n_vals) {
+    std::vector<std::string> out;
+    out.reserve(n_vals);
+    const char** p = vals;
+    for (int i = 0; i < n_vals; i++) {
+        out.emplace_back(p[i]);
+    }
+    return out;
+}
+
 struct DatasetExportTraits {
   using CPPType = arrow::dataset::Dataset;
   using CType = struct Dataset;
@@ -60,6 +70,14 @@ struct DatasetFactoryExportTraits {
 
   static constexpr auto IsReleasedFunc = &ArrowDatasetFactoryIsReleased;
   static constexpr auto MarkReleasedFunc = &ArrowDatasetFactoryMarkReleased;
+};
+
+struct DatasetScannerExportTraits {
+    using CPPType = arrow::dataset::Scanner;
+    using CType = struct Scanner;
+
+    static constexpr auto IsReleasedFunc = &ArrowScannerIsReleased;
+    static constexpr auto MarkReleasedFunc = &ArrowScannerMarkReleased;
 };
 
 template <typename Traits>
@@ -121,12 +139,50 @@ private:
   CType* exported_;
 };
 
+class ExportedScanner : public ExportedDatasetType<DatasetScannerExportTraits> {
+public:
+    using ExportedDatasetType::ExportedDatasetType;
+
+    Status ToRecordBatchStream(struct ArrowArrayStream* out) {
+        ARROW_ASSIGN_OR_RAISE(auto reader, exported()->ToRecordBatchReader());
+        return ExportRecordBatchReader(reader, out);
+    }
+
+    static int StaticToStream(struct Scanner* scanner, struct ArrowArrayStream* out) {
+        ExportedScanner self{scanner};
+        return self.CError(self.ToRecordBatchStream(out));
+    }
+};
+
+Status ExportScanner(std::shared_ptr<arrow::dataset::Scanner> scanner, struct Scanner* out) {
+    out->release = ExportedScanner::StaticRelease;
+    out->last_error = ExportedScanner::StaticGetLastError;
+    out->to_stream = ExportedScanner::StaticToStream;
+    out->private_data = new ExportedScanner::PrivateData{std::move(scanner)};
+    return Status::OK();
+}
+
 class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
  public:
   using ExportedDatasetType::ExportedDatasetType;
 
   Status GetSchema(struct ArrowSchema* out) {      
       return ExportSchema(*exported()->schema(), out);
+  }
+
+  Status NewScan(const char** columns, const int n_cols, uint64_t batch_size, struct Scanner* out) {
+      ARROW_ASSIGN_OR_RAISE(auto builder, exported()->NewScan());
+      
+      auto col_vector = to_string_vec(columns, n_cols);
+      if (!col_vector.empty()) {
+          builder->Project(col_vector);
+      }
+
+      builder->BatchSize(batch_size);
+      builder->UseThreads(true);
+
+      ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
+      return ExportScanner(scanner, out);
   }
 
   static const char* StaticGetDatasetTypeName(struct Dataset* dataset) {   
@@ -139,6 +195,11 @@ class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
       ExportedDataset self{dataset};
       return self.CError(self.GetSchema(out));
   }
+
+  static int StaticNewScan(struct Dataset* dataset, const char** columns, const int n_cols, uint64_t batch_size, struct Scanner* out) {
+      ExportedDataset self{dataset};
+      return self.CError(self.NewScan(columns, n_cols, batch_size, out));
+  }
 };
 
 Status ExportDataset(std::shared_ptr<arrow::dataset::Dataset> dataset,
@@ -147,6 +208,7 @@ Status ExportDataset(std::shared_ptr<arrow::dataset::Dataset> dataset,
   out->last_error = ExportedDataset::StaticGetLastError;
   out->get_dataset_type_name = ExportedDataset::StaticGetDatasetTypeName;
   out->get_schema = ExportedDataset::StaticGetSchema;
+  out->new_scan = ExportedDataset::StaticNewScan;
   out->private_data = new ExportedDataset::PrivateData{std::move(dataset)};
   return Status::OK();
 }
