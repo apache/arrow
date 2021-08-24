@@ -347,10 +347,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] value_field()
 
     cdef cppclass CMapType" arrow::MapType"(CDataType):
-        CMapType(const shared_ptr[CDataType]& key_type,
-                 const shared_ptr[CDataType]& item_type, c_bool keys_sorted)
+        CMapType(const shared_ptr[CField]& key_field,
+                 const shared_ptr[CField]& item_field, c_bool keys_sorted)
         shared_ptr[CDataType] key_type()
+        shared_ptr[CField] key_field()
         shared_ptr[CDataType] item_type()
+        shared_ptr[CField] item_field()
         c_bool keys_sorted()
 
     cdef cppclass CFixedSizeListType" arrow::FixedSizeListType"(CDataType):

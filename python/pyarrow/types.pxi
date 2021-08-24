@@ -326,7 +326,14 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.key_type, self.item_type)
+        return map_, (self.key_field, self.item_field)
+
+    @property
+    def key_field(self):
+        """
+        The field for keys in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.key_field())
 
     @property
     def key_type(self):
@@ -334,6 +341,13 @@ cdef class MapType(DataType):
         The data type of keys in the map entries.
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_field(self):
+        """
+        The field for items in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.item_field())
 
     @property
     def item_type(self):
@@ -2336,7 +2350,7 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types.
+    Create MapType instance from key and item data types or fields.
 
     Parameters
     ----------
@@ -2349,12 +2363,23 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     map_type : DataType
     """
     cdef:
-        DataType _key_type = ensure_type(key_type, allow_none=False)
-        DataType _item_type = ensure_type(item_type, allow_none=False)
+        Field _key_field
+        Field _item_field
         shared_ptr[CDataType] map_type
         MapType out = MapType.__new__(MapType)
 
-    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+    if isinstance(key_type, Field):
+        _key_field = key_type
+    else:
+        _key_field = field('key', ensure_type(key_type, allow_none=False),
+                           nullable=False)
+
+    if isinstance(item_type, Field):
+        _item_field = item_type
+    else:
+        _item_field = field('value', ensure_type(item_type, allow_none=False))
+
+    map_type.reset(new CMapType(_key_field.sp_field, _item_field.sp_field,
                                 keys_sorted))
     out.init(map_type)
     return out
