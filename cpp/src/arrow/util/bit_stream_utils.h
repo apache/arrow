@@ -428,13 +428,13 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 }
 
 inline bool BitReader::Advance(int64_t num_bits) {
-  int bits_required = bit_offset_ + num_bits;
+  int64_t bits_required = bit_offset_ + num_bits;
   int bytes_required = static_cast<int>(BitUtil::BytesForBits(bits_required));
   if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_required > max_bytes_)) {
     return false;
   }
-  byte_offset_ += bits_required >> 3;
-  bit_offset_ = bits_required & 7;
+  byte_offset_ += static_cast<int>(bits_required >> 3);
+  bit_offset_ = static_cast<int>(bits_required & 7);
   // Reset buffered_values_
   int bytes_remaining = max_bytes_ - byte_offset_;
   if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {

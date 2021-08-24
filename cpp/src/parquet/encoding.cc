@@ -2284,7 +2284,10 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     length_idx_ += max_values;
 
     PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
-    decoder_->GetBatch(8, buffered_data_->mutable_data(), data_size);
+    if (decoder_->GetBatch(8, buffered_data_->mutable_data(),
+                           static_cast<int>(data_size)) != static_cast<int>(data_size)) {
+      ParquetException::EofException();
+    }
     const uint8_t* data_ptr = buffered_data_->data();
 
     for (int i = 0; i < max_values; ++i) {
