@@ -312,10 +312,12 @@ class ConcreteFutureImpl : public FutureImpl {
         waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
       }
     }
-    cv_.notify_all();
-
     auto callbacks = std::move(callbacks_);
     auto self = shared_from_this();
+
+    // Don't notify until we've saved off all state.  After notifying it is common for
+    // this to be deleted and we shouldn't access any local state.
+    cv_.notify_all();
 
     // run callbacks, lock not needed since the future is finished by this
     // point so nothing else can modify the callbacks list and it is safe
