@@ -154,42 +154,40 @@ void SwissTable::extract_group_ids(const int num_keys, const uint16_t* optional_
   if ((hardware_flags_ & arrow::internal::CpuInfo::AVX2) && !optional_selection) {
     extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids, sizeof(uint64_t),
                            8 + 8 * num_group_id_bytes, num_group_id_bytes);
-  } else {
-#endif
-    switch (num_group_id_bits) {
-      case 8:
-        if (optional_selection) {
-          extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
-                                               local_slots, out_group_ids, 8, 16);
-        } else {
-          extract_group_ids_imp<uint8_t, false>(num_keys, nullptr, hashes, local_slots,
-                                                out_group_ids, 8, 16);
-        }
-        break;
-      case 16:
-        if (optional_selection) {
-          extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
-                                                local_slots, out_group_ids, 4, 12);
-        } else {
-          extract_group_ids_imp<uint16_t, false>(num_keys, nullptr, hashes, local_slots,
-                                                 out_group_ids, 4, 12);
-        }
-        break;
-      case 32:
-        if (optional_selection) {
-          extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
-                                                local_slots, out_group_ids, 2, 10);
-        } else {
-          extract_group_ids_imp<uint32_t, false>(num_keys, nullptr, hashes, local_slots,
-                                                 out_group_ids, 2, 10);
-        }
-        break;
-      default:
-        ARROW_DCHECK(false);
-    }
-#if defined(ARROW_HAVE_AVX2)
+    return;
   }
 #endif
+  switch (num_group_id_bits) {
+    case 8:
+      if (optional_selection) {
+        extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
+                                             local_slots, out_group_ids, 8, 16);
+      } else {
+        extract_group_ids_imp<uint8_t, false>(num_keys, nullptr, hashes, local_slots,
+                                              out_group_ids, 8, 16);
+      }
+      break;
+    case 16:
+      if (optional_selection) {
+        extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
+                                              local_slots, out_group_ids, 4, 12);
+      } else {
+        extract_group_ids_imp<uint16_t, false>(num_keys, nullptr, hashes, local_slots,
+                                               out_group_ids, 4, 12);
+      }
+      break;
+    case 32:
+      if (optional_selection) {
+        extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
+                                              local_slots, out_group_ids, 2, 10);
+      } else {
+        extract_group_ids_imp<uint32_t, false>(num_keys, nullptr, hashes, local_slots,
+                                               out_group_ids, 2, 10);
+      }
+      break;
+    default:
+      ARROW_DCHECK(false);
+  }
 }
 
 void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
