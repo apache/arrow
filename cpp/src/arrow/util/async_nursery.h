@@ -32,7 +32,7 @@ class Nursery;
 class AsyncCloseablePimpl;
 
 template <typename T>
-struct ARROW_EXPORT DestroyingDeleter {
+struct DestroyingDeleter {
   void operator()(T* p) { p->Destroy(); }
 };
 
