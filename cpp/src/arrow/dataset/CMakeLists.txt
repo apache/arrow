@@ -20,6 +20,7 @@ add_custom_target(arrow_dataset)
 arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
+    c/wrappers.cc
     dataset.cc
     discovery.cc
     file_base.cc
@@ -104,6 +105,8 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
+
+add_subdirectory(c)
 
 add_arrow_dataset_test(dataset_test)
 add_arrow_dataset_test(discovery_test)

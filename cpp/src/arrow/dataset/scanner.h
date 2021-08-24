@@ -138,7 +138,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<std::string> MaterializedFields() const;
 
   // Return a threaded or serial TaskGroup according to use_threads.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
+  std::shared_ptr<arrow::internal::TaskGroup> TaskGroup() const;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -150,8 +150,8 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Future<RecordBatchVector> SafeExecute(internal::Executor* executor);
-  virtual Future<> SafeVisit(internal::Executor* executor,
+  virtual Future<RecordBatchVector> SafeExecute(arrow::internal::Executor* executor);
+  virtual Future<> SafeVisit(arrow::internal::Executor* executor,
                              std::function<Status(std::shared_ptr<RecordBatch>)> visitor);
 
   virtual ~ScanTask() = default;
