@@ -183,3 +183,66 @@ repeat_value_as_array <- function(object, n) {
   }
   return(Scalar$create(object)$as_array(n))
 }
+
+
+#' Download all optional Arrow dependencies
+#'
+#' @param deps_dir Directory to save files into. Will be created if necessary.
+#'
+#' @return TRUE/FALSE for whether the downloads were successful
+#'
+#' This function is used for setting up an offline build. If it's possible to
+#' download at build time, don't use this function. Instead, let `cmake`
+#' download them for you.
+#' These saved files are only used in the build if `ARROW_DEPENDENCY_SOURCE`
+#' is `BUNDLED` or `AUTO`.
+#' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
+#'
+#' @examples
+#' \dontrun{
+#' download_optional_dependencies("arrow-thirdparty")
+#' }
+#' # Now define the environment variables (see arrow-thirdparty/DEFINE_ENV_VARS.sh)
+#' # and run your offline build.
+download_optional_dependencies <- function(deps_dir) {
+  #' This script is copied over from arrow/cpp/... to arrow/r/tools/cpp/...
+  download_dependencies_sh <- system.file(
+    "tools/cpp/thirdparty/download_dependencies.sh",
+    package = "arrow",
+    mustWork = TRUE
+  )
+
+  # Make sure the directory is sort of reasonable before creating it
+  deps_dir <- trimws(deps_dir)
+  stopifnot(nchar(deps_dir) >= 1)
+  dir.create(deps_dir, showWarnings = FALSE, recursive = TRUE)
+
+  # Run download_dependencies.sh
+  stdout_file <- tempfile()
+  stderr_file <- tempfile()
+  file.create(stdout_file, stderr_file)
+  cat("***Downloading optional dependencies to ", deps_dir)
+  return_status <- system2(download_dependencies_sh, args = deps_dir,
+    stdout = stdout_file, stderr = stderr_file
+  )
+  if (return_status == 0) {
+    # File contents are something like:
+    # # Environment variables for offline Arrow build
+    # export ARROW_ABSL_URL=/path/to/file/absl-12345.tar.gz
+    # export ...
+    env_var_file <- file.path(deps_dir, "DEFINE_ENV_VARS.sh")
+    # Also save a copy in the directory for ease of use.
+    file.copy(stdout_file, env_var_file)
+    msg <- c(
+      "*** Offline build environment variables",
+      paste("    (These are also saved in ", env_var_file, ")\n"),
+      readLines(stdout_file)
+    )
+    cat(paste(msg, collapse = "\n"))
+  } else {
+    msg <- c("Failed to download some optional dependencies", readLines(stderr_file), "")
+    warning(paste(msg, collapse = "\n"))
+  }
+  # Return sucess status
+  return_status == 0
+}

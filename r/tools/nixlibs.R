@@ -29,17 +29,8 @@ if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
+
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-# * no download, build_ok: Only build with local git checkout
-# * download_ok, no build: Only use prebuilt binary, if found
-# * neither: Get the arrow-without-arrow package
-# Download and build are OK unless you say not to
-download_ok <- !env_is("LIBARROW_DOWNLOAD", "false")
-build_ok <- !env_is("LIBARROW_BUILD", "false")
-# But binary defaults to not OK
-binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
-# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
-quietly <- !env_is("ARROW_R_DEV", "true")
 
 try_download <- function(from_url, to_file) {
   status <- try(
@@ -51,6 +42,21 @@ try_download <- function(from_url, to_file) {
   # Return whether the download was successful
   !inherits(status, "try-error") && status == 0
 }
+
+quietly <- !env_is("ARROW_R_DEV", "true")  # try_download uses quietly global
+# * download_ok, build_ok: Use prebuilt binary, if found, otherwise try to build
+# * no download, build_ok: Build with local git checkout, if available, or
+#   sources included in r/tools/cpp/. Optional dependencies are not included,
+#   and will not be automatically downloaded.
+#   https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
+# * download_ok, no build: Only use prebuilt binary, if found
+# * neither: Get the arrow-without-arrow package
+# Download and build are OK unless you say not to (or can't access github)
+download_ok <- (!env_is("LIBARROW_DOWNLOAD", "false")) && try_download("https://github.com", tempfile())
+build_ok <- !env_is("LIBARROW_BUILD", "false")
+# But binary defaults to not OK
+binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
+# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
@@ -271,13 +277,18 @@ apache_download <- function(version, destfile, n_mirrors = 3) {
 }
 
 find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")) {
+  cpp_dir <- NULL
   if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
     # We're in a git checkout of arrow, so we can build it
-    cat("*** Found local C++ source\n")
-    return(paste0(arrow_home, "/cpp"))
-  } else {
-    return(NULL)
+    cpp_dir <- paste0(arrow_home, "/cpp")
+  } else if (file.exists("tools/cpp/src/arrow/api.h")) {
+    # Use the version bundled in tools/cpp/
+    cpp_dir <- "tools/cpp"
   }
+  if (!is.null(cpp_dir)) {
+    cat("*** Found local C++ source:\n    '", cpp_dir, "'\n")
+  }
+  cpp_dir
 }
 
 build_libarrow <- function(src_dir, dst_dir) {
@@ -373,6 +384,14 @@ ensure_cmake <- function() {
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
       "/cmake-", CMAKE_VERSION, postfix
     )
+    if (!download_ok) {
+      stop(
+        "cmake was not found and downloads are not permitted.\n",
+        "Make sure cmake is installed and available on your PATH\n",
+        "(or download '", cmake_binary_url,
+        "' and define the CMAKE environment variable)."
+      )
+    }
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
     try_download(cmake_binary_url, cmake_tar)
@@ -503,11 +522,9 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     unlink(bin_file)
   } else if (build_ok) {
     # (2) Find source and build it
-    if (download_ok) {
+    src_dir <- find_local_source()
+    if (is.null(src_dir) && download_ok) {
       src_dir <- download_source()
-    }
-    if (is.null(src_dir)) {
-      src_dir <- find_local_source()
     }
     if (!is.null(src_dir)) {
       cat("*** Building C++ libraries\n")

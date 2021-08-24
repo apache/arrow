@@ -38,6 +38,7 @@ deps:
 
 build: doc
 	cp ../NOTICE.txt inst/NOTICE.txt
+	rsync --archive --delete ../cpp tools/
 	R CMD build .
 
 check: build
