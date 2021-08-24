@@ -88,6 +88,34 @@ public class ClientCreationUtils {
                                                                          final String keyStorePassword,
                                                                          final BufferAllocator allocator,
                                                                          final boolean useTls,
+                                                                         final CallOption... options)
+      throws GeneralSecurityException, IOException {
+    return createAndGetClientInfo(
+        host, port, username, password,
+        keyStorePath, keyStorePassword,
+        allocator, useTls, Arrays.asList(options));
+  }
+
+  /**
+   * Creates and get a new {@link FlightClient} and its {@link CallOption}s.
+   *
+   * @param host      the host.
+   * @param port      the port.
+   * @param username  the username.
+   * @param password  the password.
+   * @param allocator the {@link BufferAllocator}.
+   * @param useTls    whether to use TLS encryption.
+   * @param options   the {@code CallOption}s.
+   * @return a new {@code FlightClient} and its {@code CallOption}s.
+   * @throws GeneralSecurityException on error.
+   * @throws IOException              on error.
+   */
+  public static Entry<FlightClient, CallOption[]> createAndGetClientInfo(final String host, final int port,
+                                                                         final String username, final String password,
+                                                                         final String keyStorePath,
+                                                                         final String keyStorePassword,
+                                                                         final BufferAllocator allocator,
+                                                                         final boolean useTls,
                                                                          final Collection<CallOption> options)
       throws GeneralSecurityException, IOException {
     final Set<CallOption> theseOptions = new HashSet<>(options);

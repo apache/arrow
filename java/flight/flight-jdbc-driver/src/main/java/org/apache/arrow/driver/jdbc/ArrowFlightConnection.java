@@ -38,6 +38,7 @@ import java.util.concurrent.Executors;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
@@ -62,31 +63,31 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
-  private final PropertyManager manager;
+  private final PropertyManager propertyManager;
   private final FlightClientHandler clientHandler;
   private ExecutorService executorService;
 
   /**
    * Creates a new {@link ArrowFlightConnection}.
    *
-   * @param driver    the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory   the {@link AvaticaFactory} to use.
-   * @param url       the URL to establish the connection.
-   * @param manager   the {@link PropertyManager} for this connection.
-   * @param allocator the {@link BufferAllocator} to use.
-   * @param clientHandler   the {@link FlightClientHandler} to use.
+   * @param driver        the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory       the {@link AvaticaFactory} to use.
+   * @param url           the URL to establish the connection.
+   * @param propertyManager       the {@link PropertyManager} for this connection.
+   * @param allocator     the {@link BufferAllocator} to use.
+   * @param clientHandler the {@link FlightClientHandler} to use.
    */
   protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
-                                  final String url, final PropertyManager manager,
+                                  final String url, final PropertyManager propertyManager,
                                   final BufferAllocator allocator, final FlightClientHandler clientHandler) {
     super(
         driver,
         factory,
         url,
-        Preconditions.checkNotNull(manager, "Manager cannot be null!").getProperties());
+        Preconditions.checkNotNull(propertyManager, "Manager cannot be null!").getProperties());
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
     this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null!");
-    this.manager = manager;
+    this.propertyManager = propertyManager;
   }
 
   /**
@@ -105,16 +106,17 @@ public class ArrowFlightConnection extends AvaticaConnection {
                                                           final String url, final Properties info,
                                                           final BufferAllocator allocator)
       throws SQLException {
-    final PropertyManager manager = new PropertyManager(info);
+    final PropertyManager propertyManager = new PropertyManager(info);
     try {
-      final FlightClientHandler handler = ArrowFlightSqlClientHandler.createNewHandler(
-          manager.getPropertyAsString(HOST), manager.getPropertyAsInteger(PORT),
-          manager.getPropertyAsString(USERNAME), manager.getPropertyAsString(PASSWORD),
-          manager.getPropertyAsString(KEYSTORE_PATH), manager.getPropertyAsString(KEYSTORE_PASS),
-          allocator, manager.getPropertyAsBoolean(USE_TLS), manager.toCallOption());
-      return new ArrowFlightConnection(driver, factory, url, manager, allocator, handler);
+      final FlightClientHandler clientHandler = ArrowFlightSqlClientHandler.createNewHandler(
+          ClientCreationUtils.createAndGetClientInfo(
+              propertyManager.getPropertyAsString(HOST), propertyManager.getPropertyAsInteger(PORT),
+              propertyManager.getPropertyAsString(USERNAME), propertyManager.getPropertyAsString(PASSWORD),
+              propertyManager.getPropertyAsString(KEYSTORE_PATH), propertyManager.getPropertyAsString(KEYSTORE_PASS),
+              allocator, propertyManager.getPropertyAsBoolean(USE_TLS), propertyManager.toCallOption()));
+      return new ArrowFlightConnection(driver, factory, url, propertyManager, allocator, clientHandler);
     } catch (final GeneralSecurityException | IOException e) {
-      manager.close();
+      propertyManager.close();
       throw AvaticaConnection.HELPER.createException("Failed to establish a valid connection to the Flight Client.", e);
     }
   }
@@ -162,7 +164,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
    */
   public synchronized ExecutorService getExecutorService() {
     if (executorService == null) {
-      final int threadPoolSize = manager.getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
+      final int threadPoolSize = propertyManager.getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
       final DefaultThreadFactory threadFactory = new DefaultThreadFactory(this.getClass().getSimpleName());
       executorService = Executors.newFixedThreadPool(threadPoolSize, threadFactory);
     }
@@ -184,7 +186,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     final Set<SQLException> exceptions = new HashSet<>();
 
     try {
-      AutoCloseables.close(clientHandler, manager);
+      AutoCloseables.close(clientHandler, propertyManager);
     } catch (final Exception e) {
       exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
     }
