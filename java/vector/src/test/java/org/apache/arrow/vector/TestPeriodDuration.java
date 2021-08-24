@@ -32,7 +32,7 @@ public class TestPeriodDuration {
     PeriodDuration pd1 = new PeriodDuration(Period.of(1, 2, 3), Duration.ofNanos(123));
     PeriodDuration pdEq1 = new PeriodDuration(Period.of(1, 2, 3), Duration.ofNanos(123));
     PeriodDuration pd2 = new PeriodDuration(Period.of(1, 2, 3), Duration.ofNanos(12));
-    PeriodDuration pd3 = new PeriodDuration(Period.of(1, 2, 0), Duration.ofNanos(123));
+    PeriodDuration pd3 = new PeriodDuration(Period.of(-1, -2, -3), Duration.ofNanos(-123));
 
     assertEquals(pd1, pdEq1);
     assertEquals(pd1.hashCode(), pdEq1.hashCode());
