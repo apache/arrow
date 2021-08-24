@@ -17,3 +17,6 @@
 
 _build
 source/python/generated
+source/datafusion/generated
+venv/
+bigfile.arrow

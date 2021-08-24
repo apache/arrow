@@ -16,10 +16,11 @@
 # under the License.
 
 channels:
-- defaults
-- conda-forge
+  - defaults
+  - conda-forge
 dependencies:
-- arrow-cpp
-- parquet-cpp
-- pyarrow
-- numpydoc
+  - arrow-cpp
+  - parquet-cpp
+  - pyarrow
+  - datafusion
+  - numpydoc

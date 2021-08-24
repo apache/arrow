@@ -44,6 +44,7 @@ target environment.**
    C/GLib <https://arrow.apache.org/docs/c_glib/>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
+   Datafusion <datafusion/index>
    Go <https://godoc.org/github.com/apache/arrow/go/arrow>
    Java <java/index>
    JavaScript <https://arrow.apache.org/docs/js/>
@@ -67,7 +68,7 @@ target environment.**
    format/Integration
    format/CDataInterface
    format/CStreamInterface
-   format/Other   
+   format/Other
 
 .. _toc.development:
 
