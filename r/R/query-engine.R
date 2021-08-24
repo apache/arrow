@@ -58,13 +58,15 @@ ExecPlan <- R6Class("ExecPlan",
       ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
     },
     Build = function(.data) {
+      # This method takes an arrow_dplyr_query and chains together the
+      # ExecNodes that they produce. It does not evaluate them--that is Run().
       group_vars <- dplyr::group_vars(.data)
       grouped <- length(group_vars) > 0
 
       # Collect the target names first because we have to add back the group vars
       target_names <- names(.data)
       .data <- ensure_group_vars(.data)
-      .data <- ensure_arrange_vars(.data) # this sets x$temp_columns
+      .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
       node <- self$Scan(.data)
       # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
@@ -96,6 +98,12 @@ ExecPlan <- R6Class("ExecPlan",
           node <- node$Project(
             make_field_refs(c(group_vars, names(.data$aggregations)))
           )
+          # Add sorting instructions for the rows too to match dplyr
+          # (see below about why sorting isn't itself a Node)
+          node$sort <- list(
+            names = group_vars,
+            orders = rep(0L, length(group_vars))
+          )
         }
       }
 
@@ -107,11 +115,6 @@ ExecPlan <- R6Class("ExecPlan",
           names = names(.data$arrange_vars),
           orders = as.integer(.data$arrange_desc),
           temp_columns = names(.data$temp_columns)
-        )
-      } else if (length(.data$aggregations) && grouped) {
-        node$sort <- list(
-          names = group_vars,
-          orders = rep(0L, length(group_vars))
         )
       }
       node
@@ -129,6 +132,9 @@ ExecPlan$create <- function(use_threads = option_use_threads()) {
 ExecNode <- R6Class("ExecNode",
   inherit = ArrowObject,
   public = list(
+    # `sort` is a slight hack to be able to keep around arrange() params,
+    # which don't currently yield their own ExecNode but rather are consumed
+    # in the SinkNode (in ExecPlan$run())
     sort = NULL,
     Project = function(cols) {
       if (length(cols)) {
