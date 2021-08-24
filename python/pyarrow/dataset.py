@@ -38,6 +38,7 @@ from pyarrow._dataset import (  # noqa
     IpcFileFormat,
     IpcFileWriteOptions,
     InMemoryDataset,
+    OrcFileFormat,
     ParquetDatasetFactory,
     ParquetFactoryOptions,
     ParquetFileFormat,
@@ -251,6 +252,8 @@ def _ensure_format(obj):
         return IpcFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
+    elif obj == "orc":
+        return OrcFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 

@@ -841,6 +841,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
+            'orc': OrcFileFormat,
         }
 
         class_ = classes.get(type_name, None)
@@ -1792,6 +1793,22 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class OrcFileFormat(FileFormat):
+
+    def __init__(self):
+        self.init(shared_ptr[CFileFormat](new COrcFileFormat()))
+
+    def equals(self, OrcFileFormat other):
+        return True
+
+    @property
+    def default_extname(self):
+        return "orc"
+
+    def __reduce__(self):
+        return OrcFileFormat, tuple()
 
 
 cdef class CsvFileFormat(FileFormat):

@@ -700,7 +700,8 @@ def test_file_format_pickling():
         ds.ParquetFileFormat(
             use_buffered_stream=True,
             buffer_size=4096,
-        )
+        ),
+        ds.OrcFileFormat(),
     ]
     for file_format in formats:
         assert pickle.loads(pickle.dumps(file_format)) == file_format
@@ -2632,6 +2633,24 @@ def test_ipc_format(tempdir, dataset_reader):
         dataset = ds.dataset(path, format=format_str)
         result = dataset_reader.to_table(dataset)
         assert result.equals(table)
+
+
+@pytest.mark.orc
+def test_orc_format(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format=ds.OrcFileFormat())
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+    dataset = ds.dataset(path, format="orc")
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
 
 
 @pytest.mark.pandas
