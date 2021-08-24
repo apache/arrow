@@ -57,6 +57,7 @@ public abstract class AbstractJdbcToArrowTest {
 
   protected Connection conn = null;
   protected Table table;
+  protected boolean reuseVectorSchemaRoot;
 
   /**
    * This method creates Table object after reading YAML file.

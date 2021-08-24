@@ -77,9 +77,10 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
    * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
+   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
    */
-  public JdbcToArrowVectorIteratorTest(Table table) {
-    super(table);
+  public JdbcToArrowVectorIteratorTest(Table table, boolean reuseVectorSchemaRoot) {
+    super(table, reuseVectorSchemaRoot);
   }
 
   @Test
@@ -113,7 +114,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
     // first experiment, with calendar and time zone.
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setTargetBatchSize(3).build();
+        Calendar.getInstance()).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
     assertNotNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
@@ -127,7 +128,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
     // second experiment, without calendar and time zone.
     config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        null).setTargetBatchSize(3).build();
+        null).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
     assertNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
@@ -164,6 +165,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     while (iterator.hasNext()) {
       VectorSchemaRoot root = iterator.next();
       roots.add(root);
+
       JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
       bigIntVectors.add((BigIntVector) root.getVector(BIGINT));
@@ -397,7 +399,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
   @Test
   public void testJdbcToArrowCustomTypeConversion() throws SQLException, IOException {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE);
+        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot);
 
     // first experiment, using default type converter
     JdbcToArrowConfig config = builder.build();
