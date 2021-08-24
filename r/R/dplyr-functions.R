@@ -825,3 +825,10 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(ddof = ddof)
   )
 }
+agg_funcs$n <- function() {
+    list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
+    )
+}
