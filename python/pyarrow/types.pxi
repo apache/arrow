@@ -2369,6 +2369,8 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
         MapType out = MapType.__new__(MapType)
 
     if isinstance(key_type, Field):
+        if key_type.nullable:
+            raise TypeError('Map key field should be non-nullable')
         _key_field = key_type
     else:
         _key_field = field('key', ensure_type(key_type, allow_none=False),

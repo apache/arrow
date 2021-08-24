@@ -64,7 +64,7 @@ def get_many_types():
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
-        pa.map_(pa.field('key', pa.int32()), pa.field('value', pa.int32())),
+        pa.map_(pa.field('key', pa.int32(), nullable=False), pa.field('value', pa.int32())),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -168,8 +168,8 @@ def test_is_map():
     assert types.is_map(m)
     assert not types.is_map(pa.int32())
 
-    fields = pa.map_(pa.field('key', pa.utf8()),
-                     pa.field('value', pa.int32()))
+    fields = pa.map_(pa.field('key_name', pa.utf8(), nullable=False),
+                     pa.field('value_name', pa.int32()))
     assert types.is_map(fields)
 
     entries_type = pa.struct([pa.field('key', pa.int8()),
@@ -476,6 +476,8 @@ def test_map_type():
         pa.map_(None)
     with pytest.raises(TypeError):
         pa.map_(pa.int32(), None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.field("name", pa.string(), nullable=True), pa.int64())
 
 
 def test_fixed_size_list_type():
