@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,8 @@ import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcConnectionPoolDataSource;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
+import org.apache.arrow.driver.jdbc.test.adhoc.FakeQuery;
+import org.apache.arrow.driver.jdbc.test.adhoc.MockFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -107,9 +110,9 @@ import com.google.protobuf.ByteString;
  */
 public class FlightServerTestRule implements TestRule, AutoCloseable {
 
-  protected static final String REGULAR_TEST_SQL_CMD = "SELECT * FROM TEST";
-  protected static final String METADATA_TEST_SQL_CMD = "SELECT * FROM METADATA";
-  protected static final String CANCELLATION_TEST_SQL_CMD = "SELECT * FROM TAKES_LONG_TIME";
+  public static final String REGULAR_TEST_SQL_CMD = "SELECT * FROM TEST";
+  public static final String METADATA_TEST_SQL_CMD = "SELECT * FROM METADATA";
+  public static final String CANCELLATION_TEST_SQL_CMD = "SELECT * FROM TAKES_LONG_TIME";
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
   private static final Random RANDOM = new Random(10);
   @SuppressWarnings("unchecked")
@@ -207,10 +210,19 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       @Override
       public void evaluate() throws Throwable {
         try (FlightServer flightServer =
-                 getStartServer(location -> FlightServer.builder(allocator, location, getFlightProducer())
-                     .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                         new BasicCallHeaderAuthenticator(FlightServerTestRule.this::validate)))
-                     .build(), 3)) {
+                 getStartServer(location ->
+                     FlightServer.builder(
+                             allocator,
+                             location,
+                             new MockFlightSqlProducer(
+                                 new FakeQuery(
+                                     REGULAR_TEST_SQL_CMD,
+                                     new Schema(Collections.emptyList()),
+                                     new byte[0],
+                                     allocator)))
+                         .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                             new BasicCallHeaderAuthenticator(FlightServerTestRule.this::validate)))
+                         .build(), 3)) {
           LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
           base.evaluate();
         } finally {
