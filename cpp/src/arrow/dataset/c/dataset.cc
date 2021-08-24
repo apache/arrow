@@ -29,6 +29,7 @@ namespace arrow {
 
 namespace {
 
+// convenience function to get an errno value from a status.
 int ToCError(const Status& status) {
   if (ARROW_PREDICT_TRUE(status.ok())) {
     return 0;
@@ -46,6 +47,7 @@ int ToCError(const Status& status) {
   }
 }
 
+// convenience function to convert a C-style array of strings to a vector<std::string>
 std::vector<std::string> to_string_vec(const char** vals, int n_vals) {
   std::vector<std::string> out;
   out.reserve(n_vals);
@@ -55,6 +57,9 @@ std::vector<std::string> to_string_vec(const char** vals, int n_vals) {
   }
   return out;
 }
+
+// Traits classes for use with templating a base Exported class to share
+// implementation across them.
 
 struct DatasetExportTraits {
   using CPPType = arrow::dataset::Dataset;
@@ -80,6 +85,8 @@ struct DatasetScannerExportTraits {
   static constexpr auto MarkReleasedFunc = &ArrowScannerMarkReleased;
 };
 
+// base templated class for handling the C++ objects being managed by their
+// C counterpart objects and basic functionality such as a "last_error" function.
 template <typename Traits>
 class ExportedDatasetType {
  public:
@@ -91,6 +98,7 @@ class ExportedDatasetType {
 
     std::shared_ptr<CPPType> exported_;
     std::string last_error_;
+    // for keeping random temporary strings alive long enough to return a const char*.
     std::string misc_string_;
 
     PrivateData() = default;
@@ -113,6 +121,8 @@ class ExportedDatasetType {
     const auto& last_error = private_data()->last_error_;
     return last_error.empty() ? nullptr : last_error.c_str();
   }
+
+  // C-compatible callbacks
 
   static const char* StaticGetLastError(CType* exported) {
     return ExportedDatasetType{exported}.GetLastError();
@@ -143,10 +153,15 @@ class ExportedScanner : public ExportedDatasetType<DatasetScannerExportTraits> {
  public:
   using ExportedDatasetType::ExportedDatasetType;
 
+  // TODO(zeroshade): implement other Scanner functions like TakeRows, ToTable, CountRows,
+  // and so on.
+
   Status ToRecordBatchStream(struct ArrowArrayStream* out) {
     ARROW_ASSIGN_OR_RAISE(auto reader, exported()->ToRecordBatchReader());
     return ExportRecordBatchReader(reader, out);
   }
+
+  // C-compatible callbacks
 
   static int StaticToStream(struct Scanner* scanner, struct ArrowArrayStream* out) {
     ExportedScanner self{scanner};
@@ -171,7 +186,12 @@ class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
     return ExportSchema(*exported()->schema(), out);
   }
 
-  Status NewScan(const char** columns, const int n_cols, uint64_t batch_size,
+  // TODO - implement filter functionality via expressions and predicates.
+  //      - Expose option to decide whether UseThreads should be true, currently
+  //      - it defaults to true.
+  //      - Expose Fragment Readahead options
+  //      - Expose other fragment scan options
+  Status NewScan(const char** columns, const int n_cols, int64_t batch_size,
                  struct Scanner* out) {
     ARROW_ASSIGN_OR_RAISE(auto builder, exported()->NewScan());
 
@@ -179,13 +199,16 @@ class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
     if (!col_vector.empty()) {
       RETURN_NOT_OK(builder->Project(col_vector));
     }
-
-    RETURN_NOT_OK(builder->BatchSize(batch_size));
+    if (batch_size > 0) {
+      RETURN_NOT_OK(builder->BatchSize(batch_size));
+    }
     RETURN_NOT_OK(builder->UseThreads(true));
 
     ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
     return ExportScanner(scanner, out);
   }
+
+  // C-compatible callbacks
 
   static const char* StaticGetDatasetTypeName(struct Dataset* dataset) {
     ExportedDataset self{dataset};
@@ -199,7 +222,7 @@ class ExportedDataset : public ExportedDatasetType<DatasetExportTraits> {
   }
 
   static int StaticNewScan(struct Dataset* dataset, const char** columns,
-                           const int n_cols, uint64_t batch_size, struct Scanner* out) {
+                           const int n_cols, int64_t batch_size, struct Scanner* out) {
     ExportedDataset self{dataset};
     return self.CError(self.NewScan(columns, n_cols, batch_size, out));
   }
@@ -216,6 +239,7 @@ Status ExportDataset(std::shared_ptr<arrow::dataset::Dataset> dataset,
   return Status::OK();
 }
 
+// TODO(zeroshade): expose partition expression, GetFragments and ReplaceSchema
 class ExportedDatasetFactory : public ExportedDatasetType<DatasetFactoryExportTraits> {
  public:
   using ExportedDatasetType::ExportedDatasetType;
@@ -302,3 +326,6 @@ int dataset_factory_from_path(const char* uri, const int file_format_id,
 
   return arrow::ToCError(arrow::ExportDatasetFactory(df.MoveValueUnsafe(), out));
 }
+
+// TODO(zeroshade): add other filesystem dataset options such as directory searches
+// and other dataset types such as inmemory and union datasets.

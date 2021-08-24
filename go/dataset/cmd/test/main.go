@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	dsf, err := dataset.CreateDatasetFactory("file:///workspace/example.parquet")
+	dsf, err := dataset.CreateDatasetFactory("file:///workspace/example.parquet", dataset.FileFormat(dataset.PARQUET))
 	if err != nil {
 		log.Fatal(err)
 	}

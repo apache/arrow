@@ -24,34 +24,46 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND noninteractive
 
+RUN \
+  echo "deb http://deb.debian.org/debian buster-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
 ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
       apt-transport-https \
       lsb-release \
+      ca-certificates \
+      gnupg \
       software-properties-common \
       wget && \
-    code_name=$(lsb_release --codename --short) && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    apt-add-repository -y \
-      "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" && \
+    echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${llvm} main" > \
+        /etc/apt/sources.list.d/llvm.list && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        ca-certificates \
+        autoconf \        
         ccache \
         clang-${llvm} \
-        cmake \
-        git \
+        cmake \        
         g++ \
         gcc \
+        gdb \
+        git \    
         libboost-all-dev \
         libgflags-dev \
+        lib-c-ares-dev \
+        libbrotli-dev \
+        libbz2-dev \
+        libcurl4-openssl-dev \
+        libutf8proc-dev \
         libgoogle-glog-dev \
         libgtest-dev \
         liblz4-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libthrift-dev \
         llvm-${llvm}-dev \
         make \
         ninja-build \
@@ -63,24 +75,20 @@ RUN apt-get update -y -q && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ARG cmake=3.11.4
-RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | tar -xzf - -C /opt
-ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
-
 ENV ARROW_BUILD_TESTS=OFF \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA_JAVA=OFF \
-    ARROW_GANDIVA=ON \
+    ARROW_GANDIVA=OFF \
     ARROW_HOME=/usr/local \
     ARROW_JNI=OFF \
-    ARROW_ORC=ON \
+    ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA_JAVA_CLIENT=OFF \
     ARROW_PLASMA=OFF \
     ARROW_USE_CCACHE=ON \
     CC=gcc \
-    CXX=g++ \
-    ORC_SOURCE=BUNDLED \
+    CXX=g++ \    
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED

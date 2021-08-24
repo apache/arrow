@@ -27,6 +27,8 @@
 extern "C" {
 #endif
 
+// Macro for easily generating IsReleased, MarkReleased, and Release functions
+// for the various C struct types in arrow/dataset/c/api.h.
 #define DEFINE_DATASET_CFUNCS(_name, _typestruct)                   \
   inline bool Arrow##_name##IsReleased(struct _typestruct* obj) {   \
     return obj->release == NULL;                                    \

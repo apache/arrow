@@ -17,6 +17,10 @@
 
 package dataset
 
+// use pkg-config to find the arrow-dataset library, headers and linker flags.
+// then include the necessary headers and wrap the C function pointer callbacks
+// since we can't yet call them directly from Go.
+
 // #cgo pkg-config: arrow-dataset
 // #include <stdlib.h>
 // #include "arrow/dataset/c/api.h"
@@ -45,12 +49,17 @@ import (
 	"golang.org/x/xerrors"
 )
 
-var (
-	InspectAllFragments     = C.kInspectAllFragments
+// value to be used in order to indicate that ALL fragments should get inspected
+// in order to determine the schema.
+var InspectAllFragments = C.kInspectAllFragments
+
+// Other special values for Fragment Inspection options.
+const (
 	DisableInspectFragments = C.DISABLE_INSPECT_FRAGMENTS
 	DefaultInspectFragments = C.DEFAULT_NUM_FRAGMENTS
 )
 
+// convenience cover to convert C.ArrowSchema to an arrow.Schema object.
 func arrowSchemaToSchema(out *C.ArrowSchema) (*arrow.Schema, error) {
 	ret, err := importSchema(out)
 	if err != nil {
@@ -60,22 +69,34 @@ func arrowSchemaToSchema(out *C.ArrowSchema) (*arrow.Schema, error) {
 	return arrow.NewSchema(ret.Type.(*arrow.StructType).Fields(), &ret.Metadata), nil
 }
 
-type FileFormat int
+// FileFormat is an enum for use with creating a DatasetFactory to indicate
+// the file format class to use for this dataset factory.
+type FileFormat C.int
 
+// These are the currently implemented formats available
 const (
 	PARQUET FileFormat = C.DS_PARQUET_FORMAT
 	CSV     FileFormat = C.DS_CSV_FORMAT
 	IPC     FileFormat = C.DS_IPC_FORMAT
 )
 
+// DatasetFactory corresponds to a configured set of options to build and return
+// a dataset.
+//
+// TODO(zeroshade): implement more option values
 type DatasetFactory struct {
 	ds C.DatasetFactory
 }
 
-// func (d DatasetFactory) Close() {
-// 	C.release_dataset_factory(C.uintptr_t(d))
-// }
+// Close allows manual cleanup of the DatasetFactory to be done earlier
+// as desired instead of waiting for the Garbage collector to call the
+// finalizer function.
+func (d *DatasetFactory) Close() {
+	C.ArrowDatasetFactoryRelease(&d.ds)
+}
 
+// Inspect takes a number of fragments to inspect in order to return a schema
+// for this dataset.
 func (d DatasetFactory) Inspect(numFragments int) (*arrow.Schema, error) {
 	var sc C.ArrowSchema
 	errno := C.df_inspect_schema(&d.ds, C.int(numFragments), &sc)
@@ -87,6 +108,9 @@ func (d DatasetFactory) Inspect(numFragments int) (*arrow.Schema, error) {
 	return arrowSchemaToSchema(&sc)
 }
 
+// CreateDataset returns a valid dataset object from the factory or returns an error.
+// runtime.SetFinalizer is used to prevent leaks, or Close could be called manually on
+// the Dataset.
 func (d DatasetFactory) CreateDataset() (*Dataset, error) {
 	var ds C.Dataset
 	errno := C.df_create_dataset(&d.ds, &ds)
@@ -99,13 +123,18 @@ func (d DatasetFactory) CreateDataset() (*Dataset, error) {
 	return ret, nil
 }
 
-func CreateDatasetFactory(uri string) (*DatasetFactory, error) {
+// CreateDatasetFactory takes a file uri and returns a filesystem DatasetFactory
+// currently. TODO(zeroshade): implement other types of dataset factories.
+//
+// runtime.SetFinalizer is used in order to clean up after itself, but manual control
+// is still available via calling Close on the returned factory.
+func CreateDatasetFactory(uri string, format FileFormat) (*DatasetFactory, error) {
 	curi := C.CString(uri)
 	defer C.free(unsafe.Pointer(curi))
 
 	var ds C.DatasetFactory
 
-	errno := C.dataset_factory_from_path(curi, C.DS_PARQUET_FORMAT, &ds)
+	errno := C.dataset_factory_from_path(curi, C.int(format), &ds)
 	if errno != 0 {
 		return nil, syscall.Errno(errno)
 	}

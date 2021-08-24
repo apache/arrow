@@ -17,6 +17,9 @@
 
 package dataset
 
+// include the necessary C headers and provide wrappers for the callback functions
+// as CGO currently is not able to directly call C function pointers from Go yet.
+
 // #include <stdlib.h>
 // #include "arrow/dataset/c/api.h"
 // #include "arrow/dataset/c/helpers.h"
@@ -29,7 +32,7 @@ package dataset
 // const char* ds_type_name(struct Dataset* ds) { return ds->get_dataset_type_name(ds); }
 // int ds_get_schema(struct Dataset* ds, struct ArrowSchema* out) { return ds->get_schema(ds, out); }
 // const char* ds_last_error(struct Dataset* ds) { return ds->last_error(ds); }
-// int ds_new_scan(struct Dataset* ds, const char** columns, const int n_cols, uint64_t batch_size, struct Scanner* out) {
+// int ds_new_scan(struct Dataset* ds, const char** columns, const int n_cols, int64_t batch_size, struct Scanner* out) {
 //	return ds->new_scan(ds, columns, n_cols, batch_size, out);
 // }
 //
@@ -47,17 +50,23 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// Dataset is an active Dataset which has a given physical schema.
 type Dataset struct {
-	ds     C.Dataset
+	// Corresponding C object that holds pointers to the memory.
+	ds C.Dataset
+	// cache the schema after the first time retrieving it.
 	schema *arrow.Schema
-
+	// cache the dataset type after the first time retrieving it
 	dstype string
 }
 
+// Close releases the corresponding allocated C memory for this dataset.
 func (d *Dataset) Close() {
 	C.ArrowDatasetRelease(&d.ds)
 }
 
+// Schema returns the schema for this dataset, or an error if there is an
+// issue in determining it.
 func (d *Dataset) Schema() (*arrow.Schema, error) {
 	if d.schema != nil {
 		return d.schema, nil
@@ -79,6 +88,8 @@ func (d *Dataset) Schema() (*arrow.Schema, error) {
 	return d.schema, nil
 }
 
+// Type returns a string name of the Dataset Type, currently only "filesystem"
+// is implemented.
 func (d *Dataset) Type() string {
 	if d.dstype == "" {
 		d.dstype = C.GoString(C.ds_type_name(&d.ds))
@@ -86,7 +97,16 @@ func (d *Dataset) Type() string {
 	return d.dstype
 }
 
-func (d *Dataset) NewScan(columns []string, batchSize uint64) (*Scanner, error) {
+// NewScan creates a new scanner for this dataset projecting the columns named by
+// the columns slice, reading batches of the requested size from the dataset fragments.
+//
+// If batchSize <= 0, then a default batch size will be used.
+//
+// runtime.SetFinalizer is used on the returned Scanner so that when it gets
+// garbage collected, it will clean up the C memory automatically. If you wish
+// to have more control over it, you can manually call Close on the returned Scanner
+// when done with it.
+func (d *Dataset) NewScan(columns []string, batchSize int64) (*Scanner, error) {
 	var (
 		ccols   = make([]*C.char, len(columns))
 		scanner C.Scanner
@@ -97,24 +117,32 @@ func (d *Dataset) NewScan(columns []string, batchSize uint64) (*Scanner, error) 
 		defer C.free(unsafe.Pointer(ccols[i]))
 	}
 
-	errno := C.ds_new_scan(&d.ds, (**C.char)(unsafe.Pointer(&ccols[0])), C.int(len(columns)), C.uint64_t(batchSize), &scanner)
+	errno := C.ds_new_scan(&d.ds, (**C.char)(unsafe.Pointer(&ccols[0])), C.int(len(columns)), C.int64_t(batchSize), &scanner)
 	if errno != 0 {
 		return nil, xerrors.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.ds_last_error(&d.ds)))
 	}
 
-	ret := &Scanner{scanner: scanner}
+	ret := &Scanner{scanner: scanner, ds: d}
 	runtime.SetFinalizer(ret, (*Scanner).Close)
 	return ret, nil
 }
 
+// Scanner represents a specific, configured scanner for a dataset.
 type Scanner struct {
 	scanner C.Scanner
+	ds      *Dataset
 }
 
+// Close allows manual control of cleaning up the memory associated with this scanner,
+// otherwise when creating a scanner via a dataset, it will have called SetFinalizer
+// in order to prevent any leaks.
 func (s *Scanner) Close() {
 	C.ArrowScannerRelease(&s.scanner)
 }
 
+// GetReader uses the Arrow Array Stream interface to produce a stream of
+// record batches that can then be read out using the arrio.Reader interface.
+// The reader will return io.EOF when there are no more batches.
 func (s *Scanner) GetReader() (arrio.Reader, error) {
 	var stream C.ArrowArrayStream
 	errno := C.scanner_to_stream(&s.scanner, &stream)

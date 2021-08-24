@@ -17,6 +17,8 @@
 
 package dataset
 
+// implement handling of the Arrow C Data Interface. At least from a consuming side.
+
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 // typedef struct ArrowSchema ArrowSchema;
@@ -45,6 +47,8 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// Map from the defined strings to their corresponding arrow.DataType interface
+// object instances, for types that don't require params.
 var formatToSimpleType = map[string]arrow.DataType{
 	"n":   arrow.Null,
 	"b":   arrow.FixedWidthTypes.Boolean,
@@ -75,11 +79,20 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"tiD": arrow.FixedWidthTypes.DayTimeInterval,
 }
 
+// decode metadata from C which is encoded as
+//
+//  [int32] -> number of metadata pairs
+//	for 0..n
+//		[int32] -> number of bytes in key
+//		[n bytes] -> key value
+//		[int32] -> number of bytes in value
+//		[n bytes] -> value
 func decodeCMetadata(md *C.char) arrow.Metadata {
 	if md == nil {
 		return arrow.Metadata{}
 	}
 
+	// don't copy the bytes, just reference them directly
 	const maxlen = 0x7fffffff
 	data := (*[maxlen]byte)(unsafe.Pointer(md))[:]
 
@@ -112,10 +125,13 @@ func decodeCMetadata(md *C.char) arrow.Metadata {
 	return arrow.NewMetadata(keys, vals)
 }
 
+// convert a C.ArrowSchema to an arrow.Field to maintain metadata with the schema
 func importSchema(schema *C.ArrowSchema) (ret arrow.Field, err error) {
 	var childFields []arrow.Field
 	if schema.n_children > 0 {
+		// call ourselves recursively if there are children.
 		var schemaChildren []*C.ArrowSchema
+		// set up a slice to reference safely
 		s := (*reflect.SliceHeader)(unsafe.Pointer(&schemaChildren))
 		s.Data = uintptr(unsafe.Pointer(schema.children))
 		s.Len = int(schema.n_children)
@@ -130,25 +146,29 @@ func importSchema(schema *C.ArrowSchema) (ret arrow.Field, err error) {
 		}
 	}
 
+	// copy the schema name from the c-string
 	ret.Name = C.GoString(schema.name)
 	ret.Nullable = (schema.flags & C.ARROW_FLAG_NULLABLE) != 0
 	ret.Metadata = decodeCMetadata(schema.metadata)
 
+	// copies the c-string here, but it's very small
 	f := C.GoString(schema.format)
+	// handle our non-parameterized simple types.
 	dt, ok := formatToSimpleType[f]
 	if ok {
 		ret.Type = dt
 		return
 	}
 
+	// handle the complex types
 	switch f[0] {
-	case 'w':
+	case 'w': // fixed size binary is "w:##" where ## is the byteWidth
 		byteWidth, err := strconv.Atoi(strings.Split(f, ":")[1])
 		if err != nil {
 			return ret, err
 		}
 		dt = &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}
-	case 'd':
+	case 'd': // decimal types are d:<precision>,<scale>[,<bitsize>] size is assumed 128 if left out
 		props := strings.Split(f, ":")[1]
 		propList := strings.Split(props, ",")
 		if len(propList) == 3 {
@@ -159,20 +179,20 @@ func importSchema(schema *C.ArrowSchema) (ret arrow.Field, err error) {
 		precision, _ := strconv.Atoi(propList[0])
 		scale, _ := strconv.Atoi(propList[1])
 		dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
-	case '+':
+	case '+': // types with children
 		switch f[1] {
-		case 'l':
+		case 'l': // list
 			dt = arrow.ListOf(childFields[0].Type)
-		case 'w':
+		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
 				return ret, err
 			}
 
 			dt = arrow.FixedSizeListOf(int32(listSize), childFields[0].Type)
-		case 's':
+		case 's': // struct
 			dt = arrow.StructOf(childFields...)
-		case 'm':
+		case 'm': // map type is basically a list of structs.
 			st := childFields[0].Type.(*arrow.StructType)
 			dt = arrow.MapOf(st.Field(0).Type, st.Field(1).Type)
 			dt.(*arrow.MapType).KeysSorted = (schema.flags & C.ARROW_FLAG_MAP_KEYS_SORTED) != 0
@@ -180,6 +200,7 @@ func importSchema(schema *C.ArrowSchema) (ret arrow.Field, err error) {
 	}
 
 	if dt == nil {
+		// if we didn't find a type, then it's something we haven't implemented.
 		err = xerrors.New("unimplemented type")
 	} else {
 		ret.Type = dt
@@ -187,6 +208,7 @@ func importSchema(schema *C.ArrowSchema) (ret arrow.Field, err error) {
 	return
 }
 
+// importer to keep track when importing C ArrowArray objects.
 type cimporter struct {
 	dt       arrow.DataType
 	arr      C.ArrowArray
@@ -201,8 +223,10 @@ func (imp *cimporter) importChild(parent *cimporter, src *C.ArrowArray) error {
 	return imp.doImport(src)
 }
 
+// import any child arrays for lists, structs, and so on.
 func (imp *cimporter) doImportChildren() error {
 	var children []*C.ArrowArray
+	// create a proper slice for our children
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
 	s.Data = uintptr(unsafe.Pointer(imp.arr.children))
 	s.Len = int(imp.arr.n_children)
@@ -212,24 +236,25 @@ func (imp *cimporter) doImportChildren() error {
 		imp.children = make([]cimporter, len(children))
 	}
 
+	// handle the cases
 	switch imp.dt.ID() {
-	case arrow.LIST:
+	case arrow.LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.ListType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
-	case arrow.FIXED_SIZE_LIST:
+	case arrow.FIXED_SIZE_LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.FixedSizeListType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
-	case arrow.STRUCT:
+	case arrow.STRUCT: // import all the children
 		st := imp.dt.(*arrow.StructType)
 		for i, c := range children {
 			imp.children[i].dt = st.Field(i).Type
 			imp.children[i].importChild(imp, c)
 		}
-	case arrow.MAP:
+	case arrow.MAP: // only one child to import, it's a struct array
 		imp.children[0].dt = imp.dt.(*arrow.MapType).ValueType()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
@@ -239,7 +264,12 @@ func (imp *cimporter) doImportChildren() error {
 	return nil
 }
 
+// import is called recursively as needed for importing an array and its children
+// in order to generate array.Data objects
 func (imp *cimporter) doImport(src *C.ArrowArray) error {
+	// move the array from the src object passed in to the one referenced by
+	// this importer. That way we can set up a finalizer on the created
+	// *array.Data object so we clean up our Array's memory when garbage collected.
 	C.ArrowArrayMove(src, &imp.arr)
 	defer func(arr *C.ArrowArray) {
 		if imp.data != nil {
@@ -249,12 +279,15 @@ func (imp *cimporter) doImport(src *C.ArrowArray) error {
 		}
 	}(&imp.arr)
 
+	// import any children
 	if err := imp.doImportChildren(); err != nil {
 		return err
 	}
+	// get a view of the buffers, zero-copy. we're just looking at the pointers
 	const maxlen = 0x7fffffff
 	imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
 
+	// handle each of our type cases
 	switch dt := imp.dt.(type) {
 	case *arrow.NullType:
 		if err := imp.checkNoChildren(); err != nil {
@@ -369,7 +402,7 @@ func (imp *cimporter) importFixedSizePrimitive() error {
 		values = imp.importFixedSizeBuffer(1, bitutil.BytesForBits(int64(fw.BitWidth())))
 	} else {
 		if fw.BitWidth() != 1 {
-			panic("invalid bitwidth")
+			return xerrors.New("invalid bitwidth")
 		}
 		values = imp.importBitsBuffer(1)
 	}
@@ -394,6 +427,8 @@ func (imp *cimporter) checkNumBuffers(n int64) error {
 }
 
 func (imp *cimporter) importBuffer(bufferID int, sz int64) *memory.Buffer {
+	// this is not a copy, we're just having a slice which points at the data
+	// it's still owned by the C.ArrowArray object and its backing C++ object.
 	const maxLen = 0x7fffffff
 	data := (*[maxLen]byte)(unsafe.Pointer(imp.cbuffers[bufferID]))[:sz:sz]
 	return memory.NewBufferBytes(data)
@@ -432,26 +467,21 @@ func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, of
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 
+// a record batch is exported as a struct where each field in the record batch is a field
+// of the struct. So if we know the schema, we can easily create the expected struct type.
 func importCRecordBatchWithSchema(arr *C.ArrowArray, sc *arrow.Schema) (array.Record, error) {
 	imp, err := importCArrayAsType(arr, arrow.StructOf(sc.Fields()...))
 	if err != nil {
 		return nil, err
 	}
 
-	// var ch []*C.ArrowArray
-	// s := (*reflect.SliceHeader)(unsafe.Pointer(&ch))
-	// s.Data = uintptr(unsafe.Pointer(imp.arr.children))
-	// s.Len = int(imp.arr.n_children)
-	// s.Cap = int(imp.arr.n_children)
-
 	st := array.NewStructData(imp.data)
 	defer st.Release()
 
+	// now that we have our fields, we can split them out into the slice of arrays
+	// and construct a record batch from them to return.
 	cols := make([]array.Interface, st.NumField())
 	for i := 0; i < st.NumField(); i++ {
-		// n := &nativeInterface{Interface: st.Field(i), refCount: 1}
-		// n.Interface.Retain()
-		// C.ArrowArrayMove(ch[i], &n.native)
 		cols[i] = st.Field(i)
 	}
 
@@ -487,6 +517,7 @@ func importCArrayAsType(arr *C.ArrowArray, dt arrow.DataType) (imp *cimporter, e
 	return
 }
 
+// Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
 type nativeCRecordBatchReader struct {
 	stream *C.ArrowArrayStream
 	schema *arrow.Schema
