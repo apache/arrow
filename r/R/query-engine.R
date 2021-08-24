@@ -99,12 +99,6 @@ ExecPlan <- R6Class("ExecPlan",
         }
       }
 
-      # tab <- tab[
-      #   tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
-      #   names(x$selected_columns), # this omits x$temp_columns from the result
-      #   drop = FALSE
-      # ]
-
       # Apply sorting: this is currently not an ExecNode itself, it is a
       # sink node option.
       # TODO: error if doing a subsequent operation that would throw away sorting!
