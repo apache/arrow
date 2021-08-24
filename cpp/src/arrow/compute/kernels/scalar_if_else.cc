@@ -1827,6 +1827,8 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   return Status::OK();
 }
 
+// Special case: implement 'coalesce' for an array and a scalar for any
+// fixed-width type (a 'fill_null' operation)
 template <typename Type>
 Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
                                int64_t length, Datum* out) {
@@ -1916,7 +1918,6 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
   }
 
   // RHS is array
-  // TODO: benchmark this
   while (offset < length) {
     const auto block = bit_counter.NextWord();
     if (block.AllSet()) {

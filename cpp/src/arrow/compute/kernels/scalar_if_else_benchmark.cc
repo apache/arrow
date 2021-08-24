@@ -163,19 +163,22 @@ static void CaseWhenBench(benchmark::State& state) {
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
   auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
                                   key_value_metadata({{"null_probability", "0.0"}})),
-                           len);
+                           len)
+                  ->Slice(offset);
   auto val1 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto val2 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto val3 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto val4 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   for (auto _ : state) {
-    ABORT_NOT_OK(
-        CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
-                                       val3->Slice(offset), val4->Slice(offset)}));
+    ABORT_NOT_OK(CaseWhen(cond, {val1, val2, val3, val4}));
   }
 
   // Set bytes processed to ~length of output
@@ -232,18 +235,22 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
   auto cond2 = std::static_pointer_cast<BooleanArray>(
       rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto val1 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto val2 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto val3 = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   ASSERT_OK_AND_ASSIGN(
-      auto cond, StructArray::Make({cond1, cond2}, std::vector<std::string>{"a", "b"},
-                                   nullptr, /*null_count=*/0));
+      std::shared_ptr<Array> cond,
+      StructArray::Make({cond1, cond2}, std::vector<std::string>{"a", "b"}, nullptr,
+                        /*null_count=*/0));
+  cond = cond->Slice(offset);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
-                                                val3->Slice(offset)}));
+    ABORT_NOT_OK(CaseWhen(cond, {val1, val2, val3}));
   }
 
   // Set bytes processed to ~length of output
@@ -269,16 +276,16 @@ static void CaseWhenBenchStringContiguous(benchmark::State& state) {
 
 template <typename Type>
 static void CoalesceBench(benchmark::State& state) {
-  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
 
   int64_t len = state.range(0);
   int64_t offset = state.range(1);
+  int64_t num_arguments = state.range(2);
 
   random::RandomArrayGenerator rand(/*seed=*/0);
 
   std::vector<Datum> arguments;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < num_arguments; i++) {
     arguments.emplace_back(
         rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
   }
@@ -287,8 +294,9 @@ static void CoalesceBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("coalesce", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() * arguments.size() * (len - offset) *
-                          sizeof(CType));
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 template <typename Type>
@@ -310,7 +318,9 @@ static void CoalesceScalarBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("coalesce", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 static void CoalesceScalarStringBench(benchmark::State& state) {
@@ -326,13 +336,13 @@ static void CoalesceScalarStringBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("coalesce", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          static_cast<const StringArray&>(*arr).total_values_length());
+  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<StringType>::Get(
+                                                   arguments.front().make_array()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 template <typename Type>
 static void CoalesceNonNullBench(benchmark::State& state) {
-  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
 
   int64_t len = state.range(0);
@@ -349,8 +359,9 @@ static void CoalesceNonNullBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("coalesce", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() * arguments.size() * (len - offset) *
-                          sizeof(CType));
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 static void CoalesceBench64(benchmark::State& state) {
@@ -362,13 +373,12 @@ static void CoalesceScalarBench64(benchmark::State& state) {
 }
 
 static void CoalesceNonNullBench64(benchmark::State& state) {
-  return CoalesceBench<Int64Type>(state);
+  return CoalesceNonNullBench<Int64Type>(state);
 }
 
 template <typename Type>
 static void ChooseBench(benchmark::State& state) {
   constexpr int kNumChoices = 5;
-  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
 
   int64_t len = state.range(0);
@@ -389,7 +399,9 @@ static void ChooseBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("choose", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed<Type>::Get(arguments[1].make_array()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 static void ChooseBench64(benchmark::State& state) {
@@ -429,8 +441,10 @@ BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 99});
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 0});
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 99});
 
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 0});
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 99});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 0, 2});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 0, 4});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 99, 2});
+BENCHMARK(CoalesceBench64)->Args({kNumItems, 99, 4});
 
 BENCHMARK(CoalesceScalarBench64)->Args({kNumItems, 0});
 BENCHMARK(CoalesceScalarStringBench)->Args({kNumItems, 0});
