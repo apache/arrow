@@ -133,7 +133,7 @@ test_that("Simple interface for datasets", {
 
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    ds %>% pull(part),
     c(rep(1, 10), rep(2, 10))
   )
 })

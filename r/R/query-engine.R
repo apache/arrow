@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+do_exec_plan <- function(.data) {
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(.data)
+  tab <- plan$Run(final_node)
+
+  if (length(final_node$sort$temp_columns) > 0) {
+    # If arrange() created $temp_columns, make sure to omit them from the result
+    tab <- tab[, setdiff(names(tab), final_node$sort$temp_columns), drop = FALSE]
+  }
+
+  tab
+}
+
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -85,11 +98,33 @@ ExecPlan <- R6Class("ExecPlan",
           )
         }
       }
+
+      # tab <- tab[
+      #   tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
+      #   names(x$selected_columns), # this omits x$temp_columns from the result
+      #   drop = FALSE
+      # ]
+
+      # Apply sorting: this is currently not an ExecNode itself, it is a
+      # sink node option.
+      # TODO: error if doing a subsequent operation that would throw away sorting!
+      if (length(.data$arrange_vars)) {
+        node$sort <- list(
+          names = names(.data$arrange_vars),
+          orders = as.integer(.data$arrange_desc),
+          temp_columns = names(.data$temp_columns)
+        )
+      } else if (length(.data$aggregations) && grouped) {
+        node$sort <- list(
+          names = group_vars,
+          orders = rep(0L, length(group_vars))
+        )
+      }
       node
     },
     Run = function(node) {
       assert_is(node, "ExecNode")
-      ExecPlan_run(self, node)
+      ExecPlan_run(self, node, node$sort %||% list())
     }
   )
 )
@@ -100,6 +135,7 @@ ExecPlan$create <- function(use_threads = option_use_threads()) {
 ExecNode <- R6Class("ExecNode",
   inherit = ArrowObject,
   public = list(
+    sort = NULL,
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")

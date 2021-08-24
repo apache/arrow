@@ -191,28 +191,6 @@ ensure_arrange_vars <- function(x) {
   x
 }
 
-restore_dplyr_features <- function(df, query) {
-  # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
-  # After calling collect(), make sure these features are carried over
-
-  if (length(query$group_by_vars) > 0) {
-    # Preserve groupings, if present
-    if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(
-        df,
-        dplyr::group_vars(query),
-        drop = dplyr::group_by_drop_default(query)
-      )
-    } else {
-      # This is a Table, via compute() or collect(as_data_frame = FALSE)
-      df <- arrow_dplyr_query(df)
-      df$group_by_vars <- query$group_by_vars
-      df$drop_empty_groups <- query$drop_empty_groups
-    }
-  }
-  df
-}
-
 # Helper to handle unsupported dplyr features
 # * For Table/RecordBatch, we collect() and then call the dplyr method in R
 # * For Dataset, we just error

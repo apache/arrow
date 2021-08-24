@@ -85,7 +85,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -94,7 +93,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int * 4, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -103,7 +101,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl,
   )
@@ -195,7 +192,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -203,7 +199,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -211,7 +206,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -219,7 +213,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -229,7 +222,6 @@ test_that("Group by any/all", {
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(any(has_words, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -238,7 +230,6 @@ test_that("Group by any/all", {
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(all(has_words, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -246,7 +237,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(has_words = all(nchar(verses) < 0, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -291,7 +281,6 @@ test_that("Filter and aggregate", {
       filter(some_grouping == 2) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -301,7 +290,6 @@ test_that("Filter and aggregate", {
       filter(int > 5) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -316,7 +304,7 @@ test_that("Expressions on aggregations", {
         any = any(lgl),
         all = all(lgl)
       ) %>%
-      arrange(some_grouping) %>%
+      collect() %>%
       transmute(some = any & !all) %>%
       collect(),
     tbl
@@ -327,7 +315,6 @@ test_that("Expressions on aggregations", {
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl) & !all(lgl)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )

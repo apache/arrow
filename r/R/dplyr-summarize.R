@@ -84,9 +84,3 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # Eventually, we will return .data here if (dataset) but do it eagerly now
   do_exec_plan(.data)
 }
-
-do_exec_plan <- function(.data) {
-  plan <- ExecPlan$create()
-  final_node <- plan$Build(.data)
-  plan$Run(final_node)
-}

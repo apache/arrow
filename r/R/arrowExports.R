@@ -280,8 +280,8 @@ ExecPlan_create <- function(use_threads) {
   .Call(`_arrow_ExecPlan_create`, use_threads)
 }
 
-ExecPlan_run <- function(plan, final_node) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node)
+ExecPlan_run <- function(plan, final_node, sort_options) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
@@ -1767,3 +1767,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+
