@@ -205,13 +205,12 @@ repeat_value_as_array <- function(object, n) {
 #' # Now define the environment variables (see arrow-thirdparty/DEFINE_ENV_VARS.sh)
 #' # and run your offline build.
 download_optional_dependencies <- function(deps_dir) {
-  #' This script is copied over from arrow/cpp/... to arrow/r/tools/cpp/...
+  # This script is copied over from arrow/cpp/... to arrow/r/tools/cpp/...
   download_dependencies_sh <- system.file(
     "tools/cpp/thirdparty/download_dependencies.sh",
     package = "arrow",
     mustWork = TRUE
   )
-
   # Make sure the directory is sort of reasonable before creating it
   deps_dir <- trimws(deps_dir)
   stopifnot(nchar(deps_dir) >= 1)
@@ -222,7 +221,8 @@ download_optional_dependencies <- function(deps_dir) {
   stderr_file <- tempfile()
   file.create(stdout_file, stderr_file)
   cat("***Downloading optional dependencies to ", deps_dir)
-  return_status <- system2(download_dependencies_sh, args = deps_dir,
+  return_status <- system2(download_dependencies_sh,
+    args = deps_dir,
     stdout = stdout_file, stderr = stderr_file
   )
   if (return_status == 0) {
