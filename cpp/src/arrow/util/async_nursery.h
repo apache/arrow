@@ -32,7 +32,7 @@ class Nursery;
 class AsyncCloseablePimpl;
 
 template <typename T>
-struct DestroyingDeleter {
+struct ARROW_EXPORT DestroyingDeleter {
   void operator()(T* p) { p->Destroy(); }
 };
 
@@ -41,7 +41,7 @@ struct DestroyingDeleter {
 /// Any AsyncCloseable must be kept alive until its parent is destroyed (this is a given
 /// if the parent is a nursery).  For shorter lived tasks/objects consider
 /// OwnedAsyncCloseable adding a dependent task.
-class AsyncCloseable : public std::enable_shared_from_this<AsyncCloseable> {
+class ARROW_EXPORT AsyncCloseable : public std::enable_shared_from_this<AsyncCloseable> {
  public:
   AsyncCloseable();
   explicit AsyncCloseable(AsyncCloseable* parent);
@@ -80,7 +80,7 @@ class AsyncCloseable : public std::enable_shared_from_this<AsyncCloseable> {
   friend AsyncCloseablePimpl;
 };
 
-class AsyncCloseablePimpl {
+class ARROW_EXPORT AsyncCloseablePimpl {
  protected:
   void Init(AsyncCloseable* impl);
 
@@ -95,7 +95,7 @@ class AsyncCloseablePimpl {
   friend struct DestroyingDeleter;
 };
 
-class Nursery {
+class ARROW_EXPORT Nursery {
  public:
   // FIXME: Add static_assert that T extends AsyncCloseable for friendlier error message
   template <typename T, typename... Args>
