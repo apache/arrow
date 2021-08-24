@@ -607,7 +607,8 @@ def test_type_schema_pickling():
         pa.field('a', 'string', metadata={b'foo': b'bar'}),
         pa.list_(pa.field("element", pa.int64())),
         pa.large_list(pa.field("element", pa.int64())),
-        pa.map_(pa.field("key", pa.string(), nullable=False), pa.field("value", pa.int8()))
+        pa.map_(pa.field("key", pa.string(), nullable=False),
+                pa.field("value", pa.int8()))
     ]
 
     for val in cases:
