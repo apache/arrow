@@ -57,7 +57,11 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
   SCOPED_TRACE("serial");
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ExecContext parallel_exec_context(default_memory_pool(),
+                                    ::arrow::internal::GetCpuThreadPool());
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(parallel ? &parallel_exec_context
+                                                          : default_exec_context()));
 
   JoinNodeOptions join_options{type, left_keys, right_keys};
   Declaration join{"hash_join", join_options};
