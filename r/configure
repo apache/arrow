@@ -273,8 +273,8 @@ if [ $? -eq 0 ]; then
   echo "PKG_LIBS=$PKG_LIBS"
 else
   echo "------------------------- NOTE ---------------------------"
+  echo "There was an issue preparing the Arrow C++ libraries."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
-  echo "for help installing Arrow C++ libraries"
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""
