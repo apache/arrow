@@ -1008,7 +1008,7 @@ std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
 
 void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out) {
   const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
+  arrow::random::pcg32_fast gen(random_seed);
   std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
                                            std::numeric_limits<int32_t>::max());
   out->resize(N, {});
@@ -1023,7 +1023,7 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out) {
   const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
+  arrow::random::pcg32_fast gen(random_seed);
   std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
                                            std::numeric_limits<int64_t>::max());
   out->resize(N, {});
