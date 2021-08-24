@@ -58,6 +58,11 @@
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-format</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <version>${project.version}</version>
       <scope>runtime</scope>
