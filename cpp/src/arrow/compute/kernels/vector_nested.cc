@@ -35,30 +35,6 @@ Status ListFlatten(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
-template <typename Type, typename offset_type = typename Type::offset_type>
-Status ListParentIndices(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  typename TypeTraits<Type>::ArrayType list(batch[0].array());
-  ArrayData* out_arr = out->mutable_array();
-
-  const offset_type* offsets = list.raw_value_offsets();
-  offset_type values_length = offsets[list.length()] - offsets[0];
-
-  out_arr->length = values_length;
-  out_arr->null_count = 0;
-  ARROW_ASSIGN_OR_RAISE(out_arr->buffers[1],
-                        ctx->Allocate(values_length * sizeof(offset_type)));
-  auto out_indices = reinterpret_cast<offset_type*>(out_arr->buffers[1]->mutable_data());
-  for (int64_t i = 0; i < list.length(); ++i) {
-    // Note: In most cases, null slots are empty, but when they are non-empty
-    // we write out the indices so make sure they are accounted for. This
-    // behavior could be changed if needed in the future.
-    for (offset_type j = offsets[i]; j < offsets[i + 1]; ++j) {
-      *out_indices++ = static_cast<offset_type>(i);
-    }
-  }
-  return Status::OK();
-}
-
 struct ListParentIndicesArray {
   KernelContext* ctx;
   const std::shared_ptr<ArrayData>& input;
