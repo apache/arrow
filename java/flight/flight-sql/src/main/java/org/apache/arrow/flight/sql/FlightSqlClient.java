@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
@@ -58,6 +59,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.protobuf.Any;
@@ -94,7 +96,7 @@ public class FlightSqlClient {
    *
    * @param query   The query to execute.
    * @param options RPC-layer hints for this call.
-   * @return a FlightInfo object representing the stream(s) to fetch.
+   * @return the number of rows affected.
    */
   public long executeUpdate(final String query, final CallOption... options) {
     final CommandStatementUpdate.Builder builder = CommandStatementUpdate.newBuilder();
@@ -425,10 +427,9 @@ public class FlightSqlClient {
     public Schema getResultSetSchema() {
       if (resultSetSchema == null) {
         final ByteString bytes = preparedStatementResult.getDatasetSchema();
-        if (bytes.isEmpty()) {
-          return new Schema(Collections.emptyList());
-        }
-        resultSetSchema = Schema.deserialize(bytes.asReadOnlyByteBuffer());
+        resultSetSchema = bytes.isEmpty() ?
+            new Schema(Collections.emptyList()) :
+            MessageSerializer.deserializeSchema(Message.getRootAsMessage(bytes.asReadOnlyByteBuffer()));
       }
       return resultSetSchema;
     }
@@ -441,10 +442,9 @@ public class FlightSqlClient {
     public Schema getParameterSchema() {
       if (parameterSchema == null) {
         final ByteString bytes = preparedStatementResult.getParameterSchema();
-        if (bytes.isEmpty()) {
-          return new Schema(Collections.emptyList());
-        }
-        parameterSchema = Schema.deserialize(bytes.asReadOnlyByteBuffer());
+        parameterSchema = bytes.isEmpty() ?
+            new Schema(Collections.emptyList()) :
+            MessageSerializer.deserializeSchema(Message.getRootAsMessage(bytes.asReadOnlyByteBuffer()));
       }
       return parameterSchema;
     }

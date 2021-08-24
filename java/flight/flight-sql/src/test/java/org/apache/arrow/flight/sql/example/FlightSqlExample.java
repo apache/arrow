@@ -136,6 +136,8 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -175,6 +177,7 @@ import com.google.protobuf.ProtocolStringList;
  * with {@link #getFlightInfo} and {@link #getStream}.
  */
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
+  private static final IpcOption DEFAULT_OPTION = IpcOption.DEFAULT;
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
@@ -523,7 +526,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           for (int index = 0; index < rows; index++) {
             final String tableName = tableNameVector.getObject(index).toString();
             final Schema schema = new Schema(tableToFields.get(tableName));
-            saveToVector(schema.toByteArray(), tableSchemaVector, index);
+            saveToVector(
+                copyFrom(MessageSerializer.serializeMetadata(schema, DEFAULT_OPTION)).toByteArray(),
+                tableSchemaVector, index);
           }
         }
 
@@ -737,17 +742,15 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
 
       final ResultSetMetaData metaData = preparedStatement.getMetaData();
-
-      ByteString bytes;
-      if (isNull(metaData)) {
-        bytes = ByteString.EMPTY;
-      } else {
-        bytes = ByteString.copyFrom(
-            jdbcToArrowSchema(metaData, DEFAULT_CALENDAR).toByteArray());
-      }
+      final ByteString bytes = isNull(metaData) ?
+            ByteString.EMPTY :
+            ByteString.copyFrom(
+                MessageSerializer.serializeMetadata(
+                    jdbcToArrowSchema(metaData, DEFAULT_CALENDAR),
+                    DEFAULT_OPTION));
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(bytes)
-          .setParameterSchema(copyFrom(parameterSchema.toByteArray()))
+          .setParameterSchema(copyFrom(MessageSerializer.serializeMetadata(parameterSchema, DEFAULT_OPTION)))
           .setPreparedStatementHandle(preparedStatementHandle)
           .build();
       listener.onNext(new Result(pack(result).toByteArray()));
@@ -1346,7 +1349,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoSqlInfo(final CommandGetSqlInfo request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, getSchemaSqlInfo().getSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_SQL_INFO_SCHEMA);
   }
 
   @Override
@@ -1377,7 +1380,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoCatalogs(final CommandGetCatalogs request, final CallContext context,
                                           final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, getSchemaCatalogs().getSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_CATALOGS_SCHEMA);
   }
 
   @Override
@@ -1398,7 +1401,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoSchemas(final CommandGetSchemas request, final CallContext context,
                                          final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, getSchemaSchemas().getSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_SCHEMAS_SCHEMA);
   }
 
   @Override
@@ -1423,8 +1426,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoTables(final CommandGetTables request, final CallContext context,
                                         final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaTables().getSchema();
-    return getFlightInfoForSchema(request, descriptor, schema);
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TABLES_SCHEMA);
   }
 
   @Override
@@ -1460,7 +1462,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoTableTypes(final CommandGetTableTypes request, final CallContext context,
                                             final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, getSchemaTableTypes().getSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TABLE_TYPES_SCHEMA);
   }
 
   @Override
@@ -1481,7 +1483,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoPrimaryKeys(final CommandGetPrimaryKeys request, final CallContext context,
                                              final FlightDescriptor descriptor) {
-    return getFlightInfoForSchema(request, descriptor, getSchemaPrimaryKeys().getSchema());
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_PRIMARY_KEYS_SCHEMA);
   }
 
   @Override
@@ -1536,8 +1538,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoExportedKeys(final FlightSql.CommandGetExportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaForImportedAndExportedKeys().getSchema();
-    return getFlightInfoForSchema(request, descriptor, schema);
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override
@@ -1563,8 +1564,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoImportedKeys(final FlightSql.CommandGetImportedKeys request, final CallContext context,
                                               final FlightDescriptor descriptor) {
-    final Schema schema = getSchemaForImportedAndExportedKeys().getSchema();
-    return getFlightInfoForSchema(request, descriptor, schema);
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override

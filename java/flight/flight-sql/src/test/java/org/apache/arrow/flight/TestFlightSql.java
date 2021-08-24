@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.IntStream;
 
+import org.apache.arrow.flatbuf.Message;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
@@ -54,6 +55,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -614,7 +616,9 @@ public class TestFlightSql {
               for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
                 final byte[] data = varbinaryVector.getObject(rowIndex);
                 final String output =
-                    isNull(data) ? null : Schema.deserialize(ByteBuffer.wrap(data)).toJson();
+                    isNull(data) ?
+                        null :
+                        MessageSerializer.deserializeSchema(Message.getRootAsMessage(ByteBuffer.wrap(data))).toJson();
                 results.get(rowIndex).add(output);
               }
             } else if (fieldVector instanceof DenseUnionVector) {

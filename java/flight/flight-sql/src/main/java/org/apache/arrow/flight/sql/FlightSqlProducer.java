@@ -23,7 +23,6 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -128,21 +127,19 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return getSchemaStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandStatementQuery.class), context, descriptor);
     } else if (command.is(CommandGetCatalogs.class)) {
-      return getSchemaCatalogs();
+      return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
     } else if (command.is(CommandGetSchemas.class)) {
-      return getSchemaSchemas();
+      return new SchemaResult(Schemas.GET_SCHEMAS_SCHEMA);
     } else if (command.is(CommandGetTables.class)) {
-      return getSchemaTables();
+      return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
     } else if (command.is(CommandGetTableTypes.class)) {
-      return getSchemaTableTypes();
+      return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
     } else if (command.is(CommandGetSqlInfo.class)) {
-      return getSchemaSqlInfo();
+      return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
-      return getSchemaPrimaryKeys();
-    } else if (command.is(CommandGetExportedKeys.class)) {
-      return getSchemaForImportedAndExportedKeys();
-    } else if (command.is(CommandGetImportedKeys.class)) {
-      return getSchemaForImportedAndExportedKeys();
+      return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
+    } else if (command.is(CommandGetImportedKeys.class) || command.is(CommandGetExportedKeys.class)) {
+      return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid command provided.").toRuntimeException();
@@ -395,15 +392,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                   FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get SQL info data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaSqlInfo() {
-    return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
-  }
-
-  /**
    * Returns data for SQL info based data stream.
    *
    * @param command  The command to generate the data stream.
@@ -427,15 +415,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                    FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get catalogs data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaCatalogs() {
-    return new SchemaResult(Schemas.GET_CATALOGS_SCHEMA);
-  }
-
-  /**
    * Returns data for catalogs based data stream.
    *
    * @param context  Per-call context.
@@ -456,15 +435,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   FlightInfo getFlightInfoSchemas(CommandGetSchemas request, CallContext context,
                                   FlightDescriptor descriptor);
-
-  /**
-   * Gets schema about the get schemas data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaSchemas() {
-    return new SchemaResult(Schemas.GET_SCHEMAS_SCHEMA);
-  }
 
   /**
    * Returns data for schemas based data stream.
@@ -490,15 +460,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                  FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get tables data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaTables() {
-    return new SchemaResult(Schemas.GET_TABLES_SCHEMA);
-  }
-
-  /**
    * Returns data for tables based data stream.
    *
    * @param command  The command to generate the data stream.
@@ -521,15 +482,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                                      FlightDescriptor descriptor);
 
   /**
-   * Gets schema about the get table types data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaTableTypes() {
-    return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
-  }
-
-  /**
    * Returns data for table types based data stream.
    *
    * @param context  Per-call context.
@@ -549,23 +501,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   FlightInfo getFlightInfoPrimaryKeys(CommandGetPrimaryKeys request, CallContext context,
                                       FlightDescriptor descriptor);
-
-  /**
-   * Gets schema about the get primary keys data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaPrimaryKeys() {
-    final List<Field> fields = Arrays.asList(
-        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("key_sequence", MinorType.INT.getType()),
-        Field.nullable("key_name", MinorType.VARCHAR.getType()));
-
-    return new SchemaResult(new Schema(fields));
-  }
 
   /**
    * Returns data for primary keys based data stream.
@@ -601,15 +536,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   FlightInfo getFlightInfoImportedKeys(CommandGetImportedKeys request, CallContext context,
                                        FlightDescriptor descriptor);
-
-  /**
-   * Gets schema about the get imported and exported keys data stream.
-   *
-   * @return Schema for the stream.
-   */
-  default SchemaResult getSchemaForImportedAndExportedKeys() {
-    return new SchemaResult(Schemas.GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA);
-  }
 
   /**
    * Returns data for foreign keys based data stream.
@@ -680,6 +606,13 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                     Field.nullable("int_value", MinorType.INT.getType()),
                     Field.nullable("bigint_value", MinorType.BIGINT.getType()),
                     Field.nullable("int32_bitmask", MinorType.INT.getType())))));
+    public static final Schema GET_PRIMARY_KEYS_SCHEMA = new Schema(Arrays.asList(
+        Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
+        Field.nullable("schema_name", MinorType.VARCHAR.getType()),
+        Field.nullable("table_name", MinorType.VARCHAR.getType()),
+        Field.nullable("column_name", MinorType.VARCHAR.getType()),
+        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.nullable("key_name", MinorType.VARCHAR.getType())));
 
     private Schemas() {
       // Prevent instantiation.
