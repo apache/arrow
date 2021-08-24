@@ -31,6 +31,6 @@ find_dependency(ArrowFlight)
 
 # Load targets only once. If we load targets multiple times, CMake reports
 # already existent target error.
-if(NOT (TARGET arrow_flight_shared OR TARGET arrow_flight_static))
+if(NOT (TARGET arrow_flight_sql_shared OR TARGET arrow_flight_sql_static))
   include("${CMAKE_CURRENT_LIST_DIR}/ArrowFlightSqlTargets.cmake")
 endif()

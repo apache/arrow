@@ -49,39 +49,6 @@ set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
 string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Probe the version of gRPC being used to see if it supports disabling server
-# verification when using TLS.
-function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
-  if(NOT DEFINED ${DST_VAR})
-    message(STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})..."
-    )
-    get_property(CURRENT_INCLUDE_DIRECTORIES
-                 DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                 PROPERTY INCLUDE_DIRECTORIES)
-    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
-                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
-                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc++
-                OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
-    if(HAS_GRPC_VERSION)
-      set(${DST_VAR}
-          "${DETECT_VERSION}"
-          CACHE INTERNAL "The detected (approximate) gRPC version.")
-    else()
-      message(STATUS "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
-      )
-      message(DEBUG "Build output:")
-      list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
-      message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-      list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
-    endif()
-  endif()
-endfunction()
-
-# Note, we do not compile the generated Protobuf sources directly, instead
-# compiling then via protocol_internal.cc which contains some gRPC template
-# overrides to enable Flight-specific optimizations. See comments in
-# protobuf-internal.cc
 set(ARROW_FLIGHT_SQL_SRCS
     client.cc)
 
@@ -91,7 +58,7 @@ add_arrow_lib(arrow_flight_sql
               PKG_CONFIG_NAME
               arrow-flight-sql
               OUTPUTS
-              ARROW_FLIGHT_LIBRARIES
+              ARROW_FLIGHT_SQL_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SQL_SRCS}
               PRECOMPILED_HEADERS
@@ -112,54 +79,3 @@ add_arrow_test(flight_sql_test
                client_test.cc
                LABELS
                "arrow_flight_sql")
-
-## Build test server for unit tests or benchmarks
-#if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-#  add_executable(flight-test-server test_server.cc)
-#  target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-#                        ${GFLAGS_LIBRARIES} GTest::gtest)
-#
-#  if(ARROW_BUILD_TESTS)
-#    add_dependencies(arrow-flight-test flight-test-server)
-#  endif()
-#
-#  add_dependencies(arrow_flight flight-test-server)
-#endif()
-#
-#if(ARROW_BUILD_INTEGRATION)
-#  add_executable(flight-test-integration-server test_integration_server.cc)
-#  target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-#                        ${GFLAGS_LIBRARIES} GTest::gtest)
-#
-#  add_executable(flight-test-integration-client test_integration_client.cc)
-#  target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-#                        ${GFLAGS_LIBRARIES} GTest::gtest)
-#
-#  add_dependencies(arrow_flight flight-test-integration-client
-#                   flight-test-integration-server)
-#  add_dependencies(arrow-integration flight-test-integration-client
-#                   flight-test-integration-server)
-#endif()
-#
-#if(ARROW_BUILD_BENCHMARKS)
-#  # Perf server for benchmarks
-#  set(PERF_PROTO_GENERATED_FILES "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.cc"
-#                                 "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
-#
-#  add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
-#                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
-#                             "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
-#                     DEPENDS ${PROTO_DEPENDS})
-#
-#  add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
-#  target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-#                        ${GFLAGS_LIBRARIES} GTest::gtest)
-#
-#  add_executable(arrow-flight-benchmark flight_benchmark.cc perf.pb.cc)
-#  target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
-#                        ${GFLAGS_LIBRARIES} GTest::gtest)
-#
-#  add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
-#
-#  add_dependencies(arrow_flight arrow-flight-benchmark)
-#endif(ARROW_BUILD_BENCHMARKS)

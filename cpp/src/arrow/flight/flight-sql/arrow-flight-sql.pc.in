@@ -19,7 +19,7 @@ libdir=@CMAKE_INSTALL_FULL_LIBDIR@
 includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
 Name: Apache Arrow Flight SQL
-Description: Apache Arrow Flight SQL
+Description: Apache Arrow Flight SQL extension
 Version: @ARROW_VERSION@
 Requires: arrow-flight
 Libs: -L${libdir} -larrow_flight_sql

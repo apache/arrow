@@ -18,7 +18,4 @@
 #include "arrow/flight/flight-sql/client.h"
 #include "arrow/flight/flight-sql/FlightSql.pb.h"
 
-void x() {
-    arrow::flight::protocol::sql::CommandStatementQuery command;
-    command.set_query("");
-}
+// TODO: Implement
