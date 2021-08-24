@@ -1970,14 +1970,52 @@ struct CoalesceFunctor<NullType> {
 template <typename Type>
 struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch.num_values() == 2 && batch.values[0].is_array() &&
+        batch.values[1].is_scalar()) {
+      // Specialized implementation for common case ('fill_null' operation)
+      return ExecArrayScalar(ctx, *batch.values[0].array(), *batch.values[1].scalar(),
+                             out);
+    }
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
       }
     }
     return ExecScalarCoalesce(ctx, batch, out);
+  }
+
+  static Status ExecArrayScalar(KernelContext* ctx, const ArrayData& left,
+                                const Scalar& right, Datum* out) {
+    const int64_t null_count = left.GetNullCount();
+    if (null_count == 0 || !right.is_valid) {
+      *out = left;
+      return Status::OK();
+    }
+    ArrayData* output = out->mutable_array();
+    BuilderType builder(left.type, ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(left.length));
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(right);
+    const offset_type* offsets = left.GetValues<offset_type>(1);
+    const int64_t data_reserve = static_cast<int64_t>(offsets[left.length] - offsets[0]) +
+                                 null_count * scalar.value->size();
+    if (data_reserve > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result will not fit in a 32-bit binary-like array, convert to large type");
+    }
+    RETURN_NOT_OK(builder.ReserveData(static_cast<offset_type>(data_reserve)));
+
+    util::string_view fill_value(*scalar.value);
+    VisitArrayDataInline<Type>(
+        left, [&](util::string_view s) { builder.UnsafeAppend(s); },
+        [&]() { builder.UnsafeAppend(fill_value); });
+
+    ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
+    *output = *temp_output->data();
+    output->type = left.type;
+    return Status::OK();
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
