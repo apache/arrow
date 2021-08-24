@@ -146,11 +146,10 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-  skip("This seems to be calling base::nchar")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
-      summarize(has_words = all(nchar(verses) < 0)) %>%
+      summarize(has_words = all(nchar(verses) < 0, na.rm = TRUE)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
