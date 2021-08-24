@@ -24,7 +24,7 @@ Functions
 .. autosummary::
    :toctree: ../generated/
 
-   col
-   lit
-   udaf
-   udf
+   datafusion.functions.col
+   datafusion.functions.lit
+   datafusion.functions.udaf
+   datafusion.functions.udf

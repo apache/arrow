@@ -24,4 +24,4 @@ Expression
 .. autosummary::
    :toctree: ../generated/
 
-   Expression
+   datafusion.Expression

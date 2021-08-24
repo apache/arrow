@@ -24,4 +24,4 @@ DataFrame
 .. autosummary::
    :toctree: ../generated/
 
-   DataFrame
+   datafusion.DataFrame

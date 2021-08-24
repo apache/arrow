@@ -24,4 +24,4 @@ ExecutionContext
 .. autosummary::
    :toctree: ../generated/
 
-   ExecutionContext
+   datafusion.ExecutionContext
