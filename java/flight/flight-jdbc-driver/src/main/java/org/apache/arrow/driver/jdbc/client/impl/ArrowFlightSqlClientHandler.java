@@ -17,25 +17,20 @@
 
 package org.apache.arrow.driver.jdbc.client.impl;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
-import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.sql.FlightSqlClient;
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 
 /**
@@ -45,86 +40,31 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
 
   private final FlightSqlClient sqlClient;
 
-  ArrowFlightSqlClientHandler(final FlightClient client, final FlightSqlClient sqlClient,
-                              final CallOption... options) {
-    super(client, options);
+  public ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
+                                     final CallOption... options) {
+    super(options);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
   }
 
   /**
-   * Gets a new client based upon provided info.
+   * Creates a new {@link ArrowFlightSqlClientHandler} from the provided {@code clientInfo}.
    *
-   * @param host      the host to use.
-   * @param port      the port to use.
-   * @param username  the username to use.
-   * @param password  the password to use.
-   * @param allocator the {@link BufferAllocator}.
-   * @param useTls    whether to use TLS encryption.
-   * @param options   the options.
-   * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
+   * @param clientInfo the {@link FlightClient} to manage along with {@link CallOption}s to use in subsequent calls.
+   * @return a new {@link FlightClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final String host, final int port,
-                                                             final String username, final String password,
-                                                             final String keyStorePath, final String keyStorePassword,
-                                                             final BufferAllocator allocator, final boolean useTls,
-                                                             final CallOption... options)
-      throws GeneralSecurityException, IOException {
-    return createNewHandler(
-        host, port, username, password, keyStorePath, keyStorePassword, allocator, useTls, Arrays.asList(options));
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param host             the host to use.
-   * @param port             the port to use.
-   * @param username         the username to use.
-   * @param password         the password to use.
-   * @param keyStorePath     the KeyStore path to use.
-   * @param keyStorePassword the keyStore password to use.
-   * @param allocator        the {@link BufferAllocator}.
-   * @param useTls           whether to use TLS encryption.
-   * @param options          the options.
-   * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
-   * @throws GeneralSecurityException If a certificate-related error occurs.
-   * @throws IOException              If an error occurs while trying to establish a connection to the
-   *                                  client.
-   */
-  public static ArrowFlightSqlClientHandler createNewHandler(final String host, final int port,
-                                                             final String username, final String password,
-                                                             final String keyStorePath, final String keyStorePassword,
-                                                             final BufferAllocator allocator,
-                                                             final boolean useTls,
-                                                             final Collection<CallOption> options)
-      throws GeneralSecurityException, IOException {
-    return createNewHandler(
-        ClientCreationUtils.createAndGetClientInfo(
-            host, port, username, password, keyStorePath,
-            keyStorePassword, allocator, useTls, options));
-  }
-
-  /**
-   * Gets a new client based upon provided info.
-   *
-   * @param clientInfo the client info.
-   * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
-   */
-  public static ArrowFlightSqlClientHandler createNewHandler(final Entry<FlightClient, CallOption[]> clientInfo) {
+  public static FlightClientHandler createNewHandler(final Entry<FlightClient, CallOption[]> clientInfo) {
     return createNewHandler(clientInfo.getKey(), clientInfo.getValue());
   }
 
   /**
-   * Gets a new client based upon provided info.
+   * Creates a new {@link ArrowFlightSqlClientHandler} from the provided {@code client} and {@code options}.
    *
-   * @param client  the client.
-   * @param options the options.
-   * @return a new {@link ArrowFlightSqlClientHandler} based upon the aforementioned information.
+   * @param client  the {@link FlightClient} to manage under a {@link FlightSqlClient} wrapper.
+   * @param options the {@link CallOption}s to persist in between subsequent client calls.
+   * @return a new {@link FlightClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
-    return new ArrowFlightSqlClientHandler(client, new FlightSqlClient(client), options);
+  public static FlightClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
+    return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), options);
   }
 
   @Override
@@ -143,9 +83,9 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   @Override
   public void close() throws SQLException {
     try {
-      super.close();
+      AutoCloseables.close(sqlClient);
     } catch (final Exception e) {
-      throw new SQLException("Failed to clean up resources.", e);
+      throw new SQLException("Failed to clean up client resources.", e);
     }
   }
 }

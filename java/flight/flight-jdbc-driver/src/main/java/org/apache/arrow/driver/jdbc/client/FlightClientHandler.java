@@ -17,34 +17,16 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Collection;
 
-import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.util.AutoCloseables;
 
 /**
  * A wrapper for a {@link FlightClient}.
  */
 public interface FlightClientHandler extends AutoCloseable {
-
-  /**
-   * Gets the {@link FlightClient} managed by this handler.
-   *
-   * @return the client.
-   */
-  FlightClient getClient();
-
-  /**
-   * Gets the call options for subsequent calls to the client wrapped by this handler.
-   *
-   * @return the call options.
-   */
-  CallOption[] getOptions();
 
   /**
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
@@ -53,12 +35,7 @@ public interface FlightClientHandler extends AutoCloseable {
    * @param query The query.
    * @return a {@code FlightStream} of results.
    */
-  default List<FlightStream> getStreams(String query) {
-    return getInfo(query).getEndpoints().stream()
-            .map(FlightEndpoint::getTicket)
-            .map(ticket -> getClient().getStream(ticket, getOptions()))
-            .collect(Collectors.toList());
-  }
+  Collection<FlightStream> getStreams(String query);
 
   /**
    * Makes an RPC "getInfo" request based on the provided {@code query}
@@ -68,9 +45,4 @@ public interface FlightClientHandler extends AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   FlightInfo getInfo(String query);
-
-  @Override
-  default void close() throws Exception {
-    AutoCloseables.close(getClient());
-  }
 }

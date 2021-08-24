@@ -28,6 +28,7 @@ import java.util.Properties;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -158,10 +159,12 @@ public class ConnectionTest {
   public void testGetBasicClientAuthenticatedShouldOpenConnection()
       throws Exception {
 
-    try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
-        flightTestUtils.getLocalhost(), server.getPort(),
-        flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
-        null, null, allocator, false)) {
+    try (FlightClientHandler client =
+             ArrowFlightSqlClientHandler.createNewHandler(
+                 ClientCreationUtils.createAndGetClientInfo(
+                     flightTestUtils.getLocalhost(), server.getPort(),
+                     flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
+                     null, null, allocator, false))) {
       assertNotNull(client);
     }
   }
@@ -195,10 +198,12 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    try (FlightClientHandler client = ArrowFlightSqlClientHandler.createNewHandler(
-        flightTestUtils.getLocalhost(), server.getPort(),
-        null, null, null, null,
-        allocator, false)) {
+    try (FlightClientHandler client =
+             ArrowFlightSqlClientHandler.createNewHandler(
+                 ClientCreationUtils.createAndGetClientInfo(
+                     flightTestUtils.getLocalhost(), server.getPort(),
+                     null, null, null, null,
+                     allocator, false))) {
       assertNotNull(client);
     }
   }

@@ -29,6 +29,7 @@ import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -137,9 +138,10 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler.createNewHandler(
-                 address.getHost(), address.getPort(),
-                 credentials.getUserName(), credentials.getPassword(),
-                 keyStorePath, keyStorePass, allocator, true)) {
+                 ClientCreationUtils.createAndGetClientInfo(
+                     address.getHost(), address.getPort(),
+                     credentials.getUserName(), credentials.getPassword(),
+                     keyStorePath, keyStorePass, allocator, true))) {
       assertNotNull(client);
     }
   }
@@ -155,12 +157,12 @@ public class ConnectionTlsTest {
     final String noCertificateKeyStorePassword = "flight1";
 
     try (FlightClientHandler client =
-             ArrowFlightSqlClientHandler
-                 .createNewHandler(
+             ArrowFlightSqlClientHandler.createNewHandler(
+                 ClientCreationUtils.createAndGetClientInfo(
                      flightTestUtils.getLocalhost(), tlsServer.getPort(),
                      null, null,
                      noCertificateKeyStorePath, noCertificateKeyStorePassword,
-                     allocator, true)) {
+                     allocator, true))) {
       Assert.fail();
     }
   }
@@ -173,10 +175,10 @@ public class ConnectionTlsTest {
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (FlightClientHandler client =
-             ArrowFlightSqlClientHandler
-                 .createNewHandler(
+             ArrowFlightSqlClientHandler.createNewHandler(
+                 ClientCreationUtils.createAndGetClientInfo(
                      flightTestUtils.getLocalhost(), tlsServer.getPort(),
-                     null, null, keyStorePath, keyStorePass, allocator, true)) {
+                     null, null, keyStorePath, keyStorePass, allocator, true))) {
       assertNotNull(client);
     }
   }
@@ -193,9 +195,10 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              ArrowFlightSqlClientHandler.createNewHandler(
-                 flightTestUtils.getLocalhost(), tlsServer.getPort(),
-                 null, null, keyStorePath, keyStoreBadPassword,
-                 allocator, true)) {
+                 ClientCreationUtils.createAndGetClientInfo(
+                     flightTestUtils.getLocalhost(), tlsServer.getPort(),
+                     null, null, keyStorePath, keyStoreBadPassword,
+                     allocator, true))) {
       Assert.fail();
     }
   }
