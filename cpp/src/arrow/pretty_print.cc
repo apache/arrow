@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
@@ -45,6 +46,8 @@
 namespace arrow {
 
 using internal::checked_cast;
+
+namespace {
 
 class PrettyPrinter {
  public:
@@ -89,11 +92,6 @@ void PrettyPrinter::CloseArray(const Array& array) {
 
 void PrettyPrinter::Write(const char* data) { (*sink_) << data; }
 void PrettyPrinter::Write(const std::string& data) { (*sink_) << data; }
-
-void PrettyPrinter::WriteIndented(const char* data) {
-  Indent();
-  Write(data);
-}
 
 void PrettyPrinter::WriteIndented(const std::string& data) {
   Indent();
@@ -167,29 +165,81 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+  enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
-                                           arrow_vendored::date::days,
-                                           std::chrono::milliseconds>::type;
-    WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
+    const auto& type = checked_cast<const TimeType&>(*array.type());
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type.unit(), "%T", data[i], false); });
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+  // NOTE about bounds checking on temporal data:
+  //
+  // While we catch exceptions in FormatDateTime(), some out-of-bound values
+  // would result in successful but erroneous printing because of silent
+  // integer wraparound in the `arrow_vendored::date` library (particularly
+  // because it represents year values as a C `short` internally).
+  //
+  // To avoid such misprinting, we must therefore check the bounds explicitly.
+  // The bounds correspond to start of year -32767 and end of year 32767,
+  // respectively (-32768 is an invalid year value in `arrow_vendored::date`).
+  Status WriteDataValues(const Date32Array& array) {
     const auto data = array.raw_values();
-    const auto type = static_cast<const TimeType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%T", data[i], false); });
+    WriteValues(array, [&](int64_t i) {
+      const int32_t v = data[i];
+      if (v >= -12687428 && v <= 11248737) {
+        FormatDateTime<arrow_vendored::date::days>("%F", v, true);
+      } else {
+        WriteOutOfRange(v);
+      }
+    });
+    return Status::OK();
+  }
+
+  Status WriteDataValues(const Date64Array& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) {
+      const int64_t v = data[i];
+      if (v >= -1096193779200000LL && v <= 971890963199999LL) {
+        FormatDateTime<std::chrono::milliseconds>("%F", v, true);
+      } else {
+        WriteOutOfRange(v);
+      }
+    });
     return Status::OK();
   }
 
   Status WriteDataValues(const TimestampArray& array) {
     const int64_t* data = array.raw_values();
-    const auto type = static_cast<const TimestampType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
+    const auto& type = checked_cast<const TimestampType&>(*array.type());
+    int64_t min_value, max_value;
+    switch (type.unit()) {
+      case TimeUnit::SECOND:
+        min_value = -1096193779200LL;
+        max_value = 971890963199LL;
+        break;
+      case TimeUnit::MILLI:
+        min_value = -1096193779200000LL;
+        max_value = 971890963199999LL;
+        break;
+      case TimeUnit::MICRO:
+        min_value = -1096193779200000000LL;
+        max_value = 971890963199999999LL;
+        break;
+      default:
+        min_value = std::numeric_limits<int64_t>::min();
+        max_value = std::numeric_limits<int64_t>::max();
+        break;
+    }
+
+    WriteValues(array, [&](int64_t i) {
+      const int64_t v = data[i];
+      if (v >= min_value && v <= max_value) {
+        FormatDateTime(type.unit(), "%F %T", data[i], true);
+      } else {
+        WriteOutOfRange(v);
+      }
+    });
     return Status::OK();
   }
 
@@ -430,10 +480,14 @@ class ArrayPrinter : public PrettyPrinter {
  private:
   template <typename Unit>
   void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
-    if (add_epoch) {
-      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
-    } else {
-      (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
+    try {
+      if (add_epoch) {
+        (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
+      } else {
+        (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
+      }
+    } catch (std::ios::failure&) {
+      WriteOutOfRange(value);
     }
   }
 
@@ -455,10 +509,15 @@ class ArrayPrinter : public PrettyPrinter {
     }
   }
 
-  static arrow_vendored::date::sys_days epoch_;
+  template <typename V>
+  void WriteOutOfRange(const V& value) {
+    (*sink_) << "<value out of range: " << value << ">";
+  }
+
+  static const arrow_vendored::date::sys_days epoch_;
 };
 
-arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
+const arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
     arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
@@ -476,6 +535,8 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
     return Status::OK();
   }
 }
+
+}  // namespace
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
   PrettyPrintOptions options;
@@ -608,6 +669,8 @@ Status DebugPrint(const Array& arr, int indent) {
   return PrettyPrint(arr, indent, &std::cerr);
 }
 
+namespace {
+
 class SchemaPrinter : public PrettyPrinter {
  public:
   SchemaPrinter(const Schema& schema, const PrettyPrintOptions& options,
@@ -708,6 +771,8 @@ Status SchemaPrinter::PrintField(const Field& field) {
   }
   return Status::OK();
 }
+
+}  // namespace
 
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {
