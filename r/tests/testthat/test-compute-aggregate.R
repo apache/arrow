@@ -99,7 +99,7 @@ test_that("mean.ChunkedArray", {
   a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
   expect_r6_class(mean(a), "Scalar")
   expect_true(is.na(as.vector(mean(a))))
-  expect_identical(as.vector(mean(a, na.rm = TRUE)), 35/13)
+  expect_identical(as.vector(mean(a, na.rm = TRUE)), 35 / 13)
 })
 
 test_that("mean.Scalar", {
@@ -223,7 +223,7 @@ test_that("quantile.Array and quantile.ChunkedArray", {
   a <- Array$create(c(0, 1, 2, 3))
   ca <- ChunkedArray$create(c(0, 1), c(2, 3))
   probs <- c(0.49, 0.51)
-  for(ad in list(a, ca)) {
+  for (ad in list(a, ca)) {
     for (type in c(int32(), uint64(), float64())) {
       expect_equal(
         quantile(ad$cast(type), probs = probs, interpolation = "linear"),
@@ -351,9 +351,8 @@ test_that("match_arrow", {
   sc <- Scalar$create(3)
   expect_equal(match_arrow(sc, tab), Scalar$create(1L))
 
-  vec <-  c(1,2)
+  vec <- c(1, 2)
   expect_equal(match_arrow(vec, tab), Array$create(c(3L, 2L)))
-
 })
 
 test_that("is_in", {
@@ -367,9 +366,8 @@ test_that("is_in", {
   sc <- Scalar$create(3)
   expect_equal(is_in(sc, tab), Scalar$create(TRUE))
 
-  vec <-  c(1,9)
+  vec <- c(1, 9)
   expect_equal(is_in(vec, tab), Array$create(c(TRUE, FALSE)))
-
 })
 
 test_that("value_counts", {
@@ -388,7 +386,6 @@ test_that("value_counts", {
 })
 
 test_that("any.Array and any.ChunkedArray", {
-
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(any(input > 5), data)
@@ -401,11 +398,9 @@ test_that("any.Array and any.ChunkedArray", {
   expect_vector_equal(any(input), data_logical)
   expect_vector_equal(any(input, na.rm = FALSE), data_logical)
   expect_vector_equal(any(input, na.rm = TRUE), data_logical)
-
 })
 
 test_that("all.Array and all.ChunkedArray", {
-
   data <- c(1:10, NA, NA)
 
   expect_vector_equal(all(input > 5), data)
@@ -418,7 +413,6 @@ test_that("all.Array and all.ChunkedArray", {
 
   expect_vector_equal(all(input), data_logical)
   expect_vector_equal(all(input, na.rm = TRUE), data_logical)
-
 })
 
 test_that("variance", {

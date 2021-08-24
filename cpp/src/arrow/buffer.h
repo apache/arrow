@@ -416,7 +416,10 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   ///
   /// @param new_size The new size for the buffer.
   /// @param shrink_to_fit Whether to shrink the capacity if new size < current size
-  virtual Status Resize(const int64_t new_size, bool shrink_to_fit = true) = 0;
+  virtual Status Resize(const int64_t new_size, bool shrink_to_fit) = 0;
+  Status Resize(const int64_t new_size) {
+    return Resize(new_size, /*shrink_to_fit=*/true);
+  }
 
   /// Ensure that buffer has enough memory allocated to fit the indicated
   /// capacity (and meets the 64 byte padding requirement in Layout.md).

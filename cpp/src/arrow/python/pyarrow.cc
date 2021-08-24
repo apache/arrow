@@ -57,9 +57,6 @@ int import_pyarrow() {
     } else {                                                                            \
       return UnwrapError(obj, #TYPE_NAME);                                              \
     }                                                                                   \
-  }                                                                                     \
-  Status unwrap_##FUNC_SUFFIX(PyObject* obj, std::shared_ptr<TYPE_NAME>* out) {         \
-    return unwrap_##FUNC_SUFFIX(obj).Value(out);                                        \
   }
 
 DEFINE_WRAP_FUNCTIONS(buffer, Buffer)

@@ -39,12 +39,6 @@ using schema::NodePtr;
 
 namespace test {
 
-template <>
-void InitDictValues<bool>(int num_values, int dict_per_page, std::vector<bool>& values,
-                          std::vector<uint8_t>& buffer) {
-  // No op for bool
-}
-
 template <typename Type>
 class TestFlatScanner : public ::testing::Test {
  public:

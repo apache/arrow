@@ -32,27 +32,15 @@ such topics as:
 * Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
 * In-memory analytics and query processing
 
-.. _toc.columnar:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Specifications and Protocols
-
-   format/Versioning
-   format/Columnar
-   format/Flight
-   format/Integration
-   format/CDataInterface
-   format/CStreamInterface
-   format/Other
+**To learn how to use Arrow refer to the documentation specific to your
+target environment.**
 
 .. _toc.usage:
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Libraries
+   :maxdepth: 1
+   :caption: Supported Environments
 
-   status
    C/GLib <https://arrow.apache.org/docs/c_glib/>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
@@ -65,6 +53,21 @@ such topics as:
    R <https://arrow.apache.org/docs/r/>
    Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
+   status
+
+.. _toc.columnar:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Specifications and Protocols
+
+   format/Versioning
+   format/Columnar
+   format/Flight
+   format/Integration
+   format/CDataInterface
+   format/CStreamInterface
+   format/Other   
 
 .. _toc.development:
 

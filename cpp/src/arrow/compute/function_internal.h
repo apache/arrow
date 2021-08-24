@@ -580,6 +580,23 @@ struct FromStructScalarImpl {
   const StructScalar& scalar_;
 };
 
+template <typename Options>
+struct CopyImpl {
+  template <typename Tuple>
+  CopyImpl(Options* obj, const Options& options, const Tuple& props)
+      : obj_(obj), options_(options) {
+    props.ForEach(*this);
+  }
+
+  template <typename Property>
+  void operator()(const Property& prop, size_t) {
+    prop.set(obj_, prop.get(options_));
+  }
+
+  Options* obj_;
+  const Options& options_;
+};
+
 template <typename Options, typename... Properties>
 const FunctionOptionsType* GetFunctionOptionsType(const Properties&... properties) {
   static const class OptionsType : public GenericOptionsType {
@@ -613,6 +630,11 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
       RETURN_NOT_OK(
           FromStructScalarImpl<Options>(options.get(), scalar, properties_).status_);
       return std::move(options);
+    }
+    std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
+      auto out = std::unique_ptr<Options>(new Options());
+      CopyImpl<Options>(out.get(), checked_cast<const Options&>(options), properties_);
+      return std::move(out);
     }
 
    private:

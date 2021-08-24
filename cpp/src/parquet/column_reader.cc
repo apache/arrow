@@ -774,7 +774,12 @@ class ColumnReaderImplBase {
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
 
-        case Encoding::DELTA_BINARY_PACKED:
+        case Encoding::DELTA_BINARY_PACKED: {
+          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
         case Encoding::DELTA_LENGTH_BYTE_ARRAY:
         case Encoding::DELTA_BYTE_ARRAY:
           ParquetException::NYI("Unsupported encoding");
@@ -1089,8 +1094,9 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_rows_to_skip) {
 
       // This will be enough scratch space to accommodate 16-bit levels or any
       // value type
+      int value_size = type_traits<DType::type_num>::value_byte_size;
       std::shared_ptr<ResizableBuffer> scratch = AllocateBuffer(
-          this->pool_, batch_size * type_traits<DType::type_num>::value_byte_size);
+          this->pool_, batch_size * std::max<int>(sizeof(int16_t), value_size));
 
       do {
         batch_size = std::min(batch_size, rows_to_skip);

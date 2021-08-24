@@ -546,6 +546,23 @@ TEST(TestReadMessage, CorruptedSmallInput) {
   ASSERT_EQ(nullptr, message);
 }
 
+TEST(TestMetadata, GetMetadataVersion) {
+  ASSERT_EQ(MetadataVersion::V1,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V1));
+  ASSERT_EQ(MetadataVersion::V2,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V2));
+  ASSERT_EQ(MetadataVersion::V3,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V3));
+  ASSERT_EQ(MetadataVersion::V4,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V4));
+  ASSERT_EQ(MetadataVersion::V5,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V5));
+  ASSERT_EQ(MetadataVersion::V1,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MIN));
+  ASSERT_EQ(MetadataVersion::V5,
+            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MAX));
+}
+
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue

@@ -32,6 +32,7 @@ Aggregations
    mean
    min_max
    mode
+   product
    stddev
    sum
    variance
@@ -104,6 +105,8 @@ variants which detect domain errors.
    log1p_checked
    log2
    log2_checked
+   logb
+   logb_checked
 
 Trigonometric Functions
 -----------------------
@@ -250,6 +253,7 @@ String Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_capitalize
    ascii_center
    ascii_lpad
    ascii_ltrim
@@ -259,12 +263,14 @@ String Transforms
    ascii_rpad
    ascii_rtrim
    ascii_rtrim_whitespace
+   ascii_swapcase
    ascii_trim
    ascii_upper
    binary_length
    binary_replace_slice
    replace_substring
    replace_substring_regex
+   utf8_capitalize
    utf8_center
    utf8_length
    utf8_lower
@@ -276,6 +282,7 @@ String Transforms
    utf8_rpad
    utf8_rtrim
    utf8_rtrim_whitespace
+   utf8_swapcase
    utf8_trim
    utf8_upper
 
@@ -350,6 +357,7 @@ Structural Transforms
 
    binary_length
    case_when
+   choose
    coalesce
    fill_null
    if_else

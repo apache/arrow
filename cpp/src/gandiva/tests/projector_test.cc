@@ -1130,6 +1130,62 @@ TEST_F(TestProjector, TestCastBitFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outputs.at(0));
 }
 
+// Test to ensure behaviour of cast functions when the validity is false for an input. The
+// function should not run for that input.
+TEST_F(TestProjector, TestCastVarbinaryFunction) {
+  auto field0 = field("f0", arrow::binary());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res_int4 = field("res_int4", arrow::int32());
+  auto res_int8 = field("res_int8", arrow::int64());
+  auto res_float4 = field("res_float4", arrow::float32());
+  auto res_float8 = field("res_float8", arrow::float64());
+
+  // Build expression
+  auto cast_expr_int4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int4);
+  auto cast_expr_int8 = TreeExprBuilder::MakeExpression("castBIGINT", {field0}, res_int8);
+  auto cast_expr_float4 =
+      TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res_float4);
+  auto cast_expr_float8 =
+      TreeExprBuilder::MakeExpression("castFLOAT8", {field0}, res_float8);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8}
+  auto status = Projector::Make(
+      schema, {cast_expr_int4, cast_expr_int8, cast_expr_float4, cast_expr_float8},
+      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 =
+      MakeArrowArrayBinary({"37", "-99999", "99999", "4"}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  auto out_int4 = MakeArrowArrayInt32({37, -99999, 99999, 0}, {true, true, true, false});
+  auto out_int8 = MakeArrowArrayInt64({37, -99999, 99999, 0}, {true, true, true, false});
+  auto out_float4 =
+      MakeArrowArrayFloat32({37, -99999, 99999, 0}, {true, true, true, false});
+  auto out_float8 =
+      MakeArrowArrayFloat64({37, -99999, 99999, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_int4, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(3));
+}
+
 TEST_F(TestProjector, TestToDate) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
@@ -1230,6 +1286,44 @@ TEST_F(TestProjector, TestIfElseOpt) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestRepeat) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::int32());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_repeat = field("repeat", arrow::utf8());
+
+  // Build expression
+  auto repeat_expr =
+      TreeExprBuilder::MakeExpression("repeat", {field0, field1}, field_repeat);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {repeat_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 =
+      MakeArrowArrayUtf8({"ab", "a", "car", "valid", ""}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({2, 1, 3, 2, 10}, {true, true, true, true, true});
+  // expected output
+  auto exp_repeat = MakeArrowArrayUtf8({"abab", "a", "carcarcar", "validvalid", ""},
+                                       {true, true, true, true, true});
+
+  // prepare input record batch
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_repeat, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestLpad) {
@@ -1351,6 +1445,165 @@ TEST_F(TestProjector, TestBinRepresentation) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestBigIntCastFunction) {
+  // input fields
+  auto field0 = field("f0", arrow::float32());
+  auto field1 = field("f1", arrow::float64());
+  auto field2 = field("f2", arrow::day_time_interval());
+  auto field3 = field("f3", arrow::month_interval());
+  auto schema = arrow::schema({field0, field1, field2, field3});
+
+  // output fields
+  auto res_int64 = field("res", arrow::int64());
+
+  // Build expression
+  auto cast_expr_float4 =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field0}, res_int64);
+  auto cast_expr_float8 =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field1}, res_int64);
+  auto cast_expr_day_interval =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field2}, res_int64);
+  auto cast_expr_year_interval =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field3}, res_int64);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_float4, cast_expr_float8, cast_expr_day_interval,
+  //  cast_expr_year_interval}
+  auto status = Projector::Make(schema,
+                                {cast_expr_float4, cast_expr_float8,
+                                 cast_expr_day_interval, cast_expr_year_interval},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 =
+      MakeArrowArrayFloat32({6.6f, -6.6f, 9.999999f, 0}, {true, true, true, false});
+  auto array1 =
+      MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
+  auto array2 = MakeArrowArrayInt64({100, 25, -0, 0}, {true, true, true, false});
+  auto array3 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
+
+  auto out_float4 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
+  auto out_float8 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
+  auto out_days_interval =
+      MakeArrowArrayInt64({8640000000, 2160000000, 0, 0}, {true, true, true, false});
+  auto out_year_interval = MakeArrowArrayInt64({2, -2, 0, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(out_days_interval, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(out_year_interval, outputs.at(3));
+}
+
+TEST_F(TestProjector, TestIntCastFunction) {
+  // input fields
+  auto field0 = field("f0", arrow::float32());
+  auto field1 = field("f1", arrow::float64());
+  auto field2 = field("f2", arrow::month_interval());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto res_int32 = field("res", arrow::int32());
+
+  // Build expression
+  auto cast_expr_float4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int32);
+  auto cast_expr_float8 = TreeExprBuilder::MakeExpression("castINT", {field1}, res_int32);
+  auto cast_expr_year_interval =
+      TreeExprBuilder::MakeExpression("castINT", {field2}, res_int32);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_float4, cast_expr_float8, cast_expr_day_interval,
+  //  cast_expr_year_interval}
+  auto status = Projector::Make(
+      schema, {cast_expr_float4, cast_expr_float8, cast_expr_year_interval},
+      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 =
+      MakeArrowArrayFloat32({6.6f, -6.6f, 9.999999f, 0}, {true, true, true, false});
+  auto array1 =
+      MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
+  auto array2 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  auto out_float4 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
+  auto out_float8 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
+  auto out_year_interval = MakeArrowArrayInt32({2, -2, 0, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(out_year_interval, outputs.at(2));
+}
+
+TEST_F(TestProjector, TestCastNullableIntYearInterval) {
+  // input fields
+  auto field1 = field("f1", arrow::month_interval());
+  auto schema = arrow::schema({field1});
+
+  // output fields
+  auto res_int32 = field("res", arrow::int32());
+  auto res_int64 = field("res", arrow::int64());
+
+  // Build expression
+  auto cast_expr_int32 =
+      TreeExprBuilder::MakeExpression("castNULLABLEINT", {field1}, res_int32);
+  auto cast_expr_int64 =
+      TreeExprBuilder::MakeExpression("castNULLABLEBIGINT", {field1}, res_int64);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_int32, cast_expr_int64, cast_expr_day_interval,
+  //  cast_expr_year_interval}
+  auto status = Projector::Make(schema, {cast_expr_int32, cast_expr_int64},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 = MakeArrowArrayInt32({12, -24, -0, 0}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  auto out_int32 = MakeArrowArrayInt32({1, -2, -0, 0}, {true, true, true, false});
+  auto out_int64 = MakeArrowArrayInt64({1, -2, -0, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
 }  // namespace gandiva

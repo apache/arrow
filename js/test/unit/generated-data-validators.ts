@@ -33,7 +33,7 @@ function deferTest(description: string, run: (...args: any[]) => any) {
 
 function deferDescribe(description: string, tests: DeferredTest | DeferredTest[]) {
     const t = (Array.isArray(tests) ? tests : [tests]).filter(Boolean);
-    return { description, tests: t, run: () => describe(description, () => t.forEach((x) => x.run())) };
+    return { description, tests: t, run: () => describe(description, () => { t.forEach((x) => x.run()); } ) };
 }
 
 export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {

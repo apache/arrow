@@ -939,13 +939,13 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                             combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr(new DataPageV2(
         combined, num_values, null_count, num_values, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor()));
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_values, encoding_,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
-                    pager_->has_compressor());
+                    pager_->has_compressor(), page_stats);
     WriteDataPage(page);
   }
 }
@@ -1487,10 +1487,31 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
       return WriteDense();
     }
 
-    // TODO(wesm): If some dictionary values are unobserved, then the
-    // statistics will be inaccurate. Do we care enough to fix it?
     if (page_statistics_ != nullptr) {
-      PARQUET_CATCH_NOT_OK(page_statistics_->Update(*dictionary));
+      // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
+      // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
+      // of the values array to a (probably not smaller) referenced values array.
+      //
+      // Once the MinMax kernel supports all data types we should use that kernel instead
+      // as it does not make any copies.
+      ::arrow::compute::ExecContext exec_ctx(ctx->memory_pool);
+      exec_ctx.set_use_threads(false);
+      PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
+                              ::arrow::compute::Unique(*indices, &exec_ctx));
+      std::shared_ptr<::arrow::Array> referenced_dictionary;
+      if (referenced_indices.length() == dictionary->length()) {
+        referenced_dictionary = dictionary;
+      } else {
+        PARQUET_ASSIGN_OR_THROW(
+            ::arrow::Datum referenced_dictionary_datum,
+            ::arrow::compute::Take(dictionary, referenced_indices,
+                                   ::arrow::compute::TakeOptions(/*boundscheck=*/false),
+                                   &exec_ctx));
+        referenced_dictionary = referenced_dictionary_datum.make_array();
+      }
+      page_statistics_->IncrementNullCount(indices->null_count());
+      page_statistics_->IncrementNumValues(indices->length() - indices->null_count());
+      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
     }
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {

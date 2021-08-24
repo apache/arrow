@@ -145,6 +145,8 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
+static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
+    DataMember("format", &StrftimeOptions::format));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -238,6 +240,14 @@ StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
 StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
 constexpr char StrptimeOptions::kTypeName[];
 
+StrftimeOptions::StrftimeOptions(std::string format, std::string locale)
+    : FunctionOptions(internal::kStrftimeOptionsType),
+      format(std::move(format)),
+      locale(std::move(locale)) {}
+StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
+constexpr char StrftimeOptions::kTypeName[];
+constexpr const char* StrftimeOptions::kDefaultFormat;
+
 PadOptions::PadOptions(int64_t width, std::string padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
@@ -294,6 +304,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -349,6 +360,7 @@ SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
+SCALAR_ARITHMETIC_BINARY(Logb, "logb", "logb_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
 SCALAR_EAGER_UNARY(Floor, "floor")
 SCALAR_EAGER_UNARY(Ceil, "ceil")
@@ -492,6 +504,10 @@ SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
+  return CallFunction("strftime", {arg}, &options, ctx);
 }
 
 }  // namespace compute

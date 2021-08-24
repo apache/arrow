@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -39,3 +39,7 @@ $CPP_BUILD_SUPPORT/run_cpplint.py \
     --cpplint_binary=$CPPLINT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
     --source_dir=$SOURCE_DIR/src --quiet
+
+# Run lintr
+R -e "if(!requireNamespace('lintr', quietly=TRUE)){stop('lintr is not installed, please install it with R -e \"install.packages(\'lintr\')\"')}"
+NOT_CRAN=true R -e "lintr::lint_package('${SOURCE_DIR}', path_prefix = 'r')"

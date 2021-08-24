@@ -28,6 +28,7 @@ import sys
 from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import CppBenchmarkRunner, JavaBenchmarkRunner
+from .compat import _import_pandas
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.cli import ArrowBool, validate_arrow_sources, add_optional_command
 from .utils.lint import linter, python_numpydoc, LintValidationException
@@ -647,7 +648,7 @@ def _get_comparisons_as_json(comparisons):
 
 def _format_comparisons_with_pandas(comparisons_json, no_counters,
                                     ren_counters):
-    import pandas as pd
+    pd = _import_pandas()
     df = pd.read_json(StringIO(comparisons_json), lines=True)
     # parse change % so we can sort by it
     df['change %'] = df.pop('change').str[:-1].map(float)

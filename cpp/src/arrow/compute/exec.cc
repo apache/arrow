@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -102,13 +103,19 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
   }
 }
 
+std::string ExecBatch::ToString() const {
+  std::stringstream ss;
+  PrintTo(*this, &ss);
+  return ss.str();
+}
+
 ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
   ExecBatch out = *this;
   for (auto& value : out.values) {
     if (value.is_scalar()) continue;
     value = value.array()->Slice(offset, length);
   }
-  out.length = length;
+  out.length = std::min(length, this->length - offset);
   return out;
 }
 
@@ -585,6 +592,16 @@ class KernelExecutorImpl : public KernelExecutor {
       }
     }
     return out;
+  }
+
+  Status CheckResultType(const Datum& out, const char* function_name) override {
+    const auto& type = out.type();
+    if (type != nullptr && !type->Equals(output_descr_.type)) {
+      return Status::TypeError(
+          "kernel type result mismatch for function '", function_name, "': declared as ",
+          output_descr_.type->ToString(), ", actual is ", type->ToString());
+    }
+    return Status::OK();
   }
 
   ExecContext* exec_context() { return kernel_ctx_->exec_context(); }

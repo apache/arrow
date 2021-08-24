@@ -124,22 +124,13 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return whether the types are equal
   bool Equals(const std::shared_ptr<DataType>& other) const;
 
-  ARROW_DEPRECATED("Use field(i)")
-  const std::shared_ptr<Field>& child(int i) const { return field(i); }
-
-  /// Returns the child-field at index i.
+  /// \brief Return the child field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
-  ARROW_DEPRECATED("Use fields()")
-  const std::vector<std::shared_ptr<Field>>& children() const { return fields(); }
-
-  /// \brief Returns the children fields associated with this type.
+  /// \brief Return the children fields associated with this type.
   const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
 
-  ARROW_DEPRECATED("Use num_fields()")
-  int num_children() const { return num_fields(); }
-
-  /// \brief Returns the number of children fields associated with this type.
+  /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
 
   Status Accept(TypeVisitor* visitor) const;
@@ -152,7 +143,6 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
 
   /// \brief A string name of the type, omitting any child fields
   ///
-  /// \note Experimental API
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
@@ -1295,8 +1285,11 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
  public:
   struct DayMilliseconds {
-    int32_t days;
-    int32_t milliseconds;
+    int32_t days = 0;
+    int32_t milliseconds = 0;
+    DayMilliseconds() = default;
+    DayMilliseconds(int32_t days, int32_t milliseconds)
+        : days(days), milliseconds(milliseconds) {}
     bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }

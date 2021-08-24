@@ -159,10 +159,20 @@ using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
 using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
                                             Int8Type, Int16Type, Int32Type, Int64Type>;
+
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+
+using BinaryArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+
+using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
+
+using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
+
+using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
 class Array;
 class ChunkedArray;
@@ -485,6 +495,9 @@ std::vector<T> IteratorToVector(Iterator<T> iterator) {
   EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());
   return out;
 }
+
+ARROW_TESTING_EXPORT
+bool LocaleExists(const char* locale);
 
 // A RAII-style object that switches to a new locale, and switches back
 // to the old locale when going out of scope.  Doesn't do anything if the

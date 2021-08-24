@@ -234,46 +234,21 @@ Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
 }
 
 // ----------------------------------------------------------------------
+// Dropnull functions
+
+Result<Datum> DropNull(const Datum& values, ExecContext* ctx) {
+  // Invoke metafunction which deals with Datum kinds other than just Array,
+  // ChunkedArray.
+  return CallFunction("drop_null", {values}, ctx);
+}
+
+Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum out, DropNull(Datum(values), ctx));
+  return out.make_array();
+}
+
+// ----------------------------------------------------------------------
 // Deprecated functions
-
-Result<std::shared_ptr<ChunkedArray>> Take(const ChunkedArray& values,
-                                           const Array& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<ChunkedArray>> Take(const ChunkedArray& values,
-                                           const ChunkedArray& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<ChunkedArray>> Take(const Array& values,
-                                           const ChunkedArray& indices,
-                                           const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(values), Datum(indices), options, ctx));
-  return result.chunked_array();
-}
-
-Result<std::shared_ptr<RecordBatch>> Take(const RecordBatch& batch, const Array& indices,
-                                          const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(batch), Datum(indices), options, ctx));
-  return result.record_batch();
-}
-
-Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
-                                    const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(table), Datum(indices), options, ctx));
-  return result.table();
-}
-
-Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
-                                    const TakeOptions& options, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(table), Datum(indices), options, ctx));
-  return result.table();
-}
 
 Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
   return SortIndices(values, SortOrder::Ascending, ctx);

@@ -17,19 +17,22 @@
 
 context("S3 integration tests")
 
-run_these <- tryCatch({
-  if (arrow_with_s3() &&
+run_these <- tryCatch(
+  expr = {
+    if (arrow_with_s3() &&
       identical(tolower(Sys.getenv("ARROW_R_DEV")), "true") &&
       !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
       !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")) {
-    # See if we have access to the test bucket
-    bucket <- s3_bucket("ursa-labs-r-test")
-    bucket$GetFileInfo("")
-    TRUE
-  } else {
-    FALSE
-  }
-}, error = function(e) FALSE)
+      # See if we have access to the test bucket
+      bucket <- s3_bucket("ursa-labs-r-test")
+      bucket$GetFileInfo("")
+      TRUE
+    } else {
+      FALSE
+    }
+  },
+  error = function(e) FALSE
+)
 
 bucket_uri <- function(..., bucket = "s3://ursa-labs-r-test/%s?region=us-west-2") {
   segments <- paste(..., sep = "/")

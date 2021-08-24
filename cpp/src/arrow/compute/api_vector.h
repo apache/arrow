@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
@@ -87,7 +88,7 @@ enum class SortOrder {
 class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
  public:
   explicit SortKey(std::string name, SortOrder order = SortOrder::Ascending)
-      : name(name), order(order) {}
+      : name(std::move(name)), order(order) {}
 
   using util::EqualityComparable<SortKey>::Equals;
   using util::EqualityComparable<SortKey>::operator==;
@@ -214,6 +215,24 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
                                     const TakeOptions& options = TakeOptions::Defaults(),
                                     ExecContext* ctx = NULLPTR);
+
+/// \brief Drop Null from an array of values
+///
+/// The output array will be of the same type as the input values
+/// array, with elements taken from the values array without nulls.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"],
+/// the output will be = ["a", "b", "c", "e", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> DropNull(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DropNull with Array inputs and output
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Returns indices that partition an array around n-th
 /// sorted element.
@@ -364,42 +383,6 @@ Result<Datum> DictionaryEncode(
 
 // ----------------------------------------------------------------------
 // Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const ChunkedArray& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<ChunkedArray>> Take(
-    const Array& values, const ChunkedArray& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<RecordBatch>> Take(
-    const RecordBatch& batch, const Array& indices,
-    const TakeOptions& options = TakeOptions::Defaults(), ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const Array& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
-
-ARROW_DEPRECATED("Deprecated in 1.0.0. Use Datum-based version")
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> Take(const Table& table, const ChunkedArray& indices,
-                                    const TakeOptions& options = TakeOptions::Defaults(),
-                                    ExecContext* context = NULLPTR);
 
 ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
 ARROW_EXPORT

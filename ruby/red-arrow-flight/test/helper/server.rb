@@ -26,5 +26,14 @@ module Helper
       generator = InfoGenerator.new
       [generator.page_view]
     end
+
+    def virtual_do_do_get(context, ticket)
+      generator = InfoGenerator.new
+      if ticket.data.to_s != generator.page_view_ticket
+        raise Arrow::Error::Invalid.new("invalid ticket")
+      end
+      table = generator.page_view_table
+      ArrowFlight::RecordBatchStream.new(table)
+    end
   end
 end

@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -598,6 +599,12 @@ Status ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch,
   return ExecNoPreallocatedData(ctx, batch, out);
 }
 
+class ExampleOptions : public FunctionOptions {
+ public:
+  explicit ExampleOptions(std::shared_ptr<Scalar> value);
+  std::shared_ptr<Scalar> value;
+};
+
 class ExampleOptionsType : public FunctionOptionsType {
  public:
   static const FunctionOptionsType* GetInstance() {
@@ -612,13 +619,13 @@ class ExampleOptionsType : public FunctionOptionsType {
                const FunctionOptions& other) const override {
     return true;
   }
+  std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
+    const auto& opts = static_cast<const ExampleOptions&>(options);
+    return arrow::internal::make_unique<ExampleOptions>(opts.value);
+  }
 };
-class ExampleOptions : public FunctionOptions {
- public:
-  explicit ExampleOptions(std::shared_ptr<Scalar> value)
-      : FunctionOptions(ExampleOptionsType::GetInstance()), value(std::move(value)) {}
-  std::shared_ptr<Scalar> value;
-};
+ExampleOptions::ExampleOptions(std::shared_ptr<Scalar> value)
+    : FunctionOptions(ExampleOptionsType::GetInstance()), value(std::move(value)) {}
 
 struct ExampleState : public KernelState {
   std::shared_ptr<Scalar> value;

@@ -40,6 +40,8 @@ TEST(FunctionOptions, Equality) {
   std::vector<std::shared_ptr<FunctionOptions>> options;
   options.emplace_back(new ScalarAggregateOptions());
   options.emplace_back(new ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  options.emplace_back(new CountOptions());
+  options.emplace_back(new CountOptions(CountOptions::ALL));
   options.emplace_back(new ModeOptions());
   options.emplace_back(new ModeOptions(/*n=*/2));
   options.emplace_back(new VarianceOptions());
@@ -77,6 +79,7 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(boolean(), "[true, false]")));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
+  options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
   options.emplace_back(new TrimOptions(" "));

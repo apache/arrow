@@ -378,6 +378,9 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
 
+  /// The logical type code of the value at index.
+  type_code_t type_code(int64_t i) const { return raw_type_codes_[i + data_->offset]; }
+
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
     return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
@@ -386,12 +389,6 @@ class ARROW_EXPORT UnionArray : public Array {
   const UnionType* union_type() const { return union_type_; }
 
   UnionMode::type mode() const { return union_type_->mode(); }
-
-  // Return the given field as an individual array.
-  // For sparse unions, the returned array has its offset, length and null
-  // count adjusted.
-  ARROW_DEPRECATED("Deprecated in 1.0.0. Use field(pos)")
-  std::shared_ptr<Array> child(int pos) const;
 
   /// \brief Return the given field as an individual array.
   ///

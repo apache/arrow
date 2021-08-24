@@ -232,7 +232,13 @@ unlink(feather_file)
 ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
 
 test_that("Error messages are shown when the compression algorithm lz4 is not found", {
-  msg <- "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+  msg <- paste0(
+    "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, ",
+    "you will need to reinstall arrow with additional features enabled.\nSet one of ",
+    "these environment variables before installing:\n\n * LIBARROW_MINIMAL=false ",
+    "(for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')",
+    "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+  )
 
   if (codec_is_available("lz4")) {
     d <- read_feather(ft_file)

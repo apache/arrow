@@ -120,6 +120,9 @@ class ARROW_EXPORT KernelExecutor {
   virtual Datum WrapResults(const std::vector<Datum>& args,
                             const std::vector<Datum>& outputs) = 0;
 
+  /// \brief Check the actual result type against the resolved output type
+  virtual Status CheckResultType(const Datum& out, const char* function_name) = 0;
+
   static std::unique_ptr<KernelExecutor> MakeScalar();
   static std::unique_ptr<KernelExecutor> MakeVector();
   static std::unique_ptr<KernelExecutor> MakeScalarAggregate();

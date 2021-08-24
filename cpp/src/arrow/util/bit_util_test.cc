@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -52,6 +53,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/bitset_stack.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 
@@ -63,6 +65,7 @@ using internal::BitsetStack;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
+using util::SafeCopy;
 
 using ::testing::ElementsAreArray;
 
@@ -1832,11 +1835,13 @@ TEST(BitUtil, ByteSwap) {
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<float>(0)), 0);
   uint32_t srci32 = 0xaabbccdd, expectedi32 = 0xddccbbaa;
-  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<float*>(&srci32)),
-            *reinterpret_cast<float*>(&expectedi32));
+  float srcf32 = SafeCopy<float>(srci32);
+  float expectedf32 = SafeCopy<float>(expectedi32);
+  EXPECT_EQ(BitUtil::ByteSwap(srcf32), expectedf32);
   uint64_t srci64 = 0xaabb11223344ccdd, expectedi64 = 0xddcc44332211bbaa;
-  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<double*>(&srci64)),
-            *reinterpret_cast<double*>(&expectedi64));
+  double srcd64 = SafeCopy<double>(srci64);
+  double expectedd64 = SafeCopy<double>(expectedi64);
+  EXPECT_EQ(BitUtil::ByteSwap(srcd64), expectedd64);
 }
 
 TEST(BitUtil, Log2) {
@@ -1939,24 +1944,51 @@ TEST(BitUtil, RoundUpToPowerOf2) {
 #undef U64
 #undef S64
 
-static void TestZigZag(int32_t v) {
+static void TestZigZag(int32_t v, std::array<uint8_t, 5> buffer_expect) {
   uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLength] = {};
   BitUtil::BitWriter writer(buffer, sizeof(buffer));
   BitUtil::BitReader reader(buffer, sizeof(buffer));
   writer.PutZigZagVlqInt(v);
+  EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
   int32_t result;
   EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
   EXPECT_EQ(v, result);
 }
 
 TEST(BitStreamUtil, ZigZag) {
-  TestZigZag(0);
-  TestZigZag(1);
-  TestZigZag(1234);
-  TestZigZag(-1);
-  TestZigZag(-1234);
-  TestZigZag(std::numeric_limits<int32_t>::max());
-  TestZigZag(-std::numeric_limits<int32_t>::max());
+  TestZigZag(0, {0, 0, 0, 0, 0});
+  TestZigZag(1, {2, 0, 0, 0, 0});
+  TestZigZag(1234, {164, 19, 0, 0, 0});
+  TestZigZag(-1, {1, 0, 0, 0, 0});
+  TestZigZag(-1234, {163, 19, 0, 0, 0});
+  TestZigZag(std::numeric_limits<int32_t>::max(), {254, 255, 255, 255, 15});
+  TestZigZag(-std::numeric_limits<int32_t>::max(), {253, 255, 255, 255, 15});
+  TestZigZag(std::numeric_limits<int32_t>::min(), {255, 255, 255, 255, 15});
+}
+
+static void TestZigZag64(int64_t v, std::array<uint8_t, 10> buffer_expect) {
+  uint8_t buffer[BitUtil::BitReader::kMaxVlqByteLengthForInt64] = {};
+  BitUtil::BitWriter writer(buffer, sizeof(buffer));
+  BitUtil::BitReader reader(buffer, sizeof(buffer));
+  writer.PutZigZagVlqInt(v);
+  EXPECT_THAT(buffer, testing::ElementsAreArray(buffer_expect));
+  int64_t result;
+  EXPECT_TRUE(reader.GetZigZagVlqInt(&result));
+  EXPECT_EQ(v, result);
+}
+
+TEST(BitStreamUtil, ZigZag64) {
+  TestZigZag64(0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(1, {2, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(1234, {164, 19, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(-1, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(-1234, {163, 19, 0, 0, 0, 0, 0, 0, 0, 0});
+  TestZigZag64(std::numeric_limits<int64_t>::max(),
+               {254, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(-std::numeric_limits<int64_t>::max(),
+               {253, 255, 255, 255, 255, 255, 255, 255, 255, 1});
+  TestZigZag64(std::numeric_limits<int64_t>::min(),
+               {255, 255, 255, 255, 255, 255, 255, 255, 255, 1});
 }
 
 TEST(BitUtil, RoundTripLittleEndianTest) {

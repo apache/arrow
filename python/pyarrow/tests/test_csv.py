@@ -226,6 +226,7 @@ def test_convert_options():
         cls, check_utf8=[True, False],
         strings_can_be_null=[False, True],
         quoted_strings_can_be_null=[True, False],
+        decimal_point=['.', ','],
         include_columns=[[], ['def', 'abc']],
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
@@ -235,10 +236,14 @@ def test_convert_options():
         cls, check_utf8=False,
         strings_can_be_null=True,
         quoted_strings_can_be_null=False,
+        decimal_point=',',
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
         timestamp_parsers=[ISO8601, '%y-%m'])
+
+    with pytest.raises(ValueError):
+        opts.decimal_point = '..'
 
     assert opts.auto_dict_max_cardinality > 0
     opts.auto_dict_max_cardinality = 99999
@@ -807,6 +812,31 @@ class BaseTestCSVRead(BaseTestCSV):
             'f': [None, True, False],
         }
 
+    def test_decimal_point(self):
+        # Infer floats with a custom decimal point
+        parse_options = ParseOptions(delimiter=';')
+        rows = b"a;b\n1.25;2,5\nNA;-3\n-4;NA"
+
+        table = self.read_bytes(rows, parse_options=parse_options)
+        schema = pa.schema([('a', pa.float64()),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [1.25, None, -4.0],
+            'b': ["2,5", "-3", "NA"],
+        }
+
+        convert_options = ConvertOptions(decimal_point=',')
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('a', pa.string()),
+                            ('b', pa.float64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["1.25", "NA", "-4"],
+            'b': [2.5, -3.0, None],
+        }
+
     def test_simple_timestamps(self):
         # Infer a timestamp column
         rows = (b"a,b,c\n"
@@ -892,6 +922,33 @@ class BaseTestCSVRead(BaseTestCSV):
         assert table.to_pydict() == {
             'a': [datetime(1970, 1, 1), datetime(1971, 1, 1)],
             'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
+        }
+
+    def test_times(self):
+        # Times are inferred as time32[s] by default
+        from datetime import time
+
+        rows = b"a,b\n12:34:56,12:34:56.789\n23:59:59,23:59:59.999\n"
+        table = self.read_bytes(rows)
+        # Column 'b' has subseconds, so cannot be inferred as time32[s]
+        schema = pa.schema([('a', pa.time32('s')),
+                            ('b', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(12, 34, 56), time(23, 59, 59)],
+            'b': ["12:34:56.789", "23:59:59.999"],
+        }
+
+        # Can ask for time types explicitly
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.time64('us'), 'b': pa.time32('ms')}
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.time64('us')),
+                            ('b', pa.time32('ms'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [time(12, 34, 56), time(23, 59, 59)],
+            'b': [time(12, 34, 56, 789000), time(23, 59, 59, 999000)],
         }
 
     def test_auto_dict_encode(self):

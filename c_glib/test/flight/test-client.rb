@@ -22,7 +22,7 @@ class TestFlightClient < Test::Unit::TestCase
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
     omit("Unstable on Windows") if Gem.win_platform?
-    require_gi_bindings(3, 4, 5)
+    require_gi_bindings(3, 4, 7)
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
     location = ArrowFlight::Location.new("grpc://#{host}:0")
@@ -41,5 +41,24 @@ class TestFlightClient < Test::Unit::TestCase
     generator = Helper::FlightInfoGenerator.new
     assert_equal([generator.page_view],
                  client.list_flights)
+  end
+
+  sub_test_case("#do_get") do
+    def test_success
+      client = ArrowFlight::Client.new(@location)
+      info = client.list_flights.first
+      endpoint = info.endpoints.first
+      generator = Helper::FlightInfoGenerator.new
+      reader = client.do_get(endpoint.ticket)
+      assert_equal(generator.page_view_table,
+                   reader.read_all)
+    end
+
+    def test_error
+      client = ArrowFlight::Client.new(@location)
+      assert_raise(Arrow::Error::Invalid) do
+        client.do_get(ArrowFlight::Ticket.new("invalid"))
+      end
+    end
   end
 end

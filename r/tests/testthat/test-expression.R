@@ -35,7 +35,7 @@ test_that("C++ expressions", {
   expect_r6_class(f == i64, "Expression")
   expect_r6_class(f == time, "Expression")
   # can't seem to make this work right now because of R Ops.method dispatch
-  # expect_r6_class(f == as.Date("2020-01-15"), "Expression")
+  # expect_r6_class(f == as.Date("2020-01-15"), "Expression") # nolint
   expect_r6_class(f == ts, "Expression")
   expect_r6_class(f <= 2L, "Expression")
   expect_r6_class(f != FALSE, "Expression")
@@ -45,7 +45,7 @@ test_that("C++ expressions", {
   expect_r6_class(!(f < 4), "Expression")
   expect_output(
     print(f > 4),
-    'Expression\n(f > 4)',
+    "Expression\n(f > 4)",
     fixed = TRUE
   )
   expect_type_equal(
@@ -58,12 +58,11 @@ test_that("C++ expressions", {
   )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
-  
+
   expect_error(
     Expression$create("add", 1, 2),
     "Expression arguments must be Expression objects"
   )
-  
 })
 
 test_that("Field reference expression schemas and types", {

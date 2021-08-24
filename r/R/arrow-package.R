@@ -17,9 +17,12 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap_chr
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs expr caller_env is_character
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
+#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec
+#' @importFrom rlang is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs
+#' @importFrom rlang expr caller_env is_character quo_name
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -42,8 +45,10 @@
   }
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
 
-  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
-               "Field", "DataType", "RecordBatchReader")) {
+  for (cl in c(
+    "Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
+    "Field", "DataType", "RecordBatchReader"
+  )) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
   }
@@ -111,25 +116,33 @@
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
 #' package.
 arrow_available <- function() {
-  tryCatch(.Call(`_arrow_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_arrow_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  tryCatch(.Call(`_dataset_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_dataset_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_parquet <- function() {
-  tryCatch(.Call(`_parquet_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_parquet_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_s3 <- function() {
-  tryCatch(.Call(`_s3_available`), error = function(e) return(FALSE))
+  tryCatch(.Call(`_s3_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 option_use_threads <- function() {
@@ -218,7 +231,10 @@ print.arrow_info <- function(x, ...) {
     ))
     if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
       # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
-      cat("To reinstall with more optional capabilities enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
+      cat(
+        "To reinstall with more optional capabilities enabled, see\n",
+        "  https://arrow.apache.org/docs/r/articles/install.html\n\n"
+      )
     }
 
     if (length(x$options)) {
@@ -245,7 +261,10 @@ print.arrow_info <- function(x, ...) {
       `Git ID` = x$build_info$git_id
     ))
   } else {
-    cat("Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html for troubleshooting.\n")
+    cat(
+      "Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html ",
+      "for troubleshooting.\n"
+    )
   }
   invisible(x)
 }
@@ -258,7 +277,6 @@ option_compress_metadata <- function() {
 ArrowObject <- R6Class("ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
-
     pointer = function() get(".:xp:.", envir = self),
     `.:xp:.` = NULL,
     set_pointer = function(xp) {
@@ -284,7 +302,6 @@ ArrowObject <- R6Class("ArrowObject",
       }
       invisible(self)
     },
-
     invalidate = function() {
       assign(".:xp:.", NULL, envir = self)
     }
@@ -292,10 +309,10 @@ ArrowObject <- R6Class("ArrowObject",
 )
 
 #' @export
-`!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs)
+`!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs) # nolint
 
 #' @export
-`==.ArrowObject` <- function(x, y) {
+`==.ArrowObject` <- function(x, y) { # nolint
   x$Equals(y)
 }
 

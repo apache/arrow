@@ -17,15 +17,19 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/optional.h"
 
 #if defined(__clang__) || defined(__GNUC__)
 #define BYTESWAP(x) __builtin_bswap64(x)
@@ -66,9 +70,19 @@ class TempVectorStack {
   }
 
  private:
+  int64_t PaddedAllocationSize(int64_t num_bytes) {
+    // Round up allocation size to multiple of 8 bytes
+    // to avoid returning temp vectors with unaligned address.
+    //
+    // Also add padding at the end to facilitate loads and stores
+    // using SIMD when number of vector elements is not divisible
+    // by the number of SIMD lanes.
+    //
+    return ::arrow::BitUtil::RoundUp(num_bytes, sizeof(int64_t)) + padding;
+  }
   void alloc(uint32_t num_bytes, uint8_t** data, int* id) {
     int64_t old_top = top_;
-    top_ += num_bytes + padding;
+    top_ += PaddedAllocationSize(num_bytes);
     // Stack overflow check
     ARROW_DCHECK(top_ <= buffer_size_);
     *data = buffer_->mutable_data() + old_top;
@@ -76,7 +90,7 @@ class TempVectorStack {
   }
   void release(int id, uint32_t num_bytes) {
     ARROW_DCHECK(num_vectors_ == id + 1);
-    int64_t size = num_bytes + padding;
+    int64_t size = PaddedAllocationSize(num_bytes);
     ARROW_DCHECK(top_ >= size);
     top_ -= size;
     --num_vectors_;
@@ -168,4 +182,56 @@ class BitUtil {
 };
 
 }  // namespace util
+namespace compute {
+
+ARROW_EXPORT
+Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
+                              int expected_num_inputs, const char* kind_name);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches);
+
+class AtomicCounter {
+ public:
+  AtomicCounter() = default;
+
+  int count() const { return count_.load(); }
+
+  util::optional<int> total() const {
+    int total = total_.load();
+    if (total == -1) return {};
+    return total;
+  }
+
+  // return true if the counter is complete
+  bool Increment() {
+    DCHECK_NE(count_.load(), total_.load());
+    int count = count_.fetch_add(1) + 1;
+    if (count != total_.load()) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter is complete
+  bool SetTotal(int total) {
+    total_.store(total);
+    if (count_.load() != total) return false;
+    return DoneOnce();
+  }
+
+  // return true if the counter has not already been completed
+  bool Cancel() { return DoneOnce(); }
+
+ private:
+  // ensure there is only one true return from Increment(), SetTotal(), or Cancel()
+  bool DoneOnce() {
+    bool expected = false;
+    return complete_.compare_exchange_strong(expected, true);
+  }
+
+  std::atomic<int> count_{0}, total_{-1};
+  std::atomic<bool> complete_{false};
+};
+
+}  // namespace compute
 }  // namespace arrow

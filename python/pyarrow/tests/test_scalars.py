@@ -645,9 +645,13 @@ def test_union():
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle.loads(pickle.dumps(s))
 
+    assert arr[0].type_code == 0
     assert arr[0].as_py() == "a"
+    assert arr[1].type_code == 0
     assert arr[1].as_py() == "b"
+    assert arr[2].type_code == 1
     assert arr[2].as_py() == 3
+    assert arr[3].type_code == 1
     assert arr[3].as_py() == 4
 
     # dense
@@ -666,5 +670,7 @@ def test_union():
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle.loads(pickle.dumps(s))
 
+    assert arr[0].type_code == 0
     assert arr[0].as_py() == b'a'
+    assert arr[5].type_code == 1
     assert arr[5].as_py() == 3

@@ -103,28 +103,30 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const SparseUnionArray& a) {
+    const auto type_code = a.type_code(index_);
     // child array which stores the actual value
-    auto arr = a.field(a.child_id(index_));
+    const auto arr = a.field(a.child_id(index_));
     // no need to adjust the index
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
     if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, a.type()));
+      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, type_code, a.type()));
     } else {
-      out_ = MakeNullScalar(a.type());
+      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(type_code, a.type()));
     }
     return Status::OK();
   }
 
   Status Visit(const DenseUnionArray& a) {
+    const auto type_code = a.type_code(index_);
     // child array which stores the actual value
     auto arr = a.field(a.child_id(index_));
     // need to look up the value based on offsets
     auto offset = a.value_offset(index_);
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
     if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, a.type()));
+      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, type_code, a.type()));
     } else {
-      out_ = MakeNullScalar(a.type());
+      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(type_code, a.type()));
     }
     return Status::OK();
   }
@@ -132,9 +134,9 @@ struct ScalarFromArraySlotImpl {
   Status Visit(const DictionaryArray& a) {
     auto ty = a.type();
 
-    ARROW_ASSIGN_OR_RAISE(auto index,
-                          MakeScalar(checked_cast<DictionaryType&>(*ty).index_type(),
-                                     a.GetValueIndex(index_)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto index, MakeScalar(checked_cast<const DictionaryType&>(*ty).index_type(),
+                               a.GetValueIndex(index_)));
 
     auto scalar = DictionaryScalar(ty);
     scalar.is_valid = a.IsValid(index_);
@@ -146,7 +148,9 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const ExtensionArray& a) {
-    return Status::NotImplemented("Non-null ExtensionScalar");
+    ARROW_ASSIGN_OR_RAISE(auto storage, a.storage()->GetScalar(index_));
+    out_ = std::make_shared<ExtensionScalar>(std::move(storage), a.type());
+    return Status::OK();
   }
 
   template <typename Arg>

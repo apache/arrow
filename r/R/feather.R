@@ -94,7 +94,7 @@ write_feather <- function(x,
 
   # "lz4" is the convenience
   if (compression == "lz4") {
-     compression <- "lz4_frame"
+    compression <- "lz4_frame"
   }
 
   compression <- compression_from_name(compression)
@@ -103,7 +103,7 @@ write_feather <- function(x,
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  
+
   assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
@@ -190,7 +190,8 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'
 #' @export
 #' @include arrow-package.R
-FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
+FeatherReader <- R6Class("FeatherReader",
+  inherit = ArrowObject,
   public = list(
     Read = function(columns) {
       ipc___feather___Reader__Read(self, columns)

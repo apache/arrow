@@ -80,7 +80,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
-            IArrowArrayVisitor<Decimal256Array>
+            IArrowArrayVisitor<Decimal256Array>,
+            IArrowArrayVisitor<DictionaryArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -127,6 +128,16 @@ namespace Apache.Arrow.Tests
                 {
                     array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i]));
                 }
+            }
+
+            public void Visit(DictionaryArray array)
+            {
+                Assert.IsAssignableFrom<DictionaryArray>(_expectedArray);
+                DictionaryArray expectedArray = (DictionaryArray)_expectedArray;
+                var indicesComparer = new ArrayComparer(expectedArray.Indices);
+                var dictionaryComparer = new ArrayComparer(expectedArray.Dictionary);
+                array.Indices.Accept(indicesComparer);
+                array.Dictionary.Accept(dictionaryComparer);
             }
 
             public void Visit(FixedSizeBinaryType array) => throw new NotImplementedException();

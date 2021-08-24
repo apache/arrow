@@ -17,9 +17,6 @@
 
 // Object model for scalar (non-Array) values. Not intended for use with large
 // amounts of data
-//
-// NOTE: This API is experimental as of the 0.13 version and subject to change
-// without deprecation warnings
 
 #pragma once
 
@@ -29,6 +26,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -79,6 +77,21 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   size_t hash() const;
 
   std::string ToString() const;
+
+  /// \brief Perform cheap validation checks
+  ///
+  /// This is O(k) where k is the number of descendents.
+  ///
+  /// \return Status
+  Status Validate() const;
+
+  /// \brief Perform extensive data validation checks
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the length of descendents (if list scalars are involved).
+  ///
+  /// \return Status
+  Status ValidateFull() const;
 
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
                                                util::string_view repr);
@@ -420,10 +433,15 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Scalar>;
-  ValueType value;
 
-  UnionScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  ValueType value;
+  int8_t type_code;
+
+  UnionScalar(int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false), type_code(type_code) {}
+
+  UnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(value)), type_code(type_code) {}
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
@@ -436,6 +454,10 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   using TypeClass = DenseUnionType;
 };
 
+/// \brief A Scalar value for DictionaryType
+///
+/// `is_valid` denotes the validity of the `index`, regardless of
+/// the corresponding value in the `dictionary`.
 struct ARROW_EXPORT DictionaryScalar : public Scalar {
   using TypeClass = DictionaryType;
   struct ValueType {
@@ -454,9 +476,19 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
 };
 
+/// \brief A Scalar value for ExtensionType
+///
+/// The value is the underlying storage scalar.
+/// `is_valid` must only be true if `value` is non-null and `value->is_valid` is true
 struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
+  using ValueType = std::shared_ptr<Scalar>;
+
+  ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(std::move(storage)) {}
+
+  std::shared_ptr<Scalar> value;
 };
 
 /// @}
@@ -471,34 +503,7 @@ ARROW_EXPORT Status CheckBufferLength(const FixedSizeBinaryType* t,
 }  // namespace internal
 
 template <typename ValueRef>
-struct MakeScalarImpl {
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
-            typename ValueType = typename ScalarType::ValueType,
-            typename Enable = typename std::enable_if<
-                std::is_constructible<ScalarType, ValueType,
-                                      std::shared_ptr<DataType>>::value &&
-                std::is_convertible<ValueRef, ValueType>::value>::type>
-  Status Visit(const T& t) {
-    ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
-    out_ = std::make_shared<ScalarType>(
-        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& t) {
-    return Status::NotImplemented("constructing scalars of type ", t,
-                                  " from unboxed values");
-  }
-
-  Result<std::shared_ptr<Scalar>> Finish() && {
-    ARROW_RETURN_NOT_OK(VisitTypeInline(*type_, this));
-    return std::move(out_);
-  }
-
-  std::shared_ptr<DataType> type_;
-  ValueRef value_;
-  std::shared_ptr<Scalar> out_;
-};
+struct MakeScalarImpl;
 
 /// \defgroup scalar-factories Scalar factory functions
 ///
@@ -533,5 +538,43 @@ inline std::shared_ptr<Scalar> MakeScalar(std::string value) {
 }
 
 /// @}
+
+template <typename ValueRef>
+struct MakeScalarImpl {
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+            typename ValueType = typename ScalarType::ValueType,
+            typename Enable = typename std::enable_if<
+                std::is_constructible<ScalarType, ValueType,
+                                      std::shared_ptr<DataType>>::value &&
+                std::is_convertible<ValueRef, ValueType>::value>::type>
+  Status Visit(const T& t) {
+    ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
+    // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
+    out_ = std::make_shared<ScalarType>(
+        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& t) {
+    ARROW_ASSIGN_OR_RAISE(auto storage,
+                          MakeScalar(t.storage_type(), static_cast<ValueRef>(value_)));
+    out_ = std::make_shared<ExtensionScalar>(std::move(storage), type_);
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("constructing scalars of type ", t,
+                                  " from unboxed values");
+  }
+
+  Result<std::shared_ptr<Scalar>> Finish() && {
+    ARROW_RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return std::move(out_);
+  }
+
+  std::shared_ptr<DataType> type_;
+  ValueRef value_;
+  std::shared_ptr<Scalar> out_;
+};
 
 }  // namespace arrow

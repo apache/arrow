@@ -384,11 +384,13 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('s3fs'),
-        id='S3FileSystem'
+        id='S3FileSystem',
+        marks=pytest.mark.s3
     ),
     pytest.param(
         pytest.lazy_fixture('hdfs'),
-        id='HadoopFileSystem'
+        id='HadoopFileSystem',
+        marks=pytest.mark.hdfs
     ),
     pytest.param(
         pytest.lazy_fixture('mockfs'),
@@ -412,7 +414,8 @@ def py_fsspec_s3fs(request, s3_connection, s3_server):
     ),
     pytest.param(
         pytest.lazy_fixture('py_fsspec_s3fs'),
-        id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))'
+        id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
+        marks=pytest.mark.s3
     ),
 ])
 def filesystem_config(request):
@@ -925,6 +928,7 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                             decompressor, allow_append_to_file):
     p = pathfn('open-append-stream')
@@ -1492,6 +1496,7 @@ def test_py_open_output_stream():
         f.write(b"data")
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_py_open_append_stream():
     fs = PyFileSystem(DummyHandler())
 

@@ -101,6 +101,9 @@ struct ARROW_EXPORT ConvertOptions {
   bool auto_dict_encode = false;
   int32_t auto_dict_max_cardinality = 50;
 
+  /// Decimal point character for floating-point and decimal data
+  char decimal_point = '.';
+
   // XXX Should we have a separate FilterOptions?
 
   /// If non-empty, indicates the names of columns from the CSV file that should
@@ -164,7 +167,6 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
-/// Experimental
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;

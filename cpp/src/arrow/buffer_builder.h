@@ -28,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
@@ -45,8 +46,7 @@ class ARROW_EXPORT BufferBuilder {
   explicit BufferBuilder(MemoryPool* pool = default_memory_pool())
       : pool_(pool),
         data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
-              &util::internal::non_null_filler),
-
+              util::MakeNonNull<uint8_t>()),
         capacity_(0),
         size_(0) {}
 
@@ -340,6 +340,7 @@ class TypedBufferBuilder<bool> {
     ++bit_length_;
   }
 
+  /// \brief Append bits from an array of bytes (one value per byte)
   void UnsafeAppend(const uint8_t* bytes, int64_t num_elements) {
     if (num_elements == 0) return;
     int64_t i = 0;
@@ -348,6 +349,14 @@ class TypedBufferBuilder<bool> {
       false_count_ += !value;
       return value;
     });
+    bit_length_ += num_elements;
+  }
+
+  /// \brief Append bits from a packed bitmap
+  void UnsafeAppend(const uint8_t* bitmap, int64_t offset, int64_t num_elements) {
+    if (num_elements == 0) return;
+    internal::CopyBitmap(bitmap, offset, num_elements, mutable_data(), bit_length_);
+    false_count_ += num_elements - internal::CountSetBits(bitmap, offset, num_elements);
     bit_length_ += num_elements;
   }
 

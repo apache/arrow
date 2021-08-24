@@ -118,20 +118,24 @@ jobs:
 
       - name: Test Wheel on ARM64
         shell: bash
+        env:
+          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
           $PYTHON -m virtualenv test-arm64-env
           source test-arm64-env/bin/activate
           pip install --upgrade pip wheel
-          arch -arm64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+          arch -arm64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {% if arch == "universal2" %}
       - name: Test Wheel on AMD64
         shell: bash
+        env:
+          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
           $PYTHON -m virtualenv test-amd64-env
           source test-amd64-env/bin/activate
           pip install --upgrade pip wheel
-          arch -x86_64 arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
+          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
       {% endif %}
 
       - name: Upload artifacts
@@ -139,15 +143,15 @@ jobs:
         run: |
           $PYTHON -m virtualenv crossbow-env
           source crossbow-env/bin/activate
-          arch -arm64 pip install -e arrow/dev/archery[crossbow-upload]
-          arch -arm64 archery crossbow \
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
           --queue-path $(pwd) \
           --queue-remote {{ queue_remote_url }} \
           upload-artifacts \
           --sha {{ task.branch }} \
           --tag {{ task.tag }} \
-          "arrow/python/dist/*.whl"
+          "arrow/python/repaired_wheels/*.whl"
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

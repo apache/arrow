@@ -24,15 +24,10 @@ source_dir=${1}/r
 
 export CMAKE_BUILD_TYPE=RelWithDebInfo
 
-${R_BIN} CMD INSTALL ${source_dir}
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} ${source_dir}
 pushd ${source_dir}/tests
 
 export TEST_R_WITH_ARROW=TRUE
-
-# Set cli to not use a separate thread. This thread isn't explicitly closed,
-# which triggers a valgrind possibly lost error. We can remove this when
-# https://github.com/r-lib/cli/issues/311 is resolved + released on cran.
-export CLI_NO_THREAD=1
 
 # to generate suppression files run:
 # ${R_BIN} --vanilla -d "valgrind --tool=memcheck --leak-check=full --track-origins=yes --gen-suppressions=all --log-file=memcheck.log" -f testtthat.supp

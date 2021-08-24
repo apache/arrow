@@ -98,7 +98,7 @@ add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 if(ARROW_BUILD_SHARED)
   # filter out everything that is not needed for the jni bridge
   # statically linked stdc++ has conflicts with stdc++ loaded by other libraries.
-  if(NOT APPLE)
+  if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
     set_target_properties(gandiva_jni_shared
                           PROPERTIES LINK_FLAGS
                                      "-Wl,--version-script=${CMAKE_SOURCE_DIR}/src/gandiva/jni/symbols.map"

@@ -919,10 +919,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CSparseCSFTensor& other)
 
     cdef cppclass CScalar" arrow::Scalar":
+        CScalar(shared_ptr[CDataType])
+
         shared_ptr[CDataType] type
         c_bool is_valid
+
         c_string ToString() const
         c_bool Equals(const CScalar& other) const
+        CStatus Validate() const
+        CStatus ValidateFull() const
         CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
@@ -1016,9 +1021,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CDictionaryScalar(CDictionaryScalarIndexAndDictionary value,
                           shared_ptr[CDataType], c_bool is_valid)
         CDictionaryScalarIndexAndDictionary value
+
         CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
+        shared_ptr[CScalar] value
+        int8_t type_code
+
+    cdef cppclass CExtensionScalar" arrow::ExtensionScalar"(CScalar):
         shared_ptr[CScalar] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
@@ -1606,6 +1616,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
         c_bool auto_dict_encode
         int32_t auto_dict_max_cardinality
+        unsigned char decimal_point
 
         vector[c_string] include_columns
         c_bool include_missing_columns
@@ -1940,6 +1951,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit)
 
+    cdef cppclass CStrftimeOptions \
+            "arrow::compute::StrftimeOptions"(CFunctionOptions):
+        CStrftimeOptions(c_string format, c_string locale)
+
     cdef cppclass CDayOfWeekOptions \
             "arrow::compute::DayOfWeekOptions"(CFunctionOptions):
         CDayOfWeekOptions(c_bool one_based_numbering, uint32_t week_start)
@@ -1956,6 +1971,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
         c_bool skip_nulls
         uint32_t min_count
+
+    enum CCountMode "arrow::compute::CountOptions::CountMode":
+        CCountMode_ONLY_VALID "arrow::compute::CountOptions::ONLY_VALID"
+        CCountMode_ONLY_NULL "arrow::compute::CountOptions::ONLY_NULL"
+        CCountMode_ALL "arrow::compute::CountOptions::ALL"
+
+    cdef cppclass CCountOptions \
+            "arrow::compute::CountOptions"(CFunctionOptions):
+        CCountOptions(CCountMode mode)
+        CCountMode mode
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):

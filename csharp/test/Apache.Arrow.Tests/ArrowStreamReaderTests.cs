@@ -50,11 +50,13 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task Ctor_MemoryPool_AllocatesFromPool(bool shouldLeaveOpen)
+        [InlineData(true, true, 2)]
+        [InlineData(true, false, 1)]
+        [InlineData(false, true, 2)]
+        [InlineData(false, false, 1)]
+        public async Task Ctor_MemoryPool_AllocatesFromPool(bool shouldLeaveOpen, bool createDictionaryArray, int expectedAllocations)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -68,7 +70,7 @@ namespace Apache.Arrow.Tests
                 ArrowStreamReader reader = new ArrowStreamReader(stream, memoryPool, shouldLeaveOpen);
                 reader.ReadNextRecordBatch();
 
-                Assert.Equal(1, memoryPool.Statistics.Allocations);
+                Assert.Equal(expectedAllocations, memoryPool.Statistics.Allocations);
                 Assert.True(memoryPool.Statistics.BytesAllocated > 0);
 
                 reader.Dispose();
@@ -127,30 +129,34 @@ namespace Apache.Arrow.Tests
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task ReadRecordBatch_Stream(bool writeEnd)
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public async Task ReadRecordBatch_Stream(bool writeEnd, bool createDictionaryArray)
         {
             await TestReaderFromStream((reader, originalBatch) =>
             {
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
-            }, writeEnd);
+            }, writeEnd, createDictionaryArray);
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task ReadRecordBatchAsync_Stream(bool writeEnd)
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public async Task ReadRecordBatchAsync_Stream(bool writeEnd, bool createDictionaryArray)
         {
-            await TestReaderFromStream(ArrowReaderVerifier.VerifyReaderAsync, writeEnd);
+            await TestReaderFromStream(ArrowReaderVerifier.VerifyReaderAsync, writeEnd, createDictionaryArray);
         }
 
         private static async Task TestReaderFromStream(
             Func<ArrowStreamReader, RecordBatch, Task> verificationFunc,
-            bool writeEnd)
+            bool writeEnd, bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -168,29 +174,33 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public async Task ReadRecordBatch_PartialReadStream()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatch_PartialReadStream(bool createDictionaryArray)
         {
             await TestReaderFromPartialReadStream((reader, originalBatch) =>
             {
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
-            });
+            }, createDictionaryArray);
         }
 
-        [Fact]
-        public async Task ReadRecordBatchAsync_PartialReadStream()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatchAsync_PartialReadStream(bool createDictionaryArray)
         {
-            await TestReaderFromPartialReadStream(ArrowReaderVerifier.VerifyReaderAsync);
+            await TestReaderFromPartialReadStream(ArrowReaderVerifier.VerifyReaderAsync, createDictionaryArray);
         }
 
         /// <summary>
         /// Verifies that the stream reader reads multiple times when a stream
         /// only returns a subset of the data from each Read.
         /// </summary>
-        private static async Task TestReaderFromPartialReadStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
+        private static async Task TestReaderFromPartialReadStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc, bool createDictionaryArray)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
 
             using (PartialReadStream stream = new PartialReadStream())
             {

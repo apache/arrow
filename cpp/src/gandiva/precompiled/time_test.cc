@@ -869,4 +869,48 @@ TEST(TestTime, TestToTimeNumeric) {
   EXPECT_EQ(expected_output, to_time_float64(3601.500));
 }
 
+TEST(TestTime, TestCastIntDayInterval) {
+  EXPECT_EQ(castBIGINT_daytimeinterval(10), 864000000);
+  EXPECT_EQ(castBIGINT_daytimeinterval(-100), -8640000001);
+  EXPECT_EQ(castBIGINT_daytimeinterval(-0), 0);
+}
+
+TEST(TestTime, TestCastIntYearInterval) {
+  EXPECT_EQ(castINT_year_interval(24), 2);
+  EXPECT_EQ(castINT_year_interval(-24), -2);
+  EXPECT_EQ(castINT_year_interval(-23), -1);
+
+  EXPECT_EQ(castBIGINT_year_interval(24), 2);
+  EXPECT_EQ(castBIGINT_year_interval(-24), -2);
+  EXPECT_EQ(castBIGINT_year_interval(-23), -1);
+}
+
+TEST(TestTime, TestCastNullableInterval) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  // Test castNULLABLEINTERVALDAY for int and bigint
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int32(1), 1);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int32(12), 12);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int32(-55), -55);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int32(-1201), -1201);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int64(1), 1);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int64(12), 12);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int64(-55), -55);
+  EXPECT_EQ(castNULLABLEINTERVALDAY_int64(-1201), -1201);
+
+  // Test castNULLABLEINTERVALYEAR for int and bigint
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int32(context_ptr, 1), 1);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int32(context_ptr, 12), 12);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int32(context_ptr, 55), 55);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int32(context_ptr, 1201), 1201);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 1), 1);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 12), 12);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 55), 55);
+  EXPECT_EQ(castNULLABLEINTERVALYEAR_int64(context_ptr, 1201), 1201);
+  // validate overflow error when using bigint as input
+  castNULLABLEINTERVALYEAR_int64(context_ptr, INT64_MAX);
+  EXPECT_EQ(context.get_error(), "Integer overflow");
+  context.Reset();
+}
+
 }  // namespace gandiva

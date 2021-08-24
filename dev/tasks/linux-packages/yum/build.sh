@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # -*- sh-indentation: 2; sh-basic-offset: 2 -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -120,14 +120,14 @@ run cp \
     rpmbuild/SPECS/
 
 run cat <<BUILD > build.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 rpmbuild -ba ${rpmbuild_options} rpmbuild/SPECS/${PACKAGE}.spec
 BUILD
 run chmod +x build.sh
 if [ -n "${SCL:-}" ]; then
   run cat <<WHICH_STRIP > which-strip.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 which strip
 WHICH_STRIP

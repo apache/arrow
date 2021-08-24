@@ -352,6 +352,21 @@ TEST_F(ConcatenateTest, DictionaryTypeEnlargedIndices) {
   ASSERT_EQ(size * 2, combined->length());
 }
 
+TEST_F(ConcatenateTest, DictionaryTypeNullSlots) {
+  // Regression test for ARROW-13639
+  auto dict_type = dictionary(uint32(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[null, null, null, null]", "[]");
+  auto dict_two =
+      DictArrayFromJSON(dict_type, "[null, null, null, null, 0, 1]", R"(["a", "b"])");
+  auto expected = DictArrayFromJSON(
+      dict_type, "[null, null, null, null, null, null, null, null, 0, 1]",
+      R"(["a", "b"])");
+  ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+  ASSERT_OK(concat_actual->ValidateFull());
+  TestInitialized(*concat_actual);
+  AssertArraysEqual(*expected, *concat_actual);
+}
+
 TEST_F(ConcatenateTest, DISABLED_UnionType) {
   // sparse mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {

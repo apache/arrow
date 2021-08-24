@@ -42,7 +42,7 @@ test_that("Schema $GetFieldByName", {
   schm <- schema(b = double(), c = string())
   expect_equal(schm$GetFieldByName("b"), field("b", double()))
   expect_null(schm$GetFieldByName("f"))
-  # TODO: schema(b = double(), b = string())$GetFieldByName("b")
+  # TODO: schema(b = double(), b = string())$GetFieldByName("b") # nolint
   # also returns NULL and probably should error bc duplicated names
 })
 
@@ -153,7 +153,7 @@ test_that("Input validation when creating a table with a schema", {
 
 test_that("Schema$Equals", {
   a <- schema(b = double(), c = bool())
-  b <- a$WithMetadata(list(some="metadata"))
+  b <- a$WithMetadata(list(some = "metadata"))
 
   # different metadata
   expect_failure(expect_equal(a, b))

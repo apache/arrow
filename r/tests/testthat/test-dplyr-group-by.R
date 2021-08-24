@@ -29,11 +29,12 @@ test_that("group_by groupings are recorded", {
       select(int, chr) %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
-    tbl
+    tbl,
+    warning = TRUE
   )
 })
 
-test_that("group_by doesn't yet support creating/renaming", {
+test_that("group_by supports creating/renaming", {
   expect_dplyr_equal(
     input %>%
       group_by(chr, numbers = int) %>%
@@ -43,6 +44,12 @@ test_that("group_by doesn't yet support creating/renaming", {
   expect_dplyr_equal(
     input %>%
       group_by(chr, numbers = int * 4) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(int > 4, lgl, foo = int > 5) %>%
       collect(),
     tbl
   )
@@ -56,7 +63,8 @@ test_that("ungroup", {
       ungroup() %>%
       filter(int > 5) %>%
       summarize(min_int = min(int)),
-    tbl
+    tbl,
+    warning = TRUE
   )
 })
 

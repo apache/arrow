@@ -47,6 +47,15 @@
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
+namespace arrow {
+namespace compute {
+
+class ExecPlan;
+class ExecNode;
+
+}  // namespace compute
+}  // namespace arrow
+
 #if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/type_fwd.h>
 #endif
@@ -60,6 +69,7 @@ namespace fs = ::arrow::fs;
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
+arrow::compute::ExecContext* gc_context();
 
 #if (R_VERSION < R_Version(3, 5, 0))
 #define LOGICAL_RO(x) ((const int*)LOGICAL(x))

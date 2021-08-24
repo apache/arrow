@@ -42,15 +42,38 @@ class ExecContext;
 
 /// \brief Control general scalar aggregate kernel behavior
 ///
-/// By default, null values are ignored
+/// By default, null values are ignored (skip_nulls = true).
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
   explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
   constexpr static char const kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
   bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
   uint32_t min_count;
+};
+
+/// \brief Control count aggregate kernel behavior.
+///
+/// By default, only non-null values are counted.
+class ARROW_EXPORT CountOptions : public FunctionOptions {
+ public:
+  enum CountMode {
+    /// Count only non-null values.
+    ONLY_VALID = 0,
+    /// Count only null values.
+    ONLY_NULL,
+    /// Count both non-null and null values.
+    ALL,
+  };
+  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
+  constexpr static char const kTypeName[] = "CountOptions";
+  static CountOptions Defaults() { return CountOptions{}; }
+
+  CountMode mode;
 };
 
 /// \brief Control Mode kernel behavior
@@ -139,9 +162,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 
 /// @}
 
-/// \brief Count non-null (or null) values in an array.
+/// \brief Count values in an array.
 ///
-/// \param[in] options counting options, see ScalarAggregateOptions for more information
+/// \param[in] options counting options, see CountOptions for more information
 /// \param[in] datum to count
 /// \param[in] ctx the function execution context, optional
 /// \return out resulting datum
@@ -149,10 +172,9 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(
-    const Datum& datum,
-    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(const Datum& datum,
+                    const CountOptions& options = CountOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///
@@ -165,6 +187,21 @@ Result<Datum> Count(
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Mean(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the product of values of a numeric array.
+///
+/// \param[in] value datum to compute product of, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed sum as a Scalar
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Product(
     const Datum& value,
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -425,7 +462,7 @@ struct ARROW_EXPORT Aggregate {
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates,
+                      const std::vector<Aggregate>& aggregates, bool use_threads = false,
                       ExecContext* ctx = default_exec_context());
 
 }  // namespace internal

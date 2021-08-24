@@ -29,7 +29,10 @@ module ArrowDataset
     end
 
     def require_libraries
+      require "arrow-dataset/arrow-table-loadable"
       require "arrow-dataset/dataset"
+      require "arrow-dataset/file-format"
+      require "arrow-dataset/file-system-dataset-factory"
     end
   end
 end

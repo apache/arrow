@@ -24,6 +24,19 @@
 G_BEGIN_DECLS
 
 
+#define GAFLIGHT_TYPE_STREAM_READER       \
+  (gaflight_stream_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightStreamReader,
+                         gaflight_stream_reader,
+                         GAFLIGHT,
+                         STREAM_READER,
+                         GAFlightRecordBatchReader)
+struct _GAFlightStreamReaderClass
+{
+  GAFlightRecordBatchReaderClass parent_class;
+};
+
+
 #define GAFLIGHT_TYPE_CALL_OPTIONS (gaflight_call_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightCallOptions,
                          gaflight_call_options,
@@ -76,9 +89,16 @@ gaflight_client_new(GAFlightLocation *location,
 GARROW_AVAILABLE_IN_5_0
 GList *
 gaflight_client_list_flights(GAFlightClient *client,
-                             GAFlightCallOptions *options,
                              GAFlightCriteria *criteria,
+                             GAFlightCallOptions *options,
                              GError **error);
+
+GARROW_AVAILABLE_IN_6_0
+GAFlightStreamReader *
+gaflight_client_do_get(GAFlightClient *client,
+                       GAFlightTicket *ticket,
+                       GAFlightCallOptions *options,
+                       GError **error);
 
 
 G_END_DECLS

@@ -63,7 +63,8 @@ type TypedEncoder interface {
 	EstimatedDataEncodedSize() int64
 	// FlushValues finishes up any unwritten data and returns the buffer of data passing
 	// ownership to the caller, Release needs to be called on the Buffer to free the memory
-	FlushValues() Buffer
+	// if error is nil
+	FlushValues() (Buffer, error)
 	// Encoding returns the type of encoding that this encoder operates with
 	Encoding() parquet.Encoding
 	// Allocator returns the allocator that was used when creating this encoder
@@ -78,7 +79,7 @@ type DictEncoder interface {
 	TypedEncoder
 	// WriteIndices populates the byte slice with the final indexes of data and returns
 	// the number of bytes written
-	WriteIndices(out []byte) int
+	WriteIndices(out []byte) (int, error)
 	// DictEncodedSize returns the current size of the encoded dictionary index.
 	DictEncodedSize() int
 	// BitWidth returns the bitwidth needed to encode all of the index values based
@@ -434,64 +435,4 @@ func (b *BufferWriter) Seek(offset int64, whence int) (int64, error) {
 
 func (b *BufferWriter) Tell() int64 {
 	return int64(b.pos)
-}
-
-// MemoTable interface that can be used to swap out implementations of the hash table
-// used for handling dictionary encoding. Dictionary encoding is built against this interface
-// to make it easy for code generation and changing implementations.
-//
-// Values should remember the order they are inserted to generate a valid dictionary index
-type MemoTable interface {
-	// Reset drops everything in the table allowing it to be reused
-	Reset()
-	// Size returns the current number of unique values stored in the table
-	// including whether or not a null value has been passed in using GetOrInsertNull
-	Size() int
-	// CopyValues populates out with the values currently in the table, out must
-	// be a slice of the appropriate type for the table type.
-	CopyValues(out interface{})
-	// CopyValuesSubset is like CopyValues but only copies a subset of values starting
-	// at the indicated index.
-	CopyValuesSubset(start int, out interface{})
-	// Get returns the index of the table the specified value is, and a boolean indicating
-	// whether or not the value was found in the table. Will panic if val is not the appropriate
-	// type for the underlying table.
-	Get(val interface{}) (int, bool)
-	// GetOrInsert is the same as Get, except if the value is not currently in the table it will
-	// be inserted into the table.
-	GetOrInsert(val interface{}) (idx int, existed bool, err error)
-	// GetNull returns the index of the null value and whether or not it was found in the table
-	GetNull() (int, bool)
-	// GetOrInsertNull returns the index of the null value, if it didn't already exist in the table,
-	// it is inserted.
-	GetOrInsertNull() (idx int, existed bool)
-}
-
-// BinaryMemoTable is an extension of the MemoTable interface adding extra methods
-// for handling byte arrays/strings/fixed length byte arrays.
-type BinaryMemoTable interface {
-	MemoTable
-	// ValuesSize returns the total number of bytes needed to copy all of the values
-	// from this table.
-	ValuesSize() int
-	// CopyOffsets populates out with the start and end offsets of each value in the
-	// table data. Out should be sized to Size()+1 to accomodate all of the offsets.
-	CopyOffsets(out []int8)
-	// CopyOffsetsSubset is like CopyOffsets but only gets a subset of the offsets
-	// starting at the specified index.
-	CopyOffsetsSubset(start int, out []int8)
-	// CopyFixedWidthValues exists to cope with the fact that the table doesn't track
-	// the fixed width when inserting the null value into the databuffer populating
-	// a zero length byte slice for the null value (if found).
-	CopyFixedWidthValues(start int, width int, out []byte)
-	// VisitValues calls visitFn on each value in the table starting with the index specified
-	VisitValues(start int, visitFn func([]byte))
-	// Retain increases the reference count of the separately stored binary data that is
-	// kept alongside the table which contains all of the values in the table. This is
-	// safe to call simultaneously across multiple goroutines.
-	Retain()
-	// Release decreases the reference count by 1 of the separately stored binary data
-	// kept alongside the table containing the values. When the reference count goes to
-	// 0, the memory is freed. This is safe to call across multiple goroutines simultaneoulsy.
-	Release()
 }

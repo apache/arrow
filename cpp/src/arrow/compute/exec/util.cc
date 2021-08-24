@@ -17,6 +17,8 @@
 
 #include "arrow/compute/exec/util.h"
 
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
@@ -275,4 +277,35 @@ bool BitUtil::are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
 }
 
 }  // namespace util
+
+namespace compute {
+
+Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
+                              int expected_num_inputs, const char* kind_name) {
+  if (static_cast<int>(inputs.size()) != expected_num_inputs) {
+    return Status::Invalid(kind_name, " node requires ", expected_num_inputs,
+                           " inputs but got ", inputs.size());
+  }
+
+  for (auto input : inputs) {
+    if (input->plan() != plan) {
+      return Status::Invalid("Constructing a ", kind_name,
+                             " node in a different plan from its input");
+    }
+  }
+
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Table>> TableFromExecBatches(
+    const std::shared_ptr<Schema>& schema, const std::vector<ExecBatch>& exec_batches) {
+  RecordBatchVector batches;
+  for (const auto& batch : exec_batches) {
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema));
+    batches.push_back(std::move(rb));
+  }
+  return Table::FromRecordBatches(schema, batches);
+}
+
+}  // namespace compute
 }  // namespace arrow

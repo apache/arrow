@@ -273,7 +273,7 @@ and the Parquet files written in those directories no longer include the "part"
 column.
 
 Reading this dataset with :func:`dataset`, we now specify that the dataset
-should use a hive-like partitioning scheme with the `partitioning` keyword:
+should use a hive-like partitioning scheme with the ``partitioning`` keyword:
 
 .. ipython:: python
 
@@ -491,14 +491,14 @@ Customizing the batch size
 
 An iterative read of a dataset is often called a "scan" of the dataset and pyarrow
 uses an object called a :class:`Scanner` to do this.  A Scanner is created for you
-automatically by the to_table and to_batches method of the dataset.  Any arguments
-you pass to these methods will be passed on to the Scanner constructor.
+automatically by the :func:`~Dataset.to_table` and :func:`~Dataset.to_batches` method of the dataset.
+Any arguments you pass to these methods will be passed on to the Scanner constructor.
 
 One of those parameters is the ``batch_size``.  This controls the maximum size of the
-batches returned by the scanner.  Batches can still be smaller than the `batch_size`
+batches returned by the scanner.  Batches can still be smaller than the ``batch_size``
 if the dataset consists of small files or those files themselves consist of small
 row groups.  For example, a parquet file with 10,000 rows per row group will yield
-batches with, at most, 10,000 rows unless the batch_size is set to a smaller value.
+batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller value.
 
 The default batch size is one million rows and this is typically a good default but
 you may want to customize it if you are reading a large number of columns.
@@ -553,7 +553,7 @@ Writing large amounts of data
 
 The above examples wrote data from a table.  If you are writing a large amount of data
 you may not be able to load everything into a single in-memory table.  Fortunately, the
-write_dataset method also accepts an iterable of record batches.  This makes it really
+:func:`~Dataset.write_dataset` method also accepts an iterable of record batches.  This makes it really
 simple, for example, to repartition a large dataset without loading the entire dataset
 into memory:
 

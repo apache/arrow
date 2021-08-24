@@ -19,15 +19,19 @@
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/extension_type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::PrimitiveScalarBase;
 
 namespace compute {
 namespace internal {
 
 // ----------------------------------------------------------------------
+
+namespace {
 
 template <typename OutT, typename InT>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
@@ -117,6 +121,8 @@ void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
   }
 }
 
+}  // namespace
+
 void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
                               Datum* out) {
   switch (in_type) {
@@ -184,16 +190,24 @@ Status OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 Status CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 
-  const DataType& in_type = *batch[0].type();
-  const auto storage_type = checked_cast<const ExtensionType&>(in_type).storage_type();
+  if (batch[0].kind() == Datum::SCALAR) {
+    const auto& ext_scalar = checked_cast<const ExtensionScalar&>(*batch[0].scalar());
+    Datum casted_storage;
 
-  ExtensionArray extension(batch[0].array());
-
-  Datum casted_storage;
-  RETURN_NOT_OK(Cast(*extension.storage(), out->type(), options, ctx->exec_context())
-                    .Value(&casted_storage));
-  out->value = casted_storage.array();
-  return Status::OK();
+    if (ext_scalar.is_valid) {
+      return Cast(ext_scalar.value, out->type(), options, ctx->exec_context()).Value(out);
+    } else {
+      const auto& storage_type =
+          checked_cast<const ExtensionType&>(*ext_scalar.type).storage_type();
+      return Cast(MakeNullScalar(storage_type), out->type(), options, ctx->exec_context())
+          .Value(out);
+    }
+  } else {
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+    ExtensionArray extension(batch[0].array());
+    return Cast(*extension.storage(), out->type(), options, ctx->exec_context())
+        .Value(out);
+  }
 }
 
 Status CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -275,7 +289,7 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
   }
 
   // From extension type to this type
-  DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType::Array(Type::EXTENSION)}, out_ty,
+  DCHECK_OK(func->AddKernel(Type::EXTENSION, {InputType(Type::EXTENSION)}, out_ty,
                             CastFromExtension, NullHandling::COMPUTED_NO_PREALLOCATE,
                             MemAllocation::NO_PREALLOCATE));
 }
