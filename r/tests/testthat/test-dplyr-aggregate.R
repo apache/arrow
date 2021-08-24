@@ -33,7 +33,8 @@ test_that("summarize", {
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int)),
+      summarize(min_int = min(int)) %>%
+      collect(),
     tbl,
     warning = TRUE
   )
@@ -42,9 +43,25 @@ test_that("summarize", {
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int) / 2),
+      summarize(min_int = min(int) / 2) %>%
+      collect(),
     tbl,
     warning = TRUE
+  )
+})
+
+test_that("summarize() doesn't evaluate eagerly", {
+  skip("TODO")
+  expect_s3_class(
+    Table$create(tbl) %>%
+      summarize(total = sum(int)),
+    "arrow_dplyr_query"
+  )
+  expect_r6_class(
+    Table$create(tbl) %>%
+      summarize(total = sum(int)) %>%
+      collect(),
+    "ArrowTabular"
   )
 })
 
@@ -284,6 +301,32 @@ test_that("Filter and aggregate", {
       filter(int > 5) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Expressions on aggregations", {
+  # This is what it effectively is
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        any = any(lgl),
+        all = all(lgl)
+      ) %>%
+      arrange(some_grouping) %>%
+      transmute(some = any & !all) %>%
+      collect(),
+    tbl
+  )
+  # More concisely:
+  skip("Not implemented")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(any(lgl) & !all(lgl)) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl

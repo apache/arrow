@@ -82,47 +82,11 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   .data$selected_columns <- inputs
 
   # Eventually, we will return .data here if (dataset) but do it eagerly now
-  do_exec_plan(.data, group_vars = dplyr::group_vars(.data))
+  do_exec_plan(.data)
 }
 
-do_exec_plan <- function(.data, group_vars = NULL) {
+do_exec_plan <- function(.data) {
   plan <- ExecPlan$create()
-
-  grouped <- length(group_vars) > 0
-
-  # Collect the target names first because we have to add back the group vars
-  target_names <- names(.data)
-
-  if (grouped) {
-    .data <- ensure_group_vars(.data)
-    # We also need to prefix all of the aggregation function names with "hash_"
-    .data$aggregations <- lapply(.data$aggregations, function(x) {
-      x[["fun"]] <- paste0("hash_", x[["fun"]])
-      x
-    })
-  }
-
-  start_node <- plan$Scan(.data)
-  # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
-  if (inherits(.data$filtered_rows, "Expression")) {
-    start_node <- start_node$Filter(.data$filtered_rows)
-  }
-  # If any columns are derived we need to Project (otherwise this may be no-op)
-  project_node <- start_node$Project(.data$selected_columns)
-
-  final_node <- project_node$Aggregate(
-    options = .data$aggregations,
-    target_names = target_names,
-    out_field_names = names(.data$aggregations),
-    key_names = group_vars
-  )
-
-  out <- plan$Run(final_node)
-  if (grouped) {
-    # The result will have result columns first then the grouping cols.
-    # dplyr orders group cols first, so adapt the result to meet that expectation.
-    n_results <- length(.data$aggregations)
-    out <- out[c((n_results + 1):ncol(out), seq_along(.data$aggregations))]
-  }
-  out
+  final_node <- plan$Build(.data)
+  plan$Run(final_node)
 }
