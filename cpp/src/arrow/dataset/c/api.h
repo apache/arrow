@@ -34,30 +34,33 @@ extern const int kInspectAllFragments;
 #define DISABLE_INSPECT_FRAGMENTS 0
 
 struct Scanner {
-    int (*to_stream)(struct Scanner* scanner, struct ArrowArrayStream* out);
-    const char* (*last_error)(struct Scanner*);
-    void (*release)(struct Scanner*);
-    void* private_data;
+  int (*to_stream)(struct Scanner* scanner, struct ArrowArrayStream* out);
+  const char* (*last_error)(struct Scanner*);
+  void (*release)(struct Scanner*);
+  void* private_data;
 };
 
 struct Dataset {
-    int (*get_schema)(struct Dataset* dataset, struct ArrowSchema* out);
-    int (*new_scan)(struct Dataset* dataset, const char** columns, const int n_cols, uint64_t batch_size, struct Scanner* out);
-    const char* (*get_dataset_type_name)(struct Dataset*);
-    const char* (*last_error)(struct Dataset*);
-    void (*release)(struct Dataset*);
-    void* private_data;
+  int (*get_schema)(struct Dataset* dataset, struct ArrowSchema* out);
+  int (*new_scan)(struct Dataset* dataset, const char** columns, const int n_cols,
+                  uint64_t batch_size, struct Scanner* out);
+  const char* (*get_dataset_type_name)(struct Dataset*);
+  const char* (*last_error)(struct Dataset*);
+  void (*release)(struct Dataset*);
+  void* private_data;
 };
 
 struct DatasetFactory {
-  int (*inspect_schema)(struct DatasetFactory* factory, const int num_fragments_to_inspect, struct ArrowSchema* out);
+  int (*inspect_schema)(struct DatasetFactory* factory,
+                        const int num_fragments_to_inspect, struct ArrowSchema* out);
   int (*create_dataset)(struct DatasetFactory* factory, struct Dataset* out);
   const char* (*last_error)(struct DatasetFactory* factory);
   void (*release)(struct DatasetFactory*);
   void* private_data;
 };
 
-int dataset_factory_from_path(const char* uri, const int file_format_id, struct DatasetFactory* out);
+int dataset_factory_from_path(const char* uri, const int file_format_id,
+                              struct DatasetFactory* out);
 
 #ifdef __cplusplus
 }

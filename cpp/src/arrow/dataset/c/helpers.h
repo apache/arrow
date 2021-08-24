@@ -27,21 +27,21 @@
 extern "C" {
 #endif
 
-#define DEFINE_DATASET_CFUNCS(_name, _typestruct)                         \
-    inline bool Arrow ## _name ## IsReleased(struct _typestruct* obj) {   \
-        return obj->release == NULL;                                      \
-    }                                                                     \
-    inline void Arrow ## _name ## MarkReleased(struct _typestruct* obj) { \
-        obj->release = NULL;                                              \
-    }                                                                     \
-    inline void Arrow ## _name ## Release(struct _typestruct* obj) {      \
-        if (!Arrow ## _name ## IsReleased(obj)) {                         \
-            obj->release(obj);                                            \
-            assert(Arrow ## _name ## IsReleased(obj));                    \
-        }                                                                 \
-    }
+#define DEFINE_DATASET_CFUNCS(_name, _typestruct)                   \
+  inline bool Arrow##_name##IsReleased(struct _typestruct* obj) {   \
+    return obj->release == NULL;                                    \
+  }                                                                 \
+  inline void Arrow##_name##MarkReleased(struct _typestruct* obj) { \
+    obj->release = NULL;                                            \
+  }                                                                 \
+  inline void Arrow##_name##Release(struct _typestruct* obj) {      \
+    if (!Arrow##_name##IsReleased(obj)) {                           \
+      obj->release(obj);                                            \
+      assert(Arrow##_name##IsReleased(obj));                        \
+    }                                                               \
+  }
 
-DEFINE_DATASET_CFUNCS(DatasetFactory, DatasetFactory)  
+DEFINE_DATASET_CFUNCS(DatasetFactory, DatasetFactory)
 DEFINE_DATASET_CFUNCS(Dataset, Dataset)
 DEFINE_DATASET_CFUNCS(Scanner, Scanner)
 
