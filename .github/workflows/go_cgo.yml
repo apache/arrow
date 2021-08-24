@@ -24,6 +24,10 @@ on:
       - 'ci/docker/*-cgo.dockerfile'
       - 'ci/scripts/go_*'
       - 'go/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/src/arrow/c/**'
+      - 'cpp/src/arrow/dataset/c/**'
   pull_request:
     paths:
       - '.github/workflows/go_cgo.yml'
@@ -31,6 +35,10 @@ on:
       - 'ci/docker/**'
       - 'ci/scripts/go_*'
       - 'go/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/src/arrow/c/**'
+      - 'cpp/src/arrow/dataset/c/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
@@ -39,6 +47,7 @@ concurrency:
 env:
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+  ARROW_ENABLE_TIMING_TESTS: OFF
 
 jobs:
 
@@ -46,7 +55,7 @@ jobs:
     name: AMD64 Debian 10 Go ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +71,12 @@ jobs:
         run: ci/scripts/util_checkout.sh
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: cgo-${{ matrix.go }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cgo-${{ matrix.go }}-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -69,7 +84,10 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run debian-go-cgo
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run debian-go-cgo
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
