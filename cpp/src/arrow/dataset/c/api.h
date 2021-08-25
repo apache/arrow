@@ -123,8 +123,7 @@ struct DatasetFactory {
 
 /// Create a FileSystem dataset Factory using a uri
 ///
-/// For the file_format_id consumers should pass in one of the defined macros
-/// that are DS_#####_FORMAT.
+/// For the file_format_id consumers should pass in one of the defined FORMAT macros.
 ///
 /// Returns 0 if successful or an errno-compatible value on failure.
 ///
