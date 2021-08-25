@@ -440,9 +440,16 @@ void CoalesceSetArgs(benchmark::internal::Benchmark* bench) {
     bench->Args({static_cast<int64_t>(i)});
   }
 }
+void CoalesceSetBinaryArgs(benchmark::internal::Benchmark* bench) {
+  for (size_t i = 0; i < g_coalesce_params.size(); i++) {
+    if (g_coalesce_params[i].num_arguments == 2) {
+      bench->Args({static_cast<int64_t>(i)});
+    }
+  }
+}
 BENCHMARK(CoalesceBench64)->Apply(CoalesceSetArgs);
-BENCHMARK(CoalesceScalarBench64)->Apply(CoalesceSetArgs);
-BENCHMARK(CoalesceScalarStringBench)->Apply(CoalesceSetArgs);
+BENCHMARK(CoalesceScalarBench64)->Apply(CoalesceSetBinaryArgs);
+BENCHMARK(CoalesceScalarStringBench)->Apply(CoalesceSetBinaryArgs);
 
 BENCHMARK(ChooseBench64)->Args({kNumItems, 0});
 BENCHMARK(ChooseBench64)->Args({kNumItems, 99});
