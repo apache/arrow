@@ -1216,9 +1216,7 @@ services:
       <<: *ccache
       ARROW_ENABLE_TIMING_TESTS: #inherit
       ARROW_MIMALLOC: "ON"
-    volumes: &debian-volumes
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
+    volumes: *debian-volumes
     command: &cgo-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
