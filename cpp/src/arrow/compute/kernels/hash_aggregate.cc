@@ -919,14 +919,14 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     reduced_ = TypedBufferBuilder<c_type>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = TypeTraits<AccType>::type_singleton();
+    // out_type_ initialized by SumInit
     return Status::OK();
   }
 
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    RETURN_NOT_OK(reduced_.Append(added_groups, Impl::NullValue()));
+    RETURN_NOT_OK(reduced_.Append(added_groups, Impl::NullValue(*out_type_)));
     RETURN_NOT_OK(counts_.Append(added_groups, 0));
     RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return Status::OK();
@@ -957,7 +957,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
-      Impl::UpdateGroupWith(reduced, *g, other_reduced[other_g]);
+      Impl::UpdateGroupWith(*out_type_, reduced, *g, other_reduced[other_g]);
       BitUtil::SetBitTo(
           no_nulls, *g,
           BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
@@ -1030,14 +1030,14 @@ struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Ty
   using c_type = typename Base::c_type;
 
   // Default value for a group
-  static c_type NullValue() { return c_type(0); }
+  static c_type NullValue(const DataType&) { return c_type(0); }
 
   // Update all groups
   static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
                         uint8_t* no_nulls, const uint32_t* g) {
     // XXX this uses naive summation; we should switch to pairwise summation as was
     // done for the scalar aggregate kernel in ARROW-11758
-    VisitArrayDataInline<Type>(
+    internal::VisitArrayValuesInline<Type>(
         values,
         [&](typename TypeTraits<Type>::CType value) {
           reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) +
@@ -1049,17 +1049,46 @@ struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Ty
   }
 
   // Update a single group during merge
-  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
+  static void UpdateGroupWith(const DataType&, c_type* reduced, uint32_t g,
+                              c_type value) {
     reduced[g] += value;
   }
 
   using Base::Finish;
 };
 
+template <template <typename T> class Impl, typename T>
+Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
+                                             const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl<T>>(ctx, args));
+  static_cast<Impl<T>*>(impl.get())->out_type_ =
+      TypeTraits<typename Impl<T>::AccType>::type_singleton();
+  return std::move(impl);
+}
+
+template <typename Impl>
+Result<std::unique_ptr<KernelState>> DecimalSumInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl>(ctx, args));
+  static_cast<Impl*>(impl.get())->out_type_ = args.inputs[0].type;
+  return std::move(impl);
+}
+
 struct GroupedSumFactory {
   template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
   Status Visit(const T&) {
-    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedSumImpl<T>>);
+    kernel = MakeKernel(std::move(argument_type), SumInit<GroupedSumImpl, T>);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedSumImpl<Decimal128Type>>);
+    return Status::OK();
+  }
+  Status Visit(const Decimal256Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedSumImpl<Decimal256Type>>);
     return Status::OK();
   }
 
@@ -1073,7 +1102,7 @@ struct GroupedSumFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedSumFactory factory;
-    factory.argument_type = InputType::Array(type);
+    factory.argument_type = InputType::Array(type->id());
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1089,25 +1118,29 @@ template <typename Type>
 struct GroupedProductImpl final
     : public GroupedReducingAggregator<Type, GroupedProductImpl<Type>> {
   using Base = GroupedReducingAggregator<Type, GroupedProductImpl<Type>>;
+  using AccType = typename Base::AccType;
   using c_type = typename Base::c_type;
 
-  static c_type NullValue() { return c_type(1); }
+  static c_type NullValue(const DataType& out_type) {
+    return MultiplyTraits<AccType>::one(out_type);
+  }
 
   static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
                         uint8_t* no_nulls, const uint32_t* g) {
-    VisitArrayDataInline<Type>(
+    internal::VisitArrayValuesInline<Type>(
         values,
         [&](typename TypeTraits<Type>::CType value) {
-          reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) *
-                                            to_unsigned(static_cast<c_type>(value)));
+          reduced[*g] = MultiplyTraits<AccType>::Multiply(*values.type, reduced[*g],
+                                                          static_cast<c_type>(value));
           counts[*g++] += 1;
         },
         [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
     return Status::OK();
   }
 
-  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
-    reduced[g] *= value;
+  static void UpdateGroupWith(const DataType& out_type, c_type* reduced, uint32_t g,
+                              c_type value) {
+    reduced[g] = MultiplyTraits<AccType>::Multiply(out_type, reduced[g], value);
   }
 
   using Base::Finish;
@@ -1116,8 +1149,19 @@ struct GroupedProductImpl final
 struct GroupedProductFactory {
   template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
   Status Visit(const T&) {
-    kernel =
-        MakeKernel(std::move(argument_type), HashAggregateInit<GroupedProductImpl<T>>);
+    kernel = MakeKernel(std::move(argument_type), SumInit<GroupedProductImpl, T>);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedProductImpl<Decimal128Type>>);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedProductImpl<Decimal256Type>>);
     return Status::OK();
   }
 
@@ -1131,7 +1175,7 @@ struct GroupedProductFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedProductFactory factory;
-    factory.argument_type = InputType::Array(type);
+    factory.argument_type = InputType::Array(type->id());
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1147,14 +1191,16 @@ template <typename Type>
 struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>> {
   using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>>;
   using c_type = typename Base::c_type;
+  using MeanType =
+      typename std::conditional<is_decimal_type<Type>::value, c_type, double>::type;
 
-  static c_type NullValue() { return c_type(0); }
+  static c_type NullValue(const DataType&) { return c_type(0); }
 
   static Status Consume(const ArrayData& values, c_type* reduced, int64_t* counts,
                         uint8_t* no_nulls, const uint32_t* g) {
     // XXX this uses naive summation; we should switch to pairwise summation as was
     // done for the scalar aggregate kernel in ARROW-11758
-    VisitArrayDataInline<Type>(
+    internal::VisitArrayValuesInline<Type>(
         values,
         [&](typename TypeTraits<Type>::CType value) {
           reduced[*g] = static_cast<c_type>(to_unsigned(reduced[*g]) +
@@ -1165,7 +1211,8 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return Status::OK();
   }
 
-  static void UpdateGroupWith(c_type* reduced, uint32_t g, c_type value) {
+  static void UpdateGroupWith(const DataType&, c_type* reduced, uint32_t g,
+                              c_type value) {
     reduced[g] += value;
   }
 
@@ -1177,14 +1224,14 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
                                                 std::shared_ptr<Buffer>* null_bitmap) {
     const c_type* reduced = reduced_->data();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
-                          AllocateBuffer(num_groups * sizeof(double), pool));
-    double* means = reinterpret_cast<double*>(values->mutable_data());
+                          AllocateBuffer(num_groups * sizeof(MeanType), pool));
+    MeanType* means = reinterpret_cast<MeanType*>(values->mutable_data());
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) {
-        means[i] = static_cast<double>(reduced[i]) / counts[i];
+        means[i] = static_cast<MeanType>(reduced[i]) / counts[i];
         continue;
       }
-      means[i] = 0;
+      means[i] = MeanType(0);
 
       if ((*null_bitmap) == nullptr) {
         ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(num_groups, pool));
@@ -1197,13 +1244,28 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     return std::move(values);
   }
 
-  std::shared_ptr<DataType> out_type() const override { return float64(); }
+  std::shared_ptr<DataType> out_type() const override {
+    if (is_decimal_type<Type>::value) return this->out_type_;
+    return float64();
+  }
 };
 
 struct GroupedMeanFactory {
   template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
   Status Visit(const T&) {
-    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedMeanImpl<T>>);
+    kernel = MakeKernel(std::move(argument_type), SumInit<GroupedMeanImpl, T>);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedMeanImpl<Decimal128Type>>);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Type&) {
+    kernel = MakeKernel(std::move(argument_type),
+                        DecimalSumInit<GroupedMeanImpl<Decimal256Type>>);
     return Status::OK();
   }
 
@@ -1217,7 +1279,7 @@ struct GroupedMeanFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedMeanFactory factory;
-    factory.argument_type = InputType::Array(type);
+    factory.argument_type = InputType::Array(type->id());
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -2179,10 +2241,13 @@ const FunctionDoc hash_product_doc{
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc hash_mean_doc{"Average values of a numeric array",
-                                ("Null values are ignored."),
-                                {"array", "group_id_array"},
-                                "ScalarAggregateOptions"};
+const FunctionDoc hash_mean_doc{
+    "Average values of a numeric array",
+    ("Null values are ignored.\n"
+     "For integers and floats, NaN is returned if min_count = 0 and\n"
+     "there are no values. For decimals, null is returned instead."),
+    {"array", "group_id_array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc hash_stddev_doc{
     "Calculate the standard deviation of a numeric array",
@@ -2249,6 +2314,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(FloatingPointTypes(), GroupedSumFactory::Make, func.get()));
+    // Type parameters are ignored
+    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
+                                GroupedSumFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2263,6 +2331,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         AddHashAggKernels(UnsignedIntTypes(), GroupedProductFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(FloatingPointTypes(), GroupedProductFactory::Make, func.get()));
+    // Type parameters are ignored
+    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
+                                GroupedProductFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2275,6 +2346,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         AddHashAggKernels(UnsignedIntTypes(), GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(FloatingPointTypes(), GroupedMeanFactory::Make, func.get()));
+    // Type parameters are ignored
+    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
+                                GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
