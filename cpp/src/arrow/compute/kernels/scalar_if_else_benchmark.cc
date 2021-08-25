@@ -274,20 +274,46 @@ static void CaseWhenBenchStringContiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<StringType>(state);
 }
 
+struct CoalesceParams {
+  int64_t length;
+  int64_t num_arguments;
+  double null_probability;
+};
+
+std::vector<CoalesceParams> g_coalesce_params = {
+    {kNumItems, 2, 0.01},
+    {kNumItems, 4, 0.01},
+    {kNumItems, 2, 0.25},
+    {kNumItems, 4, 0.25},
+};
+
+struct CoalesceArgs : public CoalesceParams {
+  explicit CoalesceArgs(benchmark::State& state) : state_(state) {
+    const auto& params = g_coalesce_params[state.range(0)];
+    length = params.length;
+    num_arguments = params.num_arguments;
+    null_probability = params.null_probability;
+  }
+
+  ~CoalesceArgs() {
+    state_.counters["length"] = length;
+    state_.counters["null%"] = null_probability * 100;
+    state_.counters["num_args"] = num_arguments;
+  }
+
+ private:
+  benchmark::State& state_;
+};
+
 template <typename Type>
 static void CoalesceBench(benchmark::State& state) {
   auto type = TypeTraits<Type>::type_singleton();
-
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-  int64_t num_arguments = state.range(2);
-
+  CoalesceArgs params(state);
   random::RandomArrayGenerator rand(/*seed=*/0);
 
   std::vector<Datum> arguments;
-  for (int i = 0; i < num_arguments; i++) {
-    arguments.emplace_back(
-        rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
+  for (int i = 0; i < params.num_arguments; i++) {
+    arguments.emplace_back(rand.ArrayOf(type, params.length, params.null_probability));
   }
 
   for (auto _ : state) {
@@ -296,21 +322,18 @@ static void CoalesceBench(benchmark::State& state) {
 
   state.SetBytesProcessed(state.iterations() *
                           GetBytesProcessed<Type>::Get(arguments.front().make_array()));
-  state.SetItemsProcessed(state.iterations() * (len - offset));
+  state.SetItemsProcessed(state.iterations() * params.length);
 }
 
 template <typename Type>
 static void CoalesceScalarBench(benchmark::State& state) {
   using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
-
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-
+  CoalesceArgs params(state);
   random::RandomArrayGenerator rand(/*seed=*/0);
 
   std::vector<Datum> arguments = {
-      rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset),
+      rand.ArrayOf(type, params.length, params.null_probability),
       Datum(CType(42)),
   };
 
@@ -320,16 +343,14 @@ static void CoalesceScalarBench(benchmark::State& state) {
 
   state.SetBytesProcessed(state.iterations() *
                           GetBytesProcessed<Type>::Get(arguments.front().make_array()));
-  state.SetItemsProcessed(state.iterations() * (len - offset));
+  state.SetItemsProcessed(state.iterations() * params.length);
 }
 
 static void CoalesceScalarStringBench(benchmark::State& state) {
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-
+  CoalesceArgs params(state);
   random::RandomArrayGenerator rand(/*seed=*/0);
 
-  auto arr = rand.ArrayOf(utf8(), len, /*null_probability=*/0.25)->Slice(offset);
+  auto arr = rand.ArrayOf(utf8(), params.length, params.null_probability);
   std::vector<Datum> arguments = {arr, Datum("foobar")};
 
   for (auto _ : state) {
@@ -338,30 +359,7 @@ static void CoalesceScalarStringBench(benchmark::State& state) {
 
   state.SetBytesProcessed(state.iterations() * GetBytesProcessed<StringType>::Get(
                                                    arguments.front().make_array()));
-  state.SetItemsProcessed(state.iterations() * (len - offset));
-}
-
-template <typename Type>
-static void CoalesceNonNullBench(benchmark::State& state) {
-  auto type = TypeTraits<Type>::type_singleton();
-
-  int64_t len = state.range(0);
-  int64_t offset = state.range(1);
-
-  random::RandomArrayGenerator rand(/*seed=*/0);
-
-  std::vector<Datum> arguments;
-  arguments.emplace_back(
-      rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
-  arguments.emplace_back(rand.ArrayOf(type, len, /*null_probability=*/0)->Slice(offset));
-
-  for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("coalesce", arguments));
-  }
-
-  state.SetBytesProcessed(state.iterations() *
-                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
-  state.SetItemsProcessed(state.iterations() * (len - offset));
+  state.SetItemsProcessed(state.iterations() * params.length);
 }
 
 static void CoalesceBench64(benchmark::State& state) {
@@ -370,10 +368,6 @@ static void CoalesceBench64(benchmark::State& state) {
 
 static void CoalesceScalarBench64(benchmark::State& state) {
   return CoalesceScalarBench<Int64Type>(state);
-}
-
-static void CoalesceNonNullBench64(benchmark::State& state) {
-  return CoalesceNonNullBench<Int64Type>(state);
 }
 
 template <typename Type>
@@ -441,16 +435,14 @@ BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 99});
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 0});
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 99});
 
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 0, 2});
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 0, 4});
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 99, 2});
-BENCHMARK(CoalesceBench64)->Args({kNumItems, 99, 4});
-
-BENCHMARK(CoalesceScalarBench64)->Args({kNumItems, 0});
-BENCHMARK(CoalesceScalarStringBench)->Args({kNumItems, 0});
-
-BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 0});
-BENCHMARK(CoalesceNonNullBench64)->Args({kNumItems, 99});
+void CoalesceSetArgs(benchmark::internal::Benchmark* bench) {
+  for (size_t i = 0; i < g_coalesce_params.size(); i++) {
+    bench->Args({static_cast<int64_t>(i)});
+  }
+}
+BENCHMARK(CoalesceBench64)->Apply(CoalesceSetArgs);
+BENCHMARK(CoalesceScalarBench64)->Apply(CoalesceSetArgs);
+BENCHMARK(CoalesceScalarStringBench)->Apply(CoalesceSetArgs);
 
 BENCHMARK(ChooseBench64)->Args({kNumItems, 0});
 BENCHMARK(ChooseBench64)->Args({kNumItems, 99});
