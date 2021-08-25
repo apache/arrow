@@ -322,14 +322,22 @@ def test_write_options():
         opts.validate()
 
 
+@pytest.fixture(params=[True, False], ids=['threaded', 'serial'])
+def use_threads(request):
+    return request.param
+
+
 class BaseTestCSV(abc.ABC):
     """Common tests which are shared by streaming and non streaming readers"""
 
+    @pytest.fixture(autouse=True)
+    def use_threads(self, use_threads):
+        return use_threads
+
     @abc.abstractmethod
-    def read_bytes(self, b, use_threads, **kwargs):
+    def read_bytes(self, b, **kwargs):
         """
         :param b: bytes to be parsed
-        :param use_threads: if the bytes should be parsed in parallel
         :param kwargs: arguments passed on to open the csv file
         :return: b parsed as a single RecordBatch
         """
@@ -339,12 +347,12 @@ class BaseTestCSV(abc.ABC):
         assert table.num_columns == len(names)
         assert table.column_names == names
 
-    def test_header_skip_rows(self, use_threads):
+    def test_header_skip_rows(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         opts = ReadOptions()
         opts.skip_rows = 1
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ef", "gh"])
         assert table.to_pydict() == {
             "ef": ["ij", "mn"],
@@ -352,7 +360,7 @@ class BaseTestCSV(abc.ABC):
         }
 
         opts.skip_rows = 3
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["mn", "op"])
         assert table.to_pydict() == {
             "mn": [],
@@ -362,12 +370,12 @@ class BaseTestCSV(abc.ABC):
         opts.skip_rows = 4
         with pytest.raises(pa.ArrowInvalid):
             # Not enough rows
-            table = self.read_bytes(rows, use_threads, read_options=opts)
+            table = self.read_bytes(rows, read_options=opts)
 
         # Can skip rows with a different number of columns
         rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
         opts.skip_rows = 2
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ij", "kl"])
         assert table.to_pydict() == {
             "ij": ["mn"],
@@ -377,19 +385,19 @@ class BaseTestCSV(abc.ABC):
         # Can skip all rows exactly when columns are given
         opts.skip_rows = 4
         opts.column_names = ['ij', 'kl']
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ij", "kl"])
         assert table.to_pydict() == {
             "ij": [],
             "kl": [],
         }
 
-    def test_skip_rows_after_names(self, use_threads):
+    def test_skip_rows_after_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         opts = ReadOptions()
         opts.skip_rows_after_names = 1
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ab", "cd"])
         assert table.to_pydict() == {
             "ab": ["ij", "mn"],
@@ -398,7 +406,7 @@ class BaseTestCSV(abc.ABC):
 
         # Can skip exact number of rows
         opts.skip_rows_after_names = 3
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ab", "cd"])
         assert table.to_pydict() == {
             "ab": [],
@@ -407,7 +415,7 @@ class BaseTestCSV(abc.ABC):
 
         # Can skip beyond all rows
         opts.skip_rows_after_names = 4
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["ab", "cd"])
         assert table.to_pydict() == {
             "ab": [],
@@ -418,7 +426,7 @@ class BaseTestCSV(abc.ABC):
         rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
         opts.skip_rows_after_names = 2
         opts.column_names = ["f0", "f1"]
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["f0", "f1"])
         assert table.to_pydict() == {
             "f0": ["ij", "mn"],
@@ -431,7 +439,7 @@ class BaseTestCSV(abc.ABC):
         opts.skip_rows_after_names = 2
         parse_opts = ParseOptions()
         parse_opts.newlines_in_values = True
-        table = self.read_bytes(rows, use_threads, read_options=opts,
+        table = self.read_bytes(rows, read_options=opts,
                                 parse_options=parse_opts)
         self.check_names(table, ["ab", "cd"])
         assert table.to_pydict() == {
@@ -442,7 +450,7 @@ class BaseTestCSV(abc.ABC):
         # Can skip rows when block ends in middle of quoted value
         opts.skip_rows_after_names = 2
         opts.block_size = 26
-        table = self.read_bytes(rows, use_threads, read_options=opts,
+        table = self.read_bytes(rows, read_options=opts,
                                 parse_options=parse_opts)
         self.check_names(table, ["ab", "cd"])
         assert table.to_pydict() == {
@@ -455,7 +463,7 @@ class BaseTestCSV(abc.ABC):
         rows, expected = make_random_csv(num_cols=5, num_rows=1000)
         opts.skip_rows_after_names = 900
         opts.block_size = len(rows) / 11
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         assert table.schema == expected.schema
         assert table.num_rows == 100
         table_dict = table.to_pydict()
@@ -463,7 +471,7 @@ class BaseTestCSV(abc.ABC):
             assert values[900:] == table_dict[name]
 
         # Can skip rows that are beyond the first block with lexer
-        table = self.read_bytes(rows, use_threads, read_options=opts,
+        table = self.read_bytes(rows, read_options=opts,
                                 parse_options=parse_opts)
         assert table.schema == expected.schema
         assert table.num_rows == 100
@@ -478,7 +486,7 @@ class BaseTestCSV(abc.ABC):
         opts.skip_rows = 37
         opts.skip_rows_after_names = 41
         opts.column_names = expected.schema.names
-        table = self.read_bytes(rows, use_threads, read_options=opts,
+        table = self.read_bytes(rows, read_options=opts,
                                 parse_options=parse_opts)
         assert table.schema == expected.schema
         assert (table.num_rows ==
@@ -489,10 +497,10 @@ class BaseTestCSV(abc.ABC):
             assert (values[opts.skip_rows + opts.skip_rows_after_names:] ==
                     table_dict[name])
 
-    def test_row_number_offset_in_errors(self, use_threads):
+    def test_row_number_offset_in_errors(self):
         # Row numbers are only correctly counted in serial reads
         def format_msg(msg_format, row, *args):
-            if use_threads:
+            if self.use_threads:
                 row_info = ""
             else:
                 row_info = "Row #{}: ".format(row)
@@ -509,7 +517,7 @@ class BaseTestCSV(abc.ABC):
         csv_bad_columns = csv + b"1,2\r\n"
         message_columns = format_msg("{}Expected 4 columns, got 2", 102)
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
-            self.read_bytes(csv_bad_columns, use_threads,
+            self.read_bytes(csv_bad_columns,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -519,7 +527,7 @@ class BaseTestCSV(abc.ABC):
             "CSV conversion error to int32: invalid value 'a'",
             102, csv)
         with pytest.raises(pa.ArrowInvalid, match=message_value):
-            self.read_bytes(csv_bad_type, use_threads,
+            self.read_bytes(csv_bad_type,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -528,7 +536,7 @@ class BaseTestCSV(abc.ABC):
         message_long = format_msg("{}Expected 4 columns, got 2: {} ...", 102,
                                   long_row[0:96].decode("utf-8"))
         with pytest.raises(pa.ArrowInvalid, match=message_long):
-            self.read_bytes(csv_bad_columns_long, use_threads,
+            self.read_bytes(csv_bad_columns_long,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -536,17 +544,17 @@ class BaseTestCSV(abc.ABC):
         read_options.skip_rows_after_names = 47
 
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
-            self.read_bytes(csv_bad_columns, use_threads,
+            self.read_bytes(csv_bad_columns,
                             read_options=read_options,
                             convert_options=convert_options)
 
         with pytest.raises(pa.ArrowInvalid, match=message_value):
-            self.read_bytes(csv_bad_type, use_threads,
+            self.read_bytes(csv_bad_type,
                             read_options=read_options,
                             convert_options=convert_options)
 
         with pytest.raises(pa.ArrowInvalid, match=message_long):
-            self.read_bytes(csv_bad_columns_long, use_threads,
+            self.read_bytes(csv_bad_columns_long,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -558,7 +566,7 @@ class BaseTestCSV(abc.ABC):
         csv_bad_columns = csv + b"1,2\r\n"
         message_columns = format_msg("{}Expected 4 columns, got 2", 101)
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
-            self.read_bytes(csv_bad_columns, use_threads,
+            self.read_bytes(csv_bad_columns,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -566,7 +574,7 @@ class BaseTestCSV(abc.ABC):
         message_long = format_msg("{}Expected 4 columns, got 2: {} ...", 101,
                                   long_row[0:96].decode("utf-8"))
         with pytest.raises(pa.ArrowInvalid, match=message_long):
-            self.read_bytes(csv_bad_columns_long, use_threads,
+            self.read_bytes(csv_bad_columns_long,
                             read_options=read_options,
                             convert_options=convert_options)
 
@@ -577,80 +585,79 @@ class BaseTestCSV(abc.ABC):
             101)
         message_value = message_value.format(len(csv))
         with pytest.raises(pa.ArrowInvalid, match=message_value):
-            self.read_bytes(csv_bad_type, use_threads,
+            self.read_bytes(csv_bad_type,
                             read_options=read_options,
                             convert_options=convert_options)
 
         # Test with skip_rows and column names not in the csv
         read_options.skip_rows = 23
         with pytest.raises(pa.ArrowInvalid, match=message_columns):
-            self.read_bytes(csv_bad_columns, use_threads,
+            self.read_bytes(csv_bad_columns,
                             read_options=read_options,
                             convert_options=convert_options)
 
         with pytest.raises(pa.ArrowInvalid, match=message_value):
-            self.read_bytes(csv_bad_type, use_threads,
+            self.read_bytes(csv_bad_type,
                             read_options=read_options,
                             convert_options=convert_options)
 
 
-@pytest.mark.parametrize('use_threads', [False, True])
 class TestCSVTableRead(BaseTestCSV):
 
-    def read_csv(self, csv, use_threads, *args, validate_full=True, **kwargs):
+    def read_csv(self, csv, *args, validate_full=True, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = use_threads
+        read_options.use_threads = self.use_threads
         table = read_csv(csv, *args, **kwargs)
         table.validate(full=validate_full)
         return table
 
-    def read_bytes(self, b, use_threads, **kwargs):
-        return self.read_csv(pa.py_buffer(b), use_threads, **kwargs)
+    def read_bytes(self, b, **kwargs):
+        return self.read_csv(pa.py_buffer(b), **kwargs)
 
-    def test_file_object(self, use_threads):
+    def test_file_object(self):
         data = b"a,b\n1,2\n"
         expected_data = {'a': [1], 'b': [2]}
         bio = io.BytesIO(data)
-        table = self.read_csv(bio, use_threads)
+        table = self.read_csv(bio)
         assert table.to_pydict() == expected_data
         # Text files not allowed
         sio = io.StringIO(data.decode())
         with pytest.raises(TypeError):
-            self.read_csv(sio, use_threads)
+            self.read_csv(sio)
 
-    def test_header(self, use_threads):
+    def test_header(self):
         rows = b"abc,def,gh\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert isinstance(table, pa.Table)
         self.check_names(table, ["abc", "def", "gh"])
         assert table.num_rows == 0
 
-    def test_bom(self, use_threads):
+    def test_bom(self):
         rows = b"\xef\xbb\xbfa,b\n1,2\n"
         expected_data = {'a': [1], 'b': [2]}
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert table.to_pydict() == expected_data
 
-    def test_one_chunk(self, use_threads):
+    def test_one_chunk(self):
         # ARROW-7661: lack of newline at end of file should not produce
         # an additional chunk.
         rows = [b"a,b", b"1,2", b"3,4", b"56,78"]
         for line_ending in [b'\n', b'\r', b'\r\n']:
             for file_ending in [b'', line_ending]:
                 data = line_ending.join(rows) + file_ending
-                table = self.read_bytes(data, use_threads)
+                table = self.read_bytes(data)
                 assert len(table.to_batches()) == 1
                 assert table.to_pydict() == {
                     "a": [1, 3, 56],
                     "b": [2, 4, 78],
                 }
 
-    def test_header_column_names(self, use_threads):
+    def test_header_column_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         opts = ReadOptions()
         opts.column_names = ["x", "y"]
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["x", "y"])
         assert table.to_pydict() == {
             "x": ["ab", "ef", "ij", "mn"],
@@ -658,7 +665,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         opts.skip_rows = 3
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["x", "y"])
         assert table.to_pydict() == {
             "x": ["mn"],
@@ -666,7 +673,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         opts.skip_rows = 4
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["x", "y"])
         assert table.to_pydict() == {
             "x": [],
@@ -676,32 +683,32 @@ class TestCSVTableRead(BaseTestCSV):
         opts.skip_rows = 5
         with pytest.raises(pa.ArrowInvalid):
             # Not enough rows
-            table = self.read_bytes(rows, use_threads, read_options=opts)
+            table = self.read_bytes(rows, read_options=opts)
 
         # Unexpected number of columns
         opts.skip_rows = 0
         opts.column_names = ["x", "y", "z"]
         with pytest.raises(pa.ArrowInvalid,
                            match="Expected 3 columns, got 2"):
-            table = self.read_bytes(rows, use_threads, read_options=opts)
+            table = self.read_bytes(rows, read_options=opts)
 
         # Can skip rows with a different number of columns
         rows = b"abcd\n,,,,,\nij,kl\nmn,op\n"
         opts.skip_rows = 2
         opts.column_names = ["x", "y"]
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["x", "y"])
         assert table.to_pydict() == {
             "x": ["ij", "mn"],
             "y": ["kl", "op"],
         }
 
-    def test_header_autogenerate_column_names(self, use_threads):
+    def test_header_autogenerate_column_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         opts = ReadOptions()
         opts.autogenerate_column_names = True
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["f0", "f1"])
         assert table.to_pydict() == {
             "f0": ["ab", "ef", "ij", "mn"],
@@ -709,7 +716,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         opts.skip_rows = 3
-        table = self.read_bytes(rows, use_threads, read_options=opts)
+        table = self.read_bytes(rows, read_options=opts)
         self.check_names(table, ["f0", "f1"])
         assert table.to_pydict() == {
             "f0": ["mn"],
@@ -719,15 +726,14 @@ class TestCSVTableRead(BaseTestCSV):
         # Not enough rows, impossible to infer number of columns
         opts.skip_rows = 4
         with pytest.raises(pa.ArrowInvalid):
-            table = self.read_bytes(rows, use_threads, read_options=opts)
+            table = self.read_bytes(rows, read_options=opts)
 
-    def test_include_columns(self, use_threads):
+    def test_include_columns(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         convert_options = ConvertOptions()
         convert_options.include_columns = ['ab']
-        table = self.read_bytes(rows, use_threads,
-                                convert_options=convert_options)
+        table = self.read_bytes(rows, convert_options=convert_options)
         self.check_names(table, ["ab"])
         assert table.to_pydict() == {
             "ab": ["ef", "ij", "mn"],
@@ -735,8 +741,7 @@ class TestCSVTableRead(BaseTestCSV):
 
         # Order of include_columns is respected, regardless of CSV order
         convert_options.include_columns = ['cd', 'ab']
-        table = self.read_bytes(rows, use_threads,
-                                convert_options=convert_options)
+        table = self.read_bytes(rows, convert_options=convert_options)
         schema = pa.schema([('cd', pa.string()),
                             ('ab', pa.string())])
         assert table.schema == schema
@@ -750,16 +755,16 @@ class TestCSVTableRead(BaseTestCSV):
         with pytest.raises(KeyError,
                            match="Column 'xx' in include_columns "
                                  "does not exist in CSV file"):
-            self.read_bytes(rows, use_threads, convert_options=convert_options)
+            self.read_bytes(rows, convert_options=convert_options)
 
-    def test_include_missing_columns(self, use_threads):
+    def test_include_missing_columns(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         read_options = ReadOptions()
         convert_options = ConvertOptions()
         convert_options.include_columns = ['xx', 'ab', 'yy']
         convert_options.include_missing_columns = True
-        table = self.read_bytes(rows, use_threads, read_options=read_options,
+        table = self.read_bytes(rows, read_options=read_options,
                                 convert_options=convert_options)
         schema = pa.schema([('xx', pa.null()),
                             ('ab', pa.string()),
@@ -774,7 +779,7 @@ class TestCSVTableRead(BaseTestCSV):
         # Combining with `column_names`
         read_options.column_names = ["xx", "yy"]
         convert_options.include_columns = ["yy", "cd"]
-        table = self.read_bytes(rows, use_threads, read_options=read_options,
+        table = self.read_bytes(rows, read_options=read_options,
                                 convert_options=convert_options)
         schema = pa.schema([('yy', pa.string()),
                             ('cd', pa.null())])
@@ -787,7 +792,7 @@ class TestCSVTableRead(BaseTestCSV):
         # And with `column_types` as well
         convert_options.column_types = {"yy": pa.binary(),
                                         "cd": pa.int32()}
-        table = self.read_bytes(rows, use_threads, read_options=read_options,
+        table = self.read_bytes(rows, read_options=read_options,
                                 convert_options=convert_options)
         schema = pa.schema([('yy', pa.binary()),
                             ('cd', pa.int32())])
@@ -797,10 +802,10 @@ class TestCSVTableRead(BaseTestCSV):
             "cd": [None, None, None, None],
         }
 
-    def test_simple_ints(self, use_threads):
+    def test_simple_ints(self):
         # Infer integer columns
         rows = b"a,b,c\n1,2,3\n4,5,6\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.int64()),
                             ('c', pa.int64())])
@@ -811,10 +816,10 @@ class TestCSVTableRead(BaseTestCSV):
             'c': [3, 6],
         }
 
-    def test_simple_varied(self, use_threads):
+    def test_simple_varied(self):
         # Infer various kinds of data
         rows = b"a,b,c,d\n1,2,3,0\n4.0,-5,foo,True\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
                             ('c', pa.string()),
@@ -827,13 +832,13 @@ class TestCSVTableRead(BaseTestCSV):
             'd': [False, True],
         }
 
-    def test_simple_nulls(self, use_threads):
+    def test_simple_nulls(self):
         # Infer various kinds of data, with nulls
         rows = (b"a,b,c,d,e,f\n"
                 b"1,2,,,3,N/A\n"
                 b"nan,-5,foo,,nan,TRUE\n"
                 b"4.5,#N/A,nan,,\xff,false\n")
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
                             ('c', pa.string()),
@@ -850,12 +855,12 @@ class TestCSVTableRead(BaseTestCSV):
             'f': [None, True, False],
         }
 
-    def test_decimal_point(self, use_threads):
+    def test_decimal_point(self):
         # Infer floats with a custom decimal point
         parse_options = ParseOptions(delimiter=';')
         rows = b"a;b\n1.25;2,5\nNA;-3\n-4;NA"
 
-        table = self.read_bytes(rows, use_threads, parse_options=parse_options)
+        table = self.read_bytes(rows, parse_options=parse_options)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.string())])
         assert table.schema == schema
@@ -865,7 +870,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         convert_options = ConvertOptions(decimal_point=',')
-        table = self.read_bytes(rows, use_threads, parse_options=parse_options,
+        table = self.read_bytes(rows, parse_options=parse_options,
                                 convert_options=convert_options)
         schema = pa.schema([('a', pa.string()),
                             ('b', pa.float64())])
@@ -875,12 +880,12 @@ class TestCSVTableRead(BaseTestCSV):
             'b': [2.5, -3.0, None],
         }
 
-    def test_simple_timestamps(self, use_threads):
+    def test_simple_timestamps(self):
         # Infer a timestamp column
         rows = (b"a,b,c\n"
                 b"1970,1970-01-01 00:00:00,1970-01-01 00:00:00.123\n"
                 b"1989,1989-07-14 01:00:00,1989-07-14 01:00:00.123456\n")
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.timestamp('s')),
                             ('c', pa.timestamp('ns'))])
@@ -892,12 +897,12 @@ class TestCSVTableRead(BaseTestCSV):
                   datetime(1989, 7, 14, 1, 0, 0, 123456)],
         }
 
-    def test_timestamp_parsers(self, use_threads):
+    def test_timestamp_parsers(self):
         # Infer timestamps with custom parsers
         rows = b"a,b\n1970/01/01,1980-01-01 00\n1970/01/02,1980-01-02 00\n"
         opts = ConvertOptions()
 
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.string()),
                             ('b', pa.timestamp('s'))])
         assert table.schema == schema
@@ -907,7 +912,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         opts.timestamp_parsers = ['%Y/%m/%d']
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.timestamp('s')),
                             ('b', pa.string())])
         assert table.schema == schema
@@ -917,7 +922,7 @@ class TestCSVTableRead(BaseTestCSV):
         }
 
         opts.timestamp_parsers = ['%Y/%m/%d', ISO8601]
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.timestamp('s')),
                             ('b', pa.timestamp('s'))])
         assert table.schema == schema
@@ -926,10 +931,10 @@ class TestCSVTableRead(BaseTestCSV):
             'b': [datetime(1980, 1, 1), datetime(1980, 1, 2)],
         }
 
-    def test_dates(self, use_threads):
+    def test_dates(self):
         # Dates are inferred as date32 by default
         rows = b"a,b\n1970-01-01,1970-01-02\n1971-01-01,1971-01-02\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.date32()),
                             ('b', pa.date32())])
         assert table.schema == schema
@@ -941,7 +946,7 @@ class TestCSVTableRead(BaseTestCSV):
         # Can ask for date types explicitly
         opts = ConvertOptions()
         opts.column_types = {'a': pa.date32(), 'b': pa.date64()}
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.date32()),
                             ('b', pa.date64())])
         assert table.schema == schema
@@ -953,7 +958,7 @@ class TestCSVTableRead(BaseTestCSV):
         # Can ask for timestamp types explicitly
         opts = ConvertOptions()
         opts.column_types = {'a': pa.timestamp('s'), 'b': pa.timestamp('ms')}
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.timestamp('s')),
                             ('b', pa.timestamp('ms'))])
         assert table.schema == schema
@@ -962,12 +967,12 @@ class TestCSVTableRead(BaseTestCSV):
             'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
         }
 
-    def test_times(self, use_threads):
+    def test_times(self):
         # Times are inferred as time32[s] by default
         from datetime import time
 
         rows = b"a,b\n12:34:56,12:34:56.789\n23:59:59,23:59:59.999\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         # Column 'b' has subseconds, so cannot be inferred as time32[s]
         schema = pa.schema([('a', pa.time32('s')),
                             ('b', pa.string())])
@@ -980,7 +985,7 @@ class TestCSVTableRead(BaseTestCSV):
         # Can ask for time types explicitly
         opts = ConvertOptions()
         opts.column_types = {'a': pa.time64('us'), 'b': pa.time32('ms')}
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.time64('us')),
                             ('b', pa.time32('ms'))])
         assert table.schema == schema
@@ -989,10 +994,10 @@ class TestCSVTableRead(BaseTestCSV):
             'b': [time(12, 34, 56, 789000), time(23, 59, 59, 999000)],
         }
 
-    def test_auto_dict_encode(self, use_threads):
+    def test_auto_dict_encode(self):
         opts = ConvertOptions(auto_dict_encode=True)
         rows = "a,b\nab,1\ncdé,2\ncdé,3\nab,4".encode()
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.dictionary(pa.int32(), pa.string())),
                             ('b', pa.int64())])
         expected = {
@@ -1003,13 +1008,13 @@ class TestCSVTableRead(BaseTestCSV):
         assert table.to_pydict() == expected
 
         opts.auto_dict_max_cardinality = 2
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == schema
         assert table.to_pydict() == expected
 
         # Cardinality above max => plain-encoded
         opts.auto_dict_max_cardinality = 1
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == pa.schema([('a', pa.string()),
                                           ('b', pa.int64())])
         assert table.to_pydict() == expected
@@ -1018,7 +1023,7 @@ class TestCSVTableRead(BaseTestCSV):
         opts.auto_dict_max_cardinality = 50
         opts.check_utf8 = False
         rows = b"a,b\nab,1\ncd\xff,2\nab,3"
-        table = self.read_bytes(rows, use_threads, convert_options=opts,
+        table = self.read_bytes(rows, convert_options=opts,
                                 validate_full=False)
         assert table.schema == schema
         dict_values = table['a'].chunk(0).dictionary
@@ -1028,7 +1033,7 @@ class TestCSVTableRead(BaseTestCSV):
 
         # With invalid UTF8, checked
         opts.check_utf8 = True
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.dictionary(pa.int32(), pa.binary())),
                             ('b', pa.int64())])
         expected = {
@@ -1038,11 +1043,11 @@ class TestCSVTableRead(BaseTestCSV):
         assert table.schema == schema
         assert table.to_pydict() == expected
 
-    def test_custom_nulls(self, use_threads):
+    def test_custom_nulls(self):
         # Infer nulls with custom values
         opts = ConvertOptions(null_values=['Xxx', 'Zzz'])
         rows = b"""a,b,c,d\nZzz,"Xxx",1,2\nXxx,#N/A,,Zzz\n"""
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.null()),
                             ('b', pa.string()),
                             ('c', pa.string()),
@@ -1057,7 +1062,7 @@ class TestCSVTableRead(BaseTestCSV):
 
         opts = ConvertOptions(null_values=['Xxx', 'Zzz'],
                               strings_can_be_null=True)
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         assert table.to_pydict() == {
             'a': [None, None],
             'b': [None, "#N/A"],
@@ -1065,7 +1070,7 @@ class TestCSVTableRead(BaseTestCSV):
             'd': [2, None],
         }
         opts.quoted_strings_can_be_null = False
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         assert table.to_pydict() == {
             'a': [None, None],
             'b': ["Xxx", "#N/A"],
@@ -1075,7 +1080,7 @@ class TestCSVTableRead(BaseTestCSV):
 
         opts = ConvertOptions(null_values=[])
         rows = b"a,b\n#N/A,\n"
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.string()),
                             ('b', pa.string())])
         assert table.schema == schema
@@ -1084,7 +1089,7 @@ class TestCSVTableRead(BaseTestCSV):
             'b': [""],
         }
 
-    def test_custom_bools(self, use_threads):
+    def test_custom_bools(self):
         # Infer booleans with custom values
         opts = ConvertOptions(true_values=['T', 'yes'],
                               false_values=['F', 'no'])
@@ -1094,7 +1099,7 @@ class TestCSVTableRead(BaseTestCSV):
                 b"True,yes,yes\n"
                 b"False,no,no\n"
                 b"N/A,N/A,N/A\n")
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.string()),
                             ('b', pa.bool_()),
                             ('c', pa.string())])
@@ -1105,7 +1110,7 @@ class TestCSVTableRead(BaseTestCSV):
             'c': ["t", "f", "yes", "no", "N/A"],
         }
 
-    def test_column_types(self, use_threads):
+    def test_column_types(self):
         # Ask for specific column types in ConvertOptions
         opts = ConvertOptions(column_types={'b': 'float32',
                                             'c': 'string',
@@ -1113,7 +1118,7 @@ class TestCSVTableRead(BaseTestCSV):
                                             'e': pa.decimal128(11, 2),
                                             'zz': 'null'})
         rows = b"a,b,c,d,e\n1,2,3,true,1.0\n4,-5,6,false,0\n"
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.int64()),
                             ('b', pa.float32()),
                             ('c', pa.string()),
@@ -1135,18 +1140,18 @@ class TestCSVTableRead(BaseTestCSV):
                                     ('d', pa.bool_()),
                                     ('e', pa.decimal128(11, 2)),
                                     ('zz', pa.bool_())]))
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
         assert table.schema == schema
         assert table.to_pydict() == expected
         # One of the columns in column_types fails converting
         rows = b"a,b,c,d,e\n1,XXX,3,true,5\n4,-5,6,false,7\n"
         with pytest.raises(pa.ArrowInvalid) as exc:
-            self.read_bytes(rows, use_threads, convert_options=opts)
+            self.read_bytes(rows, convert_options=opts)
         err = str(exc.value)
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
 
-    def test_column_types_dict(self, use_threads):
+    def test_column_types_dict(self):
         # Ask for dict-encoded column types in ConvertOptions
         column_types = [
             ('a', pa.dictionary(pa.int32(), pa.utf8())),
@@ -1159,7 +1164,7 @@ class TestCSVTableRead(BaseTestCSV):
                 b"abc,123456,1.0,zz\n"
                 b"defg,123456,0.5,xx\n"
                 b"abc,N/A,1.0,xx\n")
-        table = self.read_bytes(rows, use_threads, convert_options=opts)
+        table = self.read_bytes(rows, convert_options=opts)
 
         schema = pa.schema(column_types)
         expected = {
@@ -1176,15 +1181,15 @@ class TestCSVTableRead(BaseTestCSV):
 
         opts = ConvertOptions(column_types=dict(column_types))
         with pytest.raises(NotImplementedError):
-            table = self.read_bytes(rows, use_threads, convert_options=opts)
+            table = self.read_bytes(rows, convert_options=opts)
 
-    def test_column_types_with_column_names(self, use_threads):
+    def test_column_types_with_column_names(self):
         # When both `column_names` and `column_types` are given, names
         # in `column_types` should refer to names in `column_names`
         rows = b"a,b\nc,d\ne,f\n"
         read_options = ReadOptions(column_names=['x', 'y'])
         convert_options = ConvertOptions(column_types={'x': pa.binary()})
-        table = self.read_bytes(rows, use_threads, read_options=read_options,
+        table = self.read_bytes(rows, read_options=read_options,
                                 convert_options=convert_options)
         schema = pa.schema([('x', pa.binary()),
                             ('y', pa.string())])
@@ -1194,77 +1199,77 @@ class TestCSVTableRead(BaseTestCSV):
             'y': ['b', 'd', 'f'],
         }
 
-    def test_no_ending_newline(self, use_threads):
+    def test_no_ending_newline(self):
         # No \n after last line
         rows = b"a,b,c\n1,2,3\n4,5,6"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert table.to_pydict() == {
             'a': [1, 4],
             'b': [2, 5],
             'c': [3, 6],
         }
 
-    def test_trivial(self, use_threads):
+    def test_trivial(self):
         # A bit pointless, but at least it shouldn't crash
         rows = b",\n\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert table.to_pydict() == {'': []}
 
-    def test_empty_lines(self, use_threads):
+    def test_empty_lines(self):
         rows = b"a,b\n\r1,2\r\n\r\n3,4\r\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert table.to_pydict() == {
             'a': [1, 3],
             'b': [2, 4],
         }
         parse_options = ParseOptions(ignore_empty_lines=False)
-        table = self.read_bytes(rows, use_threads, parse_options=parse_options)
+        table = self.read_bytes(rows, parse_options=parse_options)
         assert table.to_pydict() == {
             'a': [None, 1, None, 3],
             'b': [None, 2, None, 4],
         }
         read_options = ReadOptions(skip_rows=2)
-        table = self.read_bytes(rows, use_threads, parse_options=parse_options,
+        table = self.read_bytes(rows, parse_options=parse_options,
                                 read_options=read_options)
         assert table.to_pydict() == {
             '1': [None, 3],
             '2': [None, 4],
         }
 
-    def test_invalid_csv(self, use_threads):
+    def test_invalid_csv(self):
         # Various CSV errors
         rows = b"a,b,c\n1,2\n4,5,6\n"
         with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 2"):
-            self.read_bytes(rows, use_threads)
+            self.read_bytes(rows)
         rows = b"a,b,c\n1,2,3\n4"
         with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 1"):
-            self.read_bytes(rows, use_threads)
+            self.read_bytes(rows)
         for rows in [b"", b"\n", b"\r\n", b"\r", b"\n\n"]:
             with pytest.raises(pa.ArrowInvalid, match="Empty CSV file"):
-                self.read_bytes(rows, use_threads)
+                self.read_bytes(rows)
 
-    def test_options_delimiter(self, use_threads):
+    def test_options_delimiter(self):
         rows = b"a;b,c\nde,fg;eh\n"
-        table = self.read_bytes(rows, use_threads)
+        table = self.read_bytes(rows)
         assert table.to_pydict() == {
             'a;b': ['de'],
             'c': ['fg;eh'],
         }
         opts = ParseOptions(delimiter=';')
-        table = self.read_bytes(rows, use_threads, parse_options=opts)
+        table = self.read_bytes(rows, parse_options=opts)
         assert table.to_pydict() == {
             'a': ['de,fg'],
             'b,c': ['eh'],
         }
 
-    def test_small_random_csv(self, use_threads):
+    def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
-        table = self.read_bytes(csv, use_threads)
+        table = self.read_bytes(csv)
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
-    def test_stress_block_sizes(self, use_threads):
+    def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
         block_sizes = [11, 12, 13, 17, 37, 111]
@@ -1272,14 +1277,13 @@ class TestCSVTableRead(BaseTestCSV):
         for csv in csvs:
             for block_size in block_sizes:
                 read_options = ReadOptions(block_size=block_size)
-                table = self.read_bytes(csv, use_threads,
-                                        read_options=read_options)
+                table = self.read_bytes(csv, read_options=read_options)
                 assert table.schema == expected.schema
                 if not table.equals(expected):
                     # Better error output
                     assert table.to_pydict() == expected.to_pydict()
 
-    def test_stress_convert_options_blowup(self, use_threads):
+    def test_stress_convert_options_blowup(self):
         # ARROW-6481: A convert_options with a very large number of columns
         # should not blow memory and CPU time.
         try:
@@ -1292,8 +1296,7 @@ class TestCSVTableRead(BaseTestCSV):
         t1 = clock()
         convert_options = ConvertOptions(
             column_types={k: pa.string() for k in col_names[::2]})
-        table = self.read_bytes(csv, use_threads,
-                                convert_options=convert_options)
+        table = self.read_bytes(csv, convert_options=convert_options)
         dt = clock() - t1
         # Check that processing time didn't blow up.
         # This is a conservative check (it takes less than 300 ms
@@ -1304,7 +1307,7 @@ class TestCSVTableRead(BaseTestCSV):
         assert table.num_rows == 0
         assert table.column_names == col_names
 
-    def test_cancellation(self, use_threads):
+    def test_cancellation(self):
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
             pytest.skip("test only works from main Python thread")
@@ -1325,7 +1328,7 @@ class TestCSVTableRead(BaseTestCSV):
                 t = threading.Thread(target=signal_from_thread)
                 with pytest.raises(KeyboardInterrupt) as exc_info:
                     t.start()
-                    self.read_bytes(large_csv, use_threads)
+                    self.read_bytes(large_csv)
             finally:
                 t.join()
         except KeyboardInterrupt:
@@ -1338,25 +1341,24 @@ class TestCSVTableRead(BaseTestCSV):
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signal.SIGINT
 
-    def test_cancellation_disabled(self, use_threads):
+    def test_cancellation_disabled(self):
         # ARROW-12622: reader would segfault when the cancelling signal
         # handler was not enabled (e.g. if disabled, or if not on the
         # main thread)
         t = threading.Thread(
-            target=lambda: self.read_bytes(b"f64\n0.1", use_threads))
+            target=lambda: self.read_bytes(b"f64\n0.1"))
         t.start()
         t.join()
 
 
-@pytest.mark.parametrize('use_threads', [False, True])
 class TestStreamingCSVRead(BaseTestCSV):
 
-    def open_bytes(self, b, use_threads, **kwargs):
-        return self.open_csv(pa.py_buffer(b), use_threads, **kwargs)
+    def open_bytes(self, b, **kwargs):
+        return self.open_csv(pa.py_buffer(b), **kwargs)
 
-    def open_csv(self, b, use_threads, *args, **kwargs):
+    def open_csv(self, b, *args, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = use_threads
+        read_options.use_threads = self.use_threads
         return open_csv(b, *args, **kwargs)
 
     def check_reader(self, reader, expected_schema, expected_data):
@@ -1368,27 +1370,27 @@ class TestStreamingCSVRead(BaseTestCSV):
             assert batch.schema == expected_schema
             assert batch.to_pydict() == expected_batch
 
-    def read_bytes(self, b, use_threads, **kwargs):
-        return self.open_bytes(b, use_threads, **kwargs).read_all()
+    def read_bytes(self, b, **kwargs):
+        return self.open_bytes(b, **kwargs).read_all()
 
-    def test_file_object(self, use_threads):
+    def test_file_object(self):
         data = b"a,b\n1,2\n3,4\n"
         expected_data = {'a': [1, 3], 'b': [2, 4]}
         bio = io.BytesIO(data)
-        reader = self.open_csv(bio, use_threads)
+        reader = self.open_csv(bio)
         expected_schema = pa.schema([('a', pa.int64()),
                                      ('b', pa.int64())])
         self.check_reader(reader, expected_schema, [expected_data])
 
-    def test_header(self, use_threads):
+    def test_header(self):
         rows = b"abc,def,gh\n"
-        reader = self.open_bytes(rows, use_threads)
+        reader = self.open_bytes(rows)
         expected_schema = pa.schema([('abc', pa.null()),
                                      ('def', pa.null()),
                                      ('gh', pa.null())])
         self.check_reader(reader, expected_schema, [])
 
-    def test_inference(self, use_threads):
+    def test_inference(self):
         # Inference is done on first block
         rows = b"a,b\n123,456\nabc,de\xff\ngh,ij\n"
         expected_schema = pa.schema([('a', pa.string()),
@@ -1396,25 +1398,25 @@ class TestStreamingCSVRead(BaseTestCSV):
 
         read_options = ReadOptions()
         read_options.block_size = len(rows)
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         self.check_reader(reader, expected_schema,
                           [{'a': ['123', 'abc', 'gh'],
                             'b': [b'456', b'de\xff', b'ij']}])
 
         read_options.block_size = len(rows) - 1
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         self.check_reader(reader, expected_schema,
                           [{'a': ['123', 'abc'],
                             'b': [b'456', b'de\xff']},
                            {'a': ['gh'],
                             'b': [b'ij']}])
 
-    def test_inference_failure(self, use_threads):
+    def test_inference_failure(self):
         # Inference on first block, then conversion failure on second block
         rows = b"a,b\n123,456\nabc,de\xff\ngh,ij\n"
         read_options = ReadOptions()
         read_options.block_size = len(rows) - 7
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         expected_schema = pa.schema([('a', pa.int64()),
                                      ('b', pa.int64())])
         assert reader.schema == expected_schema
@@ -1429,7 +1431,7 @@ class TestStreamingCSVRead(BaseTestCSV):
         with pytest.raises(StopIteration):
             reader.read_next_batch()
 
-    def test_invalid_csv(self, use_threads):
+    def test_invalid_csv(self):
         # CSV errors on first block
         rows = b"a,b\n1,2,3\n4,5\n6,7\n"
         read_options = ReadOptions()
@@ -1437,12 +1439,12 @@ class TestStreamingCSVRead(BaseTestCSV):
         with pytest.raises(pa.ArrowInvalid,
                            match="Expected 2 columns, got 3"):
             reader = self.open_bytes(
-                rows, use_threads, read_options=read_options)
+                rows, read_options=read_options)
 
         # CSV errors on second block
         rows = b"a,b\n1,2\n3,4,5\n6,7\n"
         read_options.block_size = 8
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         assert reader.read_next_batch().to_pydict() == {'a': [1], 'b': [2]}
         with pytest.raises(pa.ArrowInvalid,
                            match="Expected 2 columns, got 3"):
@@ -1451,9 +1453,9 @@ class TestStreamingCSVRead(BaseTestCSV):
         with pytest.raises(StopIteration):
             reader.read_next_batch()
 
-    def test_options_delimiter(self, use_threads):
+    def test_options_delimiter(self):
         rows = b"a;b,c\nde,fg;eh\n"
-        reader = self.open_bytes(rows, use_threads)
+        reader = self.open_bytes(rows)
         expected_schema = pa.schema([('a;b', pa.string()),
                                      ('c', pa.string())])
         self.check_reader(reader, expected_schema,
@@ -1461,17 +1463,17 @@ class TestStreamingCSVRead(BaseTestCSV):
                             'c': ['fg;eh']}])
 
         opts = ParseOptions(delimiter=';')
-        reader = self.open_bytes(rows, use_threads, parse_options=opts)
+        reader = self.open_bytes(rows, parse_options=opts)
         expected_schema = pa.schema([('a', pa.string()),
                                      ('b,c', pa.string())])
         self.check_reader(reader, expected_schema,
                           [{'a': ['de,fg'],
                             'b,c': ['eh']}])
 
-    def test_no_ending_newline(self, use_threads):
+    def test_no_ending_newline(self):
         # No \n after last line
         rows = b"a,b,c\n1,2,3\n4,5,6"
-        reader = self.open_bytes(rows, use_threads)
+        reader = self.open_bytes(rows)
         expected_schema = pa.schema([('a', pa.int64()),
                                      ('b', pa.int64()),
                                      ('c', pa.int64())])
@@ -1480,16 +1482,16 @@ class TestStreamingCSVRead(BaseTestCSV):
                             'b': [2, 5],
                             'c': [3, 6]}])
 
-    def test_empty_file(self, use_threads):
+    def test_empty_file(self):
         with pytest.raises(ValueError, match="Empty CSV file"):
-            self.open_bytes(b"", use_threads)
+            self.open_bytes(b"")
 
-    def test_column_options(self, use_threads):
+    def test_column_options(self):
         # With column_names
         rows = b"1,2,3\n4,5,6"
         read_options = ReadOptions()
         read_options.column_names = ['d', 'e', 'f']
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         expected_schema = pa.schema([('d', pa.int64()),
                                      ('e', pa.int64()),
                                      ('f', pa.int64())])
@@ -1501,7 +1503,7 @@ class TestStreamingCSVRead(BaseTestCSV):
         # With include_columns
         convert_options = ConvertOptions()
         convert_options.include_columns = ['f', 'e']
-        reader = self.open_bytes(rows, use_threads, read_options=read_options,
+        reader = self.open_bytes(rows, read_options=read_options,
                                  convert_options=convert_options)
         expected_schema = pa.schema([('f', pa.int64()),
                                      ('e', pa.int64())])
@@ -1511,7 +1513,7 @@ class TestStreamingCSVRead(BaseTestCSV):
 
         # With column_types
         convert_options.column_types = {'e': pa.string()}
-        reader = self.open_bytes(rows, use_threads, read_options=read_options,
+        reader = self.open_bytes(rows, read_options=read_options,
                                  convert_options=convert_options)
         expected_schema = pa.schema([('f', pa.int64()),
                                      ('e', pa.string())])
@@ -1524,12 +1526,11 @@ class TestStreamingCSVRead(BaseTestCSV):
         with pytest.raises(
                 KeyError,
                 match="Column 'g' in include_columns does not exist"):
-            reader = self.open_bytes(rows, use_threads,
-                                     read_options=read_options,
+            reader = self.open_bytes(rows, read_options=read_options,
                                      convert_options=convert_options)
 
         convert_options.include_missing_columns = True
-        reader = self.open_bytes(rows, use_threads, read_options=read_options,
+        reader = self.open_bytes(rows, read_options=read_options,
                                  convert_options=convert_options)
         expected_schema = pa.schema([('g', pa.null()),
                                      ('f', pa.int64()),
@@ -1540,7 +1541,7 @@ class TestStreamingCSVRead(BaseTestCSV):
                             'f': [3, 6]}])
 
         convert_options.column_types = {'e': pa.string(), 'g': pa.float64()}
-        reader = self.open_bytes(rows, use_threads, read_options=read_options,
+        reader = self.open_bytes(rows, read_options=read_options,
                                  convert_options=convert_options)
         expected_schema = pa.schema([('g', pa.float64()),
                                      ('f', pa.int64()),
@@ -1550,11 +1551,11 @@ class TestStreamingCSVRead(BaseTestCSV):
                             'e': ["2", "5"],
                             'f': [3, 6]}])
 
-    def test_encoding(self, use_threads):
+    def test_encoding(self):
         # latin-1 (invalid utf-8)
         rows = b"a,b\nun,\xe9l\xe9phant"
         read_options = ReadOptions()
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         expected_schema = pa.schema([('a', pa.string()),
                                      ('b', pa.binary())])
         self.check_reader(reader, expected_schema,
@@ -1562,7 +1563,7 @@ class TestStreamingCSVRead(BaseTestCSV):
                             'b': [b"\xe9l\xe9phant"]}])
 
         read_options.encoding = 'latin1'
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         expected_schema = pa.schema([('a', pa.string()),
                                      ('b', pa.string())])
         self.check_reader(reader, expected_schema,
@@ -1573,22 +1574,22 @@ class TestStreamingCSVRead(BaseTestCSV):
         rows = (b'\xff\xfea\x00,\x00b\x00\n\x00u\x00n\x00,'
                 b'\x00\xe9\x00l\x00\xe9\x00p\x00h\x00a\x00n\x00t\x00')
         read_options.encoding = 'utf16'
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         expected_schema = pa.schema([('a', pa.string()),
                                      ('b', pa.string())])
         self.check_reader(reader, expected_schema,
                           [{'a': ["un"],
                             'b': ["éléphant"]}])
 
-    def test_small_random_csv(self, use_threads):
+    def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
-        reader = self.open_bytes(csv, use_threads)
+        reader = self.open_bytes(csv)
         table = reader.read_all()
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
-    def test_stress_block_sizes(self, use_threads):
+    def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
         block_sizes = [19, 21, 23, 26, 37, 111]
@@ -1599,14 +1600,14 @@ class TestStreamingCSVRead(BaseTestCSV):
                 assert csv[:block_size].count(b'\n') >= 2
                 read_options = ReadOptions(block_size=block_size)
                 reader = self.open_bytes(
-                    csv, use_threads, read_options=read_options)
+                    csv, read_options=read_options)
                 table = reader.read_all()
                 assert table.schema == expected.schema
                 if not table.equals(expected):
                     # Better error output
                     assert table.to_pydict() == expected.to_pydict()
 
-    def test_batch_lifetime(self, use_threads):
+    def test_batch_lifetime(self):
         gc.collect()
         old_allocated = pa.total_allocated_bytes()
 
@@ -1619,7 +1620,7 @@ class TestStreamingCSVRead(BaseTestCSV):
         read_options = ReadOptions()
         read_options.column_names = ['a', 'b']
         read_options.block_size = 6
-        reader = self.open_bytes(rows, use_threads, read_options=read_options)
+        reader = self.open_bytes(rows, read_options=read_options)
         check_one_batch(reader, {'a': [10], 'b': [11]})
         allocated_after_first_batch = pa.total_allocated_bytes()
         check_one_batch(reader, {'a': [12], 'b': [13]})
@@ -1634,8 +1635,8 @@ class TestStreamingCSVRead(BaseTestCSV):
         reader = None
         assert pa.total_allocated_bytes() == old_allocated
 
-    def test_header_skip_rows(self, use_threads):
-        super().test_header_skip_rows(use_threads)
+    def test_header_skip_rows(self):
+        super().test_header_skip_rows()
 
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
@@ -1643,25 +1644,25 @@ class TestStreamingCSVRead(BaseTestCSV):
         opts = ReadOptions()
         opts.skip_rows = 4
         opts.column_names = ['ab', 'cd']
-        reader = self.open_bytes(rows, use_threads, read_options=opts)
+        reader = self.open_bytes(rows, read_options=opts)
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
 
-    def test_skip_rows_after_names(self, use_threads):
-        super().test_skip_rows_after_names(use_threads)
+    def test_skip_rows_after_names(self):
+        super().test_skip_rows_after_names()
 
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
         # Skipping all rows immediately results in end of iteration
         opts = ReadOptions()
         opts.skip_rows_after_names = 3
-        reader = self.open_bytes(rows, use_threads, read_options=opts)
+        reader = self.open_bytes(rows, read_options=opts)
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
 
         # Skipping beyond all rows immediately results in end of iteration
         opts.skip_rows_after_names = 99999
-        reader = self.open_bytes(rows, use_threads, read_options=opts)
+        reader = self.open_bytes(rows, read_options=opts)
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
 
