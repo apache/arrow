@@ -509,7 +509,7 @@ struct Strftime {
     // Presize string data using a heuristic
     {
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(42));
-      const auto string_size = static_cast<int64_t>(ceil(formatted.size() * 1.1));
+      const auto string_size = static_cast<int64_t>(std::ceil(formatted.size() * 1.1));
       RETURN_NOT_OK(string_builder.Reserve(in.length));
       RETURN_NOT_OK(
           string_builder.ReserveData((in.length - in.GetNullCount()) * string_size));
