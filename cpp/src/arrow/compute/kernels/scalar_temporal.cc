@@ -476,11 +476,11 @@ struct Strftime {
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
     const StrftimeOptions& options = StrftimeState::Get(ctx);
 
-    const auto& timezone = GetInputTimezone(type);
+    auto timezone = GetInputTimezone(type);
     if (timezone.empty()) {
-      return Status::Invalid(
-          "Timestamps without a time zone cannot be reliably formatted.");
+      timezone = "UTC";
     }
+
     ARROW_ASSIGN_OR_RAISE(const time_zone* tz, LocateZone(timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));

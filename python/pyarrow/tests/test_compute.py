@@ -1499,7 +1499,7 @@ def test_strftime():
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%S")))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
@@ -1520,7 +1520,7 @@ def test_strftime():
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%SZ")))
+        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%S")))
         assert result.equals(expected)
 
     for unit in ["s", "ms", "us", "ns"]:
