@@ -350,7 +350,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      step);
   }
 
-  if (func_name == "variance" || func_name == "stddev") {
+  if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" || func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
     return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
   }
