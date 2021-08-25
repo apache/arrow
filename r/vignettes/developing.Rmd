@@ -90,7 +90,7 @@ Windows users then can set the `RWINLIB_LOCAL` environment variable to point to 
 
 #### Linux
 
-On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the arrow dependencies into it. 
+On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled arrow binary files into it. 
 
 ## R and C++
 
