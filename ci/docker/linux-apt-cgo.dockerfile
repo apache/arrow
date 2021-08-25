@@ -52,7 +52,7 @@ RUN apt-get update -y -q && \
         git \    
         libboost-all-dev \
         libgflags-dev \
-        lib-c-ares-dev \
+        libc-ares-dev \
         libbrotli-dev \
         libbz2-dev \
         libcurl4-openssl-dev \
