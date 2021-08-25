@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type BooleanType struct{}
@@ -52,12 +53,24 @@ type (
 	Duration  int64
 )
 
+func (d Date32) String() string {
+	return time.Unix(0, 0).UTC().AddDate(0, 0, int(d)).Format("2006-01-02")
+}
+
+func (d Date64) String() string {
+	return time.Unix(0, int64(d)*int64(time.Millisecond)).UTC().Format("2006-01-02")
+}
+
 const (
 	Nanosecond TimeUnit = iota
 	Microsecond
 	Millisecond
 	Second
 )
+
+func (u TimeUnit) Multiplier() time.Duration {
+	return [...]time.Duration{time.Nanosecond, time.Microsecond, time.Millisecond, time.Second}[uint(u)&3]
+}
 
 func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
 
