@@ -23,6 +23,7 @@
 #include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
 #include <arrow/util/bit_block_counter.h>
+#include <arrow/util/bit_run_reader.h>
 #include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
 #include <arrow/util/bitmap_reader.h>
@@ -1842,33 +1843,22 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
   const uint8_t* left_values = left_arr.buffers[1]->data();
   const Scalar& right_scalar = *right.scalar();
 
-  BitBlockCounter bit_counter(left_valid, left_arr.offset, left_arr.length);
+  arrow::internal::BitRunReader reader(left_valid, left_arr.offset, left_arr.length);
   int64_t offset = 0;
-  while (offset < length) {
-    const auto block = bit_counter.NextWord();
-    if (block.AllSet()) {
+  while (true) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) break;
+    if (run.set) {
       // All from left
       CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values,
-                                      left_arr.offset + offset, block.length, out_values,
+                                      left_arr.offset + offset, run.length, out_values,
                                       out_offset + offset);
-    } else if (block.NoneSet()) {
+    } else {
       // All from right
-      CopyFixedWidth<Type>::CopyScalar(right_scalar, block.length, out_values,
+      CopyFixedWidth<Type>::CopyScalar(right_scalar, run.length, out_values,
                                        out_offset + offset);
-    } else if (block.popcount) {
-      // One by one
-      for (int64_t j = 0; j < block.length; ++j) {
-        if (BitUtil::GetBit(left_valid, left_arr.offset + offset + j)) {
-          CopyFixedWidth<Type>::CopyArray(
-              *left_arr.type, left_values, left_arr.offset + offset + j,
-              /*length=*/1, out_values, out_offset + offset + j);
-        } else {
-          CopyFixedWidth<Type>::CopyScalar(right_scalar, /*length=*/1, out_values,
-                                           out_offset + offset + j);
-        }
-      }
     }
-    offset += block.length;
+    offset += run.length;
   }
 
   if (right_scalar.is_valid || !left_valid) {
