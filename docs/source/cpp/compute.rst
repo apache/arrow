@@ -1105,18 +1105,28 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+--------------------------+------------+--------------------+------------------+------------------------------+
-| Function name            | Arity      | Input types        | Output type      | Options class                |
-+==========================+============+====================+==================+==============================+
-| cast                     | Unary      | Many               | Variable         | :struct:`CastOptions`        |
-+--------------------------+------------+--------------------+------------------+------------------------------+
-| strftime                 | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    |
-+--------------------------+------------+--------------------+------------------+------------------------------+
-| strptime                 | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |
-+--------------------------+------------+--------------------+------------------+------------------------------+
++-----------------+------------+--------------------+------------------+------------------------------+-------+
+| Function name   | Arity      | Input types        | Output type      | Options class                | Notes |
++=================+============+====================+==================+==============================+=======+
+| cast            | Unary      | Many               | Variable         | :struct:`CastOptions`        |       |
++-----------------+------------+--------------------+------------------+------------------------------+-------+
+| strftime        | Unary      | Timestamp          | String           | :struct:`StrftimeOptions`    | \(1)  |
++-----------------+------------+--------------------+------------------+------------------------------+-------+
+| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |       |
++-----------------+------------+--------------------+------------------+------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
+
+* \(1) Output precision of seconds (``%S``) flag depends on the input timestamp
+  precision. If the number of seconds can not be exactly represented with seconds,
+  then the format is a decimal floating point number with a fixed format and a
+  precision matching that of the precision of the input. Note precision increases
+  three decimal points points per step going from seconds to nanoseconds.
+  The character for the decimal point is localized according to the locale.
+  See `detailed formatting documentation`_ for descriptions of other flags.
+
+.. _detailed formatting documentation: https://howardhinnant.github.io/date/date.html#to_stream_formatting
 
 **Truth value extraction**
 

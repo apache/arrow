@@ -478,6 +478,10 @@ struct Strftime {
 
     auto timezone = GetInputTimezone(type);
     if (timezone.empty()) {
+      if ((options.format.find("%z") != std::string::npos) ||
+          (options.format.find("%Z") != std::string::npos)) {
+        return Status::Invalid("Timezone not present, cannot print: ", options.format);
+      }
       timezone = "UTC";
     }
 
@@ -836,6 +840,10 @@ const FunctionDoc strftime_doc{
     "Format timestamps according to a format string",
     ("For each input timestamp, emit a formatted string.\n"
      "The time format string and locale can be set using StrftimeOptions.\n"
+     "Output precision of seconds %S flag depends on the input timestamp precision. "
+     "Timestamps with second precision are represented as integers while microsecond "
+     "precision timestamps are represented as a floating point number with 6 decimal "
+     "points."
      "An error is returned if the timestamps don't have a defined timezone,\n"
      "or if the timezone cannot be found in the timezone database."),
     {"timestamps"},

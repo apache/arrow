@@ -417,8 +417,15 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
   auto options_default = StrftimeOptions();
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), seconds);
+
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(), seconds,
                    &options_default);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: Timezone not present, cannot print"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: Timezone not present, cannot print"),
+      Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {

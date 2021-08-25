@@ -1518,18 +1518,25 @@ def test_strftime():
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
-        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C")
+        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%S", "C")
         result = pc.strftime(tsa, options=options)
         expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%S")))
         assert result.equals(expected)
 
-    for unit in ["s", "ms", "us", "ns"]:
-        tsa = pa.array(ts, type=pa.timestamp(unit))
-        for fmt in formats:
-            with pytest.raises(pa.ArrowInvalid,
-                               match="Timestamps without a time zone "
-                                     "cannot be reliably formatted"):
-                pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    # Test timestamps without timezone
+    fmt = "%Y-%m-%dT%H:%M:%S"
+    ts = pd.to_datetime(times)
+    tsa = pa.array(ts, type=pa.timestamp("s"))
+    result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt))
+    expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+
+    assert result.equals(expected)
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Timezone not present, cannot print:"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Timezone not present, cannot print:"):
+        pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 
 def _check_datetime_components(timestamps, timezone=None):
