@@ -2652,6 +2652,31 @@ def test_orc_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
 
+    result = dataset_reader.to_table(dataset, columns=["b"])
+    assert result.equals(table.select(["b"]))
+
+    assert dataset_reader.count_rows(dataset) == 3
+    assert dataset_reader.count_rows(dataset, filter=ds.field("a") > 2) == 1
+
+
+@pytest.mark.orc
+def test_orc_scan_options(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.orc')
+    orc.write_table(table, path)
+
+    dataset = ds.dataset(path, format="orc")
+    result = list(dataset_reader.to_batches(dataset))
+    assert len(result) == 1
+    assert result[0].num_rows == 3
+    result = list(dataset_reader.to_batches(dataset, batch_size=2))
+    assert len(result) == 2
+    assert result[0].num_rows == 2
+    assert result[1].num_rows == 1
+
 
 @pytest.mark.pandas
 def test_csv_format(tempdir, dataset_reader):

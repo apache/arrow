@@ -17,10 +17,7 @@
 
 #include "arrow/dataset/file_orc.h"
 
-#include <algorithm>
 #include <memory>
-#include <utility>
-#include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
@@ -36,15 +33,20 @@ using internal::checked_pointer_cast;
 namespace dataset {
 
 static inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
-    const FileSource& source
-    // const ipc::IpcReadOptions& options = default_read_options()
-) {
+    const FileSource& source,
+    const std::shared_ptr<ScanOptions>& scan_options = nullptr) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
 
-  std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader;
+  arrow::MemoryPool* pool;
+  if (scan_options) {
+    pool = scan_options->pool;
+  } else {
+    pool = default_memory_pool();
+  }
 
-  auto status = arrow::adapters::orc::ORCFileReader::Open(std::move(input),
-                                                          default_memory_pool(), &reader);
+  std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader;
+  auto status =
+      arrow::adapters::orc::ORCFileReader::Open(std::move(input), pool, &reader);
   if (!status.ok()) {
     return status.WithMessage("Could not open ORC input source '", source.path(),
                               "': ", status.message());
@@ -62,8 +64,11 @@ class OrcScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source_));
     std::shared_ptr<arrow::RecordBatchReader> batch_reader;
-    // TODO pass through ScanOptions batch size
-    reader->NextStripeReader(1000, &batch_reader);
+    // TODO determine included fields from options_->MaterializedFields() to
+    // optimize the column selection (see _column_index_lookup in python
+    // orc.py for custom logic)
+    // std::vector<int> included_fields;
+    RETURN_NOT_OK(reader->NextStripeReader(options_->batch_size, &batch_reader));
 
     auto batch_it = MakeIteratorFromReader(batch_reader);
     return batch_it;
@@ -81,7 +86,7 @@ Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
   std::shared_ptr<Schema> schema;
-  auto status = reader->ReadSchema(&schema);
+  RETURN_NOT_OK(reader->ReadSchema(&schema));
   return schema;
 }
 
@@ -91,6 +96,20 @@ Result<ScanTaskIterator> OrcFileFormat::ScanFile(
   auto task = std::make_shared<OrcScanTask>(fragment, options);
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
+}
+
+Future<util::optional<int64_t>> OrcFileFormat::CountRows(
+    const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+    const std::shared_ptr<ScanOptions>& options) {
+  if (ExpressionHasFieldRefs(predicate)) {
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  }
+  auto self = internal::checked_pointer_cast<OrcFileFormat>(shared_from_this());
+  return DeferNotOk(options->io_context.executor()->Submit(
+      [self, file]() -> Result<util::optional<int64_t>> {
+        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
+        return reader->NumberOfRows();
+      }));
 }
 
 // //

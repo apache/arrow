@@ -120,9 +120,9 @@ if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
 endif()
 
-# if(ARROW_ORC)
-#   add_arrow_dataset_test(file_orc_test)
-# endif()
+if(ARROW_ORC)
+  add_arrow_dataset_test(file_orc_test)
+endif()
 
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
