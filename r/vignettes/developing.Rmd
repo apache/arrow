@@ -460,7 +460,6 @@ devtools::check()
 # See test coverage statistics
 covr::report()
 covr::package_coverage()
-
 ```
 
 For full package validation, you can run the following commands from a terminal.
