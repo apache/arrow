@@ -216,7 +216,7 @@ table Time {
 
 /// Timestamp is a 64-bit signed integer representing an elapsed time since a
 /// fixed epoch, stored in either of four units: seconds, milliseconds,
-/// microseconds or nanoseconds, and interpretable in a particular timezone.
+/// microseconds or nanoseconds, and is optionally annotated with a timezone.
 ///
 /// Timestamp values do not include any leap seconds (in other words, all
 /// days are considered 86400 seconds long).
@@ -224,7 +224,7 @@ table Time {
 /// Timestamps with a non-empty timezone
 /// ------------------------------------
 ///
-/// If a Timestamp column has a non-empty timezone value,its epoch is
+/// If a Timestamp column has a non-empty timezone value, its epoch is
 /// 1970-01-01 00:00:00 (January 1st 1970, midnight) in the *UTC* timezone
 /// (the Unix epoch), regardless of the Timestamp's own timezone.
 ///
@@ -260,6 +260,23 @@ table Time {
 /// be reliably compared or ordered, since they may have different points of
 /// reference.  In particular, it is *not* possible to interpret an unset
 /// or empty timezone as the same as "UTC".
+///
+/// Conversion between timezones
+/// ----------------------------
+///
+/// If a Timestamp column has a non-empty timezone, changing the timezone
+/// to a different non-empty value is a metadata-only operation:
+/// the timestamp values need not change as their point of reference remains
+/// the same (the Unix epoch).
+///
+/// However, if a Timestamp column has no timezone value, changing it to a
+/// non-empty value requires to think about the desired semantics.
+/// One possibility is to assume that the original timestamp values are
+/// relative to the epoch of the timezone being set; timestamp values should
+/// then be "unlocalized" by adjusting them to the Unix epoch
+/// (for example, changing the timezone from empty to "Europe/Paris" would
+///  require converting the timestamp values from "Europe/Paris" to "UTC",
+///  which seems counter-intuitive but is nevertheless correct).
 ///
 /// Guidelines for encoding data from external libraries
 /// ----------------------------------------------------
