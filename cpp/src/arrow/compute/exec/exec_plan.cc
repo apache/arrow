@@ -311,6 +311,7 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry*);
 void RegisterFilterNode(ExecFactoryRegistry*);
 void RegisterProjectNode(ExecFactoryRegistry*);
+void RegisterUnionNode(ExecFactoryRegistry*);
 void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 
@@ -323,6 +324,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterSourceNode(this);
       internal::RegisterFilterNode(this);
       internal::RegisterProjectNode(this);
+      internal::RegisterUnionNode(this);
       internal::RegisterAggregateNode(this);
       internal::RegisterSinkNode(this);
     }

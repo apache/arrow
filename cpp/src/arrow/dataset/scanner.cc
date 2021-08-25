@@ -408,7 +408,9 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
  public:
   AsyncScanner(std::shared_ptr<Dataset> dataset,
                std::shared_ptr<ScanOptions> scan_options)
-      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {
+    internal::Initialize();
+  }
 
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
@@ -571,7 +573,6 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
-  internal::Initialize();
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
@@ -742,7 +743,6 @@ Result<int64_t> AsyncScanner::CountRows() {
       scan_options_->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
   compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
 
-  internal::Initialize();
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   // Drop projection since we only need to count rows
   const auto options = std::make_shared<ScanOptions>(*scan_options_);
