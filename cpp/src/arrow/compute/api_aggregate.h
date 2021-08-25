@@ -95,11 +95,16 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 /// By default, ddof is zero, and population variance or stddev is returned.
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
-  explicit VarianceOptions(int ddof = 0);
+  explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Quantile kernel behavior
