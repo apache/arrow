@@ -46,7 +46,6 @@ test_that("summarize", {
     tbl,
     warning = TRUE
   )
-  
 })
 
 test_that("Can aggregate in Arrow", {
