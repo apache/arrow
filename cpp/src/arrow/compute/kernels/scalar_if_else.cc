@@ -1838,10 +1838,8 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
   uint8_t* out_values = output->buffers[1]->mutable_data();
 
   const ArrayData& left_arr = *left.array();
-  const uint8_t* left_valid =
-      left_arr.MayHaveNulls() ? left_arr.buffers[0]->data() : nullptr;
-  arrow::internal::OptionalBitBlockCounter bit_counter(left_valid, left_arr.offset,
-                                                       left_arr.length);
+  const uint8_t* left_valid = left_arr.buffers[0]->data();
+  BitBlockCounter bit_counter(left_valid, left_arr.offset, left_arr.length);
   int64_t offset = 0;
 
   const uint8_t* left_values = left_arr.buffers[1]->data();
@@ -1897,27 +1895,25 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0]->mutable_data();
   uint8_t* out_values = output->buffers[1]->mutable_data();
-
   if (left.is_scalar()) {
-    // LHS is scalar
+    // (Scalar, Any)
     CopyValues<Type>(left.scalar()->is_valid ? left : right, /*in_offset=*/0, length,
                      out_valid, out_values, out_offset);
     return Status::OK();
-  }
-
-  // Array with nulls
-  const ArrayData& left_arr = *left.array();
-  const uint8_t* left_valid =
-      left_arr.MayHaveNulls() ? left_arr.buffers[0]->data() : nullptr;
-  arrow::internal::OptionalBitBlockCounter bit_counter(left_valid, left_arr.offset,
-                                                       left_arr.length);
-  int64_t offset = 0;
-
-  if (right.is_scalar()) {
+  } else if (left.null_count() == 0) {
+    // LHS is array without nulls. Must copy (since we preallocate)
+    CopyValues<Type>(left, /*in_offset=*/0, length, out_valid, out_values, out_offset);
+    return Status::OK();
+  } else if (right.is_scalar()) {
+    // (Array, Scalar)
     return ExecArrayScalarCoalesce<Type>(ctx, left, right, length, out);
   }
 
-  // RHS is array
+  // (Array, Array)
+  const ArrayData& left_arr = *left.array();
+  const uint8_t* left_valid = left_arr.buffers[0]->data();
+  BitBlockCounter bit_counter(left_valid, left_arr.offset, left_arr.length);
+  int64_t offset = 0;
   while (offset < length) {
     const auto block = bit_counter.NextWord();
     if (block.AllSet()) {
