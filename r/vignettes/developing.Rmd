@@ -1,14 +1,10 @@
 ---
 title: "Arrow R Developer Guide"
-output: 
-  html_document:
-      toc: true
-      toc_depth: 2
+output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Arrow R Developer Guide}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
-
 ---
 
 ```{r setup-options, include=FALSE}
