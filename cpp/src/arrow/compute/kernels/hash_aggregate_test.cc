@@ -745,6 +745,77 @@ TEST(GroupBy, SumOnly) {
   }
 }
 
+TEST(GroupBy, SumMeanProductDecimal) {
+  auto in_schema = schema({
+      field("argument0", decimal128(3, 2)),
+      field("argument1", decimal256(3, 2)),
+      field("key", int64()),
+  });
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+      auto table = TableFromJSON(in_schema, {R"([
+    ["1.00",  "1.00",  1],
+    [null,    null,    1]
+  ])",
+                                             R"([
+    ["0.00",  "0.00",  2],
+    [null,    null,    3],
+    ["4.00",  "4.00",  null],
+    ["3.25",  "3.25",  1],
+    ["0.12",  "0.12",  2]
+  ])",
+                                             R"([
+    ["-0.25", "-0.25", 2],
+    ["0.75",  "0.75",  null],
+    [null,    null,    3]
+  ])"});
+
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument0"),
+                                   table->GetColumnByName("argument1"),
+                                   table->GetColumnByName("argument0"),
+                                   table->GetColumnByName("argument1"),
+                                   table->GetColumnByName("argument0"),
+                                   table->GetColumnByName("argument1"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_sum", nullptr},
+                                   {"hash_sum", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_product", nullptr},
+                                   {"hash_product", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_sum", decimal128(3, 2)),
+                                          field("hash_sum", decimal256(3, 2)),
+                                          field("hash_mean", decimal128(3, 2)),
+                                          field("hash_mean", decimal256(3, 2)),
+                                          field("hash_product", decimal128(3, 2)),
+                                          field("hash_product", decimal256(3, 2)),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    ["4.25",  "4.25",  "2.12",  "2.12",  "3.25", "3.25", 1],
+    ["-0.13", "-0.13", "-0.04", "-0.04", "0.00", "0.00", 2],
+    [null,    null,    null,    null,    null,   null,   3],
+    ["4.75",  "4.75",  "2.37",  "2.37",  "3.00", "3.00", null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
 TEST(GroupBy, MeanOnly) {
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
