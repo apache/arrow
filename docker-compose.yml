@@ -1221,7 +1221,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cgo_build.sh /arrow /build &&
-        /arrow/ci/scripts/go_test.sh /arrow /build"
+        /arrow/ci/scripts/cgo_test.sh /arrow /build"
 
 
   ############################# JavaScript ####################################
