@@ -49,13 +49,28 @@ This document is a work in progress and will grow and change as the Apache Arrow
 
 We welcome any feedback you have about things that are confusing or additions you would like to see here. Please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if there you see anything that is confusing, odd, or just plain wrong.
 
-# Developer environment setup
+# Developer environment setup 
 
-## R-only
+## R-only {.tabset}
 
 Windows and macOS users who wish to contribute to the R package and
 don't need to alter the Arrow C++ library may be able to obtain a
 recent version of the library without building from source. 
+
+### Linux
+
+On Linux, you can download a .zip file with the arrow dependencies from the
+nightly repository.
+
+To see what nightlies are available, you can use Arrow's (or any other S3 client's) S3 listing functionality to see what is in the bucket `s3://arrow-r-nightly/libarrow/bin`:
+
+```
+nightly <- s3_bucket("arrow-r-nightly")
+nightly$ls("libarrow/bin")
+```
+Version numbers in that repository correspond to dates.
+
+You'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled arrow binary files into it. 
 
 ### macOS
 On macOS, you can install the C++ library using [Homebrew](https://brew.sh/):
@@ -67,10 +82,9 @@ brew install apache-arrow
 brew install apache-arrow --HEAD
 ```
 
-### Windows and Linux
+### Windows
 
-On Windows and Linux, you can download a .zip file with the arrow dependencies from the
-nightly repository.
+On Windows, you can download a .zip file with the arrow dependencies from the nightly repository.
 
 To see what nightlies are available, you can use Arrow's (or any other S3 client's) S3 listing functionality to see what is in the bucket `s3://arrow-r-nightly/libarrow/bin`:
 
@@ -80,34 +94,29 @@ nightly$ls("libarrow/bin")
 ```
 Version numbers in that repository correspond to dates.
 
-#### Windows
+You can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing the arrow dependencies before installing the arrow R package. 
 
-Windows users then can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing the arrow dependencies before installing the arrow R package. 
-
-#### Linux
-
-On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled arrow binary files into it. 
 
 ## R and C++
 
 If you need to alter both the Arrow C++ library and the R package code, or if you can't get a binary version of the latest C++ library elsewhere, you'll need to build it from source. This section discusses how to set up a C++ build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
-There are five major steps to the process — the first four are relevant to all Arrow developers, and the last one is specific to developers making changes to the R package.
+There are five major steps to the process.
 
-### Step 1 - Install dependencies
+### Step 1 - Install dependencies {.tabset}
 
 The Arrow C++ library will by default use system dependencies if suitable versions are found.  If system dependencies are not present, the Arrow C++ library will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
 
 For a faster build, you may choose to pre-install more C++ library dependencies (such as `lz4`, `zstd`, etc.) on the system  so that they don't need to be built from source in the Arrow build.
 
-#### macOS
-```{bash, save=run & macos}
-brew install cmake openssl
-```
-
 #### Ubuntu
 ```{bash, save=run & ubuntu}
 sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
+```
+
+#### macOS
+```{bash, save=run & macos}
+brew install cmake openssl
 ```
 
 #### Windows
@@ -116,7 +125,7 @@ Currently, the R package cannot be made to work with a locally-built Arrow C++ l
 
 ### Step 2 - Configure the Arrow build
 
-#### Build location
+#### Build location {.tabset}
 
 There are two different ways that you can choose to build and then install the Arrow library:
 
@@ -125,11 +134,11 @@ There are two different ways that you can choose to build and then install the A
 
 You only need to do one of these options.
 
-It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
+We recommend that you configure the arrow library to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
 
 ##### Configure for installing to a user directory
 
-In this example we will install the Arrow C++ library to a directory called `dist` that has the same parent directory as our `arrow` checkout but your installation of the Arrow R package can point to any directory with any name.  However, we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
+In the example below, the Arrow C++ library is installed to a directory called `dist` that has the same parent directory as the `arrow` checkout, but your installation of the Arrow R package can point to any directory with any name.  However, we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
@@ -143,7 +152,7 @@ export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
-Now you can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
+Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
 pushd arrow
@@ -171,13 +180,13 @@ cmake \
   ..
 ```
 
-`..` refers to the C++ source directory: we're in `cpp/build`, and the source is in `cpp`.
+`..` refers to the C++ source directory: you're in `cpp/build`, and the source is in `cpp`.
 
 ##### Configure to install to a system directory
 
-If you would like to install Arrow as a system library you can do that as well. This is in some respects simpler, but if you already have Arrow libraries installed there, it would disrupt them and possibly require `sudo` permissions.
+It is possible to install Arrow as a system library.  This is, in some respects, simpler than installing it to a user-level directory.  However, if you already have a previous Arrow installation, this may disrupt it and could require `sudo` permissions to run the commands below.
 
-Now you can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
+Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & sys_install}
 pushd arrow
@@ -185,7 +194,7 @@ mkdir -p cpp/build
 pushd cpp/build
 ```
 
-You'll first call `cmake` to configure the build and then `make install`. For the R package, you'll need to enable several features in the C++ library using `-D` flags:
+First call `cmake` to configure the build and then `make install` to install the library. For the R package, you'll need to enable several features in the C++ library using `-D` flags:
 
 ```{bash, save=run & sys_install}
 cmake \
@@ -203,7 +212,7 @@ cmake \
   ..
 ```
 
-`..` refers to the C++ source directory: we're in `cpp/build`, and the source is in `cpp`.
+`..` refers to the C++ source directory: you're in `cpp/build`, and the source is in `cpp`.
 
 #### Enabling more Arrow features
 
