@@ -22,6 +22,8 @@
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/make_unique.h"
+#include "arrow/util/thread_pool.h"
 
 using testing::UnorderedElementsAreArray;
 
@@ -55,9 +57,10 @@ void CheckRunOutput(JoinType type, const BatchesWithSchema& l_batches,
                     const std::vector<FieldRef>& left_keys,
                     const std::vector<FieldRef>& right_keys,
                     const BatchesWithSchema& exp_batches, bool parallel = false) {
-  SCOPED_TRACE("serial");
+  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   JoinNodeOptions join_options{type, left_keys, right_keys};
   Declaration join{"hash_join", join_options};
@@ -218,7 +221,10 @@ void TestJoinRandom(const std::shared_ptr<DataType>& data_type, JoinType type,
   std::vector<FieldRef> left_keys{{"l0"}};
   std::vector<FieldRef> right_keys{{"r1"}};
 
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+      default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
 
   JoinNodeOptions join_options{type, left_keys, right_keys};
   Declaration join{"hash_join", join_options};

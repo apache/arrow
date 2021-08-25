@@ -206,21 +206,24 @@ struct HashSemiJoinNode : ExecNode {
 
     if (!cached_probe_batches_consumed) {
       auto executor = ctx_->executor();
-      for (auto&& cached : cached_probe_batches) {
-        if (executor) {
-          Status lambda_status;
-          RETURN_NOT_OK(executor->Spawn(
-              [&] { lambda_status = ConsumeProbeBatch(std::move(cached)); }));
 
-          // if the lambda execution failed internally, return status
-          RETURN_NOT_OK(lambda_status);
+      while (!cached_probe_batches.empty()) {
+        ExecBatch cached = std::move(cached_probe_batches.back());
+        cached_probe_batches.pop_back();
+
+        if (executor) {
+          RETURN_NOT_OK(executor->Spawn(
+              // since cached will be going out-of-scope, it needs to be copied into the
+              // capture list
+              [&, cached]() mutable {
+                // since batch consumption is done asynchronously, a failed status would
+                // have to be propagated then and there!
+                ErrorIfNotOk(ConsumeProbeBatch(std::move(cached)));
+              }));
         } else {
           RETURN_NOT_OK(ConsumeProbeBatch(std::move(cached)));
         }
       }
-      // cached vector will be cleared. exec batches are expected to be moved to the
-      // lambdas
-      cached_probe_batches.clear();
     }
 
     // set flag
