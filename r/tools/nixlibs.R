@@ -392,17 +392,17 @@ ensure_cmake <- function() {
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
       "/cmake-", CMAKE_VERSION, postfix
     )
-    if (!download_ok) {
+    cmake_tar <- tempfile()
+    cmake_dir <- tempfile()
+    download_successful <- try_download(cmake_binary_url, cmake_tar)
+    if (!download_successful) {
       stop(
-        "cmake was not found and downloads are not permitted.\n",
+        "cmake was not found locally and download failed.\n",
         "Make sure cmake is installed and available on your PATH\n",
         "(or download '", cmake_binary_url,
         "' and define the CMAKE environment variable)."
       )
     }
-    cmake_tar <- tempfile()
-    cmake_dir <- tempfile()
-    try_download(cmake_binary_url, cmake_tar)
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
