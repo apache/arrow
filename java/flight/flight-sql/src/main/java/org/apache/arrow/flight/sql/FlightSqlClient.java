@@ -266,9 +266,9 @@ public class FlightSqlClient {
       builder.setSchema(StringValue.newBuilder().setValue(schema).build());
     }
 
-    if (table != null) {
-      builder.setTable(StringValue.newBuilder().setValue(table).build());
-    }
+    Objects.requireNonNull(table);
+    builder.setTable(table).build();
+
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
   }
@@ -376,7 +376,7 @@ public class FlightSqlClient {
     public PreparedStatement(final FlightClient client, final String sql, final CallOption... options) {
       this.client = client;
       final Action action = new Action(
-          FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType(),
+          FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType(),
           Any.pack(ActionCreatePreparedStatementRequest
                   .newBuilder()
                   .setQuery(sql)
@@ -530,7 +530,7 @@ public class FlightSqlClient {
       }
       isClosed = true;
       final Action action = new Action(
-          FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType(),
+          FlightSqlUtils.FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.getType(),
           Any.pack(ActionClosePreparedStatementRequest.newBuilder()
                   .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                   .build())

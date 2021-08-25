@@ -31,19 +31,19 @@ import com.google.protobuf.Message;
  * Utilities to work with Flight SQL semantics.
  */
 public final class FlightSqlUtils {
-  public static final ActionType FLIGHT_SQL_CREATEPREPAREDSTATEMENT = new ActionType("CreatePreparedStatement",
+  public static final ActionType FLIGHT_SQL_CREATE_PREPARED_STATEMENT = new ActionType("CreatePreparedStatement",
       "Creates a reusable prepared statement resource on the server. \n" +
           "Request Message: ActionCreatePreparedStatementRequest\n" +
           "Response Message: ActionCreatePreparedStatementResult");
 
-  public static final ActionType FLIGHT_SQL_CLOSEPREPAREDSTATEMENT = new ActionType("ClosePreparedStatement",
+  public static final ActionType FLIGHT_SQL_CLOSE_PREPARED_STATEMENT = new ActionType("ClosePreparedStatement",
       "Closes a reusable prepared statement resource on the server. \n" +
           "Request Message: ActionClosePreparedStatementRequest\n" +
           "Response Message: N/A");
 
   public static final List<ActionType> FLIGHT_SQL_ACTIONS = ImmutableList.of(
-      FLIGHT_SQL_CREATEPREPAREDSTATEMENT,
-      FLIGHT_SQL_CLOSEPREPAREDSTATEMENT
+      FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
+      FLIGHT_SQL_CLOSE_PREPARED_STATEMENT
   );
 
   /**

@@ -377,7 +377,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static VectorSchemaRoot getSchemasRoot(final ResultSet data, final BufferAllocator allocator)
       throws SQLException {
     final VarCharVector catalogs = new VarCharVector("catalog_name", allocator);
-    final VarCharVector schemas = new VarCharVector("schema_name", allocator);
+    final VarCharVector schemas =
+        new VarCharVector("schema_name", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
     final List<FieldVector> vectors = ImmutableList.of(catalogs, schemas);
     vectors.forEach(FieldVector::allocateNew);
     final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
@@ -442,7 +443,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static VectorSchemaRoot getRoot(final ResultSet data, final BufferAllocator allocator,
                                           final String fieldVectorName, final String columnName)
       throws SQLException {
-    final VarCharVector dataVector = new VarCharVector(fieldVectorName, allocator);
+    final VarCharVector dataVector =
+        new VarCharVector(fieldVectorName, FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
     saveToVectors(ImmutableMap.of(dataVector, columnName), data);
     final int rows = dataVector.getValueCount();
     dataVector.setValueCount(rows);
@@ -470,8 +472,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
     final VarCharVector catalogNameVector = new VarCharVector("catalog_name", allocator);
     final VarCharVector schemaNameVector = new VarCharVector("schema_name", allocator);
-    final VarCharVector tableNameVector = new VarCharVector("table_name", allocator);
-    final VarCharVector tableTypeVector = new VarCharVector("table_type", allocator);
+    final VarCharVector tableNameVector =
+        new VarCharVector("table_name", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
+    final VarCharVector tableTypeVector =
+        new VarCharVector("table_type", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
 
     final List<FieldVector> vectors =
         new ArrayList<>(
@@ -497,7 +501,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       vectors.forEach(vector -> vector.setValueCount(rows));
 
       if (includeSchema) {
-        final VarBinaryVector tableSchemaVector = new VarBinaryVector("table_schema", allocator);
+        final VarBinaryVector tableSchemaVector =
+            new VarBinaryVector("table_schema", FieldType.notNullable(MinorType.VARBINARY.getType()), allocator);
         tableSchemaVector.allocateNew(rows);
 
         try (final ResultSet columnsData =
@@ -550,7 +555,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     Objects.requireNonNull(metaData, "metaData cannot be null.");
     Objects.requireNonNull(allocator, "allocator cannot be null.");
     Objects.requireNonNull(requestedInfo, "requestedInfo cannot be null.");
-    final UInt4Vector infoNameVector = new UInt4Vector("info_name", allocator);
+    final UInt4Vector infoNameVector =
+        new UInt4Vector("info_name", FieldType.notNullable(new ArrowType.Int(32, false)), allocator);
     final DenseUnionVector valueVector = DenseUnionVector.empty("value", allocator);
     valueVector.initializeChildrenFromFields(
         ImmutableList.of(
@@ -743,11 +749,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
       final ResultSetMetaData metaData = preparedStatement.getMetaData();
       final ByteString bytes = isNull(metaData) ?
-            ByteString.EMPTY :
-            ByteString.copyFrom(
-                MessageSerializer.serializeMetadata(
-                    jdbcToArrowSchema(metaData, DEFAULT_CALENDAR),
-                    DEFAULT_OPTION));
+          ByteString.EMPTY :
+          ByteString.copyFrom(
+              MessageSerializer.serializeMetadata(
+                  jdbcToArrowSchema(metaData, DEFAULT_CALENDAR),
+                  DEFAULT_OPTION));
       final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
           .setDatasetSchema(bytes)
           .setParameterSchema(copyFrom(MessageSerializer.serializeMetadata(parameterSchema, DEFAULT_OPTION)))
@@ -1493,7 +1499,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
     final String schema = command.hasSchema() ? command.getSchema().getValue() : null;
-    final String table = command.hasTable() ? command.getTable().getValue() : null;
+    final String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);

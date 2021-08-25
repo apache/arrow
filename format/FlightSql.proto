@@ -31,7 +31,7 @@ package arrow.flight.protocol.sql;
  *
  * The returned schema will be:
  * <
- *  info_name: uint32,
+ *  info_name: uint32 not null,
  *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
  * >
  * where there is one row per requested piece of metadata information.
@@ -156,7 +156,7 @@ enum SqlInfo {
  *
  * The returned schema will be:
  * <
- *  catalog_name: utf8
+ *  catalog_name: utf8 not null
  * >
  * The returned data should be ordered by catalog_name.
  */
@@ -173,7 +173,7 @@ message CommandGetCatalogs {
  * The returned schema will be:
  * <
  *  catalog_name: utf8,
- *  schema_name: utf8
+ *  schema_name: utf8 not null
  * >
  * The returned data should be ordered by catalog_name, then schema_name.
  */
@@ -181,8 +181,9 @@ message CommandGetSchemas {
   option (experimental) = true;
 
   /*
-   * Specifies the Catalog to search for schemas.
-   * If omitted, then all catalogs are searched.
+   * Specifies the Catalog to search for the tables.
+   * An empty string retrieves those without a catalog.
+   * If omitted the catalog name should not be used to narrow the search.
    */
   google.protobuf.StringValue catalog = 1;
 
@@ -206,18 +207,20 @@ message CommandGetSchemas {
  * <
  *  catalog_name: utf8,
  *  schema_name: utf8,
- *  table_name: utf8,
- *  table_type: utf8,
- *  table_schema: bytes (schema of the table as described in Schema.fbs::Schema, it is serialized as an IPC message.)
+ *  table_name: utf8 not null,
+ *  table_type: utf8 not null,
+ *  [optional] table_schema: bytes not null (schema of the table as described in Schema.fbs::Schema,
+ *                                           it is serialized as an IPC message.)
  * >
- * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
+ * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
   option (experimental) = true;
 
   /*
    * Specifies the Catalog to search for the tables.
-   * If omitted, then all catalogs are searched.
+   * An empty string retrieves those without a catalog.
+   * If omitted the catalog name should not be used to narrow the search.
    */
   google.protobuf.StringValue catalog = 1;
 
@@ -254,7 +257,7 @@ message CommandGetTables {
  *
  * The returned schema will be:
  * <
- *  table_type: utf8
+ *  table_type: utf8 not null
  * >
  * The returned data should be ordered by table_type.
  */
@@ -282,14 +285,22 @@ message CommandGetTableTypes {
 message CommandGetPrimaryKeys {
   option (experimental) = true;
 
-  // Specifies the catalog to search for the table.
+  /*
+   * Specifies the catalog to search for the table.
+   * An empty string retrieves those without a catalog.
+   * If omitted the catalog name should not be used to narrow the search.
+   */
   google.protobuf.StringValue catalog = 1;
 
-  // Specifies the schema to search for the table.
+  /*
+   * Specifies the schema to search for the table.
+   * An empty string retrieves those without a schema.
+   * If omitted the schema name should not be used to narrow the search.
+   */
   google.protobuf.StringValue schema = 2;
 
   // Specifies the table to get the primary keys for.
-  google.protobuf.StringValue table = 3;
+  string table = 3;
 }
 
 /*
@@ -303,17 +314,17 @@ message CommandGetPrimaryKeys {
  * <
  *  pk_catalog_name: utf8,
  *  pk_schema_name: utf8,
- *  pk_table_name: utf8,
- *  pk_column_name: utf8,
+ *  pk_table_name: utf8 not null,
+ *  pk_column_name: utf8 not null,
  *  fk_catalog_name: utf8,
  *  fk_schema_name: utf8,
- *  fk_table_name: utf8,
- *  fk_column_name: utf8,
- *  key_sequence: int,
+ *  fk_table_name: utf8 not null,
+ *  fk_column_name: utf8 not null,
+ *  key_sequence: int not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1,
- *  delete_rule: uint1
+ *  update_rule: uint1 not null,
+ *  delete_rule: uint1 not null
  * >
  * The returned data should be ordered by fk_catalog_name, fk_schema_name, fk_table_name, fk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
@@ -321,10 +332,18 @@ message CommandGetPrimaryKeys {
 message CommandGetExportedKeys {
   option (experimental) = true;
 
-  // Specifies the catalog to search for the foreign key table.
+  /*
+   * Specifies the catalog to search for the foreign key table.
+   * An empty string retrieves those without a catalog.
+   * If omitted the catalog name should not be used to narrow the search.
+   */
   google.protobuf.StringValue catalog = 1;
 
-  // Specifies the schema to search for the foreign key table.
+  /*
+   * Specifies the schema to search for the foreign key table.
+   * An empty string retrieves those without a schema.
+   * If omitted the schema name should not be used to narrow the search.
+   */
   google.protobuf.StringValue schema = 2;
 
   // Specifies the foreign key table to get the foreign keys for.
@@ -349,17 +368,17 @@ enum UpdateDeleteRules {
  * <
  *  pk_catalog_name: utf8,
  *  pk_schema_name: utf8,
- *  pk_table_name: utf8,
- *  pk_column_name: utf8,
+ *  pk_table_name: utf8 not null,
+ *  pk_column_name: utf8 not null,
  *  fk_catalog_name: utf8,
  *  fk_schema_name: utf8,
- *  fk_table_name: utf8,
- *  fk_column_name: utf8,
- *  key_sequence: int,
+ *  fk_table_name: utf8 not null,
+ *  fk_column_name: utf8 not null,
+ *  key_sequence: int not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1,
- *  delete_rule: uint1
+ *  update_rule: uint1 not null,
+ *  delete_rule: uint1 not null
  * >
  * The returned data should be ordered by pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
@@ -372,10 +391,18 @@ enum UpdateDeleteRules {
 message CommandGetImportedKeys {
   option (experimental) = true;
 
-  // Specifies the catalog to search for the primary key table.
+  /*
+   * Specifies the catalog to search for the primary key table.
+   * An empty string retrieves those without a catalog.
+   * If omitted the catalog name should not be used to narrow the search.
+   */
   google.protobuf.StringValue catalog = 1;
 
-  // Specifies the schema to search for the primary key table.
+  /*
+   * Specifies the schema to search for the primary key table.
+   * An empty string retrieves those without a schema.
+   * If omitted the schema name should not be used to narrow the search.
+   */
   google.protobuf.StringValue schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
@@ -391,12 +418,15 @@ message ActionCreatePreparedStatementRequest {
   option (experimental) = true;
 
   // The valid SQL string to create a prepared statement for.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
 }
 
 /*
  * Wrap the result of a "GetPreparedStatement" action.
+ *
+ * The resultant PreparedStatement can be closed either:
+ * - Manually, through the "ClosePreparedStatement" action;
+ * - Automatically, by a server timeout.
  */
 message ActionCreatePreparedStatementResult {
   option (experimental) = true;
@@ -437,7 +467,6 @@ message CommandStatementQuery {
   option (experimental) = true;
 
   // The SQL syntax.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
 }
 
@@ -473,7 +502,6 @@ message CommandStatementUpdate {
   option (experimental) = true;
 
   // The SQL syntax.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
 }
 

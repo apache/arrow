@@ -250,11 +250,11 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   @Override
   default void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     final String actionType = action.getType();
-    if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATEPREPAREDSTATEMENT.getType())) {
+    if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CREATE_PREPARED_STATEMENT.getType())) {
       final ActionCreatePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionCreatePreparedStatementRequest.class);
       createPreparedStatement(request, context, listener);
-    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CLOSEPREPAREDSTATEMENT.getType())) {
+    } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CLOSE_PREPARED_STATEMENT.getType())) {
       final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);
@@ -566,38 +566,38 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final Schema GET_TABLES_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_type", MinorType.VARCHAR.getType()),
-        Field.nullable("table_schema", MinorType.VARBINARY.getType())));
+        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("table_type", MinorType.VARCHAR.getType()),
+        Field.notNullable("table_schema", MinorType.VARBINARY.getType())));
     public static final Schema GET_TABLES_SCHEMA_NO_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_type", MinorType.VARCHAR.getType())));
+        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("table_type", MinorType.VARCHAR.getType())));
     public static final Schema GET_CATALOGS_SCHEMA = new Schema(
-        Collections.singletonList(new Field("catalog_name", FieldType.nullable(MinorType.VARCHAR.getType()), null)));
+        Collections.singletonList(Field.notNullable("catalog_name", MinorType.VARCHAR.getType())));
     public static final Schema GET_TABLE_TYPES_SCHEMA =
-        new Schema(Collections.singletonList(Field.nullable("table_type", MinorType.VARCHAR.getType())));
+        new Schema(Collections.singletonList(Field.notNullable("table_type", MinorType.VARCHAR.getType())));
     public static final Schema GET_SCHEMAS_SCHEMA = new Schema(
         Arrays.asList(Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
-            Field.nullable("schema_name", MinorType.VARCHAR.getType())));
+            Field.notNullable("schema_name", MinorType.VARCHAR.getType())));
     public static final Schema GET_IMPORTED_AND_EXPORTED_KEYS_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("pk_catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("pk_schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("pk_column_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("pk_table_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("pk_column_name", MinorType.VARCHAR.getType()),
         Field.nullable("fk_catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("fk_schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("fk_column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.notNullable("fk_table_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("fk_column_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("key_sequence", MinorType.INT.getType()),
         Field.nullable("fk_key_name", MinorType.VARCHAR.getType()),
         Field.nullable("pk_key_name", MinorType.VARCHAR.getType()),
-        Field.nullable("update_rule", new ArrowType.Int(8, false)),
-        Field.nullable("delete_rule", new ArrowType.Int(8, false))));
+        Field.notNullable("update_rule", new ArrowType.Int(8, false)),
+        Field.notNullable("delete_rule", new ArrowType.Int(8, false))));
     public static final Schema GET_SQL_INFO_SCHEMA =
         new Schema(Arrays.asList(
-            Field.nullable("info_name", new ArrowType.Int(32, false)),
+            Field.notNullable("info_name", new ArrowType.Int(32, false)),
             new Field("value",
                 // dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
                 new FieldType(true, new Union(UnionMode.Dense, new int[] {0, 1, 2, 3}), /*dictionary=*/null),
@@ -609,9 +609,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     public static final Schema GET_PRIMARY_KEYS_SCHEMA = new Schema(Arrays.asList(
         Field.nullable("catalog_name", MinorType.VARCHAR.getType()),
         Field.nullable("schema_name", MinorType.VARCHAR.getType()),
-        Field.nullable("table_name", MinorType.VARCHAR.getType()),
-        Field.nullable("column_name", MinorType.VARCHAR.getType()),
-        Field.nullable("key_sequence", MinorType.INT.getType()),
+        Field.notNullable("table_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("column_name", MinorType.VARCHAR.getType()),
+        Field.notNullable("key_sequence", MinorType.INT.getType()),
         Field.nullable("key_name", MinorType.VARCHAR.getType())));
 
     private Schemas() {
