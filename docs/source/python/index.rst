@@ -15,12 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Python bindings
-===============
+PyArrow - Apache Arrow Python bindings
+======================================
 
 This is the documentation of the Python API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the
-:doc:`parent documentation <../index>`.
+on the Arrow format and other language bindings 
+
+Apache Arrow is a development platform for in-memory analytics. 
+It contains a set of technologies that enable big data systems to store, process and move data fast. 
+
+See the :doc:`parent documentation <../index>` for additional details on
+the Arrow Project itself.
 
 The Arrow Python bindings (also named "PyArrow") have first-class integration
 with NumPy, pandas, and built-in Python objects. They are based on the C++
@@ -34,9 +39,10 @@ files into Arrow structures.
    :maxdepth: 2
 
    install
-   memory
+   getstarted
    data
    compute
+   memory
    ipc
    filesystems
    filesystems_deprecated
