@@ -568,37 +568,37 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           String.format("requestedInfo had a null value at index %d", index));
       saveToVector(currentInfo, infoNameVector, index);
       switch (currentInfo) {
-        case SqlInfo.FLIGHT_SQL_SERVER_NAME:
+        case FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE:
           saveToVector(stringValueId, metaData.getDatabaseProductName(), valueVector, index);
           break;
-        case SqlInfo.FLIGHT_SQL_SERVER_VERSION:
+        case FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE:
           saveToVector(stringValueId, metaData.getDatabaseProductVersion(), valueVector, index);
           break;
-        case SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION:
+        case FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE:
           saveToVector(stringValueId, metaData.getDriverVersion(), valueVector, index);
           break;
-        case SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY:
+        case FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE:
           saveToVector(intValueId, metaData.isReadOnly() ? 1 : 0, valueVector, index);
           break;
-        case SqlInfo.SQL_DDL_CATALOG:
+        case FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE:
           saveToVector(intValueId, metaData.supportsCatalogsInDataManipulation() ? 1 : 0, valueVector, index);
           break;
-        case SqlInfo.SQL_DDL_SCHEMA:
+        case FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE:
           saveToVector(intValueId, metaData.supportsSchemasInDataManipulation() ? 1 : 0, valueVector, index);
           break;
-        case SqlInfo.SQL_DDL_TABLE:
+        case FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE:
           saveToVector(intValueId, metaData.allTablesAreSelectable() ? 1 : 0, valueVector, index);
           break;
-        case SqlInfo.SQL_IDENTIFIER_CASE:
+        case FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE:
           saveToVector(
               stringValueId, metaData.storesMixedCaseIdentifiers() ? "CASE_INSENSITIVE" :
                   metaData.storesUpperCaseIdentifiers() ? "UPPERCASE" :
                       metaData.storesLowerCaseIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
           break;
-        case SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR:
+        case FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE:
           saveToVector(stringValueId, metaData.getIdentifierQuoteString(), valueVector, index);
           break;
-        case SqlInfo.SQL_QUOTED_IDENTIFIER_CASE:
+        case FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE:
           saveToVector(stringValueId, metaData.storesMixedCaseQuotedIdentifiers() ? "CASE_INSENSITIVE" :
               metaData.storesUpperCaseQuotedIdentifiers() ? "UPPERCASE" :
                   metaData.storesLowerCaseQuotedIdentifiers() ? "LOWERCASE" : "UNKNOWN", valueVector, index);
@@ -1358,11 +1358,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final List<Integer> requestedInfo =
         command.getInfoCount() == 0 ?
             ImmutableList.of(
-                SqlInfo.FLIGHT_SQL_SERVER_NAME, SqlInfo.FLIGHT_SQL_SERVER_VERSION,
-                SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
-                SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY, SqlInfo.SQL_DDL_CATALOG, SqlInfo.SQL_DDL_SCHEMA,
-                SqlInfo.SQL_DDL_TABLE,
-                SqlInfo.SQL_IDENTIFIER_CASE, SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR, SqlInfo.SQL_QUOTED_IDENTIFIER_CASE) :
+                FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE, FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE,
+                FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE,
+                FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE, FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE,
+                FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE, FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE,
+                FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE, FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE,
+                FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE) :
             command.getInfoList();
     try (final Connection connection = dataSource.getConnection();
          final VectorSchemaRoot vectorSchemaRoot = getSqlInfoRoot(connection.getMetaData(), rootAllocator,

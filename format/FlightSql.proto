@@ -50,45 +50,8 @@ message CommandGetSqlInfo {
    * Initially, Flight SQL will support the following information types:
    * - Server Information - Range [0-500)
    * - Syntax Information - Range [500-1000)
-   * Range [0-10,000) is reserved for defaults. Custom options should start at 10,000.
-   *
-   * 1. Server Information [0-500): Provides basic information about the Flight SQL Server.
-   *
-   * The name of the Flight SQL Server.
-   * 0 = FLIGHT_SQL_SERVER_NAME
-   *
-   * The native version of the Flight SQL Server.
-   * 1 = FLIGHT_SQL_SERVER_VERSION
-   *
-   * The Arrow format version of the Flight SQL Server.
-   * 2 = FLIGHT_SQL_SERVER_ARROW_VERSION
-   *
-   * Indicates whether the Flight SQL Server is read only.
-   * 3 = FLIGHT_SQL_SERVER_READ_ONLY
-   *
-   * 2. SQL Syntax Information [500-1000): provides information about SQL syntax supported by the Flight SQL Server.
-   *
-   * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
-   * In a SQL environment, a catalog is a collection of schemas.
-   * 500 = SQL_DDL_CATALOG
-   *
-   * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
-   * In a SQL environment, a catalog is a collection of tables, views, indexes etc.
-   * 501 = SQL_DDL_SCHEMA
-   *
-   * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
-   * In a SQL environment, a table is a collection of rows of information. Each row of information
-   * may have one or more columns of data.
-   * 502 = SQL_DDL_TABLE
-   *
-   * Indicates the case sensitivity of catalog, table and schema names.
-   * 503 = SQL_IDENTIFIER_CASE
-   *
-   * Indicates the supported character(s) used to surround a delimited identifier.
-   * 504 = SQL_IDENTIFIER_QUOTE_CHAR
-   *
-   * Indicates case sensitivity of quoted identifiers.
-   * 505 = SQL_QUOTED_IDENTIFIER_CASE
+   * Range [0-10,000) is reserved for defaults (see SqlInfo enum for default options). 
+   * Custom options should start at 10,000.
    *
    * If omitted, then all metadata will be retrieved.
    * Flight SQL Servers may choose to include additional metadata above and beyond the specified set, however they must
@@ -96,6 +59,93 @@ message CommandGetSqlInfo {
    * If additional metadata is included, the metadata IDs should start from 10,000.
    */
   repeated uint32 info = 1;
+}
+
+enum SqlInfo {
+
+  // Server Information [0-500): Provides basic information about the Flight SQL Server.
+
+  /*
+   * The name of the Flight SQL Server.
+   */
+  FLIGHT_SQL_SERVER_NAME = 0;
+  
+  /*
+   * The native version of the Flight SQL Server.
+   */
+  FLIGHT_SQL_SERVER_VERSION = 1;
+  
+  /*
+   * The Arrow format version of the Flight SQL Server.
+   */
+  FLIGHT_SQL_SERVER_ARROW_VERSION = 2;
+  
+  /* 
+   * Indicates whether the Flight SQL Server is read only.
+   *
+   * Returns:
+   * 0 - if read-write
+   * 1 - if read only
+   */
+  FLIGHT_SQL_SERVER_READ_ONLY = 3;
+
+
+  // SQL Syntax Information [500-1000): provides information about SQL syntax supported by the Flight SQL Server.
+
+  /*
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of catalogs.
+   *
+   * Returns:
+   * - 0: if it doesn't support CREATE and DROP of catalogs.
+   * - 1: if it supports CREATE and DROP of catalogs.
+   */
+  SQL_DDL_CATALOG = 500;
+
+  /*
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of schemas.
+   *
+   * Returns:
+   * - 0: if it doesn't support CREATE and DROP of schemas.
+   * - 1: if it supports CREATE and DROP of schemas.
+   */
+  SQL_DDL_SCHEMA = 501;
+
+  /*
+   * Indicates whether the Flight SQL Server supports CREATE and DROP of tables.
+   *
+   * Returns:
+   * - 0: if it doesn't support CREATE and DROP of tables.
+   * - 1: if it supports CREATE and DROP of tables.
+   */
+  SQL_DDL_TABLE = 502;
+
+  /*
+   * Indicates the case sensitivity of catalog, table and schema names.
+   *
+   * Returns:
+   * - "CASE_INSENSITIVE"
+   * - "UPPERCASE"
+   * - "LOWERCASE"
+   * - "UNKNOWN"
+   */
+  SQL_IDENTIFIER_CASE = 503;
+
+  /*
+   * Indicates the supported character(s) used to surround a delimited identifier.
+   */
+  SQL_IDENTIFIER_QUOTE_CHAR = 504;
+
+  /*
+   * Indicates case sensitivity of quoted identifiers.
+   *
+   * Returns:
+   * - "CASE_INSENSITIVE"
+   * - "UPPERCASE"
+   * - "LOWERCASE"
+   * - "UNKNOWN"
+   */
+  SQL_QUOTED_IDENTIFIER_CASE = 505;
+
 }
 
 /*
@@ -266,12 +316,7 @@ message CommandGetPrimaryKeys {
  *  delete_rule: uint1
  * >
  * The returned data should be ordered by fk_catalog_name, fk_schema_name, fk_table_name, fk_key_name, then key_sequence.
- * update_rule and delete_rule returns a byte that is equivalent to actions:
- *    - 0 = CASCADE
- *    - 1 = RESTRICT
- *    - 2 = SET NULL
- *    - 3 = NO ACTION
- *    - 4 = SET DEFAULT
+ * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
  */
 message CommandGetExportedKeys {
   option (experimental) = true;
@@ -284,6 +329,14 @@ message CommandGetExportedKeys {
 
   // Specifies the foreign key table to get the foreign keys for.
   string table = 3;
+}
+
+enum UpdateDeleteRules {
+  CASCADE = 0;
+  RESTRICT = 1;
+  SET_NULL = 2;
+  NO_ACTION = 3;
+  SET_DEFAULT = 4;
 }
 
 /*
