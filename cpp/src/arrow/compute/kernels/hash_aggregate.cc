@@ -1986,7 +1986,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedCountDistinctImpl*>(&raw_other);
 
-    // Get (group_id, value) pairs, then translate the group IDs and consume them
+    // Get (value, group_id) pairs, then translate the group IDs and consume them
     // ourselves
     ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
     ARROW_ASSIGN_OR_RAISE(auto remapped_g,
