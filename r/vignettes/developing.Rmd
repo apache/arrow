@@ -488,7 +488,7 @@ See the `r:` group definition near the beginning of the [crossbow configuration]
 
 `@github-actions autotune`
 
-This will run and fix lint C++ linting errors, run R documentation (among other cleanup tasks), and commit the resulting updates to the branch.
+This will run and fix lint C++ linting errors, run R documentation (among other cleanup tasks), run styler on any changed R code, and commit the resulting updates to the branch.
 
 # Troubleshooting
 
