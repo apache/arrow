@@ -824,6 +824,36 @@ Status AddHashAggKernels(
   return Status::OK();
 }
 
+template <typename Type, typename ConsumeValue, typename ConsumeNull>
+void VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+                        ConsumeNull&& null_func) {
+  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  if (batch[0].is_array()) {
+    VisitArrayValuesInline<Type>(
+        *batch[0].array(),
+        [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
+        [&]() { null_func(*g++); });
+    return;
+  }
+  const auto& input = *batch[0].scalar();
+  if (input.is_valid) {
+    const auto val = UnboxScalar<Type>::Unbox(input);
+    for (int64_t i = 0; i < batch.length; i++) {
+      valid_func(*g++, val);
+    }
+  } else {
+    for (int64_t i = 0; i < batch.length; i++) {
+      null_func(*g++);
+    }
+  }
+}
+
+template <typename Type, typename ConsumeValue>
+void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func) {
+  VisitGroupedValues<Type>(batch, std::forward<ConsumeValue>(valid_func),
+                           [](uint32_t) {});
+}
+
 // ----------------------------------------------------------------------
 // Count implementation
 
@@ -937,43 +967,17 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-
-    if (batch[0].is_array()) {
-      return ConsumeImpl(*batch[0].array(), g);
-    }
-    return ConsumeImpl(*batch[0].scalar(), batch.length, g);
-  }
-
-  Status ConsumeImpl(const ArrayData& values, const uint32_t* g) {
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
-    internal::VisitArrayValuesInline<Type>(
-        values,
-        [&](InputCType value) {
-          reduced[*g] = Impl::Reduce(*out_type_, reduced[*g], value);
-          counts[*g++] += 1;
+
+    VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, InputCType value) {
+          reduced[g] = Impl::Reduce(*out_type_, reduced[g], value);
+          counts[g]++;
         },
-        [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
-    return Status::OK();
-  }
-
-  Status ConsumeImpl(const Scalar& scalar, const int64_t count, const uint32_t* g) {
-    CType* reduced = reduced_.mutable_data();
-    int64_t* counts = counts_.mutable_data();
-    uint8_t* no_nulls = no_nulls_.mutable_data();
-    if (scalar.is_valid) {
-      const InputCType value = UnboxScalar<Type>::Unbox(scalar);
-      for (int i = 0; i < count; i++) {
-        reduced[*g] = Impl::Reduce(*out_type_, reduced[*g], value);
-        counts[*g++] += 1;
-      }
-    } else {
-      for (int i = 0; i < count; i++) {
-        BitUtil::SetBitTo(no_nulls, *g++, false);
-      }
-    }
+        [&](uint32_t g) { BitUtil::SetBitTo(no_nulls, g, false); });
     return Status::OK();
   }
 
@@ -1343,46 +1347,21 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     // XXX this uses naive summation; we should switch to pairwise summation as was
     // done for the scalar aggregate kernel in ARROW-11567
     std::vector<SumType> sums(num_groups_);
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-    if (batch[0].is_array()) {
-      VisitArrayDataInline<Type>(
-          *batch[0].array(),
-          [&](typename TypeTraits<Type>::CType value) {
-            sums[*g] += value;
-            counts[*g] += 1;
-            ++g;
-          },
-          [&] { ++g; });
-    } else if (batch[0].scalar()->is_valid) {
-      const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar());
-      for (int64_t i = 0; i < batch.length; i++) {
-        sums[*g] += value;
-        counts[*g] += 1;
-        g++;
-      }
-    }
+    VisitGroupedValuesNonNull<Type>(
+        batch, [&](uint32_t g, typename TypeTraits<Type>::CType value) {
+          sums[g] += value;
+          counts[g]++;
+        });
 
     for (int64_t i = 0; i < num_groups_; i++) {
       means[i] = static_cast<double>(sums[i]) / counts[i];
     }
 
-    g = batch[1].array()->GetValues<uint32_t>(1);
-    if (batch[0].is_array()) {
-      VisitArrayDataInline<Type>(
-          *batch[0].array(),
-          [&](typename TypeTraits<Type>::CType value) {
-            const double v = static_cast<double>(value);
-            m2s[*g] += (v - means[*g]) * (v - means[*g]);
-            ++g;
-          },
-          [&] { ++g; });
-    } else if (batch[0].scalar()->is_valid) {
-      const double v = static_cast<double>(UnboxScalar<Type>::Unbox(*batch[0].scalar()));
-      for (int64_t i = 0; i < batch.length; i++) {
-        m2s[*g] += (v - means[*g]) * (v - means[*g]);
-        g++;
-      }
-    }
+    VisitGroupedValuesNonNull<Type>(
+        batch, [&](uint32_t g, typename TypeTraits<Type>::CType value) {
+          const double v = static_cast<double>(value);
+          m2s[g] += (v - means[g]) * (v - means[g]);
+        });
 
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
@@ -1594,22 +1573,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
-    if (batch[0].is_array()) {
-      VisitArrayDataInline<Type>(
-          *batch[0].array(),
-          [&](typename TypeTraits<Type>::CType value) {
-            this->tdigests_[*g].NanAdd(value);
-            ++g;
-          },
-          [&] { ++g; });
-    } else if (batch[0].scalar()->is_valid) {
-      typename TypeTraits<Type>::CType value =
-          UnboxScalar<Type>::Unbox(*batch[0].scalar());
-      for (int64_t i = 0; i < batch.length; i++) {
-        this->tdigests_[*g++].NanAdd(value);
-      }
-    }
+    VisitGroupedValuesNonNull<Type>(
+        batch, [&](uint32_t g, CType value) { tdigests_[g].NanAdd(value); });
     return Status::OK();
   }
 
@@ -1752,34 +1717,17 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
     auto raw_mins = reinterpret_cast<CType*>(mins_.mutable_data());
     auto raw_maxes = reinterpret_cast<CType*>(maxes_.mutable_data());
 
-    if (batch[0].is_array()) {
-      VisitArrayValuesInline<Type>(
-          *batch[0].array(),
-          [&](CType val) {
-            raw_maxes[*g] = std::max(raw_maxes[*g], val);
-            raw_mins[*g] = std::min(raw_mins[*g], val);
-            BitUtil::SetBit(has_values_.mutable_data(), *g++);
-          },
-          [&] { BitUtil::SetBit(has_nulls_.mutable_data(), *g++); });
-    } else {
-      const auto& input = *batch[0].scalar();
-      if (input.is_valid) {
-        const auto val = UnboxScalar<Type>::Unbox(input);
-        for (int64_t i = 0; i < batch.length; i++) {
-          raw_maxes[*g] = std::max(raw_maxes[*g], val);
-          raw_mins[*g] = std::min(raw_mins[*g], val);
-          BitUtil::SetBit(has_values_.mutable_data(), *g++);
-        }
-      } else {
-        for (int64_t i = 0; i < batch.length; i++) {
-          BitUtil::SetBit(has_nulls_.mutable_data(), *g++);
-        }
-      }
-    }
+    VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, CType val) {
+          raw_maxes[g] = std::max(raw_maxes[g], val);
+          raw_mins[g] = std::min(raw_mins[g], val);
+          BitUtil::SetBit(has_values_.mutable_data(), g);
+        },
+        [&](uint32_t g) { BitUtil::SetBit(has_nulls_.mutable_data(), g); });
     return Status::OK();
   }
 
