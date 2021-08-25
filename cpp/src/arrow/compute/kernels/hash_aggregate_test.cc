@@ -1420,24 +1420,31 @@ TEST(GroupBy, AnyAllScalar) {
   };
   input.schema = schema({field("argument", boolean()), field("key", int64())});
 
+  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(Datum actual,
-                         GroupByUsingExecPlan(input, {"key"}, {"argument", "argument"},
-                                              {
-                                                  {"hash_any", nullptr},
-                                                  {"hash_all", nullptr},
-                                              },
-                                              use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        GroupByUsingExecPlan(input, {"key"},
+                             {"argument", "argument", "argument", "argument"},
+                             {
+                                 {"hash_any", nullptr},
+                                 {"hash_all", nullptr},
+                                 {"hash_any", &keep_nulls},
+                                 {"hash_all", &keep_nulls},
+                             },
+                             use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
+                                       field("hash_any", boolean()),
+                                       field("hash_all", boolean()),
                                        field("hash_any", boolean()),
                                        field("hash_all", boolean()),
                                        field("key", int64()),
                                    }),
                                    R"([
-      [true, true,  1],
-      [true, false, 2],
-      [true, true,  3]
+      [true, true,  true, null,  1],
+      [true, false, true, false, 2],
+      [true, true,  true, null,  3]
     ])");
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }

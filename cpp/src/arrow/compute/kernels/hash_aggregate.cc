@@ -1939,6 +1939,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
           Impl::UpdateGroupWith(seen, *g, value);
           counts[*g++]++;
         }
+      } else {
+        for (int64_t i = 0; i < batch.length; i++) {
+          BitUtil::SetBitTo(no_nulls, *g++, false);
+        }
       }
     }
     return Status::OK();
