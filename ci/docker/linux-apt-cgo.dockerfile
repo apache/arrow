@@ -18,10 +18,6 @@
 ARG base
 FROM ${base}
 
-# pipefail is enabled for proper error detection in the `wget | apt-key add`
-# step
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN \
@@ -31,39 +27,38 @@ RUN \
 ARG llvm
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      apt-transport-https \
-      lsb-release \
+      apt-transport-https \      
       ca-certificates \
-      gnupg \
-      software-properties-common \
+      gnupg \      
       wget && \
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
     echo "deb https://apt.llvm.org/buster/ llvm-toolchain-buster-${llvm} main" > \
         /etc/apt/sources.list.d/llvm.list && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        autoconf \        
+        autoconf \
         ccache \
         clang-${llvm} \
-        cmake \        
+        cmake \
         g++ \
         gcc \
         gdb \
-        git \    
+        git \
+        libbenchmark-dev \
         libboost-all-dev \
-        libgflags-dev \
-        libc-ares-dev \
         libbrotli-dev \
         libbz2-dev \
+        libc-ares-dev \
         libcurl4-openssl-dev \
-        libutf8proc-dev \
+        libgflags-dev \
+        libgmock-dev \
         libgoogle-glog-dev \
-        libgtest-dev \
         liblz4-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
         libthrift-dev \
+        libutf8proc-dev \
         llvm-${llvm}-dev \
         make \
         ninja-build \
@@ -88,6 +83,9 @@ ENV ARROW_BUILD_TESTS=OFF \
     ARROW_PLASMA_JAVA_CLIENT=OFF \
     ARROW_PLASMA=OFF \
     ARROW_USE_CCACHE=ON \
+    cares_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
+    zstd_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \    
     PATH=/usr/lib/ccache/:$PATH \
