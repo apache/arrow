@@ -320,10 +320,7 @@ def test_export_import_batch_reader(reader_factory):
 
 
 @needs_cffi
-@pytest.mark.parametrize('reader_factory',
-                         [make_ipc_stream_reader,
-                          make_py_record_batch_reader])
-def test_batch_reader_error(reader_factory):
+def test_imported_batch_reader_error():
     c_stream = ffi.new("struct ArrowArrayStream*")
     ptr_stream = int(ffi.cast("uintptr_t", c_stream))
 
