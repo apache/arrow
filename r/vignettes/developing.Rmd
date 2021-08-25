@@ -125,20 +125,9 @@ Currently, the R package cannot be made to work with a locally-built Arrow C++ l
 
 ### Step 2 - Configure the Arrow build
 
-#### Build location {.tabset}
+We recommend that you configure the arrow library to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of Arrow you may already have installed, and so that you are also able work with more than one version of the Arrow library (by using different `ARROW_HOME` directories for the different versions).
 
-There are two different ways that you can choose to build and then install the Arrow library:
-
-1. into a user-defined directory
-2. into a system-level directory
-
-You only need to do one of these options.
-
-We recommend that you configure the arrow library to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
-
-##### Configure for installing to a user directory
-
-In the example below, the Arrow C++ library is installed to a directory called `dist` that has the same parent directory as the `arrow` checkout, but your installation of the Arrow R package can point to any directory with any name.  However, we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
+In the example below, the Arrow C++ library is installed to a directory called `dist` that has the same parent directory as the `arrow` checkout.  Your installation of the Arrow R package can point to any directory with any name, though we recommend *not* placing it inside of the arrow git checkout directory as unwanted changes could stop it working properly.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
@@ -182,41 +171,9 @@ cmake \
 
 `..` refers to the C++ source directory: you're in `cpp/build`, and the source is in `cpp`.
 
-##### Configure to install to a system directory
-
-It is possible to install Arrow as a system library.  This is, in some respects, simpler than installing it to a user-level directory.  However, if you already have a previous Arrow installation, this may disrupt it and could require `sudo` permissions to run the commands below.
-
-Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
-
-```{bash, save=run & sys_install}
-pushd arrow
-mkdir -p cpp/build
-pushd cpp/build
-```
-
-First call `cmake` to configure the build and then `make install` to install the library. For the R package, you'll need to enable several features in the C++ library using `-D` flags:
-
-```{bash, save=run & sys_install}
-cmake \
-  -DARROW_COMPUTE=ON \
-  -DARROW_CSV=ON \
-  -DARROW_DATASET=ON \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
-  -DARROW_FILESYSTEM=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_JEMALLOC=ON \
-  -DARROW_JSON=ON \
-  -DARROW_PARQUET=ON \
-  -DARROW_WITH_SNAPPY=ON \
-  -DARROW_WITH_ZLIB=ON \
-  ..
-```
-
-`..` refers to the C++ source directory: you're in `cpp/build`, and the source is in `cpp`.
-
 #### Enabling more Arrow features
 
-To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags (the trailing `\` makes them easier to paste into a bash shell on a new line):
+To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags to your call to `cmake` (the trailing `\` makes them easier to paste into a bash shell on a new line):
 
 ``` shell
   -DARROW_MIMALLOC=ON \
@@ -234,7 +191,7 @@ Other flags that may be useful:
 
 * `-DCMAKE_BUILD_TYPE=debug` or `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging. You probably don't want to do this generally because a debug build is much slower at runtime than the default `release` build.
 
-_Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace
+_Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace.
 
 ### Step 3 - Building Arrow
 
@@ -242,13 +199,6 @@ You can add `-j#` between `make` and `install` here too to speed up compilation 
 
 ```{bash, save=run & !(sys_install & ubuntu)}
 make -j8 install
-```
-
-If you are installing on linux, and you are installing to the system, you may
-need to use `sudo`:
-
-```{bash, save=run & sys_install & ubuntu}
-sudo make install
 ```
 
 ### Step 4 - Build the Arrow R package
