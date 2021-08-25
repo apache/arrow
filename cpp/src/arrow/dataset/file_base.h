@@ -407,6 +407,15 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   }
 };
 
+/// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
+class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+ public:
+  explicit WriteNodeOptions(FileSystemDatasetWriteOptions options)
+      : write_options(std::move(options)) {}
+
+  FileSystemDatasetWriteOptions write_options;
+};
+
 /// @}
 
 }  // namespace dataset

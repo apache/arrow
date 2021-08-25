@@ -17,6 +17,8 @@
 
 #include "arrow/dataset/file_base.h"
 
+#include <arrow/compute/exec/exec_plan.h>
+
 #include <algorithm>
 #include <unordered_map>
 #include <vector>
@@ -322,11 +324,11 @@ Status FileWriter::Finish() {
 
 namespace {
 
-Future<> WriteNextBatch(internal::DatasetWriter* dataset_writer, TaggedRecordBatch batch,
-                        const FileSystemDatasetWriteOptions& write_options) {
-  ARROW_ASSIGN_OR_RAISE(auto groups,
-                        write_options.partitioning->Partition(batch.record_batch));
-  batch.record_batch.reset();  // drop to hopefully conserve memory
+Future<> WriteNextBatch(internal::DatasetWriter* dataset_writer, std::shared_ptr<RecordBatch> batch,
+                        const FileSystemDatasetWriteOptions& write_options,
+                        util::optional<compute::Expression> guarantee = util::nullopt) {
+  ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
+  batch.reset();  // drop to hopefully conserve memory
 
   if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
     return Status::Invalid("Fragment would be written into ", groups.batches.size(),
@@ -335,17 +337,18 @@ Future<> WriteNextBatch(internal::DatasetWriter* dataset_writer, TaggedRecordBat
   }
 
   std::shared_ptr<size_t> counter = std::make_shared<size_t>(0);
-  std::shared_ptr<Fragment> fragment = std::move(batch.fragment);
 
   AsyncGenerator<std::shared_ptr<RecordBatch>> partitioned_batch_gen =
-      [groups, counter, fragment, &write_options,
+      [groups, counter, guarantee, &write_options,
        dataset_writer]() -> Future<std::shared_ptr<RecordBatch>> {
     auto index = *counter;
     if (index >= groups.batches.size()) {
       return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
     }
-    auto partition_expression =
-        and_(groups.expressions[index], fragment->partition_expression());
+    auto partition_expression = groups.expressions[index];
+    if (guarantee.has_value()) {
+      partition_expression = and_(groups.expressions[index], *guarantee);
+    }
     auto next_batch = groups.batches[index];
     ARROW_ASSIGN_OR_RAISE(std::string destination,
                           write_options.partitioning->Format(partition_expression));
@@ -387,6 +390,52 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   ARROW_RETURN_NOT_OK(queue_fut.status());
   return dataset_writer->Finish().status();
+}
+
+Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
+                                         std::vector<compute::ExecNode*> inputs,
+                                         const compute::ExecNodeOptions& options) {
+  if (inputs.size() != 1) {
+    return Status::Invalid("Write SinkNode requires exactly 1 input, got ",
+                           inputs.size());
+  }
+  auto input = inputs[0];
+
+  const FileSystemDatasetWriteOptions& write_options =
+      checked_cast<const WriteNodeOptions&>(options).write_options;
+
+  AsyncGenerator<util::optional<compute::ExecBatch>> batches_to_write;
+  ARROW_ASSIGN_OR_RAISE(
+      auto node, compute::MakeExecNode("sink", plan, std::move(inputs),
+                                       compute::SinkNodeOptions{&batches_to_write}));
+
+  std::shared_ptr<Schema> schema = input->output_schema();
+  return util::Nursery::RunInNurserySt([&](util::Nursery* nursery) -> Status {
+    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
+                          DatasetWriter::Make(nursery, write_options));
+
+    AsyncGenerator<std::shared_ptr<int>> queued_batch_gen =
+        [&, batches_to_write]() -> Future<std::shared_ptr<int>> {
+      Future<util::optional<compute::ExecBatch>> next_batch_fut = batches_to_write();
+      return next_batch_fut.Then([&](const util::optional<compute::ExecBatch>& batch)
+                                     -> Future<std::shared_ptr<int>> {
+        if (IsIterationEnd(batch)) {
+          return AsyncGeneratorEnd<std::shared_ptr<int>>();
+        }
+        ARROW_ASSIGN_OR_RAISE(auto record_batch, batch->ToRecordBatch(schema));
+        return WriteNextBatch(dataset_writer.get(), record_batch, write_options).Then([] {
+          return std::make_shared<int>(0);
+        });
+      });
+    };
+    Future<> queue_fut =
+        VisitAsyncGenerator(std::move(queued_batch_gen),
+                            [&](const std::shared_ptr<int>&) { return Status::OK(); });
+
+    return queue_fut.status();
+  });
+
+  return node;
 }
 
 }  // namespace dataset
