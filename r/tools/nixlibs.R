@@ -43,20 +43,23 @@ try_download <- function(from_url, to_file) {
   !inherits(status, "try-error") && status == 0
 }
 
-quietly <- !env_is("ARROW_R_DEV", "true") # try_download uses quietly global
-# * download_ok, build_ok: Use prebuilt binary, if found, otherwise try to build
-# * no download, build_ok: Build with local git checkout, if available, or
-#   sources included in r/tools/cpp/. Optional dependencies are not included,
-#   and will not be automatically downloaded.
-#   https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
-# * download_ok, no build: Only use prebuilt binary, if found
-# * neither: Get the arrow-without-arrow package
-# Download and build are OK unless you say not to (or can't access github)
-download_ok <- (!env_is("LIBARROW_DOWNLOAD", "false")) && try_download("https://github.com", tempfile())
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 # But binary defaults to not OK
 binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
+
+quietly <- !env_is("ARROW_R_DEV", "true") # try_download uses quietly global
+# * download_ok, build_ok: Use prebuilt binary, if found, otherwise try to build
+# * !download_ok, build_ok: Build with local git checkout, if available, or
+#   sources included in r/tools/cpp/. Optional dependencies are not included,
+#   and will not be automatically downloaded.
+#   cmake will still be downloaded if necessary
+#   https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
+# * download_ok, !build_ok: Only use prebuilt binary, if found
+# * neither: Get the arrow-without-arrow package
+# Download and build are OK unless you say not to (or can't access github)
+download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
+
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
@@ -88,7 +91,7 @@ download_binary <- function(os = identify_os()) {
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("LIBARROW_DOWNLOAD"))) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("TEST_OFFLINE_BUILD"))) {
   if (tolower(os) %in% c("", "false")) {
     # Env var says not to download a binary
     return(NULL)
@@ -219,79 +222,20 @@ find_available_binary <- function(os) {
   os
 }
 
-download_source <- function() {
-  tf1 <- tempfile()
-  src_dir <- tempfile()
-
-  # Given VERSION as x.y.z.p
-  p <- package_version(VERSION)[1, 4]
-  if (is.na(p) || p < 1000) {
-    # This is either just x.y.z or it has a small (R-only) patch version
-    # Download from the official Apache release, dropping the p
-    VERSION <- as.character(package_version(VERSION)[1, -4])
-    if (apache_download(VERSION, tf1)) {
-      untar(tf1, exdir = src_dir)
-      unlink(tf1)
-      src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
-    }
-  } else if (p != 9000) {
-    # This is a custom dev version (x.y.z.9999) or a nightly (x.y.z.20210505)
-    # (Don't try to download on the default dev .9000 version)
-    if (nightly_download(VERSION, tf1)) {
-      unzip(tf1, exdir = src_dir)
-      unlink(tf1)
-      src_dir <- paste0(src_dir, "/cpp")
-    }
-  }
-
-  if (dir.exists(src_dir)) {
-    cat("*** Successfully retrieved C++ source\n")
-    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
-    # These scripts need to be executable
-    system(
-      sprintf("chmod 755 %s/build-support/*.sh", src_dir),
-      ignore.stdout = quietly, ignore.stderr = quietly
-    )
-    return(src_dir)
-  } else {
+find_local_source <- function() {
+  # We'll take the first of these that exists
+  # The first case probably occurs if we're in the arrow git repo
+  # The second probably occurs if we're installing the arrow R package
+  cpp_dir_options <- c(
+    Sys.getenv("ARROW_SOURCE_HOME", ".."),
+    "tools/cpp"
+  )
+  valid_cpp_dir <- file.exists(file.path(cpp_dir_options, "src/arrow/api.h"))
+  if (!any(valid_cpp_dir)) {
     return(NULL)
   }
-}
-
-nightly_download <- function(version, destfile) {
-  source_url <- paste0(arrow_repo, "src/arrow-", version, ".zip")
-  try_download(source_url, destfile)
-}
-
-apache_download <- function(version, destfile, n_mirrors = 3) {
-  apache_path <- paste0("arrow/arrow-", version, "/apache-arrow-", version, ".tar.gz")
-  apache_urls <- c(
-    # This returns a different mirror each time
-    rep("https://www.apache.org/dyn/closer.lua?action=download&filename=", n_mirrors),
-    "https://downloads.apache.org/" # The backup
-  )
-  downloaded <- FALSE
-  for (u in apache_urls) {
-    downloaded <- try_download(paste0(u, apache_path), destfile)
-    if (downloaded) {
-      break
-    }
-  }
-  downloaded
-}
-
-find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")) {
-  cpp_dir <- NULL
-  if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
-    # We're in a git checkout of arrow, so we can build it
-    cpp_dir <- paste0(arrow_home, "/cpp")
-  } else if (file.exists("tools/cpp/src/arrow/api.h")) {
-    # Use the version bundled in tools/cpp/
-    cpp_dir <- "tools/cpp"
-  }
-  if (!is.null(cpp_dir)) {
-    cat(paste0("*** Found local C++ source:\n    '", cpp_dir, "'\n"))
-  }
+  cpp_dir <- cpp_dir_options[valid_cpp_dir][1]
+  cat(paste0("*** Found local C++ source:\n    '", cpp_dir, "'\n"))
   cpp_dir
 }
 
@@ -448,7 +392,7 @@ is_feature_requested <- function(arrow_feature) {
   # * explicitly enabled: ON
   # * LIBARROW_MINIMAL=false: ON
   # Note that if LIBARROW_MINIMAL is unset, `configure` sets it to "false" when
-  # NOT_CRAN or LIBARROW_DOWNLOAD are "true".
+  # NOT_CRAN or TEST_OFFLINE_BUILD are "true".
   explicitly_set_val <- toupper(Sys.getenv(arrow_feature))
   if (explicitly_set_val == "OFF") {
     feature_on <- FALSE
@@ -590,15 +534,15 @@ with_brotli <- function(env_vars) {
 }
 
 with_bz2 <- function(env_vars) {
-  arrow_brotli <- is_feature_requested("ARROW_WITH_BZ2")
-  if (arrow_brotli) {
+  arrow_bz2 <- is_feature_requested("ARROW_WITH_BZ2")
+  if (arrow_bz2) {
     download_unavailable <- remote_download_unavailable("ARROW_BZIP2_URL")
     if (download_unavailable) {
       cat("**** bz2 requested but cannot be downloaded. Setting ARROW_WITH_BZ2=OFF\n")
-      arrow_brotli <- FALSE
+      arrow_bz2 <- FALSE
     }
   }
-  paste(env_vars, ifelse(arrow_brotli, "ARROW_WITH_BZ2=ON", "ARROW_WITH_BZ2=OFF"))
+  paste(env_vars, ifelse(arrow_bz2, "ARROW_WITH_BZ2=ON", "ARROW_WITH_BZ2=OFF"))
 }
 
 with_lz4 <- function(env_vars) {

@@ -288,13 +288,17 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
 
-* `ARROW_S3`: If set to `ON` S3 support will be built as long as the 
-  dependencies are met; if they are not met, the build script will turn this `OFF` 
+* `ARROW_S3`: If set to `ON` S3 support will be built as long as the
+  dependencies are met; if they are not met, the build script will turn this `OFF`
 * `ARROW_JEMALLOC` for the `jemalloc` memory allocator
+* `ARROW_MIMALLOC` for the `mimalloc` memmory allocator
 * `ARROW_PARQUET`
 * `ARROW_DATASET`
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
+* `ARROW_JSON` for JSON parsing
+* `ARROW_WITH_BROTLI`, `ARROW_WITH_BZ2`, `ARROW_WITH_LZ4`, `ARROW_WITH_SNAPPY`, `ARROW_WITH_ZLIB`, and `ARROW_WITH_ZSTD` for various compression algorithms
+
 
 There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
@@ -303,10 +307,12 @@ By default, these are all unset. All boolean variables are case-insensitive.
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `LIBARROW_DOWNLOAD`: Unless set to `false`, the build script
-  will attempt to download C++ binary or source bundles.
+* `TEST_OFFLINE_BUILD`: Unless set to `true`, the build script
+  will download prebuilt C++ binary or third-party source bundles as necessary.
   If you're in a checkout of the `apache/arrow` git repository
-  and want to build the C++ library from the local source, make this `false`.
+  and want to build the C++ library from the local source, make this `false` or
+  not set. If building the C++ library from source with cmake unavailable, cmake
+  will still be downloaded, regardless of this flag's value.
 * `LIBARROW_BINARY`: If set to `true`, the script will try to download a binary
   C++ library built for your operating system.
   You may also set it to some other string,
@@ -341,8 +347,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-  
-  
+
+
 # Contributing
 
 As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)

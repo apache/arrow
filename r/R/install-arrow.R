@@ -70,7 +70,6 @@ install_arrow <- function(nightly = FALSE,
     }
   } else {
     Sys.setenv(
-      LIBARROW_DOWNLOAD = "true",
       LIBARROW_BINARY = binary,
       LIBARROW_MINIMAL = minimal,
       ARROW_R_DEV = verbose,
