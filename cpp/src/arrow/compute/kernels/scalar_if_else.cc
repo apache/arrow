@@ -1839,11 +1839,11 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
 
   const ArrayData& left_arr = *left.array();
   const uint8_t* left_valid = left_arr.buffers[0]->data();
-  BitBlockCounter bit_counter(left_valid, left_arr.offset, left_arr.length);
-  int64_t offset = 0;
-
   const uint8_t* left_values = left_arr.buffers[1]->data();
   const Scalar& right_scalar = *right.scalar();
+
+  BitBlockCounter bit_counter(left_valid, left_arr.offset, left_arr.length);
+  int64_t offset = 0;
   while (offset < length) {
     const auto block = bit_counter.NextWord();
     if (block.AllSet()) {
