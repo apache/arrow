@@ -27,7 +27,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable, NativeFile, Table,
                           RecordBatch, Schema, Tensor, DictionaryMemo,
-                          pyarrow_wrap_buffer,
+                          pyarrow_wrap_buffer, Codec,
                           get_writer, get_reader, get_input_stream,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema,
                           pyarrow_wrap_batch, pyarrow_wrap_table,
