@@ -816,17 +816,19 @@ agg_funcs$mean <- function(x, na.rm = FALSE) {
     options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
-agg_funcs$sd <- function(x, na.rm = FALSE) {
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "stddev",
     data = x,
-    options = list(ddof = 1)
+    options = list(ddof = ddof)
   )
 }
-agg_funcs$var <- function(x, y = NULL, na.rm = FALSE) {
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   list(
     fun = "variance",
     data = x,
-    options = list(ddof = 1)
+    options = list(ddof = ddof)
   )
 }
