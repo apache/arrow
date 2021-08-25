@@ -1835,7 +1835,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     options_ = checked_cast<const ScalarAggregateOptions&>(*options);
     pool_ = ctx->memory_pool();
-    seen_ = TypedBufferBuilder<bool>(pool_);
+    reduced_ = TypedBufferBuilder<bool>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     return Status::OK();
@@ -1844,13 +1844,13 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    RETURN_NOT_OK(seen_.Append(added_groups, Impl::NullValue()));
+    RETURN_NOT_OK(reduced_.Append(added_groups, Impl::NullValue()));
     RETURN_NOT_OK(no_nulls_.Append(added_groups, true));
     return counts_.Append(added_groups, 0);
   }
 
   Status Consume(const ExecBatch& batch) override {
-    uint8_t* seen = seen_.mutable_data();
+    uint8_t* reduced = reduced_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     auto g = batch[1].array()->GetValues<uint32_t>(1);
@@ -1863,7 +1863,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             input.buffers[0], input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
-              Impl::UpdateGroupWith(seen, *g, BitUtil::GetBit(bitmap, position));
+              Impl::UpdateGroupWith(reduced, *g, BitUtil::GetBit(bitmap, position));
               g++;
             },
             [&] { BitUtil::SetBitTo(no_nulls, *g++, false); });
@@ -1871,11 +1871,11 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
         arrow::internal::VisitBitBlocksVoid(
             input.buffers[1], input.offset, input.length,
             [&](int64_t) {
-              Impl::UpdateGroupWith(seen, *g, true);
+              Impl::UpdateGroupWith(reduced, *g, true);
               counts[*g++]++;
             },
             [&]() {
-              Impl::UpdateGroupWith(seen, *g, false);
+              Impl::UpdateGroupWith(reduced, *g, false);
               counts[*g++]++;
             });
       }
@@ -1884,7 +1884,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
       if (input.is_valid) {
         const bool value = UnboxScalar<BooleanType>::Unbox(input);
         for (int64_t i = 0; i < batch.length; i++) {
-          Impl::UpdateGroupWith(seen, *g, value);
+          Impl::UpdateGroupWith(reduced, *g, value);
           counts[*g++]++;
         }
       } else {
@@ -1900,18 +1900,18 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedBooleanAggregator<Impl>*>(&raw_other);
 
-    uint8_t* seen = seen_.mutable_data();
+    uint8_t* reduced = reduced_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     int64_t* counts = counts_.mutable_data();
 
-    const uint8_t* other_seen = other->seen_.mutable_data();
+    const uint8_t* other_reduced = other->reduced_.mutable_data();
     const uint8_t* other_no_nulls = other->no_nulls_.mutable_data();
     const int64_t* other_counts = other->counts_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
-      Impl::UpdateGroupWith(seen, *g, BitUtil::GetBit(other_seen, other_g));
+      Impl::UpdateGroupWith(reduced, *g, BitUtil::GetBit(other_reduced, other_g));
       BitUtil::SetBitTo(
           no_nulls, *g,
           BitUtil::GetBit(no_nulls, *g) && BitUtil::GetBit(other_no_nulls, other_g));
@@ -1936,11 +1936,11 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
       BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto seen, seen_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto reduced, reduced_.Finish());
     if (!options_.skip_nulls) {
       null_count = kUnknownNullCount;
       ARROW_ASSIGN_OR_RAISE(auto no_nulls, no_nulls_.Finish());
-      Impl::AdjustForMinCount(no_nulls->mutable_data(), seen->data(), num_groups_);
+      Impl::AdjustForMinCount(no_nulls->mutable_data(), reduced->data(), num_groups_);
       if (null_bitmap) {
         arrow::internal::BitmapAnd(null_bitmap->data(), /*left_offset=*/0,
                                    no_nulls->data(), /*right_offset=*/0, num_groups_,
@@ -1951,14 +1951,14 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
     }
 
     return ArrayData::Make(out_type(), num_groups_,
-                           {std::move(null_bitmap), std::move(seen)}, null_count);
+                           {std::move(null_bitmap), std::move(reduced)}, null_count);
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
   int64_t num_groups_ = 0;
   ScalarAggregateOptions options_;
-  TypedBufferBuilder<bool> seen_, no_nulls_;
+  TypedBufferBuilder<bool> reduced_, no_nulls_;
   TypedBufferBuilder<int64_t> counts_;
   MemoryPool* pool_;
 };
