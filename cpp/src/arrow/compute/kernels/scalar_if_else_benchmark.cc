@@ -296,9 +296,9 @@ struct CoalesceArgs : public CoalesceParams {
   }
 
   ~CoalesceArgs() {
-    state_.counters["length"] = length;
+    state_.counters["length"] = static_cast<double>(length);
     state_.counters["null%"] = null_probability * 100;
-    state_.counters["num_args"] = num_arguments;
+    state_.counters["num_args"] = static_cast<double>(num_arguments);
   }
 
  private:
