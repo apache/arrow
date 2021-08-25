@@ -331,7 +331,7 @@ The styler package will fix many styling errors, thought not all lintr errors ar
 
 ### C++ code
 
-The arrow package uses some customized tools on top of `cpp11` to prepare its
+The arrow package uses some customized tools on top of [cpp11](https://cpp11.r-lib.org/) to prepare its
 C++ code in `src/`. This is because there are some features that are only enabled
 and built conditionally during build time. If you change C++ code in the R
 package, you will need to set the `ARROW_R_DEV` environment variable to `true`
