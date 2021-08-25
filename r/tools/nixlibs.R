@@ -290,7 +290,7 @@ find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")
     cpp_dir <- "tools/cpp"
   }
   if (!is.null(cpp_dir)) {
-    cat("*** Found local C++ source:\n    '", cpp_dir, "'\n")
+    cat(paste0("*** Found local C++ source:\n    '", cpp_dir, "'\n"))
   }
   cpp_dir
 }

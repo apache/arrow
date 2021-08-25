@@ -37,3 +37,20 @@ r_only({
     })
   })
 })
+
+
+r_only({
+  test_that("download_optional_dependencies", {
+    skip_if_offline()
+    deps_dir <- tempfile()
+    download_successful <- expect_output(
+      download_optional_dependencies(deps_dir),
+      "export ARROW_THRIFT_URL"
+    )
+    expect_true(download_successful)
+    env_var_file <- file.path(deps_dir, "DEFINE_ENV_VARS.sh")
+    expect_true(file.exists(env_var_file))
+    env_var_lines <- readLines(env_var_file)
+    expect_true(any(grepl("export ARROW_THRIFT_URL", env_var_lines)))
+  })
+})

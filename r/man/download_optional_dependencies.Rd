@@ -18,6 +18,25 @@ download them for you.
 These saved files are only used in the build if \code{ARROW_DEPENDENCY_SOURCE}
 is \code{BUNDLED} or \code{AUTO}.
 https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
+
+Steps for an offline install with optional dependencies:
+\itemize{
+\item Install the \code{arrow} package on a computer with internet access
+\item Run this function
+\item Copy the saved dependency files to a computer without internet access
+\item Export the environment variables printed by this function on the computer
+without internet access. For example, this function will print
+\verb{export ARROW_THRIFT_URL=/path/to/deps_dir/file.tar.gz}
+\itemize{
+\item These export commands are also saved in \code{DEFINE_ENV_VARS.sh}, in the same
+directory
+\item You may have to edit the paths if the copied folder is not accessible at
+the same location as it was when \code{download_optional_dependencies()} was
+run on the internet-connected computer
+}
+\item Install the \code{arrow} package on the computer without internet access
+\item Run \code{\link[=arrow_info]{arrow_info()}} to check installed capabilities
+}
 }
 \description{
 Download all optional Arrow dependencies
@@ -25,8 +44,7 @@ Download all optional Arrow dependencies
 \examples{
 \dontrun{
 download_optional_dependencies("arrow-thirdparty")
+file.exists("arrow-thirdparty/DEFINE_ENV_VARS.sh") # TRUE
+list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
 }
-# Now define the environment variables (see arrow-thirdparty/DEFINE_ENV_VARS.sh)
-# and run your offline build.
-This script is copied over from arrow/cpp/... to arrow/r/tools/cpp/...
 }

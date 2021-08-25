@@ -198,16 +198,32 @@ repeat_value_as_array <- function(object, n) {
 #' is `BUNDLED` or `AUTO`.
 #' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 #'
+#' Steps for an offline install with optional dependencies:
+#' - Install the `arrow` package on a computer with internet access
+#' - Run this function
+#' - Copy the saved dependency files to a computer without internet access
+#' - Export the environment variables printed by this function on the computer
+#'   without internet access. For example, this function will print
+#'   `export ARROW_THRIFT_URL=/path/to/deps_dir/file.tar.gz`
+#'   - These export commands are also saved in `DEFINE_ENV_VARS.sh`, in the same
+#'     directory
+#'   - You may have to edit the paths if the copied folder is not accessible at
+#'     the same location as it was when `download_optional_dependencies()` was
+#'     run on the internet-connected computer
+#' - Install the `arrow` package on the computer without internet access
+#' - Run [arrow_info()] to check installed capabilities
+#'
 #' @examples
 #' \dontrun{
 #' download_optional_dependencies("arrow-thirdparty")
+#' file.exists("arrow-thirdparty/DEFINE_ENV_VARS.sh") # TRUE
+#' list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
 #' }
-#' # Now define the environment variables (see arrow-thirdparty/DEFINE_ENV_VARS.sh)
-#' # and run your offline build.
+#' @export
 download_optional_dependencies <- function(deps_dir) {
   # This script is copied over from arrow/cpp/... to arrow/r/tools/cpp/...
   download_dependencies_sh <- system.file(
-    "tools/cpp/thirdparty/download_dependencies.sh",
+    "thirdparty/download_dependencies.sh",
     package = "arrow",
     mustWork = TRUE
   )
@@ -220,7 +236,7 @@ download_optional_dependencies <- function(deps_dir) {
   stdout_file <- tempfile()
   stderr_file <- tempfile()
   file.create(stdout_file, stderr_file)
-  cat("***Downloading optional dependencies to ", deps_dir)
+  cat(paste0("*** Downloading optional dependencies to ", deps_dir, "\n"))
   return_status <- system2(download_dependencies_sh,
     args = deps_dir,
     stdout = stdout_file, stderr = stderr_file
@@ -244,5 +260,5 @@ download_optional_dependencies <- function(deps_dir) {
     warning(paste(msg, collapse = "\n"))
   }
   # Return sucess status
-  return_status == 0
+  invisible(return_status == 0)
 }
