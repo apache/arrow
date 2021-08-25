@@ -406,7 +406,8 @@ variables or other settings:
 
 ## Running checks
 
-You can run package checks by using `devtools::check()` and check test coverage with `covr::package_coverage()`.
+You can run package checks by using `devtools::check()` and check test coverage 
+with `covr::package_coverage()`.
 
 ```r
 # All package checks
@@ -427,7 +428,11 @@ R CMD check arrow_*.tar.gz --as-cran
 
 ## Running additional CI checks
 
-On a pull request, there are some actions you can trigger by commenting on the PR. We have additional CI checks that run nightly and can be requested on demand using an internal tool called [crosssbow](https://arrow.apache.org/docs/developers/crossbow.html). A few important GitHub comment commands include:
+On a pull request, there are some actions you can trigger by commenting on the 
+PR. We have additional CI checks that run nightly and can be requested on demand
+using an internal tool called 
+[crosssbow](https://arrow.apache.org/docs/developers/crossbow.html). 
+A few important GitHub comment commands are shown below.
 
 #### Run all extended R CI tasks
 `@github-actions crossbow submit -g r`
@@ -437,13 +442,17 @@ This runs each of the R-related CI tasks.
 #### Run a specific task
 `@github-actions crossbow submit {task-name}`
 
-See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) for a list of glob expression patterns that match names of items in the `tasks:` list below it.
+See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) 
+for a list of glob expression patterns that match names of items in the `tasks:`
+list below it.
 
 #### Run linting and documentation building tasks
 
 `@github-actions autotune`
 
-This will run and fix lint C++ linting errors, run R documentation (among other cleanup tasks), run styler on any changed R code, and commit the resulting updates to the branch.
+This will run and fix lint C++ linting errors, run R documentation (among other 
+cleanup tasks), run styler on any changed R code, and commit the resulting 
+updates to the branch.
 
 # Troubleshooting
 
@@ -474,7 +483,9 @@ To resolve this, try rebuilding the Arrow library from [Building Arrow above](#s
 
 ## Multiple versions of Arrow library
 
-If you are installing from a user-level directory, and you already have a previous installation of libarrow in a system directory, you get you may get errors like the following when you install the R package:
+If you are installing from a user-level directory, and you already have a 
+previous installation of libarrow in a system directory, you get you may get 
+errors like the following when you install the R package:
 
 ```
 Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath = DLLpath, ...):
@@ -484,7 +495,8 @@ Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath 
   Reason: image not found
 ```
 
-If this happens, you need to make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways:
+If this happens, you need to make sure that you don't let R link to your system 
+library when building arrow. You can do this a number of different ways:
 
 * Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
 * Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
@@ -540,4 +552,4 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 ## Other installation issues
 
-There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html) for more information.
+There are a number of scripts that are triggered when the arrow R package is installed. For package users who are not interacting with the underlying code, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host). However, knowing about these scripts can help package developers troubleshoot if things go wrong in them or things go wrong in an install.  See [the installation vignette](./install.html#how-dependencies-are-resolved) for more information.
