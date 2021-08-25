@@ -813,20 +813,20 @@ agg_funcs$mean <- function(x, na.rm = FALSE) {
   list(
     fun = "mean",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
-agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
+agg_funcs$sd <- function(x, na.rm = FALSE) {
   list(
     fun = "stddev",
     data = x,
-    options = list(ddof = ddof)
+    options = list(ddof = 1)
   )
 }
-agg_funcs$var <- function(x, y = NULL, na.rm = FALSE, ddof = 1) {
+agg_funcs$var <- function(x, y = NULL, na.rm = FALSE) {
   list(
     fun = "variance",
     data = x,
-    options = list(ddof = ddof)
+    options = list(ddof = 1)
   )
 }
