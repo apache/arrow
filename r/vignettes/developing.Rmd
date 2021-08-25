@@ -474,7 +474,7 @@ To resolve this, try rebuilding the Arrow library from [Building Arrow above](#s
 
 ## Multiple versions of Arrow library
 
-If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#configure-for-installing-to-a-user-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
+If you are installing from a user-level directory, and you already have a previous installation of libarrow in a system directory, you get you may get errors like the following when you install the R package:
 
 ```
 Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath = DLLpath, ...):
@@ -484,7 +484,7 @@ Error: package or namespace load failed for ‘arrow' in dyn.load(file, DLLpath 
   Reason: image not found
 ```
 
-You need to make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways:
+If this happens, you need to make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways:
 
 * Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
 * Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
