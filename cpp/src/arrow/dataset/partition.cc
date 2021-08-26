@@ -63,10 +63,31 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
 }
 }  // namespace
 
+Partitioning::Partitioning(const Schema& schema)
+    : field_names_(schema.field_names()), data_types_(schema.num_fields()) {
+  for (int i = 0; i < schema.num_fields(); i++) {
+    data_types_[i] = schema.field(i)->type();
+  }
+}
+
+Partitioning::Partitioning(std::vector<std::string> field_names)
+    : field_names_(std::move(field_names)), data_types_(field_names_.size()) {}
+
+Result<std::shared_ptr<Schema>> Partitioning::GetSchema() const {
+  if (std::find(data_types_.begin(), data_types_.end(), nullptr) != data_types_.end()) {
+    return Status::Invalid("The partitioning was not created with a schema");
+  }
+  FieldVector fields;
+  for (std::size_t i = 0; i < field_names_.size(); i++) {
+    fields.push_back(std::make_shared<Field>(field_names_[i], data_types_[i]));
+  }
+  return schema(fields);
+}
+
 std::shared_ptr<Partitioning> Partitioning::Default() {
   class DefaultPartitioning : public Partitioning {
    public:
-    DefaultPartitioning() : Partitioning(::arrow::schema({})) {}
+    DefaultPartitioning() : Partitioning() {}
 
     std::string type_name() const override { return "default"; }
 
@@ -109,9 +130,9 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   int num_keys = 0;
 
   // assemble vector of indices of fields in batch on which we'll partition
-  for (const auto& partition_field : schema_->fields()) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto match, FieldRef(partition_field->name()).FindOneOrNone(*batch->schema()))
+  for (const auto& partition_field_name : field_names_) {
+    ARROW_ASSIGN_OR_RAISE(auto match,
+                          FieldRef(partition_field_name).FindOneOrNone(*batch->schema()))
 
     if (match.empty()) continue;
     key_indices.push_back(match[0]);
@@ -191,30 +212,39 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding) {
 }
 
 Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
-  ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
-  if (match.empty()) {
+  auto it = std::find(field_names_.begin(), field_names_.end(), key.name);
+
+  if (it == field_names_.end()) {
     return compute::literal(true);
   }
-
-  auto field_index = match[0];
-  auto field = schema_->field(field_index);
+  std::size_t field_index = it - field_names_.begin();
+  const std::string& field_name = *it;
 
   std::shared_ptr<Scalar> converted;
 
   if (!key.value.has_value()) {
-    return compute::is_null(compute::field_ref(field->name()));
-  } else if (field->type()->id() == Type::DICTIONARY) {
+    return compute::is_null(compute::field_ref(field_name));
+  }
+  const std::shared_ptr<DataType>& data_type = data_types_[field_index];
+  if (!data_type) {
+    return Status::Invalid(
+        "A schema must be supplied for a partitioning used to read a dataset.  Use a "
+        "FileSystemDatasetFactory (with a PartitioningFactory) if the data types are "
+        "unknown.");
+  }
+
+  if (data_type->id() == Type::DICTIONARY) {
     if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
-      return Status::Invalid("No dictionary provided for dictionary field ",
-                             field->ToString());
+      return Status::Invalid("No dictionary provided for dictionary field ", field_name);
     }
 
     DictionaryScalar::ValueType value;
     value.dictionary = dictionaries_[field_index];
 
-    const auto& dictionary_type = checked_cast<const DictionaryType&>(*field->type());
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(*data_type);
     if (!value.dictionary->type()->Equals(dictionary_type.value_type())) {
-      return Status::TypeError("Dictionary supplied for field ", field->ToString(),
+      return Status::TypeError("Dictionary supplied for field ", field_name,
+                               " with expected type ", data_type->ToString(),
                                " had incorrect type ",
                                value.dictionary->type()->ToString());
     }
@@ -226,15 +256,15 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
     ARROW_ASSIGN_OR_RAISE(index, compute::Cast(index, to_index_type));
     value.index = index.scalar();
     if (!value.index->is_valid) {
-      return Status::Invalid("Dictionary supplied for field ", field->ToString(),
+      return Status::Invalid("Dictionary supplied for field ", field_name,
                              " does not contain '", *key.value, "'");
     }
-    converted = std::make_shared<DictionaryScalar>(std::move(value), field->type());
+    converted = std::make_shared<DictionaryScalar>(std::move(value), data_type);
   } else {
-    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), *key.value));
+    ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(data_type, *key.value));
   }
 
-  return compute::equal(compute::field_ref(field->name()),
+  return compute::equal(compute::field_ref(field_name),
                         compute::literal(std::move(converted)));
 }
 
@@ -252,7 +282,7 @@ Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path)
 }
 
 Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr) const {
-  ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
+  ScalarVector values{field_names_.size(), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
   for (const auto& ref_value : known_values.map) {
@@ -260,24 +290,30 @@ Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr
       return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto match, ref_value.first.FindOneOrNone(*schema_));
-    if (match.empty()) continue;
+    auto it =
+        std::find(field_names_.begin(), field_names_.end(), *ref_value.first.name());
+
+    if (it == field_names_.end()) {
+      continue;
+    }
+    std::size_t field_index = it - field_names_.begin();
+    const std::string& field_name = *it;
 
     auto value = ref_value.second.scalar();
+    const std::shared_ptr<DataType>& part_data_type = data_types_[field_index];
 
-    const auto& field = schema_->field(match[0]);
-    if (!value->type->Equals(field->type())) {
+    if (part_data_type && !value->type->Equals(part_data_type)) {
       if (value->is_valid) {
-        auto maybe_converted = compute::Cast(value, field->type());
+        auto maybe_converted = compute::Cast(value, part_data_type);
         if (!maybe_converted.ok()) {
-          return Status::TypeError("Error converting scalar ", value->ToString(),
-                                   " (of type ", *value->type,
-                                   ") to a partition key for ", field->ToString(), ": ",
-                                   maybe_converted.status().message());
+          return Status::TypeError(
+              "Error converting scalar ", value->ToString(), " (of type ", *value->type,
+              ") to a partition key for ", field_name, " (of type", part_data_type,
+              ") : ", maybe_converted.status().message());
         }
         value = maybe_converted->scalar();
       } else {
-        value = MakeNullScalar(field->type());
+        value = MakeNullScalar(part_data_type);
       }
     }
 
@@ -286,16 +322,22 @@ Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr
           value, checked_cast<const DictionaryScalar&>(*value).GetEncodedValue());
     }
 
-    values[match[0]] = std::move(value);
+    values[field_index] = std::move(value);
   }
 
   return FormatValues(values);
 }
 
-DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
+DirectoryPartitioning::DirectoryPartitioning(const Schema& schema,
                                              ArrayVector dictionaries,
                                              KeyValuePartitioningOptions options)
-    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
+    : KeyValuePartitioning(schema, std::move(dictionaries), options) {
+  util::InitializeUTF8();
+}
+
+DirectoryPartitioning::DirectoryPartitioning(std::vector<std::string> field_names,
+                                             KeyValuePartitioningOptions options)
+    : KeyValuePartitioning(std::move(field_names), options) {
   util::InitializeUTF8();
 }
 
@@ -305,19 +347,20 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
 
   int i = 0;
   for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-    if (i >= schema_->num_fields()) break;
+    if (i >= static_cast<int>(field_names_.size())) break;
+    const std::string& field_name = field_names_[i++];
 
     switch (options_.segment_encoding) {
       case SegmentEncoding::None: {
         if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
           return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
         }
-        keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+        keys.push_back({field_name, std::move(segment)});
         break;
       }
       case SegmentEncoding::Uri: {
         ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-        keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
+        keys.push_back({field_name, std::move(decoded)});
         break;
       }
       default:
@@ -342,19 +385,21 @@ inline util::optional<int> NextValid(const ScalarVector& values, int first_null)
 
 Result<std::string> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
-  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+  std::vector<std::string> segments(field_names_.size());
 
-  for (int i = 0; i < schema_->num_fields(); ++i) {
+  for (int i = 0; i < static_cast<int>(field_names_.size()); ++i) {
+    const std::string& field_name = field_names_[i];
     if (values[i] != nullptr && values[i]->is_valid) {
       segments[i] = values[i]->ToString();
       continue;
     }
 
     if (auto illegal_index = NextValid(values, i)) {
+      const std::string& illegal_field_name = field_names_[*illegal_index];
       // XXX maybe we should just ignore keys provided after the first absent one?
-      return Status::Invalid("No partition key for ", schema_->field(i)->name(),
+      return Status::Invalid("No partition key for ", field_name,
                              " but a key was provided subsequently for ",
-                             schema_->field(*illegal_index)->name(), ".");
+                             illegal_field_name, ".");
     }
 
     // if all subsequent keys are absent we'll just print the available keys
@@ -545,7 +590,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
     // drop fields which aren't in field_names_
     auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-    return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_,
+    return std::make_shared<DirectoryPartitioning>(*out_schema, dictionaries_,
                                                    options_.AsPartitioningOptions());
   }
 
@@ -621,10 +666,10 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
 }
 
 Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) const {
-  std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
+  std::vector<std::string> segments(field_names_.size());
 
-  for (int i = 0; i < schema_->num_fields(); ++i) {
-    const std::string& name = schema_->field(i)->name();
+  for (int i = 0; i < static_cast<int>(field_names_.size()); ++i) {
+    const std::string& name = field_names_[i];
 
     if (values[i] == nullptr) {
       segments[i] = "";
@@ -667,7 +712,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
   Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const override {
     if (dictionaries_.empty()) {
-      return std::make_shared<HivePartitioning>(schema, dictionaries_);
+      return std::make_shared<HivePartitioning>(*schema, dictionaries_);
     } else {
       for (FieldRef ref : field_names_) {
         // ensure all of field_names_ are present in schema
@@ -677,7 +722,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       // drop fields which aren't in field_names_
       auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-      return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_,
+      return std::make_shared<HivePartitioning>(*out_schema, dictionaries_,
                                                 options_.AsHivePartitioningOptions());
     }
   }
@@ -722,7 +767,7 @@ std::vector<std::string> StripPrefixAndFilename(const std::vector<fs::FileInfo>&
 Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
     const std::vector<std::string>& paths) {
   if (auto part = partitioning()) {
-    return part->schema();
+    return part->GetSchema();
   }
 
   return factory()->Inspect(paths);

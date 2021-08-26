@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
@@ -307,7 +307,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
   write_options.file_write_options = format->DefaultWriteOptions();
   write_options.filesystem = fs;
   write_options.base_dir = "root";
-  write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+  write_options.partitioning = std::make_shared<HivePartitioning>(*schema({}));
   write_options.basename_template = "{i}.feather";
 
   auto dataset_schema = schema({field("a", int64())});

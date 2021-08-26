@@ -1668,7 +1668,6 @@ def test_directory_partitioning_dictionary_key(mockfs):
     dataset = ds.dataset(
         "subdir", format="parquet", filesystem=mockfs, partitioning=part
     )
-    assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
     assert table.column('group').type.equals(schema.types[0])
@@ -1688,7 +1687,6 @@ def test_hive_partitioning_dictionary_key(multisourcefs):
     dataset = ds.dataset(
         "hive", format="parquet", filesystem=multisourcefs, partitioning=part
     )
-    assert dataset.partitioning.schema == schema
     table = dataset.to_table()
 
     year_dictionary = list(range(2006, 2011))
@@ -3081,7 +3079,6 @@ def test_dataset_preserved_partitioning(tempdir):
     part = dataset.partitioning
     assert part is not None
     assert isinstance(part, ds.HivePartitioning)
-    assert part.schema == pa.schema([("part", pa.int32())])
     assert len(part.dictionaries) == 1
     assert part.dictionaries[0] == pa.array([0, 1, 2], pa.int32())
 
@@ -3092,7 +3089,6 @@ def test_dataset_preserved_partitioning(tempdir):
     dataset = ds.dataset(path, partitioning=part)
     part = dataset.partitioning
     assert isinstance(part, ds.HivePartitioning)
-    assert part.schema == pa.schema([("part", pa.int32())])
     # TODO is this expected?
     assert part.dictionaries is None
 
@@ -3111,7 +3107,6 @@ def test_dataset_preserved_partitioning(tempdir):
     part = dataset.partitioning
     assert part is not None
     assert isinstance(part, ds.HivePartitioning)
-    assert part.schema == pa.schema([("part", pa.string())])
     assert len(part.dictionaries) == 1
     # will be fixed by ARROW-13153 (order is not preserved at the moment)
     # assert part.dictionaries[0] == pa.array(["a", "b"], pa.string())

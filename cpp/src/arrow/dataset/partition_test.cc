@@ -47,17 +47,17 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_RAISES(Invalid, partitioning_->Parse(path));
   }
 
-  void AssertParse(const std::string& path, compute::Expression expected) {
+  void AssertParse(const std::string& path, const compute::Expression& expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
     ASSERT_EQ(parsed, expected);
   }
 
   template <StatusCode code = StatusCode::Invalid>
-  void AssertFormatError(compute::Expression expr) {
+  void AssertFormatError(const compute::Expression& expr) {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(compute::Expression expr, const std::string& expected) {
+  void AssertFormat(const compute::Expression& expr, const std::string& expected) {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
@@ -71,6 +71,14 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
     ASSERT_EQ(simplified, literal(true));
+  }
+
+  void AssertFormatNoRoundTrip(const compute::Expression& expr,
+                               const std::string& expected) {
+    // formatted partition expressions are bound to the schema of the dataset being
+    // written
+    ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
+    ASSERT_EQ(formatted, expected);
   }
 
   void AssertInspect(const std::vector<std::string>& paths,
@@ -155,7 +163,7 @@ TEST_F(TestPartitioning, Partition) {
 
   auto physical_schema = schema({field("c", uint32())});
 
-  auto partitioning = std::make_shared<DirectoryPartitioning>(partition_schema);
+  auto partitioning = std::make_shared<DirectoryPartitioning>(*partition_schema);
   std::string json = R"([{"a": 3,    "b": "x",  "c": 0},
                          {"a": 3,    "b": "x",  "c": 1},
                          {"a": 1,    "b": null, "c": 2},
@@ -184,7 +192,7 @@ TEST_F(TestPartitioning, Partition) {
 
 TEST_F(TestPartitioning, DirectoryPartitioning) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
-      schema({field("alpha", int32()), field("beta", utf8())}));
+      *schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", and_(equal(field_ref("alpha"), literal(0)),
                                equal(field_ref("beta"), literal("hello"))));
@@ -204,9 +212,9 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
   partitioning_ = std::make_shared<DirectoryPartitioning>(
-      schema({field("alpha", int32()), field("beta", utf8())}));
+      *schema({field("alpha", int32()), field("beta", utf8())}));
 
-  written_schema_ = partitioning_->schema();
+  ASSERT_OK_AND_ASSIGN(written_schema_, partitioning_->GetSchema());
 
   AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
                     equal(field_ref("beta"), literal("hello"))),
@@ -238,9 +246,9 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
   auto dictionary = ArrayFromJSON(utf8(), R"(["hello", "world"])");
-  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({DictStr("alpha")}),
+  partitioning_ = std::make_shared<DirectoryPartitioning>(*schema({DictStr("alpha")}),
                                                           ArrayVector{dictionary});
-  written_schema_ = partitioning_->schema();
+  ASSERT_OK_AND_ASSIGN(written_schema_, partitioning_->GetSchema());
 
   ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(DictStr("")->type()));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
@@ -252,8 +260,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
   auto dict_type = dictionary(int8(), utf8());
   auto dictionary = ArrayFromJSON(utf8(), R"(["hello", "world"])");
   partitioning_ = std::make_shared<DirectoryPartitioning>(
-      schema({field("alpha", dict_type)}), ArrayVector{dictionary});
-  written_schema_ = partitioning_->schema();
+      *schema({field("alpha", dict_type)}), ArrayVector{dictionary});
+  ASSERT_OK_AND_ASSIGN(written_schema_, partitioning_->GetSchema());
 
   ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(dict_type));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
@@ -261,8 +269,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
 
 TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
   for (auto temporal : {timestamp(TimeUnit::SECOND), date32()}) {
-    partitioning_ = std::make_shared<DirectoryPartitioning>(
-        schema({field("year", int32()), field("month", int8()), field("day", temporal)}));
+    partitioning_ = std::make_shared<DirectoryPartitioning>(*schema(
+        {field("year", int32()), field("month", int8()), field("day", temporal)}));
 
     ASSERT_OK_AND_ASSIGN(auto day, StringScalar("2020-06-08").CastTo(temporal));
     AssertParse("/2020/06/2020-06-08",
@@ -342,9 +350,31 @@ TEST_F(TestPartitioning, DiscoverSchemaSegfault) {
   AssertInspectError({"oops.txt"});
 }
 
+TEST_F(TestPartitioning, NoDataTypes) {
+  partitioning_ = std::make_shared<HivePartitioning>(
+      std::vector<std::string>{"alpha", "beta"}, "xyz");
+  AssertFormatNoRoundTrip(and_({equal(field_ref("alpha"), literal("hello")),
+                                equal(field_ref("beta"), literal(7))}),
+                          "alpha=hello/beta=7");
+  AssertFormatNoRoundTrip(
+      and_({is_null(field_ref("alpha")), equal(field_ref("beta"), literal("abc"))}),
+      "alpha=xyz/beta=abc");
+
+  partitioning_ =
+      std::make_shared<DirectoryPartitioning>(std::vector<std::string>{"alpha", "beta"});
+  AssertFormatNoRoundTrip(and_({equal(field_ref("alpha"), literal("hello")),
+                                equal(field_ref("beta"), literal(7))}),
+                          "hello/7");
+  AssertFormatNoRoundTrip(
+      and_({is_null(field_ref("beta")), equal(field_ref("alpha"), literal("abc"))}),
+      "abc");
+}
+
+bool UserAgreedToCookies() { return false; }
+
 TEST_F(TestPartitioning, HivePartitioning) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
+      *schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
   AssertParse("/alpha=0/beta=3.25", and_(equal(field_ref("alpha"), literal(0)),
                                          equal(field_ref("beta"), literal(3.25f))));
@@ -371,9 +401,9 @@ TEST_F(TestPartitioning, HivePartitioning) {
 
 TEST_F(TestPartitioning, HivePartitioningFormat) {
   partitioning_ = std::make_shared<HivePartitioning>(
-      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
+      *schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
 
-  written_schema_ = partitioning_->schema();
+  ASSERT_OK_AND_ASSIGN(written_schema_, partitioning_->GetSchema());
 
   AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
                     equal(field_ref("beta"), literal(3.25f))),
@@ -570,7 +600,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
                 options.schema->fields());
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
   auto time = std::make_shared<TimestampScalar>(1620113220, ts);
-  partitioning_ = std::make_shared<DirectoryPartitioning>(options.schema, ArrayVector());
+  partitioning_ = std::make_shared<DirectoryPartitioning>(*options.schema, ArrayVector());
   AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)),
@@ -590,7 +620,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
                  "/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo"},
                 options.schema->fields());
   partitioning_ = std::make_shared<DirectoryPartitioning>(
-      options.schema, ArrayVector(), options.AsPartitioningOptions());
+      *options.schema, ArrayVector(), options.AsPartitioningOptions());
   AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
               and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
                     equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
@@ -612,7 +642,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
 
   auto date = std::make_shared<TimestampScalar>(1620086400, ts);
   auto time = std::make_shared<TimestampScalar>(1620113220, ts);
-  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+  partitioning_ = std::make_shared<HivePartitioning>(*options.schema, ArrayVector(),
                                                      options.AsHivePartitioningOptions());
   AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
               and_({equal(field_ref("date"), literal(date)),
@@ -641,7 +671,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
        "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
        "/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24"},
       options.schema->fields());
-  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+  partitioning_ = std::make_shared<HivePartitioning>(*options.schema, ArrayVector(),
                                                      options.AsHivePartitioningOptions());
   AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
               and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
@@ -659,17 +689,17 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
 TEST_F(TestPartitioning, EtlThenHive) {
   FieldVector etl_fields{field("year", int16()), field("month", int8()),
                          field("day", int8()), field("hour", int8())};
-  DirectoryPartitioning etl_part(schema(etl_fields));
+  DirectoryPartitioning etl_part(*schema(etl_fields));
 
   FieldVector alphabeta_fields{field("alpha", int32()), field("beta", float32())};
-  HivePartitioning alphabeta_part(schema(alphabeta_fields));
+  HivePartitioning alphabeta_part(*schema(alphabeta_fields));
 
   auto schm =
       schema({field("year", int16()), field("month", int8()), field("day", int8()),
               field("hour", int8()), field("alpha", int32()), field("beta", float32())});
 
   partitioning_ = std::make_shared<FunctionPartitioning>(
-      schm, [&](const std::string& path) -> Result<compute::Expression> {
+      *schm, [&](const std::string& path) -> Result<compute::Expression> {
         auto segments = fs::internal::SplitAbstractPath(path);
         if (segments.size() < etl_fields.size() + alphabeta_fields.size()) {
           return Status::Invalid("path ", path, " can't be parsed");
@@ -711,7 +741,7 @@ TEST_F(TestPartitioning, Set) {
   // An adhoc partitioning which parses segments like "/x in [1 4 5]"
   // into (field_ref("x") == 1 or field_ref("x") == 4 or field_ref("x") == 5)
   partitioning_ = std::make_shared<FunctionPartitioning>(
-      schm, [&](const std::string& path) -> Result<compute::Expression> {
+      *schm, [&](const std::string& path) -> Result<compute::Expression> {
         std::vector<compute::Expression> subexpressions;
         for (auto segment : fs::internal::SplitAbstractPath(path)) {
           std::smatch matches;
@@ -746,7 +776,7 @@ TEST_F(TestPartitioning, Set) {
 // into (field_ref("x") >= -3.25 and "x" < 0.0)
 class RangePartitioning : public Partitioning {
  public:
-  explicit RangePartitioning(std::shared_ptr<Schema> s) : Partitioning(std::move(s)) {}
+  explicit RangePartitioning(const Schema& s) : Partitioning(s) {}
 
   std::string type_name() const override { return "range"; }
 
@@ -768,7 +798,12 @@ class RangePartitioning : public Partitioning {
       std::string max_repr = matches[3];
       auto& max_cmp = matches[4] == "]" ? less_equal : less;
 
-      const auto& type = schema_->GetFieldByName(key->name)->type();
+      auto field_name_itr =
+          std::find(field_names_.begin(), field_names_.end(), key->name);
+      EXPECT_NE(field_name_itr, field_names_.end());
+      std::size_t field_name_idx = field_name_itr - field_names_.begin();
+      const auto& type = data_types_[field_name_idx];
+      EXPECT_NE(type, nullptr);
       ARROW_ASSIGN_OR_RAISE(auto min, Scalar::Parse(type, min_repr));
       ARROW_ASSIGN_OR_RAISE(auto max, Scalar::Parse(type, max_repr));
 
@@ -805,7 +840,7 @@ class RangePartitioning : public Partitioning {
 
 TEST_F(TestPartitioning, Range) {
   partitioning_ = std::make_shared<RangePartitioning>(
-      schema({field("x", float64()), field("y", float64()), field("z", float64())}));
+      *schema({field("x", float64()), field("y", float64()), field("z", float64())}));
 
   AssertParse("/x=[-1.5 0.0)/y=[0.0 1.5)/z=(1.5 3.0]",
               and_({and_(greater_equal(field_ref("x"), literal(-1.5)),

@@ -345,7 +345,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
-        const shared_ptr[CSchema] & schema()
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
         pass
@@ -382,7 +381,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
-        CDirectoryPartitioning(shared_ptr[CSchema] schema,
+        CDirectoryPartitioning(const CSchema& schema,
                                vector[shared_ptr[CArray]] dictionaries)
 
         @staticmethod
@@ -393,7 +392,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
-        CHivePartitioning(shared_ptr[CSchema] schema,
+        CHivePartitioning(const CSchema& schema,
                           vector[shared_ptr[CArray]] dictionaries,
                           CHivePartitioningOptions options)
 

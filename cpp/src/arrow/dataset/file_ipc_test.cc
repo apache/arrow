@@ -121,7 +121,7 @@ TEST_F(TestIpcFileSystemDataset, WriteWithEmptyPartitioningSchema) {
 
 TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   write_options_.partitioning = std::make_shared<DirectoryPartitioning>(
-      SchemaFromColumnNames(source_schema_, {"model"}));
+      *SchemaFromColumnNames(source_schema_, {"model"}));
 
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;

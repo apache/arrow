@@ -1972,11 +1972,6 @@ cdef class Partitioning(_Weakrefable):
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
-    @property
-    def schema(self):
-        """The arrow Schema attached to the partitioning."""
-        return pyarrow_wrap_schema(self.partitioning.schema())
-
 
 cdef class PartitioningFactory(_Weakrefable):
 
@@ -2068,7 +2063,7 @@ cdef class DirectoryPartitioning(Partitioning):
 
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
         c_partitioning = make_shared[CDirectoryPartitioning](
-            pyarrow_unwrap_schema(schema),
+            deref(pyarrow_unwrap_schema(schema)),
             _partitioning_dictionaries(schema, dictionaries),
             c_options,
         )
@@ -2223,7 +2218,7 @@ cdef class HivePartitioning(Partitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         c_partitioning = make_shared[CHivePartitioning](
-            pyarrow_unwrap_schema(schema),
+            deref(pyarrow_unwrap_schema(schema)),
             _partitioning_dictionaries(schema, dictionaries),
             c_options,
         )

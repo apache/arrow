@@ -175,7 +175,7 @@ TEST_F(FileSystemDatasetFactoryTest, ExplicitPartition) {
   selector_.base_dir = "a=ignored/base";
   auto part_field = field("a", int32());
   factory_options_.partitioning =
-      std::make_shared<HivePartitioning>(schema({part_field}));
+      std::make_shared<HivePartitioning>(*schema({part_field}));
 
   auto a_1 = "a=ignored/base/a=1";
   MakeFactory({fs::File(a_1)});
@@ -209,7 +209,7 @@ TEST_F(FileSystemDatasetFactoryTest, MissingDirectories) {
 
   factory_options_.partition_base_dir = "base_dir";
   factory_options_.partitioning = std::make_shared<HivePartitioning>(
-      schema({field("a", int32()), field("b", int32())}));
+      *schema({field("a", int32()), field("b", int32())}));
 
   auto paths = std::vector<std::string>{partition_path, unpartition_path};
 
@@ -363,7 +363,7 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
   // specifically chosen such that parsing would fail given a non-integer
   // string.
   auto s = schema({field("first", utf8()), field("second", int32())});
-  factory_options_.partitioning = std::make_shared<DirectoryPartitioning>(s);
+  factory_options_.partitioning = std::make_shared<DirectoryPartitioning>(*s);
 
   selector_.recursive = true;
   // The file doesn't have a directory component for the second partition
@@ -382,7 +382,7 @@ TEST_F(FileSystemDatasetFactoryTest, FilenameNotPartOfPartitions) {
 
 TEST_F(FileSystemDatasetFactoryTest, UnparseablePartitionExpression) {
   auto s = schema({field("first", int32()), field("second", int32())});
-  factory_options_.partitioning = std::make_shared<HivePartitioning>(s);
+  factory_options_.partitioning = std::make_shared<HivePartitioning>(*s);
   selector_.recursive = true;
 
   for (auto pathlist : {"first=one/file.parquet", "second=one/file.parquet",

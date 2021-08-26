@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <ciso646>
 #include <functional>
@@ -27,9 +30,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -612,9 +612,9 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
 
     auto reader_without_i32 = this->GetRecordBatchReader(schema({f64, i64, f32}));
     auto reader_without_f64 = this->GetRecordBatchReader(schema({i64, f32, i32}));
-    auto reader = this->GetRecordBatchReader(schema({f64, i64, f32, i32}));
+    auto all_reader = this->GetRecordBatchReader(schema({f64, i64, f32, i32}));
 
-    auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
+    auto readers = {all_reader.get(), reader_without_i32.get(), reader_without_f64.get()};
     for (auto reader : readers) {
       SCOPED_TRACE(reader->schema()->ToString());
       auto source = this->GetFileSource(reader);
@@ -1026,7 +1026,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     FileSystemFactoryOptions options;
     options.selector_ignore_prefixes = {"."};
     options.partitioning = std::make_shared<HivePartitioning>(
-        SchemaFromColumnNames(source_schema_, {"year", "month"}));
+        *SchemaFromColumnNames(source_schema_, {"year", "month"}));
     ASSERT_OK_AND_ASSIGN(auto factory,
                          FileSystemDatasetFactory::Make(fs_, s, source_format, options));
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
@@ -1067,7 +1067,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void TestWriteWithIdenticalPartitioningSchema() {
     DoWrite(std::make_shared<DirectoryPartitioning>(
-        SchemaFromColumnNames(source_schema_, {"year", "month"})));
+        *SchemaFromColumnNames(source_schema_, {"year", "month"})));
 
     expected_files_["/new_root/2018/1/dat_0"] = R"([
         {"region": "NY", "model": "3", "sales": 742.0, "country": "US"},
@@ -1097,7 +1097,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void TestWriteWithUnrelatedPartitioningSchema() {
     DoWrite(std::make_shared<DirectoryPartitioning>(
-        SchemaFromColumnNames(source_schema_, {"country", "region"})));
+        *SchemaFromColumnNames(source_schema_, {"country", "region"})));
 
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
@@ -1131,7 +1131,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void TestWriteWithSupersetPartitioningSchema() {
     DoWrite(std::make_shared<DirectoryPartitioning>(
-        SchemaFromColumnNames(source_schema_, {"year", "month", "country", "region"})));
+        *SchemaFromColumnNames(source_schema_, {"year", "month", "country", "region"})));
 
     // XXX first thing a user will be annoyed by: we don't support left
     // padding the month field with 0.
@@ -1166,7 +1166,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void TestWriteWithEmptyPartitioningSchema() {
     DoWrite(std::make_shared<DirectoryPartitioning>(
-        SchemaFromColumnNames(source_schema_, {})));
+        *SchemaFromColumnNames(source_schema_, {})));
 
     expected_files_["/new_root/dat_0"] = R"([
         {"country": "US", "region": "NY", "year": 2018, "month": 1, "model": "3", "sales": 742.0},

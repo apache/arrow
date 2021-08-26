@@ -941,7 +941,9 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
 
     schemas.push_back(std::move(partition_schema));
   } else {
-    schemas.push_back(options_.partitioning.partitioning()->schema());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> part_schema,
+                          options_.partitioning.partitioning()->GetSchema());
+    schemas.push_back(std::move(part_schema));
   }
 
   return schemas;

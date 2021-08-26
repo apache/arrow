@@ -141,7 +141,7 @@ std::string CreateExampleParquetHivePartitionedDataset(
   // The partition schema determines which fields are part of the partitioning.
   auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
   // We'll use Hive-style partitioning, which creates directories with "key=value" pairs.
-  auto partitioning = std::make_shared<ds::HivePartitioning>(partition_schema);
+  auto partitioning = std::make_shared<ds::HivePartitioning>(*partition_schema);
   // We'll write Parquet files.
   auto format = std::make_shared<ds::ParquetFileFormat>();
   ds::FileSystemDatasetWriteOptions write_options;

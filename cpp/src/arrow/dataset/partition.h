@@ -78,16 +78,20 @@ class ARROW_DS_EXPORT Partitioning {
 
   virtual Result<std::string> Format(const compute::Expression& expr) const = 0;
 
+  /// \brief Creates a schema from the partitioning, only valid if the partitioning was
+  /// created with data types for all fields
+  Result<std::shared_ptr<Schema>> GetSchema() const;
+
   /// \brief A default Partitioning which always yields scalar(true)
   static std::shared_ptr<Partitioning> Default();
 
-  /// \brief The partition schema.
-  const std::shared_ptr<Schema>& schema() { return schema_; }
-
  protected:
-  explicit Partitioning(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+  Partitioning() = default;
+  explicit Partitioning(const Schema& schema);
+  explicit Partitioning(std::vector<std::string> field_names);
 
-  std::shared_ptr<Schema> schema_;
+  std::vector<std::string> field_names_;
+  std::vector<std::shared_ptr<DataType>> data_types_;
 };
 
 /// \brief The encoding of partition segments.
@@ -175,15 +179,19 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
  protected:
-  KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
+  KeyValuePartitioning(const Schema& schema, ArrayVector dictionaries,
                        KeyValuePartitioningOptions options)
-      : Partitioning(std::move(schema)),
-        dictionaries_(std::move(dictionaries)),
-        options_(options) {
+      : Partitioning(schema), dictionaries_(std::move(dictionaries)), options_(options) {
     if (dictionaries_.empty()) {
-      dictionaries_.resize(schema_->num_fields());
+      dictionaries_.resize(field_names_.size());
     }
   }
+
+  KeyValuePartitioning(std::vector<std::string> field_names,
+                       KeyValuePartitioningOptions options)
+      : Partitioning(std::move(field_names)),
+        dictionaries_(field_names_.size()),
+        options_(options) {}
 
   virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
 
@@ -206,8 +214,10 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  public:
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
-  explicit DirectoryPartitioning(std::shared_ptr<Schema> schema,
-                                 ArrayVector dictionaries = {},
+  explicit DirectoryPartitioning(const Schema& schema, ArrayVector dictionaries = {},
+                                 KeyValuePartitioningOptions options = {});
+
+  explicit DirectoryPartitioning(std::vector<std::string> field_names,
                                  KeyValuePartitioningOptions options = {});
 
   std::string type_name() const override { return "schema"; }
@@ -251,17 +261,24 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
  public:
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
-  explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
+  explicit HivePartitioning(const Schema& schema, ArrayVector dictionaries = {},
                             std::string null_fallback = kDefaultHiveNullFallback)
-      : KeyValuePartitioning(std::move(schema), std::move(dictionaries),
+      : KeyValuePartitioning(schema, std::move(dictionaries),
                              KeyValuePartitioningOptions()),
         hive_options_(
             HivePartitioningOptions::DefaultsWithNullFallback(std::move(null_fallback))) {
   }
 
-  explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
-                            HivePartitioningOptions options)
-      : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options),
+  explicit HivePartitioning(std::vector<std::string> field_names,
+                            std::string null_fallback = kDefaultHiveNullFallback)
+      : KeyValuePartitioning(std::move(field_names), KeyValuePartitioningOptions()),
+        hive_options_(
+            HivePartitioningOptions::DefaultsWithNullFallback(std::move(null_fallback))) {
+  }
+
+  explicit HivePartitioning(const Schema& schema, ArrayVector dictionaries,
+                            const HivePartitioningOptions& options)
+      : KeyValuePartitioning(schema, std::move(dictionaries), options),
         hive_options_(options) {}
 
   std::string type_name() const override { return "hive"; }
@@ -289,9 +306,9 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   using FormatImpl = std::function<Result<std::string>(const compute::Expression&)>;
 
-  FunctionPartitioning(std::shared_ptr<Schema> schema, ParseImpl parse_impl,
+  FunctionPartitioning(const Schema& schema, ParseImpl parse_impl,
                        FormatImpl format_impl = NULLPTR, std::string name = "function")
-      : Partitioning(std::move(schema)),
+      : Partitioning(schema),
         parse_impl_(std::move(parse_impl)),
         format_impl_(std::move(format_impl)),
         name_(std::move(name)) {}
