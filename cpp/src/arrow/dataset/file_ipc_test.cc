@@ -37,9 +37,10 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-namespace dataset {
 
 using internal::checked_pointer_cast;
+
+namespace dataset {
 
 class IpcFormatHelper {
  public:

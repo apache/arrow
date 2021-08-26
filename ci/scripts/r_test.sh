@@ -41,12 +41,12 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
     export NOT_CRAN=true
   fi
 fi
-: ${TEST_R_WITH_ARROW:=TRUE}
-export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
-# --run-donttest was used in R < 4.0, this is used now
-export _R_CHECK_DONTTEST_EXAMPLES_=$TEST_R_WITH_ARROW
+if [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
+  # --run-donttest was used in R < 4.0, this is used now
+  export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
+fi
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE

@@ -219,10 +219,15 @@ struct OrderBySinkNode final : public SinkNode {
   std::vector<std::shared_ptr<RecordBatch>> batches_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterSink("sink", SinkNode::Make);
-ExecFactoryRegistry::AddOnLoad kRegisterOrderBySink("order_by_sink",
-                                                    OrderBySinkNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterSinkNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::Make));
+  DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

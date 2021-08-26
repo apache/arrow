@@ -20,6 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace compute {
@@ -34,33 +35,77 @@ Status ListFlatten(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::OK();
 }
 
-template <typename Type, typename offset_type = typename Type::offset_type>
-Status ListParentIndices(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  typename TypeTraits<Type>::ArrayType list(batch[0].array());
-  ArrayData* out_arr = out->mutable_array();
+struct ListParentIndicesArray {
+  KernelContext* ctx;
+  const std::shared_ptr<ArrayData>& input;
+  int64_t base_output_offset;
+  std::shared_ptr<ArrayData> out;
 
-  const offset_type* offsets = list.raw_value_offsets();
-  offset_type values_length = offsets[list.length()] - offsets[0];
+  template <typename Type, typename offset_type = typename Type::offset_type>
+  Status VisitList(const Type&) {
+    typename TypeTraits<Type>::ArrayType list(input);
 
-  out_arr->length = values_length;
-  out_arr->null_count = 0;
-  ARROW_ASSIGN_OR_RAISE(out_arr->buffers[1],
-                        ctx->Allocate(values_length * sizeof(offset_type)));
-  auto out_indices = reinterpret_cast<offset_type*>(out_arr->buffers[1]->mutable_data());
-  for (int64_t i = 0; i < list.length(); ++i) {
-    // Note: In most cases, null slots are empty, but when they are non-empty
-    // we write out the indices so make sure they are accounted for. This
-    // behavior could be changed if needed in the future.
-    for (offset_type j = offsets[i]; j < offsets[i + 1]; ++j) {
-      *out_indices++ = static_cast<offset_type>(i);
+    const offset_type* offsets = list.raw_value_offsets();
+    offset_type values_length = offsets[list.length()] - offsets[0];
+
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          ctx->Allocate(values_length * sizeof(offset_type)));
+    auto out_indices = reinterpret_cast<offset_type*>(indices->mutable_data());
+    for (int64_t i = 0; i < list.length(); ++i) {
+      // Note: In most cases, null slots are empty, but when they are non-empty
+      // we write out the indices so make sure they are accounted for. This
+      // behavior could be changed if needed in the future.
+      for (offset_type j = offsets[i]; j < offsets[i + 1]; ++j) {
+        *out_indices++ = static_cast<offset_type>(i + base_output_offset);
+      }
     }
-  }
-  return Status::OK();
-}
 
-Result<ValueDescr> ValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
+    BufferVector buffers{nullptr, std::move(indices)};
+    int64_t null_count = 0;
+    if (sizeof(offset_type) == 4) {
+      out = std::make_shared<ArrayData>(int32(), values_length, std::move(buffers),
+                                        null_count);
+    } else {
+      out = std::make_shared<ArrayData>(int64(), values_length, std::move(buffers),
+                                        null_count);
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const ListType& type) { return VisitList(type); }
+
+  Status Visit(const LargeListType& type) { return VisitList(type); }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("Function 'list_parent_indices' expects list input, got ",
+                             type.ToString());
+  }
+
+  static Result<std::shared_ptr<ArrayData>> Exec(KernelContext* ctx,
+                                                 const std::shared_ptr<ArrayData>& input,
+                                                 int64_t base_output_offset = 0) {
+    ListParentIndicesArray self{ctx, input, base_output_offset, /*out=*/nullptr};
+    RETURN_NOT_OK(VisitTypeInline(*input->type, &self));
+    DCHECK_NE(self.out, nullptr);
+    return self.out;
+  }
+};
+
+Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
   const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
   return ValueDescr::Array(list_type.value_type());
+}
+
+Result<std::shared_ptr<DataType>> ListParentIndicesType(const DataType& input_type) {
+  switch (input_type.id()) {
+    case Type::LIST:
+      return int32();
+    case Type::LARGE_LIST:
+      return int64();
+    default:
+      return Status::TypeError("Function 'list_parent_indices' expects list input, got ",
+                               input_type.ToString());
+  }
 }
 
 const FunctionDoc list_flatten_doc(
@@ -77,24 +122,53 @@ const FunctionDoc list_parent_indices_doc(
      "is emitted."),
     {"lists"});
 
+class ListParentIndicesFunction : public MetaFunction {
+ public:
+  ListParentIndicesFunction()
+      : MetaFunction("list_parent_indices", Arity::Unary(), &list_parent_indices_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    KernelContext kernel_ctx(ctx);
+    switch (args[0].kind()) {
+      case Datum::ARRAY:
+        return ListParentIndicesArray::Exec(&kernel_ctx, args[0].array());
+      case Datum::CHUNKED_ARRAY: {
+        const auto& input = args[0].chunked_array();
+        ARROW_ASSIGN_OR_RAISE(auto out_ty, ListParentIndicesType(*input->type()));
+
+        int64_t base_output_offset = 0;
+        ArrayVector out_chunks;
+        for (const auto& chunk : input->chunks()) {
+          ARROW_ASSIGN_OR_RAISE(auto out_chunk,
+                                ListParentIndicesArray::Exec(&kernel_ctx, chunk->data(),
+                                                             base_output_offset));
+          out_chunks.push_back(MakeArray(std::move(out_chunk)));
+          base_output_offset += chunk->length();
+        }
+        return std::make_shared<ChunkedArray>(std::move(out_chunks), std::move(out_ty));
+      }
+      default:
+        return Status::NotImplemented(
+            "Unsupported input type for function 'list_parent_indices': ",
+            args[0].ToString());
+    }
+  }
+};
+
 }  // namespace
 
 void RegisterVectorNested(FunctionRegistry* registry) {
   auto flatten =
       std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), &list_flatten_doc);
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ValuesType),
+  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ListValuesType),
                                ListFlatten<ListType>));
   DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LARGE_LIST)},
-                               OutputType(ValuesType), ListFlatten<LargeListType>));
+                               OutputType(ListValuesType), ListFlatten<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
 
-  auto list_parent_indices = std::make_shared<VectorFunction>(
-      "list_parent_indices", Arity::Unary(), &list_parent_indices_doc);
-  DCHECK_OK(list_parent_indices->AddKernel({InputType::Array(Type::LIST)}, int32(),
-                                           ListParentIndices<ListType>));
-  DCHECK_OK(list_parent_indices->AddKernel({InputType::Array(Type::LARGE_LIST)}, int64(),
-                                           ListParentIndices<LargeListType>));
-  DCHECK_OK(registry->AddFunction(std::move(list_parent_indices)));
+  DCHECK_OK(registry->AddFunction(std::make_shared<ListParentIndicesFunction>()));
 }
 
 }  // namespace internal

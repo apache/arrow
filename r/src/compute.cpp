@@ -222,6 +222,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  if (func_name == "is_null") {
+    using Options = arrow::compute::NullOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["nan_is_null"])) {
+      out->nan_is_null = cpp11::as_cpp<bool>(options["nan_is_null"]);
+    }
+    return out;
+  }
+
   if (func_name == "dictionary_encode") {
     using Options = arrow::compute::DictionaryEncodeOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
@@ -350,7 +359,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      step);
   }
 
-  if (func_name == "variance" || func_name == "stddev") {
+  if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" ||
+      func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
     return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
   }

@@ -126,8 +126,14 @@ class ProjectNode : public ExecNode {
   std::vector<Expression> exprs_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterProject("project", ProjectNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterProjectNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("project", ProjectNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

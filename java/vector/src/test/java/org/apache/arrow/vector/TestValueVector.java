@@ -2371,8 +2371,8 @@ public class TestValueVector {
 
   @Test
   public void testZeroVectorEquals() {
-    try (final ZeroVector vector1 = new ZeroVector();
-        final ZeroVector vector2 = new ZeroVector()) {
+    try (final ZeroVector vector1 = new ZeroVector("vector");
+        final ZeroVector vector2 = new ZeroVector("vector")) {
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
       assertTrue(visitor.vectorEquals(vector1, vector2));
@@ -2382,13 +2382,18 @@ public class TestValueVector {
   @Test
   public void testZeroVectorNotEquals() {
     try (final IntVector intVector = new IntVector("int", allocator);
-        final ZeroVector zeroVector = new ZeroVector()) {
+        final ZeroVector zeroVector = new ZeroVector("zero");
+        final ZeroVector zeroVector1 = new ZeroVector("zero1")) {
 
       VectorEqualsVisitor zeroVisitor = new VectorEqualsVisitor();
       assertFalse(zeroVisitor.vectorEquals(intVector, zeroVector));
 
       VectorEqualsVisitor intVisitor = new VectorEqualsVisitor();
       assertFalse(intVisitor.vectorEquals(zeroVector, intVector));
+
+      VectorEqualsVisitor twoZeroVisitor = new VectorEqualsVisitor();
+      // they are not equal because of distinct names
+      assertFalse(twoZeroVisitor.vectorEquals(zeroVector, zeroVector1));
     }
   }
 

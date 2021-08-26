@@ -49,13 +49,7 @@ is.infinite.ArrowDatum <- function(x) {
 
 #' @export
 is.na.ArrowDatum <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (x$type_id() %in% TYPES_WITH_NAN) {
-    call_function("is_nan", x) | call_function("is_null", x)
-  } else {
-    call_function("is_null", x)
-  }
+  call_function("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 #' @export
