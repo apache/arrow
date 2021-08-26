@@ -285,6 +285,10 @@ std::vector<CoalesceParams> g_coalesce_params = {
     {kNumItems, 4, 0.01},
     {kNumItems, 2, 0.25},
     {kNumItems, 4, 0.25},
+    {kNumItems, 2, 0.50},
+    {kNumItems, 4, 0.50},
+    {kNumItems, 2, 0.99},
+    {kNumItems, 4, 0.99},
 };
 
 struct CoalesceArgs : public CoalesceParams {
