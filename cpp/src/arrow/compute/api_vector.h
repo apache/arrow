@@ -279,8 +279,32 @@ Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
 
 /// @TODO
 ARROW_EXPORT
-Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
-                   ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<Array>> TopK(const ChunkedArray& values, int64_t k,
+                                    const std::string& keep = "first",
+                                    ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> TopK(const Datum& datum, int64_t k, SelectKOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> BottomK(const Array& values, int64_t k,
+                                       const std::string& keep = "first",
+                                       ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& values, int64_t k,
+                                       const std::string& keep = "first",
+                                       ExecContext* ctx = NULLPTR);
+
+/// @TODO
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> BottomK(const Datum& datum, int64_t k,
+                                       SelectKOptions options,
+                                       ExecContext* ctx = NULLPTR);
 
 /// \brief Returns the indices that would sort an array in the
 /// specified order.

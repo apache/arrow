@@ -38,7 +38,9 @@ class ARROW_EXPORT Heap {
 
   T* Data() { return values_.data(); }
 
-  const T& Top() const { return values_.front(); }
+  // const T& Top() const { return values_.front(); }
+
+  T Top() const { return values_.front(); }
 
   bool Empty() const { return values_.empty(); }
 
@@ -60,7 +62,9 @@ class ARROW_EXPORT Heap {
     std::push_heap(values_.begin(), values_.end(), comp_);
   }
 
- protected:
+  void SetComparator(const Compare& comp) { comp_ = comp; }
+
+ public:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Heap);
 
   std::vector<T> values_;

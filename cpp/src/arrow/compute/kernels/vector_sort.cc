@@ -17,8 +17,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <numeric>
+#include <queue>
 #include <type_traits>
 #include <utility>
 
@@ -26,6 +28,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
@@ -368,183 +371,233 @@ using SelectKOptionsState = internal::OptionsWrapper<SelectKOptions>;
 const auto kDefaultTopKOptions = SelectKOptions::TopKDefault();
 const auto kDefaultBottomKOptions = SelectKOptions::BottomKDefault();
 
-template <typename OutType, typename InType>
-struct ArraySelectNth {
-  using ArrayType = typename TypeTraits<InType>::ArrayType;
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    using GetView = GetViewType<InType>;
-
-    if (ctx->state() == nullptr) {
-      return Status::Invalid("NthToIndices requires PartitionNthOptions");
-    }
-
-    ArrayType arr(batch[0].array());
-
-    int64_t pivot = SelectKOptionsState::Get(ctx).k;
-    SortOrder order = SelectKOptionsState::Get(ctx).order;
-    std::string keep = SelectKOptionsState::Get(ctx).keep;
-    if (pivot > arr.length()) {
-      return Status::IndexError("NthToIndices index out of bound");
-    }
-    ArrayData* out_arr = out->mutable_array();
-    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
-    uint64_t* out_end = out_begin + arr.length();
-    std::iota(out_begin, out_end, 0);
-    if (pivot == arr.length()) {
-      return Status::OK();
-    }
-    auto nulls_begin =
-        PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr, 0);
-    auto nth_begin = out_begin + pivot;
-    if (nth_begin < nulls_begin) {
-      std::function<bool(uint64_t, uint64_t)> cmp;
-      if (order == SortOrder::Ascending) {
-        cmp = [&arr](uint64_t left, uint64_t right) -> bool {
-          const auto lval = GetView::LogicalValue(arr.GetView(left));
-          const auto rval = GetView::LogicalValue(arr.GetView(right));
-          return lval < rval;
-        };
-      } else {
-        cmp = [&arr](uint64_t left, uint64_t right) -> bool {
-          const auto lval = GetView::LogicalValue(arr.GetView(left));
-          const auto rval = GetView::LogicalValue(arr.GetView(right));
-          return rval < lval;
-        };
-      }
-      arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
-
-      for (uint64_t* iter = out_begin; iter != nth_begin; ++iter) {
-        heap.Push(*iter);
-      }
-      for (uint64_t* iter = out_begin; iter != nulls_begin; ++iter) {
-        uint64_t x_index = *iter;
-        const auto lval = GetView::LogicalValue(arr.GetView(x_index));
-        const auto rval = GetView::LogicalValue(arr.GetView(heap.Top()));
-        if (order == SortOrder::Ascending) {
-          if (keep == "first") {
-            if (lval < rval) {
-              heap.ReplaceTop(x_index);
-            }
-          }
-        } else {
-          if (rval < lval) {
-            heap.ReplaceTop(x_index);
-          }
-        }
-      }
-      std::copy(heap.Data(), heap.Data() + pivot, out_begin);
-    }
-    return Status::OK();
-  }
-};
-
 const FunctionDoc top_k_doc(
     "Return the indices that would partition an array array, record batch or table\n"
     "around a pivot",
-    ("@TODO"), {"input"}, "PartitionNthOptions");
+    ("@TODO"), {"input", "k"}, "PartitionNthOptions");
 
 const FunctionDoc bottom_k_doc(
     "Return the indices that would partition an array array, record batch or table\n"
     "around a pivot",
-    ("@TODO"), {"input"}, "PartitionNthOptions");
+    ("@TODO"), {"input", "k"}, "PartitionNthOptions");
 
-class ChunkedArraySelecter : public TypeVisitor {
+Result<std::shared_ptr<ArrayData>> MakeMutableArray(std::shared_ptr<DataType> out_type,
+                                                    int64_t length,
+                                                    MemoryPool* memory_pool) {
+  auto buffer_size = BitUtil::BytesForBits(
+      length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
+  std::vector<std::shared_ptr<Buffer>> buffers(2);
+  ARROW_ASSIGN_OR_RAISE(buffers[1], AllocateResizableBuffer(buffer_size, memory_pool));
+  auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
+  return out;
+}
+
+class ArraySelecter : public TypeVisitor {
  public:
-  ChunkedArraySelecter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-                       int64_t pivot, const ChunkedArray& chunked_array,
-                       const SortOrder order)
+  ArraySelecter(ExecContext* ctx, const Array& array, int64_t k, const SortOrder order,
+                Datum* output)
       : TypeVisitor(),
-        indices_begin_(indices_begin),
-        indices_end_(indices_end),
-        pivot_(pivot),
-        chunked_array_(chunked_array),
-        physical_type_(GetPhysicalType(chunked_array.type())),
-        physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
+        ctx_(ctx),
+        array_(array),
+        k_(k),
+        physical_type_(GetPhysicalType(array.type())),
         order_(order),
-        ctx_(ctx) {}
+        output_(output) {}
 
   Status Run() { return physical_type_->Accept(this); }
 
 #define VISIT(TYPE) \
-  Status Visit(const TYPE& type) { return SelectNthInternal<TYPE>(); }
+  Status Visit(const TYPE& type) { return SelectKthInternal<TYPE>(); }
 
   VISIT_PHYSICAL_TYPES(VISIT)
 
 #undef VISIT
 
   template <typename InType>
-  Status SelectNthInternal() {
+  Status SelectKthInternal() {
     using GetView = GetViewType<InType>;
+    using ArrayType = typename TypeTraits<InType>::ArrayType;
+
+    ArrayType arr(array_.data());
+    std::vector<uint64_t> indices(arr.length());
+
+    uint64_t* indices_begin = indices.data();
+    uint64_t* indices_end = indices_begin + indices.size();
+    std::iota(indices_begin, indices_end, 0);
+    if (k_ > arr.length()) {
+      k_ = arr.length();
+    }
+    auto end_iter = PartitionNulls<ArrayType, NonStablePartitioner>(indices_begin,
+                                                                    indices_end, arr, 0);
+    auto kth_begin = indices_begin + k_;
+    if (kth_begin > end_iter) {
+      kth_begin = end_iter;
+    }
+    std::function<bool(uint64_t, uint64_t)> cmp;
+    if (order_ == SortOrder::Ascending) {
+      cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+        const auto lval = GetView::LogicalValue(arr.GetView(left));
+        const auto rval = GetView::LogicalValue(arr.GetView(right));
+        return lval < rval;
+      };
+    } else {
+      cmp = [&arr](uint64_t left, uint64_t right) -> bool {
+        const auto lval = GetView::LogicalValue(arr.GetView(left));
+        const auto rval = GetView::LogicalValue(arr.GetView(right));
+        return rval < lval;
+      };
+    }
+    arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
+    uint64_t* iter = indices_begin;
+    for (; iter != kth_begin && heap.Size() < static_cast<size_t>(k_); ++iter) {
+      heap.Push(*iter);
+    }
+    for (; iter != end_iter && heap.Size() > 0; ++iter) {
+      uint64_t x_index = *iter;
+      const auto lval = GetView::LogicalValue(arr.GetView(x_index));
+      const auto rval = GetView::LogicalValue(arr.GetView(heap.Top()));
+      if (order_ == SortOrder::Ascending) {
+        if (lval < rval) {
+          heap.ReplaceTop(x_index);
+        }
+      } else {
+        if (rval < lval) {
+          heap.ReplaceTop(x_index);
+        }
+      }
+    }
+
+    int64_t out_size = static_cast<int64_t>(heap.Size());
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableArray(uint64(), out_size, ctx_->memory_pool()));
+
+    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
+    while (heap.Size() > 0) {
+      *out_cbegin = heap.Top();
+      heap.Pop();
+      --out_cbegin;
+    }
+    ARROW_ASSIGN_OR_RAISE(*output_, Take(array_, Datum(std::move(take_indices)),
+                                         TakeOptions::NoBoundsCheck(), ctx_));
+    return Status::OK();
+  }
+
+  ExecContext* ctx_;
+  const Array& array_;
+  int64_t k_;
+  const std::shared_ptr<DataType> physical_type_;
+  SortOrder order_;
+  Datum* output_;
+};
+
+class ChunkedArraySelecter : public TypeVisitor {
+ public:
+  ChunkedArraySelecter(ExecContext* ctx, int64_t k, const ChunkedArray& chunked_array,
+                       const SortOrder order, Datum* output)
+      : TypeVisitor(),
+        k_(k),
+        chunked_array_(chunked_array),
+        physical_type_(GetPhysicalType(chunked_array.type())),
+        physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
+        order_(order),
+        ctx_(ctx),
+        output_(output) {}
+
+  Status Run() { return physical_type_->Accept(this); }
+
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return SelectKthInternal<TYPE>(); }
+
+  VISIT_PHYSICAL_TYPES(VISIT)
+
+#undef VISIT
+
+  template <typename InType>
+  Status SelectKthInternal() {
+    using GetView = GetViewType<InType>;
+    using T = typename GetView::T;
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     const auto num_chunks = chunked_array_.num_chunks();
     if (num_chunks == 0) {
       return Status::OK();
     }
+    if (k_ > chunked_array_.length()) {
+      k_ = chunked_array_.length();
+    }
+    arrow::internal::Heap<T, std::greater<T>> heap;
 
     for (const auto& chunk : physical_chunks_) {
+      if (chunk->length() == 0) continue;
       ArrayType arr(chunk->data());
+      std::vector<uint64_t> indices(arr.length());
 
-      auto nulls_begin = PartitionNulls<ArrayType, NonStablePartitioner>(
-          indices_begin_, indices_end_, arr, 0);
+      uint64_t* indices_begin = indices.data();
+      uint64_t* indices_end = indices_begin + indices.size();
+      std::iota(indices_begin, indices_end, 0);
 
-      auto nth_begin = indices_begin_ + pivot_;
-      if (nth_begin < nulls_begin) {
-        std::function<bool(uint64_t, uint64_t)> cmp;
+      auto end_iter = PartitionNulls<ArrayType, NonStablePartitioner>(
+          indices_begin, indices_end, arr, 0);
+      auto kth_begin = indices_begin + k_;
+
+      if (kth_begin > end_iter) {
+        kth_begin = end_iter;
+      }
+      uint64_t* iter = indices_begin;
+      for (; iter != kth_begin && heap.Size() < static_cast<size_t>(k_); ++iter) {
+        const T xval = GetView::LogicalValue(arr.GetView(*iter));
+        heap.Push(xval);
+      }
+      for (; iter != end_iter && heap.Size() > 0; ++iter) {
+        uint64_t x_index = *iter;
+        const T xval = GetView::LogicalValue(arr.GetView(x_index));
+        const T& top_value = heap.Top();
         if (order_ == SortOrder::Ascending) {
-          cmp = [&arr](uint64_t left, uint64_t right) -> bool {
-            const auto lval = GetView::LogicalValue(arr.GetView(left));
-            const auto rval = GetView::LogicalValue(arr.GetView(right));
-            return lval < rval;
-          };
+          if (xval < top_value) {
+            heap.ReplaceTop(xval);
+          }
         } else {
-          cmp = [&arr](uint64_t left, uint64_t right) -> bool {
-            const auto lval = GetView::LogicalValue(arr.GetView(left));
-            const auto rval = GetView::LogicalValue(arr.GetView(right));
-            return rval < lval;
-          };
-        }
-        arrow::internal::Heap<uint64_t, decltype(cmp)> heap(cmp);
-
-        for (uint64_t* iter = indices_begin_; iter != nth_begin; ++iter) {
-          heap.Push(*iter);
-        }
-        for (uint64_t* iter = indices_begin_; iter != nulls_begin; ++iter) {
-          auto x = *iter;
-          if (x < heap.Top()) {
-            heap.ReplaceTop(x);
+          if (top_value < xval) {
+            heap.ReplaceTop(xval);
           }
         }
-        std::copy(heap.Data(), heap.Data() + pivot_, indices_begin_);
       }
     }
+    int64_t out_size = static_cast<int64_t>(heap.Size());
+    ARROW_ASSIGN_OR_RAISE(
+        auto out_array,
+        MakeMutableArray(chunked_array_.type(), out_size, ctx_->memory_pool()));
+    auto* out_cbegin = out_array->GetMutableValues<T>(1) + out_size - 1;
+    while (heap.Size() > 0) {
+      *out_cbegin = heap.Top();
+      heap.Pop();
+      --out_cbegin;
+    }
+    *output_ = Datum(out_array);
     return Status::OK();
   }
 
-  uint64_t* indices_begin_;
-  uint64_t* indices_end_;
-  int64_t pivot_;
+  int64_t k_;
   const ChunkedArray& chunked_array_;
   const std::shared_ptr<DataType> physical_type_;
   const ArrayVector physical_chunks_;
   const SortOrder order_;
   ExecContext* ctx_;
+  Datum* output_;
 };
 template <SortOrder sort_order>
-class SelectNthMetaFunction {
+class SelectKthMetaFunction {
  public:
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
-    const SelectKOptions& partition_options =
-        static_cast<const SelectKOptions&>(*options);
+    const SelectKOptions& select_k_options = static_cast<const SelectKOptions&>(*options);
 
     switch (args[0].kind()) {
       case Datum::ARRAY:
-        return SelectNth(*args[0].make_array(), partition_options, ctx);
+        return SelectKth(*args[0].make_array(), select_k_options, ctx);
         break;
       case Datum::CHUNKED_ARRAY:
-        return SelectNth(*args[0].chunked_array(), partition_options, ctx);
+        return SelectKth(*args[0].chunked_array(), select_k_options, ctx);
         break;
       default:
         break;
@@ -556,43 +609,32 @@ class SelectNthMetaFunction {
   }
 
  private:
-  Result<Datum> SelectNth(const Array& values, const SelectKOptions& options,
+  Result<Datum> SelectKth(const Array& array, const SelectKOptions& options,
                           ExecContext* ctx) const {
-    return CallFunction("partition_nth_indices_doc", {values}, &options, ctx);
+    Datum output;
+    ArraySelecter selecter(ctx, array, options.k, sort_order, &output);
+    ARROW_RETURN_NOT_OK(selecter.Run());
+    return output;
   }
 
-  Result<Datum> SelectNth(const ChunkedArray& chunked_array,
+  Result<Datum> SelectKth(const ChunkedArray& chunked_array,
                           const SelectKOptions& options, ExecContext* ctx) const {
-    int64_t pivot = options.k;
-    SortOrder order = sort_order;
-    auto out_type = uint64();
-    auto length = chunked_array.length();
-    auto buffer_size = BitUtil::BytesForBits(
-        length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
-    std::vector<std::shared_ptr<Buffer>> buffers(2);
-    ARROW_ASSIGN_OR_RAISE(buffers[1],
-                          AllocateResizableBuffer(buffer_size, ctx->memory_pool()));
-    auto out = std::make_shared<ArrayData>(out_type, length, buffers, 0);
-    auto out_begin = out->GetMutableValues<uint64_t>(1);
-    auto out_end = out_begin + length;
-    std::iota(out_begin, out_end, 0);
-
-    ChunkedArraySelecter partitioner(ctx, out_begin, out_end, pivot, chunked_array,
-                                     order);
+    Datum output;
+    ChunkedArraySelecter partitioner(ctx, options.k, chunked_array, sort_order, &output);
     ARROW_RETURN_NOT_OK(partitioner.Run());
-    return Datum(out);
+    return output;
   }
 };
 
 class TopKMetaFunction : public MetaFunction {
  public:
   TopKMetaFunction()
-      : MetaFunction("top_k", Arity::Unary(), &top_k_doc, &kDefaultTopKOptions) {}
+      : MetaFunction("top_k", Arity::Binary(), &top_k_doc, &kDefaultTopKOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    SelectNthMetaFunction</*sort_order=*/SortOrder::Descending> impl;
+    SelectKthMetaFunction</*sort_order=*/SortOrder::Descending> impl;
     return impl.ExecuteImpl(args, options, ctx);
   }
 };
@@ -600,11 +642,11 @@ class TopKMetaFunction : public MetaFunction {
 class BottomKMetaFunction : public MetaFunction {
  public:
   BottomKMetaFunction()
-      : MetaFunction("bottom_k", Arity::Unary(), &top_k_doc, &kDefaultBottomKOptions) {}
+      : MetaFunction("bottom_k", Arity::Binary(), &top_k_doc, &kDefaultBottomKOptions) {}
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    SelectNthMetaFunction</*sort_order=*/SortOrder::Ascending> impl;
+    SelectKthMetaFunction</*sort_order=*/SortOrder::Ascending> impl;
     return impl.ExecuteImpl(args, options, ctx);
   }
 };
@@ -2055,11 +2097,6 @@ const FunctionDoc partition_nth_indices_doc(
      "The pivot index `N` must be given in PartitionNthOptions."),
     {"array"}, "PartitionNthOptions");
 
-const FunctionDoc array_top_k_doc("Return the indices that would sort an array",
-                                  ("@TODO."), {"array"}, "ArraySortOptions");
-
-const FunctionDoc array_bottom_k_doc("Return the indices that would sort an array",
-                                     ("@TODO"), {"array"}, "ArraySortOptions");
 }  // namespace
 
 void RegisterVectorSort(FunctionRegistry* registry) {
@@ -2085,19 +2122,9 @@ void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));
 
   // top_k
-  auto part_topk = std::make_shared<VectorFunction>("array_top_k", Arity::Unary(),
-                                                    &array_bottom_k_doc);
-  base.init = SelectKOptionsState::Init;
-  AddSortingKernels<ArraySelectNth>(base, part_topk.get());
-  DCHECK_OK(registry->AddFunction(std::move(part_topk)));
   DCHECK_OK(registry->AddFunction(std::make_shared<TopKMetaFunction>()));
 
   // bottom_k
-  auto part_bottomk =
-      std::make_shared<VectorFunction>("array_bottom_k", Arity::Unary(), &bottom_k_doc);
-  base.init = SelectKOptionsState::Init;
-  AddSortingKernels<ArraySelectNth>(base, part_bottomk.get());
-  DCHECK_OK(registry->AddFunction(std::move(part_bottomk)));
   DCHECK_OK(registry->AddFunction(std::make_shared<BottomKMetaFunction>()));
 }
 

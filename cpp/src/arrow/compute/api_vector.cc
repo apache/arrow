@@ -178,18 +178,52 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
                                     const std::string& keep, ExecContext* ctx) {
-  SelectKOptions options(k, {}, keep);
+  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
   ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("array_top_k", {Datum(values)}, &options, ctx));
+                        CallFunction("top_k", {values, Datum(k)}, &options, ctx));
   return result.make_array();
 }
 
-Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
-                   ExecContext* ctx) {
-  options.k = k;
+Result<std::shared_ptr<Array>> TopK(const ChunkedArray& values, int64_t k,
+                                    const std::string& keep, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
   ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("top_k", {Datum(datum)}, &options, ctx));
-  return result;
+                        CallFunction("top_k", {Datum(values), Datum(k)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> TopK(const Datum& datum, int64_t k, SelectKOptions options,
+                                    ExecContext* ctx) {
+  options.k = k;
+  options.order = SortOrder::Ascending;
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("top_k", {datum, Datum(k)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> BottomK(const Array& values, int64_t k,
+                                       const std::string& keep, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("bottom_k", {values, Datum(k)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& values, int64_t k,
+                                       const std::string& keep, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("bottom_k", {Datum(values), Datum(k)}, &options, ctx));
+  return result.make_array();
+}
+
+Result<std::shared_ptr<Array>> BottomK(const Datum& datum, int64_t k,
+                                       SelectKOptions options, ExecContext* ctx) {
+  options.k = k;
+  options.order = SortOrder::Ascending;
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("bottom_k", {datum, Datum(k)}, &options, ctx));
+  return result.make_array();
 }
 
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,

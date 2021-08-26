@@ -86,84 +86,83 @@ Decimal256 GetLogicalValue(const Decimal256Array& array, uint64_t index) {
 }
 
 }  // namespace
-template <typename ArrayType>
-class NthComparator {
+
+template <typename ArrayType, SortOrder order>
+class SelectKComparator {
  public:
-  bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
-    const auto lval = GetLogicalValue(array, lhs);
-    const auto rval = GetLogicalValue(array, rhs);
+  template <typename Type>
+  bool operator()(const Type& lval, const Type& rval) {
     if (is_floating_type<typename ArrayType::TypeClass>::value) {
       // NaNs ordered after non-NaNs
       if (rval != rval) return true;
       if (lval != lval) return false;
     }
-    return lval <= rval;
-  }
-};
-
-template <typename ArrayType>
-class SortComparator {
- public:
-  bool operator()(const ArrayType& array, SortOrder order, uint64_t lhs, uint64_t rhs) {
-    if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
-    if (array.IsNull(rhs)) return true;
-    if (array.IsNull(lhs)) return false;
-    const auto lval = GetLogicalValue(array, lhs);
-    const auto rval = GetLogicalValue(array, rhs);
-    if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      const bool lhs_isnan = lval != lval;
-      const bool rhs_isnan = rval != rval;
-      if (lhs_isnan && rhs_isnan) return lhs < rhs;
-      if (rhs_isnan) return true;
-      if (lhs_isnan) return false;
-    }
-    if (lval == rval) return lhs < rhs;
     if (order == SortOrder::Ascending) {
-      return lval < rval;
+      return lval <= rval;
     } else {
-      return lval > rval;
+      return rval <= lval;
     }
   }
 };
 
+template <SortOrder order>
+Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
+  if (order == SortOrder::Descending) {
+    return TopK(values, k);
+  } else {
+    return BottomK(values, k);
+  }
+}
+
+template <SortOrder order>
+Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
+  if (order == SortOrder::Descending) {
+    return TopK(values, k);
+  } else {
+    return BottomK(values, k);
+  }
+}
 template <typename ArrowType>
 class TestSelectKBase : public TestBase {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  protected:
-  void Validate(const ArrayType& array, int n, UInt64Array& offsets) {
-    if (n >= array.length()) {
-      for (int i = 0; i < array.length(); ++i) {
-        ASSERT_TRUE(offsets.Value(i) == (uint64_t)i);
-      }
-    } else {
-      NthComparator<ArrayType> compare;
-      uint64_t nth = offsets.Value(n);
+  void Validate(const ArrayType& array, int k, ArrayType& select_k, SortOrder order) {
+    ASSERT_OK_AND_ASSIGN(auto sorted_indices, SortIndices(array, order));
+    ASSERT_OK_AND_ASSIGN(Datum sorted_datum,
+                         Take(array, sorted_indices, TakeOptions::NoBoundsCheck()));
+    std::shared_ptr<Array> sorted_array_out = sorted_datum.make_array();
 
-      for (int i = 0; i < n; ++i) {
-        uint64_t lhs = offsets.Value(i);
-        ASSERT_TRUE(compare(array, lhs, nth));
-      }
-      for (int i = n + 1; i < array.length(); ++i) {
-        uint64_t rhs = offsets.Value(i);
-        ASSERT_TRUE(compare(array, nth, rhs));
+    const ArrayType& sorted_array = *checked_pointer_cast<ArrayType>(sorted_array_out);
+
+    if (k < array.length()) {
+      for (uint64_t i = 0; i < (uint64_t)select_k.length(); ++i) {
+        const auto lval = GetLogicalValue(select_k, i);
+        const auto rval = GetLogicalValue(sorted_array, i);
+        ASSERT_TRUE(lval == rval);
       }
     }
   }
-
+  template <SortOrder order>
   void AssertSelectKArray(const std::shared_ptr<Array> values, int n) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, TopK(*values, n));
-    // null_count field should have been initialized to 0, for convenience
-    ASSERT_EQ(offsets->data()->null_count, 0);
-    ValidateOutput(*offsets);
+    std::shared_ptr<Array> select_k;
+    ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(*values, n));
+    ASSERT_EQ(select_k->data()->null_count, 0);
+    ValidateOutput(*select_k);
     Validate(*checked_pointer_cast<ArrayType>(values), n,
-             *checked_pointer_cast<UInt64Array>(offsets));
+             *checked_pointer_cast<ArrayType>(select_k), order);
+  }
+
+  void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
+    AssertSelectKArray<SortOrder::Descending>(values, n);
+  }
+  void AssertBottomKArray(const std::shared_ptr<Array> values, int n) {
+    AssertSelectKArray<SortOrder::Descending>(values, n);
   }
 
   void AssertSelectKJson(const std::string& values, int n) {
-    AssertSelectKArray(ArrayFromJSON(GetType(), values), n);
+    AssertTopKArray(ArrayFromJSON(GetType(), values), n);
+    AssertBottomKArray(ArrayFromJSON(GetType(), values), n);
   }
 
   virtual std::shared_ptr<DataType> GetType() = 0;
@@ -228,6 +227,8 @@ TYPED_TEST(TestSelectKForIntegral, Integral) {
   this->AssertSelectKJson("[null, 1, 3, null, 2, 5]", 2);
   this->AssertSelectKJson("[null, 1, 3, null, 2, 5]", 5);
   this->AssertSelectKJson("[null, 1, 3, null, 2, 5]", 6);
+
+  this->AssertSelectKJson("[2, 4, 5, 7, 8, 0, 9, 1, 3]", 5);
 }
 
 TYPED_TEST(TestSelectKForBool, Bool) {
@@ -355,9 +356,209 @@ TYPED_TEST(TestSelectKRandom, RandomValues) {
     // Try n from 0 to out of bound
     for (int n = 0; n <= length; ++n) {
       auto array = rand.Generate(length, null_probability);
-      this->AssertSelectKArray(array, n);
+      this->AssertTopKArray(array, n);
+      this->AssertBottomKArray(array, n);
     }
   }
+}
+
+template <SortOrder order>
+struct SelectKWithChunkedArray : public ::testing::Test {
+  SelectKWithChunkedArray()
+      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+
+  void Check(const std::shared_ptr<DataType>& type,
+             const std::vector<std::string>& values, int64_t k,
+             const std::string& expected) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(this->DoSelectK(type, values, k, &actual));
+    ValidateOutput(actual);
+
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  }
+
+  void Check(const std::shared_ptr<DataType>& type,
+             const std::shared_ptr<ChunkedArray>& values, int64_t k,
+             const std::string& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, SelectK<order>(*values, k));
+    ValidateOutput(actual);
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  }
+
+  Status DoSelectK(const std::shared_ptr<DataType>& type,
+                   const std::vector<std::string>& values, int64_t k,
+                   std::shared_ptr<Array>* out) {
+    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*(ChunkedArrayFromJSON(type, values)), k));
+    return Status::OK();
+  }
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
+};
+
+struct TopKWithChunkedArray : public SelectKWithChunkedArray<SortOrder::Descending> {};
+
+TEST_F(TopKWithChunkedArray, Int8) {
+  this->Check(int8(), {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[10, 9, 7]");
+  this->Check(int8(), {"[]", "[]"}, 0, "[]");
+  this->Check(float32(), {"[]"}, 0, "[]");
+}
+
+TEST_F(TopKWithChunkedArray, Null) {
+  this->Check(int8(), {"[null]", "[8, null]"}, 1, "[8]");
+
+  this->Check(int8(), {"[null]", "[null, null]"}, 0, "[]");
+  this->Check(int32(), {"[0, null, 9]", "[3, null, 2, null, 10]"}, 3, "[10, 9, 3]");
+  this->Check(int8(), {"[null]", "[]"}, 0, "[]");
+}
+
+TEST_F(TopKWithChunkedArray, NaN) {
+  this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
+
+  this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
+  this->Check(float32(), {"[0, NaN, 9]", "[3, NaN, 2, NaN, 10]"}, 3, "[10, 9, 3]");
+  this->Check(float32(), {"[NaN]", "[]"}, 0, "[]");
+}
+
+struct BottomKWithChunkedArray : public SelectKWithChunkedArray<SortOrder::Ascending> {};
+
+TEST_F(BottomKWithChunkedArray, Int8) {
+  this->Check(int8(), {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[0, 1, 2]");
+  this->Check(int8(), {"[]", "[]"}, 0, "[]");
+  this->Check(float32(), {"[]"}, 0, "[]");
+}
+
+TEST_F(BottomKWithChunkedArray, Null) {
+  this->Check(int8(), {"[null]", "[8, null]"}, 1, "[8]");
+
+  this->Check(int8(), {"[null]", "[null, null]"}, 0, "[]");
+  this->Check(int32(), {"[0, null, 9]", "[3, null, 2, null, 10]"}, 3, "[0, 2, 3]");
+  this->Check(int8(), {"[null]", "[]"}, 0, "[]");
+}
+
+TEST_F(BottomKWithChunkedArray, NaN) {
+  this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
+
+  this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
+  this->Check(float32(), {"[0, NaN, 9]", "[3, NaN, 2, NaN, 10]"}, 3, "[0, 2, 3]");
+  this->Check(float32(), {"[NaN]", "[]"}, 0, "[]");
+}
+
+template <typename ArrowType>
+class TopKWithChunkedArrayForTemporal : public TopKWithChunkedArray {
+ protected:
+  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+};
+TYPED_TEST_SUITE(TopKWithChunkedArrayForTemporal, TemporalArrowTypes);
+
+TYPED_TEST(TopKWithChunkedArrayForTemporal, NoNull) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      "[0, 1]",
+                                                      "[3, 2, 1]",
+                                                      "[5, 0]",
+                                                  });
+  this->Check(type, chunked_array, 3, "[5, 3, 2]");
+}
+
+template <typename ArrowType>
+class BottomKWithChunkedArrayForTemporal : public TopKWithChunkedArray {
+ protected:
+  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+};
+TYPED_TEST_SUITE(BottomKWithChunkedArrayForTemporal, TemporalArrowTypes);
+
+TYPED_TEST(BottomKWithChunkedArrayForTemporal, NoNull) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      "[0, 1]",
+                                                      "[3, 2, 1]",
+                                                      "[5, 0]",
+                                                  });
+  this->Check(type, chunked_array, 3, "[0, 1, 1]");
+}
+
+// Tests for decimal types
+template <typename ArrowType>
+class TopKWithChunkedArrayForDecimal : public TopKWithChunkedArray {
+ protected:
+  std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
+};
+TYPED_TEST_SUITE(TopKWithChunkedArrayForDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TopKWithChunkedArrayForDecimal, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(
+      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78", null])"});
+  this->Check(type, chunked_array, 3, R"(["456.78", "123.45", "-123.45"])");
+}
+
+using SortIndicesableTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType, StringType,
+                     Decimal128Type, BooleanType>;
+
+template <typename ArrayType, SortOrder order>
+void ValidateSelectK(const ArrayType& array) {
+  ValidateOutput(array);
+  SelectKComparator<ArrayType, order> compare;
+  for (int i = 1; i < array.length(); i++) {
+    const auto lval = GetLogicalValue(array, i - 1);
+    const auto rval = GetLogicalValue(array, i);
+    ASSERT_TRUE(compare(lval, rval));
+  }
+}
+// Base class for testing against random chunked array.
+template <typename Type, SortOrder order>
+struct SelectKWithChunkedArrayRandomBase : public ::testing::Test {
+  void TestChunkedArraySelectK(int length) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
+    for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
+      for (auto num_chunks : {1, 2, 5, 10, 40}) {
+        std::vector<std::shared_ptr<Array>> arrays;
+        for (int i = 0; i < num_chunks; ++i) {
+          auto array = this->GenerateArray(length / num_chunks, null_probability);
+          arrays.push_back(array);
+        }
+        ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make(arrays));
+        ASSERT_OK_AND_ASSIGN(auto top_k, SelectK<order>(*chunked_array, 5));
+        // Concatenates chunks to use existing ValidateSorted() for array.
+        ValidateSelectK<ArrayType, order>(*checked_pointer_cast<ArrayType>(top_k));
+      }
+    }
+  }
+
+  void SetUp() override { rand_ = new Random<Type>(0x5487655); }
+
+  void TearDown() override { delete rand_; }
+
+ protected:
+  std::shared_ptr<Array> GenerateArray(int length, double null_probability) {
+    return rand_->Generate(length, null_probability);
+  }
+
+ private:
+  Random<Type>* rand_;
+};
+
+// Long array with big value range
+template <typename Type>
+class TestTopKChunkedArrayRandom
+    : public SelectKWithChunkedArrayRandomBase<Type, SortOrder::Descending> {};
+
+TYPED_TEST_SUITE(TestTopKChunkedArrayRandom, SortIndicesableTypes);
+
+TYPED_TEST(TestTopKChunkedArrayRandom, TopK) { this->TestChunkedArraySelectK(1000); }
+
+template <typename Type>
+class TestBottomKChunkedArrayRandom
+    : public SelectKWithChunkedArrayRandomBase<Type, SortOrder::Ascending> {};
+
+TYPED_TEST_SUITE(TestBottomKChunkedArrayRandom, SortIndicesableTypes);
+
+TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) {
+  this->TestChunkedArraySelectK(1000);
 }
 
 }  // namespace compute
