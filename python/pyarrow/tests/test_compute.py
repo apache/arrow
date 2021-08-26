@@ -1496,10 +1496,18 @@ def test_strftime():
                 expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
                 assert result.equals(expected)
 
+        fmt = "%Y-%m-%dT%H:%M:%S"
+
         # Default format
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions())
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%S")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
+        assert result.equals(expected)
+
+        # Default format plus timezone
+        tsa = pa.array(ts, type=pa.timestamp("s", timezone))
+        result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt + "%Z")))
         assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
@@ -1518,9 +1526,9 @@ def test_strftime():
 
         # Test setting locale
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
-        options = pc.StrftimeOptions("%Y-%m-%dT%H:%M:%S", "C")
+        options = pc.StrftimeOptions(fmt, "C")
         result = pc.strftime(tsa, options=options)
-        expected = pa.array(_fix_timestamp(ts.strftime("%Y-%m-%dT%H:%M:%S")))
+        expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
         assert result.equals(expected)
 
     # Test timestamps without timezone
@@ -1531,11 +1539,13 @@ def test_strftime():
     expected = pa.array(_fix_timestamp(ts.strftime(fmt)))
 
     assert result.equals(expected)
-    with pytest.raises(pa.ArrowInvalid,
-                       match="Timezone not present, cannot print:"):
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string:"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
-    with pytest.raises(pa.ArrowInvalid,
-                       match="Timezone not present, cannot print:"):
+    with pytest.raises(
+            pa.ArrowInvalid,
+            match="Timezone not present, cannot convert to string:"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 

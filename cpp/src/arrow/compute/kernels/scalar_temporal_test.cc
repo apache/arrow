@@ -421,10 +421,12 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
   CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), seconds, utf8(), seconds,
                    &options_default);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid: Timezone not present, cannot print"),
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
       Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%z")));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Invalid: Timezone not present, cannot print"),
+      Invalid,
+      testing::HasSubstr("Invalid: Timezone not present, cannot convert to string"),
       Strftime(arr, StrftimeOptions("%Y-%m-%dT%H:%M:%S%Z")));
 }
 
