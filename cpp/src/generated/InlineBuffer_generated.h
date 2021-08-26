@@ -948,6 +948,36 @@ inline bool VerifyInlineBufferImplVector(flatbuffers::Verifier &verifier, const 
   return true;
 }
 
+inline const org::apache::arrow::computeir::flatbuf::InlineBuffer *GetInlineBuffer(const void *buf) {
+  return flatbuffers::GetRoot<org::apache::arrow::computeir::flatbuf::InlineBuffer>(buf);
+}
+
+inline const org::apache::arrow::computeir::flatbuf::InlineBuffer *GetSizePrefixedInlineBuffer(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<org::apache::arrow::computeir::flatbuf::InlineBuffer>(buf);
+}
+
+inline bool VerifyInlineBufferBuffer(
+    flatbuffers::Verifier &verifier) {
+  return verifier.VerifyBuffer<org::apache::arrow::computeir::flatbuf::InlineBuffer>(nullptr);
+}
+
+inline bool VerifySizePrefixedInlineBufferBuffer(
+    flatbuffers::Verifier &verifier) {
+  return verifier.VerifySizePrefixedBuffer<org::apache::arrow::computeir::flatbuf::InlineBuffer>(nullptr);
+}
+
+inline void FinishInlineBufferBuffer(
+    flatbuffers::FlatBufferBuilder &fbb,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::InlineBuffer> root) {
+  fbb.Finish(root);
+}
+
+inline void FinishSizePrefixedInlineBufferBuffer(
+    flatbuffers::FlatBufferBuilder &fbb,
+    flatbuffers::Offset<org::apache::arrow::computeir::flatbuf::InlineBuffer> root) {
+  fbb.FinishSizePrefixed(root);
+}
+
 }  // namespace flatbuf
 }  // namespace computeir
 }  // namespace arrow
