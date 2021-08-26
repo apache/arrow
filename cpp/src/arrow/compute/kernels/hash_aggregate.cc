@@ -2062,11 +2062,11 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
     } else if (options_.mode == CountOptions::ONLY_VALID) {
       int32_t prev_offset = offsets[0];
       for (int64_t i = 0; i < list->length(); i++) {
-        const int64_t slot_length = offsets[i + 1] - prev_offset;
+        const int32_t slot_length = offsets[i + 1] - prev_offset;
         const int64_t null_count =
             slot_length - arrow::internal::CountSetBits(values->null_bitmap()->data(),
                                                         prev_offset, slot_length);
-        const int64_t offset = null_count > 0 ? slot_length - 1 : slot_length;
+        const int32_t offset = null_count > 0 ? slot_length - 1 : slot_length;
         prev_offset = offsets[i + 1];
         offsets[i + 1] = offsets[i] + offset;
       }
@@ -2081,11 +2081,11 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
     // ONLY_NULL
     int32_t prev_offset = offsets[0];
     for (int64_t i = 0; i < list->length(); i++) {
-      const int64_t slot_length = offsets[i + 1] - prev_offset;
+      const int32_t slot_length = offsets[i + 1] - prev_offset;
       const int64_t null_count =
           slot_length - arrow::internal::CountSetBits(values->null_bitmap()->data(),
                                                       prev_offset, slot_length);
-      const int64_t offset = null_count > 0 ? 1 : 0;
+      const int32_t offset = null_count > 0 ? 1 : 0;
       prev_offset = offsets[i + 1];
       offsets[i + 1] = offsets[i] + offset;
     }
