@@ -174,7 +174,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "min_max" || func_name == "sum" || func_name == "mean" ||
       func_name == "any" || func_name == "all" || func_name == "hash_min_max" ||
       func_name == "hash_sum" || func_name == "hash_mean" || func_name == "hash_any" ||
-      func_name == "hash_all") {
+      func_name == "hash_all" || func_name == "hash_count_distinct") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);

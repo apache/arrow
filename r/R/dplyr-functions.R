@@ -808,7 +808,6 @@ agg_funcs$all <- function(x, na.rm = FALSE) {
     options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
-
 agg_funcs$mean <- function(x, na.rm = FALSE) {
   list(
     fun = "mean",
@@ -830,5 +829,14 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     fun = "variance",
     data = x,
     options = list(ddof = ddof)
+  )
+}
+agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
+  list(
+    fun = "count_distinct",
+    data = x,
+    # ARROW-13764 Passing in na.rm = TRUE doesn't actually work yet as 
+    # ScalarAggregateOptions not implemented for count_distinct
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
