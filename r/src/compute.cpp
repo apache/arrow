@@ -223,7 +223,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "is_null") {
-    using Options = arrow::compute::NanNullOptions;
+    using Options = arrow::compute::NullOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["nan_is_null"])) {
       out->nan_is_null = cpp11::as_cpp<bool>(options["nan_is_null"]);

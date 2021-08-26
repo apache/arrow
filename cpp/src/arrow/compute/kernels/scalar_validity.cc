@@ -75,25 +75,25 @@ struct IsInfOperator {
   }
 };
 
-using NanNullState = OptionsWrapper<NanNullOptions>;
+using NanOptionsState = OptionsWrapper<NullOptions>;
 
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const auto options = NanNullState::Get(ctx);
+    const auto& options = NanOptionsState::Get(ctx);
     bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
+
     if (in.is_valid) {
-      if (is_floating(in.type->id())) {
+      if (options.nan_is_null && is_floating(in.type->id())) {
         switch (in.type->id()) {
           case Type::FLOAT:
-            *out_value = options.nan_is_null &&
-                         std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+            *out_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
             break;
           case Type::DOUBLE:
-            *out_value = options.nan_is_null &&
-                         std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+            *out_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
             break;
           default:
-            return Status::NotImplemented("Type not implemented");
+            return Status::NotImplemented("NaN detection not implemented for type ",
+                                          in.type->ToString());
         }
       } else {
         *out_value = false;
@@ -106,42 +106,41 @@ struct IsNullOperator {
   }
 
   template <typename T>
-  static void SetNanBits(const ArrayData& arr, ArrayData* out) {
+  static void SetNanBits(const ArrayData& arr, uint8_t* out_bitmap, int64_t out_offset) {
     const T* data = arr.GetValues<T>(1);
     for (int64_t i = 0; i < arr.length; ++i) {
       if (std::isnan(data[i])) {
-        BitUtil::SetBit(out->buffers[1]->mutable_data(), i);
+        BitUtil::SetBit(out_bitmap, i + out_offset);
       }
     }
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.MayHaveNulls()) {
+    const auto& options = NanOptionsState::Get(ctx);
+
+    uint8_t* out_bitmap = out->buffers[1]->mutable_data();
+    if (arr.GetNullCount() > 0) {
       // Input has nulls => output is the inverted null (validity) bitmap.
-      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                   out->buffers[1]->mutable_data(), out->offset);
+      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length, out_bitmap,
+                   out->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
-                         false);
+      BitUtil::SetBitsTo(out_bitmap, out->offset, out->length, false);
     }
 
-    if (is_floating(arr.type->id())) {
-      const auto options = NanNullState::Get(ctx);
-      if (options.nan_is_null) {
-        switch (arr.type->id()) {
-          case Type::FLOAT:
-            SetNanBits<float>(arr, out);
-            break;
-          case Type::DOUBLE:
-            SetNanBits<double>(arr, out);
-            break;
-          default:
-            return Status::NotImplemented("Type not implemented");
-        }
+    if (is_floating(arr.type->id()) && options.nan_is_null) {
+      switch (arr.type->id()) {
+        case Type::FLOAT:
+          SetNanBits<float>(arr, out_bitmap, out->offset);
+          break;
+        case Type::DOUBLE:
+          SetNanBits<double>(arr, out_bitmap, out->offset);
+          break;
+        default:
+          return Status::NotImplemented("NaN detection not implemented for type ",
+                                        arr.type->ToString());
       }
     }
-
     return Status::OK();
   }
 };
@@ -257,11 +256,10 @@ const FunctionDoc is_inf_doc(
     {"values"});
 
 const FunctionDoc is_null_doc(
-    "Return true if null, NaN values can be considered as null",
-    ("For each input value, emit true if the value is null. Default behavior is to emit "
-     "false for NaN values. True can be emitted for NaN values by toggling "
-     "NanNullOptions flag."),
-    {"values"}, "NanNullOptions");
+    "Return true if null (and optionally NaN)",
+    ("For each input value, emit true iff the value is null.\n"
+     "True may also be emitted for NaN values by setting the `nan_is_null` flag."),
+    {"values"}, "NullOptions");
 
 const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
@@ -270,13 +268,13 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
-  static auto kNanNullOptions = NanNullOptions::Defaults();
+  static auto kNullOptions = NullOptions::Defaults();
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
                registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
-               /*can_write_into_slices=*/true, &kNanNullOptions, NanNullState::Init);
+               /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));

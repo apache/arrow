@@ -239,7 +239,7 @@ cdef class Expression(_Weakrefable):
         cdef:
             shared_ptr[CFunctionOptions] c_options
 
-        c_options.reset(new CNanNullOptions(nan_is_null))
+        c_options.reset(new CNullOptions(nan_is_null))
         return Expression._call("is_null", [self], c_options)
 
     def cast(self, type, bint safe=True):
