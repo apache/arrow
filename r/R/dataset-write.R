@@ -57,7 +57,7 @@
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)
 #' # You can write datasets partitioned by the values in a column (here: "cyl").
 #' # This creates a structure of the form cyl=X/part-Z.parquet.
-#' one_level_tree<- tempdir()
+#' one_level_tree <- tempdir()
 #' write_dataset(mtcars, one_level_tree, partitioning = "cyl")
 #' list.files(one_level_tree, recursive = TRUE)
 #'
