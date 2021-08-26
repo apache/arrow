@@ -60,7 +60,6 @@ jobs:
             -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
             -e LIBARROW_DOWNLOAD={{ libarrow_download|default("") }} \
             -e LIBARROW_BUILD={{ libarrow_build|default("") }} \
-            -e TEST_R_WITH_ARROW={{ with_arrow|default("TRUE") }} \
             r
         displayName: Docker run
 
