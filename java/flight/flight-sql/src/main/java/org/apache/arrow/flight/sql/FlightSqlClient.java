@@ -177,14 +177,29 @@ public class FlightSqlClient {
   /**
    * Request a set of Flight SQL metadata.
    *
+   * @param info The set of metadata to retrieve. None to retrieve all metadata.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final int... info) {
+  public FlightInfo getSqlInfo(final FlightSql.SqlInfo... info) {
     return getSqlInfo(info, new CallOption[0]);
   }
 
   /**
    * Request a set of Flight SQL metadata.
+   *
+   * @param info    The set of metadata to retrieve. None to retrieve all metadata.
+   * @param options RPC-layer hints for this call.
+   * @return a FlightInfo object representing the stream(s) to fetch.
+   */
+  public FlightInfo getSqlInfo(final FlightSql.SqlInfo[] info, final CallOption... options) {
+    final int[] infoNumbers = Arrays.stream(info).mapToInt(FlightSql.SqlInfo::getNumber).toArray();
+    return getSqlInfo(infoNumbers, options);
+  }
+
+  /**
+   * Request a set of Flight SQL metadata.
+   * Use this method if you would like to retrieve custom metadata, where the custom metadata key values start
+   * from 10_000.
    *
    * @param info    The set of metadata to retrieve. None to retrieve all metadata.
    * @param options RPC-layer hints for this call.
@@ -196,12 +211,14 @@ public class FlightSqlClient {
 
   /**
    * Request a set of Flight SQL metadata.
+   * Use this method if you would like to retrieve custom metadata, where the custom metadata key values start
+   * from 10_000.
    *
    * @param info    The set of metadata to retrieve. None to retrieve all metadata.
    * @param options RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getSqlInfo(final List<Integer> info, final CallOption... options) {
+  public FlightInfo getSqlInfo(final Iterable<Integer> info, final CallOption... options) {
     final CommandGetSqlInfo.Builder builder = CommandGetSqlInfo.newBuilder();
     builder.addAllInfo(info);
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());

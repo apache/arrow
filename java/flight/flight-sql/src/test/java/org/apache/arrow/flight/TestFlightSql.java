@@ -133,27 +133,27 @@ public class TestFlightSql {
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {
     return getNonConformingResultsForGetSqlInfo(results,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE,
-        FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE,
-        FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE,
-        FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE,
-        FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE,
-        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE,
-        FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE);
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY,
+        FlightSql.SqlInfo.SQL_DDL_CATALOG,
+        FlightSql.SqlInfo.SQL_DDL_SCHEMA,
+        FlightSql.SqlInfo.SQL_DDL_TABLE,
+        FlightSql.SqlInfo.SQL_IDENTIFIER_CASE,
+        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
+        FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE);
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(
       final List<? extends List<String>> results,
-      final int... args) {
+      final FlightSql.SqlInfo... args) {
     final List<List<String>> nonConformingResults = new ArrayList<>();
     if (results.size() == args.length) {
       for (int index = 0; index < results.size(); index++) {
         final List<String> result = results.get(index);
         final String providedName = result.get(0);
-        final String expectedName = Integer.toString(args[index]);
+        final String expectedName = Integer.toString(args[index].getNumber());
         if (!(GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(providedName).equals(result.get(1)) &&
             providedName.equals(expectedName))) {
           nonConformingResults.add(result);
@@ -463,7 +463,7 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithSingleArg() throws Exception {
-    final int arg = FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE;
+    final FlightSql.SqlInfo arg = FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME;
     final FlightInfo info = sqlClient.getSqlInfo(arg);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
@@ -473,9 +473,9 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithTwoArgs() throws Exception {
-    final int[] args = {
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE};
+    final FlightSql.SqlInfo[] args = {
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION};
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
@@ -485,10 +485,10 @@ public class TestFlightSql {
 
   @Test
   public void testGetSqlInfoResultsWithThreeArgs() throws Exception {
-    final int[] args = {
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE,
-        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE};
+    final FlightSql.SqlInfo[] args = {
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
+        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR};
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       collector.checkThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA));
