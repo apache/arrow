@@ -969,6 +969,25 @@ Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
+Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
+                          util::string_view index_json, util::string_view dictionary_json,
+                          std::shared_ptr<Scalar>* out) {
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("DictScalarFromJSON requires dictionary type, got ", *type);
+  }
+
+  const auto& dictionary_type = checked_cast<const DictionaryType&>(*type);
+
+  std::shared_ptr<Scalar> index;
+  std::shared_ptr<Array> dictionary;
+  RETURN_NOT_OK(ScalarFromJSON(dictionary_type.index_type(), index_json, &index));
+  RETURN_NOT_OK(
+      ArrayFromJSON(dictionary_type.value_type(), dictionary_json, &dictionary));
+
+  *out = DictionaryScalar::Make(std::move(index), std::move(dictionary));
+  return Status::OK();
+}
+
 }  // namespace json
 }  // namespace internal
 }  // namespace ipc
