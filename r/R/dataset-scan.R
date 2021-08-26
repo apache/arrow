@@ -86,21 +86,26 @@ Scanner$create <- function(dataset,
       dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
     }
 
-    proj<- c(dataset$selected_columns, dataset$temp_columns)
+    proj <- c(dataset$selected_columns, dataset$temp_columns)
     if (!is.null(projection)) {
+      # grab all of the projection elements that are characters to select columns
       # TODO: should we check names and make sure we only project once per?
-      proj <- c(proj, projection)
+      projection_char <- Filter(is.character, projection)
+      proj <- proj[unlist(projection_char)]
+
+      # try and append any other projections (e.g. expressions)
+      projection_other <- Filter(Negate(is.character), projection)
+      proj <- c(proj, projection_other)
     }
 
-    filt <- dataset$filtered_rows
     if (!isTRUE(filter)) {
-      filt <- build_expr("&", filt, filter)
+      dataset <- set_filters(dataset, filter)
     }
 
     return(Scanner$create(
       dataset$.data,
       proj,
-      filt,
+      dataset$filtered_rows,
       use_threads,
       use_async,
       batch_size,

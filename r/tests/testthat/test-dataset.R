@@ -1073,41 +1073,55 @@ test_that("Scanner$ToRecordBatchReader()", {
 
 test_that("Scanner$create() filter/projection pushdown", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # the standard to compare all Scanner$create()s against
   scan_one <- ds %>%
     filter(int > 7 & dbl < 57) %>%
     select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1, dbl_minus = dbl -1) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
     Scanner$create()
 
+  # add a column in projection
   scan_two <- ds %>%
-    filter(int > 7& dbl < 57) %>%
+    filter(int > 7 & dbl < 57) %>%
     select(int, dbl, lgl) %>%
     mutate(int_plus = int + 1) %>%
-    filter(int > 6) %>%
     Scanner$create(projection = list(
-        dbl_minus = Expression$create(
-          "subtract_checked",
-          Expression$field_ref("dbl"),
-          Expression$scalar(1))
+      "int", "dbl", "lgl", "int_plus",
+      dbl_minus = Expression$create(
+        "subtract_checked",
+        Expression$field_ref("dbl"),
+        Expression$scalar(1)
+      )
     ))
-
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
     as.data.frame(scan_two$ToRecordBatchReader()$read_table())
   )
 
+  # select a column in projection
   scan_three <- ds %>%
-    filter(int > 7) %>%
-    select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1, dbl_minus = dbl -1) %>%
-    filter(int > 6) %>%
-    Scanner$create(
-      filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
-    )
-
+    filter(int > 7 & dbl < 57) %>%
+    # select an extra column, since we are going to
+    select(int, dbl, lgl, chr) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(projection = c("int", "dbl", "lgl", "int_plus", "dbl_minus"))
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
     as.data.frame(scan_three$ToRecordBatchReader()$read_table())
+  )
+
+  # adding filters to Scanner$create
+  scan_four <- ds %>%
+    filter(int > 7) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
+    Scanner$create(
+      filter = Expression$create("less", Expression$field_ref("dbl"), Expression$scalar(57))
+    )
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_four$ToRecordBatchReader()$read_table())
   )
 })
 
