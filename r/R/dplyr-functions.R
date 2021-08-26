@@ -837,6 +837,10 @@ agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
     data = x,
     # ARROW-13764 Passing in na.rm = TRUE doesn't actually work yet as
     # CountOptions not yet implemented for count_distinct
-    options = list(na.rm = na.rm, na.min_count = 0L)
+    options = list(na.rm = na.rm)
   )
 }
+
+
+
+
