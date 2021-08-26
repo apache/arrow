@@ -79,7 +79,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # This is essentially a projection, and the column names don't matter
   # (but must exist)
   names(inputs) <- as.character(seq_along(inputs))
-  .data$selected_columns <- inputs
+  .data$selected_columns <- c(inputs, .data$selected_columns[.data$group_by_vars])
 
   .data
 }

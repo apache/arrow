@@ -161,7 +161,7 @@ test_that("Group by var on dataset", {
   )
 })
 
-test_that("n()", {
+test_that("Group by any/all", {
   withr::local_options(list(arrow.debug = TRUE))
   expect_dplyr_equal(
     input %>%
@@ -284,6 +284,44 @@ test_that("Filter and aggregate", {
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       collect(),
+    tbl
+  )
+})
+
+test_that("Group by edge cases", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping * 2) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(alt = some_grouping * 2) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Do things after summarize", {
+  group2_sum <- tbl %>%
+    group_by(some_grouping) %>%
+    filter(int > 5) %>%
+    summarize(total = sum(int, na.rm = TRUE)) %>%
+    pull() %>%
+    tail(1)
+
+  skip("WIP")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      filter(int > 5) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      filter(total == group2_sum) %>%
+      collect() %>% print(),
     tbl
   )
 })
