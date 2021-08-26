@@ -288,36 +288,42 @@ The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| Function name | Arity | Input types | Output type     | Options class                    | Notes |
-+===============+=======+=============+=================+==================================+=======+
-| hash_all      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_any      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_count    | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_mean     | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_min_max  | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_product  | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_stddev   | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_sum      | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_tdigest  | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_variance | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| Function name       | Arity | Input types | Output type     | Options class                    | Notes |
++=====================+=======+=============+=================+==================================+=======+
+| hash_all            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_any            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count          | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count_distinct | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_distinct       | Unary | Any         | Input type      | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_mean           | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_min_max        | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_product        | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_stddev         | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_sum            | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_tdigest        | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_variance       | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
   :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
   logic is applied. The min_count option is not respected.
 
-* \(2) CountMode controls whether only non-null values are counted (the
-  default), only null values are counted, or all values are counted.
+* \(2) CountMode controls whether only non-null values are counted
+  (the default), only null values are counted, or all values are
+  counted. For hash_distinct, it instead controls whether null values
+  are emitted.
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
