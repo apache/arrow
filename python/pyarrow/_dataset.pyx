@@ -2003,6 +2003,32 @@ cdef class PartitioningFactory(_Weakrefable):
         return frombytes(self.factory.type_name())
 
     def create_with_schema(self, schema):
+        """Create an actual Partitioning object using this factory.
+
+        Combines the factory options (like field_names) with the
+        provided schema to create a Partitioning object that has both.
+
+        Parameters
+        ----------
+        schema : Schema
+            The schema that describes the data for which the
+            partitions should be created.
+
+        Returns
+        -------
+        Partitioning
+
+        Examples
+        --------
+        >>> import pyarrow
+        >>> import pyarrow.dataset
+        >>> factory = pyarrow.dataset.partitioning(field_names=["year"])
+        >>> factory.create_with_schema(pa.schema([("year", pa.int16()),
+        ...                                       ("month", pa.int8()),
+        ...                                       ("day", pa.int8())]))
+        <pyarrow._dataset.DirectoryPartitioning object at 0x7f0c1e3e0170>
+
+        """
         return Partitioning.wrap(GetResultValue(
             self.factory.Finish(pyarrow_unwrap_schema(schema))
         ))
