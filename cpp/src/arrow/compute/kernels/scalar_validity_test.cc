@@ -40,8 +40,6 @@ class TestValidityKernels : public ::testing::Test {
 };
 
 using TestBooleanValidityKernels = TestValidityKernels<BooleanType>;
-using TestFloatValidityKernels = TestValidityKernels<FloatType>;
-using TestDoubleValidityKernels = TestValidityKernels<DoubleType>;
 
 TEST_F(TestBooleanValidityKernels, ArrayIsValid) {
   CheckScalarUnary("is_valid", type_singleton(), "[]", type_singleton(), "[]");
@@ -51,36 +49,48 @@ TEST_F(TestBooleanValidityKernels, ArrayIsValid) {
                    "[false, true, true, false]");
 }
 
-TEST_F(TestBooleanValidityKernels, IsValidIsNullNullType) {
-  CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
-                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
-  CheckScalarUnary("is_valid", std::make_shared<NullArray>(5),
-                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
-}
-
 TEST_F(TestBooleanValidityKernels, ArrayIsValidBufferPassthruOptimization) {
   Datum arg = ArrayFromJSON(boolean(), "[null, 1, 0, null]");
   ASSERT_OK_AND_ASSIGN(auto validity, arrow::compute::IsValid(arg));
   ASSERT_EQ(validity.array()->buffers[1], arg.array()->buffers[0]);
 }
 
-TEST_F(TestBooleanValidityKernels, ScalarIsValid) {
-  CheckScalarUnary("is_valid", MakeScalar(19.7), MakeScalar(true));
-  CheckScalarUnary("is_valid", MakeNullScalar(float64()), MakeScalar(false));
-}
+TEST_F(TestBooleanValidityKernels, IsNull) {
+  auto ty = type_singleton();
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
 
-TEST_F(TestBooleanValidityKernels, ArrayIsNull) {
-  CheckScalarUnary("is_null", type_singleton(), "[]", type_singleton(), "[]");
-  CheckScalarUnary("is_null", type_singleton(), "[null]", type_singleton(), "[true]");
-  CheckScalarUnary("is_null", type_singleton(), "[1]", type_singleton(), "[false]");
-  CheckScalarUnary("is_null", type_singleton(), "[null, 1, 0, null]", type_singleton(),
+  CheckScalarUnary("is_null", ty, "[]", boolean(), "[]");
+  CheckScalarUnary("is_null", ty, "[]", boolean(), "[]", &default_options);
+  CheckScalarUnary("is_null", ty, "[]", boolean(), "[]", &nan_is_null_options);
+
+  CheckScalarUnary("is_null", ty, "[null]", boolean(), "[true]");
+  CheckScalarUnary("is_null", ty, "[null]", boolean(), "[true]", &default_options);
+  CheckScalarUnary("is_null", ty, "[null]", boolean(), "[true]", &nan_is_null_options);
+
+  CheckScalarUnary("is_null", ty, "[1]", boolean(), "[false]");
+  CheckScalarUnary("is_null", ty, "[1]", boolean(), "[false]", &default_options);
+  CheckScalarUnary("is_null", ty, "[1]", boolean(), "[false]", &nan_is_null_options);
+
+  CheckScalarUnary("is_null", ty, "[null, 1, 0, null]", boolean(),
                    "[true, false, false, true]");
+  CheckScalarUnary("is_null", ty, "[null, 1, 0, null]", boolean(),
+                   "[true, false, false, true]", &default_options);
+  CheckScalarUnary("is_null", ty, "[null, 1, 0, null]", boolean(),
+                   "[true, false, false, true]", &nan_is_null_options);
 }
 
-TEST_F(TestBooleanValidityKernels, IsNullSetsZeroNullCount) {
-  auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
-  std::shared_ptr<ArrayData> result = (*IsNull(arr)).array();
-  ASSERT_EQ(result->null_count, 0);
+TEST(TestValidityKernels, IsValidIsNullNullType) {
+  CheckScalarUnary("is_null", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, true]"));
+  CheckScalarUnary("is_valid", std::make_shared<NullArray>(5),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+}
+
+TEST(TestValidityKernels, IsNullSetsZeroNullCount) {
+  auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4, null]");
+  ASSERT_OK_AND_ASSIGN(Datum out, IsNull(arr));
+  ASSERT_EQ(out.array()->null_count, 0);
 }
 
 template <typename ArrowType>
