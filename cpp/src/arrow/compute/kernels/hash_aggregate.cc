@@ -38,6 +38,7 @@
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/record_batch.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -1980,7 +1981,37 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    return grouper_->Consume(batch).status();
+    const auto& values = *batch[0].array();
+    if (options_.mode == CountOptions::ALL ||
+        (options_.mode == CountOptions::ONLY_VALID && values.GetNullCount() == 0)) {
+      return grouper_->Consume(batch).status();
+    }
+
+    FieldVector fields;
+    fields.reserve(batch.num_values());
+    for (const auto& value : batch.values) {
+      fields.push_back(field("", value.type()));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema(std::move(fields)), pool_));
+
+    if (options_.mode == CountOptions::ONLY_VALID) {
+      auto filter = std::make_shared<BooleanArray>(batch.length, values.buffers[0]);
+      ARROW_ASSIGN_OR_RAISE(auto filtered,
+                            Filter(rb, filter, FilterOptions(FilterOptions::DROP), ctx_));
+      return grouper_->Consume(ExecBatch(*filtered.record_batch())).status();
+    }
+    // ONLY_NULL
+    if (values.GetNullCount() == 0) return Status::OK();
+    // This branch is...fairly pointless, hence the naive implementation here,
+    // but if we do care about performance, we can write a specialized kernel
+    // implementation.
+    ARROW_ASSIGN_OR_RAISE(auto mask,
+                          arrow::internal::InvertBitmap(pool_, values.buffers[0]->data(),
+                                                        values.offset, values.length));
+    auto filter = std::make_shared<BooleanArray>(batch.length, mask);
+    ARROW_ASSIGN_OR_RAISE(auto filtered,
+                          Filter(rb, filter, FilterOptions(FilterOptions::DROP), ctx_));
+    return grouper_->Consume(ExecBatch(*filtered.record_batch())).status();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -2014,21 +2045,8 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
     auto* g = uniques[1].array()->GetValues<uint32_t>(1);
-    const auto& items = *uniques[0].array();
-    const auto* valid = items.GetValues<uint8_t>(0, 0);
-    if (options_.mode == CountOptions::ALL ||
-        (options_.mode == CountOptions::ONLY_VALID && !valid)) {
-      for (int64_t i = 0; i < uniques.length; i++) {
-        counts[g[i]]++;
-      }
-    } else if (options_.mode == CountOptions::ONLY_VALID) {
-      for (int64_t i = 0; i < uniques.length; i++) {
-        counts[g[i]] += BitUtil::GetBit(valid, items.offset + i);
-      }
-    } else {  // ONLY_NULL
-      for (int64_t i = 0; i < uniques.length; i++) {
-        counts[g[i]] += !BitUtil::GetBit(valid, items.offset + i);
-      }
+    for (int64_t i = 0; i < uniques.length; i++) {
+      counts[g[i]]++;
     }
 
     return ArrayData::Make(int64(), num_groups_, {nullptr, std::move(values)},

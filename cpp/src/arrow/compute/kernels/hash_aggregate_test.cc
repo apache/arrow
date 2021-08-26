@@ -1257,6 +1257,10 @@ TEST(GroupBy, CountDistinct) {
     [null, 3]
 ])",
                                                                                       R"([
+    [null, 4],
+    [null, 4]
+])",
+                                                                                      R"([
     [4,    null],
     [1,    3]
 ])",
@@ -1302,6 +1306,7 @@ TEST(GroupBy, CountDistinct) {
     [1, 1, 0, 1],
     [2, 2, 0, 2],
     [3, 2, 1, 3],
+    [1, 0, 1, 4],
     [4, 4, 0, null]
   ])"),
                       aggregated_and_grouped,
@@ -1316,6 +1321,10 @@ TEST(GroupBy, CountDistinct) {
     ["bar",  2],
     [null,   3],
     [null,   3]
+])",
+                                                                                   R"([
+    [null, 4],
+    [null, 4]
 ])",
                                                                                    R"([
     ["baz",  null],
@@ -1363,6 +1372,7 @@ TEST(GroupBy, CountDistinct) {
     [1, 1, 0, 1],
     [2, 2, 0, 2],
     [3, 2, 1, 3],
+    [1, 0, 1, 4],
     [4, 4, 0, null]
   ])"),
                       aggregated_and_grouped,
@@ -1371,6 +1381,9 @@ TEST(GroupBy, CountDistinct) {
 }
 
 TEST(GroupBy, Distinct) {
+  CountOptions all(CountOptions::ALL);
+  CountOptions only_valid(CountOptions::ONLY_VALID);
+  CountOptions only_null(CountOptions::ONLY_NULL);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -1381,7 +1394,12 @@ TEST(GroupBy, Distinct) {
 ])",
                                                                                    R"([
     ["bar",  2],
+    [null,   3],
     [null,   3]
+])",
+                                                                                   R"([
+    [null,   4],
+    [null,   4]
 ])",
                                                                                    R"([
     ["baz",  null],
@@ -1404,12 +1422,16 @@ TEST(GroupBy, Distinct) {
                          internal::GroupBy(
                              {
                                  table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
                              },
                              {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_distinct", nullptr},
+                                 {"hash_distinct", &all},
+                                 {"hash_distinct", &only_valid},
+                                 {"hash_distinct", &only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -1417,20 +1439,47 @@ TEST(GroupBy, Distinct) {
 
     // Order of sub-arrays is not stable
     auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
-    auto distinct_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
     auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
       EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
       EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
       return sorted.make_array();
     };
-    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"),
-                      sort(*distinct_arr->value_slice(0)), /*verbose=*/true);
+
+    auto all_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"), sort(*all_arr->value_slice(0)),
+                      /*verbose=*/true);
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["bar", "spam"])"),
-                      sort(*distinct_arr->value_slice(1)), /*verbose=*/true);
+                      sort(*all_arr->value_slice(1)), /*verbose=*/true);
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo", "ham", null])"),
-                      sort(*distinct_arr->value_slice(2)), /*verbose=*/true);
+                      sort(*all_arr->value_slice(2)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([null])"), sort(*all_arr->value_slice(3)),
+                      /*verbose=*/true);
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["a", "b", "baz", "eggs"])"),
-                      sort(*distinct_arr->value_slice(3)), /*verbose=*/true);
+                      sort(*all_arr->value_slice(4)), /*verbose=*/true);
+
+    auto valid_arr = checked_pointer_cast<ListArray>(struct_arr->field(1));
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"),
+                      sort(*valid_arr->value_slice(0)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["bar", "spam"])"),
+                      sort(*valid_arr->value_slice(1)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo", "ham"])"),
+                      sort(*valid_arr->value_slice(2)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*valid_arr->value_slice(3)),
+                      /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["a", "b", "baz", "eggs"])"),
+                      sort(*valid_arr->value_slice(4)), /*verbose=*/true);
+
+    auto null_arr = checked_pointer_cast<ListArray>(struct_arr->field(2));
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*null_arr->value_slice(0)),
+                      /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*null_arr->value_slice(1)),
+                      /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([null])"), sort(*null_arr->value_slice(2)),
+                      /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([null])"), sort(*null_arr->value_slice(3)),
+                      /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*null_arr->value_slice(4)),
+                      /*verbose=*/true);
   }
 }
 
