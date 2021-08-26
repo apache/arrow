@@ -624,6 +624,87 @@ TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
               ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
 }
 
+template <typename Type>
+class TestCaseWhenInteger : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestCaseWhenInteger, IntegralArrowTypes);
+
+TYPED_TEST(TestCaseWhenInteger, DictionaryEncodingSimple) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
+  auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict);
+
+  // Easy case: all arguments have the same dictionary
+  // CheckScalar("case_when", {MakeStruct({Datum(false)}), DictScalarFromJSON(type, "1",
+  // dict)},
+  //             DictScalarFromJSON(type, "[0, null, null, null]", dict));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+              DictArrayFromJSON(type, "[0, null, null, null]", dict));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+              DictArrayFromJSON(type, "[0, null, null, 1]", dict));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+              DictArrayFromJSON(type, "[null, null, null, 1]", dict));
+}
+
+TYPED_TEST(TestCaseWhenInteger, DictionaryEncodingMixed) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", null, "bc", "def"])";
+  auto values_null = DictArrayFromJSON(type, "[null, null, null, null]", dict);
+  auto values1_dict = DictArrayFromJSON(type, "[0, null, 3, 1]", dict);
+  auto values1_decoded = ArrayFromJSON(utf8(), R"(["a", null, "def", null])");
+  auto values2_dict = DictArrayFromJSON(type, "[2, 1, null, 0]", dict);
+  auto values2_decoded = ArrayFromJSON(utf8(), R"(["bc", null, null, "a"])");
+
+  // If we have mixed dictionary/non-dictionary arguments, we decode dictionaries
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1_dict, values2_decoded},
+              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
+  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1_decoded, values2_dict},
+              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
+  CheckScalar("case_when",
+              {MakeStruct({cond1, cond2}), values1_dict, values2_dict, values1_decoded},
+              ArrayFromJSON(utf8(), R"(["a", null, null, null])"));
+  CheckScalar("case_when",
+              {MakeStruct({cond1, cond2}), values_null, values2_dict, values1_decoded},
+              ArrayFromJSON(utf8(), R"([null, null, null, null])"));
+}
+
+TYPED_TEST(TestCaseWhenInteger, DictionaryEncodingDifferentDictionaries) {
+  auto type = dictionary(default_type_instance<TypeParam>(), utf8());
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict1 = R"(["a", null, "bc", "def"])";
+  auto dict2 = R"(["bc", "foo", null, "a"])";
+  auto values1_null = DictArrayFromJSON(type, "[null, null, null, null]", dict1);
+  auto values2_null = DictArrayFromJSON(type, "[null, null, null, null]", dict2);
+  auto values1 = DictArrayFromJSON(type, "[0, null, 3, 1]", dict1);
+  auto values2 = DictArrayFromJSON(type, "[2, 1, null, 0]", dict2);
+
+  // For scalar conditions, we borrow the dictionary of the chosen output (or the first
+  // input when outputting null)
+  CheckScalar("case_when", {MakeStruct({Datum(true), Datum(false)}), values1, values2},
+              values1);
+  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(true)}), values1, values2},
+              values2);
+  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(false)}), values1, values2},
+              values1_null);
+  CheckScalar("case_when", {MakeStruct({Datum(false), Datum(false)}), values2, values1},
+              values2_null);
+
+  // For array conditions, we always borrow the dictionary of the first input
+
+  // When mixing dictionaries, we try to map other dictionaries onto the first one
+
+  // If we can't map values from a dictionary, then raise an error
+
+  // ...or optionally, raise an error
+}
+
 TEST(TestCaseWhen, Null) {
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");

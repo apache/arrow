@@ -1093,6 +1093,63 @@ struct CopyFixedWidth<Type, enable_if_number<Type>> {
 };
 
 template <typename Type>
+struct CopyFixedWidth<Type, enable_if_dictionary<Type>> {
+  // TODO: how are we going to deal with passing down a mapping?
+  static void CopyScalar(const Scalar& scalar, const int64_t length,
+                         uint8_t* raw_out_values, const int64_t out_offset) {
+    const auto& index = *checked_cast<const DictionaryScalar&>(scalar).value.index;
+    switch (index.type->id()) {
+      case arrow::Type::INT8:
+      case arrow::Type::UINT8:
+        CopyFixedWidth<UInt8Type>::CopyScalar(index, length, raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT16:
+      case arrow::Type::UINT16:
+        CopyFixedWidth<UInt16Type>::CopyScalar(index, length, raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT32:
+      case arrow::Type::UINT32:
+        CopyFixedWidth<UInt32Type>::CopyScalar(index, length, raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT64:
+      case arrow::Type::UINT64:
+        CopyFixedWidth<UInt64Type>::CopyScalar(index, length, raw_out_values, out_offset);
+        break;
+      default:
+        ARROW_CHECK(false) << "Invalid index type for dictionary: " << *index.type;
+    }
+  }
+  static void CopyArray(const DataType& type, const uint8_t* in_values,
+                        const int64_t in_offset, const int64_t length,
+                        uint8_t* raw_out_values, const int64_t out_offset) {
+    const auto& index_type = *checked_cast<const DictionaryType&>(type).index_type();
+    switch (index_type.id()) {
+      case arrow::Type::INT8:
+      case arrow::Type::UINT8:
+        CopyFixedWidth<UInt8Type>::CopyArray(index_type, in_values, in_offset, length,
+                                             raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT16:
+      case arrow::Type::UINT16:
+        CopyFixedWidth<UInt16Type>::CopyArray(index_type, in_values, in_offset, length,
+                                              raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT32:
+      case arrow::Type::UINT32:
+        CopyFixedWidth<UInt32Type>::CopyArray(index_type, in_values, in_offset, length,
+                                              raw_out_values, out_offset);
+        break;
+      case arrow::Type::INT64:
+      case arrow::Type::UINT64:
+        CopyFixedWidth<UInt64Type>::CopyArray(index_type, in_values, in_offset, length,
+                                              raw_out_values, out_offset);
+        break;
+      default:
+        ARROW_CHECK(false) << "Invalid index type for dictionary: " << index_type;
+    }
+  }
+};
+template <typename Type>
 struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
   static void CopyScalar(const Scalar& values, const int64_t length,
                          uint8_t* raw_out_values, const int64_t out_offset) {
@@ -1222,7 +1279,6 @@ struct CaseWhenFunction : ScalarFunction {
     // The first function is a struct of booleans, where the number of fields in the
     // struct is either equal to the number of other arguments or is one less.
     RETURN_NOT_OK(CheckArity(*values));
-    EnsureDictionaryDecoded(values);
     auto first_type = (*values)[0].type;
     if (first_type->id() != Type::STRUCT) {
       return Status::TypeError("case_when: first argument must be STRUCT, not ",
@@ -1243,6 +1299,9 @@ struct CaseWhenFunction : ScalarFunction {
       }
     }
 
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
     if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
       for (auto it = values->begin() + 1; it != values->end(); it++) {
         it->type = type;
@@ -1275,10 +1334,20 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out
     }
   }
   if (out->is_scalar()) {
+    // TODO: makenullscalar here should give the expected dictionary
     *out = result.is_scalar() ? result.scalar() : MakeNullScalar(out->type());
     return Status::OK();
   }
   ArrayData* output = out->mutable_array();
+  if (is_dictionary_type<Type>::value) {
+    const Datum& dict_from = result.is_value() ? result : batch[1];
+    if (dict_from.is_scalar()) {
+      output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar())
+                               .value.dictionary->data();
+    } else {
+      output->dictionary = dict_from.array()->dictionary;
+    }
+  }
   if (!result.is_value()) {
     // All conditions false, no 'else' argument
     result = MakeNullScalar(out->type());
@@ -1311,6 +1380,17 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   } else {
     // There's no 'else' argument, so we should have an all-null validity bitmap
     BitUtil::SetBitsTo(out_valid, out_offset, batch.length, false);
+  }
+
+  if (is_dictionary_type<Type>::value) {
+    // We always use the dictionary of the first argument
+    const Datum& dict_from = batch[1];
+    if (dict_from.is_scalar()) {
+      output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar())
+                               .value.dictionary->data();
+    } else {
+      output->dictionary = dict_from.array()->dictionary;
+    }
   }
 
   // Allocate a temporary bitmap to determine which elements still need setting.
@@ -2446,7 +2526,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
   {
     auto func = std::make_shared<CaseWhenFunction>(
-        "case_when", Arity::VarArgs(/*min_args=*/1), &case_when_doc);
+        "case_when", Arity::VarArgs(/*min_args=*/2), &case_when_doc);
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
@@ -2464,6 +2544,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
     AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
     AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
+    AddCaseWhenKernel(func, Type::DICTIONARY, CaseWhenFunctor<DictionaryType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
