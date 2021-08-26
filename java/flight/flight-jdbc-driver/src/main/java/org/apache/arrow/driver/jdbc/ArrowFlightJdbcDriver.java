@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -229,12 +230,10 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     resultMap.put(HOST.getName(), uri.getHost()); // host
     resultMap.put(PORT.getName(), uri.getPort()); // port
 
-    final String extraParams = uri.getQuery(); // optional params
+    final String extraParams = uri.getRawQuery(); // optional params
 
-    List<NameValuePair> parse = URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
-    for (NameValuePair nameValuePair : parse) {
-      resultMap.put(nameValuePair.getName(), nameValuePair.getValue());
-    }
+    final List<NameValuePair> keyValuePairs = URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
+    keyValuePairs.forEach(p -> resultMap.put(p.getName(), p.getValue()));
 
     return resultMap;
   }
