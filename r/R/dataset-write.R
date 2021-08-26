@@ -57,14 +57,14 @@
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)
 #' # You can write datasets partitioned by the values in a column (here: "cyl").
 #' # This creates a structure of the form cyl=X/part-Z.parquet.
-#' one_level_tree <- tempdir()
+#' one_level_tree <- tempfile()
 #' write_dataset(mtcars, one_level_tree, partitioning = "cyl")
 #' list.files(one_level_tree, recursive = TRUE)
 #'
 #' # You can also partition by the values in multiple columns
 #' # (here: "cyl" and "gear").
 #' # This creates a structure of the form cyl=X/gear=Y/part-Z.parquet.
-#' two_levels_tree <- tempdir()
+#' two_levels_tree <- tempfile()
 #' write_dataset(mtcars, two_levels_tree, partitioning = c("cyl", "gear"))
 #' list.files(two_levels_tree, recursive = TRUE)
 #'
@@ -73,27 +73,25 @@
 #' # Y = \{3,4,5\}, the number of forward gears.
 #' # Z = \{0,1,2\}, the number of saved parts, starting from 0.
 #'
-#' # You can obtain the same result as as the previous examples by combining
-#' # both arrow and dplyr.
+#' # You can obtain the same result as as the previous examples using arrow with
+#' # a dplyr pipeline:
 #'
-#' if(requireNamespace("dplyr", quietly = TRUE)) {
-#'  d <- mtcars %>% group_by(cyl, gear)
+#' d <- group_by(mtcars, cyl, gear)
 #'
-#'  # Write a structure cyl=X/gear=Y/part-Z.parquet.
-#'  two_levels_tree_2 <- tempfile()
-#'  d %>% write_dataset(two_levels_tree_2)
-#'  list.files(two_levels_tree_2, recursive = TRUE)
-#' }
+#' # Write a structure cyl=X/gear=Y/part-Z.parquet.
+#' # This will be the same as two_levels_tree above, but the output directory
+#' # will be different
+#' two_levels_tree_2 <- tempfile()
+#' write_dataset(d, two_levels_tree_2)
+#' list.files(two_levels_tree_2, recursive = TRUE)
 #'
 #' # And you can also turn off the Hive-style directory naming where the column
 #' # name is included with the values by using `hive_style = FALSE`.
 #'
-#' if(requireNamespace("dplyr", quietly = TRUE)) {
-#'  # Write a structure X/Y/part-Z.parquet.
-#'  two_levels_tree_3 <- tempfile()
-#'  d %>% write_dataset(two_levels_tree_3, hive_style = FALSE)
-#'  list.files(two_levels_tree_3, recursive = TRUE)
-#' }
+#' # Write a structure X/Y/part-Z.parquet.
+#' two_levels_tree_no_hive <- tempfile()
+#' write_dataset(d, two_levels_tree_no_hive, hive_style = FALSE)
+#' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
 write_dataset <- function(dataset,
                           path,
