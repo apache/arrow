@@ -547,7 +547,10 @@ class FailingScanTaskFragment : public InMemoryFragment {
   using InMemoryFragment::InMemoryFragment;
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
     auto self = shared_from_this();
-    ScanTaskVector scan_tasks{std::make_shared<T>(record_batches_, options, self)};
+    ScanTaskVector scan_tasks;
+    for (int i = 0; i < 4; i++) {
+      scan_tasks.push_back(std::make_shared<T>(record_batches_, options, self));
+    }
     return MakeVectorIterator(std::move(scan_tasks));
   }
 
