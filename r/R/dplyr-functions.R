@@ -835,7 +835,7 @@ agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
     data = x,
-    # ARROW-13764 Passing in na.rm = TRUE doesn't actually work yet as 
+    # ARROW-13764 Passing in na.rm = TRUE doesn't actually work yet as
     # ScalarAggregateOptions not implemented for count_distinct
     options = list(na.rm = na.rm, na.min_count = 0L)
   )
