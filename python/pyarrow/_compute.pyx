@@ -1005,6 +1005,18 @@ class DayOfWeekOptions(_DayOfWeekOptions):
         self._set_options(one_based_numbering, week_start)
 
 
+cdef class _NullOptions(FunctionOptions):
+    def _set_options(self, nan_is_null):
+        self.wrapped.reset(
+            new CNullOptions(nan_is_null)
+        )
+
+
+class NullOptions(_NullOptions):
+    def __init__(self, nan_is_null=False):
+        self._set_options(nan_is_null)
+
+
 cdef class _VarianceOptions(FunctionOptions):
     def _set_options(self, ddof):
         self.wrapped.reset(new CVarianceOptions(ddof))

@@ -1963,6 +1963,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool one_based_numbering
         uint32_t week_start
 
+    cdef cppclass CNullOptions \
+            "arrow::compute::NullOptions"(CFunctionOptions):
+        CNullOptions(c_bool nan_is_null)
+        c_bool nan_is_null
+
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
         CVarianceOptions(int ddof)

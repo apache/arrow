@@ -1310,7 +1310,6 @@ def test_arithmetic_multiply():
 def test_is_null():
     arr = pa.array([1, 2, 3, None])
     result = arr.is_null()
-    result = arr.is_null()
     expected = pa.array([False, False, False, True])
     assert result.equals(expected)
     assert result.equals(pc.is_null(arr))
@@ -1325,6 +1324,15 @@ def test_is_null():
     assert result.equals(expected)
     result = arr.is_valid()
     expected = pa.chunked_array([[True, True], [True, False]])
+    assert result.equals(expected)
+
+    arr = pa.array([1, 2, 3, None, np.nan])
+    result = arr.is_null()
+    expected = pa.array([False, False, False, True, False])
+    assert result.equals(expected)
+
+    result = arr.is_null(nan_is_null=True)
+    expected = pa.array([False, False, False, True, True])
     assert result.equals(expected)
 
 

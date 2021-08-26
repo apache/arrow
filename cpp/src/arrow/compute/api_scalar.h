@@ -224,6 +224,15 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   int64_t start, stop, step;
 };
 
+class ARROW_EXPORT NullOptions : public FunctionOptions {
+ public:
+  explicit NullOptions(bool nan_is_null = false);
+  constexpr static char const kTypeName[] = "NullOptions";
+  static NullOptions Defaults() { return NullOptions{}; }
+
+  bool nan_is_null = false;
+};
+
 enum CompareOperator : int8_t {
   EQUAL,
   NOT_EQUAL,
@@ -756,13 +765,15 @@ Result<Datum> IsValid(const Datum& values, ExecContext* ctx = NULLPTR);
 /// false otherwise
 ///
 /// \param[in] values input to examine for nullity
+/// \param[in] options NullOptions
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> IsNull(const Datum& values, ExecContext* ctx = NULLPTR);
+Result<Datum> IsNull(const Datum& values, NullOptions options = NullOptions::Defaults(),
+                     ExecContext* ctx = NULLPTR);
 
 /// \brief IsNan returns true for each element of `values` that is NaN,
 /// false otherwise
