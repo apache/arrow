@@ -45,7 +45,7 @@ namespace internal {
 // MSVC has no equivalent of __attribute__((constructor)), so instead
 // specify an object whose constructor executes the required code.
 #define ARROW_INITIALIZER_IMPL(NAME, ...) \
-  __declspec(dllexport) class NAME { NAME() __VA_ARGS__ } NAME
+  __declspec(dllexport) struct NAME { NAME() __VA_ARGS__ } NAME
 
 #endif
 
