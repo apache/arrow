@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/result.h"
+#include "arrow/util/init.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
 #include "arrow/vendored/utfcpp/checked.h"
@@ -84,11 +85,9 @@ ARROW_EXPORT void CheckUTF8Initialized() {
 
 }  // namespace internal
 
-static std::once_flag utf8_initialized;
+void InitializeUTF8() {}
 
-void InitializeUTF8() {
-  std::call_once(utf8_initialized, internal::InitializeLargeTable);
-}
+ARROW_INITIALIZER({ internal::InitializeLargeTable(); });
 
 static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
 
