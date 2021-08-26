@@ -93,7 +93,7 @@ public class ArrowFlightJdbcDriverTest {
   public void tearDown() throws Exception {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
     AutoCloseables.close(childAllocators
-            .toArray(new AutoCloseable[childAllocators.size()]));
+        .toArray(new AutoCloseable[childAllocators.size()]));
     AutoCloseables.close(server, allocator);
   }
 
@@ -265,11 +265,44 @@ public class ArrowFlightJdbcDriverTest {
     getUrlsArgs.setAccessible(true);
 
     try {
-      final Map<Object, Object> parsedArgs = (Map<Object, Object>) getUrlsArgs
-          .invoke(driver, "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
-    } catch (final InvocationTargetException e) {
+      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+          .invoke(driver,
+              "jdbc:arroww-flight://localhost:2222");
+    } catch (InvocationTargetException e) {
       throw (SQLException) e.getCause();
     }
+  }
+
+  /**
+   * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} returns the
+   * correct URL parameters when the host is an IP Address.
+   *
+   * @throws Exception
+   *           If an error occurs.
+   */
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testDriverUrlParsingMechanismShouldWorkWithIPAddress()
+      throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method getUrlsArgs = driver.getClass()
+        .getDeclaredMethod("getUrlsArgs", String.class);
+
+    getUrlsArgs.setAccessible(true);
+
+    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+        .invoke(driver,
+            "jdbc:arrow-flight://0.0.0.0:2222");
+
+    // Check size == the amount of args provided (prefix not included!)
+    assertEquals(2, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(HOST.getName()), "0.0.0.0");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(PORT.getName()), 2222);
   }
 
   /**
@@ -282,7 +315,7 @@ public class ArrowFlightJdbcDriverTest {
    * @return the result of validation.
    */
   private CallHeaderAuthenticator.AuthResult validate(final String username,
-      final String password) {
+                                                      final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Credentials not supplied.").toRuntimeException();
