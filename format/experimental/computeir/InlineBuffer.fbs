@@ -54,3 +54,5 @@ table InlineBuffer {
   // indirection to support them.
   impl: InlineBufferImpl (required);
 }
+
+root_type InlineBuffer;
