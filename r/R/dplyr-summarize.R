@@ -81,6 +81,5 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   names(inputs) <- as.character(seq_along(inputs))
   .data$selected_columns <- inputs
 
-  # Eventually, we will return .data here if (dataset) but do it eagerly now
-  do_exec_plan(.data)
+  .data
 }

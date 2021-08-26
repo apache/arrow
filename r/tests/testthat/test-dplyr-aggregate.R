@@ -51,7 +51,6 @@ test_that("summarize", {
 })
 
 test_that("summarize() doesn't evaluate eagerly", {
-  skip("TODO")
   expect_s3_class(
     Table$create(tbl) %>%
       summarize(total = sum(int)),
@@ -60,7 +59,7 @@ test_that("summarize() doesn't evaluate eagerly", {
   expect_r6_class(
     Table$create(tbl) %>%
       summarize(total = sum(int)) %>%
-      collect(),
+      compute(),
     "ArrowTabular"
   )
 })
@@ -111,7 +110,6 @@ test_that("Group by mean on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -120,7 +118,6 @@ test_that("Group by mean on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -131,7 +128,6 @@ test_that("Group by sd on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -141,7 +137,6 @@ test_that("Group by sd on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -152,7 +147,6 @@ test_that("Group by var on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -162,7 +156,6 @@ test_that("Group by var on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -304,8 +297,10 @@ test_that("Expressions on aggregations", {
         any = any(lgl),
         all = all(lgl)
       ) %>%
-      collect() %>%
-      transmute(some = any & !all) %>%
+      compute() %>%
+      ungroup() %>% # TODO: loosen the restriction on mutate after group_by
+      mutate(some = any & !all) %>%
+      select(some_grouping, some) %>%
       collect(),
     tbl
   )
