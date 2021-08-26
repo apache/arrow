@@ -133,7 +133,7 @@ test_that("Simple interface for datasets", {
 
   # Collecting virtual partition column works
   expect_equal(
-    ds %>% pull(part),
+    ds %>% arrange(part) %>% pull(part),
     c(rep(1, 10), rep(2, 10))
   )
 })
@@ -348,7 +348,7 @@ test_that("IPC/Feather format data", {
 
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    ds %>% arrange(part) %>% pull(part),
     c(rep(3, 10), rep(4, 10))
   )
 })
@@ -376,7 +376,7 @@ test_that("CSV dataset", {
   )
   # Collecting virtual partition column works
   expect_equal(
-    collect(ds) %>% pull(part),
+    collect(ds) %>% arrange(part) %>% pull(part),
     c(rep(5, 10), rep(6, 10))
   )
 })
@@ -804,7 +804,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 test_that("collect() on Dataset works (if fits in memory)", {
   skip_if_not_available("parquet")
   expect_equal(
-    collect(open_dataset(dataset_dir)),
+    collect(open_dataset(dataset_dir)) %>% arrange(int),
     rbind(df1, df2)
   )
 })
