@@ -1596,6 +1596,18 @@ def test_write_dataset_with_field_names(tempdir):
     assert load_back_table.to_pydict() == table.to_pydict()
 
 
+def test_write_dataset_with_field_names_only(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=["b"])
+
+    load_back = ds.dataset(tempdir)
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
+    }
+    assert partitioning_dirs == {"x", "y", "z"}
+
 
 def _has_subdirs(basedir):
     elements = os.listdir(basedir)

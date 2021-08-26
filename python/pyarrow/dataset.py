@@ -679,6 +679,11 @@ or tables, iterable of batches, RecordBatchReader, or URI
 
 
 def _ensure_write_partitioning(part, schema):
+    if isinstance(part, (tuple, list)):
+        # Name of fields were provided instead of a partitioning object.
+        # Create a partitioning factory with those field names.
+        part = partitioning(field_names=part)
+
     if part is None:
         part = partitioning(pa.schema([]))
     elif isinstance(part, PartitioningFactory):
@@ -720,9 +725,9 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         and `format` is not specified, it defaults to the same format as the
         specified FileSystemDataset. When writing a Table or RecordBatch, this
         keyword is required.
-    partitioning : Partitioning, optional
+    partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
-        function.
+        function or as a list of field names.
     schema : Schema, optional
     filesystem : FileSystem, optional
     file_options : FileWriteOptions, optional
