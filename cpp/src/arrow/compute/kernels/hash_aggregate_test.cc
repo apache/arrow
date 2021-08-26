@@ -1239,6 +1239,184 @@ TEST(GroupBy, AnyAndAll) {
   }
 }
 
+TEST(GroupBy, CountDistinct) {
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
+    [1,    1],
+    [1,    1]
+])",
+                                                                                      R"([
+    [0,    2],
+    [null, 3]
+])",
+                                                                                      R"([
+    [4,    null],
+    [1,    3]
+])",
+                                                                                      R"([
+    [0,    2],
+    [-1,   2]
+])",
+                                                                                      R"([
+    [1,    null],
+    [NaN,  3]
+  ])",
+                                                                                      R"([
+    [2,    null],
+    [3,    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_count_distinct", nullptr},
+                             },
+                             use_threads));
+    SortBy({"key_0"}, &aggregated_and_grouped);
+    ValidateOutput(aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count_distinct", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2, 2],
+    [3, 3],
+    [4, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+
+    table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    [null,   3]
+])",
+                                                                                   R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                   R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                   R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_count_distinct", nullptr},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count_distinct", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1],
+    [2, 2],
+    [3, 3],
+    [4, null]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
+TEST(GroupBy, Distinct) {
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    auto table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    [null,   3]
+])",
+                                                                                   R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                   R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                   R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                   R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+    ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_distinct", nullptr},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    // Order of sub-arrays is not stable
+    auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+    auto distinct_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+    auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+      EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+      EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+      return sorted.make_array();
+    };
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"),
+                      sort(*distinct_arr->value_slice(0)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["bar", "spam"])"),
+                      sort(*distinct_arr->value_slice(1)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo", "ham", null])"),
+                      sort(*distinct_arr->value_slice(2)), /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["a", "b", "baz", "eggs"])"),
+                      sort(*distinct_arr->value_slice(3)), /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
