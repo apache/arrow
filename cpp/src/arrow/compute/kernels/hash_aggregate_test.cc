@@ -1240,6 +1240,9 @@ TEST(GroupBy, AnyAndAll) {
 }
 
 TEST(GroupBy, CountDistinct) {
+  CountOptions all(CountOptions::ALL);
+  CountOptions only_valid(CountOptions::ONLY_VALID);
+  CountOptions only_null(CountOptions::ONLY_NULL);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -1250,6 +1253,7 @@ TEST(GroupBy, CountDistinct) {
 ])",
                                                                                       R"([
     [0,    2],
+    [null, 3],
     [null, 3]
 ])",
                                                                                       R"([
@@ -1273,12 +1277,16 @@ TEST(GroupBy, CountDistinct) {
                          internal::GroupBy(
                              {
                                  table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
                              },
                              {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_count_distinct", nullptr},
+                                 {"hash_count_distinct", &all},
+                                 {"hash_count_distinct", &only_valid},
+                                 {"hash_count_distinct", &only_null},
                              },
                              use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
@@ -1286,13 +1294,15 @@ TEST(GroupBy, CountDistinct) {
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
                                         field("key_0", int64()),
                                     }),
                                     R"([
-    [1, 1],
-    [2, 2],
-    [3, 3],
-    [4, null]
+    [1, 1, 0, 1],
+    [2, 2, 0, 2],
+    [3, 2, 1, 3],
+    [4, 4, 0, null]
   ])"),
                       aggregated_and_grouped,
                       /*verbose=*/true);
@@ -1304,6 +1314,7 @@ TEST(GroupBy, CountDistinct) {
 ])",
                                                                                    R"([
     ["bar",  2],
+    [null,   3],
     [null,   3]
 ])",
                                                                                    R"([
@@ -1327,12 +1338,16 @@ TEST(GroupBy, CountDistinct) {
                          internal::GroupBy(
                              {
                                  table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
                              },
                              {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_count_distinct", nullptr},
+                                 {"hash_count_distinct", &all},
+                                 {"hash_count_distinct", &only_valid},
+                                 {"hash_count_distinct", &only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -1340,13 +1355,15 @@ TEST(GroupBy, CountDistinct) {
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
                                         field("key_0", int64()),
                                     }),
                                     R"([
-    [1, 1],
-    [2, 2],
-    [3, 3],
-    [4, null]
+    [1, 1, 0, 1],
+    [2, 2, 0, 2],
+    [3, 2, 1, 3],
+    [4, 4, 0, null]
   ])"),
                       aggregated_and_grouped,
                       /*verbose=*/true);

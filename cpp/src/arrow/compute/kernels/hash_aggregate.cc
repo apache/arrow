@@ -1970,6 +1970,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options) override {
     ctx_ = ctx;
     pool_ = ctx->memory_pool();
+    options_ = checked_cast<const CountOptions&>(*options);
     return Status::OK();
   }
 
@@ -2026,6 +2027,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   ExecContext* ctx_;
   MemoryPool* pool_;
   int64_t num_groups_;
+  CountOptions options_;
   std::unique_ptr<Grouper> grouper_;
   std::shared_ptr<DataType> out_type_;
 };
@@ -2383,22 +2385,26 @@ const FunctionDoc hash_all_doc{"Test whether all elements evaluate to true",
 
 const FunctionDoc hash_count_distinct_doc{
     "Count the distinct values in each group",
-    ("Nulls are counted. NaNs and signed zeroes are not normalized."),
-    {"array", "group_id_array"}};
+    ("Whether nulls/values are counted is controlled by CountOptions.\n"
+     "NaNs and signed zeroes are not normalized."),
+    {"array", "group_id_array"},
+    "CountOptions"};
 
 const FunctionDoc hash_distinct_doc{
     "Keep the distinct values in each group",
-    ("Nulls are kept. NaNs and signed zeroes are not normalized."),
-    {"array", "group_id_array"}};
+    ("Whether nulls/values are kept is controlled by CountOptions.\n"
+     "NaNs and signed zeroes are not normalized."),
+    {"array", "group_id_array"},
+    "CountOptions"};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
+  static auto default_count_options = CountOptions::Defaults();
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_tdigest_options = TDigestOptions::Defaults();
   static auto default_variance_options = VarianceOptions::Defaults();
 
   {
-    static auto default_count_options = CountOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_count", Arity::Binary(), &hash_count_doc, &default_count_options);
 
@@ -2516,15 +2522,16 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc);
+        "hash_count_distinct", Arity::Binary(), &hash_count_distinct_doc,
+        &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedCountDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_distinct", Arity::Binary(),
-                                                        &hash_distinct_doc);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_distinct", Arity::Binary(), &hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
