@@ -1,0 +1,56 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace org.apache.arrow.computeir.flatbuf;
+
+table Int8Buffer { items: [uint8] (required); }
+table Int16Buffer { items: [uint16] (required); }
+table Int32Buffer { items: [uint32] (required); }
+table Int64Buffer { items: [uint64] (required); }
+table UInt8Buffer { items: [uint8] (required); }
+table UInt16Buffer { items: [uint16] (required); }
+table UInt32Buffer { items: [uint32] (required); }
+table UInt64Buffer { items: [uint64] (required); }
+table Float32Buffer { items: [float32] (required); }
+table Float64Buffer { items: [float64] (required); }
+table TableBuffer { items: [ubyte] (required, nested_flatbuffer: "InlineBuffer"); }
+union InlineBufferImpl {
+  Int8Buffer,
+  Int16Buffer,
+  Int32Buffer,
+  Int64Buffer,
+  UInt8Buffer,
+  UInt16Buffer,
+  UInt32Buffer,
+  UInt64Buffer,
+  Float32Buffer,
+  Float64Buffer,
+  TableBuffer,
+}
+
+/// An inline replacement for org.apache.arrow.Buffer because that
+/// requires a sidecar block of bytes into which offsets can point.
+/// A union of buffers of each primitive type is provided to avoid
+/// the need for reinterpret_cast, std::mem::transmute, ...
+/// The final member of the union is a bytes buffer aligned suitably
+/// to hold any flatbuffer Table.
+table InlineBuffer {
+  // Ideally we'd simply have `union InlineBuffer { ... }`
+  // but not all generators support vectors of unions so we provide minimal
+  // indirection to support them.
+  impl: InlineBufferImpl (required);
+}

@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-include "Schema.fbs";
-include "ComputeIR.fbs";
+include "../../Schema.fbs";
 
-namespace org.apache.arrow.flatbuf.computeir.ext;
+namespace org.apache.arrow.computeir.flatbuf.ext;
 
 /////////////////////////////////////////////////////////////
 // Example source relations:
@@ -30,7 +29,7 @@ table Uri {
   host: string (required);
   port: ushort;
   path: string (required);
-  query: [KeyValue];
+  query: [org.apache.arrow.flatbuf.KeyValue];
   fragment: string;
 }
 
@@ -49,13 +48,13 @@ table Partitioning {
   flavor: string (required);
 
   /// Fields on which data is partitioned
-  schema: Schema (required);
+  schema: org.apache.arrow.flatbuf.Schema (required);
 }
 
 table FileFormat {
   /// E.g. "parquet", "csv", ...
   name: string (required);
-  options: Buffer;
+  options: org.apache.arrow.flatbuf.Buffer;
 }
 
 /// The contents of Relation.options will be Arrow_FileSystemDatasetScanOptions

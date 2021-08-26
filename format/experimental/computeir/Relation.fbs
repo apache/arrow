@@ -1,0 +1,224 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+include "../../Schema.fbs";
+include "Literal.fbs";
+include "Expression.fbs";
+include "InlineBuffer.fbs";
+
+namespace org.apache.arrow.computeir.flatbuf;
+
+/// A data type indicating a different mapping of columns
+/// should occur in the output.
+///
+/// For example:
+///
+/// Given a query `SELECT a, b FROM t` where `t` has columns a, b, c
+/// the mapping value for the projection would equal [0, 1].
+table Remap {
+  mapping: [uint32] (required);
+}
+
+// Pass through indicates that no output remapping should occur.
+table PassThrough {}
+
+/// A union for the different colum remapping variants
+union Emit {
+  Remap,
+  PassThrough,
+}
+
+/// Fields common to every relational operator
+table RelBase {
+  /// The arguments passed to `operation`.
+  arguments: [Relation] (required);
+
+  /// Output remapping of ordinals for a given operation
+  output_mapping: Emit (required);
+
+  /// Arguments for custom operations
+  options: InlineBuffer;
+}
+
+/// Filter operation
+table Filter {
+  base: RelBase (required);
+  /// The expression which will be evaluated against input rows
+  /// to determine whether they should be excluded from the
+  /// filter relation's output.
+  predicate: Expression (required);
+}
+
+/// Projection
+table Project {
+  base: RelBase (required);
+  /// Expressions which will be evaluated to produce to
+  /// the rows of the project relation's output.
+  expressions: [Expression] (required);
+}
+
+/// Aggregate operation
+table Aggregate {
+  base: RelBase (required);
+  /// Expressions which will be evaluated to produce to
+  /// the rows of the aggregate relation's output.
+  aggregations: [Expression] (required);
+  /// Keys by which `aggregations` will be grouped.
+  keys: [Expression] (required);
+}
+
+enum CanonicalJoinKindId : uint8 {
+  Anti,
+  Cross,
+  FullOuter,
+  Inner,
+  LeftOuter,
+  LeftSemi,
+  RightOuter,
+  // TODO: Window
+  // TODO: AsOf
+}
+
+table CanonicalJoinKind {
+  id: CanonicalJoinKindId;
+}
+
+table NonCanonicalJoinKind {
+  name_space: string;
+  name: string (required);
+}
+
+union JoinKind {
+  CanonicalJoinKind,
+  NonCanonicalJoinKind,
+}
+
+/// The contents of Relation.options will be JoinOptions
+/// if Relation.operation = CanonicalOperation::Join
+table Join {
+  base: RelBase (required);
+  /// The expression which will be evaluated against rows from each
+  /// input to determine whether they should be included in the
+  /// join relation's output.
+  on_expression: Expression (required);
+  /// The kind of join to use.
+  join_kind: JoinKind (required);
+}
+
+/// Order by relation
+table OrderBy {
+  base: RelBase (required);
+  /// Define sort order for rows of output.
+  /// Keys with higher precedence are ordered ahead of other keys.
+  keys: [SortKey] (required);
+}
+
+/// Limit operation
+table Limit {
+  base: RelBase (required);
+  /// The maximum number of rows of output.
+  count: long;
+}
+
+/// Common table expresssion
+table Common {
+  base: RelBase (required);
+  /// Commons (CTEs in SQL) allow assigning a name to a stream
+  /// of data and reusing it, potentially multiple times and
+  /// potentially recursively.
+  name: string (required);
+}
+
+/// The kind of set operation being performed.
+enum CanonicalSetOpKindId : uint8 {
+  Union,
+  Intersection,
+  Difference,
+}
+
+table CanonicalSetOpKind {
+  id: CanonicalSetOpKindId;
+}
+
+table NonCanonicalSetOpKind {
+  name_space: string;
+  name: string (required);
+}
+
+/// The kind of set operation
+union SetOpKind {
+  CanonicalSetOpKind,
+  NonCanonicalSetOpKind,
+}
+
+/// A set operation on two or more relations
+table SetOperation {
+  base: RelBase (required);
+  /// The kind of set operation
+  set_op: SetOpKind (required);
+}
+
+/// Literal relation
+table LiteralRelation {
+  base: RelBase (required);
+  /// The columns of this literal relation.
+  columns: [Literal] (required);
+}
+
+/// A user-defined relation.
+table Custom {
+  base: RelBase (required);
+  /// NB: the schema is optional here, since a custom relation
+  /// may or may not need it.
+  schema: org.apache.arrow.flatbuf.Schema;
+}
+
+/// A table read
+table Read {
+  base: RelBase (required);
+  resource: string (required);
+  schema: org.apache.arrow.flatbuf.Schema (required);
+}
+
+/// A table write
+table Write {
+  base: RelBase (required);
+  resource: string (required);
+  schema: org.apache.arrow.flatbuf.Schema (required);
+}
+
+/// The varieties of relations
+union RelationImpl {
+  Aggregate,
+  Common,
+  Custom,
+  SetOperation,
+  Filter,
+  Limit,
+  LiteralRelation,
+  OrderBy,
+  Project,
+  Read,
+  Write,
+}
+
+/// A table holding an instance of the possible relation types.
+table Relation {
+  impl: RelationImpl (required);
+}
+
+root_type Relation;

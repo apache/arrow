@@ -1,0 +1,351 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+include "../../Schema.fbs";
+include "Literal.fbs";
+include "InlineBuffer.fbs";
+
+namespace org.apache.arrow.computeir.flatbuf;
+
+/// Access a value for a given map key
+table MapKey {
+  key: string (required);
+}
+
+/// Struct field access
+table StructField {
+  /// The position of the field in the struct schema
+  position: uint32;
+}
+
+/// Zero-based array index
+table ArraySubscript {
+  position: uint32;
+}
+
+/// Zero-based range of elements in an array
+table ArraySlice {
+  /// The start of an array slice, inclusive
+  start_inclusive: uint32;
+  /// The end of an array slice, exclusive
+  end_exclusive: uint32;
+}
+
+/// Field name in a relation
+table FieldName {
+  position: uint32;
+}
+
+/// A union of possible dereference operations
+union Deref {
+  /// Access a value for a given map key
+  MapKey,
+  /// Access the value at a struct field
+  StructField,
+  /// Access the element at a given index in an array
+  ArraySubscript,
+  /// Access a range of elements in an array
+  ArraySlice,
+  /// Access a field of a relation
+  FieldName,
+}
+
+/// Access the data of a field
+table FieldRef {
+  /// A sequence of field names to allow referencing potentially nested fields
+  ref: Deref (required);
+  /// For Expressions which might reference fields in multiple Relations,
+  /// this index may be provided to indicate which Relation's fields
+  /// `path` points into. For example in the case of a join,
+  /// 0 refers to the left relation and 1 to the right relation.
+  relation_index: int;
+}
+
+/// A canonical (probably SQL equivalent) function
+//
+// TODO: variadics
+enum CanonicalFunctionId : uint32 {
+  // logical
+  And,
+  Not,
+  Or,
+
+  // arithmetic
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
+  Power,
+  AbsoluteValue,
+  Negate,
+  Sign,
+
+  // date/time/timestamp operations
+  DateSub,
+  DateAdd,
+  DateDiff,
+  TimeAdd,
+  TimeSub,
+  TimeDiff,
+  TimestampAdd,
+  TimestampSub,
+  TimestampDiff,
+
+  // comparison
+  Equals,
+  NotEquals,
+  Greater,
+  GreaterEqual,
+  Less,
+  LessEqual,
+}
+
+table CanonicalFunction {
+  id: CanonicalFunctionId;
+}
+
+table NonCanonicalFunction {
+  name_space: string;
+  name: string (required);
+}
+
+union FunctionImpl {
+  CanonicalFunction,
+  NonCanonicalFunction,
+}
+
+/// A function call expression
+table Call {
+  /// The kind of function call this is.
+  kind: FunctionImpl (required);
+
+  /// The arguments passed to `function_name`.
+  arguments: [Expression] (required);
+
+  /// Parameters for `function_name`; content/format may be unique to each
+  /// value of `function_name`.
+  metadata: InlineBuffer;
+}
+
+/// A single WHEN x THEN y fragment.
+table CaseFragment {
+  when: Expression (required);
+  then: Expression (required);
+}
+
+/// Case statement-style expression.
+table Case {
+  cases: [CaseFragment] (required);
+  /// The default value if no cases match. This is typically NULL in SQL
+  //implementations.
+  ///
+  /// Defaulting to NULL is a frontend choice, so producers must specify NULL
+  /// if that's their desired behavior.
+  default: Expression (required);
+
+  /// Parameters for `function_name`; content/format may be unique to each
+  /// value of `function_name`.
+  metadata: InlineBuffer;
+}
+
+table Cast {
+  /// The expression to cast
+  expression: Expression (required);
+
+  /// The type to cast `argument` to.
+  type: org.apache.arrow.flatbuf.Field (required);
+
+  /// Parameters for `function_name`; content/format may be unique to each
+  /// value of `function_name`.
+  metadata: InlineBuffer;
+}
+
+table Extract {
+  /// Expression from which to extract components.
+  expression: Expression (required);
+
+  /// Field to extract from `expression`.
+  field: string (required);
+
+  /// Parameters for `function_name`; content/format may be unique to each
+  /// value of `function_name`.
+  metadata: InlineBuffer;
+}
+
+/// Whether lesser values should precede greater or vice versa,
+/// also whether nulls should preced or follow values.
+enum Ordering : uint8 {
+  ASCENDING_THEN_NULLS,
+  DESCENDING_THEN_NULLS,
+  NULLS_THEN_ASCENDING,
+  NULLS_THEN_DESCENDING
+}
+
+/// An expression with an order
+table SortKey {
+  expression: Expression (required);
+  ordering: Ordering = ASCENDING_THEN_NULLS;
+}
+
+/// Boundary is unbounded
+table Unbounded {}
+
+union ConcreteBoundImpl {
+  Expression,
+  Unbounded,
+}
+
+/// Boundary is preceding rows, determined by the contained expression
+table Preceding {
+  ipml: ConcreteBoundImpl (required);
+}
+
+/// Boundary is following rows, determined by the contained expression
+table Following {
+  impl: ConcreteBoundImpl (required);
+}
+
+/// Boundary is the current row
+table CurrentRow {}
+
+union BoundImpl {
+  Preceding,
+  Following,
+  CurrentRow,
+}
+
+/// Boundary of a window
+table Bound {
+  impl: BoundImpl (required);
+}
+
+/// The kind of window function to be executed.
+enum Frame : uint8 {
+  Rows,
+  Range,
+}
+
+/// An expression representing a window function call.
+table WindowCall {
+  /// The kind of window frame
+  kind: Frame;
+  /// The expression to operate over
+  expression: Expression (required);
+  /// Partition keys
+  partitions: [Expression] (required);
+  /// Sort keys
+  orderings: [SortKey] (required);
+  /// Lower window bound
+  lower_bound: Bound (required);
+  /// Upper window bound
+  upper_bound: Bound (required);
+}
+
+/// A canonical (probably SQL equivalent) function
+enum CanonicalAggregateId : uint32 {
+  All,
+  Any,
+  Count,
+  CountTable,
+  Mean,
+  Min,
+  Max,
+  Product,
+  Sum,
+  Variance,
+  StandardDev,
+}
+
+
+table CanonicalAggregate {
+  id: CanonicalAggregateId;
+}
+
+table NonCanonicalAggregate {
+  name_space: string;
+  name: string (required);
+}
+
+union AggregateImpl {
+  CanonicalAggregate,
+  NonCanonicalAggregate,
+}
+
+table AggregateCall {
+  /// The kind of aggregate function being executed
+  kind: AggregateImpl (required);
+
+  /// Aggregate expression arguments
+  arguments: [Expression] (required);
+
+  /// Possible ordering.
+  orderings: [SortKey];
+
+  /// optional per-aggregate filtering
+  predicate: Expression;
+}
+
+/// An expression is one of
+/// - a Literal datum
+/// - a reference to a field from a Relation
+/// - a call to a named function
+/// - a case expression
+/// - a cast expression
+/// - an extract operation
+/// - a window function call
+/// - an aggregate function call
+///
+/// The expressions here that look like function calls such as
+/// Cast,Case and Extract are special in that while they might
+/// fit into a Call, they don't cleanly do so without having
+/// to pass around non-expression arguments as metadata.
+///
+/// AggregateCall and WindowCall are also separate variants
+/// due to special options for each that don't apply to generic
+/// function calls. Again this is done to make it easier
+/// for consumers to deal with the structure of the operation
+union ExpressionImpl {
+  Literal,
+  FieldRef,
+  Call,
+  Case,
+  Cast,
+  Extract,
+  WindowCall,
+  AggregateCall,
+}
+
+/// Expression types
+///
+/// Expressions have a concrete `impl` value, which is a specific operation
+/// They also have a `type` field, which is the output type of the expression,
+/// regardless of operation type.
+///
+/// The only exception so far is Cast, which has a type as input argument, which
+/// is equal to output type.
+table Expression {
+  impl: ExpressionImpl (required);
+
+  /// The type of the expression.
+  ///
+  /// This is a field, because the Type union in Schema.fbs
+  /// isn't self-contained: Fields are necessary to describe complex types
+  /// and there's currently no reason to optimize the storage of this.
+  type: org.apache.arrow.flatbuf.Field;
+}
+
+root_type Expression;
