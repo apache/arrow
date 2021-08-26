@@ -1981,37 +1981,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    const auto& values = *batch[0].array();
-    if (options_.mode == CountOptions::ALL ||
-        (options_.mode == CountOptions::ONLY_VALID && values.GetNullCount() == 0)) {
-      return grouper_->Consume(batch).status();
-    }
-
-    FieldVector fields;
-    fields.reserve(batch.num_values());
-    for (const auto& value : batch.values) {
-      fields.push_back(field("", value.type()));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema(std::move(fields)), pool_));
-
-    if (options_.mode == CountOptions::ONLY_VALID) {
-      auto filter = std::make_shared<BooleanArray>(batch.length, values.buffers[0]);
-      ARROW_ASSIGN_OR_RAISE(auto filtered,
-                            Filter(rb, filter, FilterOptions(FilterOptions::DROP), ctx_));
-      return grouper_->Consume(ExecBatch(*filtered.record_batch())).status();
-    }
-    // ONLY_NULL
-    if (values.GetNullCount() == 0) return Status::OK();
-    // This branch is...fairly pointless, hence the naive implementation here,
-    // but if we do care about performance, we can write a specialized kernel
-    // implementation.
-    ARROW_ASSIGN_OR_RAISE(auto mask,
-                          arrow::internal::InvertBitmap(pool_, values.buffers[0]->data(),
-                                                        values.offset, values.length));
-    auto filter = std::make_shared<BooleanArray>(batch.length, mask);
-    ARROW_ASSIGN_OR_RAISE(auto filtered,
-                          Filter(rb, filter, FilterOptions(FilterOptions::DROP), ctx_));
-    return grouper_->Consume(ExecBatch(*filtered.record_batch())).status();
+    return grouper_->Consume(batch).status();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -2045,8 +2015,21 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
     auto* g = uniques[1].array()->GetValues<uint32_t>(1);
-    for (int64_t i = 0; i < uniques.length; i++) {
-      counts[g[i]]++;
+    const auto& items = *uniques[0].array();
+    const auto* valid = items.GetValues<uint8_t>(0, 0);
+    if (options_.mode == CountOptions::ALL ||
+        (options_.mode == CountOptions::ONLY_VALID && !valid)) {
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]]++;
+      }
+    } else if (options_.mode == CountOptions::ONLY_VALID) {
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]] += BitUtil::GetBit(valid, items.offset + i);
+      }
+    } else {  // ONLY_NULL
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]] += !BitUtil::GetBit(valid, items.offset + i);
+      }
     }
 
     return ArrayData::Make(int64(), num_groups_, {nullptr, std::move(values)},
@@ -2069,7 +2052,50 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
     ARROW_ASSIGN_OR_RAISE(auto groupings, grouper_->MakeGroupings(
                                               *uniques[1].array_as<UInt32Array>(),
                                               static_cast<uint32_t>(num_groups_), ctx_));
-    return grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_);
+    ARROW_ASSIGN_OR_RAISE(
+        auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
+    auto values = list->values();
+    int32_t* offsets = reinterpret_cast<int32_t*>(list->value_offsets()->mutable_data());
+    if (options_.mode == CountOptions::ALL ||
+        (options_.mode == CountOptions::ONLY_VALID && values->null_count() == 0)) {
+      return list;
+    } else if (options_.mode == CountOptions::ONLY_VALID) {
+      int32_t prev_offset = offsets[0];
+      for (int64_t i = 0; i < list->length(); i++) {
+        const int64_t slot_length = offsets[i + 1] - prev_offset;
+        const int64_t null_count =
+            slot_length - arrow::internal::CountSetBits(values->null_bitmap()->data(),
+                                                        prev_offset, slot_length);
+        const int64_t offset = null_count > 0 ? slot_length - 1 : slot_length;
+        prev_offset = offsets[i + 1];
+        offsets[i + 1] = offsets[i] + offset;
+      }
+      auto filter =
+          std::make_shared<BooleanArray>(values->length(), values->null_bitmap());
+      ARROW_ASSIGN_OR_RAISE(
+          auto new_values,
+          Filter(std::move(values), filter, FilterOptions(FilterOptions::DROP), ctx_));
+      return std::make_shared<ListArray>(list->type(), list->length(),
+                                         list->value_offsets(), new_values.make_array());
+    }
+    // ONLY_NULL
+    int32_t prev_offset = offsets[0];
+    for (int64_t i = 0; i < list->length(); i++) {
+      const int64_t slot_length = offsets[i + 1] - prev_offset;
+      const int64_t null_count =
+          slot_length - arrow::internal::CountSetBits(values->null_bitmap()->data(),
+                                                      prev_offset, slot_length);
+      const int64_t offset = null_count > 0 ? 1 : 0;
+      prev_offset = offsets[i + 1];
+      offsets[i + 1] = offsets[i] + offset;
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto new_values,
+        MakeArrayOfNull(out_type_,
+                        list->length() > 0 ? offsets[list->length()] - offsets[0] : 0,
+                        pool_));
+    return std::make_shared<ListArray>(list->type(), list->length(),
+                                       list->value_offsets(), std::move(new_values));
   }
 
   std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
