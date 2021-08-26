@@ -17,19 +17,12 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
-import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
-
-import java.sql.Types;
 import java.util.Calendar;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.types.DateUnit;
-import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -56,66 +49,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  */
 public final class JdbcToArrowConfig {
 
-  private static final BiFunction<JdbcFieldInfo, Calendar, ArrowType> DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER =
-      (fieldInfo, calendar) -> {
-        switch (fieldInfo.getJdbcType()) {
-          case Types.BOOLEAN:
-          case Types.BIT:
-            return new ArrowType.Bool();
-          case Types.TINYINT:
-            return new ArrowType.Int(8, true);
-          case Types.SMALLINT:
-            return new ArrowType.Int(16, true);
-          case Types.INTEGER:
-            return new ArrowType.Int(32, true);
-          case Types.BIGINT:
-            return new ArrowType.Int(64, true);
-          case Types.NUMERIC:
-          case Types.DECIMAL:
-            int precision = fieldInfo.getPrecision();
-            int scale = fieldInfo.getScale();
-            return new ArrowType.Decimal(precision, scale, 128);
-          case Types.REAL:
-          case Types.FLOAT:
-            return new ArrowType.FloatingPoint(SINGLE);
-          case Types.DOUBLE:
-            return new ArrowType.FloatingPoint(DOUBLE);
-          case Types.CHAR:
-          case Types.NCHAR:
-          case Types.VARCHAR:
-          case Types.NVARCHAR:
-          case Types.LONGVARCHAR:
-          case Types.LONGNVARCHAR:
-          case Types.CLOB:
-            return new ArrowType.Utf8();
-          case Types.DATE:
-            return new ArrowType.Date(DateUnit.DAY);
-          case Types.TIME:
-            return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
-          case Types.TIMESTAMP:
-            final String timezone;
-            if (calendar != null) {
-              timezone = calendar.getTimeZone().getID();
-            } else {
-              timezone = null;
-            }
-            return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
-          case Types.BINARY:
-          case Types.VARBINARY:
-          case Types.LONGVARBINARY:
-          case Types.BLOB:
-            return new ArrowType.Binary();
-          case Types.ARRAY:
-            return new ArrowType.List();
-          case Types.NULL:
-            return new ArrowType.Null();
-          case Types.STRUCT:
-            return new ArrowType.Struct();
-          default:
-            // no-op, shouldn't get here
-            return null;
-        }
-      };
   public static final int DEFAULT_TARGET_BATCH_SIZE = 1024;
   public static final int NO_LIMIT_BATCH_SIZE = -1;
   private final Calendar calendar;
@@ -218,16 +151,7 @@ public final class JdbcToArrowConfig {
 
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
-        jdbcFieldInfo -> getDefaultJdbcToArrowTypeConverter().apply(jdbcFieldInfo, calendar);
-  }
-
-  /**
-   * Gets the default JDBC-type-to-Arrow-type converter.
-   *
-   * @return the default converter.
-   */
-  public static BiFunction<JdbcFieldInfo, Calendar, ArrowType> getDefaultJdbcToArrowTypeConverter() {
-    return DEFAULT_JDBC_TO_ARROW_TYPE_CONVERTER;
+        jdbcFieldInfo -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
   }
 
   /**

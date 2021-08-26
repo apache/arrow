@@ -405,8 +405,7 @@ public class FlightSqlClient {
         }
         this.parameterBindingRoot.close();
       }
-      this.parameterBindingRoot =
-          Objects.requireNonNull(parameterBindingRoot, "Parameter binding root cannot be null!");
+      this.parameterBindingRoot = parameterBindingRoot;
     }
 
     /**

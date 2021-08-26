@@ -20,7 +20,6 @@ package org.apache.arrow.flight.sql.example;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
@@ -40,10 +39,6 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
     this.query = query;
   }
 
-  public StatementContext(final T statement) {
-    this(statement, null);
-  }
-
   /**
    * Gets the statement wrapped by this {@link StatementContext}.
    *
@@ -58,8 +53,8 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
    *
    * @return the SQL query if present; empty otherwise.
    */
-  public Optional<String> getQuery() {
-    return Optional.ofNullable(query);
+  public String getQuery() {
+    return query;
   }
 
   @Override
@@ -77,11 +72,11 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
       return false;
     }
     final StatementContext<?> that = (StatementContext<?>) other;
-    return getStatement().equals(that.getStatement());
+    return statement.equals(that.statement);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getStatement());
+    return Objects.hash(statement);
   }
 }

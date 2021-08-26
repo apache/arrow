@@ -62,7 +62,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -70,7 +69,6 @@ import java.util.stream.Stream;
 
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
-import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
@@ -155,8 +153,6 @@ import org.slf4j.Logger;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.ImmutableList;
@@ -186,7 +182,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private final BufferAllocator rootAllocator = new RootAllocator();
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
-  private final LoadingCache<ByteString, ResultSet> commandExecuteStatementLoadingCache;
 
   public FlightSqlExample(final Location location) {
     // TODO Constructor should not be doing work.
@@ -216,13 +211,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .removalListener(new StatementRemovalListener<>())
             .build();
-
-    commandExecuteStatementLoadingCache =
-        CacheBuilder.newBuilder()
-            .maximumSize(100)
-            .expireAfterWrite(10, TimeUnit.MINUTES)
-            .removalListener(new CommandExecuteStatementRemovalListener())
-            .build(new CommandExecuteStatementCacheLoader(statementLoadingCache));
 
     this.location = location;
   }
@@ -283,8 +271,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
     final ArrowType type =
-        JdbcToArrowConfig.getDefaultJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(jdbcDataType, precision, scale),
-            DEFAULT_CALENDAR);
+        JdbcToArrowUtils.getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale), DEFAULT_CALENDAR);
     return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
   }
 
@@ -477,10 +464,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final VarCharVector tableTypeVector =
         new VarCharVector("table_type", FieldType.notNullable(MinorType.VARCHAR.getType()), allocator);
 
-    final List<FieldVector> vectors =
-        new ArrayList<>(
-            ImmutableList.of(
-                catalogNameVector, schemaNameVector, tableNameVector, tableTypeVector));
+    final List<FieldVector> vectors = new ArrayList<>(4);
+    vectors.add(catalogNameVector);
+    vectors.add(schemaNameVector);
+    vectors.add(tableNameVector);
+    vectors.add(tableTypeVector);
+
     vectors.forEach(FieldVector::allocateNew);
 
     final Map<FieldVector, String> vectorToColumnName = ImmutableMap.of(
@@ -669,17 +658,18 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
       final Statement statement = connection.createStatement();
-      StatementContext<Statement> statementContext = new StatementContext<>(statement, request.getQuery());
+      final String query = request.getQuery();
+      final StatementContext<Statement> statementContext = new StatementContext<>(statement, query);
 
       statementLoadingCache.put(handle, statementContext);
-      final ResultSet resultSet = commandExecuteStatementLoadingCache.get(handle);
+      final ResultSet resultSet = statement.executeQuery(query);
 
       FlightSql.TicketStatementQuery ticket = FlightSql.TicketStatementQuery.newBuilder()
           .setStatementHandle(handle)
           .build();
       return getFlightInfoForSchema(ticket, descriptor,
           jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-    } catch (final ExecutionException | SQLException e) {
+    } catch (final SQLException e) {
       LOGGER.error(
           format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
           e);
@@ -740,7 +730,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       // Ownership of the connection will be passed to the context. Do NOT close!
       final Connection connection = dataSource.getConnection();
       final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery());
-      final StatementContext<PreparedStatement> preparedStatementContext = new StatementContext<>(preparedStatement);
+      final StatementContext<PreparedStatement> preparedStatementContext =
+          new StatementContext<>(preparedStatement, request.getQuery());
 
       preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
 
@@ -1641,16 +1632,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamStatement(final FlightSql.TicketStatementQuery ticketStatementQuery, final CallContext context,
                                  Ticket ticket, final ServerStreamListener listener) {
     final ByteString handle = ticketStatementQuery.getStatementHandle();
-    try (final ResultSet resultSet = Objects.requireNonNull(commandExecuteStatementLoadingCache.getIfPresent(handle),
-        "Got a null ResultSet.")) {
+    final StatementContext<Statement> statementContext =
+        Objects.requireNonNull(statementLoadingCache.getIfPresent(handle));
+    try (final ResultSet resultSet = statementContext.getStatement().getResultSet()) {
       final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
       try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
-        VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+        final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
         listener.start(vectorSchemaRoot);
 
         final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
         while (iterator.hasNext()) {
-          VectorUnloader unloader = new VectorUnloader(iterator.next());
+          final VectorUnloader unloader = new VectorUnloader(iterator.next());
           loader.load(unloader.getRecordBatch());
           listener.putNext();
           vectorSchemaRoot.clear();
@@ -1663,7 +1655,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       listener.error(e);
     } finally {
       listener.completed();
-      commandExecuteStatementLoadingCache.invalidate(handle);
       statementLoadingCache.invalidate(handle);
     }
   }
@@ -1675,55 +1666,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final List<FlightEndpoint> endpoints = singletonList(new FlightEndpoint(ticket, location));
 
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
-  }
-
-  private static class CommandExecuteStatementRemovalListener
-      implements RemovalListener<ByteString, ResultSet> {
-    @Override
-    public void onRemoval(RemovalNotification<ByteString, ResultSet> notification) {
-      try {
-        AutoCloseables.close(notification.getValue());
-      } catch (Throwable e) {
-        // Swallow
-      }
-    }
-  }
-
-  private abstract static class CommandExecuteQueryCacheLoader<T extends Statement>
-      extends CacheLoader<ByteString, ResultSet> {
-    private final Cache<ByteString, StatementContext<T>> statementLoadingCache;
-
-    public CommandExecuteQueryCacheLoader(final Cache<ByteString, StatementContext<T>> statementLoadingCache) {
-      this.statementLoadingCache =
-          Objects.requireNonNull(statementLoadingCache, "statementLoadingCache cannot be null.");
-    }
-
-    public final Cache<ByteString, StatementContext<T>> getStatementLoadingCache() {
-      return statementLoadingCache;
-    }
-
-    @Override
-    public final ResultSet load(final ByteString key) throws SQLException {
-      return generateResultSetExecutingQuery(Objects.requireNonNull(key, "key cannot be null."));
-    }
-
-    protected abstract ResultSet generateResultSetExecutingQuery(ByteString handle) throws SQLException;
-  }
-
-  private static class CommandExecuteStatementCacheLoader extends CommandExecuteQueryCacheLoader<Statement> {
-
-    public CommandExecuteStatementCacheLoader(
-        final Cache<ByteString, StatementContext<Statement>> statementLoadingCache) {
-      super(statementLoadingCache);
-    }
-
-    @Override
-    protected ResultSet generateResultSetExecutingQuery(final ByteString handle) throws SQLException {
-      final StatementContext<Statement> statementContext = getStatementLoadingCache().getIfPresent(handle);
-      Objects.requireNonNull(statementContext, "statementContext cannot be null.");
-      return statementContext.getStatement()
-          .executeQuery(statementContext.getQuery().orElseThrow(IllegalStateException::new));
-    }
   }
 
   private static class StatementRemovalListener<T extends Statement>

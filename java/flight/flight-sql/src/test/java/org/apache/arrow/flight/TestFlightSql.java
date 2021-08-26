@@ -27,9 +27,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.Reader;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -37,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flatbuf.Message;
@@ -88,7 +84,6 @@ public class TestFlightSql {
       asList("1", "one", "1", "1"));
   private static final Map<String, String> GET_SQL_INFO_EXPECTED_RESULTS_MAP = new LinkedHashMap<>();
   private static final String LOCALHOST = "localhost";
-  private static int port;
   private static BufferAllocator allocator;
   private static FlightServer server;
   private static FlightClient client;
@@ -98,16 +93,9 @@ public class TestFlightSql {
 
   @BeforeClass
   public static void setUp() throws Exception {
-    try (final Reader reader = new BufferedReader(
-        new FileReader("target/generated-test-resources/network.properties"))) {
-      final Properties properties = new Properties();
-      properties.load(reader);
-      port = Integer.parseInt(Objects.toString(properties.get("server.port")));
-    }
-
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
-    final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, port);
+    final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, 0);
     server = FlightServer.builder(allocator, serverLocation, new FlightSqlExample(serverLocation))
         .build()
         .start();
