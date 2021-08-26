@@ -46,6 +46,7 @@ If you're looking to contribute to arrow, this vignette can help you set up a de
 This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation).
 
 For clarity, a quick note on terminology used in this vignette:
+
 * "Apache Arrow" or "Arrow" - the Apache Arrow project, including implementations in different languages
 * "libarrow" or "the Arrow C++ library" - Arrow's C++ library (N.B. this term might not be used in documentation in other parts of the Arrow project)
 * "arrow" or "the Arrow R package" - the R package
@@ -81,7 +82,7 @@ You'll need to create a `libarrow` directory inside the R package directory and 
 ### macOS
 On macOS, you can install libarrow using [Homebrew](https://brew.sh/):
 
-``` shell
+```bash
 # For the released version:
 brew install apache-arrow
 # Or for a development version, you can try:
@@ -111,9 +112,9 @@ There are five major steps to the process.
 
 ### Step 1 - Install dependencies {.tabset}
 
-When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
+When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are [cmake](https://cmake.org/) (for configuring the build) and [openssl](https://www.openssl.org/) if you are building with S3 support.
 
-For a faster build, you may choose to pre-install more C++ library dependencies (such as `lz4`, `zstd`, etc.) on the system  so that they don't need to be built from source in the libarrow build.
+For a faster build, you may choose to pre-install more C++ library dependencies (such as [lz4](http://lz4.github.io/lz4/), [zstd](https://facebook.github.io/zstd/), etc.) on the system  so that they don't need to be built from source in the libarrow build.
 
 #### Ubuntu
 ```{bash, save=run & ubuntu}
@@ -181,7 +182,7 @@ cmake \
 
 To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags to your call to `cmake` (the trailing `\` makes them easier to paste into a bash shell on a new line):
 
-``` shell
+```bash
   -DARROW_MIMALLOC=ON \
   -DARROW_S3=ON \
   -DARROW_WITH_BROTLI=ON \
@@ -227,7 +228,7 @@ extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
 example, if you are using `perf` to profile the R extensions, you may
 need to set
 
-``` shell
+```bash
 export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
 
@@ -239,7 +240,7 @@ With the setup described here, you should not need to rebuild the Arrow library 
 <summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on. Development with other languages might require different flags as well. For example, to develop Python, you would need to also add `-DARROW_PYTHON=ON` (though all of the other flags used for Python are already included here).</summary>
 <p>
 
-``` shell
+```bash
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
@@ -267,15 +268,18 @@ cmake \
 
 ## Installing a version of the R package with a specific git reference
 
-If you need an arrow installation from a specific repository or git reference,
-`remotes::install_github("apache/arrow/r", build = FALSE)`
-should work on most platforms (with the notable exception of Windows).
+If you need an arrow installation from a specific repository or git reference, on most platforms except Windows, you can run:
+
+```{r}
+remotes::install_github("apache/arrow/r", build = FALSE)
+```
+
 The `build = FALSE` argument is important so that the installation can access the
 C++ source in the `cpp/` directory in `apache/arrow`.
 
 As with other installation methods, setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output, respectively.
 
-For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
+For example, to install from the (fictional) branch `bugfix` from `apache/arrow` you could run:
 
 ```r
 Sys.setenv(LIBARROW_MINIMAL="false")
@@ -291,7 +295,10 @@ some additional variables in order to isolate this build from your system librar
 
 * Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for libarrow and attempt to build from the same source at the repository+ref given.
 
-* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of libarrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
+* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of libarrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: 
+```{r}
+withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))
+```
 
 # Common developer workflow tasks
 
@@ -325,13 +332,29 @@ pkgdown::build_site(preview=TRUE)
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run `lintr::lint_package("arrow/r")`.
+To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run 
+
+```{r}
+lintr::lint_package("arrow/r")
+```
 
 You can automatically change the formatting of the code in the package using the [styler](https://styler.r-lib.org/) package. There are two ways to do this:
 
 1. Use the comment bot to do this automatically with the command `@github-actions autotune` on a PR, and commit it back to the branch.
 
-2. Run the styler locally with the command `make style` (for only the files changed), `make style-all` (for all files), or use `styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))` - note the two excluded files which should not be styled.
+2. Run the styler locally either via Makefile commands:
+
+```bash
+make style # (for only the files changed)
+make style-all # (for all files)
+```
+
+on in R:
+
+```{r}
+# note the two excluded files which should not be styled
+styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R")) 
+```
 
 The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
 
@@ -352,21 +375,27 @@ Installing/enabling the appropriate plugin may save you much frustration.
 
 Check for style errors with
 
-``` shell
+```bash
 ./lint.sh
 ```
 
 Fix any style issues before committing with
 
-``` shell
+```bash
 ./lint.sh --fix
 ```
 
 The lint script requires Python 3 and `clang-format-8`. If the command
-isn't found, you can explicitly provide the path to it like
-`CLANG_FORMAT=$(which clang-format-8) ./lint.sh`. On macOS, you can get
-this by installing LLVM via Homebrew and running the script as
-`CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
+isn't found, you can explicitly provide the path to it like:
+
+```bash
+CLANG_FORMAT=$(which clang-format-8) ./lint.sh
+```
+
+On macOS, you can get this by installing LLVM via Homebrew and running the script as:
+```bash
+CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh
+```
 
 _Note_ that the lint script requires Python 3 and the Python dependencies 
 (note that `cmake_format is pinned to a specific version):
@@ -441,12 +470,16 @@ using an internal tool called
 A few important GitHub comment commands are shown below.
 
 #### Run all extended R CI tasks
-`@github-actions crossbow submit -g r`
+```
+@github-actions crossbow submit -g r
+```
 
 This runs each of the R-related CI tasks.
 
 #### Run a specific task
-`@github-actions crossbow submit {task-name}`
+```
+@github-actions crossbow submit {task-name}
+```
 
 See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) 
 for a list of glob expression patterns that match names of items in the `tasks:`
@@ -454,7 +487,9 @@ list below it.
 
 #### Run linting and documentation building tasks
 
-`@github-actions autotune`
+```
+@github-actions autotune
+```
 
 This will run and fix lint C++ linting errors, run R documentation (among other 
 cleanup tasks), run styler on any changed R code, and commit the resulting 
