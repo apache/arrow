@@ -54,7 +54,7 @@
 #' - `null_fallback`: character to be used in place of missing values (`NA` or
 #' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
-#' @examples
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet() & requireNamespace("dplyr", quietly = TRUE)
 #' # You can write datasets partitioned by the values in a column (here: "cyl").
 #' # This creates a structure of the form cyl=X/part-Z.parquet.
 #' one_level_tree<- tempdir()
