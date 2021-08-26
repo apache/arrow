@@ -24,16 +24,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.annotation.RegEx;
 
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.util.Preconditions;
@@ -41,8 +40,8 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
-
-import com.google.common.base.Strings;
+import org.apache.calcite.avatica.org.apache.http.NameValuePair;
+import org.apache.calcite.avatica.org.apache.http.client.utils.URLEncodedUtils;
 
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
@@ -51,20 +50,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
 
-  private static final Pattern urlRegExPattern;
-
   private static DriverVersion version;
 
   static {
-    // jdbc:arrow-flight://<host>:<port>[/?k1=v1&k2=v2&(...)]
-    @RegEx
-    final String pattern =
-        "^(?:" + CONNECT_STRING_PREFIX.replace("(\\/)", "\\1") + ")" + // Prefix
-        "(\\w+):" + // Group 1 (host): match any word before colon
-        "([\\d]+)\\/*" + // Group 2 (port): match number before optional slash
-        "\\?*([[\\w]+=[\\w]+&?]*)?"; // Group 3 (params): match key-value pairs
-
-    urlRegExPattern = Pattern.compile(pattern);
     new ArrowFlightJdbcDriver().register();
   }
 
@@ -94,7 +82,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   protected DriverVersion createDriverVersion() {
 
-    CreateVersionIfNull: {
+    CreateVersionIfNull:
+    {
 
       if (version != null) {
         break CreateVersionIfNull;
@@ -153,7 +142,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * Parses the provided url based on the format this driver accepts, retrieving
    * arguments after the {@link #CONNECT_STRING_PREFIX}.
    * <p>
-   * This regular expression checks if the provided URL follows this pattern:
+   * This method gets the args if the provided URL follows this pattern:
    * {@code jdbc:arrow-flight://<host>:<port>[/?key1=val1&key2=val2&(...)]}
    *
    * <table border="1">
@@ -195,17 +184,14 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    *    </tr>
    * </table>
    *
-   * @param url
-   *          The url to parse.
+   * @param url The url to parse.
    * @return the parsed arguments.
-   * @throws SQLException
-   *           If an error occurs while trying to parse the URL.
+   * @throws SQLException If an error occurs while trying to parse the URL.
    */
   private Map<Object, Object> getUrlsArgs(final String url)
       throws SQLException {
 
     /*
-     * FIXME Refactor this sub-optimal approach to URL parsing later.
      *
      * Perhaps this logic should be inside a utility class, separated from this
      * one, so as to better delegate responsibilities and concerns throughout
@@ -216,39 +202,34 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      * Keep in mind that the URL must ALWAYS follow the pattern:
      * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      *
-     * TODO Come up with a RegEx better than #urlRegExPattern.
      */
-    final Matcher matcher = urlRegExPattern.matcher(url);
 
-    if (!matcher.matches()) {
+    // It's necessary to use a string without "jdbc:" at the beginning to becomes a valid URL to be parsed.
+    String cleanURL = url.substring(5);
+
+    URI uri;
+
+    try {
+      uri = URI.create(cleanURL);
+    } catch (IllegalArgumentException e) {
       throw new SQLException("Malformed/invalid URL!");
     }
 
+    if (!url.startsWith("jdbc:") || !Objects.equals(uri.getScheme(), "arrow-flight")) {
+      throw new SQLException("Malformed/invalid URL!");
+    }
+
+
     final Map<Object, Object> resultMap = new HashMap<>();
 
-    resultMap.put(HOST.getName(), matcher.group(1)); // host
-    resultMap.put(PORT.getName(), Integer.parseInt(matcher.group(2))); // port
+    resultMap.put(HOST.getName(), uri.getHost()); // host
+    resultMap.put(PORT.getName(), uri.getPort()); // port
 
-    final String extraParams = matcher.group(3); // optional params
+    final String extraParams = uri.getQuery(); // optional params
 
-    if (!Strings.isNullOrEmpty(extraParams)) {
-      for (final String params : extraParams.split("&")) {
-        final String[] keyValuePair = params.split("=");
-
-        /*
-         * FIXME Regex should do this automatically.
-         *
-         * The pattern should automatically filter URLs with invalid
-         * parameters (e.g., "k1=v1&k2," or "k1=v1&." There shouldn't
-         * be the need to check whether every parameters is provided as a
-         * key-value pair.
-         */
-        if (keyValuePair.length != 2) {
-          throw new SQLException(
-              "URL parameters must be provided in key-value pairs!");
-        }
-        resultMap.put(keyValuePair[0], keyValuePair[1]);
-      }
+    List<NameValuePair> parse = URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
+    for (NameValuePair nameValuePair : parse) {
+      resultMap.put(nameValuePair.getName(), nameValuePair.getValue());
     }
 
     return resultMap;
