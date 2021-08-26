@@ -188,7 +188,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @return the parsed arguments.
    * @throws SQLException If an error occurs while trying to parse the URL.
    */
-  private Map<Object, Object> getUrlsArgs(final String url)
+  private Map<Object, Object> getUrlsArgs(String url)
       throws SQLException {
 
     /*
@@ -204,18 +204,22 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      *
      */
 
+    if (!url.startsWith("jdbc:")) {
+      throw new SQLException("Malformed/invalid URL!");
+    }
+
     // It's necessary to use a string without "jdbc:" at the beginning to becomes a valid URL to be parsed.
-    String cleanURL = url.substring(5);
+    url = url.substring(5);
 
     URI uri;
 
     try {
-      uri = URI.create(cleanURL);
+      uri = URI.create(url);
     } catch (IllegalArgumentException e) {
       throw new SQLException("Malformed/invalid URL!");
     }
 
-    if (!url.startsWith("jdbc:") || !Objects.equals(uri.getScheme(), "arrow-flight")) {
+    if (!Objects.equals(uri.getScheme(), "arrow-flight")) {
       throw new SQLException("Malformed/invalid URL!");
     }
 
