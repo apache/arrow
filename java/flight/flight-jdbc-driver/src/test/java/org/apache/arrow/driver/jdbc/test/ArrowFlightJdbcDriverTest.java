@@ -266,8 +266,7 @@ public class ArrowFlightJdbcDriverTest {
 
     try {
       final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-          .invoke(driver,
-              "jdbc:arroww-flight://localhost:2222");
+          .invoke(driver, "jdbc:arroww-flight://localhost:2222");
     } catch (InvocationTargetException e) {
       throw (SQLException) e.getCause();
     }
@@ -277,8 +276,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} returns the
    * correct URL parameters when the host is an IP Address.
    *
-   * @throws Exception
-   *           If an error occurs.
+   * @throws Exception If an error occurs.
    */
   @SuppressWarnings("unchecked")
   @Test
