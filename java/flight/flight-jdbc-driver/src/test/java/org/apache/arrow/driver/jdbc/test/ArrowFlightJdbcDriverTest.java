@@ -266,7 +266,7 @@ public class ArrowFlightJdbcDriverTest {
 
     try {
       final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-          .invoke(driver, "jdbc:arroww-flight://localhost:2222");
+          .invoke(driver, "jdbc:malformed-url-flight://localhost:2222");
     } catch (InvocationTargetException e) {
       throw (SQLException) e.getCause();
     }
