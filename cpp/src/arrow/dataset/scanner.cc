@@ -40,6 +40,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::Executor;
+using internal::SerialExecutor;
+using internal::TaskGroup;
+
 namespace dataset {
 
 using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
@@ -57,10 +62,6 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
-using arrow::internal::Executor;
-using arrow::internal::SerialExecutor;
-using arrow::internal::TaskGroup;
-
 std::shared_ptr<TaskGroup> ScanOptions::TaskGroup() const {
   if (use_threads) {
     auto* thread_pool = arrow::internal::GetCpuThreadPool();
@@ -73,15 +74,14 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-Future<RecordBatchVector> ScanTask::SafeExecute(internal::Executor* executor) {
+Future<RecordBatchVector> ScanTask::SafeExecute(Executor* executor) {
   // If the ScanTask can't possibly be async then just execute it
   ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
   return Future<RecordBatchVector>::MakeFinished(rb_it.ToVector());
 }
 
 Future<> ScanTask::SafeVisit(
-    internal::Executor* executor,
-    std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
+    Executor* executor, std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
   // If the ScanTask can't possibly be async then just execute it
   ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
   return Future<>::MakeFinished(rb_it.Visit(visitor));
@@ -331,7 +331,7 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   Result<FragmentIterator> GetFragments();
   Result<TaggedRecordBatchIterator> ScanBatches(ScanTaskIterator scan_task_it);
-  Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
+  Future<std::shared_ptr<Table>> ToTableInternal(Executor* cpu_executor);
   Result<ScanTaskIterator> ScanInternal();
 
   std::shared_ptr<Dataset> dataset_;
@@ -408,7 +408,9 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
  public:
   AsyncScanner(std::shared_ptr<Dataset> dataset,
                std::shared_ptr<ScanOptions> scan_options)
-      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {
+    internal::Initialize();
+  }
 
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
@@ -419,12 +421,11 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
   Result<int64_t> CountRows() override;
 
  private:
-  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(internal::Executor* executor);
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(Executor* executor);
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
-                             internal::Executor* executor);
-  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
-      internal::Executor* executor);
-  Future<std::shared_ptr<Table>> ToTableAsync(internal::Executor* executor);
+                             Executor* executor);
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(Executor* executor);
+  Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
 
@@ -501,7 +502,7 @@ class OneShotFragment : public Fragment {
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
     return MakeTransferredGenerator(std::move(background_gen),
-                                    internal::GetCpuThreadPool());
+                                    ::arrow::internal::GetCpuThreadPool());
   }
   std::string type_name() const override { return "one-shot"; }
 
@@ -524,23 +525,24 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
 }
 
 Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(internal::GetCpuThreadPool()));
+  ARROW_ASSIGN_OR_RAISE(auto batches_gen,
+                        ScanBatchesAsync(::arrow::internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
   ARROW_ASSIGN_OR_RAISE(auto batches_gen,
-                        ScanBatchesUnorderedAsync(internal::GetCpuThreadPool()));
+                        ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
-  auto table_fut = ToTableAsync(internal::GetCpuThreadPool());
+  auto table_fut = ToTableAsync(::arrow::internal::GetCpuThreadPool());
   return table_fut.result();
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(internal::GetCpuThreadPool());
+  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool());
 }
 
 namespace {
@@ -563,7 +565,7 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 }  // namespace
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
-    internal::Executor* cpu_executor) {
+    Executor* cpu_executor) {
   if (!scan_options_->use_threads) {
     cpu_executor = nullptr;
   }
@@ -617,11 +619,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(internal::GetCpuThreadPool());
+  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
-    internal::Executor* cpu_executor) {
+    Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(cpu_executor));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
@@ -702,17 +704,17 @@ Status AsyncScanner::Scan(std::function<Status(TaggedRecordBatch)> visitor) {
   auto top_level_task = [this, &visitor](Executor* executor) {
     return VisitBatchesAsync(visitor, executor);
   };
-  return internal::RunSynchronously<Future<>>(top_level_task, scan_options_->use_threads);
+  return ::arrow::internal::RunSynchronously<Future<>>(top_level_task,
+                                                       scan_options_->use_threads);
 }
 
 Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
-                                         internal::Executor* executor) {
+                                         Executor* executor) {
   ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(executor));
   return VisitAsyncGenerator(std::move(batches_gen), visitor);
 }
 
-Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
-    internal::Executor* cpu_executor) {
+Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(Executor* cpu_executor) {
   auto scan_options = scan_options_;
   ARROW_ASSIGN_OR_RAISE(auto positioned_batch_gen,
                         ScanBatchesUnorderedAsync(cpu_executor));
@@ -737,7 +739,8 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
 Result<int64_t> AsyncScanner::CountRows() {
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
 
-  auto cpu_executor = scan_options_->use_threads ? internal::GetCpuThreadPool() : nullptr;
+  auto cpu_executor =
+      scan_options_->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
   compute::ExecContext exec_context(scan_options_->pool, cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
@@ -934,10 +937,9 @@ Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
     auto id = scan_task_id++;
     task_group->Append([state, id, scan_task] {
       ARROW_ASSIGN_OR_RAISE(
-          auto local, internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
-                          [&](internal::Executor* executor) {
-                            return scan_task->SafeExecute(executor);
-                          }));
+          auto local,
+          ::arrow::internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
+              [&](Executor* executor) { return scan_task->SafeExecute(executor); }));
       state->Emplace(std::move(local), id);
       return Status::OK();
     });
@@ -1179,7 +1181,6 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
       "source", plan, {},
       compute::SourceNodeOptions{schema(std::move(fields)), std::move(gen)});
 }
-compute::ExecFactoryRegistry::AddOnLoad kRegisterScan("scan", MakeScanNode);
 
 Result<compute::ExecNode*> MakeAugmentedProjectNode(
     compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
@@ -1203,8 +1204,6 @@ Result<compute::ExecNode*> MakeAugmentedProjectNode(
       "project", plan, std::move(inputs),
       compute::ProjectNodeOptions{std::move(exprs), std::move(names)});
 }
-compute::ExecFactoryRegistry::AddOnLoad kRegisterProject("augmented_project",
-                                                         MakeAugmentedProjectNode);
 
 Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
                                                std::vector<compute::ExecNode*> inputs,
@@ -1285,9 +1284,21 @@ Result<compute::ExecNode*> MakeOrderedSinkNode(compute::ExecPlan* plan,
 
   return node;
 }
-compute::ExecFactoryRegistry::AddOnLoad kRegisterSink("ordered_sink",
-                                                      MakeOrderedSinkNode);
 
 }  // namespace
+
+namespace internal {
+
+void Initialize() {
+  static auto registry = compute::default_exec_factory_registry();
+  if (registry) {
+    DCHECK_OK(registry->AddFactory("scan", MakeScanNode));
+    DCHECK_OK(registry->AddFactory("ordered_sink", MakeOrderedSinkNode));
+    DCHECK_OK(registry->AddFactory("augmented_project", MakeAugmentedProjectNode));
+    registry = nullptr;
+  }
+}
+
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

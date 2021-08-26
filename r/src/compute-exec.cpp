@@ -84,6 +84,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
     const std::shared_ptr<arrow::dataset::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter,
     std::vector<std::string> materialized_field_names) {
+  arrow::dataset::internal::Initialize();
+
   // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 

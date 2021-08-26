@@ -44,6 +44,10 @@ using testing::IsEmpty;
 using testing::UnorderedElementsAreArray;
 
 namespace arrow {
+
+using internal::GetCpuThreadPool;
+using internal::Iota;
+
 namespace dataset {
 
 struct TestScannerParams {
@@ -264,16 +268,15 @@ TEST_P(TestScanner, TakeIndices) {
   auto num_datasets = GetParam().num_child_datasets;
   SetSchema({field("i32", int32()), field("f64", float64())});
   ArrayVector arrays(2);
-  ArrayFromVector<Int32Type>(internal::Iota<int32_t>(batch_size), &arrays[0]);
-  ArrayFromVector<DoubleType>(internal::Iota<double>(static_cast<double>(batch_size)),
-                              &arrays[1]);
+  ArrayFromVector<Int32Type>(Iota<int32_t>(batch_size), &arrays[0]);
+  ArrayFromVector<DoubleType>(Iota<double>(static_cast<double>(batch_size)), &arrays[1]);
   auto batch = RecordBatch::Make(schema_, batch_size, arrays);
 
   auto scanner = MakeScanner(batch);
 
   std::shared_ptr<Array> indices;
   {
-    ArrayFromVector<Int64Type>(internal::Iota(batch_size), &indices);
+    ArrayFromVector<Int64Type>(Iota(batch_size), &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
     ASSERT_EQ(expected->num_rows(), batch_size);
@@ -332,10 +335,10 @@ TEST_P(TestScanner, CountRows) {
   const auto num_datasets = GetParam().num_child_datasets;
   SetSchema({field("i32", int32()), field("f64", float64())});
   ArrayVector arrays(2);
-  ArrayFromVector<Int32Type>(
-      internal::Iota<int32_t>(static_cast<int32_t>(items_per_batch)), &arrays[0]);
-  ArrayFromVector<DoubleType>(
-      internal::Iota<double>(static_cast<double>(items_per_batch)), &arrays[1]);
+  ArrayFromVector<Int32Type>(Iota<int32_t>(static_cast<int32_t>(items_per_batch)),
+                             &arrays[0]);
+  ArrayFromVector<DoubleType>(Iota<double>(static_cast<double>(items_per_batch)),
+                              &arrays[1]);
   auto batch = RecordBatch::Make(schema_, items_per_batch, arrays);
   auto scanner = MakeScanner(batch);
 
@@ -1094,21 +1097,32 @@ TEST(ScanOptions, TestMaterializedFields) {
 
 namespace {
 
-Future<std::vector<compute::ExecBatch>> StartAndCollect(
-    compute::ExecPlan* plan, AsyncGenerator<util::optional<compute::ExecBatch>> gen) {
-  RETURN_NOT_OK(plan->Validate());
-  RETURN_NOT_OK(plan->StartProducing());
+struct TestPlan {
+  explicit TestPlan(compute::ExecContext* ctx = compute::default_exec_context())
+      : plan(compute::ExecPlan::Make(ctx).ValueOrDie()) {
+    internal::Initialize();
+  }
 
-  auto collected_fut = CollectAsyncGenerator(gen);
+  Future<std::vector<compute::ExecBatch>> Run() {
+    RETURN_NOT_OK(plan->Validate());
+    RETURN_NOT_OK(plan->StartProducing());
 
-  return AllComplete({plan->finished(), Future<>(collected_fut)})
-      .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
-        return internal::MapVector(
-            [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
-            std::move(collected));
-      });
-}
+    auto collected_fut = CollectAsyncGenerator(sink_gen);
+
+    return AllComplete({plan->finished(), Future<>(collected_fut)})
+        .Then([collected_fut]() -> Result<std::vector<compute::ExecBatch>> {
+          ARROW_ASSIGN_OR_RAISE(auto collected, collected_fut.result());
+          return ::arrow::internal::MapVector(
+              [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
+              std::move(collected));
+        });
+  }
+
+  compute::ExecPlan* get() { return plan.get(); }
+
+  std::shared_ptr<compute::ExecPlan> plan;
+  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+};
 
 struct DatasetAndBatches {
   std::shared_ptr<Dataset> dataset;
@@ -1194,7 +1208,7 @@ compute::Expression Materialize(std::vector<std::string> names,
 }  // namespace
 
 TEST(ScanNode, Schema) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1216,8 +1230,7 @@ TEST(ScanNode, Schema) {
 }
 
 TEST(ScanNode, Trivial) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1229,19 +1242,17 @@ TEST(ScanNode, Trivial) {
   ASSERT_OK(compute::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
   // trivial scan: the batches are returned unmodified
   auto expected = basic.batches;
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, FilteredOnVirtualColumn) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1254,7 +1265,7 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   ASSERT_OK(compute::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -1264,13 +1275,11 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   expected.pop_back();
   expected.pop_back();
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1283,7 +1292,7 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   ASSERT_OK(compute::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -1291,14 +1300,12 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   // To filter out rows from individual batches, construct a FilterNode.
   auto expected = basic.batches;
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, DISABLED_ProjectionPushdown) {
   // ARROW-13263
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1309,7 +1316,7 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
   ASSERT_OK(compute::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -1323,13 +1330,11 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
     batch.values[c_index] = MakeNullScalar(batch.values[c_index].type());
   }
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MaterializationOfVirtualColumn) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  TestPlan plan;
 
   auto basic = MakeBasicDataset();
 
@@ -1343,7 +1348,7 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
                     {"augmented_project",
                      compute::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
-                    {"sink", compute::SinkNodeOptions{&sink_gen}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -1355,15 +1360,17 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
     batch.values[2] = value;
   }
 
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+  ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
 }
 
 TEST(ScanNode, MinimalEndToEnd) {
   // NB: This test is here for didactic purposes
 
   // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
 
   // A ScanNode is constructed from an ExecPlan (into which it is inserted),
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
@@ -1449,7 +1456,10 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // NB: This test is here for didactic purposes
 
   // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
 
   // A ScanNode is constructed from an ExecPlan (into which it is inserted),
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
@@ -1541,7 +1551,10 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // NB: This test is here for didactic purposes
 
   // Specify a MemoryPool and ThreadPool for the ExecPlan
-  compute::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
+  compute::ExecContext exec_context(default_memory_pool(), GetCpuThreadPool());
+
+  // ensure arrow::dataset node factories are in the registry
+  arrow::dataset::internal::Initialize();
 
   // A ScanNode is constructed from an ExecPlan (into which it is inserted),
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for

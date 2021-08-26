@@ -54,6 +54,11 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::TemporaryDir;
+
 namespace dataset {
 
 using compute::call;
@@ -74,14 +79,11 @@ using compute::or_;
 using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
-using internal::checked_cast;
-using internal::checked_pointer_cast;
-using internal::TemporaryDir;
 
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
-    return internal::make_unique<FileSource>(std::move(buffer));
+    return ::arrow::internal::make_unique<FileSource>(std::move(buffer));
   }
 };
 
@@ -103,7 +105,8 @@ class GeneratedRecordBatch : public RecordBatchReader {
 template <typename Gen>
 std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+  return ::arrow::internal::make_unique<GeneratedRecordBatch<Gen>>(
+      schema, std::forward<Gen>(gen));
 }
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
@@ -840,7 +843,7 @@ struct MakeFileSystemDatasetMixin {
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
   EXPECT_NE(fragment, nullptr);
   EXPECT_THAT(fragment->type_name(), "dummy");
-  return internal::checked_cast<const FileFragment&>(*fragment).source().path();
+  return checked_cast<const FileFragment&>(*fragment).source().path();
 }
 
 class TestFileSystemDataset : public ::testing::Test,
@@ -854,7 +857,7 @@ static std::vector<std::string> PathsOf(const FragmentVector& fragments) {
 
 void AssertFilesAre(const std::shared_ptr<Dataset>& dataset,
                     std::vector<std::string> expected) {
-  auto fs_dataset = internal::checked_cast<FileSystemDataset*>(dataset.get());
+  auto fs_dataset = checked_cast<FileSystemDataset*>(dataset.get());
   EXPECT_THAT(fs_dataset->files(), testing::UnorderedElementsAreArray(expected));
 }
 
