@@ -568,6 +568,9 @@ struct ValidateArrayFullImpl {
   }
 
   Status Visit(const DictionaryType& type) {
+    if (!data.dictionary) {
+      return Status::Invalid("Dictionary array has no dictionary");
+    }
     const Status indices_status =
         CheckBounds(*type.index_type(), 0, data.dictionary->length - 1);
     if (!indices_status.ok()) {
