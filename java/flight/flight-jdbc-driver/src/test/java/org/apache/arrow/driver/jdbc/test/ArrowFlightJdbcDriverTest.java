@@ -304,6 +304,42 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
+   * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} escape especial characters and returns the
+   * correct URL parameters when the especial character '&' is embedded in the query parameters values.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testDriverUrlParsingMechanismShouldWorkWithEmbeddedEspecialCharacter()
+      throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method getUrlsArgs = driver.getClass()
+        .getDeclaredMethod("getUrlsArgs", String.class);
+
+    getUrlsArgs.setAccessible(true);
+
+    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+        .invoke(driver,
+            "jdbc:arrow-flight://0.0.0.0:2222?test1=test1value&test2%26continue=test2value&test3=test3value");
+
+    // Check size == the amount of args provided (prefix not included!)
+    assertEquals(5, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(HOST.getName()), "0.0.0.0");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(PORT.getName()), 2222);
+
+    // Check all other non-default arguments
+    assertEquals(parsedArgs.get("test1"), "test1value");
+    assertEquals(parsedArgs.get("test2&continue"), "test2value");
+    assertEquals(parsedArgs.get("test3"), "test3value");
+  }
+
+  /**
    * Validate the user's credential on a FlightServer.
    *
    * @param username
