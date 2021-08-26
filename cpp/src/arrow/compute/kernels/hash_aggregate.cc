@@ -2014,8 +2014,21 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
     auto* g = uniques[1].array()->GetValues<uint32_t>(1);
-    for (int64_t i = 0; i < uniques.length; i++) {
-      counts[g[i]]++;
+    const auto& items = *uniques[0].array();
+    const auto* valid = items.GetValues<uint8_t>(0, 0);
+    if (options_.mode == CountOptions::ALL ||
+        (options_.mode == CountOptions::ONLY_VALID && !valid)) {
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]]++;
+      }
+    } else if (options_.mode == CountOptions::ONLY_VALID) {
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]] += BitUtil::GetBit(valid, items.offset + i);
+      }
+    } else {  // ONLY_NULL
+      for (int64_t i = 0; i < uniques.length; i++) {
+        counts[g[i]] += !BitUtil::GetBit(valid, items.offset + i);
+      }
     }
 
     return ArrayData::Make(int64(), num_groups_, {nullptr, std::move(values)},
