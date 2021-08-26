@@ -784,11 +784,10 @@ inline flatbuffers::Offset<FixedSizeList> CreateFixedSizeList(
 /// not enforced.
 ///
 /// Map
-/// ```text
 ///   - child[0] entries: Struct
 ///     - child[0] key: K
 ///     - child[1] value: V
-/// ```
+///
 /// Neither the "entries" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
@@ -838,7 +837,7 @@ inline flatbuffers::Offset<Map> CreateMap(
 /// A union is a complex type with children in Field
 /// By default ids in the type vector refer to the offsets in the children
 /// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child `typeIds[offset]` is the id used in the type vector
+/// for each child typeIds[offset] is the id used in the type vector
 struct Union FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MODE = 4,
@@ -1179,8 +1178,8 @@ inline flatbuffers::Offset<Bool> CreateBool(
 }
 
 /// Exact decimal value represented as an integer value in two's
-/// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
-/// are used. The representation uses the endianness indicated
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future. The representation uses the endianness indicated
 /// in the Schema.
 struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -1196,8 +1195,10 @@ struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t scale() const {
     return GetField<int32_t>(VT_SCALE, 0);
   }
-  /// Number of bits per value. The only accepted widths are 128 and 256.
-  /// We use bitWidth for consistency with Int::bitWidth.
+  /// Number of bits per value. The only accepted width right now is 128 but
+  /// this field exists for forward compatibility so that other bit widths may
+  /// be supported in future format versions. We use bitWidth for consistency
+  /// with Int::bitWidth.
   int32_t bitWidth() const {
     return GetField<int32_t>(VT_BITWIDTH, 128);
   }
@@ -1349,33 +1350,8 @@ inline flatbuffers::Offset<Time> CreateTime(
 /// leap seconds, as a 64-bit integer. Note that UNIX time does not include
 /// leap seconds.
 ///
-/// Date & time libraries often have multiple different data types for temporal
-/// data.  In order to ease interoperability between different implementations the
-/// Arrow project has some recommendations for encoding these types into a Timestamp
-/// column.
-///
-/// An "instant" represents a single moment in time that has no meaningful time zone
-/// or the time zone is unknown.  A column of instants can also contain values from
-/// multiple time zones.  To encode an instant set the timezone string to "UTC".
-///
-/// A "zoned date-time" represents a single moment in time that has a meaningful
-/// reference time zone.  To encode a zoned date-time as a Timestamp set the timezone
-/// string to the name of the timezone.  There is some ambiguity between an instant
-/// and a zoned date-time with the UTC time zone.  Both of these are stored the same.
-/// Typically, this distinction does not matter.  If it does, then an application should
-/// use custom metadata or an extension type to distinguish between the two cases.
-///
-/// An "offset date-time" represents a single moment in time combined with a meaningful
-/// offset from UTC.  To encode an offset date-time as a Timestamp set the timezone string
-/// to the numeric time zone offset string (e.g. "+03:00").
-///
-/// A "local date-time" does not represent a single moment in time.  It represents a wall
-/// clock time combined with a date.  Because of daylight savings time there may multiple
-/// instants that correspond to a single local date-time in any given time zone.  A
-/// local date-time is often stored as a struct or a Date32/Time64 pair.  However, it can
-/// also be encoded into a Timestamp column.  To do so the value should be the the time
-/// elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
-/// The timezone string should be set to null or the empty string.
+/// The Timestamp metadata supports both "time zone naive" and "time zone
+/// aware" timestamps. Read about the timezone attribute for more detail
 struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4,
@@ -1393,9 +1369,11 @@ struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// Whether a timezone string is present indicates different semantics about
   /// the data:
   ///
-  /// * If the time zone is null or an empty string, the data is a local date-time
-  ///   and does not represent a single moment in time.  Instead it represents a wall clock
-  ///   time and care should be taken to avoid interpreting it semantically as an instant.
+  /// * If the time zone is null or equal to an empty string, the data is "time
+  ///   zone naive" and shall be displayed *as is* to the user, not localized
+  ///   to the locale of the user. This data can be though of as UTC but
+  ///   without having "UTC" as the time zone, it is not considered to be
+  ///   localized to any time zone
   ///
   /// * If the time zone is set to a valid value, values can be displayed as
   ///   "localized" to that time zone, even though the underlying 64-bit
