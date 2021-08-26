@@ -142,8 +142,14 @@ struct SourceNode : ExecNode {
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterSource("source", SourceNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

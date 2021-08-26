@@ -47,12 +47,14 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using util::string_view;
 
+using internal::DictionaryMemoTable;
+
 namespace dataset {
 
 namespace {
 /// Apply UriUnescape, then ensure the results are valid UTF-8.
 Result<std::string> SafeUriUnescape(util::string_view encoded) {
-  auto decoded = internal::UriUnescape(encoded);
+  auto decoded = ::arrow::internal::UriUnescape(encoded);
   if (!util::ValidateUTF8(decoded)) {
     return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
                            encoded);
@@ -481,15 +483,15 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     repr_memos_.clear();
   }
 
-  std::unique_ptr<internal::DictionaryMemoTable> MakeMemo() {
-    return internal::make_unique<internal::DictionaryMemoTable>(default_memory_pool(),
-                                                                utf8());
+  std::unique_ptr<DictionaryMemoTable> MakeMemo() {
+    return ::arrow::internal::make_unique<DictionaryMemoTable>(default_memory_pool(),
+                                                               utf8());
   }
 
   PartitioningFactoryOptions options_;
   ArrayVector dictionaries_;
   std::unordered_map<std::string, int> name_to_index_;
-  std::vector<std::unique_ptr<internal::DictionaryMemoTable>> repr_memos_;
+  std::vector<std::unique_ptr<DictionaryMemoTable>> repr_memos_;
 };
 
 class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {

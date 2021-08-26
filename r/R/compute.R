@@ -122,12 +122,6 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   a <- collect_arrays_from_dots(list(...))
-  if (!na.rm) {
-    # When not removing null values, we require all values to be not null and
-    # return null otherwise. We do that by setting minimum count of non-null
-    # option values to the full array length.
-    na.min_count <- length(a)
-  }
   if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
     Array$create(data.frame(min = Inf, max = -Inf))
     # If na.rm == TRUE and all values in array are NA, R returns

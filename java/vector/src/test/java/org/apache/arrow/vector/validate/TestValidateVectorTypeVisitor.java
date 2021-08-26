@@ -296,6 +296,6 @@ public class TestValidateVectorTypeVisitor {
 
   @Test
   public void testNullVector() {
-    testPositiveCase(() -> new NullVector());
+    testPositiveCase(() -> new NullVector("null vec"));
   }
 }

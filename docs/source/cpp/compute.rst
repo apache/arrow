@@ -186,35 +186,35 @@ Aggregations
 Scalar aggregations operate on a (chunked) array or scalar value and reduce
 the input to a single output value.
 
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| Function name | Arity | Input types | Output type    | Options class                    | Notes |
-+===============+=======+=============+================+==================================+=======+
-| all           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| count         | Unary | Any         | Scalar Int64   | :struct:`CountOptions`           | \(2)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| index         | Unary | Any         | Scalar Int64   | :struct:`IndexOptions`           |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| mean          | Unary | Numeric     | Scalar Float64 | :struct:`ScalarAggregateOptions` |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(3)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(4)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| product       | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(6)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| stddev        | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         | \(7)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| variance      | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| Function name | Arity | Input types | Output type            | Options class                    | Notes |
++===============+=======+=============+========================+==================================+=======+
+| all           | Unary | Boolean     | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| any           | Unary | Boolean     | Scalar Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| count         | Unary | Any         | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| index         | Unary | Any         | Scalar Int64           | :struct:`IndexOptions`           |       |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| mean          | Unary | Numeric     | Scalar Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| min_max       | Unary | Numeric     | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| mode          | Unary | Numeric     | Struct                 | :struct:`ModeOptions`            | \(4)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| product       | Unary | Numeric     | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| quantile      | Unary | Numeric     | Scalar Numeric         | :struct:`QuantileOptions`        | \(6)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| stddev        | Unary | Numeric     | Scalar Float64         | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| sum           | Unary | Numeric     | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(5)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| tdigest       | Unary | Numeric     | Scalar Float64         | :struct:`TDigestOptions`         | \(7)  |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
+| variance      | Unary | Numeric     | Scalar Float64         | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+------------------------+----------------------------------+-------+
 
 Notes:
 
@@ -234,7 +234,8 @@ Notes:
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(5) Output is Int64, UInt64 or Float64, depending on the input type.
+* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+  input type.
 
 * \(6) Output is Float64 or input type, depending on QuantileOptions.
 
@@ -288,27 +289,29 @@ The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| Function name | Arity | Input types | Output type    | Options class                    | Notes |
-+===============+=======+=============+================+==================================+=======+
-| hash_all      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_any      | Unary | Boolean     | Boolean        | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_count    | Unary | Any         | Int64          | :struct:`CountOptions`           | \(2)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_mean     | Unary | Numeric     | Float64        | :struct:`ScalarAggregateOptions` |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_min_max  | Unary | Numeric     | Struct         | :struct:`ScalarAggregateOptions` | \(3)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_stddev   | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_sum      | Unary | Numeric     | Numeric        | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_tdigest  | Unary | Numeric     | Float64        | :struct:`TDigestOptions`         | \(5)  |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
-| hash_variance | Unary | Numeric     | Float64        | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+----------------+----------------------------------+-------+
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| Function name | Arity | Input types | Output type     | Options class                    | Notes |
++===============+=======+=============+=================+==================================+=======+
+| hash_all      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_any      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count    | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_mean     | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_min_max  | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_product  | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_stddev   | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_sum      | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_tdigest  | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_variance | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------+-------+-------------+-----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
   :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
@@ -319,7 +322,8 @@ equivalents above and reflects how they are implemented internally.
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
-* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+* \(4) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+  input type.
 
 * \(5) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
@@ -993,7 +997,7 @@ Structural transforms
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
 | Function name            | Arity      | Input types                                       | Output type         | Notes   |
 +==========================+============+===================================================+=====================+=========+
-| case_when                | Varargs    | Struct of Boolean (Arg 0), Any fixed-width (rest) | Input type          | \(1)    |
+| case_when                | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
 | choose                   | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
 +--------------------------+------------+---------------------------------------------------+---------------------+---------+
@@ -1026,6 +1030,9 @@ Structural transforms
   same type as the value inputs; each row will be the corresponding value from
   the first value datum for which the corresponding Boolean is true, or the
   corresponding value from the 'default' input, or null otherwise.
+
+  Note that currently, while all types are supported, dictionaries will be
+  unpacked.
 
 * \(2) The first input must be an integral type. The rest of the arguments can be
   any type, but must all be the same type or promotable to a common type. Each

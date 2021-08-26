@@ -551,7 +551,13 @@ def test_min_max():
 def test_any():
     # ARROW-1846
 
-    options = pc.ScalarAggregateOptions(skip_nulls=False)
+    options = pc.ScalarAggregateOptions(skip_nulls=False, min_count=0)
+
+    a = pa.array([], type='bool')
+    assert pc.any(a).as_py() is None
+    assert pc.any(a, min_count=0).as_py() is False
+    assert pc.any(a, options=options).as_py() is False
+
     a = pa.array([False, None, True])
     assert pc.any(a).as_py() is True
     assert pc.any(a, options=options).as_py() is True
@@ -564,9 +570,11 @@ def test_any():
 def test_all():
     # ARROW-10301
 
-    options = pc.ScalarAggregateOptions(skip_nulls=False)
+    options = pc.ScalarAggregateOptions(skip_nulls=False, min_count=0)
+
     a = pa.array([], type='bool')
-    assert pc.all(a).as_py() is True
+    assert pc.all(a).as_py() is None
+    assert pc.all(a, min_count=0).as_py() is True
     assert pc.all(a, options=options).as_py() is True
 
     a = pa.array([False, True])

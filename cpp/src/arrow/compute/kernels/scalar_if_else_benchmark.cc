@@ -27,32 +27,31 @@ namespace arrow {
 namespace compute {
 
 const int64_t kNumItems = 1024 * 1024;
+const int64_t kFewItems = 64 * 1024;
 
 template <typename Type, typename Enable = void>
-struct SetBytesProcessed {};
+struct GetBytesProcessed {};
+
+template <>
+struct GetBytesProcessed<BooleanType> {
+  static int64_t Get(const std::shared_ptr<Array>& arr) { return arr->length() / 8; }
+};
 
 template <typename Type>
-struct SetBytesProcessed<Type, enable_if_number<Type>> {
-  static void Set(const std::shared_ptr<Array>& cond, const std::shared_ptr<Array>& left,
-                  const std::shared_ptr<Array>& right, benchmark::State* state) {
+struct GetBytesProcessed<Type, enable_if_number<Type>> {
+  static int64_t Get(const std::shared_ptr<Array>& arr) {
     using CType = typename Type::c_type;
-    state->SetBytesProcessed(state->iterations() *
-                             (cond->length() / 8 + 2 * cond->length() * sizeof(CType)));
+    return arr->length() * sizeof(CType);
   }
 };
 
 template <typename Type>
-struct SetBytesProcessed<Type, enable_if_base_binary<Type>> {
-  static void Set(const std::shared_ptr<Array>& cond, const std::shared_ptr<Array>& left,
-                  const std::shared_ptr<Array>& right, benchmark::State* state) {
+struct GetBytesProcessed<Type, enable_if_base_binary<Type>> {
+  static int64_t Get(const std::shared_ptr<Array>& arr) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
-
-    state->SetBytesProcessed(
-        state->iterations() *
-        (cond->length() / 8 + 2 * cond->length() * sizeof(OffsetType) +
-         std::static_pointer_cast<ArrayType>(left)->total_values_length() +
-         std::static_pointer_cast<ArrayType>(right)->total_values_length()));
+    return arr->length() * sizeof(OffsetType) +
+           std::static_pointer_cast<ArrayType>(arr)->total_values_length();
   }
 };
 
@@ -80,7 +79,10 @@ static void IfElseBench(benchmark::State& state) {
     ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  SetBytesProcessed<Type>::Set(cond, left, right, &state);
+  state.SetBytesProcessed(state.iterations() *
+                          (GetBytesProcessed<BooleanType>::Get(cond) +
+                           GetBytesProcessed<Type>::Get(left) +
+                           GetBytesProcessed<Type>::Get(right)));
 }
 
 template <typename Type>
@@ -109,7 +111,10 @@ static void IfElseBenchContiguous(benchmark::State& state) {
     ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  SetBytesProcessed<Type>::Set(cond, left, right, &state);
+  state.SetBytesProcessed(state.iterations() *
+                          (GetBytesProcessed<BooleanType>::Get(cond) +
+                           GetBytesProcessed<Type>::Get(left) +
+                           GetBytesProcessed<Type>::Get(right)));
 }
 
 static void IfElseBench64(benchmark::State& state) {
@@ -146,7 +151,6 @@ static void IfElseBenchString32Contiguous(benchmark::State& state) {
 
 template <typename Type>
 static void CaseWhenBench(benchmark::State& state) {
-  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -155,12 +159,6 @@ static void CaseWhenBench(benchmark::State& state) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
 
-  auto cond1 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond2 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-  auto cond3 = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
   auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
@@ -180,12 +178,44 @@ static void CaseWhenBench(benchmark::State& state) {
                                        val3->Slice(offset), val4->Slice(offset)}));
   }
 
-  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+  // Set bytes processed to ~length of output
+  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<Type>::Get(val1));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
+}
+
+static void CaseWhenBenchList(benchmark::State& state) {
+  auto type = list(int64());
+  auto fld = field("", type);
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  auto cond_field =
+      field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
+  auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
+                                  key_value_metadata({{"null_probability", "0.0"}})),
+                           len);
+  auto val1 = rand.ArrayOf(*fld, len);
+  auto val2 = rand.ArrayOf(*fld, len);
+  auto val3 = rand.ArrayOf(*fld, len);
+  auto val4 = rand.ArrayOf(*fld, len);
+  for (auto _ : state) {
+    ABORT_NOT_OK(
+        CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
+                                       val3->Slice(offset), val4->Slice(offset)}));
+  }
+
+  // Set bytes processed to ~length of output
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed<Int64Type>::Get(
+                              std::static_pointer_cast<ListArray>(val1)->values()));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 template <typename Type>
 static void CaseWhenBenchContiguous(benchmark::State& state) {
-  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -216,7 +246,9 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
                                                 val3->Slice(offset)}));
   }
 
-  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+  // Set bytes processed to ~length of output
+  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<Type>::Get(val1));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 static void CaseWhenBench64(benchmark::State& state) {
@@ -225,6 +257,14 @@ static void CaseWhenBench64(benchmark::State& state) {
 
 static void CaseWhenBench64Contiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<UInt64Type>(state);
+}
+
+static void CaseWhenBenchString(benchmark::State& state) {
+  return CaseWhenBench<StringType>(state);
+}
+
+static void CaseWhenBenchStringContiguous(benchmark::State& state) {
+  return CaseWhenBenchContiguous<StringType>(state);
 }
 
 template <typename Type>
@@ -336,6 +376,15 @@ BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
 
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
+
+BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 99});
+
+BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 99});
+
+BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 99});
 
 BENCHMARK(CoalesceBench64)->Args({kNumItems, 0});
 BENCHMARK(CoalesceBench64)->Args({kNumItems, 99});

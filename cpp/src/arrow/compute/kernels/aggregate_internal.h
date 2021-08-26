@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -47,6 +48,44 @@ struct FindAccumulatorType<I, enable_if_unsigned_integer<I>> {
 template <typename I>
 struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal128<I>> {
+  using Type = Decimal128Type;
+};
+
+template <typename I>
+struct FindAccumulatorType<I, enable_if_decimal256<I>> {
+  using Type = Decimal256Type;
+};
+
+// Helpers for implementing aggregations on decimals
+
+template <typename Type, typename Enable = void>
+struct MultiplyTraits {
+  using CType = typename TypeTraits<Type>::CType;
+
+  constexpr static CType one(const DataType&) { return static_cast<CType>(1); }
+
+  constexpr static CType Multiply(const DataType&, CType lhs, CType rhs) {
+    return static_cast<CType>(internal::to_unsigned(lhs) * internal::to_unsigned(rhs));
+  }
+};
+
+template <typename Type>
+struct MultiplyTraits<Type, enable_if_decimal<Type>> {
+  using CType = typename TypeTraits<Type>::CType;
+
+  constexpr static CType one(const DataType& ty) {
+    // Return 1 scaled to output type scale
+    return CType(1).IncreaseScaleBy(static_cast<const Type&>(ty).scale());
+  }
+
+  constexpr static CType Multiply(const DataType& ty, CType lhs, CType rhs) {
+    // Multiply then rescale down to output scale
+    return (lhs * rhs).ReduceScaleBy(static_cast<const Type&>(ty).scale());
+  }
 };
 
 struct ScalarAggregator : public KernelState {
@@ -148,7 +187,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
   return sum[root_level];
 }
 
-// naive summation for integers
+// naive summation for integers and decimals
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(

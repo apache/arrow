@@ -253,13 +253,6 @@ class ARROW_EXPORT ExecFactoryRegistry {
   ///
   /// will raise if factory_name is already in the registry
   virtual Status AddFactory(std::string factory_name, Factory factory) = 0;
-
-  /// Helper for declaring on-load registration of ExecNode factories,
-  /// including built-in factories.
-  struct ARROW_EXPORT AddOnLoad {
-    AddOnLoad(std::string factory_name, Factory factory, ExecFactoryRegistry* registry);
-    AddOnLoad(std::string factory_name, Factory factory);
-  };
 };
 
 /// The default registry, which includes built-in factories.

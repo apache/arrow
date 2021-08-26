@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/array/builder_nested.h>
+#include <arrow/array/builder_primitive.h>
+#include <arrow/array/builder_time.h>
+#include <arrow/array/builder_union.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
@@ -1413,6 +1417,283 @@ struct CaseWhenFunctor<NullType> {
   }
 };
 
+Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch,
+                                  Datum* out) {
+  const auto& conds = checked_cast<const StructScalar&>(*batch.values[0].scalar());
+  Datum result;
+  for (size_t i = 0; i < batch.values.size() - 1; i++) {
+    if (i < conds.value.size()) {
+      const Scalar& cond = *conds.value[i];
+      if (cond.is_valid && internal::UnboxScalar<BooleanType>::Unbox(cond)) {
+        result = batch[i + 1];
+        break;
+      }
+    } else {
+      // ELSE clause
+      result = batch[i + 1];
+      break;
+    }
+  }
+  if (out->is_scalar()) {
+    DCHECK(result.is_scalar() || result.kind() == Datum::NONE);
+    *out = result.is_scalar() ? result.scalar() : MakeNullScalar(out->type());
+    return Status::OK();
+  }
+  ArrayData* output = out->mutable_array();
+  if (!result.is_value()) {
+    // All conditions false, no 'else' argument
+    ARROW_ASSIGN_OR_RAISE(
+        auto array, MakeArrayOfNull(output->type, batch.length, ctx->memory_pool()));
+    *output = *array->data();
+  } else if (result.is_scalar()) {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*result.scalar(), batch.length,
+                                                          ctx->memory_pool()));
+    *output = *array->data();
+  } else {
+    *output = *result.array();
+  }
+  return Status::OK();
+}
+
+// Use std::function for reserve_data to avoid instantiating template so much
+template <typename AppendScalar>
+static Status ExecVarWidthArrayCaseWhenImpl(
+    KernelContext* ctx, const ExecBatch& batch, Datum* out,
+    std::function<Status(ArrayBuilder*)> reserve_data, AppendScalar append_scalar) {
+  const auto& conds_array = *batch.values[0].array();
+  ArrayData* output = out->mutable_array();
+  const bool have_else_arg =
+      static_cast<size_t>(conds_array.type->num_fields()) < (batch.values.size() - 1);
+  std::unique_ptr<ArrayBuilder> raw_builder;
+  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(raw_builder->Reserve(batch.length));
+  RETURN_NOT_OK(reserve_data(raw_builder.get()));
+
+  for (int64_t row = 0; row < batch.length; row++) {
+    int64_t selected = have_else_arg ? static_cast<int64_t>(batch.values.size() - 1) : -1;
+    for (int64_t arg = 0; static_cast<size_t>(arg) < conds_array.child_data.size();
+         arg++) {
+      const ArrayData& cond_array = *conds_array.child_data[arg];
+      if ((!cond_array.buffers[0] ||
+           BitUtil::GetBit(cond_array.buffers[0]->data(),
+                           conds_array.offset + cond_array.offset + row)) &&
+          BitUtil::GetBit(cond_array.buffers[1]->data(),
+                          conds_array.offset + cond_array.offset + row)) {
+        selected = arg + 1;
+        break;
+      }
+    }
+    if (selected < 0) {
+      RETURN_NOT_OK(raw_builder->AppendNull());
+      continue;
+    }
+    const Datum& source = batch.values[selected];
+    if (source.is_scalar()) {
+      const auto& scalar = *source.scalar();
+      if (!scalar.is_valid) {
+        RETURN_NOT_OK(raw_builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(append_scalar(raw_builder.get(), scalar));
+      }
+    } else {
+      const auto& array = source.array();
+      if (!array->buffers[0] ||
+          BitUtil::GetBit(array->buffers[0]->data(), array->offset + row)) {
+        RETURN_NOT_OK(raw_builder->AppendArraySlice(*array, row, /*length=*/1));
+      } else {
+        RETURN_NOT_OK(raw_builder->AppendNull());
+      }
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto temp_output, raw_builder->Finish());
+  *output = *temp_output->data();
+  return Status::OK();
+}
+
+// Single instantiation using ArrayBuilder::AppendScalar for append_scalar
+static Status ExecVarWidthArrayCaseWhen(
+    KernelContext* ctx, const ExecBatch& batch, Datum* out,
+    std::function<Status(ArrayBuilder*)> reserve_data) {
+  return ExecVarWidthArrayCaseWhenImpl(
+      ctx, batch, out, std::move(reserve_data),
+      [](ArrayBuilder* raw_builder, const Scalar& scalar) {
+        return raw_builder->AppendScalar(scalar);
+      });
+}
+
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return ExecVarWidthArrayCaseWhenImpl(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          int64_t reservation = 0;
+          for (size_t arg = 1; arg < batch.values.size(); arg++) {
+            auto source = batch.values[arg];
+            if (source.is_scalar()) {
+              const auto& scalar =
+                  checked_cast<const BaseBinaryScalar&>(*source.scalar());
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->size());
+            } else {
+              const auto& array = *source.array();
+              const auto& offsets = array.GetValues<offset_type>(1);
+              reservation =
+                  std::max<int64_t>(reservation, offsets[array.length] - offsets[0]);
+            }
+          }
+          // checked_cast works since (Large)StringBuilder <: (Large)BinaryBuilder
+          return checked_cast<BuilderType*>(raw_builder)->ReserveData(reservation);
+        },
+        // AppendScalar
+        [](ArrayBuilder* raw_builder, const Scalar& raw_scalar) {
+          const auto& scalar = checked_cast<const BaseBinaryScalar&>(raw_scalar);
+          return checked_cast<BuilderType*>(raw_builder)
+              ->Append(scalar.value->data(),
+                       static_cast<offset_type>(scalar.value->size()));
+        });
+  }
+};
+
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+
+          int64_t reservation = 0;
+          for (size_t arg = 1; arg < batch.values.size(); arg++) {
+            auto source = batch.values[arg];
+            if (!source.is_array()) {
+              const auto& scalar = checked_cast<const BaseListScalar&>(*source.scalar());
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->length());
+            } else {
+              const auto& array = *source.array();
+              reservation = std::max<int64_t>(reservation, array.child_data[0]->length);
+            }
+          }
+          return child_builder->Reserve(reservation);
+        });
+  }
+};
+
+// No-op reserve function, pulled out to avoid apparent miscompilation on MinGW
+Status ReserveNoData(ArrayBuilder*) { return Status::OK(); }
+
+template <>
+struct CaseWhenFunctor<MapType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
+  }
+};
+
+template <>
+struct CaseWhenFunctor<StructType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
+  }
+};
+
+template <>
+struct CaseWhenFunctor<FixedSizeListType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& ty = checked_cast<const FixedSizeListType&>(*out->type());
+    const int64_t width = ty.list_size();
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          int64_t children = batch.length * width;
+          return checked_cast<FixedSizeListBuilder*>(raw_builder)
+              ->value_builder()
+              ->Reserve(children);
+        });
+  }
+};
+
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_union<Type>> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    std::function<Status(ArrayBuilder*)> reserve_data = ReserveNoData;
+    return ExecVarWidthArrayCaseWhen(ctx, batch, out, std::move(reserve_data));
+  }
+};
+
 struct CoalesceFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1841,9 +2122,15 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                             OutputType(LastType),
                             /*is_varargs=*/true),
       exec);
-  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::PREALLOCATE;
-  kernel.can_write_into_slices = is_fixed_width(get_id.id);
+  if (is_fixed_width(get_id.id)) {
+    kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::PREALLOCATE;
+    kernel.can_write_into_slices = true;
+  } else {
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.can_write_into_slices = false;
+  }
   DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
 }
 
@@ -1851,6 +2138,14 @@ void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar
                                  const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
+    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+  }
+}
+
+void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                              const std::vector<std::shared_ptr<DataType>>& types) {
+  for (auto&& type : types) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec));
   }
 }
@@ -1957,6 +2252,15 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<Decimal128Type>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<Decimal256Type>::Exec);
+    AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
+    AddCaseWhenKernel(func, Type::FIXED_SIZE_LIST,
+                      CaseWhenFunctor<FixedSizeListType>::Exec);
+    AddCaseWhenKernel(func, Type::LIST, CaseWhenFunctor<ListType>::Exec);
+    AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
+    AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
+    AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
+    AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
+    AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {

@@ -456,7 +456,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testEqualsWithOutTypeCheck() {
     try (final IntVector intVector = new IntVector("int", allocator);
-         final ZeroVector zeroVector = new ZeroVector()) {
+         final ZeroVector zeroVector = new ZeroVector("zero")) {
 
       assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, null));
       assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, null));

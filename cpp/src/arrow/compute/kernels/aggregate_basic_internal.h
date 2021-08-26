@@ -60,25 +60,35 @@ void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct SumImpl : public ScalarAggregator {
   using ThisType = SumImpl<ArrowType, SimdLevel>;
-  using CType = typename ArrowType::c_type;
+  using CType = typename TypeTraits<ArrowType>::CType;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
+  using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
+
+  SumImpl(const std::shared_ptr<DataType>& out_type,
+          const ScalarAggregateOptions& options_)
+      : out_type(out_type), options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const auto& data = batch[0].array();
       this->count += data->length - data->GetNullCount();
+      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+
+      if (!options.skip_nulls && this->nulls_observed) {
+        // Short-circuit
+        return Status::OK();
+      }
+
       if (is_boolean_type<ArrowType>::value) {
-        this->sum +=
-            static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+        this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
       } else {
-        this->sum +=
-            arrow::compute::detail::SumArray<CType, typename SumType::c_type, SimdLevel>(
-                *data);
+        this->sum += arrow::compute::detail::SumArray<CType, SumCType, SimdLevel>(*data);
       }
     } else {
       const auto& data = *batch[0].scalar();
       this->count += data.is_valid * batch.length;
+      this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
         this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
       }
@@ -90,27 +100,48 @@ struct SumImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
     this->sum += other.sum;
+    this->nulls_observed = this->nulls_observed || other.nulls_observed;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
-      out->value = std::make_shared<OutputType>();
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
+      out->value = std::make_shared<OutputType>(out_type);
     } else {
-      out->value = MakeScalar(this->sum);
+      out->value = std::make_shared<OutputType>(this->sum, out_type);
     }
     return Status::OK();
   }
 
   size_t count = 0;
-  typename SumType::c_type sum = 0;
+  bool nulls_observed = false;
+  SumCType sum = 0;
+  std::shared_ptr<DataType> out_type;
   ScalarAggregateOptions options;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
-  Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count < options.min_count) {
+  using SumImpl<ArrowType, SimdLevel>::SumImpl;
+
+  template <typename T = ArrowType>
+  enable_if_decimal<T, Status> FinalizeImpl(Datum* out) {
+    using SumCType = typename SumImpl<ArrowType, SimdLevel>::SumCType;
+    using OutputType = typename SumImpl<ArrowType, SimdLevel>::OutputType;
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count) || (this->count == 0)) {
+      out->value = std::make_shared<OutputType>(this->out_type);
+    } else {
+      const SumCType mean = this->sum / this->count;
+      out->value = std::make_shared<OutputType>(mean, this->out_type);
+    }
+    return Status::OK();
+  }
+  template <typename T = ArrowType>
+  enable_if_t<!is_decimal_type<T>::value, Status> FinalizeImpl(Datum* out) {
+    if ((!options.skip_nulls && this->nulls_observed) ||
+        (this->count < options.min_count)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       const double mean = static_cast<double>(this->sum) / this->count;
@@ -118,17 +149,19 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     }
     return Status::OK();
   }
-  ScalarAggregateOptions options;
+  Status Finalize(KernelContext*, Datum* out) override { return FinalizeImpl(out); }
+
+  using SumImpl<ArrowType, SimdLevel>::options;
 };
 
 template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const DataType& type;
+  const std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const DataType& type,
+  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -139,18 +172,26 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>(options));
+    auto ty = TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton();
+    state.reset(new KernelClass<BooleanType>(ty, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(options));
+    auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
+    state.reset(new KernelClass<Type>(ty, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new KernelClass<Type>(type, options));
     return Status::OK();
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(type, this));
+    RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
   }
 };
