@@ -1577,6 +1577,19 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         ds.write_dataset(table, tempdir, format='parquet', partitioning=part)
 
 
+def test_write_dataset_with_field_names(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+
+    field_names_partitioning = ds.partitioning(field_names=["b"])
+
+    ds.write_dataset(table, tempdir, format='parquet',
+                     partitioning=field_names_partitioning)
+
+    load_back = ds.dataset(tempdir,
+                           partitioning=field_names_partitioning).to_table()
+    assert load_back.to_pydict() == table.to_pydict()
+
+
 def _has_subdirs(basedir):
     elements = os.listdir(basedir)
     return any([os.path.isdir(os.path.join(basedir, el)) for el in elements])

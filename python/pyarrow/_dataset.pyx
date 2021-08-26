@@ -1998,6 +1998,15 @@ cdef class PartitioningFactory(_Weakrefable):
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
 
+    @property
+    def type_name(self):
+        return frombytes(self.factory.type_name())
+
+    def create_with_schema(self, schema):
+        return Partitioning.wrap(GetResultValue(
+            self.factory.Finish(pyarrow_unwrap_schema(schema))
+        ))
+
 
 cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
         Schema schema, dictionaries) except *:

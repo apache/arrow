@@ -678,13 +678,19 @@ or tables, iterable of batches, RecordBatchReader, or URI
         )
 
 
-def _ensure_write_partitioning(scheme):
-    if scheme is None:
-        scheme = partitioning(pa.schema([]))
-    if not isinstance(scheme, Partitioning):
-        # TODO support passing field names, and get types from schema
+def _ensure_write_partitioning(partitioning, schema):
+    if partitioning is None:
+        partitioning = partitioning(pa.schema([]))
+    elif isinstance(partitioning, PartitioningFactory):
+        # If a schema is provided, combine the factory with the schema
+        # to build a real Partitioning object that the Writer can accept.
+        if schema is not None:
+            partitioning = partitioning.create_with_schema(schema)
+
+    if not isinstance(partitioning, Partitioning):
         raise ValueError("partitioning needs to be actual Partitioning object")
-    return scheme
+
+    return partitioning
 
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
@@ -788,7 +794,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
-    partitioning = _ensure_write_partitioning(partitioning)
+    partitioning = _ensure_write_partitioning(partitioning, schema=schema)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
