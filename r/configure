@@ -129,12 +129,15 @@ else
         # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
+
       # Set some default values/backwards compatibility
-      if [ "${LIBARROW_BINARY}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
-        LIBARROW_BINARY=true; export LIBARROW_BINARY
-      fi
-      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
-        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+      if [ "${NOT_CRAN}" = "true" ]; then
+        if [ "${LIBARROW_BINARY}" = "" ]; then
+          LIBARROW_BINARY=true; export LIBARROW_BINARY
+        fi
+        if [ "${LIBARROW_MINIMAL}" = "" ]; then
+          LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+        fi
       fi
 
       # find openssl on macos. macOS ships with libressl. openssl is installable

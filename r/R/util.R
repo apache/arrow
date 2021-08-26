@@ -194,6 +194,8 @@ repeat_value_as_array <- function(object, n) {
 #' This function is used for setting up an offline build. If it's possible to
 #' download at build time, don't use this function. Instead, let `cmake`
 #' download them for you.
+#' If the files already exist in `deps_dir`, they will be re-downloaded and
+#' overwritten. Other files are not changed.
 #' These saved files are only used in the build if `ARROW_DEPENDENCY_SOURCE`
 #' is `BUNDLED` or `AUTO`.
 #' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
@@ -202,21 +204,14 @@ repeat_value_as_array <- function(object, n) {
 #' - Install the `arrow` package on a computer with internet access
 #' - Run this function
 #' - Copy the saved dependency files to a computer without internet access
-#' - Export the environment variables printed by this function on the computer
-#'   without internet access. For example, this function will print
-#'   `export ARROW_THRIFT_URL=/path/to/deps_dir/file.tar.gz`
-#'   - These export commands are also saved in `DEFINE_ENV_VARS.sh`, in the same
-#'     directory
-#'   - You may have to edit the paths if the copied folder is not accessible at
-#'     the same location as it was when `download_optional_dependencies()` was
-#'     run on the internet-connected computer
+#' - Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
+#'   points to the folder.
 #' - Install the `arrow` package on the computer without internet access
 #' - Run [arrow_info()] to check installed capabilities
 #'
 #' @examples
 #' \dontrun{
 #' download_optional_dependencies("arrow-thirdparty")
-#' file.exists("arrow-thirdparty/DEFINE_ENV_VARS.sh") # TRUE
 #' list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
 #' }
 #' @export
@@ -233,32 +228,18 @@ download_optional_dependencies <- function(deps_dir) {
   dir.create(deps_dir, showWarnings = FALSE, recursive = TRUE)
 
   # Run download_dependencies.sh
-  stdout_file <- tempfile()
-  stderr_file <- tempfile()
-  file.create(stdout_file, stderr_file)
   cat(paste0("*** Downloading optional dependencies to ", deps_dir, "\n"))
   return_status <- system2(download_dependencies_sh,
-    args = deps_dir,
-    stdout = stdout_file, stderr = stderr_file
+    args = deps_dir, stdout = FALSE, stderr = FALSE
   )
-  if (return_status == 0) {
-    # File contents are something like:
-    # # Environment variables for offline Arrow build
-    # export ARROW_ABSL_URL=/path/to/file/absl-12345.tar.gz
-    # export ...
-    env_var_file <- file.path(deps_dir, "DEFINE_ENV_VARS.sh")
-    # Also save a copy in the directory for ease of use.
-    file.copy(stdout_file, env_var_file)
-    msg <- c(
-      "*** Offline build environment variables",
-      paste("    (These are also saved in ", env_var_file, ")\n"),
-      readLines(stdout_file)
-    )
-    cat(paste(msg, collapse = "\n"))
+  download_successful <- isTRUE(return_status == 0)
+  if (download_successful) {
+    cat(paste0(
+      "**** Set environment variable on offline machine and re-build arrow:\n",
+      "export ARROW_THIRDPARTY_DEPENDENCY_DIR=<downloaded directory>\n"
+    ))
   } else {
-    msg <- c("Failed to download some optional dependencies", readLines(stderr_file), "")
-    warning(paste(msg, collapse = "\n"))
+    warning("Failed to download optional dependencies")
   }
-  # Return sucess status
-  invisible(return_status == 0)
+  invisible(download_successful)
 }
