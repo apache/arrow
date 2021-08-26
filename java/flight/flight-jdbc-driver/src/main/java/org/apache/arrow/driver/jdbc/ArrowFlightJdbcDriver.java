@@ -208,7 +208,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       throw new SQLException("Malformed/invalid URL!");
     }
 
-    // It's necessary to use a string without "jdbc:" at the beginning to becomes a valid URL to be parsed.
+    // It's necessary to use a string without "jdbc:" at the beginning to be parsed as a valid URL.
     url = url.substring(5);
 
     URI uri;
