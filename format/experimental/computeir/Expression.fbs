@@ -111,26 +111,25 @@ enum CanonicalFunctionId : uint32 {
   GreaterEqual,
   Less,
   LessEqual,
-}
 
-table CanonicalFunction {
-  id: CanonicalFunctionId;
-}
-
-table NonCanonicalFunction {
-  name_space: string;
-  name: string (required);
-}
-
-union FunctionImpl {
-  CanonicalFunction,
-  NonCanonicalFunction,
+  // aggregates
+  All,
+  Any,
+  Count,
+  CountTable,
+  Mean,
+  Min,
+  Max,
+  Product,
+  Sum,
+  Variance,
+  StandardDev,
 }
 
 /// A function call expression
 table Call {
-  /// The kind of function call this is.
-  kind: FunctionImpl (required);
+  /// The function to call
+  kind: CanonicalFunctionId;
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
