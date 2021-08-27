@@ -77,15 +77,17 @@ func ConvertTimestampValue(in, out arrow.TimeUnit, value int64) int64 {
 
 func temporalToString(s TemporalScalar) string {
 	switch s := s.(type) {
-	case DateScalar:
-		return fmt.Sprint(s.value())
+	case *Date32:
+		return time.Unix(0, 0).UTC().AddDate(0, 0, int(s.Value)).Format("2006-01-02")
+	case *Date64:
+		days := int(int64(s.Value) / (time.Hour * 24).Milliseconds())
+		return time.Unix(0, 0).UTC().AddDate(0, 0, days).Format("2006-01-02")
 	case *Duration:
 		return fmt.Sprint(time.Duration(s.Value) * s.Unit().Multiplier())
 	case *Time32:
-		hh, mm, ss := time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Clock()
-		return time.Date(0, 1, 1, hh, mm, ss, 0, nil).Format("15:04:05")
+		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("15:04:05.999")
 	case *Time64:
-		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("2006-01-02 15:04:05.999999999")
+		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("15:04:05.999999999")
 	case *Timestamp:
 		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("2006-01-02 15:04:05.999999999")
 	}
@@ -290,7 +292,7 @@ func (Time32) time()                                       {}
 func (s *Time32) value() interface{}                       { return s.Value }
 func (s *Time32) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
 func (s *Time32) Unit() arrow.TimeUnit {
-	return s.DataType().(*arrow.TimestampType).Unit
+	return s.DataType().(*arrow.Time32Type).Unit
 }
 func (s *Time32) equals(rhs Scalar) bool {
 	return s.Value == rhs.(*Time32).Value
@@ -324,7 +326,7 @@ func (Time64) time()                                       {}
 func (s *Time64) value() interface{}                       { return s.Value }
 func (s *Time64) CastTo(to arrow.DataType) (Scalar, error) { return castTemporal(s, to) }
 func (s *Time64) Unit() arrow.TimeUnit {
-	return s.DataType().(*arrow.TimestampType).Unit
+	return s.DataType().(*arrow.Time64Type).Unit
 }
 func (s *Time64) Data() []byte {
 	return (*[arrow.Time64SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]

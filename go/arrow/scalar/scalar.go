@@ -21,6 +21,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"strconv"
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
@@ -150,6 +151,10 @@ func (s *Boolean) String() string {
 func (s *Boolean) CastTo(dt arrow.DataType) (Scalar, error) {
 	if !s.Valid {
 		return MakeNullScalar(dt), nil
+	}
+
+	if dt.ID() == arrow.STRING {
+		return NewStringScalar(strconv.FormatBool(s.Value)), nil
 	}
 
 	val := 0

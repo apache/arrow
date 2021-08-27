@@ -87,9 +87,7 @@ func (l *List) CastTo(to arrow.DataType) (Scalar, error) {
 
 	if to.ID() == arrow.STRING {
 		var bld bytes.Buffer
-		bld.WriteByte('[')
 		fmt.Fprint(&bld, l.Value)
-		bld.WriteByte(']')
 		buf := memory.NewBufferBytes(bld.Bytes())
 		defer buf.Release()
 		return NewStringScalarFromBuffer(buf), nil

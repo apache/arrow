@@ -246,9 +246,22 @@ func TestDateScalarBasics(t *testing.T) {
 func TestDateScalarMakeScalar(t *testing.T) {
 	assertMakeScalar(t, scalar.NewDate32Scalar(arrow.Date32(1)), arrow.Date32(1))
 	assertParseScalar(t, arrow.FixedWidthTypes.Date32, "1454-10-22", scalar.NewDate32Scalar(arrow.Date32(-188171)))
+	assert.Equal(t, "1454-10-22", scalar.NewDate32Scalar(arrow.Date32(-188171)).String())
 
 	assertMakeScalar(t, scalar.NewDate64Scalar(arrow.Date64(1)), arrow.Date64(1))
 	assertParseScalar(t, arrow.FixedWidthTypes.Date64, "1454-10-22", scalar.NewDate64Scalar(arrow.Date64(-188171*(time.Hour*24).Milliseconds())))
+	assert.Equal(t, "1454-10-22", scalar.NewDate64Scalar(arrow.Date64(-188171*(time.Hour*24).Milliseconds())).String())
+
+	d32 := scalar.NewDate32Scalar(arrow.Date32(-188171))
+	d64 := scalar.NewDate64Scalar(arrow.Date64(-188171 * (time.Hour * 24).Milliseconds()))
+
+	d32Casted, err := d32.CastTo(arrow.FixedWidthTypes.Date64)
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(d64, d32Casted))
+
+	d64Casted, err := d64.CastTo(arrow.FixedWidthTypes.Date32)
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(d64Casted, d32))
 }
 
 func TestTimeScalarsBasics(t *testing.T) {
@@ -295,15 +308,19 @@ func TestTimeScalarsMakeScalar(t *testing.T) {
 
 	tententen := 60*(60*(10)+10) + 10
 	assertParseScalar(t, typ1, "10:10:10", scalar.NewTime32Scalar(arrow.Time32(tententen), typ1))
+	assert.Equal(t, "10:10:10", scalar.NewTime32Scalar(arrow.Time32(tententen), typ1).String())
 
 	tententen = 1000*tententen + 123
 	assertParseScalar(t, typ2, "10:10:10.123", scalar.NewTime32Scalar(arrow.Time32(tententen), typ2))
+	assert.Equal(t, "10:10:10.123", scalar.NewTime32Scalar(arrow.Time32(tententen), typ2).String())
 
 	tententen = 1000*tententen + 456
 	assertParseScalar(t, typ3, "10:10:10.123456", scalar.NewTime64Scalar(arrow.Time64(tententen), typ3))
+	assert.Equal(t, "10:10:10.123456", scalar.NewTime64Scalar(arrow.Time64(tententen), typ3).String())
 
 	tententen = 1000*tententen + 789
 	assertParseScalar(t, typ4, "10:10:10.123456789", scalar.NewTime64Scalar(arrow.Time64(tententen), typ4))
+	assert.Equal(t, "10:10:10.123456789", scalar.NewTime64Scalar(arrow.Time64(tententen), typ4).String())
 }
 
 func TestTimestampScalarBasics(t *testing.T) {
@@ -382,7 +399,18 @@ func TestTimestampScalarsCasting(t *testing.T) {
 	d64, err := scalar.NewTimestampScalar(arrow.Timestamp(1024*millisInDay+3), arrow.FixedWidthTypes.Timestamp_ms).CastTo(arrow.FixedWidthTypes.Date64)
 	assert.NoError(t, err)
 
+	d32, err := scalar.NewTimestampScalar(arrow.Timestamp(1024*millisInDay+3), arrow.FixedWidthTypes.Timestamp_ms).CastTo(arrow.FixedWidthTypes.Date32)
+	assert.NoError(t, err)
+
+	assert.True(t, scalar.Equals(scalar.NewDate32Scalar(arrow.Date32(1024)), d32))
 	assert.Truef(t, scalar.Equals(scalar.NewDate64Scalar(arrow.Date64(1024*millisInDay)), d64), "got %s", d64)
+	tms, err := scalar.NewDate64Scalar(arrow.Date64(1024 * millisInDay)).CastTo(arrow.FixedWidthTypes.Timestamp_ms)
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(tms, scalar.NewTimestampScalar(arrow.Timestamp(1024*millisInDay), arrow.FixedWidthTypes.Timestamp_ms)))
+
+	tms, err = scalar.NewDate32Scalar(arrow.Date32(1024)).CastTo(arrow.FixedWidthTypes.Timestamp_ms)
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(tms, scalar.NewTimestampScalar(arrow.Timestamp(1024*millisInDay), arrow.FixedWidthTypes.Timestamp_ms)))
 }
 
 func TestDurationScalarBasics(t *testing.T) {
@@ -579,6 +607,8 @@ func (l *ListScalarSuite) TestBasics() {
 	l.NoError(nullScalar.ValidateFull())
 	l.False(nullScalar.IsValid())
 	l.True(arrow.TypeEqual(nullScalar.DataType(), l.typ))
+
+	l.Equal("[1 2 (null)]", s.String())
 }
 
 func (l *ListScalarSuite) TestValidateErrors() {
@@ -691,6 +721,8 @@ func TestStructScalar(t *testing.T) {
 	abc2, err := scalar.NewStructScalarWithNames(abc.Value, []string{"a", "b", "c", "d"})
 	assert.NoError(t, err)
 	assert.True(t, scalar.Equals(abc, abc2))
+
+	assert.Equal(t, "{a:bool = true, b:int32 = null, c:utf8 = hello, d:int64 = null}", abc.String())
 }
 
 func TestNullStructScalar(t *testing.T) {
