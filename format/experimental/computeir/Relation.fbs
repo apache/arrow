@@ -183,14 +183,6 @@ table LiteralRelation {
   columns: [LiteralColumn] (required);
 }
 
-/// A user-defined relation.
-table Custom {
-  base: RelBase (required);
-  /// NB: the schema is optional here, since a custom relation
-  /// may or may not need it.
-  schema: org.apache.arrow.flatbuf.Schema;
-}
-
 /// A table read
 table Read {
   base: RelBase (required);
@@ -209,7 +201,6 @@ table Write {
 union RelationImpl {
   Aggregate,
   Common,
-  Custom,
   SetOperation,
   Filter,
   Limit,
