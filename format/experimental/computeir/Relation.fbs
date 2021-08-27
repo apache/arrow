@@ -168,7 +168,7 @@ enum SetOpKind : uint8 {
 table SetOperation {
   base: RelBase (required);
   /// The kind of set operation
-  set_op: SetOpKind (required);
+  set_op: SetOpKind;
 }
 
 /// Literal relation
