@@ -20,22 +20,23 @@ package org.apache.arrow.driver.jdbc.client.impl;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
-import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.sql.FlightSqlClient;
@@ -102,8 +103,8 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     private String keyStorePassword;
     private boolean useTls;
     private BufferAllocator allocator;
-    private final List<FlightClientMiddleware.Factory> middlewareFactories = new ArrayList<>();
-    private final List<CallOption> options = new ArrayList<>();
+    private final Set<FlightClientMiddleware.Factory> middlewareFactories = new HashSet<>();
+    private final Set<CallOption> options = new HashSet<>();
 
     /**
      * Sets the host for this handler.
@@ -246,10 +247,23 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
         ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         if (username != null) {
           authFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-          middlewareFactories.add(authFactory);
+          withMiddlewareFactories(authFactory);
         }
-        final FlightClient client = ClientCreationUtils.createNewClient(
-            host, port, keyStorePath, keyStorePassword, useTls, allocator, middlewareFactories);
+        final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
+        middlewareFactories.forEach(clientBuilder::intercept);
+        Location location;
+        if (useTls) {
+          location = Location.forGrpcTls(host, port);
+          clientBuilder.useTls();
+        } else {
+          location = Location.forGrpcInsecure(host, port);
+        }
+        clientBuilder.location(location);
+        if (keyStorePath != null) {
+          clientBuilder.trustedCertificates(
+              ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
+        }
+        final FlightClient client = clientBuilder.build();
         if (authFactory != null) {
           options.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
         }
