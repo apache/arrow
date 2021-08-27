@@ -157,15 +157,6 @@ table Limit {
   count: uint32;
 }
 
-/// Common table expresssion
-table Common {
-  base: RelBase (required);
-  /// Commons (CTEs in SQL) allow assigning a name to a stream
-  /// of data and reusing it, potentially multiple times and
-  /// potentially recursively.
-  name: string (required);
-}
-
 /// The kind of set operation being performed.
 enum CanonicalSetOpKindId : uint8 {
   Union,
