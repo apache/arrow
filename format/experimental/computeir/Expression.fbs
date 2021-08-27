@@ -162,30 +162,6 @@ table Case {
   metadata: InlineBuffer;
 }
 
-table Cast {
-  /// The expression to cast
-  expression: Expression (required);
-
-  /// The type to cast `argument` to.
-  type: org.apache.arrow.flatbuf.Field (required);
-
-  /// Parameters for `function_name`; content/format may be unique to each
-  /// value of `function_name`.
-  metadata: InlineBuffer;
-}
-
-table Extract {
-  /// Expression from which to extract components.
-  expression: Expression (required);
-
-  /// Field to extract from `expression`.
-  field: string (required);
-
-  /// Parameters for `function_name`; content/format may be unique to each
-  /// value of `function_name`.
-  metadata: InlineBuffer;
-}
-
 /// Whether lesser values should precede greater or vice versa,
 /// also whether nulls should preced or follow values.
 enum Collation : uint8 {
@@ -323,8 +299,6 @@ union ExpressionImpl {
   FieldRef,
   Call,
   Case,
-  Cast,
-  Extract,
   WindowCall,
   AggregateCall,
 }
