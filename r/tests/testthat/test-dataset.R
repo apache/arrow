@@ -1085,9 +1085,15 @@ test_that("Scanner$create() filter/projection pushdown", {
   scan_two <- ds %>%
     filter(int > 7 & dbl < 57) %>%
     select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1) %>%
     Scanner$create(projection = list(
-      "int", "dbl", "lgl", "int_plus",
+      int = Expression$field_ref("int"),
+      dbl = Expression$field_ref("dbl"),
+      lgl = Expression$field_ref("lgl"),
+      int_plus = Expression$create(
+        "add_checked",
+        Expression$field_ref("int"),
+        Expression$scalar(1)
+      ),
       dbl_minus = Expression$create(
         "subtract_checked",
         Expression$field_ref("dbl"),

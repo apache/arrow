@@ -75,7 +75,8 @@ set_filters <- function(.data, expressions) {
       # expressions is a list of Expressions. AND them together and set them on .data
       new_filter <- Reduce("&", expressions)
     } else {
-      # expressions is an expression already
+      # expressions should be an expression or list of expressions already
+      stopifnot(is_list_of(expressions, "Expression") | inherits(expressions, "Expression"))
       new_filter <- expressions
     }
 

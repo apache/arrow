@@ -28,7 +28,8 @@
 #'
 #' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #'    `dplyr` methods on `Dataset`.
-#' * `projection`: A character vector of column names to select
+#' * `projection`: A character vector of column names to select cols or a named
+#'    list of Expressions
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
@@ -87,15 +88,19 @@ Scanner$create <- function(dataset,
     }
 
     proj <- c(dataset$selected_columns, dataset$temp_columns)
-    if (!is.null(projection)) {
-      # grab all of the projection elements that are characters to select columns
-      # TODO: should we check names and make sure we only project once per?
-      projection_char <- Filter(is.character, projection)
-      proj <- proj[unlist(projection_char)]
 
-      # try and append any other projections (e.g. expressions)
-      projection_other <- Filter(Negate(is.character), projection)
-      proj <- c(proj, projection_other)
+    if (!is.null(projection)) {
+      if (is.character(projection)) {
+        proj <- proj[projection]
+      } else if (is_list_of(projection, "Expression")) {
+        # TODO: need to check and see if there are any Expressions that are simply
+        # field refs in projections, but are richer expressions in proj?
+        proj <- projection
+      } else {
+        warning(
+          "Scanner$create(projection = ...) must be a character vector or list ",
+          "of (named) expressions, ignoring the projection argument.")
+      }
     }
 
     if (!isTRUE(filter)) {
