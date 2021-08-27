@@ -171,11 +171,16 @@ table SetOperation {
   set_op: SetOpKind;
 }
 
+table LiteralColumn {
+  /// The literal values of the column
+  elements: [Literal] (required);
+}
+
 /// Literal relation
 table LiteralRelation {
   base: RelBase (required);
   /// The columns of this literal relation.
-  columns: [Literal] (required);
+  columns: [LiteralColumn] (required);
 }
 
 /// A user-defined relation.
