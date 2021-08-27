@@ -18,7 +18,6 @@
 include "../../Schema.fbs";
 include "Literal.fbs";
 include "Expression.fbs";
-include "InlineBuffer.fbs";
 
 namespace org.apache.arrow.computeir.flatbuf;
 
@@ -46,8 +45,6 @@ union Emit {
 table RelBase {
   /// Output remapping of ordinals for a given operation
   output_mapping: Emit (required);
-  /// Arguments for custom operations
-  options: InlineBuffer;
 }
 
 /// Filter operation

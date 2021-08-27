@@ -17,7 +17,6 @@
 
 include "../../Schema.fbs";
 include "Literal.fbs";
-include "InlineBuffer.fbs";
 
 namespace org.apache.arrow.computeir.flatbuf;
 
@@ -135,10 +134,6 @@ table Call {
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
-
-  /// Parameters for `function_name`; content/format may be unique to each
-  /// value of `function_name`.
-  metadata: InlineBuffer;
 }
 
 /// A single WHEN x THEN y fragment.
@@ -156,10 +151,6 @@ table Case {
   /// Defaulting to NULL is a frontend choice, so producers must specify NULL
   /// if that's their desired behavior.
   else: Expression (required);
-
-  /// Parameters for `function_name`; content/format may be unique to each
-  /// value of `function_name`.
-  metadata: InlineBuffer;
 }
 
 /// Whether lesser values should precede greater or vice versa,
