@@ -47,8 +47,6 @@ override_dh_auto_configure:
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCMAKE_UNITY_BUILD=ON				\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
-	  -DProtobuf_SOURCE=BUNDLED				\
-	  -DgRPC_SOURCE=BUNDLED					\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
 
