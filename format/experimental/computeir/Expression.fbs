@@ -138,23 +138,34 @@ table Call {
 
 /// A single WHEN x THEN y fragment.
 table CaseFragment {
-  when: Expression (required);
-  then: Expression (required);
+  match: Expression (required);
+  result: Expression (required);
 }
 
-/// Case statement-style expression.
-table Case {
-  cases: [CaseFragment] (required);
+/// Conditional case statement expression
+table ConditionalCase {
+  /// List of conditions to evaluate
+  conditions: [CaseFragment] (required);
   /// The default value if no cases match. This is typically NULL in SQL
-  //implementations.
+  /// implementations.
   ///
   /// Defaulting to NULL is a frontend choice, so producers must specify NULL
   /// if that's their desired behavior.
   else: Expression (required);
 }
 
+/// Switch-style case expression
+table SimpleCase {
+  /// The expression whose value will be matched
+  expression: Expression (required);
+  /// Matches for `expression`
+  matches: [CaseFragment] (required);
+  /// The default value if no cases match
+  else: Expression (required);
+}
+
 /// Whether lesser values should precede greater or vice versa,
-/// also whether nulls should preced or follow values.
+/// also whether nulls should preced or follow values
 enum Collation : uint8 {
   ASCENDING_THEN_NULLS,
   DESCENDING_THEN_NULLS,
@@ -289,7 +300,8 @@ union ExpressionImpl {
   Literal,
   FieldRef,
   Call,
-  Case,
+  ConditionalCase,
+  SimpleCase,
   WindowCall,
   AggregateCall,
 }
