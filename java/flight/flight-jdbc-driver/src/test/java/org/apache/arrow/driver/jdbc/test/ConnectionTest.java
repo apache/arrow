@@ -28,7 +28,6 @@ import java.util.Properties;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -160,11 +159,13 @@ public class ConnectionTest {
       throws Exception {
 
     try (FlightClientHandler client =
-             ArrowFlightSqlClientHandler.createNewHandler(
-                 ClientCreationUtils.createAndGetClientInfo(
-                     flightTestUtils.getLocalhost(), server.getPort(),
-                     flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
-                     null, null, allocator, false))) {
+             new ArrowFlightSqlClientHandler.Builder()
+                 .withHost(flightTestUtils.getLocalhost())
+                 .withPort(server.getPort())
+                 .withUsername(flightTestUtils.getUsername1())
+                 .withPassword(flightTestUtils.getPassword1())
+                 .withBufferAllocator(allocator)
+                 .build()) {
       assertNotNull(client);
     }
   }
@@ -199,11 +200,11 @@ public class ConnectionTest {
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
     try (FlightClientHandler client =
-             ArrowFlightSqlClientHandler.createNewHandler(
-                 ClientCreationUtils.createAndGetClientInfo(
-                     flightTestUtils.getLocalhost(), server.getPort(),
-                     null, null, null, null,
-                     allocator, false))) {
+             new ArrowFlightSqlClientHandler.Builder()
+                 .withHost(flightTestUtils.getLocalhost())
+                 .withPort(server.getPort())
+                 .withBufferAllocator(allocator)
+                 .build()) {
       assertNotNull(client);
     }
   }
