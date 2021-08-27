@@ -16,6 +16,7 @@
 // under the License.
 
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -363,8 +364,8 @@ TYPED_TEST(TestSelectKRandom, RandomValues) {
 }
 
 template <SortOrder order>
-struct SelectKWithChunkedArray : public ::testing::Test {
-  SelectKWithChunkedArray()
+struct TestSelectKWithChunkedArray : public ::testing::Test {
+  TestSelectKWithChunkedArray()
       : sizes_({0, 1, 2, 4, 16, 31, 1234}),
         null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
 
@@ -390,21 +391,23 @@ struct SelectKWithChunkedArray : public ::testing::Test {
                    const std::vector<std::string>& values, int64_t k,
                    std::shared_ptr<Array>* out) {
     ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*(ChunkedArrayFromJSON(type, values)), k));
+    PrettyPrint(**out, {}, &std::cerr);
     return Status::OK();
   }
   std::vector<int32_t> sizes_;
   std::vector<double> null_probabilities_;
 };
 
-struct TopKWithChunkedArray : public SelectKWithChunkedArray<SortOrder::Descending> {};
+struct TestTopKWithChunkedArray
+    : public TestSelectKWithChunkedArray<SortOrder::Descending> {};
 
-TEST_F(TopKWithChunkedArray, Int8) {
-  this->Check(int8(), {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[10, 9, 7]");
-  this->Check(int8(), {"[]", "[]"}, 0, "[]");
-  this->Check(float32(), {"[]"}, 0, "[]");
+TEST_F(TestTopKWithChunkedArray, Int32) {
+  this->Check(int32(), {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[10, 9, 7]");
+  this->Check(int32(), {"[]", "[]"}, 0, "[]");
+  this->Check(int32(), {"[]"}, 0, "[]");
 }
 
-TEST_F(TopKWithChunkedArray, Null) {
+TEST_F(TestTopKWithChunkedArray, Null) {
   this->Check(int8(), {"[null]", "[8, null]"}, 1, "[8]");
 
   this->Check(int8(), {"[null]", "[null, null]"}, 0, "[]");
@@ -412,7 +415,7 @@ TEST_F(TopKWithChunkedArray, Null) {
   this->Check(int8(), {"[null]", "[]"}, 0, "[]");
 }
 
-TEST_F(TopKWithChunkedArray, NaN) {
+TEST_F(TestTopKWithChunkedArray, NaN) {
   this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
 
   this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
@@ -420,15 +423,16 @@ TEST_F(TopKWithChunkedArray, NaN) {
   this->Check(float32(), {"[NaN]", "[]"}, 0, "[]");
 }
 
-struct BottomKWithChunkedArray : public SelectKWithChunkedArray<SortOrder::Ascending> {};
+struct TestBottomKWithChunkedArray
+    : public TestSelectKWithChunkedArray<SortOrder::Ascending> {};
 
-TEST_F(BottomKWithChunkedArray, Int8) {
+TEST_F(TestBottomKWithChunkedArray, Int8) {
   this->Check(int8(), {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[0, 1, 2]");
   this->Check(int8(), {"[]", "[]"}, 0, "[]");
   this->Check(float32(), {"[]"}, 0, "[]");
 }
 
-TEST_F(BottomKWithChunkedArray, Null) {
+TEST_F(TestBottomKWithChunkedArray, Null) {
   this->Check(int8(), {"[null]", "[8, null]"}, 1, "[8]");
 
   this->Check(int8(), {"[null]", "[null, null]"}, 0, "[]");
@@ -436,7 +440,7 @@ TEST_F(BottomKWithChunkedArray, Null) {
   this->Check(int8(), {"[null]", "[]"}, 0, "[]");
 }
 
-TEST_F(BottomKWithChunkedArray, NaN) {
+TEST_F(TestBottomKWithChunkedArray, NaN) {
   this->Check(float32(), {"[NaN]", "[8, NaN]"}, 1, "[8]");
 
   this->Check(float32(), {"[NaN]", "[NaN, NaN]"}, 0, "[]");
@@ -445,13 +449,13 @@ TEST_F(BottomKWithChunkedArray, NaN) {
 }
 
 template <typename ArrowType>
-class TopKWithChunkedArrayForTemporal : public TopKWithChunkedArray {
+class TestTopKWithChunkedArrayForTemporal : public TestTopKWithChunkedArray {
  protected:
   std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
 };
-TYPED_TEST_SUITE(TopKWithChunkedArrayForTemporal, TemporalArrowTypes);
+TYPED_TEST_SUITE(TestTopKWithChunkedArrayForTemporal, TemporalArrowTypes);
 
-TYPED_TEST(TopKWithChunkedArrayForTemporal, NoNull) {
+TYPED_TEST(TestTopKWithChunkedArrayForTemporal, NoNull) {
   auto type = this->GetType();
   auto chunked_array = ChunkedArrayFromJSON(type, {
                                                       "[0, 1]",
@@ -462,35 +466,51 @@ TYPED_TEST(TopKWithChunkedArrayForTemporal, NoNull) {
 }
 
 template <typename ArrowType>
-class BottomKWithChunkedArrayForTemporal : public TopKWithChunkedArray {
+class TestBottomKWithChunkedArrayForTemporal : public TestBottomKWithChunkedArray {
  protected:
   std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
 };
-TYPED_TEST_SUITE(BottomKWithChunkedArrayForTemporal, TemporalArrowTypes);
+TYPED_TEST_SUITE(TestBottomKWithChunkedArrayForTemporal, TemporalArrowTypes);
 
-TYPED_TEST(BottomKWithChunkedArrayForTemporal, NoNull) {
+TYPED_TEST(TestBottomKWithChunkedArrayForTemporal, NoNull) {
   auto type = this->GetType();
   auto chunked_array = ChunkedArrayFromJSON(type, {
                                                       "[0, 1]",
                                                       "[3, 2, 1]",
                                                       "[5, 0]",
                                                   });
-  this->Check(type, chunked_array, 3, "[0, 1, 1]");
+  this->Check(type, chunked_array, 3, "[0, 0, 1]");
 }
 
 // Tests for decimal types
 template <typename ArrowType>
-class TopKWithChunkedArrayForDecimal : public TopKWithChunkedArray {
+class TestTopKWithChunkedArrayForDecimal : public TestTopKWithChunkedArray {
  protected:
   std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
 };
-TYPED_TEST_SUITE(TopKWithChunkedArrayForDecimal, DecimalArrowTypes);
+TYPED_TEST_SUITE(TestTopKWithChunkedArrayForDecimal, DecimalArrowTypes);
 
-TYPED_TEST(TopKWithChunkedArrayForDecimal, Basics) {
+TYPED_TEST(TestTopKWithChunkedArrayForDecimal, Basics) {
   auto type = this->GetType();
   auto chunked_array = ChunkedArrayFromJSON(
-      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78", null])"});
+      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
+      null])"});
   this->Check(type, chunked_array, 3, R"(["456.78", "123.45", "-123.45"])");
+}
+
+template <typename ArrowType>
+class TestBottomKWithChunkedArrayForDecimal : public TestBottomKWithChunkedArray {
+ protected:
+  std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
+};
+TYPED_TEST_SUITE(TestBottomKWithChunkedArrayForDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TestBottomKWithChunkedArrayForDecimal, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(
+      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
+      null])"});
+  this->Check(type, chunked_array, 3, R"(["-456.78", "-123.45", "123.45"])");
 }
 
 using SortIndicesableTypes =
@@ -510,8 +530,8 @@ void ValidateSelectK(const ArrayType& array) {
 }
 // Base class for testing against random chunked array.
 template <typename Type, SortOrder order>
-struct SelectKWithChunkedArrayRandomBase : public ::testing::Test {
-  void TestChunkedArraySelectK(int length) {
+struct TestSelectKWithChunkedArrayRandomBase : public ::testing::Test {
+  void TestSelectK(int length) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     // We can use INSTANTIATE_TEST_SUITE_P() instead of using fors in a test.
     for (auto null_probability : {0.0, 0.1, 0.5, 0.9, 1.0}) {
@@ -545,20 +565,41 @@ struct SelectKWithChunkedArrayRandomBase : public ::testing::Test {
 // Long array with big value range
 template <typename Type>
 class TestTopKChunkedArrayRandom
-    : public SelectKWithChunkedArrayRandomBase<Type, SortOrder::Descending> {};
+    : public TestSelectKWithChunkedArrayRandomBase<Type, SortOrder::Descending> {};
 
 TYPED_TEST_SUITE(TestTopKChunkedArrayRandom, SortIndicesableTypes);
 
-TYPED_TEST(TestTopKChunkedArrayRandom, TopK) { this->TestChunkedArraySelectK(1000); }
+TYPED_TEST(TestTopKChunkedArrayRandom, TopK) { this->TestSelectK(1000); }
 
 template <typename Type>
 class TestBottomKChunkedArrayRandom
-    : public SelectKWithChunkedArrayRandomBase<Type, SortOrder::Ascending> {};
+    : public TestSelectKWithChunkedArrayRandomBase<Type, SortOrder::Ascending> {};
 
 TYPED_TEST_SUITE(TestBottomKChunkedArrayRandom, SortIndicesableTypes);
 
-TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) {
-  this->TestChunkedArraySelectK(1000);
+TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) { this->TestSelectK(1000); }
+
+// Test basic cases for record batch.
+class TestTopKWithRecordBatch : public ::testing::Test {};
+
+TEST_F(TestTopKWithRecordBatch, NoNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3,    "b": 5},
+                                       {"a": 1,    "b": 3},
+                                       {"a": 3,    "b": 4},
+                                       {"a": 0,    "b": 6},
+                                       {"a": 2,    "b": 5},
+                                       {"a": 1,    "b": 5},
+                                       {"a": 1,    "b": 3}
+                                       ])");
+  // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
 }
 
 }  // namespace compute

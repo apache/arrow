@@ -192,13 +192,13 @@ Result<std::shared_ptr<Array>> TopK(const ChunkedArray& values, int64_t k,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> TopK(const Datum& datum, int64_t k, SelectKOptions options,
-                                    ExecContext* ctx) {
+Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
+                   ExecContext* ctx) {
   options.k = k;
   options.order = SortOrder::Ascending;
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("top_k", {datum, Datum(k)}, &options, ctx));
-  return result.make_array();
+  return result;
 }
 
 Result<std::shared_ptr<Array>> BottomK(const Array& values, int64_t k,
@@ -217,13 +217,13 @@ Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& values, int64_t k,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> BottomK(const Datum& datum, int64_t k,
-                                       SelectKOptions options, ExecContext* ctx) {
+Result<Datum> BottomK(const Datum& datum, int64_t k, SelectKOptions options,
+                      ExecContext* ctx) {
   options.k = k;
   options.order = SortOrder::Ascending;
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("bottom_k", {datum, Datum(k)}, &options, ctx));
-  return result.make_array();
+  return result;
 }
 
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
