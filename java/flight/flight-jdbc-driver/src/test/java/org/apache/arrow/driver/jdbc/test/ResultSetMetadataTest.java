@@ -17,10 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 
@@ -33,7 +29,9 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
+import org.apache.calcite.avatica.BuiltInConnectionProperty;
+import org.apache.calcite.avatica.ConnectionProperty;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -47,7 +45,7 @@ import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetMetadataTest {
 
-  private static final Map<BaseProperty, Object> properties;
+  private static final Map<ConnectionProperty, Object> properties;
   private static ResultSetMetaData metadata;
 
   private static Connection connection;
@@ -60,11 +58,11 @@ public class ResultSetMetadataTest {
 
   static {
     properties = new HashMap<>();
-    properties.put(HOST, "localhost");
-    properties.put(PORT, FreePortFinder.findFreeLocalPort());
-    properties.put(USERNAME, "flight-test-user");
-    properties.put(PASSWORD, "flight-test-password");
-    rule = new FlightServerTestRule(properties);
+    properties.put(ArrowFlightConnectionProperty.HOST, "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
+    properties.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
+    rule = FlightServerTestRule.createNewTestRule(properties);
   }
 
   @BeforeClass

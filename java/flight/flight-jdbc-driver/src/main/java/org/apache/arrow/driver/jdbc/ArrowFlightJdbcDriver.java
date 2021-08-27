@@ -17,8 +17,7 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static java.lang.String.format;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -50,7 +48,6 @@ import org.apache.calcite.avatica.org.apache.http.client.utils.URLEncodedUtils;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-
   private static DriverVersion version;
 
   static {
@@ -58,17 +55,14 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  public Connection connect(final String url, final Properties info) throws SQLException {
-
+  public ArrowFlightConnection connect(final String url, final Properties info) throws SQLException {
+    final String expectedUrlPrefix = getConnectStringPrefix();
+    Preconditions.checkArgument(url == null || url.startsWith(expectedUrlPrefix),
+        format("URL is invalid: does not start with <%s>.", expectedUrlPrefix));
     final Properties properties = new Properties(info);
     properties.putAll(info);
 
     try {
-      final Map<Object, Object> args = getUrlsArgs(
-          Preconditions.checkNotNull(url));
-
-      properties.putAll(args);
-
       return ArrowFlightConnection.createNewConnection(
           this,
           factory,

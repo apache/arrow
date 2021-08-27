@@ -53,16 +53,16 @@ public final class FlightTestUtils {
 
   private static final Random RANDOM = new Random();
 
-  private String localhost;
+  private String url;
   private String username1;
   private String password1;
   private String usernameInvalid;
   private String passwordInvalid;
   private String connectionPrefix;
 
-  public FlightTestUtils(String localhost, String username1, String password1,
+  public FlightTestUtils(String url, String username1, String password1,
                          String usernameInvalid, String passwordInvalid) {
-    this.localhost = localhost;
+    this.url = url;
     this.username1 = username1;
     this.password1 = password1;
     this.usernameInvalid = usernameInvalid;
@@ -90,8 +90,8 @@ public final class FlightTestUtils {
     return passwordInvalid;
   }
 
-  public String getLocalhost() {
-    return localhost;
+  public String getUrl() {
+    return url;
   }
 
 
@@ -107,7 +107,7 @@ public final class FlightTestUtils {
     T server = null;
     for (int x = 0; x < 3; x++) {
       final int port = 49152 + RANDOM.nextInt(5000);
-      final Location location = Location.forGrpcInsecure(this.localhost, port);
+      final Location location = Location.forGrpcInsecure(this.url, port);
       lastThrown = null;
       try {
         server = newServerFromLocation.apply(location);

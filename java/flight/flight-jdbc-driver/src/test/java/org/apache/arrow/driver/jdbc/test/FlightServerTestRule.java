@@ -19,15 +19,12 @@ package org.apache.arrow.driver.jdbc.test;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -37,13 +34,11 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -52,7 +47,7 @@ import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcConnectionPoolDataSource;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDataSource;
-import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
@@ -75,6 +70,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -93,6 +89,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
+import org.apache.calcite.avatica.BuiltInConnectionProperty;
+import org.apache.calcite.avatica.ConnectionProperty;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -121,34 +119,47 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       new SimpleImmutableEntry<>(METADATA_TEST_SQL_CMD, 3),
       new SimpleImmutableEntry<>(CANCELLATION_TEST_SQL_CMD, 4));
 
-  private final Map<BaseProperty, Object> properties;
+  private final Properties properties;
+  private final ArrowFlightConnectionConfigImpl config;
   private final BufferAllocator allocator;
 
-  private final Set<String> validUsernameAndPasswordList = new HashSet<>();
+  private final Map<String, String> validCredentials = new HashMap<>();
 
-  public FlightServerTestRule(Map<BaseProperty, Object> properties) {
-    this(properties, new RootAllocator(Long.MAX_VALUE));
+  private FlightServerTestRule(final Properties properties,
+                               final ArrowFlightConnectionConfigImpl config,
+                               final BufferAllocator allocator) {
+    this.properties = Preconditions.checkNotNull(properties);
+    this.config = Preconditions.checkNotNull(config);
+    this.allocator = Preconditions.checkNotNull(allocator);
   }
 
-  private FlightServerTestRule(Map<BaseProperty, Object> properties, BufferAllocator allocator) {
-    this.properties = generateDefaults();
-    this.properties.putAll(properties);
-
-    this.allocator = allocator;
-
-    this.addUser(((String) getProperty(USERNAME)), ((String) getProperty(PASSWORD)));
+  /**
+   * Creates a new {@link FlightServerTestRule} for tests.
+   *
+   * @param configs the configs to use.
+   * @return a new test rule.
+   */
+  public static FlightServerTestRule createNewTestRule(final Map<ConnectionProperty, Object> configs) {
+    final Properties properties = new Properties();
+    configs.forEach((key, value) -> properties.put(key.camelName(), value == null ? key.defaultValue() : value));
+    final FlightServerTestRule rule = new FlightServerTestRule(
+        properties, new ArrowFlightConnectionConfigImpl(properties), new RootAllocator(Long.MAX_VALUE));
+    rule.validCredentials.put(
+        properties.getProperty(BuiltInConnectionProperty.AVATICA_USER.camelName()),
+        properties.getProperty(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName()));
+    return rule;
   }
 
-  public void addUser(String username, String password) {
-    this.validUsernameAndPasswordList.add(username + ":" + password);
+  public void addUser(final String username, final String password) {
+    validCredentials.put(username, password);
   }
 
-  private boolean validateUser(String username, String password) {
-    return this.validUsernameAndPasswordList.contains(username + ":" + password);
+  private boolean validateUser(final String username, final String password) {
+    return validateUser(username) && validCredentials.get(username).equals(password);
   }
 
-  private boolean validateUser(String username) {
-    return this.validUsernameAndPasswordList.stream().anyMatch(s -> s.startsWith(username + ":"));
+  private boolean validateUser(final String username) {
+    return validCredentials.containsKey(username);
   }
 
   private static Map<String, Supplier<Stream<String>>> generateQueryTickets(
@@ -178,46 +189,13 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return queryTickets.get(query).get();
   }
 
-  /**
-   * Get the {@code Object} mapped to the provided {@link BaseProperty}.
-   *
-   * @param property the key with which to find the {@code Object} mapped to it.
-   * @return the {@code Object} mapped to the provided {@code BaseProperty}.
-   */
-  private Object getProperty(BaseProperty property) {
-    return properties.get(property);
-  }
 
-  /**
-   * Gets the {@link Properties} of the {@link FlightServer} managed by this {@link TestRule}.
-   * <p>This should be used in tests that actually need to connect to the {@link FlightServer}
-   * using valid {@code Properties}.
-   *
-   * @return the properties of the {@code FlightServer} managed by this {@code TestRule}.
-   */
-  public Properties getProperties() {
-    // TODO Implement this.
-    throw new UnsupportedOperationException("Not implemented yet.");
-  }
-
-  public ArrowFlightJdbcDataSource createDataSource() {
-    ArrowFlightJdbcDataSource dataSource = new ArrowFlightJdbcDataSource();
-    dataSource.setHost((String) getProperty(HOST));
-    dataSource.setPort((Integer) getProperty(PORT));
-    dataSource.setUsername((String) getProperty(USERNAME));
-    dataSource.setPassword((String) getProperty(PASSWORD));
-
-    return dataSource;
+  ArrowFlightJdbcDataSource createDataSource() {
+    return ArrowFlightJdbcDataSource.createNewDataSource(properties);
   }
 
   public ArrowFlightJdbcConnectionPoolDataSource createConnectionPoolDataSource() {
-    ArrowFlightJdbcConnectionPoolDataSource dataSource = new ArrowFlightJdbcConnectionPoolDataSource();
-    dataSource.setHost((String) getProperty(HOST));
-    dataSource.setPort((Integer) getProperty(PORT));
-    dataSource.setUsername((String) getProperty(USERNAME));
-    dataSource.setPassword((String) getProperty(PASSWORD));
-
-    return dataSource;
+    return ArrowFlightJdbcConnectionPoolDataSource.createNewDataSource(properties);
   }
 
   public Connection getConnection() throws SQLException {
@@ -249,8 +227,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     final Deque<ReflectiveOperationException> exceptions = new ArrayDeque<>();
 
     for (; retries > 0; retries--) {
-      final Location location =
-          Location.forGrpcInsecure((String) getProperty(BaseProperty.HOST), (int) getProperty(BaseProperty.PORT));
+      final Location location = Location.forGrpcInsecure(config.getHost(), config.getPort());
       final FlightServer server = newServerFromLocation.apply(location);
       try {
         Method start = server.getClass().getMethod("start");
@@ -504,14 +481,6 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
 
     throw CallStatus.UNAUTHENTICATED.withDescription("Invalid credentials.").toRuntimeException();
-  }
-
-  private Map<BaseProperty, Object> generateDefaults() {
-    final Map<BaseProperty, Object> propertiesMap = new HashMap<>();
-    Arrays.stream(BaseProperty.values()).forEach(property -> {
-      propertiesMap.put(property, property.getDefaultValue());
-    });
-    return propertiesMap;
   }
 
   @Override
