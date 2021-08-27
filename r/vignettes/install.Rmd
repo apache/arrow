@@ -102,6 +102,14 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
+The `install-arrow.R` file also includes the `download_optional_dependencies()`
+function. Normally, when installing on a computer with internet access, the
+build process will download third-party dependencies as needed. This function
+provides a way to download them in advance. Relevant environment variables are
+`ARROW_THIRDPARTY_DEPENDENCY_DIR` for the directory of downloaded dependencies
+and `TEST_OFFLINE_BUILD` to force the build process not to download.
+(Note: `cmake` will still be downloaded if not available locally.)
+
 ## S3 support
 
 The `arrow` package allows you to work with data in AWS S3 or in other cloud
