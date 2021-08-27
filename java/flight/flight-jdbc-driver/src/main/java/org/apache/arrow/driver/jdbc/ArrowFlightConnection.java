@@ -27,8 +27,6 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USE_TLS;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Properties;
@@ -38,7 +36,6 @@ import java.util.concurrent.Executors;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
@@ -107,18 +104,19 @@ public class ArrowFlightConnection extends AvaticaConnection {
                                                              final BufferAllocator allocator)
       throws SQLException {
     final PropertyManager propertyManager = new PropertyManager(info);
-    try {
-      final FlightClientHandler clientHandler = ArrowFlightSqlClientHandler.createNewHandler(
-          ClientCreationUtils.createAndGetClientInfo(
-              propertyManager.getPropertyAsString(HOST), propertyManager.getPropertyAsInteger(PORT),
-              propertyManager.getPropertyAsString(USERNAME), propertyManager.getPropertyAsString(PASSWORD),
-              propertyManager.getPropertyAsString(KEYSTORE_PATH), propertyManager.getPropertyAsString(KEYSTORE_PASS),
-              allocator, propertyManager.getPropertyAsBoolean(USE_TLS), propertyManager.toCallOption()));
-      return new ArrowFlightConnection(driver, factory, url, propertyManager, allocator, clientHandler);
-    } catch (final GeneralSecurityException | IOException e) {
-      propertyManager.close();
-      throw AvaticaConnection.HELPER.createException("Failed to create a new Flight Client.", e);
-    }
+    final FlightClientHandler clientHandler =
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(propertyManager.getPropertyAsString(HOST))
+            .withPort(propertyManager.getPropertyAsInteger(PORT))
+            .withUsername(propertyManager.getPropertyAsString(USERNAME))
+            .withPassword(propertyManager.getPropertyAsString(PASSWORD))
+            .withKeyStorePath(propertyManager.getPropertyAsString(KEYSTORE_PATH))
+            .withKeyStorePassword(propertyManager.getPropertyAsString(KEYSTORE_PASS))
+            .withBufferAllocator(allocator)
+            .withTlsEncryption(propertyManager.getPropertyAsBoolean(USE_TLS))
+            .withCallOptions(propertyManager.toCallOption())
+            .build();
+    return new ArrowFlightConnection(driver, factory, url, propertyManager, allocator, clientHandler);
   }
 
   void reset() throws SQLException {

@@ -17,19 +17,27 @@
 
 package org.apache.arrow.driver.jdbc.client.impl;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.sql.FlightSqlClient;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 
@@ -52,7 +60,7 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
    * @param clientInfo the {@link FlightClient} to manage along with {@link CallOption}s to use in subsequent calls.
    * @return a new {@link FlightClientHandler}.
    */
-  public static FlightClientHandler createNewHandler(final Entry<FlightClient, CallOption[]> clientInfo) {
+  public static ArrowFlightSqlClientHandler createNewHandler(final Entry<FlightClient, CallOption[]> clientInfo) {
     return createNewHandler(clientInfo.getKey(), clientInfo.getValue());
   }
 
@@ -63,7 +71,7 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
    * @return a new {@link FlightClientHandler}.
    */
-  public static FlightClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
+  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
     return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), options);
   }
 
@@ -86,6 +94,168 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
       AutoCloseables.close(sqlClient);
     } catch (final Exception e) {
       throw new SQLException("Failed to clean up client resources.", e);
+    }
+  }
+
+  /**
+   * Builder for {@link ArrowFlightSqlClientHandler}.
+   */
+  public static final class Builder {
+    private String host;
+    private int port;
+    private String username;
+    private String password;
+    private String keyStorePath;
+    private String keyStorePassword;
+    private boolean useTls;
+    private BufferAllocator allocator;
+    private final List<FlightClientMiddleware.Factory> middlewareFactories = new ArrayList<>();
+    private final List<CallOption> options = new ArrayList<>();
+
+    /**
+     * Sets the host for this handler.
+     *
+     * @param host the host.
+     * @return this instance.
+     */
+    public Builder withHost(final String host) {
+      this.host = host;
+      return this;
+    }
+
+    /**
+     * Sets the port for this handler.
+     *
+     * @param port the port.
+     * @return this instance.
+     */
+    public Builder withPort(final int port) {
+      this.port = port;
+      return this;
+    }
+
+    /**
+     * Sets the username for this handler.
+     *
+     * @param username the username.
+     * @return this instance.
+     */
+    public Builder withUsername(final String username) {
+      this.username = username;
+      return this;
+    }
+
+    /**
+     * Sets the password for this handler.
+     *
+     * @param password the password.
+     * @return this instance.
+     */
+    public Builder withPassword(final String password) {
+      this.password = password;
+      return this;
+    }
+
+    /**
+     * Sets the KeyStore path for this handler.
+     *
+     * @param keyStorePath the KeyStore path.
+     * @return this instance.
+     */
+    public Builder withKeyStorePath(final String keyStorePath) {
+      this.keyStorePath = keyStorePath;
+      return this;
+    }
+
+    /**
+     * Sets the KeyStore password for this handler.
+     *
+     * @param keyStorePassword the KeyStore password.
+     * @return this instance.
+     */
+    public Builder withKeyStorePassword(final String keyStorePassword) {
+      this.keyStorePassword = keyStorePassword;
+      return this;
+    }
+
+    /**
+     * Sets whether to use TLS encryption in this handler.
+     *
+     * @param useTls whether to use TLS encryption.
+     * @return this instance.
+     */
+    public Builder withTlsEncryption(final boolean useTls) {
+      this.useTls = useTls;
+      return this;
+    }
+
+    /**
+     * Sets the {@link BufferAllocator} to use in this handler.
+     *
+     * @param allocator the allocator.
+     * @return this instance.
+     */
+    public Builder withBufferAllocator(final BufferAllocator allocator) {
+      this.allocator = allocator;
+      return this;
+    }
+
+    /**
+     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this handler.
+     *
+     * @param factories the factories to add.
+     * @return this instance.
+     */
+    public Builder withMiddlewareFactories(final FlightClientMiddleware.Factory... factories) {
+      return withMiddlewareFactories(Arrays.asList(factories));
+    }
+
+    /**
+     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this handler.
+     *
+     * @param factories the factories to add.
+     * @return this instance.
+     */
+    public Builder withMiddlewareFactories(final Collection<FlightClientMiddleware.Factory> factories) {
+      this.middlewareFactories.addAll(factories);
+      return this;
+    }
+
+    /**
+     * Adds the provided {@link CallOption}s to this handler.
+     *
+     * @param options the options
+     * @return this instance.
+     */
+    public Builder withCallOptions(final CallOption... options) {
+      return withCallOptions(Arrays.asList(options));
+    }
+
+    /**
+     * Adds the provided {@link CallOption}s to this handler.
+     *
+     * @param options the options
+     * @return this instance.
+     */
+    public Builder withCallOptions(final Collection<CallOption> options) {
+      this.options.addAll(options);
+      return this;
+    }
+
+    /**
+     * Builds a new {@link ArrowFlightSqlClientHandler} from the provided fields.
+     *
+     * @return a new client handler.
+     * @throws SQLException on error.
+     */
+    public ArrowFlightSqlClientHandler build() throws SQLException {
+      try {
+        final Entry<FlightClient, CallOption[]> clientInfo = ClientCreationUtils.createAndGetClientInfo(
+            host, port, username, password, keyStorePath, keyStorePassword, allocator, useTls);
+        return ArrowFlightSqlClientHandler.createNewHandler(clientInfo.getKey(), clientInfo.getValue());
+      } catch (final GeneralSecurityException | IOException e) {
+        throw new SQLException(e);
+      }
     }
   }
 }
