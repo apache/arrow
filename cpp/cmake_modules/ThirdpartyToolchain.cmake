@@ -1371,19 +1371,33 @@ macro(build_protobuf)
         BUILD_COMMAND
         ${PROTOBUF_BUILD_COMMAND})
   else()
+    # Strip lto flags (which may be added by dh_auto_configure)
+    # See https://github.com/protocolbuffers/protobuf/issues/7092
+    set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
+    set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
+    string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+    string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
     set(PROTOBUF_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DBUILD_SHARED_LIBS=OFF
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
+        "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
+        "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${PROTOBUF_C_FLAGS}"
+        "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${PROTOBUF_CXX_FLAGS}"
+        )
     if(MSVC AND NOT ARROW_USE_STATIC_CRT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
     endif()
     if(ZLIB_ROOT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
     endif()
+    list(APPEND PROTOBUF_CMAKE_ARGS "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON")
     set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS}
                                            SOURCE_SUBDIR "cmake")
   endif()
