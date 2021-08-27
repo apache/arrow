@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_ASYNC_NURSERY_H
-#define ARROW_ASYNC_NURSERY_H
+#pragma once
 
 #include <list>
 
@@ -101,6 +100,8 @@ class ARROW_EXPORT Nursery {
   template <typename T, typename... Args>
   typename std::enable_if<!std::is_array<T>::value, std::shared_ptr<T>>::type
   MakeSharedCloseable(Args&&... args) {
+    static_assert(std::is_base_of<AsyncCloseable, T>::value,
+                  "Nursery::MakeSharedCloseable only works with AsyncCloseable types");
     num_closeables_created_.fetch_add(1);
     num_tasks_outstanding_.fetch_add(1);
     std::shared_ptr<T> shared_closeable(new T(std::forward<Args&&>(args)...),
@@ -113,6 +114,8 @@ class ARROW_EXPORT Nursery {
   typename std::enable_if<!std::is_array<T>::value,
                           std::unique_ptr<T, DestroyingDeleter<T>>>::type
   MakeUniqueCloseable(Args&&... args) {
+    static_assert(std::is_base_of<AsyncCloseable, T>::value,
+                  "Nursery::MakeUniqueCloseable only works with AsyncCloseable types");
     num_closeables_created_.fetch_add(1);
     num_tasks_outstanding_.fetch_add(1);
     auto unique_closeable = std::unique_ptr<T, DestroyingDeleter<T>>(
@@ -130,10 +133,7 @@ class ARROW_EXPORT Nursery {
   /// Runs `task` within a nursery.  This method will not return until
   /// all roots added by the task have been closed and destroyed.
   static Status RunInNursery(std::function<void(Nursery*)> task);
-  // FIXME template hackery to callable that can return void/Status/Result
-  // to work correctly with PIMPL objects this may just mean making sure the
-  // Destroy method works.  Or maybe we want a marker class for PIMPL?
-  static Status RunInNurserySt(std::function<Status(Nursery*)> task);
+  static Status RunInNursery(std::function<Status(Nursery*)> task);
 
  protected:
   Status WaitForFinish();
@@ -153,5 +153,3 @@ class ARROW_EXPORT Nursery {
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_ASYNC_NURSERY_H

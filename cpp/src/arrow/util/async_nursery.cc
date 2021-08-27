@@ -22,24 +22,17 @@
 namespace arrow {
 namespace util {
 
-AsyncCloseable::AsyncCloseable() = default;
-AsyncCloseable::AsyncCloseable(AsyncCloseable* parent) {
+AsyncCloseable::AsyncCloseable() : on_closed_(Future<>::Make()) {}
+AsyncCloseable::AsyncCloseable(AsyncCloseable* parent) : on_closed_(Future<>::Make()) {
   parent->AddDependentTask(OnClosed());
 }
 
 AsyncCloseable::~AsyncCloseable() {
-  // FIXME - Would be awesome if there were a way to enforce this at compile time
   DCHECK_NE(nursery_, nullptr) << "An AsyncCloseable must be created with a nursery "
                                   "using MakeSharedCloseable or MakeUniqueCloseable";
 }
 
-const Future<>& AsyncCloseable::OnClosed() {
-  // Lazily create the future to save effort if we don't need it
-  if (!on_closed_.is_valid()) {
-    on_closed_ = Future<>::Make();
-  }
-  return on_closed_;
-}
+const Future<>& AsyncCloseable::OnClosed() { return on_closed_; }
 
 void AsyncCloseable::AddDependentTask(const Future<>& task) {
   DCHECK(!closed_);
@@ -118,7 +111,7 @@ Status Nursery::RunInNursery(std::function<void(Nursery*)> task) {
   return nursery.WaitForFinish();
 }
 
-Status Nursery::RunInNurserySt(std::function<Status(Nursery*)> task) {
+Status Nursery::RunInNursery(std::function<Status(Nursery*)> task) {
   Nursery nursery;
   Status task_st = task(&nursery);
   // Need to wait for everything to finish, even if invalid status
