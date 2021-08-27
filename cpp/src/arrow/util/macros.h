@@ -78,6 +78,12 @@
 #define ARROW_MUST_USE_TYPE
 #endif
 
+#if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
+#define ARROW_RESTRICT __restrict
+#else
+#define ARROW_RESTRICT
+#endif
+
 // ----------------------------------------------------------------------
 // C++/CLI support macros (see ARROW-1134)
 

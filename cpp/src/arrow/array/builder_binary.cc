@@ -60,6 +60,14 @@ Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
   return byte_builder_.Append(data, length * byte_width_);
 }
 
+Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
+                                            const uint8_t* validity,
+                                            int64_t bitmap_offset) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(validity, bitmap_offset, length);
+  return byte_builder_.Append(data, length * byte_width_);
+}
+
 Status FixedSizeBinaryBuilder::AppendNull() {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendNull();

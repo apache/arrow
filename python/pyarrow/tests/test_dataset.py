@@ -2594,6 +2594,25 @@ def test_specified_schema(tempdir, dataset_reader):
         dataset_reader.to_table(dataset)
 
 
+@pytest.mark.parquet
+def test_incompatible_schema_hang(tempdir, dataset_reader):
+    # ARROW-13480: deadlock when reading past an errored fragment
+    import pyarrow.parquet as pq
+
+    fn = tempdir / "data.parquet"
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, fn)
+
+    schema = pa.schema([('a', pa.null())])
+    dataset = ds.dataset([str(fn)] * 100, schema=schema)
+    assert dataset.schema.equals(schema)
+    scanner = dataset_reader.scanner(dataset)
+    reader = scanner.to_reader()
+    with pytest.raises(NotImplementedError,
+                       match='Unsupported cast from int64 to null'):
+        reader.read_all()
+
+
 def test_ipc_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),
                       'b': pa.array([.1, .2, .3], type="float64")})

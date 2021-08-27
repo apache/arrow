@@ -551,7 +551,13 @@ def test_min_max():
 def test_any():
     # ARROW-1846
 
-    options = pc.ScalarAggregateOptions(skip_nulls=False)
+    options = pc.ScalarAggregateOptions(skip_nulls=False, min_count=0)
+
+    a = pa.array([], type='bool')
+    assert pc.any(a).as_py() is None
+    assert pc.any(a, min_count=0).as_py() is False
+    assert pc.any(a, options=options).as_py() is False
+
     a = pa.array([False, None, True])
     assert pc.any(a).as_py() is True
     assert pc.any(a, options=options).as_py() is True
@@ -564,9 +570,11 @@ def test_any():
 def test_all():
     # ARROW-10301
 
-    options = pc.ScalarAggregateOptions(skip_nulls=False)
+    options = pc.ScalarAggregateOptions(skip_nulls=False, min_count=0)
+
     a = pa.array([], type='bool')
-    assert pc.all(a).as_py() is True
+    assert pc.all(a).as_py() is None
+    assert pc.all(a, min_count=0).as_py() is True
     assert pc.all(a, options=options).as_py() is True
 
     a = pa.array([False, True])
@@ -1302,7 +1310,6 @@ def test_arithmetic_multiply():
 def test_is_null():
     arr = pa.array([1, 2, 3, None])
     result = arr.is_null()
-    result = arr.is_null()
     expected = pa.array([False, False, False, True])
     assert result.equals(expected)
     assert result.equals(pc.is_null(arr))
@@ -1319,11 +1326,21 @@ def test_is_null():
     expected = pa.chunked_array([[True, True], [True, False]])
     assert result.equals(expected)
 
+    arr = pa.array([1, 2, 3, None, np.nan])
+    result = arr.is_null()
+    expected = pa.array([False, False, False, True, False])
+    assert result.equals(expected)
+
+    result = arr.is_null(nan_is_null=True)
+    expected = pa.array([False, False, False, True, True])
+    assert result.equals(expected)
+
 
 def test_fill_null():
     arr = pa.array([1, 2, None, 4], type=pa.int8())
     fill_value = pa.array([5], type=pa.int8())
-    with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Array arguments must all be the same length"):
         arr.fill_null(fill_value)
 
     arr = pa.array([None, None, None, None], type=pa.null())

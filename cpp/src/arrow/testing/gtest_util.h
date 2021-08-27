@@ -170,6 +170,8 @@ using BinaryArrowTypes =
 
 using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 
+using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
+
 using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
 class Array;
@@ -557,7 +559,7 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
   }
 }
 
-// A data type with only move constructors.
+// A data type with only move constructors (no copy, no default).
 struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
@@ -567,6 +569,14 @@ struct MoveOnlyDataType {
   MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
   MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
     MoveFrom(&other);
+    return *this;
+  }
+
+  MoveOnlyDataType& operator=(int x) {
+    if (data != nullptr) {
+      delete data;
+    }
+    data = new int(x);
     return *this;
   }
 
@@ -589,10 +599,14 @@ struct MoveOnlyDataType {
 
   int ToInt() const { return data == nullptr ? -42 : *data; }
 
-  bool operator==(int other) const { return data != nullptr && *data == other; }
   bool operator==(const MoveOnlyDataType& other) const {
     return data != nullptr && other.data != nullptr && *data == *other.data;
   }
+  bool operator<(const MoveOnlyDataType& other) const {
+    return data == nullptr || (other.data != nullptr && *data < *other.data);
+  }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
   friend bool operator==(int left, const MoveOnlyDataType& right) {
     return right == left;
   }

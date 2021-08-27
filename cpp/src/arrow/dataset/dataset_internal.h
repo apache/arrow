@@ -28,6 +28,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -84,7 +85,7 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
     return Status::Invalid("FragmentScanOptions of type ", source->type_name(),
                            " were provided for scanning a fragment of type ", type_name);
   }
-  return internal::checked_pointer_cast<T>(source);
+  return ::arrow::internal::checked_pointer_cast<T>(source);
 }
 
 class FragmentDataset : public Dataset {

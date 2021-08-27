@@ -96,14 +96,7 @@ nse_funcs$coalesce <- function(...) {
 }
 
 nse_funcs$is.na <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (is.double(x) || (inherits(x, "Expression") &&
-    x$type_id() %in% TYPES_WITH_NAN)) {
-    build_expr("is_nan", x) | build_expr("is_null", x)
-  } else {
-    build_expr("is_null", x)
-  }
+  build_expr("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 nse_funcs$is.nan <- function(x) {
@@ -791,28 +784,44 @@ agg_funcs$sum <- function(x, na.rm = FALSE) {
   list(
     fun = "sum",
     data = x,
-    options = arrow_na_rm(na.rm = na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
 agg_funcs$any <- function(x, na.rm = FALSE) {
   list(
     fun = "any",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
 agg_funcs$all <- function(x, na.rm = FALSE) {
   list(
     fun = "all",
     data = x,
-    options = arrow_na_rm(na.rm)
+    options = list(na.rm = na.rm, na.min_count = 0L)
   )
 }
 
-arrow_na_rm <- function(na.rm) {
-  if (!isTRUE(na.rm)) {
-    # TODO: ARROW-13497
-    arrow_not_supported(paste("na.rm =", na.rm))
-  }
-  list(na.rm = na.rm, na.min_count = 0L)
+agg_funcs$mean <- function(x, na.rm = FALSE) {
+  list(
+    fun = "mean",
+    data = x,
+    options = list(na.rm = na.rm, na.min_count = 0L)
+  )
+}
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$sd <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "stddev",
+    data = x,
+    options = list(ddof = ddof)
+  )
+}
+# na.rm not currently passed in due to ARROW-13691
+agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
+  list(
+    fun = "variance",
+    data = x,
+    options = list(ddof = ddof)
+  )
 }

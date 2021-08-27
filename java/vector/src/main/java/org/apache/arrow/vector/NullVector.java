@@ -46,7 +46,40 @@ public class NullVector implements FieldVector {
 
   private int valueCount;
 
+  protected Field field;
+
+  /**
+   * Instantiate a NullVector.
+   *
+   * @param name name of the vector
+   */
+  public NullVector(String name) {
+    this(name, FieldType.nullable(Types.MinorType.NULL.getType()));
+  }
+
+  /**
+   * Instantiate a NullVector.
+   *
+   * @param name      name of the vector
+   * @param fieldType type of Field materialized by this vector.
+   */
+  public NullVector(String name, FieldType fieldType) {
+    this(new Field(name, fieldType, null));
+  }
+
+  /**
+   * Instantiate a NullVector.
+   *
+   * @param field field materialized by this vector.
+   */
+  public NullVector(Field field) {
+    this.valueCount = 0;
+    this.field = field;
+  }
+
+  @Deprecated
   public NullVector() {
+    this(new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null));
   }
 
   @Override
@@ -63,7 +96,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public Field getField() {
-    return new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null);
+    return field;
   }
 
   @Override
@@ -259,6 +292,11 @@ public class NullVector implements FieldVector {
   private class TransferImpl implements TransferPair {
     NullVector to;
 
+    public TransferImpl(String ref) {
+      to = new NullVector(ref);
+    }
+
+    @Deprecated
     public TransferImpl() {
       to = new NullVector();
     }

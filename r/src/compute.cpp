@@ -172,7 +172,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "min_max" || func_name == "sum" || func_name == "mean" ||
-      func_name == "any" || func_name == "all") {
+      func_name == "any" || func_name == "all" || func_name == "hash_min_max" ||
+      func_name == "hash_sum" || func_name == "hash_mean" || func_name == "hash_any" ||
+      func_name == "hash_all") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
@@ -218,6 +220,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::SetLookupOptions;
     return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value_set"]),
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
+  }
+
+  if (func_name == "is_null") {
+    using Options = arrow::compute::NullOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["nan_is_null"])) {
+      out->nan_is_null = cpp11::as_cpp<bool>(options["nan_is_null"]);
+    }
+    return out;
   }
 
   if (func_name == "dictionary_encode") {
@@ -348,7 +359,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      step);
   }
 
-  if (func_name == "variance" || func_name == "stddev") {
+  if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" ||
+      func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
     return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
   }
@@ -387,29 +399,6 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(
       arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
-  return from_datum(std::move(out));
-}
-
-// [[arrow::export]]
-SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options) {
-  // options is a list of pairs: string function name, list of options
-
-  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
-  std::vector<arrow::compute::internal::Aggregate> aggregates;
-
-  for (cpp11::list name_opts : options) {
-    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
-    auto opts = make_compute_options(name, name_opts[1]);
-
-    aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-    keep_alives.push_back(std::move(opts));
-  }
-
-  auto datum_arguments = arrow::r::from_r_list<arrow::Datum>(arguments);
-  auto datum_keys = arrow::r::from_r_list<arrow::Datum>(keys);
-  auto out = ValueOrStop(arrow::compute::internal::GroupBy(datum_arguments, datum_keys,
-                                                           aggregates, gc_context()));
   return from_datum(std::move(out));
 }
 

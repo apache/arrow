@@ -565,19 +565,26 @@ class GroupByNode : public ExecNode {
   ExecBatch out_data_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterAggregate(
-    "aggregate",
-    [](ExecPlan* plan, std::vector<ExecNode*> inputs,
-       const ExecNodeOptions& options) -> Result<ExecNode*> {
-      const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
-
-      if (aggregate_options.keys.empty()) {
-        // construct scalar agg node
-        return ScalarAggregateNode::Make(plan, std::move(inputs), options);
-      }
-      return GroupByNode::Make(plan, std::move(inputs), options);
-    });
-
 }  // namespace
+
+namespace internal {
+
+void RegisterAggregateNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory(
+      "aggregate",
+      [](ExecPlan* plan, std::vector<ExecNode*> inputs,
+         const ExecNodeOptions& options) -> Result<ExecNode*> {
+        const auto& aggregate_options =
+            checked_cast<const AggregateNodeOptions&>(options);
+
+        if (aggregate_options.keys.empty()) {
+          // construct scalar agg node
+          return ScalarAggregateNode::Make(plan, std::move(inputs), options);
+        }
+        return GroupByNode::Make(plan, std::move(inputs), options);
+      }));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

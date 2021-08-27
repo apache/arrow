@@ -1005,6 +1005,17 @@ static inline bool is_nested(Type::type type_id) {
   return false;
 }
 
+static inline bool is_union(Type::type type_id) {
+  switch (type_id) {
+    case Type::SPARSE_UNION:
+    case Type::DENSE_UNION:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline int offset_bit_width(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:

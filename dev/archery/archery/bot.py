@@ -229,7 +229,7 @@ def submit(obj, tasks, groups, params, arrow_version):
     """
     Submit crossbow testing tasks.
 
-    See groups defined in arrow/dev/tasks/tests.yml
+    See groups defined in arrow/dev/tasks/tasks.yml
     """
     crossbow_repo = obj['crossbow_repo']
     pull_request = obj['pull_request']

@@ -139,14 +139,12 @@ template <UnaryOp& Op, typename ScalarAggregateOptions, typename ScalarType>
 void ValidateBooleanAgg(const std::string& json,
                         const std::shared_ptr<ScalarType>& expected,
                         const ScalarAggregateOptions& options) {
+  SCOPED_TRACE(json);
   auto array = ArrayFromJSON(boolean(), json);
   ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
 
-  const auto& exp = Datum(expected);
-  const auto& res = checked_pointer_cast<ScalarType>(result.scalar());
-  if (!(std::isnan((double)res->value) && std::isnan((double)expected->value))) {
-    ASSERT_TRUE(result.Equals(exp));
-  }
+  auto equal_options = EqualOptions::Defaults().nans_equal(true);
+  AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true, equal_options);
 }
 
 TEST(TestBooleanAggregation, Sum) {
@@ -167,13 +165,23 @@ TEST(TestBooleanAggregation, Sum) {
   ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
                           options_min_count_zero);
 
-  const char* json = "[true, null, false, null]";
+  std::string json = "[true, null, false, null]";
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+
+  json = "[true, false]";
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
@@ -187,6 +195,12 @@ TEST(TestBooleanAggregation, Sum) {
               ResultWith(Datum(std::make_shared<UInt64Scalar>(0))));
   EXPECT_THAT(Sum(MakeNullScalar(boolean())),
               ResultWith(Datum(MakeNullScalar(uint64()))));
+  EXPECT_THAT(Sum(MakeNullScalar(boolean()),
+                  ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+              ResultWith(ScalarFromJSON(uint64(), "0")));
+  EXPECT_THAT(Sum(MakeNullScalar(boolean()),
+                  ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+              ResultWith(ScalarFromJSON(uint64(), "null")));
 }
 
 TEST(TestBooleanAggregation, Product) {
@@ -219,11 +233,14 @@ TEST(TestBooleanAggregation, Product) {
       json, std::make_shared<UInt64Scalar>(),
       ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
   ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+      "[]", std::make_shared<UInt64Scalar>(1),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+      json, std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Product>(
+      "[]", std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
   ValidateBooleanAgg<Product>(
       json, std::make_shared<UInt64Scalar>(),
       ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
@@ -234,6 +251,12 @@ TEST(TestBooleanAggregation, Product) {
               ResultWith(Datum(std::make_shared<UInt64Scalar>(0))));
   EXPECT_THAT(Product(MakeNullScalar(boolean())),
               ResultWith(Datum(MakeNullScalar(uint64()))));
+  EXPECT_THAT(Product(MakeNullScalar(boolean()),
+                      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+              ResultWith(ScalarFromJSON(uint64(), "1")));
+  EXPECT_THAT(Product(MakeNullScalar(boolean()),
+                      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+              ResultWith(ScalarFromJSON(uint64(), "null")));
 }
 
 TEST(TestBooleanAggregation, Mean) {
@@ -264,17 +287,27 @@ TEST(TestBooleanAggregation, Mean) {
                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
-  EXPECT_THAT(Mean(MakeScalar(true)), ResultWith(Datum(MakeScalar(1.0))));
-  EXPECT_THAT(Mean(MakeScalar(false)), ResultWith(Datum(MakeScalar(0.0))));
+  EXPECT_THAT(Mean(MakeScalar(true)), ResultWith(ScalarFromJSON(float64(), "1.0")));
+  EXPECT_THAT(Mean(MakeScalar(false)), ResultWith(ScalarFromJSON(float64(), "0.0")));
   EXPECT_THAT(Mean(MakeNullScalar(boolean())),
-              ResultWith(Datum(MakeNullScalar(float64()))));
+              ResultWith(ScalarFromJSON(float64(), "null")));
+  ASSERT_OK_AND_ASSIGN(
+      auto result, Mean(MakeNullScalar(boolean()),
+                        ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)));
+  AssertDatumsApproxEqual(result, ScalarFromJSON(float64(), "NaN"), /*detailed=*/true,
+                          EqualOptions::Defaults().nans_equal(true));
+  EXPECT_THAT(Mean(MakeNullScalar(boolean()),
+                   ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+              ResultWith(ScalarFromJSON(float64(), "null")));
 }
 
 template <typename ArrowType>
@@ -306,22 +339,23 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   ValidateSum<TypeParam>(chunks,
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
-  const ScalarAggregateOptions& options =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
   ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
                          options);
-
   ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
                          options);
-
   chunks = {};
   ValidateSum<TypeParam>(chunks, Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
                          options);
 
-  const T expected_result = static_cast<T>(14);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0);
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
+  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()), options);
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
-                         Datum(std::make_shared<ScalarType>(expected_result)), options);
+                         Datum(std::make_shared<ScalarType>()), options);
+  ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
+                         Datum(std::make_shared<ScalarType>(14)));
 
   EXPECT_THAT(Sum(Datum(std::make_shared<InputScalarType>(static_cast<T>(5)))),
               ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
@@ -355,12 +389,10 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateSum<TypeParam>("[null]", null_result,
                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
-  ValidateSum<TypeParam>(json, result,
-                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
-  ValidateSum<TypeParam>(json, result,
-                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateSum<TypeParam>("[]", zero_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateSum<TypeParam>(json, null_result,
-                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5));
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
 
   EXPECT_THAT(Sum(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
                   ScalarAggregateOptions(/*skip_nulls=*/false)),
@@ -462,6 +494,100 @@ TEST_F(TestSumKernelRoundOff, Basics) {
   ASSERT_EQ(sum->value, 2756346749973250.0);
 }
 
+TEST(TestDecimalSumKernel, SimpleSum) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([])")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([null])")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+    EXPECT_THAT(
+        Sum(ArrayFromJSON(ty, R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])")),
+        ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    Datum chunks =
+        ChunkedArrayFromJSON(ty, {R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    chunks = ChunkedArrayFromJSON(
+        ty, {R"(["0.00", "1.01", "2.02"])", R"(["3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    chunks = ChunkedArrayFromJSON(
+        ty, {R"(["0.00", "1.01", "2.02"])", "[]", R"(["3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks), ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+
+    ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, R"([null])"), options),
+                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+    chunks = ChunkedArrayFromJSON(ty, {});
+    EXPECT_THAT(Sum(chunks, options), ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+
+    EXPECT_THAT(
+        Sum(ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "5.05", null, "7.07"])"),
+            options),
+        ResultWith(ScalarFromJSON(ty, R"("16.16")")));
+
+    EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")")),
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+    EXPECT_THAT(Sum(ScalarFromJSON(ty, R"(null)")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+    EXPECT_THAT(Sum(ScalarFromJSON(ty, R"(null)"), options),
+                ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+  }
+}
+
+TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    Datum null = ScalarFromJSON(ty, R"(null)");
+    Datum zero = ScalarFromJSON(ty, R"("0.00")");
+    Datum result = ScalarFromJSON(ty, R"("14.14")");
+    Datum arr =
+        ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "3.03", null, "7.07"])");
+
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, "[]"),
+                    ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+                ResultWith(zero));
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, "[null]"),
+                    ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+                ResultWith(zero));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3)),
+                ResultWith(result));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4)),
+                ResultWith(result));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5)),
+                ResultWith(null));
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, "[]"),
+                    ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+                ResultWith(null));
+    EXPECT_THAT(Sum(ArrayFromJSON(ty, "[null]"),
+                    ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+                ResultWith(null));
+
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+                ResultWith(null));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+                ResultWith(null));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+                ResultWith(null));
+
+    arr = ArrayFromJSON(ty, R"(["1.01", "3.03", "3.03", "7.07"])");
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+                ResultWith(result));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+                ResultWith(result));
+    EXPECT_THAT(Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+                ResultWith(null));
+
+    EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")"),
+                    ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+    EXPECT_THAT(Sum(ScalarFromJSON(ty, R"("5.05")"),
+                    ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
+                ResultWith(null));
+    EXPECT_THAT(Sum(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(null));
+  }
+}
+
 //
 // Product
 //
@@ -490,16 +616,20 @@ TYPED_TEST(TestNumericProductKernel, SimpleProduct) {
   chunks = ChunkedArrayFromJSON(ty, {"[1, 2]", "[]", "[3, 4, 5]"});
   EXPECT_THAT(Product(chunks), ResultWith(Datum(static_cast<ProductT>(120))));
 
-  const ScalarAggregateOptions& options =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
   EXPECT_THAT(Product(ArrayFromJSON(ty, "[]"), options), Datum(static_cast<ProductT>(1)));
   EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]"), options),
               Datum(static_cast<ProductT>(1)));
   chunks = ChunkedArrayFromJSON(ty, {});
   EXPECT_THAT(Product(chunks, options), Datum(static_cast<ProductT>(1)));
 
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0);
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]"), options),
+              ResultWith(Datum(static_cast<ProductT>(1))));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]"), options), ResultWith(null_result));
   EXPECT_THAT(Product(ArrayFromJSON(ty, "[1, null, 3, null, 3, null, 7]"), options),
+              ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[1, null, 3, null, 3, null, 7]")),
               Datum(static_cast<ProductT>(63)));
 
   EXPECT_THAT(Product(Datum(static_cast<T>(5))),
@@ -538,11 +668,10 @@ TYPED_TEST(TestNumericProductKernel, ScalarAggregateOptions) {
       ResultWith(null_result));
   EXPECT_THAT(Product(null, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
               ResultWith(null_result));
-  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
-              ResultWith(result));
-  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
-              ResultWith(result));
-  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+  EXPECT_THAT(
+      Product(empty, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+      ResultWith(one_result));
+  EXPECT_THAT(Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
               ResultWith(null_result));
 
   EXPECT_THAT(
@@ -554,6 +683,110 @@ TYPED_TEST(TestNumericProductKernel, ScalarAggregateOptions) {
   EXPECT_THAT(Product(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
                       ScalarAggregateOptions(/*skip_nulls=*/false)),
               ResultWith(null_result));
+}
+
+TEST(TestDecimalProductKernel, SimpleProduct) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    Datum null = ScalarFromJSON(ty, R"(null)");
+
+    EXPECT_THAT(Product(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+    EXPECT_THAT(Product(ArrayFromJSON(ty, R"([null])")), ResultWith(null));
+    EXPECT_THAT(
+        Product(ArrayFromJSON(ty, R"(["0.00", "1.00", "2.00", "3.00", "4.00", "5.00"])")),
+        ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+    Datum chunks =
+        ChunkedArrayFromJSON(ty, {R"(["1.00", "2.00", "3.00", "4.00", "5.00"])"});
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("120.00")")));
+    chunks =
+        ChunkedArrayFromJSON(ty, {R"(["1.00", "2.00"])", R"(["-3.00", "4.00", "5.00"])"});
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("-120.00")")));
+    chunks = ChunkedArrayFromJSON(
+        ty, {R"(["1.00", "2.00"])", R"([])", R"(["-3.00", "4.00", "-5.00"])"});
+    EXPECT_THAT(Product(chunks), ResultWith(ScalarFromJSON(ty, R"("120.00")")));
+
+    const ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+
+    EXPECT_THAT(Product(ArrayFromJSON(ty, R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+    EXPECT_THAT(Product(ArrayFromJSON(ty, R"([null])"), options),
+                ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+    chunks = ChunkedArrayFromJSON(ty, {});
+    EXPECT_THAT(Product(chunks, options), ResultWith(ScalarFromJSON(ty, R"("1.00")")));
+
+    EXPECT_THAT(Product(ArrayFromJSON(
+                            ty, R"(["1.00", null, "-3.00", null, "3.00", null, "7.00"])"),
+                        options),
+                ResultWith(ScalarFromJSON(ty, R"("-63.00")")));
+
+    EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")")),
+                ResultWith(ScalarFromJSON(ty, R"("5.00")")));
+    EXPECT_THAT(Product(null), ResultWith(null));
+  }
+}
+
+TEST(TestDecimalProductKernel, ScalarAggregateOptions) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    Datum null = ScalarFromJSON(ty, R"(null)");
+    Datum one = ScalarFromJSON(ty, R"("1.00")");
+    Datum result = ScalarFromJSON(ty, R"("63.00")");
+
+    Datum empty = ArrayFromJSON(ty, R"([])");
+    Datum null_arr = ArrayFromJSON(ty, R"([null])");
+    Datum arr =
+        ArrayFromJSON(ty, R"(["1.00", null, "3.00", null, "3.00", null, "7.00"])");
+
+    EXPECT_THAT(
+        Product(empty, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+        ResultWith(one));
+    EXPECT_THAT(
+        Product(null_arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+        ResultWith(one));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3)),
+        ResultWith(result));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4)),
+        ResultWith(result));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5)),
+        ResultWith(null));
+    EXPECT_THAT(
+        Product(empty, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+        ResultWith(null));
+    EXPECT_THAT(
+        Product(null_arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+        ResultWith(null));
+
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+        ResultWith(null));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+        ResultWith(null));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+        ResultWith(null));
+
+    arr = ArrayFromJSON(ty, R"(["1.00", "3.00", "3.00", "7.00"])");
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+        ResultWith(result));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+        ResultWith(result));
+    EXPECT_THAT(
+        Product(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+        ResultWith(null));
+
+    EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")"),
+                        ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(ScalarFromJSON(ty, R"("5.00")")));
+    EXPECT_THAT(Product(ScalarFromJSON(ty, R"("5.00")"),
+                        ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
+                ResultWith(null));
+    EXPECT_THAT(Product(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(null));
+  }
 }
 
 TEST(TestProductKernel, Overflow) {
@@ -667,7 +900,7 @@ void ValidateMean(const Array& input, Datum expected,
 
 template <typename ArrowType>
 void ValidateMean(
-    const char* json, Datum expected,
+    const std::string& json, Datum expected,
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
   ValidateMean<ArrowType>(*array, expected, options);
@@ -680,10 +913,10 @@ void ValidateMean(const Array& array, const ScalarAggregateOptions& options =
 }
 
 template <typename ArrowType>
-class TestMeanKernelNumeric : public ::testing::Test {};
+class TestNumericMeanKernel : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
-TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
+TYPED_TEST_SUITE(TestNumericMeanKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericMeanKernel, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
   using InputScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using T = typename TypeParam::c_type;
@@ -716,14 +949,14 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
               ResultWith(Datum(MakeNullScalar(float64()))));
 }
 
-TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
+TYPED_TEST(TestNumericMeanKernel, ScalarAggregateOptions) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
   using InputScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using T = typename TypeParam::c_type;
   auto expected_result = Datum(std::make_shared<ScalarType>(3));
   auto null_result = Datum(std::make_shared<ScalarType>());
   auto nan_result = Datum(std::make_shared<ScalarType>(NAN));
-  const char* json = "[1, null, 2, 2, null, 7]";
+  std::string json = "[1, null, 2, 2, null, 7]";
 
   ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
@@ -744,20 +977,25 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
 
   ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateMean<TypeParam>("[null]", nan_result,
+  ValidateMean<TypeParam>("[null]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+
   ValidateMean<TypeParam>("[]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateMean<TypeParam>("[null]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+
+  json = "[1, 2, 2, 7]";
   ValidateMean<TypeParam>(json, expected_result,
-                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateMean<TypeParam>(json, expected_result,
-                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
   ValidateMean<TypeParam>(json, null_result,
-                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/15));
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5));
 
   EXPECT_THAT(Mean(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
                    ScalarAggregateOptions(/*skip_nulls=*/false)),
@@ -812,6 +1050,113 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
     ValidateMean<TypeParam>(*array, options);
     array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
     ValidateMean<TypeParam>(*array, options);
+  }
+}
+
+TEST(TestDecimalMeanKernel, SimpleMean) {
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    // Decimal doesn't have NaN
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])"), options),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([])")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, R"([null])")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, R"(["1.01", null, "1.01"])")),
+                ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty, R"(["1.01", "2.02", "3.03", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
+        ResultWith(ScalarFromJSON(ty, R"("4.54")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty, R"(["0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"])")),
+        ResultWith(ScalarFromJSON(ty, R"("0.00")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty, R"(["1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01", "1.01"])")),
+        ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+
+    EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")")),
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+    EXPECT_THAT(Mean(ScalarFromJSON(ty, R"(null)")),
+                ResultWith(ScalarFromJSON(ty, R"(null)")));
+  }
+}
+
+TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    Datum result = ScalarFromJSON(ty, R"("3.03")");
+    Datum null = ScalarFromJSON(ty, R"(null)");
+    Datum arr = ArrayFromJSON(ty, R"(["1.01", null, "2.02", "2.02", null, "7.07"])");
+
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1)),
+                null);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)),
+                result);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3)),
+                result);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4)),
+                result);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5)),
+                null);
+
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1)),
+                null);
+    EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1)),
+                null);
+
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+                null);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+                null);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+                null);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+                null);
+
+    arr = ArrayFromJSON(ty, R"(["1.01", "2.02", "2.02", "7.07"])");
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
+                result);
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3)),
+                ResultWith(result));
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4)),
+                ResultWith(result));
+    EXPECT_THAT(Mean(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5)),
+                ResultWith(null));
+
+    EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
+                     ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(ScalarFromJSON(ty, R"("5.05")")));
+    EXPECT_THAT(Mean(ScalarFromJSON(ty, R"("5.05")"),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
+                ResultWith(null));
+    EXPECT_THAT(Mean(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
+                ResultWith(null));
   }
 }
 
@@ -1234,19 +1579,21 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
 // Any
 //
 
-class TestPrimitiveAnyKernel : public ::testing::Test {
+class TestAnyKernel : public ::testing::Test {
  public:
   void AssertAnyIs(const Datum& array, const std::shared_ptr<BooleanScalar>& expected,
                    const ScalarAggregateOptions& options) {
+    SCOPED_TRACE(options.ToString());
     ASSERT_OK_AND_ASSIGN(Datum out, Any(array, options, nullptr));
     const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
-    ASSERT_EQ(out_any, *expected);
+    AssertScalarsEqual(*expected, out_any, /*verbose=*/true);
   }
 
   void AssertAnyIs(
       const std::string& json, const std::shared_ptr<BooleanScalar>& expected,
       const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
-    auto array = ArrayFromJSON(type_singleton(), json);
+    SCOPED_TRACE(json);
+    auto array = ArrayFromJSON(boolean(), json);
     AssertAnyIs(array, expected, options);
   }
 
@@ -1254,16 +1601,10 @@ class TestPrimitiveAnyKernel : public ::testing::Test {
       const std::vector<std::string>& json,
       const std::shared_ptr<BooleanScalar>& expected,
       const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
-    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    auto array = ChunkedArrayFromJSON(boolean(), json);
     AssertAnyIs(array, expected, options);
   }
-
-  std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<BooleanType>::type_singleton();
-  }
 };
-
-class TestAnyKernel : public TestPrimitiveAnyKernel {};
 
 TEST_F(TestAnyKernel, Basics) {
   auto true_value = std::make_shared<BooleanScalar>(true);
@@ -1277,26 +1618,27 @@ TEST_F(TestAnyKernel, Basics) {
   std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
   std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
 
-  this->AssertAnyIs("[]", false_value);
-  this->AssertAnyIs("[false]", false_value);
-  this->AssertAnyIs("[true, false]", true_value);
-  this->AssertAnyIs("[null, null, null]", false_value);
-  this->AssertAnyIs("[false, false, false]", false_value);
-  this->AssertAnyIs("[false, false, false, null]", false_value);
-  this->AssertAnyIs("[true, null, true, true]", true_value);
-  this->AssertAnyIs("[false, null, false, true]", true_value);
-  this->AssertAnyIs("[true, null, false, true]", true_value);
-  this->AssertAnyIs(chunked_input0, true_value);
-  this->AssertAnyIs(chunked_input1, true_value);
-  this->AssertAnyIs(chunked_input2, false_value);
-  this->AssertAnyIs(chunked_input3, false_value);
-  this->AssertAnyIs(chunked_input4, true_value);
+  const ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  this->AssertAnyIs("[]", false_value, options);
+  this->AssertAnyIs("[false]", false_value, options);
+  this->AssertAnyIs("[true, false]", true_value, options);
+  this->AssertAnyIs("[null, null, null]", false_value, options);
+  this->AssertAnyIs("[false, false, false]", false_value, options);
+  this->AssertAnyIs("[false, false, false, null]", false_value, options);
+  this->AssertAnyIs("[true, null, true, true]", true_value, options);
+  this->AssertAnyIs("[false, null, false, true]", true_value, options);
+  this->AssertAnyIs("[true, null, false, true]", true_value, options);
+  this->AssertAnyIs(chunked_input0, true_value, options);
+  this->AssertAnyIs(chunked_input1, true_value, options);
+  this->AssertAnyIs(chunked_input2, false_value, options);
+  this->AssertAnyIs(chunked_input3, false_value, options);
+  this->AssertAnyIs(chunked_input4, true_value, options);
 
-  EXPECT_THAT(Any(Datum(true)), ResultWith(Datum(true)));
-  EXPECT_THAT(Any(Datum(false)), ResultWith(Datum(false)));
-  EXPECT_THAT(Any(MakeNullScalar(boolean())), ResultWith(Datum(false)));
+  EXPECT_THAT(Any(Datum(true), options), ResultWith(Datum(true)));
+  EXPECT_THAT(Any(Datum(false), options), ResultWith(Datum(false)));
+  EXPECT_THAT(Any(Datum(null_value), options), ResultWith(Datum(false)));
 
-  const ScalarAggregateOptions& keep_nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
+  const ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
   this->AssertAnyIs("[]", false_value, keep_nulls);
   this->AssertAnyIs("[false]", false_value, keep_nulls);
   this->AssertAnyIs("[true, false]", true_value, keep_nulls);
@@ -1314,27 +1656,48 @@ TEST_F(TestAnyKernel, Basics) {
 
   EXPECT_THAT(Any(Datum(true), keep_nulls), ResultWith(Datum(true)));
   EXPECT_THAT(Any(Datum(false), keep_nulls), ResultWith(Datum(false)));
-  EXPECT_THAT(Any(MakeNullScalar(boolean()), keep_nulls),
-              ResultWith(Datum(MakeNullScalar(boolean()))));
+  EXPECT_THAT(Any(Datum(null_value), keep_nulls), ResultWith(Datum(null_value)));
+
+  const ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/2);
+  this->AssertAnyIs("[]", null_value, min_count);
+  this->AssertAnyIs("[false]", null_value, min_count);
+  this->AssertAnyIs("[true, false]", true_value, min_count);
+  this->AssertAnyIs("[null, null, null]", null_value, min_count);
+  this->AssertAnyIs("[false, false, false]", false_value, min_count);
+  this->AssertAnyIs("[false, false, false, null]", false_value, min_count);
+  this->AssertAnyIs("[true, null, true, true]", true_value, min_count);
+  this->AssertAnyIs("[false, null, false, true]", true_value, min_count);
+  this->AssertAnyIs("[true, null, false, true]", true_value, min_count);
+  this->AssertAnyIs(chunked_input0, null_value, min_count);
+  this->AssertAnyIs(chunked_input1, true_value, min_count);
+  this->AssertAnyIs(chunked_input2, false_value, min_count);
+  this->AssertAnyIs(chunked_input3, false_value, min_count);
+  this->AssertAnyIs(chunked_input4, true_value, min_count);
+
+  EXPECT_THAT(Any(Datum(true), min_count), ResultWith(Datum(null_value)));
+  EXPECT_THAT(Any(Datum(false), min_count), ResultWith(Datum(null_value)));
+  EXPECT_THAT(Any(Datum(null_value), min_count), ResultWith(Datum(null_value)));
 }
 
 //
 // All
 //
 
-class TestPrimitiveAllKernel : public ::testing::Test {
+class TestAllKernel : public ::testing::Test {
  public:
   void AssertAllIs(const Datum& array, const std::shared_ptr<BooleanScalar>& expected,
                    const ScalarAggregateOptions& options) {
+    SCOPED_TRACE(options.ToString());
     ASSERT_OK_AND_ASSIGN(Datum out, All(array, options, nullptr));
     const BooleanScalar& out_all = out.scalar_as<BooleanScalar>();
-    ASSERT_EQ(out_all, *expected);
+    AssertScalarsEqual(*expected, out_all, /*verbose=*/true);
   }
 
   void AssertAllIs(
       const std::string& json, const std::shared_ptr<BooleanScalar>& expected,
       const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
-    auto array = ArrayFromJSON(type_singleton(), json);
+    SCOPED_TRACE(json);
+    auto array = ArrayFromJSON(boolean(), json);
     AssertAllIs(array, expected, options);
   }
 
@@ -1342,16 +1705,10 @@ class TestPrimitiveAllKernel : public ::testing::Test {
       const std::vector<std::string>& json,
       const std::shared_ptr<BooleanScalar>& expected,
       const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
-    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    auto array = ChunkedArrayFromJSON(boolean(), json);
     AssertAllIs(array, expected, options);
   }
-
-  std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<BooleanType>::type_singleton();
-  }
 };
-
-class TestAllKernel : public TestPrimitiveAllKernel {};
 
 TEST_F(TestAllKernel, Basics) {
   auto true_value = std::make_shared<BooleanScalar>(true);
@@ -1366,27 +1723,28 @@ TEST_F(TestAllKernel, Basics) {
   std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
   std::vector<std::string> chunked_input5 = {"[false, null]", "[null, true]"};
 
-  this->AssertAllIs("[]", true_value);
-  this->AssertAllIs("[false]", false_value);
-  this->AssertAllIs("[true, false]", false_value);
-  this->AssertAllIs("[null, null, null]", true_value);
-  this->AssertAllIs("[false, false, false]", false_value);
-  this->AssertAllIs("[false, false, false, null]", false_value);
-  this->AssertAllIs("[true, null, true, true]", true_value);
-  this->AssertAllIs("[false, null, false, true]", false_value);
-  this->AssertAllIs("[true, null, false, true]", false_value);
-  this->AssertAllIs(chunked_input0, true_value);
-  this->AssertAllIs(chunked_input1, true_value);
-  this->AssertAllIs(chunked_input2, false_value);
-  this->AssertAllIs(chunked_input3, false_value);
-  this->AssertAllIs(chunked_input4, false_value);
-  this->AssertAllIs(chunked_input5, false_value);
+  const ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  this->AssertAllIs("[]", true_value, options);
+  this->AssertAllIs("[false]", false_value, options);
+  this->AssertAllIs("[true, false]", false_value, options);
+  this->AssertAllIs("[null, null, null]", true_value, options);
+  this->AssertAllIs("[false, false, false]", false_value, options);
+  this->AssertAllIs("[false, false, false, null]", false_value, options);
+  this->AssertAllIs("[true, null, true, true]", true_value, options);
+  this->AssertAllIs("[false, null, false, true]", false_value, options);
+  this->AssertAllIs("[true, null, false, true]", false_value, options);
+  this->AssertAllIs(chunked_input0, true_value, options);
+  this->AssertAllIs(chunked_input1, true_value, options);
+  this->AssertAllIs(chunked_input2, false_value, options);
+  this->AssertAllIs(chunked_input3, false_value, options);
+  this->AssertAllIs(chunked_input4, false_value, options);
+  this->AssertAllIs(chunked_input5, false_value, options);
 
-  EXPECT_THAT(All(Datum(true)), ResultWith(Datum(true)));
-  EXPECT_THAT(All(Datum(false)), ResultWith(Datum(false)));
-  EXPECT_THAT(All(MakeNullScalar(boolean())), ResultWith(Datum(true)));
+  EXPECT_THAT(All(Datum(true), options), ResultWith(Datum(true)));
+  EXPECT_THAT(All(Datum(false), options), ResultWith(Datum(false)));
+  EXPECT_THAT(All(Datum(null_value), options), ResultWith(Datum(true)));
 
-  const ScalarAggregateOptions keep_nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
+  const ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
   this->AssertAllIs("[]", true_value, keep_nulls);
   this->AssertAllIs("[false]", false_value, keep_nulls);
   this->AssertAllIs("[true, false]", false_value, keep_nulls);
@@ -1405,8 +1763,28 @@ TEST_F(TestAllKernel, Basics) {
 
   EXPECT_THAT(All(Datum(true), keep_nulls), ResultWith(Datum(true)));
   EXPECT_THAT(All(Datum(false), keep_nulls), ResultWith(Datum(false)));
-  EXPECT_THAT(All(MakeNullScalar(boolean()), keep_nulls),
-              ResultWith(Datum(MakeNullScalar(boolean()))));
+  EXPECT_THAT(All(Datum(null_value), keep_nulls), ResultWith(Datum(null_value)));
+
+  const ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/2);
+  this->AssertAllIs("[]", null_value, min_count);
+  this->AssertAllIs("[false]", null_value, min_count);
+  this->AssertAllIs("[true, false]", false_value, min_count);
+  this->AssertAllIs("[null, null, null]", null_value, min_count);
+  this->AssertAllIs("[false, false, false]", false_value, min_count);
+  this->AssertAllIs("[false, false, false, null]", false_value, min_count);
+  this->AssertAllIs("[true, null, true, true]", true_value, min_count);
+  this->AssertAllIs("[false, null, false, true]", false_value, min_count);
+  this->AssertAllIs("[true, null, false, true]", false_value, min_count);
+  this->AssertAllIs(chunked_input0, null_value, min_count);
+  this->AssertAllIs(chunked_input1, true_value, min_count);
+  this->AssertAllIs(chunked_input2, false_value, min_count);
+  this->AssertAllIs(chunked_input3, false_value, min_count);
+  this->AssertAllIs(chunked_input4, false_value, min_count);
+  this->AssertAllIs(chunked_input5, false_value, min_count);
+
+  EXPECT_THAT(All(Datum(true), min_count), ResultWith(Datum(null_value)));
+  EXPECT_THAT(All(Datum(false), min_count), ResultWith(Datum(null_value)));
+  EXPECT_THAT(All(Datum(null_value), min_count), ResultWith(Datum(null_value)));
 }
 
 //

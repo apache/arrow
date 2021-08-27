@@ -161,6 +161,8 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
+    DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
 }  // namespace internal
 
@@ -291,6 +293,10 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
+NullOptions::NullOptions(bool nan_is_null)
+    : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
+constexpr char NullOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -310,6 +316,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal
 
@@ -463,12 +470,7 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
 // Validity functions
 
 SCALAR_EAGER_UNARY(IsValid, "is_valid")
-SCALAR_EAGER_UNARY(IsNull, "is_null")
 SCALAR_EAGER_UNARY(IsNan, "is_nan")
-
-Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
-  return CallFunction("fill_null", {values, fill_value}, ctx);
-}
 
 Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
                      ExecContext* ctx) {
@@ -481,6 +483,10 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
   args.reserve(cases.size() + 1);
   args.insert(args.end(), cases.begin(), cases.end());
   return CallFunction("case_when", args, ctx);
+}
+
+Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
+  return CallFunction("is_null", {arg}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
