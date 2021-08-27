@@ -76,7 +76,7 @@ table Aggregate {
   base: RelBase (required);
   /// Expressions which will be evaluated to produce to
   /// the rows of the aggregate relation's output.
-  aggregations: [Expression] (required);
+  measures: [Expression] (required);
   /// Keys by which `aggregations` will be grouped.
   keys: [Expression] (required);
 }
