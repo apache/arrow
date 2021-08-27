@@ -83,12 +83,11 @@ func temporalToString(s TemporalScalar) string {
 		return fmt.Sprint(time.Duration(s.Value) * s.Unit().Multiplier())
 	case *Time32:
 		hh, mm, ss := time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Clock()
-		return time.Date(0, 1, 1, hh, mm, ss, 0, nil).Format("03:04:05PM")
+		return time.Date(0, 1, 1, hh, mm, ss, 0, nil).Format("15:04:05")
 	case *Time64:
-		hh, mm, ss := time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Clock()
-		return time.Date(0, 1, 1, hh, mm, ss, 0, nil).Format("03:04:05PM")
+		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("2006-01-02 15:04:05.999999999")
 	case *Timestamp:
-		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("2006-01-02 03:04:05PM")
+		return time.Unix(0, int64(s.Value)*int64(s.Unit().Multiplier())).UTC().Format("2006-01-02 15:04:05.999999999")
 	}
 	return "..."
 }

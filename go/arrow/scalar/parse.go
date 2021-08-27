@@ -22,10 +22,68 @@ import (
 	"time"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
+
+func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
+	switch v := val.(type) {
+	case []byte:
+		buf := memory.NewBufferBytes(v)
+		defer buf.Release()
+
+		switch dt.ID() {
+		case arrow.BINARY:
+			return NewBinaryScalar(buf, dt), nil
+		case arrow.STRING:
+			return NewStringScalarFromBuffer(buf), nil
+		case arrow.FIXED_SIZE_BINARY:
+			if buf.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
+				return NewFixedSizeBinaryScalar(buf, dt), nil
+			}
+			return nil, xerrors.Errorf("invalid scalar value of len %d for type %s", v, dt)
+		}
+	case *memory.Buffer:
+		switch dt.ID() {
+		case arrow.BINARY:
+			return NewBinaryScalar(v, dt), nil
+		case arrow.STRING:
+			return NewStringScalarFromBuffer(v), nil
+		case arrow.FIXED_SIZE_BINARY:
+			if v.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
+				return NewFixedSizeBinaryScalar(v, dt), nil
+			}
+			return nil, xerrors.Errorf("invalid scalar value of len %d for type %s", v.Len(), dt)
+		}
+	case arrow.Time32:
+		return NewTime32Scalar(v, dt), nil
+	case arrow.Time64:
+		return NewTime64Scalar(v, dt), nil
+	case arrow.Timestamp:
+		return NewTimestampScalar(v, dt), nil
+	case array.Interface:
+		switch dt.ID() {
+		case arrow.LIST:
+			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.ListType).Elem()) {
+				return nil, xerrors.Errorf("inconsistent type for list scalar array and data type")
+			}
+			return NewListScalar(v), nil
+		case arrow.FIXED_SIZE_LIST:
+			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.FixedSizeListType).Elem()) {
+				return nil, xerrors.Errorf("inconsistent type for list scalar array and data type")
+			}
+			return NewFixedSizeListScalarWithType(v, dt), nil
+		case arrow.MAP:
+			if !arrow.TypeEqual(dt.(*arrow.MapType).ValueType(), v.DataType()) {
+				return nil, xerrors.Errorf("inconsistent type for map scalar type")
+			}
+			return NewMapScalar(v), nil
+		}
+	}
+	return MakeScalar(val)
+}
 
 func MakeScalar(val interface{}) (Scalar, error) {
 	switch v := val.(type) {
@@ -126,6 +184,13 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		buf := memory.NewBufferBytes([]byte(val))
 		defer buf.Release()
 		return NewBinaryScalar(buf, dt), nil
+	case arrow.FIXED_SIZE_BINARY:
+		if len(val) != dt.(*arrow.FixedSizeBinaryType).ByteWidth {
+			return nil, xerrors.Errorf("invalid value %s for scalar of type %s", val, dt)
+		}
+		buf := memory.NewBufferBytes([]byte(val))
+		defer buf.Release()
+		return NewFixedSizeBinaryScalar(buf, dt), nil
 	case arrow.BOOL:
 		val, err := strconv.ParseBool(val)
 		if err != nil {
@@ -146,11 +211,39 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 			return nil, err
 		}
 		return MakeUnsignedIntegerScalar(val, width)
-	case arrow.TIMESTAMP:
-		format := time.RFC3339
-		if dt.(*arrow.TimestampType).Unit == arrow.Microsecond || dt.(*arrow.TimestampType).Unit == arrow.Nanosecond {
-			format = time.RFC3339Nano
+	case arrow.FLOAT16:
+		val, err := strconv.ParseFloat(val, 32)
+		if err != nil {
+			return nil, err
 		}
+		return NewFloat16ScalarFromFloat32(float32(val)), nil
+	case arrow.FLOAT32, arrow.FLOAT64:
+		width := dt.(arrow.FixedWidthDataType).BitWidth()
+		val, err := strconv.ParseFloat(val, width)
+		if err != nil {
+			return nil, err
+		}
+		switch width {
+		case 32:
+			return NewFloat32Scalar(float32(val)), nil
+		case 64:
+			return NewFloat64Scalar(float64(val)), nil
+		}
+	case arrow.TIMESTAMP:
+		format := "2006-01-02"
+		if val[len(val)-1] == 'Z' {
+			val = val[:len(val)-1]
+		}
+
+		switch {
+		case len(val) == 13:
+			format += string(val[10]) + "15"
+		case len(val) == 16:
+			format += string(val[10]) + "15:04"
+		case len(val) >= 19:
+			format += string(val[10]) + "15:04:05.999999999"
+		}
+
 		out, err := time.ParseInLocation(format, val, time.UTC)
 		if err != nil {
 			return nil, err
@@ -182,7 +275,7 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 			return nil, err
 		}
 		if dt.ID() == arrow.DATE32 {
-			return NewDate32Scalar(arrow.Date32(out.Sub(time.Unix(0, 0)).Hours() / 24)), nil
+			return NewDate32Scalar(arrow.Date32(out.Unix() / int64((time.Hour * 24).Seconds()))), nil
 		} else {
 			return NewDate64Scalar(arrow.Date64(out.Unix() * 1000)), nil
 		}
@@ -195,7 +288,7 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		case len(val) == 5:
 			out, err = time.ParseInLocation("15:04", val, time.UTC)
 		default:
-			out, err = time.ParseInLocation("15:04:05,999", val, time.UTC)
+			out, err = time.ParseInLocation("15:04:05.999", val, time.UTC)
 		}
 		if err != nil {
 			return nil, err
@@ -214,7 +307,7 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		case len(val) == 5:
 			out, err = time.ParseInLocation("15:04", val, time.UTC)
 		default:
-			out, err = time.ParseInLocation("15:04:05,999999999", val, time.UTC)
+			out, err = time.ParseInLocation("15:04:05.999999999", val, time.UTC)
 		}
 		if err != nil {
 			return nil, err

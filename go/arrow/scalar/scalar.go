@@ -24,9 +24,11 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/internal/debug"
+	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -46,7 +48,7 @@ func validateOptional(s *scalar, value interface{}, valueDesc string) error {
 	if s.Valid && value == nil {
 		return xerrors.Errorf("%s scalar is marked valid but doesn't have a %s", s.Type, valueDesc)
 	}
-	if !s.Valid && value != nil {
+	if !s.Valid && value != nil && !reflect.ValueOf(value).IsNil() {
 		return xerrors.Errorf("%s scalar is marked null but has a %s", s.Type, valueDesc)
 	}
 	return nil
@@ -207,6 +209,10 @@ func (f *Float16) CastTo(to arrow.DataType) (Scalar, error) {
 
 	if r, ok := numericMap[to.ID()]; ok {
 		return convertToNumeric(reflect.ValueOf(f.Value.Float32()), r.valueType, r.scalarFunc), nil
+	}
+
+	if to.ID() == arrow.BOOL {
+		return NewBooleanScalar(f.Value.Uint16() != 0), nil
 	}
 
 	return nil, xerrors.Errorf("cannot cast non-null float16 scalar to type %s", to)
@@ -414,4 +420,90 @@ func init() {
 	f.scalarFunc = reflect.ValueOf(NewFloat16ScalarFromFloat32)
 	f.valueType = reflect.TypeOf(float32(0))
 	numericMap[arrow.FLOAT16] = f
+}
+
+func GetScalar(arr array.Interface, idx int) (Scalar, error) {
+	switch arr := arr.(type) {
+	case *array.Binary:
+		buf := memory.NewBufferBytes(arr.Value(idx))
+		defer buf.Release()
+		return NewBinaryScalar(buf, arr.DataType()), nil
+	case *array.Boolean:
+		return NewBooleanScalar(arr.Value(idx)), nil
+	case *array.Date32:
+		return NewDate32Scalar(arr.Value(idx)), nil
+	case *array.Date64:
+		return NewDate64Scalar(arr.Value(idx)), nil
+	case *array.DayTimeInterval:
+		return NewDayTimeIntervalScalar(arr.Value(idx)), nil
+	case *array.Decimal128:
+		return NewDecimal128Scalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Duration:
+		return NewDurationScalar(arr.Value(idx), arr.DataType()), nil
+	case array.ExtensionArray:
+		storage, err := GetScalar(arr.Storage(), idx)
+		if err != nil {
+			return nil, err
+		}
+		return NewExtensionScalar(storage, arr.DataType()), nil
+	case *array.FixedSizeBinary:
+		buf := memory.NewBufferBytes(arr.Value(idx))
+		defer buf.Release()
+		return NewFixedSizeBinaryScalar(buf, arr.DataType()), nil
+	case *array.FixedSizeList:
+		size := int(arr.DataType().(*arrow.FixedSizeListType).Len())
+		return NewFixedSizeListScalarWithType(array.NewSlice(arr.ListValues(), int64(idx*size), int64((idx+1)*size)), arr.DataType()), nil
+	case *array.Float16:
+		return NewFloat16Scalar(arr.Value(idx)), nil
+	case *array.Float32:
+		return NewFloat32Scalar(arr.Value(idx)), nil
+	case *array.Float64:
+		return NewFloat64Scalar(arr.Value(idx)), nil
+	case *array.Int8:
+		return NewInt8Scalar(arr.Value(idx)), nil
+	case *array.Int16:
+		return NewInt16Scalar(arr.Value(idx)), nil
+	case *array.Int32:
+		return NewInt32Scalar(arr.Value(idx)), nil
+	case *array.Int64:
+		return NewInt64Scalar(arr.Value(idx)), nil
+	case *array.Uint8:
+		return NewUint8Scalar(arr.Value(idx)), nil
+	case *array.Uint16:
+		return NewUint16Scalar(arr.Value(idx)), nil
+	case *array.Uint32:
+		return NewUint32Scalar(arr.Value(idx)), nil
+	case *array.Uint64:
+		return NewUint64Scalar(arr.Value(idx)), nil
+	case *array.List:
+		offsets := arr.Offsets()
+		return NewListScalar(array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))), nil
+	case *array.Map:
+		offsets := arr.Offsets()
+		return NewMapScalar(array.NewSlice(arr.ListValues(), int64(offsets[idx]), int64(offsets[idx+1]))), nil
+	case *array.MonthInterval:
+		return NewMonthIntervalScalar(arr.Value(idx)), nil
+	case *array.Null:
+		return ScalarNull, nil
+	case *array.String:
+		return NewStringScalar(arr.Value(idx)), nil
+	case *array.Struct:
+		children := make(Vector, arr.NumField())
+		for i := range children {
+			child, err := GetScalar(arr.Field(i), idx)
+			if err != nil {
+				return nil, err
+			}
+			children[i] = child
+		}
+		return NewStructScalar(children, arr.DataType()), nil
+	case *array.Time32:
+		return NewTime32Scalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Time64:
+		return NewTime64Scalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Timestamp:
+		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
+	}
+
+	return nil, xerrors.Errorf("cannot create scalar from array of type %s", arr.DataType())
 }

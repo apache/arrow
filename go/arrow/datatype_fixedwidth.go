@@ -53,13 +53,13 @@ type (
 	Duration  int64
 )
 
-func (d Date32) String() string {
-	return time.Unix(0, 0).UTC().AddDate(0, 0, int(d)).Format("2006-01-02")
-}
+// func (d Date32) String() string {
+// 	return time.Unix(0, 0).UTC().AddDate(0, 0, int(d)).Format("2006-01-02")
+// }
 
-func (d Date64) String() string {
-	return time.Unix(0, int64(d)*int64(time.Millisecond)).UTC().Format("2006-01-02")
-}
+// func (d Date64) String() string {
+// 	return time.Unix(0, int64(d)*int64(time.Millisecond)).UTC().Format("2006-01-02")
+// }
 
 const (
 	Nanosecond TimeUnit = iota

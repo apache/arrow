@@ -50,8 +50,23 @@ func (l *List) Validate() (err error) {
 		return
 	}
 
-	listType := l.Type.(*arrow.ListType)
-	valueType := listType.Elem()
+	if !l.Valid {
+		return
+	}
+
+	var (
+		valueType arrow.DataType
+	)
+
+	switch dt := l.Type.(type) {
+	case *arrow.ListType:
+		valueType = dt.Elem()
+	case *arrow.FixedSizeListType:
+		valueType = dt.Elem()
+	case *arrow.MapType:
+		valueType = dt.ValueType()
+	}
+	listType := l.Type
 
 	if !arrow.TypeEqual(l.Value.DataType(), valueType) {
 		err = xerrors.Errorf("%s scalar should have a value of type %s, got %s",
