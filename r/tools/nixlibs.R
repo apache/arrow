@@ -288,10 +288,13 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
+  env_vars <- with_s3_support(env_vars)
+  env_vars <- with_mimalloc(env_vars)
+  # turn_off_thirdparty_features() needs to happen after with_mimalloc() and
+  # with_s3_support(), since those might turn features ON.
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
-
   if (thirdparty_deps_unavailable || is_solaris()) {
     # Note that JSON support does work on Solaris, but will be turned off with
     # the rest of the thirdparty dependencies (when ARROW-13768 is resolved and
@@ -390,7 +393,6 @@ cmake_version <- function(cmd = "cmake") {
 }
 
 turn_off_thirdparty_features <- function(env_vars) {
-
   # Because these are done as environment variables (as opposed to build flags),
   # setting these to "OFF" overrides any previous setting. We don't need to
   # check the existing value.
@@ -480,25 +482,6 @@ set_thirdparty_urls <- function(env_vars) {
   full_filenames <- file.path(normalizePath(deps_dir), files)
   url_env_vars <- paste(url_env_varname, full_filenames, sep = "=", collapse = " ")
   paste(env_vars, url_env_vars)
-}
-
-remote_download_unavailable <- function(url_env_vars) {
-  # Check the env vars
-  # e.g. ARROW_MIMALLOC_URL should point to an existing file if !download_ok
-  # Some dependencies require multiple downloads - check that all are available.
-  # https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
-  missing_local <- FALSE
-  for (v in url_env_vars) {
-    local_url <- Sys.getenv(v)
-    missing_local <- missing_local || (local_url == "") || (!file.exists(local_url))
-  }
-  # This check is only relevant when Cmake would try to download things
-  # (This check would change if we were using individual dependency resolution.)
-  # https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution)
-  download_required <- missing_local &&
-    (toupper(Sys.getenv("ARROW_DEPENDENCY_SOURCE")) %in% c("", "BUNDLED", "AUTO"))
-  download_unavailable <- download_required && (!download_ok)
-  download_unavailable
 }
 
 with_mimalloc <- function(env_vars) {
