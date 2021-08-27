@@ -74,15 +74,12 @@
 #' # Z = \{0,1,2\}, the number of saved parts, starting from 0.
 #'
 #' # You can obtain the same result as as the previous examples using arrow with
-#' # a dplyr pipeline:
-#'
-#' d <- group_by(mtcars, cyl, gear)
-#'
-#' # Write a structure cyl=X/gear=Y/part-Z.parquet.
-#' # This will be the same as two_levels_tree above, but the output directory
-#' # will be different
+#' # a dplyr pipeline. This will be the same as two_levels_tree above, but the
+#' # output directory will be different.
 #' two_levels_tree_2 <- tempfile()
-#' write_dataset(d, two_levels_tree_2)
+#' mtcars %>%
+#'  group_by(cyl, gear) %>%
+#'  write_dataset(two_levels_tree_2)
 #' list.files(two_levels_tree_2, recursive = TRUE)
 #'
 #' # And you can also turn off the Hive-style directory naming where the column
@@ -90,7 +87,9 @@
 #'
 #' # Write a structure X/Y/part-Z.parquet.
 #' two_levels_tree_no_hive <- tempfile()
-#' write_dataset(d, two_levels_tree_no_hive, hive_style = FALSE)
+#' mtcars %>%
+#'  group_by(cyl, gear) %>%
+#'  write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
 write_dataset <- function(dataset,
