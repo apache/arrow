@@ -192,7 +192,6 @@ table Read {
 /// The varieties of relations
 union RelationImpl {
   Aggregate,
-  Common,
   SetOperation,
   Filter,
   Limit,
