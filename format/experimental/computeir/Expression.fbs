@@ -297,9 +297,6 @@ table AggregateCall {
 
   /// Possible ordering.
   orderings: [SortKey];
-
-  /// optional per-aggregate filtering
-  predicate: Expression;
 }
 
 /// An expression is one of
