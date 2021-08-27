@@ -71,6 +71,12 @@ table Project {
   expressions: [Expression] (required);
 }
 
+/// A set of grouping keys
+table Grouping {
+  /// Expressions to group by
+  keys: [Expression] (required);
+}
+
 /// Aggregate operation
 table Aggregate {
   base: RelBase (required);
@@ -78,7 +84,20 @@ table Aggregate {
   /// the rows of the aggregate relation's output.
   measures: [Expression] (required);
   /// Keys by which `aggregations` will be grouped.
-  keys: [Expression] (required);
+  ///
+  /// The nested list here is to support grouping sets
+  /// eg
+  ///
+  /// SELECT a, b, c, sum(d)
+  /// FROM t
+  /// GROUP BY
+  ///   GROUPING SETS (
+  ///     (a, b, c),
+  ///     (a, b),
+  ///     (a),
+  ///     ()
+  ///   );
+  groupings: [Grouping] (required);
 }
 
 enum CanonicalJoinKindId : uint8 {
