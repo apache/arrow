@@ -105,7 +105,7 @@ table Aggregate {
   groupings: [Grouping] (required);
 }
 
-enum CanonicalJoinKindId : uint8 {
+enum JoinKind : uint8 {
   Anti,
   Cross,
   FullOuter,
@@ -115,22 +115,7 @@ enum CanonicalJoinKindId : uint8 {
   RightOuter,
 }
 
-table CanonicalJoinKind {
-  id: CanonicalJoinKindId;
-}
-
-table NonCanonicalJoinKind {
-  name_space: string;
-  name: string (required);
-}
-
-union JoinKind {
-  CanonicalJoinKind,
-  NonCanonicalJoinKind,
-}
-
-/// The contents of Relation.options will be JoinOptions
-/// if Relation.operation = CanonicalOperation::Join
+/// Join between two tables
 table Join {
   /// Common options
   base: RelBase (required);
