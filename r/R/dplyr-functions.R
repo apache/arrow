@@ -840,7 +840,3 @@ agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
     options = list(na.rm = na.rm)
   )
 }
-
-
-
-
