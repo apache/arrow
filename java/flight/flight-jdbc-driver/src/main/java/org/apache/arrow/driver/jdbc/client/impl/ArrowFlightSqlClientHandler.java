@@ -243,16 +243,15 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
       try {
-        FlightClient client;
+        ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         if (username != null) {
-          final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
-              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-          client =
-              ClientCreationUtils.createNewClient(
-                  host, port, keyStorePath, keyStorePassword, useTls, allocator, authFactory);
+          authFactory = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+          middlewareFactories.add(authFactory);
+        }
+        final FlightClient client = ClientCreationUtils.createNewClient(
+            host, port, keyStorePath, keyStorePassword, useTls, allocator, middlewareFactories);
+        if (authFactory != null) {
           options.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
-        } else {
-          client = ClientCreationUtils.createNewClient(host, port, keyStorePath, keyStorePassword, useTls, allocator);
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final GeneralSecurityException | IOException e) {
