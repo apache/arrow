@@ -96,7 +96,6 @@ class ARROW_EXPORT AsyncCloseablePimpl {
 
 class ARROW_EXPORT Nursery {
  public:
-  // FIXME: Add static_assert that T extends AsyncCloseable for friendlier error message
   template <typename T, typename... Args>
   typename std::enable_if<!std::is_array<T>::value, std::shared_ptr<T>>::type
   MakeSharedCloseable(Args&&... args) {
