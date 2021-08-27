@@ -17,11 +17,14 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <unordered_set>
+
 #include "arrow/api.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
@@ -210,6 +213,30 @@ TEST_P(HashJoinTest, TestSemiJoins) {
 
 TEST_P(HashJoinTest, TestSemiJoinstEmpty) {
   RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
+}
+
+template <typename ARROW_T>
+bool VerifySemiJoinOutput(int index_col, const std::vector<ExecBatch>& build_batches,
+                          const std::vector<ExecBatch>& probe_batches,
+                          const std::vector<ExecBatch>& output_batches,
+                          bool anti_join = false) {
+  using T = typename arrow::TypeTraits<ARROW_T>::CType;
+  using ARRAY_T = typename arrow::TypeTraits<ARROW_T>::ArrayType;
+
+  // populate hash set
+  std::unordered_set<T> hash_set;
+  bool has_null = false;
+  for (auto&& b : build_batches) {
+    const std::shared_ptr<ArrayData>& arr = b[index_col].array();
+    VisitArrayDataInline<ARROW_T>(
+        arr, [&](T val) { hash_set.insert(val); }, [&]() { has_null = true; });
+  }
+
+
+
+  RecordBatchBuilder
+
+      return true;
 }
 
 void TestJoinRandom(const std::shared_ptr<DataType>& data_type, JoinType type,
