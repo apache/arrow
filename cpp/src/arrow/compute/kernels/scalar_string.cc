@@ -502,10 +502,12 @@ struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
     if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
       return kTransformError;
     }
-    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
+    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+            input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
       return kTransformError;
     }
-    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
+    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+            next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
       return kTransformError;
     }
     return output - output_start;
@@ -515,7 +517,7 @@ struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
 template <typename Type>
 using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
 
-struct Utf8TitleTransform: public StringTransformCodepointBase {
+struct Utf8TitleTransform : public StringTransformCodepointBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -531,7 +533,8 @@ struct Utf8TitleTransform: public StringTransformCodepointBase {
           return kTransformError;
         }
         if (IsCasedCharacterUnicode(codepoint)) {
-          output = util::UTF8Encode(output, UTF8UpperTransform::TransformCodepoint(codepoint));
+          output =
+              util::UTF8Encode(output, UTF8UpperTransform::TransformCodepoint(codepoint));
           input = curr;
           break;
         }
@@ -550,7 +553,8 @@ struct Utf8TitleTransform: public StringTransformCodepointBase {
           input = curr;
           break;
         }
-        output = util::UTF8Encode(output, UTF8LowerTransform::TransformCodepoint(codepoint));
+        output =
+            util::UTF8Encode(output, UTF8LowerTransform::TransformCodepoint(codepoint));
         input = curr;
       }
     } while (input < end);
