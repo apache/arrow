@@ -75,6 +75,8 @@ public class ResultSetMetadataTest {
     ResultSet resultSet = statement.executeQuery(FlightServerTestRule.METADATA_TEST_SQL_CMD);
 
     metadata = resultSet.getMetaData();
+
+    resultSet.close();
   }
 
   @AfterClass
