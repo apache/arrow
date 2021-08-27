@@ -188,13 +188,6 @@ table Read {
   schema: org.apache.arrow.flatbuf.Schema (required);
 }
 
-/// A table write
-table Write {
-  base: RelBase (required);
-  resource: string (required);
-  schema: org.apache.arrow.flatbuf.Schema (required);
-}
-
 /// The varieties of relations
 union RelationImpl {
   Aggregate,
@@ -206,7 +199,6 @@ union RelationImpl {
   OrderBy,
   Project,
   Read,
-  Write,
 }
 
 /// A table holding an instance of the possible relation types.
