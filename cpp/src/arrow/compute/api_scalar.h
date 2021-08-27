@@ -166,6 +166,16 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   bool reverse;
 };
 
+class ARROW_EXPORT RepeatOptions : public FunctionOptions {
+ public:
+  explicit RepeatOptions(int64_t repeats);
+  RepeatOptions();
+  constexpr static char const kTypeName[] = "RepeatOptions";
+
+  /// Number of repeats
+  int64_t repeats;
+};
+
 class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
