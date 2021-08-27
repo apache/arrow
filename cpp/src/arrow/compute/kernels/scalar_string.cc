@@ -2733,6 +2733,31 @@ void AddSplit(FunctionRegistry* registry) {
 #endif
 }
 
+struct StrRepeatTransform : public StringTransformBase {
+  using Options = RepeatOptions;
+  using State = OptionsWrapper<Options>;
+
+  const Options* options;
+
+  explicit StrRepeatTransform(const Options& options) : options{&options} {}
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return input_ncodeunits * std::max<int64_t>(options->repeats, 0);
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    for (int i = 0; i < options->repeats; ++i) {
+      output = std::copy(input, input + input_string_ncodeunits, output);
+    }
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using StrRepeat = StringTransformExecWithState<Type, StrRepeatTransform>;
+
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
 
