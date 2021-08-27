@@ -186,9 +186,10 @@ table SortKey {
   ordering: Collation = ASCENDING_THEN_NULLS;
 }
 
-/// Boundary is unbounded
+/// An unbounded window bound
 table Unbounded {}
 
+/// A concrete bound, which can be an expression or unbounded
 union ConcreteBoundImpl {
   Expression,
   Unbounded,
