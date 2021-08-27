@@ -20,7 +20,6 @@ package org.apache.arrow.driver.jdbc.test;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -29,6 +28,7 @@ import java.util.Properties;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -38,6 +38,7 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.calcite.avatica.BuiltInConnectionProperty;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
 import org.junit.Assert;
@@ -86,7 +87,7 @@ public class ConnectionTlsTest {
       return null;
     });
     serverUrl = flightTestUtils.getConnectionPrefix() +
-        flightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
+        flightTestUtils.getUrl() + ":" + this.tlsServer.getPort();
   }
 
   @After
@@ -126,18 +127,13 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
-    final URI address = new URI("jdbc",
-        flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
-        flightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
-        null);
-
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(address.getHost())
-                 .withPort(address.getPort())
+                 .withHost("localhost")
+                 .withPort(tlsServer.getPort())
                  .withUsername(credentials.getUserName())
                  .withPassword(credentials.getPassword())
                  .withKeyStorePath(keyStorePath)
@@ -161,8 +157,7 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(flightTestUtils.getLocalhost())
-                 .withPort(tlsServer.getPort())
+                 .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(noCertificateKeyStorePath)
                  .withKeyStorePassword(noCertificateKeyStorePassword)
                  .withBufferAllocator(allocator)
@@ -181,8 +176,7 @@ public class ConnectionTlsTest {
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(flightTestUtils.getLocalhost())
-                 .withPort(tlsServer.getPort())
+                 .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(keyStorePath)
                  .withKeyStorePassword(keyStorePass)
                  .withBufferAllocator(allocator)
@@ -204,8 +198,7 @@ public class ConnectionTlsTest {
 
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(flightTestUtils.getLocalhost())
-                 .withPort(tlsServer.getPort())
+                 .withHost(flightTestUtils.getUrl())
                  .withKeyStorePath(keyStorePath)
                  .withKeyStorePassword(keyStoreBadPassword)
                  .withBufferAllocator(allocator)
@@ -225,11 +218,13 @@ public class ConnectionTlsTest {
   public void testGetEncryptedConnectionWithValidCredentialsAndKeyStore() throws Exception {
     final Properties properties = new Properties();
 
-    properties.put("user", flightTestUtils.getUsername1());
-    properties.put("password", flightTestUtils.getPassword1());
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", keyStorePass);
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), tlsServer.getPort());
+    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
+    properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
@@ -248,11 +243,13 @@ public class ConnectionTlsTest {
   public void testGetAuthenticatedEncryptedConnectionWithKeyStoreBadPassword() throws Exception {
     final Properties properties = new Properties();
 
-    properties.put("user", flightTestUtils.getUsername1());
-    properties.put("password", flightTestUtils.getPassword1());
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", "badpassword");
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), tlsServer.getPort());
+    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
+    properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), "badpassword");
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
@@ -269,9 +266,11 @@ public class ConnectionTlsTest {
   public void testGetNonAuthenticatedEncryptedConnection() throws Exception {
     final Properties properties = new Properties();
 
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", keyStorePass);
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), tlsServer.getPort());
+    properties.put(ArrowFlightConnectionProperty.USE_TLS.camelName(), true);
+    properties.put(BuiltInConnectionProperty.KEYSTORE.camelName(), keyStorePath);
+    properties.put(BuiltInConnectionProperty.KEYSTORE_PASSWORD.camelName(), keyStorePass);
 
     try (Connection connection = DriverManager.getConnection(serverUrl,
         properties)) {

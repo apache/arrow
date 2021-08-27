@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static java.lang.String.format;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.net.URISyntaxException;
@@ -29,6 +31,7 @@ import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -38,6 +41,7 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.calcite.avatica.BuiltInConnectionProperty;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -76,7 +80,7 @@ public class ConnectionTest {
                 new BasicCallHeaderAuthenticator(this::validate)))
             .build());
     serverUrl = flightTestUtils.getConnectionPrefix() +
-        flightTestUtils.getLocalhost() + ":" + this.server.getPort();
+        flightTestUtils.getUrl() + ":" + this.server.getPort();
   }
 
   @After
@@ -120,11 +124,12 @@ public class ConnectionTest {
       throws Exception {
     final Properties properties = new Properties();
 
-    properties.put("user", flightTestUtils.getUsername1());
-    properties.put("password", flightTestUtils.getPassword1());
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), server.getPort());
+    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
 
-    try (Connection connection = DriverManager.getConnection(serverUrl,
-        properties)) {
+    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
       assert connection.isValid(300);
     }
   }
@@ -134,7 +139,7 @@ public class ConnectionTest {
    *
    * @throws SQLException on error.
    */
-  @Test(expected = SQLException.class)
+  @Test
   public void testUnencryptedConnectionWithEmptyHost()
       throws Exception {
     final Properties properties = new Properties();
@@ -143,10 +148,14 @@ public class ConnectionTest {
     properties.put("password", flightTestUtils.getPassword1());
     String invalidUrl = flightTestUtils.getConnectionPrefix();
 
+    Exception exception = null;
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
       Assert.fail();
+    } catch (final IllegalStateException e) {
+      exception = e;
     }
+    assertEquals(format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.HOST), exception.getMessage());
   }
 
   /**
@@ -160,7 +169,7 @@ public class ConnectionTest {
 
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(flightTestUtils.getLocalhost())
+                 .withHost(flightTestUtils.getUrl())
                  .withPort(server.getPort())
                  .withUsername(flightTestUtils.getUsername1())
                  .withPassword(flightTestUtils.getPassword1())
@@ -176,19 +185,24 @@ public class ConnectionTest {
    *
    * @throws SQLException on error.
    */
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testUnencryptedConnectionProvidingInvalidPort()
       throws Exception {
     final Properties properties = new Properties();
 
-    properties.put("user", flightTestUtils.getUsername1());
-    properties.put("password", flightTestUtils.getPassword1());
-    String invalidUrl = flightTestUtils.getConnectionPrefix() + flightTestUtils.getLocalhost() + ":" + 65537;
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsername1());
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPassword1());
+    String invalidUrl = flightTestUtils.getConnectionPrefix() + flightTestUtils.getUrl() + ":" + 65537;
 
+    Exception exception = null;
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
       Assert.fail();
+    } catch (final IllegalStateException e) {
+      exception = e;
     }
+    assertEquals(format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.PORT), exception.getMessage());
   }
 
   /**
@@ -201,8 +215,7 @@ public class ConnectionTest {
 
     try (FlightClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(flightTestUtils.getLocalhost())
-                 .withPort(server.getPort())
+                 .withHost(flightTestUtils.getUrl())
                  .withBufferAllocator(allocator)
                  .build()) {
       assertNotNull(client);
@@ -219,7 +232,8 @@ public class ConnectionTest {
   public void testUnencryptedConnectionShouldOpenSuccessfullyWithoutAuthentication()
       throws Exception {
     final Properties properties = new Properties();
-
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), server.getPort());
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
       assert connection.isValid(300);
@@ -238,11 +252,12 @@ public class ConnectionTest {
 
     final Properties properties = new Properties();
 
-    properties.put("user", flightTestUtils.getUsernameInvalid());
-    properties.put("password", flightTestUtils.getPasswordInvalid());
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), server.getPort());
+    properties.put(BuiltInConnectionProperty.AVATICA_USER.camelName(), flightTestUtils.getUsernameInvalid());
+    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD.camelName(), flightTestUtils.getPasswordInvalid());
 
-    try (Connection connection = DriverManager.getConnection(serverUrl,
-        properties)) {
+    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
       Assert.fail();
     }
   }

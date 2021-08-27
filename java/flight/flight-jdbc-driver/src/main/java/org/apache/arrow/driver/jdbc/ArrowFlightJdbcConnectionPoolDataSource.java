@@ -29,6 +29,8 @@ import javax.sql.ConnectionEventListener;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
+
 /**
  * {@link ConnectionPoolDataSource} implementation for Arrow Flight JDBC Driver.
  */
@@ -36,38 +38,60 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
     implements ConnectionPoolDataSource, ConnectionEventListener, AutoCloseable {
   private final Map<Properties, Queue<ArrowFlightJdbcPooledConnection>> pool = new ConcurrentHashMap<>();
 
-  @Override
-  public PooledConnection getPooledConnection() throws SQLException {
-    return this.getPooledConnection(getUsername(), getPassword());
+  /**
+   * Instantiates a new DataSource.
+   *
+   * @param properties the properties
+   * @param config     the config.
+   */
+  protected ArrowFlightJdbcConnectionPoolDataSource(final Properties properties,
+                                                    final ArrowFlightConnectionConfigImpl config) {
+    super(properties, config);
+  }
+
+  /**
+   * Creates a new {@link ArrowFlightJdbcConnectionPoolDataSource}.
+   *
+   * @param properties the properties.
+   * @return a new data source.
+   */
+  public static ArrowFlightJdbcConnectionPoolDataSource createNewDataSource(final Properties properties) {
+    return new ArrowFlightJdbcConnectionPoolDataSource(properties, new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override
-  public PooledConnection getPooledConnection(String username, String password) throws SQLException {
-    Properties properties = this.getProperties(username, password);
+  public PooledConnection getPooledConnection() throws SQLException {
+    final ArrowFlightConnectionConfigImpl config = getConfig();
+    return this.getPooledConnection(config.avaticaUser(), config.avaticaPassword());
+  }
+
+  @Override
+  public PooledConnection getPooledConnection(final String username, final String password) throws SQLException {
+    final Properties properties = getProperties(username, password);
     Queue<ArrowFlightJdbcPooledConnection> objectPool =
         pool.computeIfAbsent(properties, s -> new ConcurrentLinkedQueue<>());
     ArrowFlightJdbcPooledConnection pooledConnection = objectPool.poll();
     if (pooledConnection == null) {
-      pooledConnection = createPooledConnection(properties);
+      pooledConnection = createPooledConnection(new ArrowFlightConnectionConfigImpl(properties));
     } else {
       pooledConnection.reset();
     }
     return pooledConnection;
   }
 
-  private ArrowFlightJdbcPooledConnection createPooledConnection(Properties properties) throws SQLException {
+  private ArrowFlightJdbcPooledConnection createPooledConnection(final ArrowFlightConnectionConfigImpl config)
+      throws SQLException {
     ArrowFlightJdbcPooledConnection pooledConnection =
-        new ArrowFlightJdbcPooledConnection(this.getConnection(properties));
+        new ArrowFlightJdbcPooledConnection(getConnection(config.avaticaUser(), config.avaticaPassword()));
     pooledConnection.addConnectionEventListener(this);
     return pooledConnection;
   }
 
   @Override
   public void connectionClosed(ConnectionEvent connectionEvent) {
-    ArrowFlightJdbcPooledConnection pooledConnection = (ArrowFlightJdbcPooledConnection) connectionEvent.getSource();
-    Properties properties = pooledConnection.getProperties();
-
-    this.pool.get(properties).add(pooledConnection);
+    final ArrowFlightJdbcPooledConnection pooledConnection =
+        (ArrowFlightJdbcPooledConnection) connectionEvent.getSource();
+    pool.get(pooledConnection.getProperties()).add(pooledConnection);
   }
 
   @Override

@@ -17,16 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static java.lang.String.format;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PASS;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PATH;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USE_TLS;
-import static org.apache.arrow.util.Preconditions.checkNotNull;
-
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Properties;
@@ -36,12 +26,8 @@ import java.util.concurrent.Executors;
 
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.impl.ArrowFlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.utils.BaseProperty;
-import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallOption;
-import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
@@ -56,67 +42,66 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 /**
  * Connection to the Arrow Flight server.
  */
-public class ArrowFlightConnection extends AvaticaConnection {
+public final class ArrowFlightConnection extends AvaticaConnection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
-  private final PropertyManager propertyManager;
   private final FlightClientHandler clientHandler;
+  private final ArrowFlightConnectionConfigImpl config;
   private ExecutorService executorService;
 
   /**
    * Creates a new {@link ArrowFlightConnection}.
    *
-   * @param driver          the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory         the {@link AvaticaFactory} to use.
-   * @param url             the URL to establish the connection.
-   * @param propertyManager the {@link PropertyManager} for this connection.
-   * @param allocator       the {@link BufferAllocator} to use.
-   * @param clientHandler   the {@link FlightClientHandler} to use.
+   * @param driver        the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory       the {@link AvaticaFactory} to use.
+   * @param url           the URL to use.
+   * @param properties    the {@link Properties} to use.
+   * @param config        the {@link ArrowFlightConnectionConfigImpl} to use.
+   * @param allocator     the {@link BufferAllocator} to use.
+   * @param clientHandler the {@link FlightClientHandler} to use.
    */
-  protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
-                                  final String url, final PropertyManager propertyManager,
-                                  final BufferAllocator allocator, final FlightClientHandler clientHandler) {
-    super(
-        driver,
-        factory,
-        url,
-        Preconditions.checkNotNull(propertyManager, "Manager cannot be null.").getProperties());
+  private ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
+                                final String url, final Properties properties,
+                                final ArrowFlightConnectionConfigImpl config,
+                                final BufferAllocator allocator,
+                                final FlightClientHandler clientHandler) {
+    super(driver, factory, url, properties);
+    this.config = Preconditions.checkNotNull(config, "Config cannot be null.");
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
     this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null.");
-    this.propertyManager = propertyManager;
   }
 
   /**
    * Creates a new {@link ArrowFlightConnection} to a {@link FlightClient}.
    *
-   * @param driver    the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory   the {@link AvaticaFactory} to use.
-   * @param url       the URL to establish the connection to.
-   * @param info      the {@link Properties} to use for this session.
-   * @param allocator the {@link BufferAllocator} to use.
+   * @param driver     the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory    the {@link AvaticaFactory} to use.
+   * @param url        the URL to establish the connection to.
+   * @param properties the {@link Properties} to use for this session.
+   * @param allocator  the {@link BufferAllocator} to use.
    * @return a new {@link ArrowFlightConnection}.
    * @throws SQLException on error.
    */
-  protected static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
-                                                             final AvaticaFactory factory,
-                                                             final String url, final Properties info,
-                                                             final BufferAllocator allocator)
+  static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
+                                                   final AvaticaFactory factory,
+                                                   final String url, final Properties properties,
+                                                   final BufferAllocator allocator)
       throws SQLException {
-    final PropertyManager propertyManager = new PropertyManager(info);
+    final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final FlightClientHandler clientHandler =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(propertyManager.getPropertyAsString(HOST))
-            .withPort(propertyManager.getPropertyAsInteger(PORT))
-            .withUsername(propertyManager.getPropertyAsString(USERNAME))
-            .withPassword(propertyManager.getPropertyAsString(PASSWORD))
-            .withKeyStorePath(propertyManager.getPropertyAsString(KEYSTORE_PATH))
-            .withKeyStorePassword(propertyManager.getPropertyAsString(KEYSTORE_PASS))
+            .withHost(config.getHost())
+            .withPort(config.getPort())
+            .withUsername(config.avaticaUser())
+            .withPassword(config.avaticaPassword())
+            .withKeyStorePath(config.getKeyStorePath())
+            .withKeyStorePassword(config.keystorePassword())
             .withBufferAllocator(allocator)
-            .withTlsEncryption(propertyManager.getPropertyAsBoolean(USE_TLS))
-            .withCallOptions(propertyManager.toCallOption())
+            .withTlsEncryption(config.useTls())
+            .withCallOptions(config.toCallOption())
             .build();
-    return new ArrowFlightConnection(driver, factory, url, propertyManager, allocator, clientHandler);
+    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
   }
 
   void reset() throws SQLException {
@@ -151,7 +136,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
    *
    * @return the handler.
    */
-  protected final FlightClientHandler getClientHandler() {
+  FlightClientHandler getClientHandler() {
     return clientHandler;
   }
 
@@ -161,13 +146,9 @@ public class ArrowFlightConnection extends AvaticaConnection {
    * @return the {@link #executorService}.
    */
   public synchronized ExecutorService getExecutorService() {
-    if (executorService == null) {
-      final int threadPoolSize = propertyManager.getPropertyAsInteger(BaseProperty.THREAD_POOL_SIZE);
-      final DefaultThreadFactory threadFactory = new DefaultThreadFactory(this.getClass().getSimpleName());
-      executorService = Executors.newFixedThreadPool(threadPoolSize, threadFactory);
-    }
-
-    return executorService;
+    return executorService = executorService == null ?
+        Executors.newFixedThreadPool(config.threadPoolSize(), new DefaultThreadFactory(getClass().getSimpleName())) :
+        executorService;
   }
 
   @Override
@@ -184,7 +165,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     final Set<SQLException> exceptions = new HashSet<>();
 
     try {
-      AutoCloseables.close(clientHandler, propertyManager);
+      AutoCloseables.close(clientHandler);
     } catch (final Exception e) {
       exceptions.add(AvaticaConnection.HELPER.createException(e.getMessage(), e));
     }
@@ -214,102 +195,4 @@ public class ArrowFlightConnection extends AvaticaConnection {
      */
     LOGGER.error("Memory leak detected!", exception);
   }
-
-  /**
-   * A property manager for the {@link ArrowFlightConnection}.
-   */
-  protected static final class PropertyManager implements AutoCloseable {
-    private final Properties properties;
-
-    public PropertyManager(final Properties properties) {
-      this.properties = Preconditions.checkNotNull(properties);
-    }
-
-    /**
-     * Gets the {@link #properties} managed by this wrapper.
-     *
-     * @return the properties.
-     */
-    public Properties getProperties() {
-      return properties;
-    }
-
-    /**
-     * Gets the {@link #properties} managed by this wrapper as a {@link CallOption}.
-     *
-     * @return the properties as a call option.
-     */
-    public CallOption toCallOption() {
-      final CallHeaders headers = new FlightCallHeaders();
-      properties.forEach((key, val) -> headers.insert(key.toString(), val.toString()));
-      return new HeaderCallOption(headers);
-    }
-
-    /**
-     * Gets the value mapped to the provided {@code property} key as a boolean value.
-     *
-     * @param property the property.
-     * @return the property value as a boolean value.
-     */
-    public boolean getPropertyAsBoolean(final BaseProperty property) {
-      final Object object = getPropertyOrDefault(checkNotNull(property));
-      return object != null && Boolean.parseBoolean(object.toString());
-    }
-
-    /**
-     * Gets the value mapped to the provided {@code property} key as a string value.
-     *
-     * @param property the property.
-     * @return the property value as a string value.
-     */
-    public String getPropertyAsString(final BaseProperty property) {
-      final Object object = getPropertyOrDefault(checkNotNull(property));
-      return object == null ? null : object.toString();
-    }
-
-    /**
-     * Gets the value mapped to the provided {@code property} key as a boolean value.
-     *
-     * @param property the property.
-     * @return the property value as an integer value.
-     */
-    public int getPropertyAsInteger(final BaseProperty property) {
-      final Object object = getPropertyOrDefault(checkNotNull(property));
-      return object == null ? 0 : Integer.parseInt(object.toString());
-    }
-
-    /**
-     * Gets the value mapped to the provided {@code property} key.
-     *
-     * @param property the property.
-     * @return the property value.
-     */
-    public Object getPropertyOrDefault(final BaseProperty property) {
-      return getPropertyOrDefault(property, Object.class);
-    }
-
-    /**
-     * Gets the value mapped to the provided {@code property} key.
-     *
-     * @param property the property.
-     * @return the property value.
-     */
-    public <T> T getPropertyOrDefault(final BaseProperty property, final Class<T> clazz) {
-      final Object object = getProperties().getOrDefault(property.getName(), property.getDefaultValue());
-      if (object == null) {
-        return null;
-      }
-      final Class<?> objClass = object.getClass();
-      Preconditions.checkState(
-          clazz.isAssignableFrom(objClass),
-          format("%s cannot be cast to %s!", objClass, clazz.getName()));
-      return clazz.cast(object);
-    }
-
-    @Override
-    public void close() {
-      properties.clear();
-    }
-  }
-
 }

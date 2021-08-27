@@ -26,6 +26,7 @@ import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFactory;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -41,6 +42,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
@@ -95,10 +97,15 @@ public class ArrowFlightJdbcFactoryTest {
     constructor.setAccessible(true);
     ArrowFlightJdbcFactory factory = constructor.newInstance();
 
+    final Properties properties = new Properties();
+    properties.putAll(ImmutableMap.of(
+        ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
+        ArrowFlightConnectionProperty.PORT.camelName(), 32010));
+
     try (Connection connection = factory.newConnection(driver,
             constructor.newInstance(),
             "jdbc:arrow-flight://localhost:32010",
-            new Properties())) {
+            properties)) {
       assert connection.isValid(300);
     }
   }

@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.io.PrintWriter;
-import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
@@ -26,173 +25,76 @@ import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
-import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.PropertiesUtils;
 import org.apache.arrow.util.Preconditions;
-import org.apache.calcite.avatica.org.apache.http.client.utils.URIBuilder;
+import org.apache.calcite.avatica.BuiltInConnectionProperty;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * {@link DataSource} implementation for Arrow Flight JDBC Driver.
  */
 public class ArrowFlightJdbcDataSource implements DataSource {
   private final Properties properties;
+  private final ArrowFlightConnectionConfigImpl config;
   private PrintWriter logWriter;
 
   /**
    * Instantiates a new DataSource.
    */
-  public ArrowFlightJdbcDataSource() {
-    this.properties = new Properties();
-    for (BaseProperty baseProperty : BaseProperty.values()) {
-      Object defaultValue = baseProperty.getDefaultValue();
-      if (defaultValue != null) {
-        this.properties.put(baseProperty.getName(), defaultValue);
-      }
-    }
+  protected ArrowFlightJdbcDataSource(final Properties properties, final ArrowFlightConnectionConfigImpl config) {
+    this.properties = Preconditions.checkNotNull(properties);
+    this.config = Preconditions.checkNotNull(config);
+  }
+
+  /**
+   * Gets the {@link #config} for this {@link ArrowFlightJdbcDataSource}.
+   *
+   * @return the {@link ArrowFlightConnectionConfigImpl}.
+   */
+  protected final ArrowFlightConnectionConfigImpl getConfig() {
+    return config;
+  }
+
+  /**
+   * Gets a copy of the {@link #properties} for this {@link ArrowFlightJdbcDataSource} with
+   * the provided {@code username} and {@code password}.
+   *
+   * @return the {@link Properties} for this data source.
+   */
+  protected final Properties getProperties(final String username, final String password) {
+    return PropertiesUtils.copyReplace(
+        properties,
+        ImmutableMap.of(
+            BuiltInConnectionProperty.AVATICA_USER, username,
+            BuiltInConnectionProperty.AVATICA_PASSWORD, password));
+  }
+
+  /**
+   * Creates a new {@link ArrowFlightJdbcDataSource}.
+   *
+   * @param properties the properties.
+   * @return a new data source.
+   */
+  public static ArrowFlightJdbcDataSource createNewDataSource(final Properties properties) {
+    return new ArrowFlightJdbcDataSource(properties, new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override
   public ArrowFlightConnection getConnection() throws SQLException {
-    return getConnection(getUsername(), getPassword());
+    return getConnection(config.avaticaUser(), config.avaticaPassword());
   }
 
   @Override
-  public ArrowFlightConnection getConnection(String username, String password) throws SQLException {
-    final Properties properties = getProperties(username, password);
-    return getConnection(properties);
-  }
-
-  ArrowFlightConnection getConnection(Properties properties) throws SQLException {
-    final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
-
-    final String connectionUrl = Preconditions.checkNotNull(getUrl());
-    return (ArrowFlightConnection) driver.connect(connectionUrl, properties);
-  }
-
-  Properties getProperties(String username, String password) {
+  public ArrowFlightConnection getConnection(final String username, final String password) throws SQLException {
     final Properties properties = new Properties();
+    final BuiltInConnectionProperty user = BuiltInConnectionProperty.AVATICA_USER;
+    final BuiltInConnectionProperty pass = BuiltInConnectionProperty.AVATICA_PASSWORD;
     properties.putAll(this.properties);
-    properties.put(BaseProperty.USERNAME.getName(), username);
-    properties.put(BaseProperty.PASSWORD.getName(), password);
-
-    return properties;
-  }
-
-  private String getUrl() {
-    try {
-      return new URIBuilder()
-          .setScheme("jdbc:arrow-flight")
-          .setHost(getHost())
-          .setPort(getPort())
-          .build()
-          .toString();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private Object getPropertyOrDefault(BaseProperty host) {
-    return this.properties.getOrDefault(host.getName(), host.getDefaultValue());
-  }
-
-  /**
-   * Sets the host used in this DataSource connections.
-   * This will also update the connection URL.
-   */
-  public void setHost(String host) {
-    this.properties.put(BaseProperty.HOST.getName(), host);
-  }
-
-  /**
-   * Returns the host used in this DataSource connections.
-   */
-  public String getHost() {
-    return (String) getPropertyOrDefault(BaseProperty.HOST);
-  }
-
-  /**
-   * Sets the port used in this DataSource connections.
-   * This will also update the connection URL.
-   */
-  public void setPort(int port) {
-    this.properties.put(BaseProperty.PORT.getName(), port);
-  }
-
-  /**
-   * Returns the port used in this DataSource connections.
-   */
-  public int getPort() {
-    return (int) getPropertyOrDefault(BaseProperty.PORT);
-  }
-
-  /**
-   * Sets the username used to authenticate the connections.
-   */
-  public void setUsername(String username) {
-    this.properties.put(BaseProperty.USERNAME.getName(), username);
-  }
-
-  /**
-   * Returns the username used to authenticate the connections.
-   */
-  public String getUsername() {
-    return (String) getPropertyOrDefault(BaseProperty.USERNAME);
-  }
-
-  /**
-   * Sets the password used to authenticate the connections.
-   */
-  public void setPassword(String password) {
-    this.properties.put(BaseProperty.PASSWORD.getName(), password);
-  }
-
-  /**
-   * Returns the password used to authenticate the connections.
-   */
-  public String getPassword() {
-    return (String) getPropertyOrDefault(BaseProperty.PASSWORD);
-  }
-
-  /**
-   * Enable or disable usage of TLS on FlightClient.
-   */
-  public void setUseTls(boolean useTls) {
-    this.properties.put(BaseProperty.USE_TLS.getName(), useTls);
-  }
-
-  /**
-   * Returns if usage of TLS is enabled on FlightClient.
-   */
-  public boolean getUseTls() {
-    return (boolean) getPropertyOrDefault(BaseProperty.USE_TLS);
-  }
-
-  /**
-   * Sets the key store path containing the trusted TLS certificates for the FlightClient.
-   */
-  public void setKeyStorePath(String keyStorePath) {
-    this.properties.put(BaseProperty.KEYSTORE_PATH.getName(), keyStorePath);
-    this.setUseTls(true);
-  }
-
-  /**
-   * Returns the key store path containing the trusted TLS certificates for the FlightClient.
-   */
-  public String getKeyStorePath() {
-    return (String) getPropertyOrDefault(BaseProperty.KEYSTORE_PATH);
-  }
-
-  /**
-   * Sets the key store password containing the trusted TLS certificates for the FlightClient.
-   */
-  public void setKeyStorePass(String keyStorePass) {
-    this.properties.put(BaseProperty.KEYSTORE_PASS.getName(), keyStorePass);
-  }
-
-  /**
-   * Returns the key store password containing the trusted TLS certificates for the FlightClient.
-   */
-  public String getKeyStorePass() {
-    return (String) getPropertyOrDefault(BaseProperty.KEYSTORE_PASS);
+    properties.replace(user.camelName(), username == null ? user.defaultValue() : username);
+    properties.replace(pass.camelName(), password == null ? pass.defaultValue() : password);
+    return new ArrowFlightJdbcDriver().connect(config.url(), properties);
   }
 
   @Override
