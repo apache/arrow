@@ -322,6 +322,9 @@ table Expression {
   /// This is a field, because the Type union in Schema.fbs
   /// isn't self-contained: Fields are necessary to describe complex types
   /// and there's currently no reason to optimize the storage of this.
+  ///
+  /// NB: The `name` in this `Field` is **not** meaningful, consumers must
+  /// never depend on that field being populated by a producer.
   type: org.apache.arrow.flatbuf.Field;
 }
 
