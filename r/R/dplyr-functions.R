@@ -889,6 +889,16 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
   )
 }
+
+# na.rm here doesn't work yet - see ARROW-13782
+agg_funcs$median <- function(x, na.rm = FALSE) {
+  list(
+    fun = "tdigest",
+    data = x,
+    options = list(na.rm = na.rm, q = 0.5)
+  )
+}
+
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",

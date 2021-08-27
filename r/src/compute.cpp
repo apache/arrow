@@ -186,7 +186,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     }
     return out;
   }
-
+  
+  if (func_name == "tdigest" || func_name == "hash_tdigest") {
+    using Options = arrow::compute::TDigestOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->q = cpp11::as_cpp<std::vector<double>>(options["q"]);
+    return out;
+  }
+  
   if (func_name == "count") {
     using Options = arrow::compute::CountOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
