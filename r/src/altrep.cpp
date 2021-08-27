@@ -124,8 +124,7 @@ struct AltrepArrayPrimitive {
       // copy the data from the array, through Get_region
       Get_region(0, size, reinterpret_cast<c_type*>(DATAPTR(copy)));
 
-      // mark as immutable and store as data2
-      MARK_NOT_MUTABLE(copy);
+      // store as data2
       R_set_altrep_data2(alt_, copy);
 
       UNPROTECT(1);
