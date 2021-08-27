@@ -282,8 +282,6 @@ table AggregateCall {
 /// - a reference to a field from a Relation
 /// - a call to a named function
 /// - a case expression
-/// - a cast expression
-/// - an extract operation
 /// - a window function call
 /// - an aggregate function call
 ///
