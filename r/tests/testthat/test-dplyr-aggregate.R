@@ -274,7 +274,3 @@ test_that("Filter and aggregate", {
     tbl
   )
 })
-
-
-
-
