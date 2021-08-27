@@ -134,6 +134,11 @@ table Call {
 
   /// The arguments passed to `function_name`.
   arguments: [Expression] (required);
+
+  /// Possible ordering of input. These are useful
+  /// in some aggregates where ordering may be meaninful,
+  /// such as string concatenation
+  orderings: [SortKey];
 }
 
 /// A single WHEN x THEN y fragment.
@@ -236,61 +241,19 @@ table WindowCall {
   upper_bound: Bound (required);
 }
 
-/// A canonical (probably SQL equivalent) function
-enum CanonicalAggregateId : uint32 {
-  All,
-  Any,
-  Count,
-  CountTable,
-  Mean,
-  Min,
-  Max,
-  Product,
-  Sum,
-  Variance,
-  StandardDev,
-}
-
-
-table CanonicalAggregate {
-  id: CanonicalAggregateId;
-}
-
-table NonCanonicalAggregate {
-  name_space: string;
-  name: string (required);
-}
-
-union AggregateImpl {
-  CanonicalAggregate,
-  NonCanonicalAggregate,
-}
-
-table AggregateCall {
-  /// The kind of aggregate function being executed
-  kind: AggregateImpl (required);
-
-  /// Aggregate expression arguments
-  arguments: [Expression] (required);
-
-  /// Possible ordering.
-  orderings: [SortKey];
-}
-
 /// An expression is one of
 /// - a Literal datum
 /// - a reference to a field from a Relation
 /// - a call to a named function
 /// - a case expression
 /// - a window function call
-/// - an aggregate function call
 ///
 /// The expressions here that look like function calls such as
 /// Cast,Case and Extract are special in that while they might
 /// fit into a Call, they don't cleanly do so without having
 /// to pass around non-expression arguments as metadata.
 ///
-/// AggregateCall and WindowCall are also separate variants
+/// WindowCall is a separate variant
 /// due to special options for each that don't apply to generic
 /// function calls. Again this is done to make it easier
 /// for consumers to deal with the structure of the operation
@@ -301,7 +264,6 @@ union ExpressionImpl {
   ConditionalCase,
   SimpleCase,
   WindowCall,
-  AggregateCall,
 }
 
 /// Expression types
