@@ -87,18 +87,21 @@ implicit_schema <- function(.data) {
   # c(.data$group_by_vars, names(.data$aggregations))
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
-  new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
+
   if (is.null(.data$aggregations)) {
-    return(schema(!!!new_fields))
+    new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
+  } else {
+    new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
+    # * Put group_by_vars first (this can't be done by summarize, they have to be last per the aggregate node signature, and they get projected to this order after aggregation)
+    # * Infer the output types from the aggregations
+    group_fields <- new_fields[.data$group_by_vars]
+    agg_fields <- imap(
+      new_fields[setdiff(names(new_fields), .data$group_by_vars)],
+      ~ output_type(.data$aggregations[[.y]][["fun"]], .x)
+    )
+    new_fields <- c(group_fields, agg_fields)
   }
-  # * Put group_by_vars first (this can't be done by summarize, they have to be last per the aggregate node signature, and they get projected to this order after aggregation)
-  # * Infer the output types from the aggregations
-  group_fields <- new_fields[.data$group_by_vars]
-  agg_fields <- imap(
-    new_fields[setdiff(names(new_fields), .data$group_by_vars)],
-    ~ output_type(.data$aggregations[[.y]][["fun"]], .x)
-  )
-  schema(!!!c(group_fields, agg_fields))
+  schema(!!!new_fields)
 }
 
 make_field_refs <- function(field_names) {

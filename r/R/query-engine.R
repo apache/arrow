@@ -79,13 +79,14 @@ ExecPlan <- R6Class("ExecPlan",
       if (inherits(.data$filtered_rows, "Expression")) {
         node <- node$Filter(.data$filtered_rows)
       }
-      # If any columns are derived, reordered, or renamed we need to Project
-      projection <- c(.data$selected_columns, .data$temp_columns)
-      if (!isTRUE(all.equal(projection, make_field_refs(names(.data$.data$schema))))) {
-        node <- node$Project(projection)
-      }
 
-      if (length(.data$aggregations)) {
+      if (!is.null(.data$aggregations)) {
+        # Project to include just the data required for each aggregation,
+        # plus group_by_vars (last)
+        # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
+        # dplyr does not error on this but the result it gives isn't great
+        node <- node$Project(summarize_projection(.data))
+
         if (grouped) {
           # We need to prefix all of the aggregation function names with "hash_"
           .data$aggregations <- lapply(.data$aggregations, function(x) {
@@ -95,8 +96,8 @@ ExecPlan <- R6Class("ExecPlan",
         }
 
         node <- node$Aggregate(
-          options = .data$aggregations,
-          target_names = target_names,
+          options = map(.data$aggregations, ~ .[c("fun", "options")]),
+          target_names = names(.data$aggregations),
           out_field_names = names(.data$aggregations),
           key_names = group_vars
         )
@@ -114,6 +115,16 @@ ExecPlan <- R6Class("ExecPlan",
             orders = rep(0L, length(group_vars))
           )
         }
+      } else {
+        # If any columns are derived, reordered, or renamed we need to Project
+        # If there are aggregations, the projection was already handled above
+        # We have to project at least once to eliminate some junk columns
+        # that the ExecPlan adds:
+        # __fragment_index, __batch_index, __last_in_fragment
+        # Presumably extraneous repeated projection of the same thing
+        # (as when we've done collapse() and not projected after) is cheap/no-op
+        projection <- c(.data$selected_columns, .data$temp_columns)
+        node <- node$Project(projection)
       }
 
       # Apply sorting: this is currently not an ExecNode itself, it is a
@@ -145,20 +156,26 @@ ExecNode <- R6Class("ExecNode",
     # which don't currently yield their own ExecNode but rather are consumed
     # in the SinkNode (in ExecPlan$run())
     sort = NULL,
+    preserve_sort = function(new_node) {
+      new_node$sort <- self$sort
+      new_node
+    },
     Project = function(cols) {
       if (length(cols)) {
         assert_is_list_of(cols, "Expression")
-        ExecNode_Project(self, cols, names(cols))
+        self$preserve_sort(ExecNode_Project(self, cols, names(cols)))
       } else {
-        ExecNode_Project(self, character(0), character(0))
+        self$preserve_sort(ExecNode_Project(self, character(0), character(0)))
       }
     },
     Filter = function(expr) {
       assert_is(expr, "Expression")
-      ExecNode_Filter(self, expr)
+      self$preserve_sort(ExecNode_Filter(self, expr))
     },
     Aggregate = function(options, target_names, out_field_names, key_names) {
-      ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
+      self$preserve_sort(
+        ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
+      )
     }
   )
 )

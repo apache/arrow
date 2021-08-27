@@ -47,11 +47,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # ARROW-13550
     abort("`summarize()` with `.groups` argument not supported in Arrow")
   }
-  exprs <- quos(...)
-  # Check for unnamed expressions and fix if any
-  unnamed <- !nzchar(names(exprs))
-  # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
+  exprs <- ensure_named_exprs(quos(...))
 
   mask <- arrow_mask(.data, aggregation = TRUE)
 
@@ -68,17 +64,15 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       )
       stop(msg, call. = FALSE)
     }
-    # Put it in the data mask too?
-    # Should we: mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # TODO: Should summarize just record the aggregations and leave this projection etc. to do_exec_plan?
-  # Now, from that, split out the data (expressions) and options
-  .data$aggregations <- lapply(results, function(x) x[c("fun", "options")])
-  inputs <- lapply(results, function(x) x$data)
-  # TODO: validate that none of names(inputs) are the same as names(group_by_vars)
-  # dplyr does not error on this but the result it gives isn't great
-  .data$selected_columns <- c(inputs, .data$selected_columns[.data$group_by_vars])
-
+  .data$aggregations <- results
   do_collapse(.data)
+}
+
+summarize_projection <- function(.data) {
+  c(
+    map(.data$aggregations, ~ .$data),
+    .data$selected_columns[.data$group_by_vars]
+  )
 }
