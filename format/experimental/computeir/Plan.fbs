@@ -23,11 +23,6 @@ namespace org.apache.arrow.computeir.flatbuf;
 table Plan {
   /// One or more output relations.
   sinks: [Relation] (required);
-
-  /// If this Plan was derived from another (for example by running
-  /// an optimization pass), that plan may be included here to
-  /// provide a backtrace of derivations.
-  derived_from: Plan;
 }
 
 root_type Plan;
