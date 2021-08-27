@@ -17,6 +17,8 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -1039,6 +1041,27 @@ TYPED_TEST(TestStringKernels, Utf8Title) {
       R"([null, "", "b", "aAaz;ZæÆ&", "ɑɽⱤoW", "ıI", "ⱥ.ⱥ.ⱥ..Ⱥ", "hEllO, WoRld!", "foo   baR;héHé0zOP", "!%$^.,;"])",
       this->type(),
       R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
+}
+
+TYPED_TEST(TestStringKernels, StrRepeat) {
+  RepeatOptions options;
+  this->CheckUnary("str_repeat", "[]", this->type(), "[]", &options);
+
+  std::string values(
+      R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+  std::vector<std::pair<int64_t, std::string>> repeats_and_expected_map({
+      {-1, R"(["", null, "", "", "", "", "", "", "", ""])"},
+      {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
+      {1,
+       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])"},
+      {3,
+       R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbb", "ɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])"},
+  });
+
+  for (const auto& pair : repeats_and_expected_map) {
+    options.repeats = pair.first;
+    this->CheckUnary("str_repeat", values, this->type(), pair.second, &options);
+  }
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
