@@ -551,6 +551,16 @@ TYPED_TEST(TestStringKernels, Utf8Capitalize) {
                    "\"Hello, world!\", \"$. a3\", \"!ɑɽɽow\"]");
 }
 
+TYPED_TEST(TestStringKernels, Utf8Title) {
+  this->CheckUnary("utf8_title", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_title",
+                   "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
+                   "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",
+                   this->type(),
+                   "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
+                   "\"Hello, World!\", \"$. A3\", \"!Ɑɽɽow\"]");
+}
+
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {
   // U+08BE (utf8: 	\xE0\xA2\xBE) is undefined, but utf8proc things it is
   // UTF8PROC_CATEGORY_LO
