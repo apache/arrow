@@ -208,18 +208,13 @@ table Following {
 /// Boundary is the current row
 table CurrentRow {}
 
-union BoundImpl {
+union Bound {
   Preceding,
   Following,
   CurrentRow,
 }
 
-/// Boundary of a window
-table Bound {
-  impl: BoundImpl (required);
-}
-
-/// The kind of window function to be executed.
+/// The kind of window function to be executed
 enum Frame : uint8 {
   Rows,
   Range,
