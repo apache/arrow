@@ -356,7 +356,7 @@ std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(
   ds::KeyValuePartitioningOptions options;
   options.segment_encoding = GetSegmentEncoding(segment_encoding);
   std::vector<std::shared_ptr<arrow::Array>> dictionaries;
-  return std::make_shared<ds::DirectoryPartitioning>(schm, dictionaries, options);
+  return std::make_shared<ds::DirectoryPartitioning>(*schm, dictionaries, options);
 }
 
 // [[dataset::export]]
@@ -375,7 +375,7 @@ std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
   options.null_fallback = null_fallback;
   options.segment_encoding = GetSegmentEncoding(segment_encoding);
   std::vector<std::shared_ptr<arrow::Array>> dictionaries;
-  return std::make_shared<ds::HivePartitioning>(schm, dictionaries, options);
+  return std::make_shared<ds::HivePartitioning>(*schm, dictionaries, options);
 }
 
 // [[dataset::export]]
