@@ -158,25 +158,10 @@ table Limit {
 }
 
 /// The kind of set operation being performed.
-enum CanonicalSetOpKindId : uint8 {
+enum SetOpKind : uint8 {
   Union,
   Intersection,
   Difference,
-}
-
-table CanonicalSetOpKind {
-  id: CanonicalSetOpKindId;
-}
-
-table NonCanonicalSetOpKind {
-  name_space: string;
-  name: string (required);
-}
-
-/// The kind of set operation
-union SetOpKind {
-  CanonicalSetOpKind,
-  NonCanonicalSetOpKind,
 }
 
 /// A set operation on two or more relations
