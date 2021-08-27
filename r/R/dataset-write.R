@@ -88,8 +88,8 @@
 #' # Write a structure X/Y/part-Z.parquet.
 #' two_levels_tree_no_hive <- tempfile()
 #' mtcars %>%
-#'  group_by(cyl, gear) %>%
-#'  write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
+#'   group_by(cyl, gear) %>%
+#'   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
 write_dataset <- function(dataset,
