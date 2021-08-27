@@ -155,7 +155,7 @@ table Case {
   ///
   /// Defaulting to NULL is a frontend choice, so producers must specify NULL
   /// if that's their desired behavior.
-  default: Expression (required);
+  else: Expression (required);
 
   /// Parameters for `function_name`; content/format may be unique to each
   /// value of `function_name`.
