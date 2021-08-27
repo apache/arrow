@@ -222,10 +222,10 @@ enum Frame : uint8 {
 
 /// An expression representing a window function call.
 table WindowCall {
-  /// The kind of window frame
-  kind: Frame;
   /// The expression to operate over
   expression: Expression (required);
+  /// The kind of window frame
+  kind: Frame;
   /// Partition keys
   partitions: [Expression] (required);
   /// Sort keys
