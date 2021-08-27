@@ -44,6 +44,11 @@ public abstract class ArrowFlightClientHandler implements FlightClientHandler {
   @Override
   public abstract List<FlightStream> getStreams(String query);
 
+  /**
+   * Gets the {@link #options} for the subsequent calls from this handler.
+   *
+   * @return the {@link CallOption}s.
+   */
   protected final CallOption[] getOptions() {
     return options.toArray(new CallOption[0]);
   }
