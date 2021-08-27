@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableList;
 /**
  * Standard {@link MockFlightSqlProducer} instances for tests.
  */
+// TODO Remove this once all tests are refactor to use only the queries they need.
 public final class CoreMockedSqlProducers {
 
   public static final String LEGACY_REGULAR_SQL_CMD = "SELECT * FROM TEST";
