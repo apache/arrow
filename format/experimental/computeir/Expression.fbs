@@ -308,12 +308,18 @@ union ExpressionImpl {
 
 /// Expression types
 ///
-/// Expressions have a concrete `impl` value, which is a specific operation
+/// Expressions have a concrete `impl` value, which is a specific operation.
 /// They also have a `type` field, which is the output type of the expression,
 /// regardless of operation type.
 ///
-/// The only exception so far is Cast, which has a type as input argument, which
-/// is equal to output type.
+/// Type is optional to support use cases where types are added at a later
+/// phase of processing.
+///
+/// The optionality of types does not imply anything about the semantics of
+/// those types.
+///
+/// For example, if a producer puts an int64 into this field, the consumer must
+/// return an expression with type int64.
 table Expression {
   impl: ExpressionImpl (required);
 
