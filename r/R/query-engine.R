@@ -43,6 +43,7 @@ ExecPlan <- R6Class("ExecPlan",
           dataset$selected_columns,
           field_names_in_expression
         )))
+        # TODO: update for collapse() (assert that is Dataset now?)
         dataset <- dataset$.data
       } else {
         if (inherits(dataset, "ArrowTabular")) {
@@ -129,7 +130,9 @@ ExecPlan <- R6Class("ExecPlan",
 
       # Apply sorting: this is currently not an ExecNode itself, it is a
       # sink node option.
-      # TODO: error if doing a subsequent operation that would throw away sorting!
+      # TODO: handle some cases:
+      # (1) arrange > summarize > arrange
+      # (2) ARROW-13779: arrange then operation where order matters (e.g. cumsum)
       if (length(.data$arrange_vars)) {
         node$sort <- list(
           names = names(.data$arrange_vars),

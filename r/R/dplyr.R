@@ -78,13 +78,13 @@ arrow_dplyr_query <- function(.data) {
   )
 }
 
+# TODO: move to dplyr-collect.R
 do_collapse <- function(.data) {
   .data$schema <- implicit_schema(.data)
   .adq(.data)
 }
 
 implicit_schema <- function(.data) {
-  # c(.data$group_by_vars, names(.data$aggregations))
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
 
@@ -111,6 +111,7 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
+  # TODO: refactor this to use implicit_schema(x)
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
@@ -125,6 +126,7 @@ print.arrow_dplyr_query <- function(x, ...) {
     }
   })
   fields <- paste(names(types), types, sep = ": ", collapse = "\n")
+  # TODO: update for collapse()
   cat(class(x$.data)[1], " (query)\n", sep = "")
   cat(fields, "\n", sep = "")
   cat("\n")
@@ -150,6 +152,7 @@ print.arrow_dplyr_query <- function(x, ...) {
       sep = ""
     )
   }
+  # TODO: update for collapse()
   cat("See $.data for the source Arrow object\n")
   invisible(x)
 }
@@ -163,6 +166,7 @@ dim.arrow_dplyr_query <- function(x) {
   cols <- length(names(x))
 
   if (isTRUE(x$filtered)) {
+    # TODO: update for collapse()
     rows <- x$.data$num_rows
   } else {
     rows <- Scanner$create(x)$CountRows()
@@ -236,4 +240,5 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
+# TODO: update for collapse()
 query_on_dataset <- function(x) !inherits(x$.data, "InMemoryDataset")

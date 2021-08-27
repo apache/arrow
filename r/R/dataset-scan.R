@@ -82,6 +82,7 @@ Scanner$create <- function(dataset,
   }
 
   if (inherits(dataset, "arrow_dplyr_query")) {
+    # TODO: update for collapse()
     if (inherits(dataset$.data, "ArrowTabular")) {
       # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
       dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
