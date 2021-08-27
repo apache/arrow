@@ -33,13 +33,27 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// Scalar represents a single value of a specific DataType as opposed to
+// an array.
+//
+// Scalars are useful for passing single value inputs to compute functions
+// (not yet implemented) or for representing individual array elements,
+// (with a non-trivial cost though).
 type Scalar interface {
 	fmt.Stringer
+	// IsValid returns true if the value is non-null, otherwise false.
 	IsValid() bool
+	// The datatype of the value in this scalar
 	DataType() arrow.DataType
+	// Performs cheap validation checks, returns nil if successful
 	Validate() error
+	// Perform more expensive validation checks, returns nil if successful
 	ValidateFull() error
+	// Cast the value to the desired DataType (returns an error if unable to do so)
+	// should take semantics into account and modify the value accordingly.
 	CastTo(arrow.DataType) (Scalar, error)
+
+	// internal only functions for delegation
 	value() interface{}
 	equals(Scalar) bool
 	//TODO(zeroshade): approxEquals
@@ -364,6 +378,7 @@ func convertToNumeric(v reflect.Value, to reflect.Type, fn reflect.Value) Scalar
 	return fn.Call([]reflect.Value{v.Convert(to)})[0].Interface().(Scalar)
 }
 
+// MakeNullScalar creates a scalar value of the desired type representing a null value
 func MakeNullScalar(dt arrow.DataType) Scalar {
 	return makeNullFn[byte(dt.ID()&0x1f)](dt)
 }
@@ -429,6 +444,8 @@ func init() {
 	numericMap[arrow.FLOAT16] = f
 }
 
+// GetScalar creates a scalar object from the value at a given index in the
+// passed in array, returns an error if unable to do so.
 func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 	switch arr := arr.(type) {
 	case *array.Binary:

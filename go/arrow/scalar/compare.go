@@ -20,6 +20,8 @@ import "github.com/apache/arrow/go/arrow"
 
 //TODO(zeroshade): approxequals
 
+// Equals returns true if two scalars are equal, which means they have the same
+// datatype, validity and value.
 func Equals(left, right Scalar) bool {
 	if left == right {
 		return true

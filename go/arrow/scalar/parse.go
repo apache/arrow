@@ -28,6 +28,12 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// MakeScalarParam is for converting a value to a scalar when it requires a
+// parameterized data type such as a time type that needs units, or a fixed
+// size list which needs it's size.
+//
+// Will fall back to MakeScalar without the passed in type if not one of the
+// parameterized types.
 func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 	switch v := val.(type) {
 	case []byte:
@@ -85,6 +91,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 	return MakeScalar(val), nil
 }
 
+// MakeScalar creates a scalar of the passed in type via reflection.
 func MakeScalar(val interface{}) Scalar {
 	switch v := val.(type) {
 	case nil:
@@ -148,6 +155,8 @@ func MakeScalar(val interface{}) Scalar {
 	panic(xerrors.Errorf("makescalar not implemented for type value %#v", val))
 }
 
+// MakeIntegerScalar is a helper function for creating an integer scalar of a
+// given bitsize.
 func MakeIntegerScalar(v int64, bitsize int) (Scalar, error) {
 	switch bitsize {
 	case 8:
@@ -162,6 +171,8 @@ func MakeIntegerScalar(v int64, bitsize int) (Scalar, error) {
 	return nil, xerrors.Errorf("invalid bitsize for integer scalar: %d", bitsize)
 }
 
+// MakeUnsignedIntegerScalar is a helper function for creating an unsigned int
+// scalar of the specified bit width.
 func MakeUnsignedIntegerScalar(v uint64, bitsize int) (Scalar, error) {
 	switch bitsize {
 	case 8:
@@ -176,6 +187,8 @@ func MakeUnsignedIntegerScalar(v uint64, bitsize int) (Scalar, error) {
 	return nil, xerrors.Errorf("invalid bitsize for uint scalar: %d", bitsize)
 }
 
+// ParseScalar parses a string to create a scalar of the passed in type. Currently
+// does not support any nested types such as Structs or Lists.
 func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 	switch dt.ID() {
 	case arrow.STRING:
