@@ -70,12 +70,12 @@ public class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Creates a new {@link ArrowFlightConnection}.
    *
-   * @param driver        the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory       the {@link AvaticaFactory} to use.
-   * @param url           the URL to establish the connection.
-   * @param propertyManager       the {@link PropertyManager} for this connection.
-   * @param allocator     the {@link BufferAllocator} to use.
-   * @param clientHandler the {@link FlightClientHandler} to use.
+   * @param driver          the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory         the {@link AvaticaFactory} to use.
+   * @param url             the URL to establish the connection.
+   * @param propertyManager the {@link PropertyManager} for this connection.
+   * @param allocator       the {@link BufferAllocator} to use.
+   * @param clientHandler   the {@link FlightClientHandler} to use.
    */
   protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
                                   final String url, final PropertyManager propertyManager,
@@ -84,9 +84,9 @@ public class ArrowFlightConnection extends AvaticaConnection {
         driver,
         factory,
         url,
-        Preconditions.checkNotNull(propertyManager, "Manager cannot be null!").getProperties());
-    this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
-    this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null!");
+        Preconditions.checkNotNull(propertyManager, "Manager cannot be null.").getProperties());
+    this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
+    this.clientHandler = Preconditions.checkNotNull(clientHandler, "Handler cannot be null.");
     this.propertyManager = propertyManager;
   }
 
@@ -101,10 +101,10 @@ public class ArrowFlightConnection extends AvaticaConnection {
    * @return a new {@link ArrowFlightConnection}.
    * @throws SQLException on error.
    */
-  public static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
-                                                          final AvaticaFactory factory,
-                                                          final String url, final Properties info,
-                                                          final BufferAllocator allocator)
+  protected static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
+                                                             final AvaticaFactory factory,
+                                                             final String url, final Properties info,
+                                                             final BufferAllocator allocator)
       throws SQLException {
     final PropertyManager propertyManager = new PropertyManager(info);
     try {
@@ -117,7 +117,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
       return new ArrowFlightConnection(driver, factory, url, propertyManager, allocator, clientHandler);
     } catch (final GeneralSecurityException | IOException e) {
       propertyManager.close();
-      throw AvaticaConnection.HELPER.createException("Failed to establish a valid connection to the Flight Client.", e);
+      throw AvaticaConnection.HELPER.createException("Failed to create a new Flight Client.", e);
     }
   }
 

@@ -40,7 +40,7 @@ import org.apache.arrow.util.Preconditions;
 /**
  * Utility class for creating a client.
  */
-public class ClientCreationUtils {
+public final class ClientCreationUtils {
   private ClientCreationUtils() {
     // Prevent instantiation.
   }
@@ -151,9 +151,9 @@ public class ClientCreationUtils {
                                              final BufferAllocator allocator,
                                              final Collection<FlightClientMiddleware.Factory> middlewareFactories)
       throws GeneralSecurityException, IOException {
-    Preconditions.checkNotNull(host, "Host cannot be null!");
-    Preconditions.checkNotNull(allocator, "Allocator cannot be null!");
-    Preconditions.checkNotNull(middlewareFactories, "Middleware factories cannot be null!");
+    Preconditions.checkNotNull(host, "Host cannot be null.");
+    Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
+    Preconditions.checkNotNull(middlewareFactories, "Middleware factories cannot be null!.");
     FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
     middlewareFactories.forEach(clientBuilder::intercept);
     Location location;
