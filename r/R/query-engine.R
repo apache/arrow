@@ -68,13 +68,22 @@ ExecPlan <- R6Class("ExecPlan",
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
-      node <- self$Scan(.data)
+      if (inherits(.data$.data, "arrow_dplyr_query")) {
+        # We have a nested query. Recurse.
+        node <- self$Build(.data$.data)
+      } else {
+        node <- self$Scan(.data)
+      }
+
       # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
       if (inherits(.data$filtered_rows, "Expression")) {
         node <- node$Filter(.data$filtered_rows)
       }
-      # If any columns are derived we need to Project (otherwise this may be no-op)
-      node <- node$Project(c(.data$selected_columns, .data$temp_columns))
+      # If any columns are derived, reordered, or renamed we need to Project
+      projection <- c(.data$selected_columns, .data$temp_columns)
+      if (!isTRUE(all.equal(projection, make_field_refs(names(.data$.data$schema))))) {
+        node <- node$Project(projection)
+      }
 
       if (length(.data$aggregations)) {
         if (grouped) {

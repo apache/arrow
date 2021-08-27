@@ -72,14 +72,13 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # Should we: mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
+  # TODO: Should summarize just record the aggregations and leave this projection etc. to do_exec_plan?
   # Now, from that, split out the data (expressions) and options
   .data$aggregations <- lapply(results, function(x) x[c("fun", "options")])
-
   inputs <- lapply(results, function(x) x$data)
-  # This is essentially a projection, and the column names don't matter
-  # (but must exist)
-  names(inputs) <- as.character(seq_along(inputs))
+  # TODO: validate that none of names(inputs) are the same as names(group_by_vars)
+  # dplyr does not error on this but the result it gives isn't great
   .data$selected_columns <- c(inputs, .data$selected_columns[.data$group_by_vars])
 
-  .data
+  do_collapse(.data)
 }

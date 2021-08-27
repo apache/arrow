@@ -816,6 +816,10 @@ FixedSizeListType__list_size <- function(type) {
   .Call(`_arrow_FixedSizeListType__list_size`, type)
 }
 
+compute___expr__equals <- function(lhs, rhs) {
+  .Call(`_arrow_compute___expr__equals`, lhs, rhs)
+}
+
 compute___expr__call <- function(func_name, argument_list, options) {
   .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
@@ -1767,4 +1771,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

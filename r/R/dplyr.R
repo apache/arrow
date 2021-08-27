@@ -43,18 +43,21 @@ arrow_dplyr_query <- function(.data) {
     ))
   }
 
+  .adq(.data)
+}
+
+.adq <- function(.data) {
+  if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
+    .data <- InMemoryDataset$create(.data)
+  }
   structure(
     list(
-      .data = if (inherits(.data, "Dataset")) {
-        .data$clone()
-      } else {
-        InMemoryDataset$create(.data)
-      },
+      .data = .data,
       # selected_columns is a named list:
       # * contents are references/expressions pointing to the data
       # * names are the names they should be in the end (i.e. this
       #   records any renaming)
-      selected_columns = make_field_refs(names(.data)),
+      selected_columns = make_field_refs(names(.data$schema)),
       # filtered_rows will be an Expression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
@@ -73,6 +76,29 @@ arrow_dplyr_query <- function(.data) {
     ),
     class = "arrow_dplyr_query"
   )
+}
+
+do_collapse <- function(.data) {
+  .data$schema <- implicit_schema(.data)
+  .adq(.data)
+}
+
+implicit_schema <- function(.data) {
+  # c(.data$group_by_vars, names(.data$aggregations))
+  .data <- ensure_group_vars(.data)
+  old_schm <- .data$.data$schema
+  new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
+  if (is.null(.data$aggregations)) {
+    return(schema(!!!new_fields))
+  }
+  # * Put group_by_vars first (this can't be done by summarize, they have to be last per the aggregate node signature, and they get projected to this order after aggregation)
+  # * Infer the output types from the aggregations
+  group_fields <- new_fields[.data$group_by_vars]
+  agg_fields <- imap(
+    new_fields[setdiff(names(new_fields), .data$group_by_vars)],
+    ~ output_type(.data$aggregations[[.y]][["fun"]], .x)
+  )
+  schema(!!!c(group_fields, agg_fields))
 }
 
 make_field_refs <- function(field_names) {

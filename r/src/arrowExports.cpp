@@ -3176,6 +3176,22 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+bool compute___expr__equals(const std::shared_ptr<compute::Expression>& lhs, const std::shared_ptr<compute::Expression>& rhs);
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(compute___expr__equals(lhs, rhs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_compute___expr__equals(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call compute___expr__equals(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
 extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
 BEGIN_CPP11
@@ -7240,6 +7256,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
+		{ "_arrow_compute___expr__equals", (DL_FUNC) &_arrow_compute___expr__equals, 2}, 
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
 		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
 		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 

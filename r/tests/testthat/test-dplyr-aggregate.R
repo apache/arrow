@@ -314,14 +314,14 @@ test_that("Do things after summarize", {
     pull() %>%
     tail(1)
 
-  skip("WIP")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
       filter(int > 5) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
       filter(total == group2_sum) %>%
-      collect() %>% print(),
+      mutate(extra = total * 5) %>%
+      collect(),
     tbl
   )
 })
