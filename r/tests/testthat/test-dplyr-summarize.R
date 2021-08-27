@@ -343,7 +343,7 @@ test_that("Expressions on aggregations", {
     tbl
   )
   # More concisely:
-  skip("Not implemented")
+  skip("TODO: ARROW-13778")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
