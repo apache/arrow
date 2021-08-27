@@ -125,7 +125,7 @@ table Join {
   /// join relation's output.
   on_expression: Expression (required);
   /// The kind of join to use.
-  join_kind: JoinKind (required);
+  join_kind: JoinKind;
 }
 
 /// Order by relation
