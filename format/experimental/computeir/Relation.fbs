@@ -168,6 +168,7 @@ table SetOperation {
   set_op: SetOpKind;
 }
 
+/// A single column of literal values.
 table LiteralColumn {
   /// The literal values of the column
   elements: [Literal] (required);
