@@ -422,17 +422,25 @@ struct StringTransformExecWithState
 
 #ifdef ARROW_WITH_UTF8PROC
 
-template <typename CodepointTransform>
-struct StringTransformCodepoint : public StringTransformBase {
+struct StringTransformCodepointBase : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
     EnsureLookupTablesFilled();
     return Status::OK();
   }
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    return CodepointTransform::MaxCodeunits(ninputs, input_ncodeunits);
+    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
+    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
+    // However, since we don't support all casings (SpecialCasing.txt) the growth
+    // in bytes is actually only at max 3/2 (as covered by the unittest).
+    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
+    // two code units (even) can grow to 3 code units.
+    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
+};
 
+template <typename CodepointTransform>
+struct StringTransformCodepoint : public StringTransformCodepointBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -445,20 +453,7 @@ struct StringTransformCodepoint : public StringTransformBase {
   }
 };
 
-// struct CaseMappingMixin {
-struct CaseMappingTransform {
-  static int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
-    // Section 5.18 of the Unicode spec claims that the number of codepoints for case
-    // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
-    // However, since we don't support all casings (SpecialCasing.txt) the growth
-    // in bytes is actually only at max 3/2 (as covered by the unittest).
-    // Note that rounding down the 3/2 is ok, since only codepoints encoded by
-    // two code units (even) can grow to 3 code units.
-    return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
-  }
-};
-
-struct UTF8UpperTransform : public CaseMappingTransform {
+struct UTF8UpperTransform : public StringTransformCodepointBase {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -468,7 +463,7 @@ struct UTF8UpperTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Upper = StringTransformExec<Type, StringTransformCodepoint<UTF8UpperTransform>>;
 
-struct UTF8LowerTransform : public CaseMappingTransform {
+struct UTF8LowerTransform : public StringTransformCodepointBase {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
@@ -478,7 +473,7 @@ struct UTF8LowerTransform : public CaseMappingTransform {
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
-struct UTF8SwapCaseTransform : public CaseMappingTransform {
+struct UTF8SwapCaseTransform : public StringTransformCodepointBase {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     if (codepoint <= kMaxCodepointLookup) {
       return lut_swapcase_codepoint[codepoint];
@@ -498,29 +493,20 @@ template <typename Type>
 using UTF8SwapCase =
     StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
 
-struct Utf8CapitalizeTransform : public StringTransformBase {
+struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
-    if (input_string_ncodeunits > 0) {
-      // Get number of code units in first code point
-      uint32_t codepoint = 0;
-      const uint8_t* i = input;
-      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&i, &codepoint))) {
-        return kTransformError;
-      }
-      int64_t codepoint_ncodeunits =
-          std::min(static_cast<int64_t>(i - input), input_string_ncodeunits);
-      if (ARROW_PREDICT_FALSE(
-              !util::UTF8Transform(input, input + codepoint_ncodeunits, &output,
-                                   UTF8UpperTransform::TransformCodepoint))) {
-        return kTransformError;
-      }
-      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
-              input + codepoint_ncodeunits, input + input_string_ncodeunits, &output,
-              UTF8LowerTransform::TransformCodepoint))) {
-        return kTransformError;
-      }
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
+      return kTransformError;
+    }
+    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
+      return kTransformError;
+    }
+    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
+      return kTransformError;
     }
     return output - output_start;
   }
@@ -528,6 +514,53 @@ struct Utf8CapitalizeTransform : public StringTransformBase {
 
 template <typename Type>
 using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
+
+struct Utf8TitleTransform: public StringTransformCodepointBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* curr = NULLPTR;
+    uint32_t codepoint = 0;
+
+    do {
+      // Uppercase first alpha character of current word
+      while (input < end) {
+        curr = input;
+        if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&curr, &codepoint))) {
+          return kTransformError;
+        }
+        if (IsCasedCharacterUnicode(codepoint)) {
+          output = util::UTF8Encode(output, UTF8UpperTransform::TransformCodepoint(codepoint));
+          input = curr;
+          break;
+        }
+        output = std::copy(input, curr, output);
+        input = curr;
+      }
+
+      // Lowercase characters until a whitespace is found
+      while (input < end) {
+        curr = input;
+        if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&curr, &codepoint))) {
+          return kTransformError;
+        }
+        if (IsSpaceCharacterUnicode(codepoint)) {
+          output = std::copy(input, curr, output);
+          input = curr;
+          break;
+        }
+        output = util::UTF8Encode(output, UTF8LowerTransform::TransformCodepoint(codepoint));
+        input = curr;
+      }
+    } while (input < end);
+
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using Utf8Title = StringTransformExec<Type, Utf8TitleTransform>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
@@ -669,8 +702,8 @@ struct AsciiCapitalizeTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     if (input_string_ncodeunits > 0) {
-      *output = ascii_toupper(*input);
-      TransformAsciiLower(input + 1, input_string_ncodeunits - 1, output + 1);
+      *output++ = ascii_toupper(*input++);
+      TransformAsciiLower(input, input_string_ncodeunits - 1, output);
     }
     return input_string_ncodeunits;
   }
@@ -682,26 +715,29 @@ using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    const uint8_t* const end = input + input_string_ncodeunits;
-    while (input <= end) {
-      const uint8_t* c_;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* curr = NULLPTR;
+
+    do {
       // Uppercase first alpha character of current word
-      while ((c_ = input++) <= end) {
-        if (IsCasedCharacterAscii(*c_)) {
-          *output++ = ascii_toupper(*c_);
+      while ((curr = input++) < end) {
+        if (IsCasedCharacterAscii(*curr)) {
+          *output++ = ascii_toupper(*curr);
           break;
         }
-        *output++ = *c_;
+        *output++ = *curr;
       }
+
       // Lowercase characters until a whitespace is found
-      while ((c_ = input++) <= end) {
-        if (IsSpaceCharacterAscii(*c_)) {
-          *output++ = *c_;
+      while ((curr = input++) < end) {
+        if (IsSpaceCharacterAscii(*curr)) {
+          *output++ = *curr;
           break;
         }
-        *output++ = ascii_tolower(*c_);
+        *output++ = ascii_tolower(*curr);
       }
-    }
+    } while (input < end);
+
     return input_string_ncodeunits;
   }
 };
@@ -4193,6 +4229,11 @@ const FunctionDoc utf8_capitalize_doc(
      "with the first character uppercased and the others lowercased."),
     {"strings"});
 
+const FunctionDoc utf8_title_doc(
+    "Transform input to a string where the first alpha character in each word is "
+    "uppercase and all other characters are lowercase",
+    ("For each string in `strings`, return a title version."), {"strings"});
+
 const FunctionDoc utf8_reverse_doc(
     "Reverse input",
     ("For each string in `strings`, return a reversed version.\n\n"
@@ -4263,6 +4304,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &utf8_swapcase_doc);
   MakeUnaryStringBatchKernel<Utf8Capitalize>("utf8_capitalize", registry,
                                              &utf8_capitalize_doc);
+  MakeUnaryStringBatchKernel<Utf8Title>("utf8_title", registry, &utf8_title_doc);
   MakeUnaryStringBatchKernel<UTF8TrimWhitespace>("utf8_trim_whitespace", registry,
                                                  &utf8_trim_whitespace_doc);
   MakeUnaryStringBatchKernel<UTF8LTrimWhitespace>("utf8_ltrim_whitespace", registry,
