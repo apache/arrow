@@ -72,7 +72,7 @@ table FieldRef {
   /// this index may be provided to indicate which Relation's fields
   /// `path` points into. For example in the case of a join,
   /// 0 refers to the left relation and 1 to the right relation.
-  relation_index: int;
+  relation_index: int = 0;
 }
 
 /// A canonical (probably SQL equivalent) function
