@@ -67,9 +67,6 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   private final Map<String, Entry<Schema, List<UUID>>> queryResults = new HashMap<>();
   private final Map<UUID, Consumer<ServerStreamListener>> resultProviders = new HashMap<>();
 
-  public MockFlightSqlProducer() {
-  }
-
   /**
    * Adds support for a new query.
    *
