@@ -154,39 +154,39 @@ struct AltrepArrayPrimitive {
   }
 
   // R calls this to get a pointer to the start of the vector data
-  // but only of getting it isn't too much work. Potentially the R
-  // code calling this will prefer going through the vector by region.
+  // but only if this is possible without allocating (in the R sense).
   //
   // For this implementation we can return the data in these cases
+  // - data2 has been created, and so the R sentinels are in place where the array has
+  // nulls
   // - the Array has no nulls, we can directly return the start of its data
-  // - data2 has been created, and so the R sentinels are in place where the array
-  //         has nulls
   //
   // Otherwise: if the array has nulls and data2 has not been generated: give up
   const void* Dataptr_or_null() {
-    if (array_->null_count() == 0) {
-      return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
-    }
-
     if (IsMaterialized()) {
       return DATAPTR_RO(R_altrep_data2(alt_));
+    }
+
+    if (array_->null_count() == 0) {
+      return reinterpret_cast<const void*>(array_->data()->template GetValues<c_type>(1));
     }
 
     return NULL;
   }
 
-  // R calls this to get a pointer to the start of the data, no matter what the cost is.
+  // R calls this to get a pointer to the start of the data, R allocations are allowed.
   //
-  // Again, if the array has no nulls, we can directly return the start of its data.
-  // Otherwise, data2 is created and its DATAPTR() is returned
+  // If the object hasn't been materialized, we only need read-only and the array has no
+  // nulls we can directly point to the array data
+  //
+  // Otherwise, the object is materialized DATAPTR(data2) is returned
   void* Dataptr(Rboolean writeable) {
-    // TODO: understand what writable is about and (probably) don't return
-    //       arrow dats if it's true
-    if (array_->null_count() == 0) {
+    if (!IsMaterialized() && writeable != TRUE && array_->null_count() == 0) {
       return reinterpret_cast<void*>(
           const_cast<c_type*>(array_->data()->template GetValues<c_type>(1)));
     }
 
+    // Otherwise we have to materialize and hand the pointer to data2
     Materialize();
     return DATAPTR(R_altrep_data2(alt_));
   }
