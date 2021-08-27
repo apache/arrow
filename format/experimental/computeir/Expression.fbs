@@ -197,7 +197,7 @@ union ConcreteBoundImpl {
 
 /// Boundary is preceding rows, determined by the contained expression
 table Preceding {
-  ipml: ConcreteBoundImpl (required);
+  impl: ConcreteBoundImpl (required);
 }
 
 /// Boundary is following rows, determined by the contained expression
