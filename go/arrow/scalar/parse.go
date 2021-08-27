@@ -82,70 +82,70 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			return NewMapScalar(v), nil
 		}
 	}
-	return MakeScalar(val)
+	return MakeScalar(val), nil
 }
 
-func MakeScalar(val interface{}) (Scalar, error) {
+func MakeScalar(val interface{}) Scalar {
 	switch v := val.(type) {
 	case nil:
-		return ScalarNull, nil
+		return ScalarNull
 	case bool:
-		return NewBooleanScalar(v), nil
+		return NewBooleanScalar(v)
 	case int8:
-		return NewInt8Scalar(v), nil
+		return NewInt8Scalar(v)
 	case uint8:
-		return NewUint8Scalar(v), nil
+		return NewUint8Scalar(v)
 	case int16:
-		return NewInt16Scalar(v), nil
+		return NewInt16Scalar(v)
 	case uint16:
-		return NewUint16Scalar(v), nil
+		return NewUint16Scalar(v)
 	case int32:
-		return NewInt32Scalar(v), nil
+		return NewInt32Scalar(v)
 	case uint32:
-		return NewUint32Scalar(v), nil
+		return NewUint32Scalar(v)
 	case int64:
-		return NewInt64Scalar(v), nil
+		return NewInt64Scalar(v)
 	case uint64:
-		return NewUint64Scalar(v), nil
+		return NewUint64Scalar(v)
 	case int:
 		// determine size of an int on this system
 		switch bits.UintSize {
 		case 32:
-			return NewInt32Scalar(int32(v)), nil
+			return NewInt32Scalar(int32(v))
 		case 64:
-			return NewInt64Scalar(int64(v)), nil
+			return NewInt64Scalar(int64(v))
 		}
 	case uint:
 		// determine size of an int on this system
 		switch bits.UintSize {
 		case 32:
-			return NewUint32Scalar(uint32(v)), nil
+			return NewUint32Scalar(uint32(v))
 		case 64:
-			return NewUint64Scalar(uint64(v)), nil
+			return NewUint64Scalar(uint64(v))
 		}
 	case []byte:
 		buf := memory.NewBufferBytes(v)
 		defer buf.Release()
-		return NewBinaryScalar(buf, arrow.BinaryTypes.Binary), nil
+		return NewBinaryScalar(buf, arrow.BinaryTypes.Binary)
 	case string:
-		return NewStringScalar(v), nil
+		return NewStringScalar(v)
 	case arrow.Date32:
-		return NewDate32Scalar(v), nil
+		return NewDate32Scalar(v)
 	case arrow.Date64:
-		return NewDate64Scalar(v), nil
+		return NewDate64Scalar(v)
 	case float16.Num:
-		return NewFloat16Scalar(v), nil
+		return NewFloat16Scalar(v)
 	case float32:
-		return NewFloat32Scalar(v), nil
+		return NewFloat32Scalar(v)
 	case float64:
-		return NewFloat64Scalar(v), nil
+		return NewFloat64Scalar(v)
 	case arrow.MonthInterval:
-		return NewMonthIntervalScalar(v), nil
+		return NewMonthIntervalScalar(v)
 	case arrow.DayTimeInterval:
-		return NewDayTimeIntervalScalar(v), nil
+		return NewDayTimeIntervalScalar(v)
 	}
 
-	return nil, xerrors.Errorf("makescalar not implemented for type value %#v", val)
+	panic(xerrors.Errorf("makescalar not implemented for type value %#v", val))
 }
 
 func MakeIntegerScalar(v int64, bitsize int) (Scalar, error) {

@@ -53,8 +53,7 @@ func TestBasic{{.Name}}Scalars(t *testing.T) {
 }
 
 func TestMakeScalar{{.Name}}(t *testing.T) {
-	three, err := scalar.MakeScalar({{.Type}}(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar({{.Type}}(3))	
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.New{{.Name}}Scalar(3), three)
 

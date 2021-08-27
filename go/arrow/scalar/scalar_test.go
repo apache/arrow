@@ -19,7 +19,6 @@ package scalar_test
 import (
 	"bytes"
 	"math/bits"
-	"reflect"
 	"testing"
 	"time"
 
@@ -45,8 +44,7 @@ func assertMakeScalarParam(t *testing.T, expected scalar.Scalar, dt arrow.DataTy
 }
 
 func assertMakeScalar(t *testing.T, expected scalar.Scalar, val interface{}) {
-	out, err := scalar.MakeScalar(val)
-	assert.NoError(t, err)
+	out := scalar.MakeScalar(val)
 	assert.NoError(t, out.Validate())
 	assert.NoError(t, out.ValidateFull())
 	assertScalarsEqual(t, expected, out)
@@ -61,8 +59,7 @@ func assertParseScalar(t *testing.T, dt arrow.DataType, str string, expected sca
 }
 
 func TestMakeScalarInt(t *testing.T) {
-	three, err := scalar.MakeScalar(int(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(int(3))
 	assert.NoError(t, three.ValidateFull())
 
 	var expected scalar.Scalar
@@ -87,8 +84,7 @@ func checkMakeNullScalar(t *testing.T, dt arrow.DataType) scalar.Scalar {
 }
 
 func TestMakeScalarUint(t *testing.T) {
-	three, err := scalar.MakeScalar(uint(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(uint(3))
 	assert.NoError(t, three.ValidateFull())
 
 	var expected scalar.Scalar
@@ -101,46 +97,6 @@ func TestMakeScalarUint(t *testing.T) {
 	assert.Equal(t, expected, three)
 	assertMakeScalar(t, expected, uint(3))
 	assertParseScalar(t, expected.DataType(), "3", expected)
-}
-
-func TestNumericScalars(t *testing.T) {
-	tests := []struct {
-		dt arrow.DataType
-		ty reflect.Type
-	}{
-		{arrow.PrimitiveTypes.Int8, reflect.TypeOf(int8(0))},
-		{arrow.PrimitiveTypes.Int16, reflect.TypeOf(int16(0))},
-		{arrow.PrimitiveTypes.Int32, reflect.TypeOf(int32(0))},
-		{arrow.PrimitiveTypes.Int64, reflect.TypeOf(int64(0))},
-		{arrow.PrimitiveTypes.Uint8, reflect.TypeOf(uint8(0))},
-		{arrow.PrimitiveTypes.Uint16, reflect.TypeOf(uint16(0))},
-		{arrow.PrimitiveTypes.Uint32, reflect.TypeOf(uint32(0))},
-		{arrow.PrimitiveTypes.Uint64, reflect.TypeOf(uint64(0))},
-		{arrow.PrimitiveTypes.Float32, reflect.TypeOf(float32(0))},
-		{arrow.PrimitiveTypes.Float64, reflect.TypeOf(float64(0))},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.dt.Name(), func(t *testing.T) {
-			value := reflect.ValueOf(1).Convert(tt.ty).Interface()
-			sval, err := scalar.MakeScalar(value)
-			assert.NoError(t, err)
-			assert.True(t, sval.IsValid())
-			assert.NoError(t, sval.ValidateFull())
-
-			expectedType := tt.dt
-			assert.True(t, arrow.TypeEqual(expectedType, sval.DataType()))
-
-			otherValue := reflect.ValueOf(2).Convert(tt.ty).Interface()
-			ottherScalar, _ := scalar.MakeScalar(otherValue)
-			assert.False(t, scalar.Equals(sval, ottherScalar))
-
-			nullValue := scalar.MakeNullScalar(tt.dt)
-			assert.False(t, nullValue.IsValid())
-			assert.NoError(t, nullValue.ValidateFull())
-			assert.True(t, scalar.Equals(nullValue, nullValue))
-		})
-	}
 }
 
 func TestBasicDecimal128(t *testing.T) {
@@ -534,10 +490,19 @@ func TestNumericScalarCasts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.ID().String(), func(t *testing.T) {
 			for _, repr := range []string{"0", "1", "3"} {
+				nullTest := scalar.MakeNullScalar(tt)
+				assert.Equal(t, "null", nullTest.String())
+
 				s, err := scalar.ParseScalar(tt, repr)
 				assert.NoError(t, err)
 
 				for _, other := range []arrow.DataType{arrow.PrimitiveTypes.Float32, arrow.PrimitiveTypes.Int8, arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Uint32} {
+					otherNull, err := nullTest.CastTo(other)
+					assert.NoError(t, err)
+
+					expectedNull := scalar.MakeNullScalar(other)
+					assert.True(t, scalar.Equals(otherNull, expectedNull))
+
 					otherScalar, err := scalar.ParseScalar(other, repr)
 					assert.NoError(t, err)
 
@@ -559,7 +524,8 @@ func TestNumericScalarCasts(t *testing.T) {
 				assert.NoError(t, err)
 
 				assert.True(t, scalar.Equals(castFromStr, s))
-				if tt == arrow.FixedWidthTypes.Float16 || tt == arrow.PrimitiveTypes.Float32 || tt == arrow.PrimitiveTypes.Float64 {
+				assert.Equal(t, repr, s.String())
+				if tt == arrow.FixedWidthTypes.Float16 {
 					continue
 				}
 
@@ -568,6 +534,10 @@ func TestNumericScalarCasts(t *testing.T) {
 					assert.NoError(t, err)
 					assert.NoError(t, castToTemporal.ValidateFull())
 					assert.True(t, arrow.TypeEqual(tmtyp, castToTemporal.DataType()))
+				}
+
+				if tt == arrow.PrimitiveTypes.Float32 || tt == arrow.PrimitiveTypes.Float64 {
+					continue
 				}
 
 				castToStr, err := s.CastTo(arrow.BinaryTypes.String)
@@ -689,4 +659,79 @@ func TestMapScalarBasics(t *testing.T) {
 	assert.True(t, array.ArrayEqual(value, s.Value))
 
 	checkMakeNullScalar(t, expectedScalarType)
+}
+
+func TestStructScalar(t *testing.T) {
+	abc := scalar.NewStructScalar([]scalar.Scalar{
+		scalar.MakeScalar(true),
+		scalar.MakeNullScalar(arrow.PrimitiveTypes.Int32),
+		scalar.MakeScalar("hello"),
+		scalar.MakeNullScalar(arrow.PrimitiveTypes.Int64),
+	}, arrow.StructOf(
+		arrow.Field{Name: "a", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "c", Type: arrow.BinaryTypes.String, Nullable: true},
+		arrow.Field{Name: "d", Type: arrow.PrimitiveTypes.Int64, Nullable: true}))
+
+	assert.NoError(t, abc.Validate())
+	assert.NoError(t, abc.ValidateFull())
+
+	a, err := abc.Field("a")
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(a, abc.Value[0]))
+
+	_, err = abc.Field("f")
+	assert.Error(t, err)
+
+	d, err := abc.Field("d")
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(scalar.MakeNullScalar(arrow.PrimitiveTypes.Int64), d))
+	assert.False(t, scalar.Equals(scalar.MakeScalar(int64(12)), d))
+
+	abc2, err := scalar.NewStructScalarWithNames(abc.Value, []string{"a", "b", "c", "d"})
+	assert.NoError(t, err)
+	assert.True(t, scalar.Equals(abc, abc2))
+}
+
+func TestNullStructScalar(t *testing.T) {
+	ty := arrow.StructOf(
+		arrow.Field{Name: "a", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		arrow.Field{Name: "c", Type: arrow.BinaryTypes.String, Nullable: true},
+		arrow.Field{Name: "d", Type: arrow.PrimitiveTypes.Int64, Nullable: true})
+	nullScalar := scalar.MakeNullScalar(ty)
+	assert.NoError(t, nullScalar.ValidateFull())
+	assert.False(t, nullScalar.IsValid())
+
+	sc := checkMakeNullScalar(t, ty)
+	assert.True(t, scalar.Equals(nullScalar, sc))
+}
+
+func TestStructScalarValidateErrors(t *testing.T) {
+	ty := arrow.StructOf(arrow.Field{Name: "a", Type: arrow.BinaryTypes.String})
+
+	// inconsistent isvalid value
+	sc := scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("hello")}, ty)
+	sc.Valid = false
+	assert.Error(t, sc.ValidateFull())
+
+	sc = scalar.NewStructScalar(nil, ty)
+	sc.Valid = true
+	assert.Error(t, sc.ValidateFull())
+
+	// inconsistent number of fields
+	sc = scalar.NewStructScalar([]scalar.Scalar{}, ty)
+	assert.Error(t, sc.ValidateFull())
+
+	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("foo"), scalar.MakeScalar("bar")}, ty)
+	assert.Error(t, sc.ValidateFull())
+
+	// inconsistent child value type
+	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar(42)}, ty)
+	assert.Error(t, sc.ValidateFull())
+
+	// child value has invalid utf8 data
+	sc = scalar.NewStructScalar([]scalar.Scalar{scalar.MakeScalar("\xff")}, ty)
+	assert.NoError(t, sc.Validate())
+	assert.Error(t, sc.ValidateFull())
 }

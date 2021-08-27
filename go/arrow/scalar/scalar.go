@@ -213,6 +213,8 @@ func (f *Float16) CastTo(to arrow.DataType) (Scalar, error) {
 
 	if to.ID() == arrow.BOOL {
 		return NewBooleanScalar(f.Value.Uint16() != 0), nil
+	} else if to.ID() == arrow.STRING {
+		return NewStringScalar(f.Value.String()), nil
 	}
 
 	return nil, xerrors.Errorf("cannot cast non-null float16 scalar to type %s", to)

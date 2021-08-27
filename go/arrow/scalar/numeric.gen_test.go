@@ -53,8 +53,7 @@ func TestBasicInt8Scalars(t *testing.T) {
 }
 
 func TestMakeScalarInt8(t *testing.T) {
-	three, err := scalar.MakeScalar(int8(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(int8(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewInt8Scalar(3), three)
 
@@ -89,8 +88,7 @@ func TestBasicInt16Scalars(t *testing.T) {
 }
 
 func TestMakeScalarInt16(t *testing.T) {
-	three, err := scalar.MakeScalar(int16(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(int16(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewInt16Scalar(3), three)
 
@@ -125,8 +123,7 @@ func TestBasicInt32Scalars(t *testing.T) {
 }
 
 func TestMakeScalarInt32(t *testing.T) {
-	three, err := scalar.MakeScalar(int32(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(int32(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewInt32Scalar(3), three)
 
@@ -161,8 +158,7 @@ func TestBasicInt64Scalars(t *testing.T) {
 }
 
 func TestMakeScalarInt64(t *testing.T) {
-	three, err := scalar.MakeScalar(int64(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(int64(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewInt64Scalar(3), three)
 
@@ -197,8 +193,7 @@ func TestBasicUint8Scalars(t *testing.T) {
 }
 
 func TestMakeScalarUint8(t *testing.T) {
-	three, err := scalar.MakeScalar(uint8(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(uint8(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewUint8Scalar(3), three)
 
@@ -233,8 +228,7 @@ func TestBasicUint16Scalars(t *testing.T) {
 }
 
 func TestMakeScalarUint16(t *testing.T) {
-	three, err := scalar.MakeScalar(uint16(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(uint16(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewUint16Scalar(3), three)
 
@@ -269,8 +263,7 @@ func TestBasicUint32Scalars(t *testing.T) {
 }
 
 func TestMakeScalarUint32(t *testing.T) {
-	three, err := scalar.MakeScalar(uint32(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(uint32(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewUint32Scalar(3), three)
 
@@ -305,8 +298,7 @@ func TestBasicUint64Scalars(t *testing.T) {
 }
 
 func TestMakeScalarUint64(t *testing.T) {
-	three, err := scalar.MakeScalar(uint64(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(uint64(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewUint64Scalar(3), three)
 
@@ -341,8 +333,7 @@ func TestBasicFloat32Scalars(t *testing.T) {
 }
 
 func TestMakeScalarFloat32(t *testing.T) {
-	three, err := scalar.MakeScalar(float32(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(float32(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewFloat32Scalar(3), three)
 
@@ -377,8 +368,7 @@ func TestBasicFloat64Scalars(t *testing.T) {
 }
 
 func TestMakeScalarFloat64(t *testing.T) {
-	three, err := scalar.MakeScalar(float64(3))
-	assert.NoError(t, err)
+	three := scalar.MakeScalar(float64(3))
 	assert.NoError(t, three.ValidateFull())
 	assert.Equal(t, scalar.NewFloat64Scalar(3), three)
 

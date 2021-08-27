@@ -163,6 +163,15 @@ type Struct struct {
 	Value Vector
 }
 
+func (s *Struct) Field(name string) (Scalar, error) {
+	idx, ok := s.Type.(*arrow.StructType).FieldIdx(name)
+	if !ok {
+		return nil, xerrors.Errorf("no field named %s found in struct scalar %s", name, s.Type)
+	}
+
+	return s.Value[idx], nil
+}
+
 func (s *Struct) value() interface{} { return s.Value }
 
 func (s *Struct) String() string {
