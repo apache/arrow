@@ -46,13 +46,6 @@ DatumVector GetDatums(const std::vector<T>& inputs) {
   return datums;
 }
 
-void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
-                             const Datum& expected, const FunctionOptions* options) {
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
-  ValidateOutput(out);
-  AssertDatumsEqual(expected, out, /*verbose=*/true);
-}
-
 template <typename... SliceArgs>
 DatumVector SliceArrays(const DatumVector& inputs, SliceArgs... slice_args) {
   DatumVector sliced;
@@ -79,6 +72,13 @@ ScalarVector GetScalars(const DatumVector& inputs, int64_t index) {
 }
 
 }  // namespace
+
+void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
+                             const Datum& expected, const FunctionOptions* options) {
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
+  ValidateOutput(out);
+  AssertDatumsEqual(expected, out, /*verbose=*/true);
+}
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
