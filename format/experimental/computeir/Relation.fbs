@@ -149,8 +149,12 @@ table OrderBy {
 /// Limit operation
 table Limit {
   base: RelBase (required);
+
+  /// Starting index of rows
+  offset: uint32;
+
   /// The maximum number of rows of output.
-  count: long;
+  count: uint32;
 }
 
 /// Common table expresssion
