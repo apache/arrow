@@ -21,19 +21,12 @@ import static org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtil
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map.Entry;
-import java.util.Set;
 
-import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
-import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 
@@ -66,71 +59,6 @@ public final class ClientCreationUtils {
     return createNewClient(
         host, port, keyStorePath, keyStorePassword, useTls,
         allocator, Arrays.asList(middlewareFactories));
-  }
-
-  /**
-   * Creates and get a new {@link FlightClient} and its {@link CallOption}s.
-   *
-   * @param host      the host.
-   * @param port      the port.
-   * @param username  the username.
-   * @param password  the password.
-   * @param allocator the {@link BufferAllocator}.
-   * @param useTls    whether to use TLS encryption.
-   * @param options   the {@code CallOption}s.
-   * @return a new {@code FlightClient} and its {@code CallOption}s.
-   * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
-   */
-  public static Entry<FlightClient, CallOption[]> createAndGetClientInfo(final String host, final int port,
-                                                                         final String username, final String password,
-                                                                         final String keyStorePath,
-                                                                         final String keyStorePassword,
-                                                                         final BufferAllocator allocator,
-                                                                         final boolean useTls,
-                                                                         final CallOption... options)
-      throws GeneralSecurityException, IOException {
-    return createAndGetClientInfo(
-        host, port, username, password,
-        keyStorePath, keyStorePassword,
-        allocator, useTls, Arrays.asList(options));
-  }
-
-  /**
-   * Creates and get a new {@link FlightClient} and its {@link CallOption}s.
-   *
-   * @param host      the host.
-   * @param port      the port.
-   * @param username  the username.
-   * @param password  the password.
-   * @param allocator the {@link BufferAllocator}.
-   * @param useTls    whether to use TLS encryption.
-   * @param options   the {@code CallOption}s.
-   * @return a new {@code FlightClient} and its {@code CallOption}s.
-   * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
-   */
-  public static Entry<FlightClient, CallOption[]> createAndGetClientInfo(final String host, final int port,
-                                                                         final String username, final String password,
-                                                                         final String keyStorePath,
-                                                                         final String keyStorePassword,
-                                                                         final BufferAllocator allocator,
-                                                                         final boolean useTls,
-                                                                         final Collection<CallOption> options)
-      throws GeneralSecurityException, IOException {
-    final Set<CallOption> theseOptions = new HashSet<>(options);
-    final FlightClient client;
-    if (username != null) {
-      final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
-          new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
-      client =
-          ClientCreationUtils.createNewClient(
-              host, port, keyStorePath, keyStorePassword, useTls, allocator, authFactory);
-      theseOptions.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
-    } else {
-      client = ClientCreationUtils.createNewClient(host, port, keyStorePath, keyStorePassword, useTls, allocator);
-    }
-    return new SimpleImmutableEntry<>(client, theseOptions.toArray(new CallOption[0]));
   }
 
   /**

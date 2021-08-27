@@ -24,11 +24,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
+import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.driver.jdbc.client.utils.ClientCreationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -36,6 +36,8 @@ import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -48,20 +50,10 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
 
   private final FlightSqlClient sqlClient;
 
-  public ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
-                                     final CallOption... options) {
+  ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
+                              final Collection<CallOption> options) {
     super(options);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
-  }
-
-  /**
-   * Creates a new {@link ArrowFlightSqlClientHandler} from the provided {@code clientInfo}.
-   *
-   * @param clientInfo the {@link FlightClient} to manage along with {@link CallOption}s to use in subsequent calls.
-   * @return a new {@link FlightClientHandler}.
-   */
-  public static ArrowFlightSqlClientHandler createNewHandler(final Entry<FlightClient, CallOption[]> clientInfo) {
-    return createNewHandler(clientInfo.getKey(), clientInfo.getValue());
   }
 
   /**
@@ -71,7 +63,8 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
    * @return a new {@link FlightClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client, final CallOption... options) {
+  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
+                                                             final Collection<CallOption> options) {
     return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), options);
   }
 
@@ -250,9 +243,18 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
       try {
-        final Entry<FlightClient, CallOption[]> clientInfo = ClientCreationUtils.createAndGetClientInfo(
-            host, port, username, password, keyStorePath, keyStorePassword, allocator, useTls);
-        return ArrowFlightSqlClientHandler.createNewHandler(clientInfo.getKey(), clientInfo.getValue());
+        FlightClient client;
+        if (username != null) {
+          final ClientIncomingAuthHeaderMiddleware.Factory authFactory =
+              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+          client =
+              ClientCreationUtils.createNewClient(
+                  host, port, keyStorePath, keyStorePassword, useTls, allocator, authFactory);
+          options.add(ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
+        } else {
+          client = ClientCreationUtils.createNewClient(host, port, keyStorePath, keyStorePassword, useTls, allocator);
+        }
+        return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final GeneralSecurityException | IOException e) {
         throw new SQLException(e);
       }
