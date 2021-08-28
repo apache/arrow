@@ -2748,8 +2748,24 @@ struct StrRepeatTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
-    for (int i = 0; i < options->repeats; ++i) {
-      output = std::copy(input, input + input_string_ncodeunits, output);
+
+    if (options->repeats < 4) {
+      // Naive for-loop
+      for (auto i = 0; i < options->repeats; ++i) {
+        output = std::copy(input, input + input_string_ncodeunits, output);
+      }
+    } else {
+      auto N = options->repeats;
+      auto L = input_string_ncodeunits;
+      auto i = 1;
+      // log(N) approach
+      output = std::copy(input, input + L, output);
+      for (auto iL = L; i <= (N >> 1); i <<= 1, iL <<= 1) {
+        output = std::copy(output_start, output_start + iL, output);
+      }
+      // Epilogue remainder
+      auto rem = (N ^ i) * L;
+      output = std::copy(output_start, output_start + rem, output);
     }
     return output - output_start;
   }
