@@ -1,1 +1,0 @@
-../../../cpp/src/arrow/c/helpers.h
