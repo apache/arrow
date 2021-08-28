@@ -20,7 +20,7 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public static class ArrowArrayDataConcatenator
+    public static class ArrayDataConcatenator
     {
         public static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
         {
@@ -34,7 +34,7 @@ namespace Apache.Arrow
                 return arrayDataList[0];
             }
 
-            var arrowArrayConcatinateVisitor = new ArrowArrayDataConcatinateVisitor(arrayDataList, allocator);
+            var arrowArrayConcatinateVisitor = new ArrayDataConcatinationVisitor(arrayDataList, allocator);
 
             IArrowType type = arrayDataList[0].DataType;
             type.Accept(arrowArrayConcatinateVisitor);
@@ -42,7 +42,7 @@ namespace Apache.Arrow
             return arrowArrayConcatinateVisitor.Result;
         }
 
-        private class ArrowArrayDataConcatinateVisitor :
+        private class ArrayDataConcatinationVisitor :
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<FixedWidthType>,
             IArrowTypeVisitor<BinaryType>,
@@ -56,7 +56,7 @@ namespace Apache.Arrow
             private readonly int _totalNullCount;
             private readonly MemoryAllocator _allocator;
 
-            public ArrowArrayDataConcatinateVisitor(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+            public ArrayDataConcatinationVisitor(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
             {
                 _arrayDataList = arrayDataList;
                 _allocator = allocator;
@@ -95,7 +95,7 @@ namespace Apache.Arrow
                 CheckData(type, 2);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
                 ArrowBuffer offsetBuffer = ConcateneteOffsetBuffer();
-                ArrayData child = ArrowArrayDataConcatenator.Concatenate(SelectChildren(0), _allocator);
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
             }
@@ -107,7 +107,7 @@ namespace Apache.Arrow
 
                 for (int i = 0; i < type.Fields.Count; i++)
                 {
-                    children.Add(ArrowArrayDataConcatenator.Concatenate(SelectChildren(i), _allocator));
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
                 }
 
                 Result = new ArrayData(type, _arrayDataList[0].Length, _arrayDataList[0].NullCount, 0, _arrayDataList[0].Buffers, children);

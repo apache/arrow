@@ -13,33 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Memory;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using Apache.Arrow.Types;
+using Xunit;
 
-namespace Apache.Arrow
+namespace Apache.Arrow.Tests
 {
-    public static class ArrowArrayConcatenator
+    public class ArrayDataConcatenatorTests
     {
-        public static IArrowArray Concatenate(IReadOnlyList<IArrowArray> arrowArrayList , MemoryAllocator allocator = default)
+        [Fact]
+        public void TestNullOrEmpty()
         {
-            if(arrowArrayList == null || arrowArrayList.Count == 0)
-            {
-                return null;
-            }
+            Assert.Null(ArrayDataConcatenator.Concatenate(null));
+            Assert.Null(ArrayDataConcatenator.Concatenate(new List<ArrayData>()));
+        }
 
-            if (arrowArrayList.Count == 1)
-            {
-                return arrowArrayList[0];
-            }
-
-            var arrayDataList = new List<ArrayData>(arrowArrayList.Count);
-
-            foreach(IArrowArray array in arrowArrayList)
-            {
-                arrayDataList.Add(array.Data);
-            }
-
-            return ArrowArrayFactory.BuildArray(ArrayDataConcatenator.Concatenate(arrayDataList, allocator));
+        [Fact]
+        public void TestSingleElement()
+        {
+            Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
+            ArrayData actualArray = ArrayDataConcatenator.Concatenate(new [] { array.Data });
+            ArrowReaderVerifier.CompareArrays(array, ArrowArrayFactory.BuildArray(actualArray));
         }
     }
 }

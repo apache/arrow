@@ -24,7 +24,7 @@ namespace Apache.Arrow.Tests
     public class ArrowArrayConcatenatorTests
     {
         [Fact]
-        public void NormalConcatenateTest()
+        public void TestStandardCases()
         {
             foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData())
             {
@@ -34,14 +34,14 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void NullOrEmptyConcatenateTest()
+        public void TestNullOrEmpty()
         {
             Assert.Null(ArrowArrayConcatenator.Concatenate(null));
             Assert.Null(ArrowArrayConcatenator.Concatenate(new List<IArrowArray>()));
         }
 
         [Fact]
-        public void SingleConcatenateTest()
+        public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
             IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(new [] { array });
