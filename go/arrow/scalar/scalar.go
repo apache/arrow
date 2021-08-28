@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/internal/debug"
@@ -530,4 +531,82 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 	}
 
 	return nil, xerrors.Errorf("cannot create scalar from array of type %s", arr.DataType())
+}
+
+// MakeArrayOfNull creates an array of size length which is all null of the given data type.
+func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) array.Interface {
+	nullBuf := memory.NewResizableBuffer(mem)
+	nullBuf.Resize(int(bitutil.BytesForBits(int64(length))))
+	defer nullBuf.Release()
+	memory.Set(nullBuf.Bytes(), 0xFF)
+
+	data := array.NewData(dt, length, []*memory.Buffer{nullBuf, nil}, nil, length, 0)
+	defer data.Release()
+	return array.MakeFromData(data)
+}
+
+// MakeArrayFromScalar returns an array filled with the scalar value repeated length times.
+// Not yet implemented for nested types such as Struct, List, extension and so on.
+func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Interface, error) {
+	if !sc.IsValid() {
+		return MakeArrayOfNull(sc.DataType(), length, mem), nil
+	}
+
+	createOffsets := func(valLength int32) *memory.Buffer {
+		buffer := memory.NewResizableBuffer(mem)
+		buffer.Resize(arrow.Int32Traits.BytesRequired(length + 1))
+
+		out := arrow.Int32Traits.CastFromBytes(buffer.Bytes())
+		for i, offset := 0, int32(0); i < length+1; i, offset = i+1, offset+valLength {
+			out[i] = offset
+		}
+		return buffer
+	}
+
+	createBuffer := func(data []byte) *memory.Buffer {
+		buffer := memory.NewResizableBuffer(mem)
+		buffer.Resize(len(data) * length)
+
+		out := buffer.Bytes()
+		copy(out, data)
+		for j := len(data); j < len(out); j *= 2 {
+			copy(out[j:], out[:j])
+		}
+		return buffer
+	}
+
+	finishFixedWidth := func(data []byte) *array.Data {
+		buffer := createBuffer(data)
+		return array.NewData(sc.DataType(), length, []*memory.Buffer{nil, buffer}, nil, 0, 0)
+	}
+
+	switch s := sc.(type) {
+	case *Boolean:
+		data := memory.NewResizableBuffer(mem)
+		data.Resize(int(bitutil.BytesForBits(int64(length))))
+		c := byte(0x00)
+		if s.Value {
+			c = 0xFF
+		}
+		memory.Set(data.Bytes(), c)
+		return array.NewBoolean(length, data, nil, 0), nil
+	case BinaryScalar:
+		if s.DataType().ID() == arrow.FIXED_SIZE_BINARY {
+			data := finishFixedWidth(s.Data())
+			defer data.Release()
+			return array.MakeFromData(data), nil
+		}
+
+		valuesBuf := createBuffer(s.Data())
+		offsetsBuf := createOffsets(int32(len(s.Data())))
+		data := array.NewData(sc.DataType(), length, []*memory.Buffer{nil, offsetsBuf, valuesBuf}, nil, 0, 0)
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	case PrimitiveScalar:
+		data := finishFixedWidth(s.Data())
+		defer data.Release()
+		return array.MakeFromData(data), nil
+	default:
+		return nil, xerrors.Errorf("array from scalar not yet implemented for type %s", sc.DataType())
+	}
 }
