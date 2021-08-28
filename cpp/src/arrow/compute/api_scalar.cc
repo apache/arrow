@@ -648,6 +648,10 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
   return CallFunction("assume_timezone", {arg}, &options, ctx);
 }
 
+Result<Datum> Week(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+  return CallFunction("week", {arg}, &options, ctx);
+}
+
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
   return CallFunction("strftime", {arg}, &options, ctx);
 }

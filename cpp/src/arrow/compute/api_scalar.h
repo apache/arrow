@@ -321,7 +321,7 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
-  /// Number days from 1 if true and from 0 if false
+  /// Number from 1 if true and from 0 if false
   bool one_based_numbering;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
@@ -1017,6 +1017,22 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Week returns week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Year can have 52 or 53 weeks. Week numbering can start with 0 or 1
+/// depending on DayOfWeekOptions.one_based_numbering.
+///
+/// \param[in] values input to extract week of year from
+/// \param[in] options for setting numbering start
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Week(const Datum& values,
+                                DayOfWeekOptions options = DayOfWeekOptions(),
+                                ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
 /// each element of `values`.

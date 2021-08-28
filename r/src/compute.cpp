@@ -339,6 +339,19 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 
+  if (func_name == "week") {
+    using Options = arrow::compute::DayOfWeekOptions;
+    bool one_based_numbering = true;
+    int week_start = 1;
+    if (!Rf_isNull(options["one_based_numbering"])) {
+      one_based_numbering = cpp11::as_cpp<bool>(options["one_based_numbering"]);
+    }
+    if (!Rf_isNull(options["week_start"])) {
+      week_start = cpp11::as_cpp<bool>(options["week_start"]);
+    }
+    return std::make_shared<Options>(one_based_numbering, week_start);
+  }
+
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(

@@ -56,6 +56,8 @@ using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
 using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::thu;
+using arrow_vendored::date::literals::wed;
+using arrow_vendored::date::literals::sun;
 using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
@@ -364,7 +366,7 @@ struct ISOYear {
 // ----------------------------------------------------------------------
 // Extract ISO week from temporal types
 //
-// First week of an ISO year has the majority (4 or more) of it's days in January.
+// First week of an ISO year has the majority (4 or more) of its days in January.
 // Last week of an ISO year has the year's last Thursday in it.
 // Based on
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
@@ -387,6 +389,41 @@ struct ISOWeek {
   }
 
   Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct Week {
+  explicit Week(const DayOfWeekOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)), count_offset_(options->one_based_numbering) {
+    if (options->week_start == 7) {
+      start_week_ = sun;
+      mid_week_ = wed;
+
+    } else {
+      start_week_ = mon;
+      mid_week_ = thu;
+    }
+  }
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
+    auto y = year_month_day{t + days{3}}.year();
+
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) +
+                 (start_week_ - mid_week_);
+    if (t < start) {
+      --y;
+      start = localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) +
+              (start_week_ - mid_week_);
+    }
+    return static_cast<T>(trunc<weeks>(t - start).count() + count_offset_);
+  }
+
+  Localizer localizer_;
+  const int count_offset_;
+  arrow_vendored::date::weekday start_week_;
+  arrow_vendored::date::weekday mid_week_;
 };
 
 // ----------------------------------------------------------------------
@@ -1011,6 +1048,15 @@ const FunctionDoc iso_week_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc week_doc{
+    "Extract week of year number",
+    ("First week has the majority (4 or more) of its days in January.\n"
+     "Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using "
+     "DayOfWeekOptions.one_based_numbering.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"},
+    "DayOfWeekOptions"};
+
 const FunctionDoc iso_calendar_doc{
     "Extract (ISO year, ISO week, ISO day of week) struct",
     ("ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.\n"
@@ -1143,6 +1189,11 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto iso_week = MakeTemporal<ISOWeek, TemporalComponentExtract, Int64Type>(
       "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
+
+  static auto default_week_options = DayOfWeekOptions(false, 1);
+  auto week = MakeTemporal<Week, TemporalComponentExtractDayOfWeek, Int64Type>(
+      "week", int64(), &week_doc, &default_week_options, DayOfWeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(
       "iso_calendar", {WithDates, WithTimestamps}, IsoCalendarType(), &iso_calendar_doc);
