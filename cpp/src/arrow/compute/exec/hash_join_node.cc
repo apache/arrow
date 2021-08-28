@@ -227,7 +227,7 @@ class HashSemiJoinNode : public ExecNode {
         build_result_index = i;
       }
     }
-    ARROW_DCHECK(build_result_index > -1);
+    DCHECK_GT(build_result_index, -1);
   }
 
   // Performs the housekeeping work after the build-side is completed.
