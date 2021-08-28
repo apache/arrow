@@ -323,7 +323,7 @@ constexpr char SplitPatternOptions::kTypeName[];
 
 RepeatOptions::RepeatOptions(int64_t repeats)
     : FunctionOptions(internal::kRepeatOptionsType), repeats(repeats) {}
-RepeatOptions::RepeatOptions() : RepeatOptions(1){};
+RepeatOptions::RepeatOptions() : RepeatOptions(1) {}
 constexpr char RepeatOptions::kTypeName[];
 
 ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
