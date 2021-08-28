@@ -22,6 +22,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/checked_cast.h"
@@ -215,32 +216,104 @@ TEST_P(HashJoinTest, TestSemiJoinstEmpty) {
   RunEmptyTest(std::get<0>(GetParam()), std::get<1>(GetParam()));
 }
 
-template <typename ARROW_T>
-bool VerifySemiJoinOutput(int index_col, const std::vector<ExecBatch>& build_batches,
-                          const std::vector<ExecBatch>& probe_batches,
-                          const std::vector<ExecBatch>& output_batches,
-                          bool anti_join = false) {
-  using T = typename arrow::TypeTraits<ARROW_T>::CType;
-  using ARRAY_T = typename arrow::TypeTraits<ARROW_T>::ArrayType;
-
+template <typename ARROW_T, typename C_TYPE>
+static Status SimpleVerifySemiJoinOutputImpl(int index_col,
+                                             const std::shared_ptr<Schema>& schema,
+                                             const std::vector<ExecBatch>& build_batches,
+                                             const std::vector<ExecBatch>& probe_batches,
+                                             const std::vector<ExecBatch>& output_batches,
+                                             bool anti_join = false) {
   // populate hash set
-  std::unordered_set<T> hash_set;
+  std::unordered_set<C_TYPE> hash_set;
   bool has_null = false;
   for (auto&& b : build_batches) {
     const std::shared_ptr<ArrayData>& arr = b[index_col].array();
     VisitArrayDataInline<ARROW_T>(
-        arr, [&](T val) { hash_set.insert(val); }, [&]() { has_null = true; });
+        *arr, [&](C_TYPE val) { hash_set.insert(val); }, [&]() { has_null = true; });
   }
 
+  // probe hash set
+  RecordBatchVector exp_batches;
+  exp_batches.reserve(probe_batches.size());
+  for (auto&& b : probe_batches) {
+    const std::shared_ptr<ArrayData>& arr = b[index_col].array();
 
+    BooleanBuilder builder;
+    RETURN_NOT_OK(builder.Reserve(arr->length));
+    VisitArrayDataInline<ARROW_T>(
+        *arr,
+        [&](C_TYPE val) {
+          auto res = hash_set.find(val);
+          // setting anti_join, would invert res != hash_set.end()
+          builder.UnsafeAppend(anti_join != (res != hash_set.end()));
+        },
+        [&]() { builder.UnsafeAppend(anti_join != has_null); });
 
-  RecordBatchBuilder
+    ARROW_ASSIGN_OR_RAISE(auto filter, builder.Finish());
 
-      return true;
+    ARROW_ASSIGN_OR_RAISE(auto rec_batch, b.ToRecordBatch(schema));
+    ARROW_ASSIGN_OR_RAISE(auto filtered, Filter(rec_batch, filter));
+
+    exp_batches.push_back(filtered.record_batch());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto exp_table, Table::FromRecordBatches(exp_batches));
+  std::vector<SortKey> sort_keys;
+  for (auto&& f : schema->fields()) {
+    sort_keys.emplace_back(f->name());
+  }
+  ARROW_ASSIGN_OR_RAISE(auto exp_table_sort_ids,
+                        SortIndices(exp_table, SortOptions(sort_keys)));
+  ARROW_ASSIGN_OR_RAISE(auto exp_table_sorted, Take(exp_table, exp_table_sort_ids));
+
+  // create a table from output batches
+  RecordBatchVector output_rbs;
+  for (auto&& b : output_batches) {
+    ARROW_ASSIGN_OR_RAISE(auto rb, b.ToRecordBatch(schema));
+    output_rbs.push_back(std::move(rb));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out_table, Table::FromRecordBatches(output_rbs));
+  ARROW_ASSIGN_OR_RAISE(auto out_table_sort_ids,
+                        SortIndices(exp_table, SortOptions(sort_keys)));
+  ARROW_ASSIGN_OR_RAISE(auto out_table_sorted, Take(exp_table, exp_table_sort_ids));
+
+  AssertTablesEqual(*exp_table_sorted.table(), *out_table_sorted.table(),
+                    /*same_chunk_layout=*/false, /*flatten=*/true);
+
+  return Status::OK();
 }
 
-void TestJoinRandom(const std::shared_ptr<DataType>& data_type, JoinType type,
-                    bool parallel, int num_batches, int batch_size) {
+template <typename T, typename Enable = void>
+struct SimpleVerifySemiJoinOutput {};
+
+template <typename T>
+struct SimpleVerifySemiJoinOutput<T, enable_if_primitive_ctype<T>> {
+  static Status Verify(int index_col, const std::shared_ptr<Schema>& schema,
+                       const std::vector<ExecBatch>& build_batches,
+                       const std::vector<ExecBatch>& probe_batches,
+                       const std::vector<ExecBatch>& output_batches,
+                       bool anti_join = false) {
+    return SimpleVerifySemiJoinOutputImpl<T, typename arrow::TypeTraits<T>::CType>(
+        index_col, schema, build_batches, probe_batches, output_batches, anti_join);
+  }
+};
+
+template <typename T>
+struct SimpleVerifySemiJoinOutput<T, enable_if_base_binary<T>> {
+  static Status Verify(int index_col, const std::shared_ptr<Schema>& schema,
+                       const std::vector<ExecBatch>& build_batches,
+                       const std::vector<ExecBatch>& probe_batches,
+                       const std::vector<ExecBatch>& output_batches,
+                       bool anti_join = false) {
+    return SimpleVerifySemiJoinOutputImpl<T, util::string_view>(
+        index_col, schema, build_batches, probe_batches, output_batches, anti_join);
+  }
+};
+
+template <typename ARROW_T>
+void TestSemiJoinRandom(JoinType type, bool parallel, int num_batches, int batch_size) {
+  auto data_type = default_type_instance<ARROW_T>();
   auto l_schema = schema({field("l0", data_type), field("l1", data_type)});
   auto r_schema = schema({field("r0", data_type), field("r1", data_type)});
 
@@ -274,25 +347,64 @@ void TestJoinRandom(const std::shared_ptr<DataType>& data_type, JoinType type,
 
   ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
 
-  // TODO(niranda) add a verification step for res
+  // verification step for res
+  switch (type) {
+    case LEFT_SEMI:
+      ASSERT_OK(SimpleVerifySemiJoinOutput<ARROW_T>::Verify(
+          0, l_schema, r_batches.batches, l_batches.batches, res));
+      return;
+    case RIGHT_SEMI:
+      ASSERT_OK(SimpleVerifySemiJoinOutput<ARROW_T>::Verify(
+          0, r_schema, l_batches.batches, r_batches.batches, res));
+      return;
+    case LEFT_ANTI:
+      ASSERT_OK(SimpleVerifySemiJoinOutput<ARROW_T>::Verify(
+          0, l_schema, r_batches.batches, l_batches.batches, res, true));
+      return;
+    case RIGHT_ANTI:
+      ASSERT_OK(SimpleVerifySemiJoinOutput<ARROW_T>::Verify(
+          0, l_schema, r_batches.batches, l_batches.batches, res, true));
+      return;
+    default:
+      FAIL() << "Unsupported join type";
+  }
 }
 
-class HashJoinTestRand : public testing::TestWithParam<
-                             std::tuple<std::shared_ptr<DataType>, JoinType, bool>> {};
+static constexpr int kNumBatches = 100;
+static constexpr int kBatchSize = 10;
 
-static constexpr int kNumBatches = 1000;
-static constexpr int kBatchSize = 100;
+using TestingTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                      FloatType, DoubleType, StringType>;
 
-INSTANTIATE_TEST_SUITE_P(
-    HashJoinTestRand, HashJoinTestRand,
-    ::testing::Combine(::testing::Values(int8(), int32(), int64(), float32(), float64()),
-                       ::testing::Values(JoinType::LEFT_SEMI, JoinType::RIGHT_SEMI,
-                                         JoinType::LEFT_ANTI, JoinType::RIGHT_ANTI),
-                       ::testing::Values(false, true)));
+template <typename Type>
+class HashJoinTestRand : public testing::Test {};
 
-TEST_P(HashJoinTestRand, TestingTypes) {
-  TestJoinRandom(std::get<0>(GetParam()), std::get<1>(GetParam()),
-                 std::get<2>(GetParam()), kNumBatches, kBatchSize);
+TYPED_TEST_SUITE(HashJoinTestRand, TestingTypes);
+
+TYPED_TEST(HashJoinTestRand, LeftSemiJoin) {
+  for (bool parallel : {false, true}) {
+    TestSemiJoinRandom<TypeParam>(JoinType::LEFT_SEMI, parallel, kNumBatches, kBatchSize);
+  }
+}
+
+TYPED_TEST(HashJoinTestRand, RightSemiJoin) {
+  for (bool parallel : {false, true}) {
+    TestSemiJoinRandom<TypeParam>(JoinType::RIGHT_SEMI, parallel, kNumBatches,
+                                  kBatchSize);
+  }
+}
+
+TYPED_TEST(HashJoinTestRand, LeftAntiJoin) {
+  for (bool parallel : {false, true}) {
+    TestSemiJoinRandom<TypeParam>(JoinType::LEFT_ANTI, parallel, kNumBatches, kBatchSize);
+  }
+}
+
+TYPED_TEST(HashJoinTestRand, RightAntiJoin) {
+  for (bool parallel : {false, true}) {
+    TestSemiJoinRandom<TypeParam>(JoinType::RIGHT_ANTI, parallel, kNumBatches,
+                                  kBatchSize);
+  }
 }
 
 }  // namespace compute

@@ -39,7 +39,7 @@ Status ValidateJoinInputs(const std::shared_ptr<Schema>& left_schema,
                           const std::shared_ptr<Schema>& right_schema,
                           const std::vector<int>& left_keys,
                           const std::vector<int>& right_keys) {
-  if (left_keys.size() != right_keys.size()) {
+  if (left_keys.size() != right_keys.size() && left_keys.size() > 0) {
     return Status::Invalid("left and right key sizes do not match");
   }
 
@@ -481,50 +481,52 @@ Result<ExecNode*> MakeHashSemiJoinNode(ExecNode* build_input, ExecNode* probe_in
       build_input, probe_input, ctx, std::move(build_key_ids), std::move(probe_key_ids));
 }
 
-ExecFactoryRegistry::AddOnLoad kRegisterHashJoin(
-    "hash_join",
-    [](ExecPlan* plan, std::vector<ExecNode*> inputs,
-       const ExecNodeOptions& options) -> Result<ExecNode*> {
-      RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "HashJoinNode"));
+Result<ExecNode*> MakeHashJoinNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                   const ExecNodeOptions& options) {
+  RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 2, "HashJoinNode"));
 
-      const auto& join_options = checked_cast<const JoinNodeOptions&>(options);
+  const auto& join_options = checked_cast<const JoinNodeOptions&>(options);
 
-      static std::string join_type_string[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
-                                               "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
-                                               "RIGHT_OUTER", "FULL_OUTER"};
+  static std::string join_type_string[] = {"LEFT_SEMI",   "RIGHT_SEMI", "LEFT_ANTI",
+                                           "RIGHT_ANTI",  "INNER",      "LEFT_OUTER",
+                                           "RIGHT_OUTER", "FULL_OUTER"};
 
-      auto join_type = join_options.join_type;
+  auto join_type = join_options.join_type;
 
-      ExecNode* left_input = inputs[0];
-      ExecNode* right_input = inputs[1];
-      const auto& left_keys = join_options.left_keys;
-      const auto& right_keys = join_options.right_keys;
+  ExecNode* left_input = inputs[0];
+  ExecNode* right_input = inputs[1];
+  const auto& left_keys = join_options.left_keys;
+  const auto& right_keys = join_options.right_keys;
 
-      switch (join_type) {
-        case LEFT_SEMI:
-          // left join--> build from right and probe from left
-          return MakeHashSemiJoinNode(right_input, left_input, right_keys, left_keys);
-        case RIGHT_SEMI:
-          // right join--> build from left and probe from right
-          return MakeHashSemiJoinNode(left_input, right_input, left_keys, right_keys);
-        case LEFT_ANTI:
-          // left join--> build from right and probe from left
-          return MakeHashSemiJoinNode<true>(right_input, left_input, right_keys,
-                                            left_keys);
-        case RIGHT_ANTI:
-          // right join--> build from left and probe from right
-          return MakeHashSemiJoinNode<true>(left_input, right_input, left_keys,
-                                            right_keys);
-        case INNER:
-        case LEFT_OUTER:
-        case RIGHT_OUTER:
-        case FULL_OUTER:
-          return Status::NotImplemented(join_type_string[join_type] +
-                                        " joins not implemented!");
-        default:
-          return Status::Invalid("invalid join type");
-      }
-    });
+  switch (join_type) {
+    case LEFT_SEMI:
+      // left join--> build from right and probe from left
+      return MakeHashSemiJoinNode(right_input, left_input, right_keys, left_keys);
+    case RIGHT_SEMI:
+      // right join--> build from left and probe from right
+      return MakeHashSemiJoinNode(left_input, right_input, left_keys, right_keys);
+    case LEFT_ANTI:
+      // left join--> build from right and probe from left
+      return MakeHashSemiJoinNode<true>(right_input, left_input, right_keys, left_keys);
+    case RIGHT_ANTI:
+      // right join--> build from left and probe from right
+      return MakeHashSemiJoinNode<true>(left_input, right_input, left_keys, right_keys);
+    case INNER:
+    case LEFT_OUTER:
+    case RIGHT_OUTER:
+    case FULL_OUTER:
+      return Status::NotImplemented(join_type_string[join_type] +
+                                    " joins not implemented!");
+    default:
+      return Status::Invalid("invalid join type");
+  }
+}
+
+namespace internal {
+void RegisterHashJoinNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("hash_join", MakeHashJoinNode));
+}
+}  // namespace internal
 
 }  // namespace compute
 }  // namespace arrow
