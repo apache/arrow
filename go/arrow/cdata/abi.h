@@ -1,1 +1,1 @@
-C:/Users/mtopol/projects/zeroarrow/cpp/src/arrow/c/abi.h
+../../../cpp/src/arrow/c/abi.h
