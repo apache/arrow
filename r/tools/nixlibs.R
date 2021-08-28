@@ -446,7 +446,10 @@ turn_off_thirdparty_features <- function(env_var_list) {
     "ARROW_JSON" = "OFF",
     # The syntax to turn off XSIMD is different.
     # Pull existing value of EXTRA_CMAKE_FLAGS first (must be defined)
-    "EXTRA_CMAKE_FLAGS" = paste(env_var_list[["EXTRA_CMAKE_FLAGS"]], "-DARROW_SIMD_LEVEL=NONE")
+    "EXTRA_CMAKE_FLAGS" = paste(
+      env_var_list[["EXTRA_CMAKE_FLAGS"]],
+      "-DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE"
+    )
   )
   # Create a new env_var_list, with the values of turn_off set.
   # replace() also adds new values if they didn't exist before
