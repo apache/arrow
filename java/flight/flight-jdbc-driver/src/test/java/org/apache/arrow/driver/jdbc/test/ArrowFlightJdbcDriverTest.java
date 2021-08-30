@@ -32,6 +32,7 @@ import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -47,6 +48,8 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
@@ -249,18 +252,15 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
-    assertEquals(parsedArgs.get(HOST.getName()), "localhost");
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "localhost");
 
     // Check port == the provided port
-    assertEquals(parsedArgs.get(PORT.getName()), 2222);
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("key1"), "value1");
     assertEquals(parsedArgs.get("key2"), "value2");
     assertEquals(parsedArgs.get("a"), "b");
-  }
-
-  private void assertEquals(int i, int size) {
   }
 
   /**
@@ -314,10 +314,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(2, parsedArgs.size());
 
     // Check host == the provided host
-    assertEquals(parsedArgs.get(HOST.getName()), "0.0.0.0");
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "0.0.0.0");
 
     // Check port == the provided port
-    assertEquals(parsedArgs.get(PORT.getName()), 2222);
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
   }
 
   /**
@@ -345,10 +345,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
-    assertEquals(parsedArgs.get(HOST.getName()), "0.0.0.0");
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.HOST.camelName()), "0.0.0.0");
 
     // Check port == the provided port
-    assertEquals(parsedArgs.get(PORT.getName()), 2222);
+    assertEquals(parsedArgs.get(ArrowFlightConnectionProperty.PORT.camelName()), 2222);
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("test1"), "test1value");
