@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static org.junit.Assert.assertEquals;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -48,8 +50,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
-
-import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
