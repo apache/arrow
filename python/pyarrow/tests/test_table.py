@@ -1577,7 +1577,7 @@ def test_table_repr_to_string():
                        metadata={b'foo': b'bar'})
 
     tab = pa.table([pa.array([1, 2, 3, 4], type='int16'),
-                    pa.array([1, 2, 3, 4], type='int32')], schema=schema)
+                    pa.array([10, 20, 30, 40], type='int32')], schema=schema)
     assert str(tab) == """pyarrow.Table
 c0: int16
 c1: int32"""
@@ -1591,6 +1591,21 @@ c1: int32
 -- schema metadata --
 foo: 'bar'"""
 
+    assert tab.to_string(preview_cols=5) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
+
+    assert tab.to_string(preview_cols=1) == """\
+pyarrow.Table
+c0: int16
+c1: int32
+----
+c0: [[1,2,3,4]]
+..."""
 
 def test_table_function_unicode_schema():
     col_a = "äääh"
