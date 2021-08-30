@@ -680,6 +680,65 @@ TYPED_TEST(TestCaseWhenDict, Mixed) {
               ArrayFromJSON(utf8(), R"([null, null, null, null])"));
 }
 
+TYPED_TEST(TestCaseWhenDict, NestedSimple) {
+  auto make_list = [](const std::shared_ptr<Array>& indices,
+                      const std::shared_ptr<Array>& backing_array) {
+    EXPECT_OK_AND_ASSIGN(auto result, ListArray::FromArrays(*indices, *backing_array));
+    return result;
+  };
+  auto index_type = default_type_instance<TypeParam>();
+  auto inner_type = dictionary(index_type, utf8());
+  auto type = list(inner_type);
+  auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
+  auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
+  auto dict = R"(["a", "b", "bc", "def"])";
+  auto values_null = make_list(ArrayFromJSON(int32(), "[null, null, null, null, 0]"),
+                               DictArrayFromJSON(inner_type, "[]", dict));
+  auto values1_backing = DictArrayFromJSON(inner_type, "[0, null, 3, 1]", dict);
+  auto values2_backing = DictArrayFromJSON(inner_type, "[2, 1, null, 0]", dict);
+  auto values1 = make_list(ArrayFromJSON(int32(), "[0, 2, 2, 3, 4]"), values1_backing);
+  auto values2 = make_list(ArrayFromJSON(int32(), "[0, 1, 2, 2, 4]"), values2_backing);
+
+  CheckScalarNonRecursive(
+      "case_when", {MakeStruct({cond1, cond2}), values1, values2},
+      make_list(ArrayFromJSON(int32(), "[0, 2, 2, null, 2]"),
+                DictArrayFromJSON(inner_type, "[0, null]", R"(["a"])")));
+  CheckScalarNonRecursive(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing)},
+      make_list(ArrayFromJSON(int32(), "[0, 2, null, null, 2]"),
+                DictArrayFromJSON(inner_type, "[0, null]", R"(["a"])")));
+  CheckScalarNonRecursive(
+      "case_when",
+      {MakeStruct({cond1, cond2}), values1,
+       make_list(ArrayFromJSON(int32(), "[0, 1, null, 2, 4]"), values2_backing), values1},
+      make_list(ArrayFromJSON(int32(), "[0, 2, null, 2, 3]"),
+                DictArrayFromJSON(inner_type, "[0, null, 1]", R"(["a", "b"])")));
+
+  CheckScalarNonRecursive(
+      "case_when",
+      {
+          Datum(MakeStruct({cond1, cond2})),
+          Datum(std::make_shared<ListScalar>(
+              DictArrayFromJSON(inner_type, "[0, 1]", dict))),
+          Datum(std::make_shared<ListScalar>(
+              DictArrayFromJSON(inner_type, "[2, 3]", dict))),
+      },
+      make_list(ArrayFromJSON(int32(), "[0, 2, 4, null, 6]"),
+                DictArrayFromJSON(inner_type, "[0, 1, 0, 1, 2, 3]", dict)));
+
+  CheckScalarNonRecursive(
+      "case_when", {MakeStruct({Datum(true), Datum(false)}), values1, values2}, values1);
+  CheckScalarNonRecursive(
+      "case_when", {MakeStruct({Datum(false), Datum(true)}), values1, values2}, values2);
+  CheckScalarNonRecursive("case_when", {MakeStruct({Datum(false)}), values1, values2},
+                          values2);
+  CheckScalarNonRecursive("case_when",
+                          {MakeStruct({Datum(false), Datum(false)}), values1, values2},
+                          values_null);
+}
+
 TYPED_TEST(TestCaseWhenDict, DifferentDictionaries) {
   auto type = dictionary(default_type_instance<TypeParam>(), utf8());
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");

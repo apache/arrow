@@ -1891,7 +1891,7 @@ static Status ExecVarWidthArrayCaseWhenImpl(
   const bool have_else_arg =
       static_cast<size_t>(conds_array.type->num_fields()) < (batch.values.size() - 1);
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out->type(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 

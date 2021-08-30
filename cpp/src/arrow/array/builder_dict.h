@@ -37,6 +37,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -97,6 +98,15 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetOrInsert(const UInt16Type*, uint16_t value, int32_t* out);
   Status GetOrInsert(const UInt32Type*, uint32_t value, int32_t* out);
   Status GetOrInsert(const UInt64Type*, uint64_t value, int32_t* out);
+  Status GetOrInsert(const DurationType*, int64_t value, int32_t* out);
+  Status GetOrInsert(const TimestampType*, int64_t value, int32_t* out);
+  Status GetOrInsert(const Date32Type*, int32_t value, int32_t* out);
+  Status GetOrInsert(const Date64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const Time32Type*, int32_t value, int32_t* out);
+  Status GetOrInsert(const Time64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const DayTimeIntervalType*,
+                     DayTimeIntervalType::DayMilliseconds value, int32_t* out);
+  Status GetOrInsert(const MonthIntervalType*, int32_t value, int32_t* out);
   Status GetOrInsert(const FloatType*, float value, int32_t* out);
   Status GetOrInsert(const DoubleType*, double value, int32_t* out);
 
@@ -280,6 +290,163 @@ class DictionaryBuilderBase : public ArrayBuilder {
     length_ += length;
 
     return indices_builder_.AppendEmptyValues(length);
+  }
+
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override {
+    if (!scalar.type->Equals(type())) {
+      return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+    if (!scalar.is_valid) return AppendNulls(n_repeats);
+
+    const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*scalar.type);
+    const DictionaryScalar& dict_scalar =
+        internal::checked_cast<const DictionaryScalar&>(scalar);
+    const auto& dict = internal::checked_cast<const typename TypeTraits<T>::ArrayType&>(
+        *dict_scalar.value.dictionary);
+    switch (dict_ty.index_type()->id()) {
+      case Type::UINT8: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const UInt8Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::INT8: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const Int8Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::UINT16: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const UInt16Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::INT16: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const Int16Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::UINT32: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const UInt32Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::INT32: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const Int32Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::UINT64: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const UInt64Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      case Type::INT64: {
+        const auto& value = dict.GetView(
+            internal::checked_cast<const Int64Scalar&>(*dict_scalar.value.index).value);
+        for (int64_t i = 0; i < n_repeats; i++) {
+          ARROW_RETURN_NOT_OK(Append(value));
+        }
+        break;
+      }
+      default:
+        return Status::TypeError("Invalid index type: ", dict_ty);
+    }
+    return Status::OK();
+  }
+
+  Status AppendScalars(const ScalarVector& scalars) override {
+    for (const auto& scalar : scalars) {
+      ARROW_RETURN_NOT_OK(AppendScalar(*scalar, /*n_repeats=*/1));
+    }
+    return Status::OK();
+  }
+
+  Status AppendArraySlice(const ArrayData& array, int64_t offset, int64_t length) final {
+    // Visit the indices and insert the unpacked values.
+    const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*array.type);
+    const typename TypeTraits<T>::ArrayType dict(array.dictionary);
+    switch (dict_ty.index_type()->id()) {
+      case Type::UINT8: {
+        const uint8_t* values = array.GetValues<uint8_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::INT8: {
+        const int8_t* values = array.GetValues<int8_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::UINT16: {
+        const uint16_t* values = array.GetValues<uint16_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::INT16: {
+        const int16_t* values = array.GetValues<int16_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::UINT32: {
+        const uint32_t* values = array.GetValues<uint32_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::INT32: {
+        const int32_t* values = array.GetValues<int32_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::UINT64: {
+        const uint64_t* values = array.GetValues<uint64_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      case Type::INT64: {
+        const int64_t* values = array.GetValues<int64_t>(1) + offset;
+        return VisitBitBlocks(
+            array.buffers[0], array.offset + offset, std::min(array.length, length),
+            [&](int64_t position) { return Append(dict.GetView(values[position])); },
+            [&]() { return AppendNull(); });
+      }
+      default:
+        return Status::TypeError("Invalid index type: ", dict_ty);
+    }
+    return Status::OK();
   }
 
   /// \brief Insert values into the dictionary's memo, but do not append any
