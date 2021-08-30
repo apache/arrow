@@ -20,7 +20,7 @@
 
 summarise.arrow_dplyr_query <- function(.data, ..., .engine = c("arrow", "duckdb")) {
   call <- match.call()
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   exprs <- quos(...)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
@@ -67,7 +67,8 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   }
 
   .data$aggregations <- results
-  do_collapse(.data)
+  # TODO: should in-memory query evaluate eagerly?
+  collapse.arrow_dplyr_query(.data)
 }
 
 summarize_projection <- function(.data) {

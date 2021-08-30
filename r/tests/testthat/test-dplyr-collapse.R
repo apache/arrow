@@ -82,3 +82,114 @@ test_that("implicit_schema with group_by summarize", {
     schema(some_grouping = float64(), avg = float64())
   )
 })
+
+test_that("collapse", {
+  q <- tab %>%
+    filter(dbl > 2, chr == "d" | chr == "f") %>%
+    select(chr, int, lgl) %>%
+    mutate(twice = int * 2L)
+  expect_false(is_collapsed(q))
+  expect_true(is_collapsed(collapse(q)))
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
+      select(chr, int, lgl) %>%
+      mutate(twice = int * 2L) %>%
+      collapse() %>%
+      filter(int < 5) %>%
+      select(int, twice) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
+      collapse() %>%
+      select(chr, int, lgl) %>%
+      collapse() %>%
+      filter(int < 5) %>%
+      select(int, chr) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Properties of collapsed query", {
+  q <- tab %>%
+    filter(dbl > 2) %>%
+    select(chr, int, lgl) %>%
+    mutate(twice = int * 2L) %>%
+    group_by(lgl) %>%
+    summarize(total = sum(int, na.rm = TRUE)) %>%
+    mutate(extra = total * 5)
+
+  # print(tbl %>%
+  #   filter(dbl > 2) %>%
+  #   select(chr, int, lgl) %>%
+  #   mutate(twice = int * 2L) %>%
+  #   group_by(lgl) %>%
+  #   summarize(total = sum(int, na.rm = TRUE)) %>%
+  #   mutate(extra = total * 5))
+
+  #   # A tibble: 3 × 3
+  #   lgl   total extra
+  #   <lgl> <int> <dbl>
+  # 1 FALSE     8    40
+  # 2 TRUE      8    40
+  # 3 NA       25   125
+
+  # Avoid evaluating just for nrow
+  expect_identical(dim(q), c(NA_integer_, 3L))
+
+
+  # TODO: improve print method
+  #   expect_output(print(q),
+  # "arrow_dplyr_query (query)
+  # lgl: bool
+  # total: int32
+  # extra: double (multiply_checked(total, 5))
+
+  # See $.data for the source Arrow object"
+  #   )
+
+  expect_equal(
+    head(q, 1) %>% collect(),
+    tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
+  )
+  expect_equal(
+    tail(q, 1) %>% collect(),
+    tibble::tibble(lgl = NA, total = 25L, extra = 125)
+  )
+})
+
+test_that("query_on_dataset handles collapse()", {
+  expect_false(query_on_dataset(
+    tab %>%
+      select(int, chr)
+  ))
+  expect_false(query_on_dataset(
+    tab %>%
+      select(int, chr) %>%
+      collapse() %>%
+      select(int)
+  ))
+
+  ds_dir <- tempfile()
+  dir.create(ds_dir)
+  on.exit(unlink(ds_dir))
+  write_parquet(tab, file.path(ds_dir, "file.parquet"))
+  ds <- open_dataset(ds_dir)
+
+  expect_true(query_on_dataset(
+    ds %>%
+      select(int, chr)
+  ))
+  expect_true(query_on_dataset(
+    ds %>%
+      select(int, chr) %>%
+      collapse() %>%
+      select(int)
+  ))
+})

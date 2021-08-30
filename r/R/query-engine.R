@@ -43,8 +43,8 @@ ExecPlan <- R6Class("ExecPlan",
           dataset$selected_columns,
           field_names_in_expression
         )))
-        # TODO: update for collapse() (assert that is Dataset now?)
         dataset <- dataset$.data
+        assert_is(dataset, "Dataset")
       } else {
         if (inherits(dataset, "ArrowTabular")) {
           dataset <- InMemoryDataset$create(dataset)

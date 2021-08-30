@@ -23,14 +23,10 @@ arrow_dplyr_query <- function(.data) {
   # An arrow_dplyr_query is a container for an Arrow data object (Table,
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
-
-  # For most dplyr methods,
-  # method.Table == method.RecordBatch == method.Dataset == method.arrow_dplyr_query
-  # This works because the functions all pass .data through arrow_dplyr_query()
-  if (inherits(.data, "arrow_dplyr_query")) {
-    return(.data)
+  # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
+  if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
+    .data <- InMemoryDataset$create(.data)
   }
-
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
@@ -41,14 +37,6 @@ arrow_dplyr_query <- function(.data) {
         oxford_paste(names(.data)[dupes])
       )
     ))
-  }
-
-  .adq(.data)
-}
-
-.adq <- function(.data) {
-  if (!inherits(.data, c("Dataset", "arrow_dplyr_query"))) {
-    .data <- InMemoryDataset$create(.data)
   }
   structure(
     list(
@@ -78,30 +66,14 @@ arrow_dplyr_query <- function(.data) {
   )
 }
 
-# TODO: move to dplyr-collect.R
-do_collapse <- function(.data) {
-  .data$schema <- implicit_schema(.data)
-  .adq(.data)
-}
-
-implicit_schema <- function(.data) {
-  .data <- ensure_group_vars(.data)
-  old_schm <- .data$.data$schema
-
-  if (is.null(.data$aggregations)) {
-    new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
-  } else {
-    new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
-    # * Put group_by_vars first (this can't be done by summarize, they have to be last per the aggregate node signature, and they get projected to this order after aggregation)
-    # * Infer the output types from the aggregations
-    group_fields <- new_fields[.data$group_by_vars]
-    agg_fields <- imap(
-      new_fields[setdiff(names(new_fields), .data$group_by_vars)],
-      ~ output_type(.data$aggregations[[.y]][["fun"]], .x)
-    )
-    new_fields <- c(group_fields, agg_fields)
+as_adq <- function(.data) {
+  # For most dplyr methods,
+  # method.Table == method.RecordBatch == method.Dataset == method.arrow_dplyr_query
+  # This works because the functions all pass .data through as_adq()
+  if (inherits(.data, "arrow_dplyr_query")) {
+    return(.data)
   }
-  schema(!!!new_fields)
+  arrow_dplyr_query(.data)
 }
 
 make_field_refs <- function(field_names) {
@@ -111,7 +83,6 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
-  # TODO: refactor this to use implicit_schema(x)
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
@@ -165,8 +136,10 @@ names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 dim.arrow_dplyr_query <- function(x) {
   cols <- length(names(x))
 
-  if (isTRUE(x$filtered)) {
-    # TODO: update for collapse()
+  if (is_collapsed(x)) {
+    # Don't evaluate just for nrow
+    rows <- NA_integer_
+  } else if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
   } else {
     rows <- Scanner$create(x)$CountRows()
@@ -181,12 +154,14 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 
 #' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  # TODO: refactor/rename
   out <- head.Dataset(x, n, ...)
   restore_dplyr_features(out, x)
 }
 
 #' @export
 tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  # TODO: refactor/rename
   out <- tail.Dataset(x, n, ...)
   restore_dplyr_features(out, x)
 }
@@ -194,6 +169,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' @export
 `[.arrow_dplyr_query` <- `[.Dataset`
 # TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
+# TODO: refactor/rename
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
@@ -228,17 +204,24 @@ ensure_arrange_vars <- function(x) {
 # * For Table/RecordBatch, we collect() and then call the dplyr method in R
 # * For Dataset, we just error
 abandon_ship <- function(call, .data, msg) {
+  msg <- trimws(msg)
   dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
   if (query_on_dataset(.data)) {
     stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
   }
   # else, collect and call dplyr method
-  msg <- sub("\\n$", "", msg)
   warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
   call$.data <- dplyr::collect(.data)
   call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))
   eval.parent(call, 2)
 }
 
-# TODO: update for collapse()
-query_on_dataset <- function(x) !inherits(x$.data, "InMemoryDataset")
+query_on_dataset <- function(x) {
+  if (is_collapsed(x)) {
+    query_on_dataset((x$.data))
+  } else {
+    !inherits(x$.data, "InMemoryDataset")
+  }
+}
+
+is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")

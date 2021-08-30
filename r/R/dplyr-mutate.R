@@ -35,7 +35,7 @@ mutate.arrow_dplyr_query <- function(.data,
     return(.data)
   }
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
 
   # Restrict the cases we support for now
   if (length(dplyr::group_vars(.data)) > 0) {

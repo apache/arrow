@@ -324,6 +324,22 @@ test_that("Do things after summarize", {
       collect(),
     tbl
   )
+
+  skip("ARROW-13501")
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2) %>%
+      select(chr, int, lgl) %>%
+      mutate(twice = int * 2L) %>%
+      group_by(lgl) %>%
+      summarize(
+        count = n(),
+        total = sum(twice, na.rm = TRUE)
+      ) %>%
+      mutate(mean = total / count) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("Expressions on aggregations", {
