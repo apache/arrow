@@ -22,16 +22,24 @@ overwritten. Do not put other files in this directory.
 These saved files are only used in the build if \code{ARROW_DEPENDENCY_SOURCE}
 is \code{BUNDLED} or \code{AUTO}.
 https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
-
-Steps for an offline install with optional dependencies:
+\subsection{Steps for an offline install with optional dependencies:}{
+\subsection{On a computer with internet access:}{
 \itemize{
-\item Install the \code{arrow} package on a computer with internet access
+\item Install the \code{arrow} package
 \item Run this function
-\item Copy the saved dependency files to a computer without internet access
+\item Copy the saved dependency files to the computer with internet access
+}
+}
+
+\subsection{On the computer without internet access:}{
+\itemize{
 \item Create a environment variable called \code{ARROW_THIRDPARTY_DEPENDENCY_DIR} that
-points to the folder.
-\item Install the \code{arrow} package on the computer without internet access
+points to the newly copied folder of dependency files.
+\item Install the \code{arrow} package
 \item Run \code{\link[=arrow_info]{arrow_info()}} to check installed capabilities
+}
+}
+
 }
 }
 \description{

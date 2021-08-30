@@ -91,7 +91,7 @@ download_binary <- function(os = identify_os()) {
 # * `TRUE` (not case-sensitive), to try to discover your current OS, or
 # * some other string, presumably a related "distro-version" that has binaries
 #   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY", Sys.getenv("TEST_OFFLINE_BUILD"))) {
+identify_os <- function(os = Sys.getenv("LIBARROW_BINARY")) {
   if (tolower(os) %in% c("", "false")) {
     # Env var says not to download a binary
     return(NULL)

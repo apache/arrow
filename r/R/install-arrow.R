@@ -155,13 +155,17 @@ reload_arrow <- function() {
 #' is `BUNDLED` or `AUTO`.
 #' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 #'
-#' Steps for an offline install with optional dependencies:
-#' - Install the `arrow` package on a computer with internet access
+#' ## Steps for an offline install with optional dependencies:
+#'
+#' ### On a computer with internet access:
+#' - Install the `arrow` package
 #' - Run this function
-#' - Copy the saved dependency files to a computer without internet access
+#' - Copy the saved dependency files to the computer with internet access
+#'
+#' ### On the computer without internet access:
 #' - Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
-#'   points to the folder.
-#' - Install the `arrow` package on the computer without internet access
+#'   points to the newly copied folder of dependency files.
+#' - Install the `arrow` package
 #' - Run [arrow_info()] to check installed capabilities
 #'
 #' @examples
