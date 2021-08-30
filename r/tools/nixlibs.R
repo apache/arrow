@@ -29,7 +29,6 @@ if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
-
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
 try_download <- function(from_url, to_file) {
@@ -43,21 +42,16 @@ try_download <- function(from_url, to_file) {
   !inherits(status, "try-error") && status == 0
 }
 
-build_ok <- !env_is("LIBARROW_BUILD", "false")
-# But binary defaults to not OK
-binary_ok <- !identical(tolower(Sys.getenv("LIBARROW_BINARY", "false")), "false")
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
+quietly <- !env_is("ARROW_R_DEV", "true")
 
-quietly <- !env_is("ARROW_R_DEV", "true") # try_download uses quietly global
-# * download_ok, build_ok: Use prebuilt binary, if found, otherwise try to build
-# * !download_ok, build_ok: Build with local git checkout, if available, or
-#   sources included in r/tools/cpp/. Optional dependencies are not included,
-#   and will not be automatically downloaded.
-#   cmake will still be downloaded if necessary
-#   https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
-# * download_ok, !build_ok: Only use prebuilt binary, if found
-# * neither: Get the arrow-without-arrow package
-# Download and build are OK unless you say not to (or can't access github)
+# Default is build from source, not download a binary
+build_ok <- !env_is("LIBARROW_BUILD", "false")
+binary_ok <- !(env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", ""))
+
+# Check if we're doing an offline build.
+# (Note that cmake will still be downloaded if necessary
+#  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
 
 
@@ -378,9 +372,9 @@ ensure_cmake <- function() {
     if (!download_successful) {
       cat(paste0(
         "*** cmake was not found locally and download failed.\n",
-        "    Make sure cmake is installed and available on your PATH\n",
-        "    (or download '", cmake_binary_url,
-        "' and define the CMAKE environment variable).\n"
+        "    Make sure cmake >= 3.10 is installed and available on your PATH,\n",
+        "    or download ", cmake_binary_url, "\n",
+        "    and define the CMAKE environment variable.\n"
       ))
     }
     untar(cmake_tar, exdir = cmake_dir)
@@ -471,7 +465,7 @@ set_thirdparty_urls <- function(env_var_list) {
     # Here the build will continue, but will likely fail when the downloads are
     # unavailable. The user will end up with the arrow-without-arrow package.
     cat(paste0(
-      "*** Error: ARROW_THIRDPARTY_DEPENDENCY_DIR was set but has no files.\n",
+      "*** Warning: ARROW_THIRDPARTY_DEPENDENCY_DIR was set but has no files.\n",
       "    Have you run download_optional_dependencies()?"
     ))
     return(env_var_list)

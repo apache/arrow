@@ -152,21 +152,22 @@ reload_arrow <- function() {
 #' If the files already exist in `deps_dir`, they will be re-downloaded and
 #' overwritten. Do not put other files in this directory.
 #' These saved files are only used in the build if `ARROW_DEPENDENCY_SOURCE`
-#' is `BUNDLED` or `AUTO`.
+#' is unset, `BUNDLED`, or `AUTO`.
 #' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 #'
 #' ## Steps for an offline install with optional dependencies:
 #'
-#' ### On a computer with internet access:
-#' - Install the `arrow` package
-#' - Run this function
-#' - Copy the saved dependency files to the computer with internet access
+#' ### Using a computer with internet access, pre-download the dependencies:
+#' * Install the `arrow` package
+#' * Run `download_optional_dependencies(my_dependencies)`
+#' * Copy the directory `my-arrow-dependencies` to the computer without internet access
 #'
-#' ### On the computer without internet access:
-#' - Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
-#'   points to the newly copied folder of dependency files.
-#' - Install the `arrow` package
-#' - Run [arrow_info()] to check installed capabilities
+#' ### On the computer without internet access, use the pre-downloaded dependencies:
+#' * Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
+#'   points to the newly copied `my_dependencies`.
+#' * Install the `arrow` package
+#'   * This installation will build from source, so `cmake` must be available
+#' * Run [arrow_info()] to check installed capabilities
 #'
 #' @examples
 #' \dontrun{
@@ -174,17 +175,13 @@ reload_arrow <- function() {
 #' list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
 #' }
 #' @export
-download_optional_dependencies <- function(deps_dir = NULL) {
+download_optional_dependencies <- function(deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")) {
   # This script is copied over from arrow/cpp/... to arrow/r/inst/...
   download_dependencies_sh <- system.file(
     "thirdparty/download_dependencies.sh",
     package = "arrow",
     mustWork = TRUE
   )
-  if (is.null(deps_dir) && Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR") != "") {
-    deps_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")
-  }
-
   dir.create(deps_dir, showWarnings = FALSE, recursive = TRUE)
   # Run download_dependencies.sh
   cat(paste0("*** Downloading optional dependencies to ", deps_dir, "\n"))
@@ -192,10 +189,7 @@ download_optional_dependencies <- function(deps_dir = NULL) {
     args = deps_dir, stdout = FALSE, stderr = FALSE
   )
   if (isTRUE(return_status == 0)) {
-    cat(paste0(
-      "**** Set environment variable on offline machine and re-build arrow:\n",
-      "export ARROW_THIRDPARTY_DEPENDENCY_DIR=<downloaded directory>\n"
-    ))
+
   } else {
     stop("Failed to download optional dependencies", .call = FALSE)
   }

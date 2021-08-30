@@ -4,7 +4,9 @@
 \alias{download_optional_dependencies}
 \title{Download all optional Arrow dependencies}
 \usage{
-download_optional_dependencies(deps_dir = NULL)
+download_optional_dependencies(
+  deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")
+)
 }
 \arguments{
 \item{deps_dir}{Directory to save files into. Will be created if necessary.
@@ -20,22 +22,25 @@ download them for you.
 If the files already exist in \code{deps_dir}, they will be re-downloaded and
 overwritten. Do not put other files in this directory.
 These saved files are only used in the build if \code{ARROW_DEPENDENCY_SOURCE}
-is \code{BUNDLED} or \code{AUTO}.
+is unset, \code{BUNDLED}, or \code{AUTO}.
 https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 \subsection{Steps for an offline install with optional dependencies:}{
-\subsection{On a computer with internet access:}{
+\subsection{Using a computer with internet access, pre-download the dependencies:}{
 \itemize{
 \item Install the \code{arrow} package
-\item Run this function
-\item Copy the saved dependency files to the computer with internet access
+\item Run \code{download_optional_dependencies(my_dependencies)}
+\item Copy the directory \code{my-arrow-dependencies} to the computer without internet access
 }
 }
 
-\subsection{On the computer without internet access:}{
+\subsection{On the computer without internet access, use the pre-downloaded dependencies:}{
 \itemize{
 \item Create a environment variable called \code{ARROW_THIRDPARTY_DEPENDENCY_DIR} that
-points to the newly copied folder of dependency files.
+points to the newly copied \code{my_dependencies}.
 \item Install the \code{arrow} package
+\itemize{
+\item This installation will build from source, so \code{cmake} must be available
+}
 \item Run \code{\link[=arrow_info]{arrow_info()}} to check installed capabilities
 }
 }

@@ -104,11 +104,27 @@ satisfy C++ dependencies.
 
 The `install-arrow.R` file also includes the `download_optional_dependencies()`
 function. Normally, when installing on a computer with internet access, the
-build process will download third-party dependencies as needed. This function
-provides a way to download them in advance. Relevant environment variables are
-`ARROW_THIRDPARTY_DEPENDENCY_DIR` for the directory of downloaded dependencies
-and `TEST_OFFLINE_BUILD` to force the build process not to download.
-(Note: `cmake` will still be downloaded if not available locally.)
+build process will download third-party dependencies as needed.
+This function provides a way to download them in advance.
+Doing so may be useful when installing Arrow on a computer without internet access.
+Note that Arrow _can_ be installed on a computer without internet access, but
+many useful features will be disabled, as they depend on third-party components.
+More precisely, `arrow::arrow_info()$capabilities()` will be `FALSE` for every
+capability.
+One approach to add more capabilities in an offline install is to pre-download
+the required files.
+
+### Using a computer with internet access, pre-download the dependencies:
+* Install the `arrow` package
+* Run `download_optional_dependencies(my_dependencies)`
+* Copy the directory `my-arrow-dependencies` to the computer without internet access
+
+### On the computer without internet access, use the pre-downloaded dependencies:
+* Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
+  points to the newly copied `my_dependencies`.
+* Install the `arrow` package
+  * This installation will build from source, so `cmake` must be available
+* Run `arrow_info()` to check installed capabilities
 
 ## S3 support
 
@@ -164,10 +180,10 @@ If found, they will be downloaded and bundled when your R package compiles.
 For a list of supported distributions and versions,
 see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
 
-If no binary is found, it will download the Arrow C++ source that matches the R package version
-(CRAN release or nightly build) and attempt to build it locally.
-If no matching source bundle is found, it will also look to see if you are in
+If no C++ library binary is found, it will attempt to build it locally.
+First, it will also look to see if you are in
 a checkout of the `apache/arrow` git repository and thus have the C++ source there.
+Otherwise, it builds from the C++ files included in the package.
 Depending on your system, building Arrow C++ from source may be slow.
 
 For the specific mechanics of how all this works, see the R package `configure` script,
@@ -293,6 +309,13 @@ setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
 the conflicting `zstd`.
 See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
+* Offline installation fails when dependencies haven't been downloaded to
+`ARROW_THIRDPARTY_DEPENDENCY_DIR`. The package currently depends on the
+third-party project RapidJSON. See `?download_optional_dependencies`.
+See discussion [here](https://issues.apache.org/jira/browse/ARROW-13768) on
+allowing the project to build without JSON support.
+
+
 ## Summary of build environment variables
 
 Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
@@ -316,12 +339,6 @@ By default, these are all unset. All boolean variables are case-insensitive.
   won't look for Arrow libraries on your system and instead will look to download/build them.
   Use this if you have a version mismatch between installed system libraries
   and the version of the R package you're installing.
-* `TEST_OFFLINE_BUILD`: Unless set to `true`, the build script
-  will download prebuilt C++ binary or third-party source bundles as necessary.
-  If you're in a checkout of the `apache/arrow` git repository
-  and want to build the C++ library from the local source, make this `false` or
-  not set. If building the C++ library from source with cmake unavailable, cmake
-  will still be downloaded, regardless of this flag's value.
 * `LIBARROW_BINARY`: If set to `true`, the script will try to download a binary
   C++ library built for your operating system.
   You may also set it to some other string,
@@ -356,7 +373,15 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-
+* `ARROW_THIRDPARTY_DEPENDENCY_DIR`: Directory with downloaded third-party
+  dependency files. Run `download_optional_dependencies(my-dir)` to download.
+* `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
+  prebuilt the C++ library binary.
+  It will turn off any features that require a download, unless they're available
+  in `ARROW_THIRDPARTY_DEPENDENCY_DIR`.
+  Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
+  (Currently `RapidJSON` will also be downloaded.
+  See discussion [here](https://issues.apache.org/jira/browse/ARROW-13768).)
 
 # Contributing
 
