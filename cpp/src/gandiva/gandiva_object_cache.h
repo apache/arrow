@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GANDIVA_OBJECT_CACHE_H
-#define ARROW_GANDIVA_OBJECT_CACHE_H
+#pragma once
 
 #include <llvm/Support/MemoryBuffer.h>
 #include "llvm/ExecutionEngine/ObjectCache.h"
@@ -58,5 +57,3 @@ class GandivaObjectCache : public llvm::ObjectCache {
   std::shared_ptr<Cache<CacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
 };
 }  // namespace gandiva
-
-#endif  // ARROW_GANDIVA_OBJECT_CACHE_H

@@ -110,20 +110,16 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
-  // LLVM ObjectCache flag;
   bool llvm_flag = false;
 
   std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
   prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
 
-  // to use when caching only the obj code
   // Verify if previous filter obj code was cached
   if(prev_cached_obj != nullptr) {
-    //ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
+    ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG]: Object code WAS already cached!";
     llvm_flag = true;
-  } else {
-    //ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS NOT already cached!";
-  }
+  } else
 
   GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
 
