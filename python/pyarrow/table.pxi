@@ -1259,12 +1259,12 @@ cdef class Table(_PandasConvertible):
             if preview_cols < self.num_columns:
                 pieces.append('...')
         return '\n'.join(pieces)
-    
+
     def __repr__(self):
         if self.table == NULL:
             raise ValueError("Table's internal pointer is NULL, do not use "
                              "any methods or attributes on this object")
-        return self.to_string()
+        return self.to_string(preview_cols=10)
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table

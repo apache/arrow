@@ -1607,6 +1607,7 @@ c1: int32
 c0: [[1,2,3,4]]
 ..."""
 
+
 def test_table_function_unicode_schema():
     col_a = "äääh"
     col_b = "öööf"
