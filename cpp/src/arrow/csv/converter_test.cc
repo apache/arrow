@@ -299,6 +299,7 @@ TEST(FixedSizeBinaryConversion, CustomNulls) {
   AssertConversion<FixedSizeBinaryType, std::string>(fixed_size_binary(2),
                                                      {"\"ab\",\"xxx\"\n"}, {{"ab"}, {""}},
                                                      {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(fixed_size_binary(2), {"\"ab\",\"xxx\"\n"}, {1}, options);
 
@@ -359,6 +360,7 @@ TEST(IntegerConversion, CustomNulls) {
 
   AssertConversion<Int8Type, int8_t>(int8(), {"\"12\",\"xxx\"\n"}, {{12}, {0}},
                                      {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(int8(), {"\"12\",\"xxx\"\n"}, {1}, options);
 
@@ -401,6 +403,7 @@ TEST(FloatingPointConversion, CustomNulls) {
 
   AssertConversion<FloatType, float>(float32(), {"\"1.5\",\"xxx\"\n"}, {{1.5}, {0}},
                                      {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(float32(), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
@@ -444,6 +447,7 @@ TEST(BooleanConversion, CustomNulls) {
 
   AssertConversion<BooleanType, bool>(boolean(), {"\"true\",\"xxx\"\n"}, {{1}, {0}},
                                       {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(boolean(), {"\"true\",\"xxx\"\n"}, {1}, options);
 
@@ -564,6 +568,7 @@ TEST(TimestampConversion, CustomNulls) {
 
   AssertConversion<TimestampType, int64_t>(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"},
                                            {{60000}, {0}}, {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(type, {"\"1970-01-01 00:01:00\",\"xxx\"\n"}, {1}, options);
 
@@ -617,6 +622,7 @@ TEST(DecimalConversion, CustomNulls) {
   AssertConversion<Decimal128Type, Decimal128>(decimal(14, 3), {"\"1.5\",\"xxx\"\n"},
                                                {{Dec128("1.500")}, {0}},
                                                {{true}, {false}}, options);
+
   options.quoted_strings_can_be_null = false;
   AssertConversionError(decimal(14, 3), {"\"1.5\",\"xxx\"\n"}, {1}, options);
 
@@ -685,6 +691,7 @@ TYPED_TEST(TestNumericDictConverter, Errors) {
   ASSERT_RAISES(Invalid, DictConversion(value_type, "xxx\n"));
 
   ConvertOptions options = ConvertOptions::Defaults();
+
   options.quoted_strings_can_be_null = false;
   ASSERT_RAISES(Invalid, DictConversion(value_type, "\"N/A\"\n", -1, options));
 
