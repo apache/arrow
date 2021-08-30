@@ -24,9 +24,8 @@
 
 #include "arrow/util/macros.h"
 #include "expr_decomposer.h"
-#include "gandiva/base_cache_key.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/annotator.h"
+#include "gandiva/base_cache_key.h"
 #include "gandiva/compiled_expr.h"
 #include "gandiva/configuration.h"
 #include "gandiva/dex_visitor.h"
@@ -34,6 +33,7 @@
 #include "gandiva/execution_context.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
 #include "gandiva/selection_vector.h"
@@ -47,23 +47,22 @@ class FunctionHolder;
 /// Builds an LLVM module and generates code for the specified set of expressions.
 class GANDIVA_EXPORT LLVMGenerator {
  public:
-
   /// \brief Factory method to initialize the generator.
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
-  static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> GetCache();
+  static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+  GetCache();
 
   /// \brief Build the code for the expression trees for default mode. Each
   /// element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
 
-
-  /// \brief Build the code for the expression trees for default mode with a LLVM ObjectCache.
-  /// Each element in the vector represents an expression tree
+  /// \brief Build the code for the expression trees for default mode with a LLVM
+  /// ObjectCache. Each element in the vector represents an expression tree
   template <class KeyType>
   Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode,
-               GandivaObjectCache<KeyType>& obj_cache){
+               GandivaObjectCache<KeyType>& obj_cache) {
     selection_vector_mode_ = mode;
 
     for (auto& expr : exprs) {
@@ -89,7 +88,6 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// \brief Build the code for the expression trees for default mode. Each
   /// element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs) {
-
     return Build(exprs, SelectionVector::Mode::MODE_NONE);
   }
 
@@ -282,7 +280,6 @@ class GANDIVA_EXPORT LLVMGenerator {
   // used for debug
   bool enable_ir_traces_;
   std::vector<std::string> trace_strings_;
-
 };
 
 }  // namespace gandiva

@@ -209,7 +209,7 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
   auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
   std::shared_ptr<Projector> projector1;
   ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
-  //EXPECT_NE(projector0.get(), projector1.get()); -> old expect.
+  // EXPECT_NE(projector0.get(), projector1.get()); -> old expect.
   EXPECT_FALSE(projector1->GetCompiledFromCache());
 
   // if the output scale/precision are same, should get a cache hit.

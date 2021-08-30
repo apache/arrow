@@ -25,16 +25,17 @@
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
 #include "gandiva/base_cache_key.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_generator.h"
 
 namespace gandiva {
 
-
-ProjectorCacheKey::ProjectorCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                                     ExpressionVector expression_vector, SelectionVector::Mode mode)
+ProjectorCacheKey::ProjectorCacheKey(SchemaPtr schema,
+                                     std::shared_ptr<Configuration> configuration,
+                                     ExpressionVector expression_vector,
+                                     SelectionVector::Mode mode)
     : schema_(schema), configuration_(configuration), mode_(mode), uniqifier_(0) {
   static const int kSeedValue = 4;
   size_t result = kSeedValue;
@@ -79,7 +80,7 @@ std::string ProjectorCacheKey::ToString() const {
   std::stringstream ss;
   // indent, window, indent_size, null_rep and skip new lines.
   arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-      DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
 
   ss << "Expressions: [";
   bool first = true;
@@ -96,7 +97,6 @@ std::string ProjectorCacheKey::ToString() const {
   return ss.str();
 }
 
-
 void ProjectorCacheKey::UpdateUniqifier(const std::string& expr) {
   if (uniqifier_ == 0) {
     // caching of expressions with re2 patterns causes lock contention. So, use
@@ -106,7 +106,6 @@ void ProjectorCacheKey::UpdateUniqifier(const std::string& expr) {
     }
   }
 }
-
 
 Projector::Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                      const FieldVector& output_fields,
@@ -140,12 +139,13 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-
-  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache = LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+      LLVMGenerator::GetCache();
 
   ProjectorCacheKey projector_key(schema, configuration, exprs, selection_vector_mode);
   BaseCacheKey cache_key(projector_key, "projector");
-  std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
+  std::unique_ptr<BaseCacheKey> base_cache_key =
+      std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
   bool llvm_flag = false;
@@ -154,7 +154,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
 
   // Verify if previous projector obj code was cached
-  if(prev_cached_obj != nullptr) {
+  if (prev_cached_obj != nullptr) {
     ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
     llvm_flag = true;
   }
@@ -372,18 +372,11 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
 
 std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
 
-void Projector::SetCompiledFromCache(bool flag) {
-  compiled_from_cache_ = flag;
-}
+void Projector::SetCompiledFromCache(bool flag) { compiled_from_cache_ = flag; }
 
-bool Projector::GetCompiledFromCache() {
-  return compiled_from_cache_;
-}
+bool Projector::GetCompiledFromCache() { return compiled_from_cache_; }
 
-size_t Projector::GetUsedCacheSize() {
-
-  return used_cache_size_;
-}
+size_t Projector::GetUsedCacheSize() { return used_cache_size_; }
 
 size_t Projector::used_cache_size_ = 0;
 

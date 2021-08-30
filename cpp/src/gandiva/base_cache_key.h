@@ -21,11 +21,11 @@
 #include <stddef.h>
 
 #include <boost/any.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
-#include <boost/variant.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/variant.hpp>
 #include <sstream>
 
 #include "gandiva/expression.h"
@@ -36,7 +36,6 @@ namespace gandiva {
 
 class BaseCacheKey {
  public:
-
   BaseCacheKey(Expression& expr, std::string type) : type_(type) {
     static const int32_t kSeedValue = 4;
     std::string expr_as_string = expr.ToString();
@@ -79,7 +78,8 @@ class BaseCacheKey {
   };
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
-               std::string type) : type_(type) {
+               std::string type)
+      : type_(type) {
     static const int32_t kSeedValue = 4;
     unsigned long int result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
@@ -92,17 +92,11 @@ class BaseCacheKey {
     uuid_ = gen(std::to_string(result_hash));
   };
 
-  size_t Hash() const{
-    return hash_code_;
-  }
+  size_t Hash() const { return hash_code_; }
 
-  boost::uuids::uuid Uuid() const {
-    return uuid_;
-  }
+  boost::uuids::uuid Uuid() const { return uuid_; }
 
-  std::string Type() const {
-    return type_;
-  }
+  std::string Type() const { return type_; }
 
   std::string getUuidString() const {
     std::string uuid_string = "";
@@ -123,10 +117,7 @@ class BaseCacheKey {
     return true;
   };
 
-  bool operator!=(const BaseCacheKey& other) const {
-    return !(*this == other);
-  }
-
+  bool operator!=(const BaseCacheKey& other) const { return !(*this == other); }
 
  private:
   uint64_t hash_code_;
@@ -135,4 +126,4 @@ class BaseCacheKey {
   boost::any key_ = nullptr;
 };
 
-}
+}  // namespace gandiva

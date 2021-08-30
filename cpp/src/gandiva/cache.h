@@ -69,19 +69,16 @@ class Cache {
     mtx_.unlock();
   }
 
-  void PutObjectCode(KeyType& cache_key, ValueType object_code, size_t object_cache_size) {
+  void PutObjectCode(KeyType& cache_key, ValueType object_code,
+                     size_t object_cache_size) {
     mtx_.lock();
     cache_.InsertObject(cache_key, object_code, object_cache_size);
     mtx_.unlock();
   }
 
-  std::string ToString() {
-    return cache_.ToString();
-  }
+  std::string ToString() { return cache_.ToString(); }
 
-  size_t GetCacheSize(){
-    return cache_.GetLruCacheSize();
-  }
+  size_t GetCacheSize() { return cache_.GetLruCacheSize(); }
 
  private:
   GreedyDualSizeCache<KeyType, ValueType> cache_;

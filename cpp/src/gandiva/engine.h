@@ -24,8 +24,8 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/configuration.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
@@ -55,8 +55,8 @@ class GANDIVA_EXPORT Engine {
   }
 
   /// Set BaseObjectCache.
-  template<class KeyType>
-  Status SetLLVMObjectCache(GandivaObjectCache<KeyType>& object_cache){
+  template <class KeyType>
+  Status SetLLVMObjectCache(GandivaObjectCache<KeyType>& object_cache) {
     execution_engine_->setObjectCache(&object_cache);
     if (execution_engine_->hasError()) {
       return Status::ExecutionError(

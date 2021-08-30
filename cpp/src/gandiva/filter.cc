@@ -24,13 +24,13 @@
 
 #include "arrow/util/hash_util.h"
 
+#include "gandiva/base_cache_key.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
-#include "gandiva/base_cache_key.h"
 
 namespace gandiva {
 
@@ -73,7 +73,7 @@ std::string FilterCacheKey::ToString() const {
   std::stringstream ss;
   // indent, window, indent_size, null_rep and skip new lines.
   arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-      DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
 
   ss << "Condition: [" << expression_as_string_ << "]";
   return ss.str();
@@ -103,13 +103,15 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache = LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+      LLVMGenerator::GetCache();
 
   Condition conditionToKey = *(condition.get());
 
   FilterCacheKey filter_key(schema, configuration, conditionToKey);
   BaseCacheKey cache_key(filter_key, "filter");
-  std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
+  std::unique_ptr<BaseCacheKey> base_cache_key =
+      std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
   bool llvm_flag = false;
@@ -118,7 +120,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   prev_cached_obj = shared_cache->GetObjectCode(*shared_base_cache_key);
 
   // Verify if previous filter obj code was cached
-  if(prev_cached_obj != nullptr) {
+  if (prev_cached_obj != nullptr) {
     ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG]: Object code WAS already cached!";
     llvm_flag = true;
   }
@@ -189,18 +191,11 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 
-void Filter::SetCompiledFromCache(bool flag) {
-  compiled_from_cache_ = flag;
-}
+void Filter::SetCompiledFromCache(bool flag) { compiled_from_cache_ = flag; }
 
-bool Filter::GetCompiledFromCache() {
-  return compiled_from_cache_;
-}
+bool Filter::GetCompiledFromCache() { return compiled_from_cache_; }
 
-size_t Filter::GetUsedCacheSize() {
-
-  return used_cache_size_;
-}
+size_t Filter::GetUsedCacheSize() { return used_cache_size_; }
 
 size_t Filter::used_cache_size_ = 0;
 
