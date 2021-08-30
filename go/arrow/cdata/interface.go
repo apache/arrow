@@ -25,10 +25,22 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// ImportCArrowField takes in an ArrowSchema from the C Data interface, it
+// will copy the metadata and type definitions rather than keep direct references
+// to them. It is safe to call C.ArrowSchemaRelease after receiving the field
+// from this function.
+func ImportCArrowField(out *CArrowSchema) (arrow.Field, error) {
+	return importSchema(out)
+}
+
 // ImportCArrowSchema takes in the ArrowSchema from the C Data Interface, it
 // will copy the metadata and schema definitions over from the C object rather
 // than keep direct references to them. It is safe to call C.ArrowSchemaRelease
 // after receiving the schema from this function.
+//
+// This version is intended to take in a schema for a record batch, which means
+// that the top level of the schema should be a struct of the schema fields. If
+// importing a single array's schema, then use ImportCArrowField instead.
 func ImportCArrowSchema(out *CArrowSchema) (*arrow.Schema, error) {
 	ret, err := importSchema(out)
 	if err != nil {
@@ -55,7 +67,7 @@ func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface,
 	if err != nil {
 		return nil, err
 	}
-
+	defer imp.data.Release()
 	return array.MakeFromData(imp.data), nil
 }
 

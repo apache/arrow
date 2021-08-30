@@ -29,6 +29,8 @@ package cdata
 // int stream_get_schema(struct ArrowArrayStream* st, struct ArrowSchema* out) { return st->get_schema(st, out); }
 // int stream_get_next(struct ArrowArrayStream* st, struct ArrowArray* out) { return st->get_next(st, out); }
 // const char* stream_get_last_error(struct ArrowArrayStream* st) { return st->get_last_error(st); }
+// struct ArrowArray get_arr() { struct ArrowArray arr; return arr; }
+// struct ArrowArrayStream get_stream() { struct ArrowArrayStream stream; return stream; }
 //
 import "C"
 
@@ -171,16 +173,42 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		return
 	}
 
-	// handle the complex types
-	switch f[0] {
-	case 'w': // fixed size binary is "w:##" where ## is the byteWidth
-		byteWidth, err := strconv.Atoi(strings.Split(f, ":")[1])
+	// handle types with params via colon
+	typs := strings.Split(f, ":")
+	defaulttz := "UTC"
+	switch typs[0] {
+	case "tss":
+		tz := typs[1]
+		if len(typs[1]) == 0 {
+			tz = defaulttz
+		}
+		dt = &arrow.TimestampType{Unit: arrow.Second, TimeZone: tz}
+	case "tsm":
+		tz := typs[1]
+		if len(typs[1]) == 0 {
+			tz = defaulttz
+		}
+		dt = &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: tz}
+	case "tsu":
+		tz := typs[1]
+		if len(typs[1]) == 0 {
+			tz = defaulttz
+		}
+		dt = &arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: tz}
+	case "tsn":
+		tz := typs[1]
+		if len(typs[1]) == 0 {
+			tz = defaulttz
+		}
+		dt = &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: tz}
+	case "w": // fixed size binary is "w:##" where ## is the byteWidth
+		byteWidth, err := strconv.Atoi(typs[1])
 		if err != nil {
 			return ret, err
 		}
 		dt = &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}
-	case 'd': // decimal types are d:<precision>,<scale>[,<bitsize>] size is assumed 128 if left out
-		props := strings.Split(f, ":")[1]
+	case "d": // decimal types are d:<precision>,<scale>[,<bitsize>] size is assumed 128 if left out
+		props := typs[1]
 		propList := strings.Split(props, ",")
 		if len(propList) == 3 {
 			err = xerrors.New("only decimal128 is supported")
@@ -190,7 +218,9 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		precision, _ := strconv.Atoi(propList[0])
 		scale, _ := strconv.Atoi(propList[1])
 		dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
-	case '+': // types with children
+	}
+
+	if f[0] == '+' { // types with children
 		switch f[1] {
 		case 'l': // list
 			dt = arrow.ListOf(childFields[0].Type)
@@ -222,7 +252,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 // importer to keep track when importing C ArrowArray objects.
 type cimporter struct {
 	dt       arrow.DataType
-	arr      C.ArrowArray
+	arr      *C.ArrowArray
 	data     *array.Data
 	parent   *cimporter
 	children []cimporter
@@ -275,25 +305,35 @@ func (imp *cimporter) doImportChildren() error {
 	return nil
 }
 
+func (imp *cimporter) initarr() {
+	arr := C.get_arr()
+	imp.arr = &arr
+}
+
 // import is called recursively as needed for importing an array and its children
 // in order to generate array.Data objects
 func (imp *cimporter) doImport(src *C.ArrowArray) error {
+	imp.initarr()
 	// move the array from the src object passed in to the one referenced by
 	// this importer. That way we can set up a finalizer on the created
 	// *array.Data object so we clean up our Array's memory when garbage collected.
-	C.ArrowArrayMove(src, &imp.arr)
+	C.ArrowArrayMove(src, imp.arr)
 	defer func(arr *C.ArrowArray) {
 		if imp.data != nil {
 			runtime.SetFinalizer(imp.data, func(*array.Data) {
 				C.ArrowArrayRelease(arr)
+				if C.ArrowArrayIsReleased(arr) != 1 {
+					panic("did not release C mem")
+				}
 			})
 		}
-	}(&imp.arr)
+	}(imp.arr)
 
 	// import any children
 	if err := imp.doImportChildren(); err != nil {
 		return err
 	}
+
 	// get a view of the buffers, zero-copy. we're just looking at the pointers
 	const maxlen = 0x7fffffff
 	imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
@@ -478,16 +518,6 @@ func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, of
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 
-func importCArray(arr *C.ArrowArray, sc *C.ArrowSchema) (field arrow.Field, imp *cimporter, err error) {
-	field, err = importSchema(sc)
-	if err != nil {
-		return
-	}
-
-	imp, err = importCArrayAsType(arr, field.Type)
-	return
-}
-
 func importCArrayAsType(arr *C.ArrowArray, dt arrow.DataType) (imp *cimporter, err error) {
 	imp = &cimporter{dt: dt}
 	err = imp.doImport(arr)
@@ -495,24 +525,26 @@ func importCArrayAsType(arr *C.ArrowArray, dt arrow.DataType) (imp *cimporter, e
 }
 
 func initReader(rdr *nativeCRecordBatchReader, stream *C.ArrowArrayStream) {
-	C.ArrowArrayStreamMove(stream, &rdr.stream)
-	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) { C.ArrowArrayStreamRelease(&r.stream) })
+	st := C.get_stream()
+	rdr.stream = &st
+	C.ArrowArrayStreamMove(stream, rdr.stream)
+	runtime.SetFinalizer(rdr, func(r *nativeCRecordBatchReader) { C.ArrowArrayStreamRelease(r.stream) })
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
 type nativeCRecordBatchReader struct {
-	stream C.ArrowArrayStream
+	stream *C.ArrowArrayStream
 	schema *arrow.Schema
 }
 
 func (n *nativeCRecordBatchReader) getError(errno int) error {
-	return xerrors.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(&n.stream)))
+	return xerrors.Errorf("%w: %s", syscall.Errno(errno), C.GoString(C.stream_get_last_error(n.stream)))
 }
 
 func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 	if n.schema == nil {
 		var sc C.ArrowSchema
-		errno := C.stream_get_schema(&n.stream, &sc)
+		errno := C.stream_get_schema(n.stream, &sc)
 		if errno != 0 {
 			return nil, n.getError(int(errno))
 		}
@@ -525,8 +557,8 @@ func (n *nativeCRecordBatchReader) Read() (array.Record, error) {
 		n.schema = s
 	}
 
-	var arr C.ArrowArray
-	errno := C.stream_get_next(&n.stream, &arr)
+	arr := C.get_arr()
+	errno := C.stream_get_next(n.stream, &arr)
 	if errno != 0 {
 		return nil, n.getError(int(errno))
 	}
