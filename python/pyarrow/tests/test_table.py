@@ -1580,7 +1580,10 @@ def test_table_repr_to_string():
                     pa.array([10, 20, 30, 40], type='int32')], schema=schema)
     assert str(tab) == """pyarrow.Table
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [[1,2,3,4]]
+c1: [[10,20,30,40]]"""
 
     assert tab.to_string(show_metadata=True) == """\
 pyarrow.Table
