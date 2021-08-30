@@ -1086,24 +1086,37 @@ TEST(GroupBy, VarianceAndStddev) {
 TEST(GroupBy, TDigest) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
-    [1,   1],
-    [null,  1],
-    [0,   2],
-    [null,  3],
-    [4,   null],
-    [3,  1],
-    [0, 2],
-    [-1, 2],
-    [1,  null],
-    [NaN,  3]
+    [1,    1],
+    [null, 1],
+    [0,    2],
+    [null, 3],
+    [1,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2],
+    [-1,   2],
+    [1,    null],
+    [NaN,  3],
+    [1,    4],
+    [1,    4],
+    [null, 4]
   ])");
 
   TDigestOptions options1(std::vector<double>{0.5, 0.9, 0.99});
   TDigestOptions options2(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
                           /*buffer_size=*/1024);
+  TDigestOptions keep_nulls(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                            /*skip_nulls=*/false, /*min_count=*/0);
+  TDigestOptions min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                           /*skip_nulls=*/true, /*min_count=*/3);
+  TDigestOptions keep_nulls_min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                      /*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("argument"),
+                               batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
                                batch->GetColumnByName("argument"),
@@ -1115,6 +1128,9 @@ TEST(GroupBy, TDigest) {
                                {"hash_tdigest", nullptr},
                                {"hash_tdigest", &options1},
                                {"hash_tdigest", &options2},
+                               {"hash_tdigest", &keep_nulls},
+                               {"hash_tdigest", &min_count},
+                               {"hash_tdigest", &keep_nulls_min_count},
                            }));
 
   AssertDatumsApproxEqual(
@@ -1122,13 +1138,17 @@ TEST(GroupBy, TDigest) {
                         field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("hash_tdigest", fixed_size_list(float64(), 3)),
                         field("hash_tdigest", fixed_size_list(float64(), 3)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
+                        field("hash_tdigest", fixed_size_list(float64(), 1)),
                         field("key_0", int64()),
                     }),
                     R"([
-    [[1.0], [1.0, 3.0, 3.0], [1.0, 3.0, 3.0], 1],
-    [[0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 2],
-    [null,  null,            null,            3],
-    [[1.0], [1.0, 4.0, 4.0], [1.0, 4.0, 4.0], null]
+    [[1.0], [1.0, 3.0, 3.0], [1.0, 3.0, 3.0], null,  null,  null,  1],
+    [[0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0], [0.0], [0.0], 2],
+    [null,  null,            null,            null,  null,  null,  3],
+    [[1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0], null,  [1.0], null,  4],
+    [[1.0], [1.0, 4.0, 4.0], [1.0, 4.0, 4.0], [1.0], null,  null,  null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);

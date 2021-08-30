@@ -140,9 +140,11 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
 class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
-                          uint32_t buffer_size = 500);
+                          uint32_t buffer_size = 500, bool skip_nulls = true,
+                          uint32_t min_count = 0);
   constexpr static char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -152,6 +154,11 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t delta;
   /// input buffer size, default 500
   uint32_t buffer_size;
+  /// If true (the default), null values are ignored. Otherwise, if any value is null,
+  /// emit null.
+  bool skip_nulls;
+  /// If less than this many non-null values are observed, emit null.
+  uint32_t min_count;
 };
 
 /// \brief Control Index kernel behavior

@@ -3015,5 +3015,44 @@ TEST(TestTDigestKernel, Scalar) {
   }
 }
 
+TEST(TestTDigestKernel, Options) {
+  auto ty = float64();
+  TDigestOptions keep_nulls(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                            /*skip_nulls=*/false, /*min_count=*/0);
+  TDigestOptions min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                           /*skip_nulls=*/true, /*min_count=*/3);
+  TDigestOptions keep_nulls_min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                      /*skip_nulls=*/false, /*min_count=*/3);
+
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[1.0]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), keep_nulls),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, null]"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[2.0]")));
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ArrayFromJSON(ty, "[1.0, 2.0, 3.0, null]"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "1.0"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+  EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), keep_nulls_min_count),
+              ResultWith(ArrayFromJSON(ty, "[]")));
+}
+
 }  // namespace compute
 }  // namespace arrow

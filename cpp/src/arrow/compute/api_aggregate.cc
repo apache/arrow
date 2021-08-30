@@ -96,7 +96,9 @@ static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("interpolation", &QuantileOptions::interpolation));
 static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
     DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
-    DataMember("buffer_size", &TDigestOptions::buffer_size));
+    DataMember("buffer_size", &TDigestOptions::buffer_size),
+    DataMember("skip_nulls", &TDigestOptions::skip_nulls),
+    DataMember("min_count", &TDigestOptions::min_count));
 static auto kIndexOptionsType =
     GetFunctionOptionsType<IndexOptions>(DataMember("value", &IndexOptions::value));
 }  // namespace
@@ -132,17 +134,22 @@ QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation inter
       interpolation{interpolation} {}
 constexpr char QuantileOptions::kTypeName[];
 
-TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size)
+TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
+                               bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{q},
       delta{delta},
-      buffer_size{buffer_size} {}
+      buffer_size{buffer_size},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
-                               uint32_t buffer_size)
+                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count)
     : FunctionOptions(internal::kTDigestOptionsType),
       q{std::move(q)},
       delta{delta},
-      buffer_size{buffer_size} {}
+      buffer_size{buffer_size},
+      skip_nulls{skip_nulls},
+      min_count{min_count} {}
 constexpr char TDigestOptions::kTypeName[];
 
 IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)
