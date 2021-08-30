@@ -34,6 +34,10 @@ void LogCacheSize(size_t capacity);
 
 template <class KeyType, typename ValueType>
 class Cache {
+  using MutexType = std::mutex;
+  using ReadLock = std::unique_lock<MutexType>;
+  using WriteLock = std::unique_lock<MutexType>;
+
  public:
   explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
 
@@ -48,9 +52,36 @@ class Cache {
   }
 
   void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
+  ValueType GetObjectCode(KeyType cache_key) {
+    arrow::util::optional<ValueType> result;
+    mtx_.lock();
+    result = cache_.getObject(cache_key);
+    mtx_.unlock();
+    if (result != arrow::util::nullopt) {
+      return *result;
+    } else {
+      return nullptr;
+    }
+  }
+
+  void PutModule(KeyType cache_key, ValueType module) {
     mtx_.lock();
     cache_.insert(cache_key, valueCacheObject);
     mtx_.unlock();
+  }
+
+  void PutObjectCode(KeyType& cache_key, ValueType object_code, size_t object_cache_size) {
+    mtx_.lock();
+    cache_.insertObject(cache_key, object_code, object_cache_size);
+    mtx_.unlock();
+  }
+
+  std::string toString() {
+    return cache_.toString();
+  }
+
+  size_t getCacheSize(){
+    return cache_.getLruCacheSize();
   }
 
  private:
