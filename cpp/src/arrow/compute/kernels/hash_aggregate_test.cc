@@ -1377,6 +1377,49 @@ TEST(GroupBy, CountDistinct) {
   ])"),
                       aggregated_and_grouped,
                       /*verbose=*/true);
+
+    table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {
+                                                                                      R"([
+    ["foo",  1],
+    ["foo",  1],
+    ["bar",  2],
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                  });
+
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_count_distinct", &all},
+                                 {"hash_count_distinct", &only_valid},
+                                 {"hash_count_distinct", &only_null},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
+                                        field("hash_count_distinct", int64()),
+                                        field("key_0", int64()),
+                                    }),
+                                    R"([
+    [1, 1, 0, 1],
+    [2, 2, 0, 2]
+  ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
   }
 }
 
@@ -1438,12 +1481,13 @@ TEST(GroupBy, Distinct) {
     SortBy({"key_0"}, &aggregated_and_grouped);
 
     // Order of sub-arrays is not stable
-    auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
     auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
       EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
       EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
       return sorted.make_array();
     };
+
+    auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
 
     auto all_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"(["foo"])"), sort(*all_arr->value_slice(0)),
@@ -1480,6 +1524,45 @@ TEST(GroupBy, Distinct) {
                       /*verbose=*/true);
     AssertDatumsEqual(ArrayFromJSON(utf8(), R"([])"), sort(*null_arr->value_slice(4)),
                       /*verbose=*/true);
+
+    table =
+        TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {
+                                                                                      R"([
+    ["foo",  1],
+    ["foo",  1],
+    ["bar",  2],
+    ["bar",  2]
+])",
+                                                                                  });
+    ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
+                         internal::GroupBy(
+                             {
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                                 table->GetColumnByName("argument"),
+                             },
+                             {
+                                 table->GetColumnByName("key"),
+                             },
+                             {
+                                 {"hash_distinct", &all},
+                                 {"hash_distinct", &only_valid},
+                                 {"hash_distinct", &only_null},
+                             },
+                             use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(struct_({
+                          field("hash_distinct", list(utf8())),
+                          field("hash_distinct", list(utf8())),
+                          field("hash_distinct", list(utf8())),
+                          field("key_0", int64()),
+                      }),
+                      R"([[["foo"], ["foo"], [], 1], [["bar"], ["bar"], [], 2]])"),
+        aggregated_and_grouped,
+        /*verbose=*/true);
   }
 }
 

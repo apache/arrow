@@ -323,7 +323,8 @@ equivalents above and reflects how they are implemented internally.
 * \(2) CountMode controls whether only non-null values are counted
   (the default), only null values are counted, or all values are
   counted. For hash_distinct, it instead controls whether null values
-  are emitted.
+  are emitted. This never affects the grouping keys, only group values
+  (i.e. you may get a group where the key is null).
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
