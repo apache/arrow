@@ -43,19 +43,15 @@ a type
     days = pa.array([1, 12, 17, 23, 28], type=pa.int8())
 
 Multiple arrays can be combined in tables to form the columns
-in tabular data according to a provided schema
+in tabular data when attached to a column name
 
 .. ipython:: python
 
     months = pa.array([1, 3, 5, 7, 1], type=pa.int8())
     years = pa.array([1990, 2000, 1995, 2000, 1995], type=pa.int16())
 
-    birthdays_table = pa.table([days, months, years], 
-                               schema=pa.schema([
-                                    ('days', days.type),
-                                    ('months', months.type),
-                                    ('years', years.type)
-                               ]))
+    birthdays_table = pa.table([days, months, years],
+                               names=["days", "months", "years"])
     
     birthdays_table
 
@@ -74,7 +70,7 @@ like Parquet:
 
     pq.write_table(birthdays_table, 'birthdays.parquet')
 
-Once you have your data on disk, loading it back is as easy,
+Once you have your data on disk, loading it back is a single function call,
 and Arrow is heavily optimized for memory and speed so loading
 data will be as quick as possible
 
