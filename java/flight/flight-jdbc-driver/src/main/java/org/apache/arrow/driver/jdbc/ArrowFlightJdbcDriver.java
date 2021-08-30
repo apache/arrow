@@ -58,7 +58,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   public ArrowFlightConnection connect(final String url, final Properties info) throws SQLException {
     final String expectedUrlPrefix = getConnectStringPrefix();
-    Preconditions.checkArgument(url == null || url.startsWith(expectedUrlPrefix),
+    Preconditions.checkArgument(url == null || acceptsURL(url),
         format("URL is invalid: does not start with <%s>.", expectedUrlPrefix));
     final Properties properties = new Properties(info);
     properties.putAll(info);
