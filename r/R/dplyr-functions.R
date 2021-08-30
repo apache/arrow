@@ -826,9 +826,9 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
   )
 }
 agg_funcs$n <- function() {
-    list(
+  list(
     fun = "sum",
     data = Expression$scalar(1L),
     options = list()
-    )
+  )
 }
