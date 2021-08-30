@@ -325,7 +325,6 @@ test_that("Do things after summarize", {
     tbl
   )
 
-  skip("ARROW-13501")
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2) %>%

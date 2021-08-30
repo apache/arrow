@@ -842,16 +842,16 @@ agg_funcs$n <- function() {
 }
 
 output_type <- function(fun, input_type) {
-    # These are quick and dirty heuristics.
-    if (fun %in% c("any", "all")) {
-        bool()
-    } else if (fun %in% "sum") {
-        # It may upcast to a bigger type but this is close enough
-        input_type
-    } else if (fun %in% c("mean", "stddev", "variance")) {
-        float64()
-    } else {
-        # Just so things don't error, assume the resulting type is the same
-        input_type
-    }
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance")) {
+    float64()
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
+  }
 }
