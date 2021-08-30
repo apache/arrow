@@ -55,7 +55,7 @@ class Cache {
   ValueType GetObjectCode(KeyType cache_key) {
     arrow::util::optional<ValueType> result;
     mtx_.lock();
-    result = cache_.getObject(cache_key);
+    result = cache_.GetObjectCode(cache_key);
     mtx_.unlock();
     if (result != arrow::util::nullopt) {
       return *result;
@@ -72,16 +72,16 @@ class Cache {
 
   void PutObjectCode(KeyType& cache_key, ValueType object_code, size_t object_cache_size) {
     mtx_.lock();
-    cache_.insertObject(cache_key, object_code, object_cache_size);
+    cache_.InsertObject(cache_key, object_code, object_cache_size);
     mtx_.unlock();
   }
 
   std::string toString() {
-    return cache_.toString();
+    return cache_.ToString();
   }
 
   size_t getCacheSize(){
-    return cache_.getLruCacheSize();
+    return cache_.GetLruCacheSize();
   }
 
  private:
