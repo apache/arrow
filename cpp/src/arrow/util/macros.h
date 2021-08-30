@@ -128,8 +128,6 @@
 #else
 # if defined(__GNUC__) && __GNUC__ >= 6
 #  define ARROW_DEPRECATED_ENUM_VALUE(...) __attribute__((deprecated(__VA_ARGS__)))
-# elif defined(_MSC_VER)
-#  define ARROW_DEPRECATED_ENUM_VALUE(...) __declspec(deprecated(__VA_ARGS__))
 # else
 #  define ARROW_DEPRECATED_ENUM_VALUE(...)
 # endif
