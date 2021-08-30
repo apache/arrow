@@ -36,8 +36,6 @@
 namespace arrow {
 namespace dataset {
 
-using internal::checked_pointer_cast;
-
 class OrcFormatHelper {
  public:
   using FormatType = OrcFileFormat;

@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/adapters/orc/adapter.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
@@ -31,6 +32,8 @@ namespace arrow {
 using internal::checked_pointer_cast;
 
 namespace dataset {
+
+namespace {
 
 static inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
     const FileSource& source,
@@ -64,7 +67,8 @@ class OrcScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source_));
     std::shared_ptr<arrow::RecordBatchReader> batch_reader;
-    // TODO determine included fields from options_->MaterializedFields() to
+    // TODO (https://issues.apache.org/jira/browse/ARROW-13797)
+    // determine included fields from options_->MaterializedFields() to
     // optimize the column selection (see _column_index_lookup in python
     // orc.py for custom logic)
     // std::vector<int> included_fields;
@@ -77,6 +81,8 @@ class OrcScanTask : public ScanTask {
  private:
   FileSource source_;
 };
+
+}  // namespace
 
 Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
@@ -104,7 +110,7 @@ Future<util::optional<int64_t>> OrcFileFormat::CountRows(
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  auto self = internal::checked_pointer_cast<OrcFileFormat>(shared_from_this());
+  auto self = checked_pointer_cast<OrcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
       [self, file]() -> Result<util::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
@@ -117,14 +123,15 @@ Future<util::optional<int64_t>> OrcFileFormat::CountRows(
 // //
 
 std::shared_ptr<FileWriteOptions> OrcFileFormat::DefaultWriteOptions() {
-  // TODO
-  return NULLPTR;
+  // TODO (https://issues.apache.org/jira/browse/ARROW-13796)
+  return nullptr;
 }
 
 Result<std::shared_ptr<FileWriter>> OrcFileFormat::MakeWriter(
     std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
     std::shared_ptr<FileWriteOptions> options,
     fs::FileLocator destination_locator) const {
+  // TODO (https://issues.apache.org/jira/browse/ARROW-13796)
   return Status::NotImplemented("ORC writer not yet implemented.");
 }
 

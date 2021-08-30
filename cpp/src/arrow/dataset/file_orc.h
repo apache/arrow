@@ -22,7 +22,6 @@
 #include <memory>
 #include <string>
 
-#include "arrow/adapters/orc/adapter.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -57,6 +56,7 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override;
 
+  // TODO add async version (https://issues.apache.org/jira/browse/ARROW-13795)
   // Result<RecordBatchGenerator> ScanBatchesAsync(
   //     const std::shared_ptr<ScanOptions>& options,
   //     const std::shared_ptr<FileFragment>& file) const override;

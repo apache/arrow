@@ -2646,13 +2646,16 @@ def test_orc_format(tempdir, dataset_reader):
 
     dataset = ds.dataset(path, format=ds.OrcFileFormat())
     result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
     assert result.equals(table)
 
     dataset = ds.dataset(path, format="orc")
     result = dataset_reader.to_table(dataset)
+    result.validate(full=True)
     assert result.equals(table)
 
     result = dataset_reader.to_table(dataset, columns=["b"])
+    result.validate(full=True)
     assert result.equals(table.select(["b"]))
 
     assert dataset_reader.count_rows(dataset) == 3
@@ -2672,10 +2675,13 @@ def test_orc_scan_options(tempdir, dataset_reader):
     result = list(dataset_reader.to_batches(dataset))
     assert len(result) == 1
     assert result[0].num_rows == 3
+    assert result[0].equals(table.to_batches()[0])
     result = list(dataset_reader.to_batches(dataset, batch_size=2))
     assert len(result) == 2
     assert result[0].num_rows == 2
+    assert result[0].equals(table.slice(0, 2).to_batches()[0])
     assert result[1].num_rows == 1
+    assert result[1].equals(table.slice(2, 1).to_batches()[0])
 
 
 @pytest.mark.pandas
