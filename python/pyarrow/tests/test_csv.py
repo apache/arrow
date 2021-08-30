@@ -322,17 +322,8 @@ def test_write_options():
         opts.validate()
 
 
-@pytest.fixture(params=[True, False], ids=['threaded', 'serial'])
-def use_threads(request):
-    return request.param
-
-
 class BaseTestCSV(abc.ABC):
     """Common tests which are shared by streaming and non streaming readers"""
-
-    @pytest.fixture(autouse=True)
-    def use_threads(self, use_threads):
-        return use_threads
 
     @abc.abstractmethod
     def read_bytes(self, b, **kwargs):
@@ -602,14 +593,17 @@ class BaseTestCSV(abc.ABC):
                             convert_options=convert_options)
 
 
-class TestCSVTableRead(BaseTestCSV):
+class BaseCSVTableRead(BaseTestCSV):
 
+    @abc.abstractmethod
     def read_csv(self, csv, *args, validate_full=True, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = self.use_threads
-        table = read_csv(csv, *args, **kwargs)
-        table.validate(full=validate_full)
-        return table
+        """
+        Reads the CSV file into memory using pyarrow's read_csv
+        csv The CSV bytes
+        args Positional arguments to be forwarded to pyarrow's read_csv
+        validate_full Whether or not to fully validate the resulting table
+        kwargs Keyword arguments to be forwarded to pyarrow's read_csv
+        """
 
     def read_bytes(self, b, **kwargs):
         return self.read_csv(pa.py_buffer(b), **kwargs)
@@ -1351,15 +1345,45 @@ class TestCSVTableRead(BaseTestCSV):
         t.join()
 
 
-class TestStreamingCSVRead(BaseTestCSV):
+class TestSerialCSVTableRead(BaseCSVTableRead):
+    @property
+    def use_threads(self):
+        return False
+
+    def read_csv(self, csv, *args, validate_full=True, **kwargs):
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = False
+        table = read_csv(csv, *args, **kwargs)
+        table.validate(full=validate_full)
+        return table
+
+
+class TestThreadedCSVTableRead(BaseCSVTableRead):
+    @property
+    def use_threads(self):
+        return True
+
+    def read_csv(self, csv, *args, validate_full=True, **kwargs):
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = True
+        table = read_csv(csv, *args, **kwargs)
+        table.validate(full=validate_full)
+        return table
+
+
+class BaseStreamingCSVRead(BaseTestCSV):
+
+    @abc.abstractmethod
+    def open_csv(self, csv, *args, **kwargs):
+        """
+        Reads the CSV file into memory using pyarrow's open_csv
+        csv The CSV bytes
+        args Positional arguments to be forwarded to pyarrow's open_csv
+        kwargs Keyword arguments to be forwarded to pyarrow's open_csv
+        """
 
     def open_bytes(self, b, **kwargs):
         return self.open_csv(pa.py_buffer(b), **kwargs)
-
-    def open_csv(self, b, *args, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = self.use_threads
-        return open_csv(b, *args, **kwargs)
 
     def check_reader(self, reader, expected_schema, expected_data):
         assert reader.schema == expected_schema
@@ -1665,6 +1689,28 @@ class TestStreamingCSVRead(BaseTestCSV):
         reader = self.open_bytes(rows, read_options=opts)
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
+
+
+class TestSerialStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
+    @property
+    def use_threads(self):
+        return False
+
+    def open_csv(self, b, *args, **kwargs):
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = False
+        return open_csv(b, *args, **kwargs)
+
+
+class TestThreadedStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
+    @property
+    def use_threads(self):
+        return True
+
+    def open_csv(self, b, *args, **kwargs):
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = True
+        return open_csv(b, *args, **kwargs)
 
 
 class BaseTestCompressedCSVRead:
