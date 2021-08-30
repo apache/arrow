@@ -81,7 +81,8 @@ data will be as quick as possible
     reloaded_birthdays
 
 Saving and loading back data in arrow is usually done through
-:ref:`parquet`, :ref:`ipc` (:ref:`feather`), :ref:`csv` or :ref:`json` formats.
+:ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), :ref:`CSV <csv>` or
+:ref:`Line-Delimited JSON <json>` formats.
 
 Performing Computations
 -----------------------
