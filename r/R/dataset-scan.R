@@ -28,8 +28,7 @@
 #'
 #' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #'    `dplyr` methods on `Dataset`.
-#' * `projection`: A character vector of column names to select cols or a named
-#'    list of Expressions
+#' * `projection`: A character vector of column names to select columns
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
@@ -92,18 +91,12 @@ Scanner$create <- function(dataset,
     if (!is.null(projection)) {
       if (is.character(projection)) {
         proj <- proj[projection]
-      } else if (is_list_of(projection, "Expression")) {
-        # TODO: need to check and see if there are any Expressions that are simply
-        # field refs in projections, but are richer expressions in proj?
-        only_field_refs <- map_lgl(projection, ~.x$field_name != "")
-        field_refs_to_replace <- map_chr(projection[only_field_refs], ~.x$field_name)
-        projection[only_field_refs] <- proj[field_refs_to_replace]
-
-        proj <- projection
       } else {
+        # TODO: ARROW-13802 accepting lists of Expressions as a projectoin
         warning(
-          "Scanner$create(projection = ...) must be a character vector or list ",
-          "of (named) expressions, ignoring the projection argument.")
+          "Scanner$create(projection = ...) must be a character vector, ",
+          "ignoring the projection argument."
+        )
       }
     }
 

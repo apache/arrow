@@ -1081,53 +1081,8 @@ test_that("Scanner$create() filter/projection pushdown", {
     mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
     Scanner$create()
 
-  # add a column in projection
-  scan_two <- ds %>%
-    filter(int > 7 & dbl < 57) %>%
-    select(int, dbl, lgl) %>%
-    Scanner$create(projection = list(
-      int = Expression$field_ref("int"),
-      dbl = Expression$field_ref("dbl"),
-      lgl = Expression$field_ref("lgl"),
-      int_plus = Expression$create(
-        "add_checked",
-        Expression$field_ref("int"),
-        Expression$scalar(1)
-      ),
-      dbl_minus = Expression$create(
-        "subtract_checked",
-        Expression$field_ref("dbl"),
-        Expression$scalar(1)
-      )
-    ))
-  expect_identical(
-    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
-    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
-  )
-
-  # add a column in projection
-  scan_two_prime <- ds %>%
-    filter(int > 7 & dbl < 57) %>%
-    select(int, dbl, lgl) %>%
-    mutate(int_plus = int + 1) %>%
-    Scanner$create(projection = list(
-      int = Expression$field_ref("int"),
-      dbl = Expression$field_ref("dbl"),
-      lgl = Expression$field_ref("lgl"),
-      int_plus = Expression$field_ref("int_plus"),
-      dbl_minus = Expression$create(
-        "subtract_checked",
-        Expression$field_ref("dbl"),
-        Expression$scalar(1)
-      )
-    ))
-  expect_identical(
-    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
-    as.data.frame(scan_two_prime$ToRecordBatchReader()$read_table())
-  )
-
   # select a column in projection
-  scan_three <- ds %>%
+  scan_two <- ds %>%
     filter(int > 7 & dbl < 57) %>%
     # select an extra column, since we are going to
     select(int, dbl, lgl, chr) %>%
@@ -1135,11 +1090,11 @@ test_that("Scanner$create() filter/projection pushdown", {
     Scanner$create(projection = c("int", "dbl", "lgl", "int_plus", "dbl_minus"))
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
-    as.data.frame(scan_three$ToRecordBatchReader()$read_table())
+    as.data.frame(scan_two$ToRecordBatchReader()$read_table())
   )
 
   # adding filters to Scanner$create
-  scan_four <- ds %>%
+  scan_three <- ds %>%
     filter(int > 7) %>%
     select(int, dbl, lgl) %>%
     mutate(int_plus = int + 1, dbl_minus = dbl - 1) %>%
@@ -1148,7 +1103,7 @@ test_that("Scanner$create() filter/projection pushdown", {
     )
   expect_identical(
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
-    as.data.frame(scan_four$ToRecordBatchReader()$read_table())
+    as.data.frame(scan_three$ToRecordBatchReader()$read_table())
   )
 })
 
