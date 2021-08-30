@@ -155,7 +155,9 @@ public class ConnectionTest {
     } catch (final IllegalStateException e) {
       exception = e;
     }
-    assertEquals(format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.HOST), exception.getMessage());
+    assertEquals(
+        format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.HOST),
+        exception.getMessage());
   }
 
   /**
@@ -202,7 +204,9 @@ public class ConnectionTest {
     } catch (final IllegalStateException e) {
       exception = e;
     }
-    assertEquals(format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.PORT), exception.getMessage());
+    assertEquals(
+        format("Required property not provided: <%s>.", ArrowFlightConnectionProperty.PORT),
+        exception.getMessage());
   }
 
   /**
