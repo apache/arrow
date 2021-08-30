@@ -1105,6 +1105,27 @@ test_that("Scanner$create() filter/projection pushdown", {
     as.data.frame(scan_two$ToRecordBatchReader()$read_table())
   )
 
+  # add a column in projection
+  scan_two_prime <- ds %>%
+    filter(int > 7 & dbl < 57) %>%
+    select(int, dbl, lgl) %>%
+    mutate(int_plus = int + 1) %>%
+    Scanner$create(projection = list(
+      int = Expression$field_ref("int"),
+      dbl = Expression$field_ref("dbl"),
+      lgl = Expression$field_ref("lgl"),
+      int_plus = Expression$field_ref("int_plus"),
+      dbl_minus = Expression$create(
+        "subtract_checked",
+        Expression$field_ref("dbl"),
+        Expression$scalar(1)
+      )
+    ))
+  expect_identical(
+    as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
+    as.data.frame(scan_two_prime$ToRecordBatchReader()$read_table())
+  )
+
   # select a column in projection
   scan_three <- ds %>%
     filter(int > 7 & dbl < 57) %>%

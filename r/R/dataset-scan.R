@@ -95,6 +95,10 @@ Scanner$create <- function(dataset,
       } else if (is_list_of(projection, "Expression")) {
         # TODO: need to check and see if there are any Expressions that are simply
         # field refs in projections, but are richer expressions in proj?
+        only_field_refs <- map_lgl(projection, ~.x$field_name != "")
+        field_refs_to_replace <- map_chr(projection[only_field_refs], ~.x$field_name)
+        projection[only_field_refs] <- proj[field_refs_to_replace]
+
         proj <- projection
       } else {
         warning(
