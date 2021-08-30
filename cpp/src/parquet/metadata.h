@@ -276,7 +276,11 @@ class PARQUET_EXPORT FileMetaData {
   /// \throws ParquetException if the index is out of bound.
   std::unique_ptr<RowGroupMetaData> RowGroup(int index) const;
 
-  /// \brief Return the version of the file.
+  /// \brief Return the "version" of the file
+  ///
+  /// The Parquet file metadata stores the version as a single integer,
+  /// therefore the returned value can only be an approximation of the
+  /// Parquet format version actually supported by the producer of the file.
   ParquetVersion::type version() const;
 
   /// \brief Return the application's user-agent string of the writer.
