@@ -1122,7 +1122,7 @@ null input value is converted into a null output value.
   precision. If the number of seconds can not be exactly represented with seconds,
   then the format is a decimal floating point number with a fixed format and a
   precision matching that of the precision of the input. Note precision increases
-  three decimal points points per step going from seconds to nanoseconds.
+  three decimal places per step going from seconds to nanoseconds.
   The character for the decimal point is localized according to the locale.
   See `detailed formatting documentation`_ for descriptions of other flags.
 

@@ -840,12 +840,12 @@ const FunctionDoc subsecond_doc{
 const FunctionDoc strftime_doc{
     "Format timestamps according to a format string",
     ("For each input timestamp, emit a formatted string.\n"
-     "The time format string and locale can be set using StrftimeOptions.\n"
+     "The time format string and locale can be set using StrftimeOptions. "
      "Output precision of %S (seconds) flag depends on the input timestamp precision. "
      "Timestamps with second precision are represented as integers while milliseconds, "
      "microsecond and nanoseconds are represented as fixed floating point numbers with "
-     "3, 6 and 9 decimal points respectively."
-     "An error is returned if the timestamps don't have a defined timezone,\n"
+     "3, 6 and 9 decimal places respectively.\n"
+     "An error is returned if the timestamps don't have a defined timezone,"
      "or if the timezone cannot be found in the timezone database."),
     {"timestamps"},
     "StrftimeOptions"};
