@@ -90,6 +90,7 @@ test_that("ChunkedArray", {
   )
   expect_equal(length(overslice), 15)
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
+
 })
 
 test_that("print ChunkedArray", {
@@ -200,6 +201,22 @@ test_that("ChunkedArray supports integer64 (ARROW-3716)", {
 test_that("ChunkedArray supports difftime", {
   time <- hms::hms(56, 34, 12)
   expect_chunked_roundtrip(list(time, time), time32("s"))
+})
+
+test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
+  types <- c(int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+            uint64(), float32(), float64(), timestamp('ns'), binary(),
+            large_binary(), fixed_size_binary(32), date32(), date64(),
+            decimal(4, 2))
+
+  for (type in c(types)) {
+    one_empty_chunk <- ChunkedArray$create(type=type)
+    expect_type_equal(one_empty_chunk$type, type)
+    expect_identical(length(one_empty_chunk), length(as.vector(one_empty_chunk)))
+    zero_empty_chunks <- one_empty_chunk$Filter(ChunkedArray$create(type = bool()))
+    expect_type_equal(zero_empty_chunks$type, type)
+    expect_identical(length(zero_empty_chunks), length(as.vector(zero_empty_chunks)))
+  }
 })
 
 test_that("integer types casts for ChunkedArray (ARROW-3741)", {
