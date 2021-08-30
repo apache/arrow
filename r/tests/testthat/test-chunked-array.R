@@ -90,7 +90,6 @@ test_that("ChunkedArray", {
   )
   expect_equal(length(overslice), 15)
   expect_warning(z$Slice(2, 10), "Slice 'length' greater than available length")
-
 })
 
 test_that("print ChunkedArray", {
