@@ -43,6 +43,7 @@ import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFlightStreamResultSet;
+import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.calcite.avatica.BuiltInConnectionProperty;
 import org.apache.calcite.avatica.ConnectionProperty;
@@ -70,7 +71,7 @@ public class ResultSetTest {
     properties.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
     properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
 
-    rule = FlightServerTestRule.createNewTestRule(properties);
+    rule = FlightServerTestRule.createNewTestRule(properties, CoreMockedSqlProducers.getLegacyProducer(RANDOM));
   }
 
   @Rule
@@ -105,7 +106,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       int count = 0;
       int expectedRows = 50000;
 
@@ -129,7 +130,7 @@ public class ResultSetTest {
   @Test
   public void testShouldExecuteQueryNotBlockIfClosedBeforeEnd() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       for (int i = 0; i < 7500; i++) {
         assertTrue(resultSet.next());
@@ -146,7 +147,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final int maxRowsLimit = 3;
       statement.setMaxRows(maxRowsLimit);
@@ -189,7 +190,7 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuerySettingLargeMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -213,7 +214,7 @@ public class ResultSetTest {
   public void testColumnCountShouldRemainConsistentForResultSetThroughoutEntireDuration() throws SQLException {
     final Set<Integer> counts = new HashSet<>();
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       while (resultSet.next()) {
         counts.add(resultSet.getMetaData().getColumnCount());
       }
@@ -230,7 +231,7 @@ public class ResultSetTest {
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletion() throws Exception {
     Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD);
+    ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
 
     statement.closeOnCompletion();
 
@@ -248,7 +249,7 @@ public class ResultSetTest {
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
     Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD);
+    ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
 
     final long maxRowsLimit = 3;
     statement.setLargeMaxRows(maxRowsLimit);
@@ -268,7 +269,7 @@ public class ResultSetTest {
   @Test
   public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -283,7 +284,7 @@ public class ResultSetTest {
   @Test
   public void testShouldCancelQueryUponCancelAfterQueryingResultSet() throws SQLException {
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+         final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       final int column = RANDOM.nextInt(resultSet.getMetaData().getColumnCount()) + 1;
       collector.checkThat(resultSet.isClosed(), is(false));
       collector.checkThat(resultSet.next(), is(true));
@@ -303,7 +304,7 @@ public class ResultSetTest {
       final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
-        try (final ResultSet resultSet = statement.executeQuery(FlightServerTestRule.REGULAR_TEST_SQL_CMD)) {
+        try (final ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
           final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
           Thread.sleep(300);
           while (resultSet.next()) {
@@ -333,7 +334,7 @@ public class ResultSetTest {
   @Test
   public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
       throws SQLException, InterruptedException {
-    final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
+    final String query = CoreMockedSqlProducers.LEGACY_CANCELLATION_SQL_CMD;
     try (final Statement statement = connection.createStatement()) {
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
       final Thread thread = new Thread(() -> {
@@ -362,7 +363,7 @@ public class ResultSetTest {
 
   @Test
   public void testShouldInterruptFlightStreamsIfQueryTimeoutIsOver() throws SQLException {
-    final String query = FlightServerTestRule.CANCELLATION_TEST_SQL_CMD;
+    final String query = CoreMockedSqlProducers.LEGACY_CANCELLATION_SQL_CMD;
     final int timeoutValue = 2;
     final String timeoutUnit = "SECONDS";
     try (final Statement statement = connection.createStatement()) {
@@ -387,7 +388,7 @@ public class ResultSetTest {
 
   @Test
   public void testFlightStreamsQueryShouldNotTimeout() throws SQLException {
-    final String query = FlightServerTestRule.REGULAR_TEST_SQL_CMD;
+    final String query = CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD;
     final int timeoutValue = 2;
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(query)) {

@@ -20,10 +20,12 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 import javax.sql.PooledConnection;
 
 import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
+import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.apache.calcite.avatica.BuiltInConnectionProperty;
@@ -40,6 +42,7 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   @ClassRule
   public static FlightServerTestRule rule;
+  private static final Random RANDOM = new Random(10);
 
   static {
     Map<ConnectionProperty, Object> properties = new HashMap<>();
@@ -48,7 +51,7 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
     properties.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
     properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
 
-    rule = FlightServerTestRule.createNewTestRule(properties);
+    rule = FlightServerTestRule.createNewTestRule(properties, CoreMockedSqlProducers.getLegacyProducer(RANDOM));
     rule.addUser("user1", "pass1");
     rule.addUser("user2", "pass2");
   }
