@@ -517,4 +517,3 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     cat("*** Proceeding without C++ dependencies\n")
   }
 }
-
