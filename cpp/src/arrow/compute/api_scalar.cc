@@ -209,8 +209,8 @@ static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOption
     DataMember("pattern", &SplitPatternOptions::pattern),
     DataMember("max_splits", &SplitPatternOptions::max_splits),
     DataMember("reverse", &SplitPatternOptions::reverse));
-static auto kRepeatOptionsType = GetFunctionOptionsType<RepeatOptions>(
-    DataMember("repeats", &RepeatOptions::repeats));
+static auto kRepeatOptionsType =
+    GetFunctionOptionsType<RepeatOptions>(DataMember("repeats", &RepeatOptions::repeats));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
