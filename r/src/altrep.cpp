@@ -334,7 +334,6 @@ SEXP MinMax(SEXP alt, Rboolean narm) {
       typename std::conditional<sexp_type == INTSXP, Int32Scalar, DoubleScalar>::type;
 
   AltrepArrayPrimitive<sexp_type> alt_(alt);
-  if (!alt_.IsMaterialized()) return NULL;
 
   const auto& array = alt_.array();
   bool na_rm = narm == TRUE;
@@ -374,7 +373,6 @@ static SEXP Sum(SEXP alt, Rboolean narm) {
   using data_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
 
   AltrepArrayPrimitive<sexp_type> alt_(alt);
-  if (!alt_.IsMaterialized()) return NULL;
 
   const auto& array = alt_.array();
   bool na_rm = narm == TRUE;
