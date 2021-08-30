@@ -131,6 +131,7 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
+        pc.RepeatOptions(1),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),

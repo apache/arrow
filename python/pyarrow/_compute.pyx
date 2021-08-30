@@ -1161,6 +1161,16 @@ class VarianceOptions(_VarianceOptions):
         self._set_options(ddof, skip_nulls, min_count)
 
 
+cdef class _RepeatOptions(FunctionOptions):
+    def _set_options(self, repeats):
+        self.wrapped.reset(new CRepeatOptions(repeats))
+
+
+class RepeatOptions(_RepeatOptions):
+    def __init__(self, repeats):
+        self._set_options(repeats)
+
+
 cdef class _SplitOptions(FunctionOptions):
     def _set_options(self, max_splits, reverse):
         self.wrapped.reset(new CSplitOptions(max_splits, reverse))
