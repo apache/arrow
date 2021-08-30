@@ -31,6 +31,10 @@ import pyarrow.lib as lib
 import numpy as np
 
 
+def is_iterable(obj):
+    return hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes))
+
+
 cdef wrap_scalar_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ scalar Function in a ScalarFunction object.
@@ -1168,6 +1172,8 @@ cdef class _RepeatOptions(FunctionOptions):
 
 class RepeatOptions(_RepeatOptions):
     def __init__(self, repeats):
+        if not is_iterable(repeats):
+            repeats = [repeats]
         self._set_options(repeats)
 
 
