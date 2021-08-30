@@ -1059,9 +1059,25 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   });
 
   for (const auto& pair : repeats_and_expected_map) {
-    options.repeats = pair.first;
+    options.nrepeats = pair.first;
     this->CheckUnary("str_repeat", values, this->type(), pair.second, &options);
   }
+}
+
+TYPED_TEST(TestStringKernels, StrRepeats) {
+  RepeatOptions options{{-1, 2, 4, 2, 0, 1, 3, 2, 3}};
+  std::string values(
+      R"(["aAazZæÆ&", "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
+
+  std::string expected(
+      R"(["", "", "bbbb", "ɑɽⱤoWɑɽⱤoW", "", "ⱥⱥⱥȺ", "hEllO, WoRld!hEllO, WoRld!hEllO, WoRld!", "$. A3$. A3", "!ɑⱤⱤow!ɑⱤⱤow!ɑⱤⱤow"])");
+  this->CheckUnary("str_repeat", values, this->type(), expected, &options);
+
+  // Test invalid data: len(repeats) != len(inputs)
+  options.repeats.pop_back();
+  auto invalid_input = ArrayFromJSON(this->type(), "[\"b\"]");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("differ in length"),
+                                  CallFunction("str_repeat", {invalid_input}, &options));
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

@@ -2733,34 +2733,78 @@ void AddSplit(FunctionRegistry* registry) {
 #endif
 }
 
+template <typename Type>
 struct StrRepeatTransform : public StringTransformBase {
   using Options = RepeatOptions;
   using State = OptionsWrapper<Options>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   const Options* options;
+  std::function<int64_t(const uint8_t*, int64_t, uint8_t*)> Transform;
+  std::vector<int64_t>::const_iterator it;
 
-  explicit StrRepeatTransform(const Options& options) : options{&options} {}
-
-  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    return input_ncodeunits * std::max<int64_t>(options->repeats, 0);
+  explicit StrRepeatTransform(const Options& options) : options{&options} {
+    if (this->options->repeats.size()) {
+      // NOTE: This is an incorrect hack to iterate through the repeat values because for
+      // null entries, Transform() is not invoked and thus the iterator does not moves.
+      it = this->options->repeats.begin();
+      Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
+                      uint8_t* output) {
+        auto nrepeats = *it++;
+        if (it == this->options->repeats.end()) {
+          it = this->options->repeats.begin();
+        }
+        return this->Transform_(input, input_string_ncodeunits, output, nrepeats);
+      };
+    } else {
+      Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
+                      uint8_t* output) {
+        return this->Transform_(input, input_string_ncodeunits, output,
+                                this->options->nrepeats);
+      };
+    }
   }
 
-  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
-                    uint8_t* output) {
+  Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
+    if (options->repeats.size() && batch[0].kind() == Datum::ARRAY) {
+      ArrayType input(batch[0].array());
+      if (static_cast<int64_t>(options->repeats.size()) !=
+          static_cast<int64_t>(input.length())) {
+        return Status::Invalid(
+            "Number of repeats and input strings are differ in length");
+      }
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // NOTE: Ideally, we would like to sum the values that correspond to non-null entries
+    // along with each inputs' size but this requires traversing the data twice. The upper
+    // limit is to assume that all strings are repeated the max number of times.
+    auto max_nrepeats =
+        options->repeats.size()
+            ? *std::max_element(options->repeats.begin(), options->repeats.end())
+            : options->nrepeats;
+    return input_ncodeunits * std::max<int64_t>(max_nrepeats, 0);
+  }
+
+ private:
+  int64_t Transform_(const uint8_t* input, int64_t input_string_ncodeunits,
+                     uint8_t* output, const int64_t nrepeats) {
     uint8_t* output_start = output;
-    if (options->repeats > 0) {
-      // log(N) approach
+    if (nrepeats > 0) {
+      // log2(repeats) approach
       std::memcpy(output, input, input_string_ncodeunits);
       output += input_string_ncodeunits;
       int64_t i = 1;
-      for (int64_t ilen = input_string_ncodeunits; i <= (options->repeats >> 1);
+      for (int64_t ilen = input_string_ncodeunits; i <= (nrepeats >> 1);
            i <<= 1, ilen <<= 1) {
         std::memcpy(output, output_start, ilen);
         output += ilen;
       }
 
       // Epilogue remainder
-      int64_t rem = (options->repeats ^ i) * input_string_ncodeunits;
+      int64_t rem = (nrepeats ^ i) * input_string_ncodeunits;
       std::memcpy(output, output_start, rem);
       output += rem;
     }
@@ -2769,7 +2813,7 @@ struct StrRepeatTransform : public StringTransformBase {
 };
 
 template <typename Type>
-using StrRepeat = StringTransformExecWithState<Type, StrRepeatTransform>;
+using StrRepeat = StringTransformExecWithState<Type, StrRepeatTransform<Type>>;
 
 // ----------------------------------------------------------------------
 // Replace substring (plain, regex)
