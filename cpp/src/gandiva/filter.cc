@@ -105,7 +105,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache = LLVMGenerator::GetCache();
 
-  FilterCacheKey filter_key(schema, configuration, *(condition.get()));
+  Condition conditionToKey = *(condition.get());
+
+  FilterCacheKey filter_key(schema, configuration, conditionToKey);
   BaseCacheKey cache_key(filter_key, "filter");
   std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
@@ -119,7 +121,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   if(prev_cached_obj != nullptr) {
     ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG]: Object code WAS already cached!";
     llvm_flag = true;
-  } else
+  }
 
   GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
 
