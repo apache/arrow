@@ -1465,7 +1465,7 @@ def test_strftime():
     from pyarrow.vendored.version import Version
 
     def _fix_timestamp(s):
-        if Version(pd.__version__) <= Version("0.23.0"):
+        if Version(pd.__version__) < Version("1.0.0"):
             return s.to_series().replace("NaT", pd.NaT)
         else:
             return s
