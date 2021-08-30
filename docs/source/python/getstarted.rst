@@ -24,7 +24,7 @@ Arrow manages data in Arrays (:class:`pyarrow.Array`), which can be
 grouped in tables (:class:`pyarrow.Table`) to represent columns of data
 in tabular data.
 
-Arrow also exposes supports for various formats to get those tabular
+Arrow also provides support for various formats to get those tabular
 data in and out of disk and networks. Most commonly used formats are
 Parquet (:ref:`parquet`) and the IPC format (:ref:`ipc`). 
 
@@ -32,8 +32,8 @@ Creating Arrays and Tables
 --------------------------
 
 Arrays in Arrow are collections of data of uniform type. That allows
-arrow to use the best performing implementation to store the data and
-perform computation of it. So each array is meant to have data and
+Arrow to use the best performing implementation to store the data and
+perform computations on it. So each array is meant to have data and
 a type
 
 .. ipython:: python
@@ -42,7 +42,7 @@ a type
 
     days = pa.array([1, 12, 17, 23, 28], type=pa.int8())
 
-multiple arrays can be combined in tables to form the columns
+Multiple arrays can be combined in tables to form the columns
 in tabular data according to a provided schema
 
 .. ipython:: python
@@ -64,9 +64,9 @@ See :ref:`data` for more details.
 Saving and Loading Tables
 -------------------------
 
-Once you have a tabular data, Arrow provides out of the box
+Once you have tabular data, Arrow provides out of the box
 the features to save and restore that data for common formats
-like parquet
+like Parquet:
 
 .. ipython:: python   
 
@@ -85,7 +85,7 @@ data will be as quick as possible
     reloaded_birthdays
 
 Saving and loading back data in arrow is usually done through
-:ref:`parquet`, :ref:`ipc`, :ref:`csv` or :ref:`json` formats.
+:ref:`parquet`, :ref:`ipc` (:ref:`feather`), :ref:`csv` or :ref:`json` formats.
 
 Performing Computations
 -----------------------
@@ -123,8 +123,7 @@ Loading back the partitioned dataset will detect the chunks
 
 .. ipython:: python
 
-    birthdays_dataset = ds.dataset("savedir", schema=birthdays_table.schema,
-                                   partitioning=ds.partitioning(field_names=["years"]))
+    birthdays_dataset = ds.dataset("savedir", format="parquet", partitioning=["years"])
 
     birthdays_dataset.files
 
@@ -136,10 +135,10 @@ and will lazily load chunks of data only when iterating over them
 
     current_year = datetime.datetime.utcnow().year
     for table_chunk in birthdays_dataset.to_batches():
-        print("AGES", pc.abs(pc.subtract(table_chunk["years"], current_year)))
+        print("AGES", pc.subtract(current_year, table_chunk["years"]))
 
 For further details on how to work with big datasets, how to filter them,
-how to project them etc... refer to :ref:`dataset` documentation.
+how to project them, etc., refer to :ref:`dataset` documentation.
 
 Continuining from here
 ----------------------
