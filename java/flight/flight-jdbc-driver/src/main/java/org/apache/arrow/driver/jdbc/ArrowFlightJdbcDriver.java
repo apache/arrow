@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -226,8 +227,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     final Map<Object, Object> resultMap = new HashMap<>();
 
-    resultMap.put(HOST.getName(), uri.getHost()); // host
-    resultMap.put(PORT.getName(), uri.getPort()); // port
+    resultMap.put(ArrowFlightConnectionProperty.HOST.camelName(), uri.getHost()); // host
+    resultMap.put(ArrowFlightConnectionProperty.PORT.camelName(), uri.getPort()); // port
 
     final String extraParams = uri.getRawQuery(); // optional params
 
