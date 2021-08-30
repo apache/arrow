@@ -2763,7 +2763,7 @@ struct StrRepeatTransform : public StringTransformBase {
       if (static_cast<int64_t>(options->repeats.size()) !=
           static_cast<int64_t>(input.length())) {
         return Status::Invalid(
-            "Number of repeats and input strings are differ in length");
+            "Number of repeats and input strings differ in length");
       }
     }
     return Status::OK();
