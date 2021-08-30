@@ -57,11 +57,10 @@ class Cache {
     mtx_.lock();
     result = cache_.GetObjectCode(cache_key);
     mtx_.unlock();
-    if (result != arrow::util::nullopt) {
-      return *result;
-    } else {
+    if (result == arrow::util::nullopt) {
       return nullptr;
     }
+    return *result;
   }
 
   void PutModule(KeyType cache_key, ValueType module) {
@@ -76,11 +75,11 @@ class Cache {
     mtx_.unlock();
   }
 
-  std::string toString() {
+  std::string ToString() {
     return cache_.ToString();
   }
 
-  size_t getCacheSize(){
+  size_t GetCacheSize(){
     return cache_.GetLruCacheSize();
   }
 
