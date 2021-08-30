@@ -1396,7 +1396,6 @@ macro(build_protobuf)
     if(ZLIB_ROOT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
     endif()
-    list(APPEND PROTOBUF_CMAKE_ARGS "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON")
     set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS}
                                            SOURCE_SUBDIR "cmake")
   endif()
