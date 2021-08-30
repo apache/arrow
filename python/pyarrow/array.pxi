@@ -1039,11 +1039,21 @@ cdef class Array(_PandasConvertible):
         else:
             return 0
 
-    def is_null(self):
+    def is_null(self, *, nan_is_null=False):
         """
         Return BooleanArray indicating the null values.
+
+        Parameters
+        ----------
+        nan_is_null : bool (optional, default False)
+            Whether floating-point NaN values should also be considered null.
+
+        Returns
+        -------
+        array : boolean Array
         """
-        return _pc().is_null(self)
+        options = _pc().NullOptions(nan_is_null)
+        return _pc().call_function('is_null', [self], options)
 
     def is_valid(self):
         """

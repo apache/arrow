@@ -96,14 +96,7 @@ nse_funcs$coalesce <- function(...) {
 }
 
 nse_funcs$is.na <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (is.double(x) || (inherits(x, "Expression") &&
-    x$type_id() %in% TYPES_WITH_NAN)) {
-    build_expr("is_nan", x) | build_expr("is_null", x)
-  } else {
-    build_expr("is_null", x)
-  }
+  build_expr("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 nse_funcs$is.nan <- function(x) {
@@ -831,6 +824,7 @@ agg_funcs$var <- function(x, na.rm = FALSE, ddof = 1) {
     options = list(ddof = ddof)
   )
 }
+
 agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
   list(
     fun = "count_distinct",
@@ -838,5 +832,11 @@ agg_funcs$n_distinct <- function(x, na.rm = FALSE) {
     # ARROW-13764 Passing in na.rm = TRUE doesn't actually work yet as
     # CountOptions not yet implemented for count_distinct
     options = list(na.rm = na.rm)
+
+agg_funcs$n <- function() {
+  list(
+    fun = "sum",
+    data = Expression$scalar(1L),
+    options = list()
   )
 }

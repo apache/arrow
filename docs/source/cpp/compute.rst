@@ -47,9 +47,8 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, the ``fill_null`` function requires its second input
-to be a scalar, while ``sort_indices`` requires its first and only input to
-be an array.
+either.  For example, while ``sort_indices`` requires its first and only
+input to be an array.
 
 Invoking functions
 ------------------
@@ -289,36 +288,43 @@ The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| Function name | Arity | Input types | Output type     | Options class                    | Notes |
-+===============+=======+=============+=================+==================================+=======+
-| hash_all      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_any      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_count    | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_mean     | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_min_max  | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_product  | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_stddev   | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_sum      | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_tdigest  | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_variance | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| Function name       | Arity | Input types | Output type     | Options class                    | Notes |
++=====================+=======+=============+=================+==================================+=======+
+| hash_all            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_any            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count          | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count_distinct | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_distinct       | Unary | Any         | Input type      | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_mean           | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_min_max        | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_product        | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_stddev         | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_sum            | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_tdigest        | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_variance       | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
   :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
   logic is applied. The min_count option is not respected.
 
-* \(2) CountMode controls whether only non-null values are counted (the
-  default), only null values are counted, or all values are counted.
+* \(2) CountMode controls whether only non-null values are counted
+  (the default), only null values are counted, or all values are
+  counted. For hash_distinct, it instead controls whether null values
+  are emitted. This never affects the grouping keys, only group values
+  (i.e. you may get a group where the key is null).
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
@@ -987,49 +993,64 @@ in reverse order.
   as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
   in codeunits. Null inputs emit null.
 
-.. _cpp-compute-scalar-structural-transforms:
+Categorizations
+~~~~~~~~~~~~~~~
 
-Structural transforms
-~~~~~~~~~~~~~~~~~~~~~
++-------------------+------------+---------------------+---------------------+------------------------+---------+
+| Function name     | Arity      | Input types         | Output type         | Options class          | Notes   |
++===================+============+=====================+=====================+========================+=========+
+| is_finite         | Unary      | Float, Double       | Boolean             |                        | \(1)    |
++-------------------+------------+---------------------+---------------------+------------------------+---------+
+| is_inf            | Unary      | Float, Double       | Boolean             |                        | \(2)    |
++-------------------+------------+---------------------+---------------------+------------------------+---------+
+| is_nan            | Unary      | Float, Double       | Boolean             |                        | \(3)    |
++-------------------+------------+---------------------+---------------------+------------------------+---------+
+| is_null           | Unary      | Any                 | Boolean             | :struct:`NullOptions`  | \(4)    |
++-------------------+------------+---------------------+---------------------+------------------------+---------+
+| is_valid          | Unary      | Any                 | Boolean             |                        | \(5)    |
++-------------------+------------+---------------------+---------------------+------------------------+---------+
 
-.. XXX (this category is a bit of a hodgepodge)
+* \(1) Output is true iff the corresponding input element is finite (neither Infinity,
+  -Infinity, nor NaN).
 
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| Function name            | Arity      | Input types                                       | Output type         | Notes   |
-+==========================+============+===================================================+=====================+=========+
-| case_when                | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| choose                   | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| coalesce                 | Varargs    | Any                                               | Input type          | \(3)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(4)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(5)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_finite                | Unary      | Float, Double                                     | Boolean             | \(6)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_inf                   | Unary      | Float, Double                                     | Boolean             | \(7)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                     | Boolean             | \(8)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                               | Boolean             | \(9)    |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                               | Boolean             | \(10)   |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                         | Int32 or Int64      | \(11)   |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
-| make_struct              | Varargs    | Any                                               | Struct              | \(12)   |
-+--------------------------+------------+---------------------------------------------------+---------------------+---------+
+* \(2) Output is true iff the corresponding input element is Infinity/-Infinity.
 
-* \(1) This function acts like a SQL 'case when' statement or switch-case. The
+* \(3) Output is true iff the corresponding input element is NaN.
+
+* \(4) Output is true iff the corresponding input element is null. NaN values
+  can also be considered null by setting :struct:`NullOptions::nan_is_null`.
+
+* \(5) Output is true iff the corresponding input element is non-null.
+
+
+.. _cpp-compute-scalar-selections:
+
+Selecting / multiplexing
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+For each "row" of input values, these functions emit one of the input values,
+depending on a condition.
+
++------------------+------------+---------------------------------------------------+---------------------+---------+
+| Function name    | Arity      | Input types                                       | Output type         | Notes   |
++==================+============+===================================================+=====================+=========+
+| case_when        | Varargs    | Struct of Boolean (Arg 0), Any (rest)             | Input type          | \(1)    |
++------------------+------------+---------------------------------------------------+---------------------+---------+
+| choose           | Varargs    | Integral (Arg 0); Fixed-width/Binary-like (rest)  | Input type          | \(2)    |
++------------------+------------+---------------------------------------------------+---------------------+---------+
+| coalesce         | Varargs    | Any                                               | Input type          | \(3)    |
++------------------+------------+---------------------------------------------------+---------------------+---------+
+| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(4)    |
++------------------+------------+---------------------------------------------------+---------------------+---------+
+
+* \(1) This function acts like a SQL "case when" statement or switch-case. The
   input is a "condition" value, which is a struct of Booleans, followed by the
   values for each "branch". There must be either exactly one value argument for
   each child of the condition struct, or one more value argument than children
-  (in which case we have an 'else' or 'default' value). The output is of the
+  (in which case we have an "else" or "default" value). The output is of the
   same type as the value inputs; each row will be the corresponding value from
   the first value datum for which the corresponding Boolean is true, or the
-  corresponding value from the 'default' input, or null otherwise.
+  corresponding value from the "default" input, or null otherwise.
 
   Note that currently, while all types are supported, dictionaries will be
   unpacked.
@@ -1045,11 +1066,7 @@ Structural transforms
 * \(3) Each row of the output will be the corresponding value of the first
   input which is non-null for that row, otherwise null.
 
-* \(4) First input must be an array, second input a scalar of the same type.
-  Output is an array of the same type as the inputs, and with the same values
-  as the first input, except for nulls replaced with the second input value.
-
-* \(5) First input must be a Boolean scalar or array. Second and third inputs
+* \(4) First input must be a Boolean scalar or array. Second and third inputs
   could be scalars or arrays and must be of the same type. Output is an array
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the
@@ -1057,21 +1074,21 @@ Structural transforms
 
   Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
-* \(6) Output is true iff the corresponding input element is finite (not Infinity,
-  -Infinity, or NaN).
+Structural transforms
+~~~~~~~~~~~~~~~~~~~~~
 
-* \(7) Output is true iff the corresponding input element is Infinity/-Infinity.
++--------------------------+------------+----------------+-------------------+------------------------------+---------+
+| Function name            | Arity      | Input types    | Output type       | Options class                | Notes   |
++==========================+============+================+===================+==============================+=========+
+| list_value_length        | Unary      | List-like      | Int32 or Int64    |                              | \(1)    |
++--------------------------+------------+----------------+-------------------+------------------------------+---------+
+| make_struct              | Varargs    | Any            | Struct            | :struct:`MakeStructOptions`  | \(2)    |
++--------------------------+------------+----------------+-------------------+------------------------------+---------+
 
-* \(8) Output is true iff the corresponding input element is NaN.
-
-* \(9) Output is true iff the corresponding input element is null.
-
-* \(10) Output is true iff the corresponding input element is non-null.
-
-* \(11) Each output element is the length of the corresponding input element
+* \(1) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
-* \(12) The output struct's field types are the types of its arguments. The
+* \(2) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.
@@ -1366,4 +1383,4 @@ replaced, based on the remaining inputs.
   is true is replaced with the next value from input 3. A null in input 2
   results in a corresponding null in the output.
 
-  Also see: :ref:`if_else <cpp-compute-scalar-structural-transforms>`.
+  Also see: :ref:`if_else <cpp-compute-scalar-selections>`.

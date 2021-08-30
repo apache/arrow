@@ -154,10 +154,26 @@ test_that("Group by var on dataset", {
   )
 })
 
+test_that("n()", {
+  withr::local_options(list(arrow.debug = TRUE))
+  expect_dplyr_equal(
+    input %>%
+      summarize(counts = n()) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(counts = n()) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
 
 test_that("Group by any/all", {
-  withr::local_options(list(arrow.debug = TRUE))
-
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
