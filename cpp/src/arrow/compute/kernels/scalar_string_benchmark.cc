@@ -78,7 +78,7 @@ static void SplitPattern(benchmark::State& state) {
 }
 
 static void StrRepeat(benchmark::State& state) {
-  RepeatOptions options(8);
+  RepeatOptions options({8});
   UnaryStringBenchmark(state, "str_repeat", &options);
 }
 

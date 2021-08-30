@@ -2741,32 +2741,24 @@ struct StrRepeatTransform : public StringTransformBase {
 
   const Options* options;
   std::function<int64_t(const uint8_t*, int64_t, uint8_t*)> Transform;
-  std::vector<int64_t>::const_iterator it;
+  std::vector<int>::const_iterator it;
 
   explicit StrRepeatTransform(const Options& options) : options{&options} {
-    if (this->options->repeats.size()) {
-      // NOTE: This is an incorrect hack to iterate through the repeat values because for
-      // null entries, Transform() is not invoked and thus the iterator does not moves.
-      it = this->options->repeats.begin();
-      Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
-                      uint8_t* output) {
-        auto nrepeats = *it++;
-        if (it == this->options->repeats.end()) {
-          it = this->options->repeats.begin();
-        }
-        return this->Transform_(input, input_string_ncodeunits, output, nrepeats);
-      };
-    } else {
-      Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
-                      uint8_t* output) {
-        return this->Transform_(input, input_string_ncodeunits, output,
-                                this->options->nrepeats);
-      };
-    }
+    // NOTE: This is an incorrect hack to iterate through the repeat values because for
+    // null entries, Transform() is not invoked and thus the iterator does not moves.
+    it = this->options->repeats.begin();
+    Transform = [&](const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+      auto nrepeats = *it++;
+      if (it == this->options->repeats.end()) {
+        it = this->options->repeats.begin();
+      }
+      return this->Transform_(input, input_string_ncodeunits, output, nrepeats);
+    };
   }
 
   Status PreExec(KernelContext*, const ExecBatch& batch, Datum*) override {
-    if (options->repeats.size() && batch[0].kind() == Datum::ARRAY) {
+    if ((options->repeats.size() > 1) && (batch[0].kind() == Datum::ARRAY)) {
       ArrayType input(batch[0].array());
       if (static_cast<int64_t>(options->repeats.size()) !=
           static_cast<int64_t>(input.length())) {
@@ -2781,11 +2773,8 @@ struct StrRepeatTransform : public StringTransformBase {
     // NOTE: Ideally, we would like to sum the values that correspond to non-null entries
     // along with each inputs' size but this requires traversing the data twice. The upper
     // limit is to assume that all strings are repeated the max number of times.
-    auto max_nrepeats =
-        options->repeats.size()
-            ? *std::max_element(options->repeats.begin(), options->repeats.end())
-            : options->nrepeats;
-    return input_ncodeunits * std::max<int64_t>(max_nrepeats, 0);
+    auto max_repeat = *std::max_element(options->repeats.begin(), options->repeats.end());
+    return input_ncodeunits * std::max<int64_t>(max_repeat, 0);
   }
 
  private:

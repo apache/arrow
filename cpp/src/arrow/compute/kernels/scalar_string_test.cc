@@ -1059,7 +1059,7 @@ TYPED_TEST(TestStringKernels, StrRepeat) {
   });
 
   for (const auto& pair : repeats_and_expected_map) {
-    options.nrepeats = pair.first;
+    options.repeats = {pair.first};
     this->CheckUnary("str_repeat", values, this->type(), pair.second, &options);
   }
 }

@@ -210,7 +210,6 @@ static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOption
     DataMember("max_splits", &SplitPatternOptions::max_splits),
     DataMember("reverse", &SplitPatternOptions::reverse));
 static auto kRepeatOptionsType = GetFunctionOptionsType<RepeatOptions>(
-    DataMember("nrepeats", &RepeatOptions::nrepeats),
     DataMember("repeats", &RepeatOptions::repeats));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
@@ -322,11 +321,9 @@ SplitPatternOptions::SplitPatternOptions(std::string pattern, int64_t max_splits
 SplitPatternOptions::SplitPatternOptions() : SplitPatternOptions("", -1, false) {}
 constexpr char SplitPatternOptions::kTypeName[];
 
-RepeatOptions::RepeatOptions(int64_t nrepeats)
-    : FunctionOptions(internal::kRepeatOptionsType), nrepeats(nrepeats), repeats({}) {}
-RepeatOptions::RepeatOptions(std::vector<int64_t> repeats)
-    : FunctionOptions(internal::kRepeatOptionsType), nrepeats(0), repeats(repeats) {}
-RepeatOptions::RepeatOptions() : RepeatOptions(1) {}
+RepeatOptions::RepeatOptions(std::vector<int> repeats)
+    : FunctionOptions(internal::kRepeatOptionsType), repeats(repeats) {}
+RepeatOptions::RepeatOptions() : RepeatOptions({1}) {}
 constexpr char RepeatOptions::kTypeName[];
 
 ReplaceSliceOptions::ReplaceSliceOptions(int64_t start, int64_t stop,
