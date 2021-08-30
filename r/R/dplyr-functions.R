@@ -409,6 +409,10 @@ nse_funcs$substr <- function(x, start, stop) {
   )
 }
 
+nse_funcs$str_repeat <- function(x, repeats) {
+  Expression$create("str_repeat", x, options = list(repeats = repeats))
+}
+
 nse_funcs$substring <- function(text, first, last) {
   nse_funcs$substr(x = text, start = first, stop = last)
 }

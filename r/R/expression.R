@@ -49,6 +49,7 @@
   # nchar is defined in dplyr-functions.R
   "str_length" = "utf8_length",
   # str_pad is defined in dplyr-functions.R
+  # str_repeat is defined in dplyr-functions.R
   # str_sub is defined in dplyr-functions.R
   # str_to_lower is defined in dplyr-functions.R
   # str_to_title is defined in dplyr-functions.R

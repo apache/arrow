@@ -345,6 +345,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 
+<<<<<<< 6fa024b0ea28d5d97efeb6b8cee073ed1f930041
   if (func_name == "iso_week") {
     return std::make_shared<arrow::compute::WeekOptions>(
         arrow::compute::WeekOptions::ISODefaults());
@@ -371,6 +372,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     }
     return std::make_shared<Options>(week_starts_monday, count_from_zero,
                                      first_week_is_fully_in_year);
+  }
+
+  if (func_name == "str_repeat") {
+    using Options = arrow::compute::RepeatOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::vector<int>>(options["repeats"]));
   }
 
   if (func_name == "strptime") {
