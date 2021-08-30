@@ -69,17 +69,17 @@
 #' list.files(two_levels_tree, recursive = TRUE)
 #'
 #' # In the two previous examples we would have:
-#' # X = \{4,6,8\}, the number of cylinders.
-#' # Y = \{3,4,5\}, the number of forward gears.
-#' # Z = \{0,1,2\}, the number of saved parts, starting from 0.
+#' # X = {4,6,8}, the number of cylinders.
+#' # Y = {3,4,5}, the number of forward gears.
+#' # Z = {0,1,2}, the number of saved parts, starting from 0.
 #'
 #' # You can obtain the same result as as the previous examples using arrow with
 #' # a dplyr pipeline. This will be the same as two_levels_tree above, but the
 #' # output directory will be different.
 #' two_levels_tree_2 <- tempfile()
 #' mtcars %>%
-#'  group_by(cyl, gear) %>%
-#'  write_dataset(two_levels_tree_2)
+#'   group_by(cyl, gear) %>%
+#'   write_dataset(two_levels_tree_2)
 #' list.files(two_levels_tree_2, recursive = TRUE)
 #'
 #' # And you can also turn off the Hive-style directory naming where the column
