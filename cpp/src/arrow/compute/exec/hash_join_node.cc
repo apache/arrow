@@ -39,7 +39,11 @@ Status ValidateJoinInputs(const std::shared_ptr<Schema>& left_schema,
                           const std::shared_ptr<Schema>& right_schema,
                           const std::vector<int>& left_keys,
                           const std::vector<int>& right_keys) {
-  if (left_keys.size() != right_keys.size() && left_keys.size() > 0) {
+  if (left_keys.empty() || right_keys.empty()) {
+    return Status::Invalid("left and right key sizes can not be empty");
+  }
+
+  if (left_keys.size() != right_keys.size()) {
     return Status::Invalid("left and right key sizes do not match");
   }
 
