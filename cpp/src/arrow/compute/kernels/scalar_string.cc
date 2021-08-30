@@ -499,16 +499,18 @@ struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
     uint8_t* output_start = output;
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* next = input;
-    if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
-      return kTransformError;
-    }
-    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
-            input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
-      return kTransformError;
-    }
-    if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
-            next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
-      return kTransformError;
+    if (input_string_ncodeunits > 0) {
+      if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
+        return kTransformError;
+      }
+      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+              input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
+      if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
+              next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
+        return kTransformError;
+      }
     }
     return output - output_start;
   }
@@ -522,7 +524,7 @@ struct Utf8TitleTransform : public StringTransformCodepointBase {
                     uint8_t* output) {
     uint8_t* output_start = output;
     const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* curr = NULLPTR;
+    const uint8_t* curr = nullptr;
     uint32_t codepoint = 0;
 
     do {
@@ -538,7 +540,8 @@ struct Utf8TitleTransform : public StringTransformCodepointBase {
           input = curr;
           break;
         }
-        output = std::copy(input, curr, output);
+        std::memcpy(output, input, curr - input);
+        output += curr - input;
         input = curr;
       }
 
@@ -549,7 +552,8 @@ struct Utf8TitleTransform : public StringTransformCodepointBase {
           return kTransformError;
         }
         if (IsSpaceCharacterUnicode(codepoint)) {
-          output = std::copy(input, curr, output);
+          std::memcpy(output, input, curr - input);
+          output += curr - input;
           input = curr;
           break;
         }
@@ -720,7 +724,7 @@ struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* curr = NULLPTR;
+    const uint8_t* curr = nullptr;
 
     do {
       // Uppercase first alpha character of current word
@@ -4200,9 +4204,10 @@ const FunctionDoc ascii_capitalize_doc(
     {"strings"});
 
 const FunctionDoc ascii_title_doc(
-    "Transform ASCII input to a string where the first alpha character in each word is "
-    "uppercase and all other characters are lowercase",
-    ("For each string in `strings`, return a title version.\n\n"
+    "Titlecase each word of ASCII input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase.\n\n"
      "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_title\" instead."),
     {"strings"});
@@ -4234,9 +4239,11 @@ const FunctionDoc utf8_capitalize_doc(
     {"strings"});
 
 const FunctionDoc utf8_title_doc(
-    "Transform input to a string where the first alpha character in each word is "
-    "uppercase and all other characters are lowercase",
-    ("For each string in `strings`, return a title version."), {"strings"});
+    "Titlecase each word of input",
+    ("For each string in `strings`, return a titlecased version.\n"
+     "Each word in the output will start with an uppercase character and its\n"
+     "remaining characters will be lowercase."),
+    {"strings"});
 
 const FunctionDoc utf8_reverse_doc(
     "Reverse input",
