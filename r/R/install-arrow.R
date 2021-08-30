@@ -175,13 +175,15 @@ reload_arrow <- function() {
 #' list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
 #' }
 #' @export
-download_optional_dependencies <- function(deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")) {
+download_optional_dependencies <- function(
+  deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR"),
   # This script is copied over from arrow/cpp/... to arrow/r/inst/...
-  download_dependencies_sh <- system.file(
+  download_dependencies_sh = system.file(
     "thirdparty/download_dependencies.sh",
     package = "arrow",
     mustWork = TRUE
   )
+) {
   dir.create(deps_dir, showWarnings = FALSE, recursive = TRUE)
   # Run download_dependencies.sh
   cat(paste0("*** Downloading optional dependencies to ", deps_dir, "\n"))

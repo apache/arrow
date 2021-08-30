@@ -1042,6 +1042,11 @@ tasks:
         r_tag: latest
         flags: '-e TEST_OFFLINE_BUILD=true'
 
+  test-r-offline-maximal:
+    ci: github
+    template: r/github.linux.offline.build.yml
+
+
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
                                  ("rstudio", "r-base", "3.6-bionic"),
