@@ -16,6 +16,7 @@
 // under the License.
 
 #include <memory>
+#include <unordered_map>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -414,13 +415,11 @@ TYPED_TEST(TestStringKernels, AsciiCapitalize) {
 }
 
 TYPED_TEST(TestStringKernels, AsciiTitle) {
-  this->CheckUnary("ascii_title", "[]", this->type(), "[]");
-  this->CheckUnary("ascii_title",
-                   "[\"aAazZæÆ&\", null, \"\", \"bBB\", \"hEllO, WoRld!\", \"$. A3\", "
-                   "\"!hELlo, wORLd!\", \"  a b cd\"]",
-                   this->type(),
-                   "[\"AaazzæÆ&\", null, \"\", \"Bbb\", \"Hello, World!\", \"$. A3\", "
-                   "\"!Hello, World!\", \"  A B Cd\"]");
+  this->CheckUnary(
+      "ascii_title",
+      R"([null, "", "b", "aAaz;ZeA&", "arRoW", "iI", "a.a.a..A", "hEllO, WoRld!", "foo   baR;heHe0zOP", "!%$^.,;"])",
+      this->type(),
+      R"([null, "", "B", "Aaaz;Zea&", "Arrow", "Ii", "A.A.A..A", "Hello, World!", "Foo   Bar;Hehe0Zop", "!%$^.,;"])");
 }
 
 TYPED_TEST(TestStringKernels, AsciiReverse) {
@@ -552,13 +551,11 @@ TYPED_TEST(TestStringKernels, Utf8Capitalize) {
 }
 
 TYPED_TEST(TestStringKernels, Utf8Title) {
-  this->CheckUnary("utf8_title", "[]", this->type(), "[]");
-  this->CheckUnary("utf8_title",
-                   "[\"aAazZæÆ&\", null, \"\", \"b\", \"ɑɽⱤoW\", \"ıI\", \"ⱥⱥⱥȺ\", "
-                   "\"hEllO, WoRld!\", \"$. A3\", \"!ɑⱤⱤow\"]",
-                   this->type(),
-                   "[\"Aaazzææ&\", null, \"\", \"B\", \"Ɑɽɽow\", \"Ii\", \"Ⱥⱥⱥⱥ\", "
-                   "\"Hello, World!\", \"$. A3\", \"!Ɑɽɽow\"]");
+  this->CheckUnary(
+      "utf8_title",
+      R"([null, "", "b", "aAaz;ZæÆ&", "ɑɽⱤoW", "ıI", "ⱥ.ⱥ.ⱥ..Ⱥ", "hEllO, WoRld!", "foo   baR;héHé0zOP", "!%$^.,;"])",
+      this->type(),
+      R"([null, "", "B", "Aaaz;Zææ&", "Ɑɽɽow", "Ii", "Ⱥ.Ⱥ.Ⱥ..Ⱥ", "Hello, World!", "Foo   Bar;Héhé0Zop", "!%$^.,;"])");
 }
 
 TYPED_TEST(TestStringKernels, IsAlphaNumericUnicode) {

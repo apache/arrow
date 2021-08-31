@@ -522,47 +522,27 @@ using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
 struct Utf8TitleTransform : public StringTransformCodepointBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    uint8_t* output_start = output;
+    const uint8_t* next = input;
     const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* curr = nullptr;
-    uint32_t codepoint = 0;
-
-    do {
-      // Uppercase first alpha character of current word
-      while (input < end) {
-        curr = input;
-        if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&curr, &codepoint))) {
-          return kTransformError;
-        }
-        if (IsCasedCharacterUnicode(codepoint)) {
-          output =
-              util::UTF8Encode(output, UTF8UpperTransform::TransformCodepoint(codepoint));
-          input = curr;
-          break;
-        }
-        std::memcpy(output, input, curr - input);
-        output += curr - input;
-        input = curr;
+    uint8_t* output_start = output;
+    uint32_t (*TransformCodepoint)(uint32_t) = UTF8UpperTransform::TransformCodepoint;
+    while ((input = next) < end) {
+      uint32_t codepoint;
+      if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
+        return kTransformError;
       }
-
-      // Lowercase characters until a whitespace is found
-      while (input < end) {
-        curr = input;
-        if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&curr, &codepoint))) {
-          return kTransformError;
-        }
-        if (IsSpaceCharacterUnicode(codepoint)) {
-          std::memcpy(output, input, curr - input);
-          output += curr - input;
-          input = curr;
-          break;
-        }
-        output =
-            util::UTF8Encode(output, UTF8LowerTransform::TransformCodepoint(codepoint));
-        input = curr;
+      if (IsCasedCharacterUnicode(codepoint)) {
+        // Transform codepoint (lower/upper), prepare to lowercase next consecutive cased
+        // codepoints
+        output = util::UTF8Encode(output, TransformCodepoint(codepoint));
+        TransformCodepoint = UTF8LowerTransform::TransformCodepoint;
+      } else {
+        // Copy non-cased character, prepare to uppercase next caseable codepoint
+        std::memcpy(output, input, next - input);
+        output += next - input;
+        TransformCodepoint = UTF8UpperTransform::TransformCodepoint;
       }
-    } while (input < end);
-
+    }
     return output - output_start;
   }
 };
@@ -724,28 +704,19 @@ struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     const uint8_t* end = input + input_string_ncodeunits;
-    const uint8_t* curr = nullptr;
-
-    do {
-      // Uppercase first alpha character of current word
-      while ((curr = input++) < end) {
-        if (IsCasedCharacterAscii(*curr)) {
-          *output++ = ascii_toupper(*curr);
-          break;
-        }
-        *output++ = *curr;
+    uint8_t (*ascii_toxxx)(uint8_t) = ascii_toupper;
+    while (input < end) {
+      if (IsCasedCharacterAscii(*input)) {
+        // Transform codepoint (lower/upper), prepare to lowercase next consecutive cased
+        // codepoints
+        *output++ = ascii_toxxx(*input++);
+        ascii_toxxx = ascii_tolower;
+      } else {
+        // Copy non-cased character, prepare to uppercase next caseable codepoint
+        *output++ = *input++;
+        ascii_toxxx = ascii_toupper;
       }
-
-      // Lowercase characters until a whitespace is found
-      while ((curr = input++) < end) {
-        if (IsSpaceCharacterAscii(*curr)) {
-          *output++ = *curr;
-          break;
-        }
-        *output++ = ascii_tolower(*curr);
-      }
-    } while (input < end);
-
+    }
     return input_string_ncodeunits;
   }
 };
