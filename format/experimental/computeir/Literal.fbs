@@ -95,6 +95,13 @@ table DateLiteral {
   value: int64;
 }
 
+enum TimeUnit : uint8 {
+  SECOND,
+  MILLISECOND,
+  MICROSECOND,
+  NANOSECOND,
+}
+
 table TimeLiteral {
   // nanosecond time value.
   value: int64;
@@ -126,6 +133,13 @@ table IntervalLiteral {
   value: IntervalLiteralImpl;
 }
 
+table DurationLiteral {
+  value: int64;
+
+  // unit of `value`
+  unit: TimeUnit = MILLISECOND;
+}
+
 table BinaryLiteral {
   value: [byte];
 }
@@ -155,6 +169,7 @@ union LiteralImpl {
   TimeLiteral,
   TimestampLiteral,
   IntervalLiteral,
+  DurationLiteral,
 
   DecimalLiteral,
 
