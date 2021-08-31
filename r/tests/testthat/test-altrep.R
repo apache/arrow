@@ -189,3 +189,12 @@ test_that("altrep min/max/sum identical to R versions for int", {
   x <- as.integer(c(-2^31 + 1L, -1L))
   expect_altrep_rountrip(x, sum)
 })
+
+test_that("altrep vectors handle serialization", {
+  ints <- c(1L, 2L, NA_integer_)
+  dbls <- c(3, 4, NA_real_)
+
+  expect_identical(ints, unserialize(serialize(Array$create(ints)$as_vector(), NULL)))
+  expect_identical(dbls, unserialize(serialize(Array$create(dbls)$as_vector(), NULL)))
+})
+

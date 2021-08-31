@@ -271,6 +271,15 @@ struct AltrepArrayPrimitive {
 
     return ncopy;
   }
+
+  // This cannot keep the external pointer to an Arrow object through
+  // R serialization, so return the materialized
+  SEXP Serialized_state() {
+    Materialize();
+    return R_altrep_data2(alt_);
+  }
+
+  static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
 };
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
@@ -323,6 +332,16 @@ int Is_sorted(SEXP alt) {
 template <typename AltrepClass>
 R_xlen_t Get_region(SEXP alt, R_xlen_t i, R_xlen_t n, typename AltrepClass::c_type* buf) {
   return AltrepClass(alt).Get_region(i, n, buf);
+}
+
+template <typename AltrepClass>
+SEXP Serialized_state(SEXP alt) {
+  return AltrepClass(alt).Serialized_state();
+}
+
+template <typename AltrepClass>
+SEXP Unserialize(SEXP class_, SEXP state) {
+  return AltrepClass::Unserialize(class_, state);
 }
 
 static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
@@ -414,6 +433,8 @@ void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altrep_Length_method(class_t, Length<AltrepClass>);
   R_set_altrep_Inspect_method(class_t, Inspect<AltrepClass>);
   R_set_altrep_Duplicate_method(class_t, Duplicate<AltrepClass>);
+  R_set_altrep_Serialized_state_method(class_t, Serialized_state<AltrepClass>);
+  R_set_altrep_Unserialize_method(class_t, Unserialize<AltrepClass>);
 }
 
 template <typename AltrepClass>
