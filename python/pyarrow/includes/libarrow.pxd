@@ -1970,8 +1970,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
-        CVarianceOptions(int ddof)
+        CVarianceOptions(int ddof, c_bool skip_nulls, uint32_t min_count)
         int ddof
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):

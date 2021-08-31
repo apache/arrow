@@ -1018,13 +1018,13 @@ class NullOptions(_NullOptions):
 
 
 cdef class _VarianceOptions(FunctionOptions):
-    def _set_options(self, ddof):
-        self.wrapped.reset(new CVarianceOptions(ddof))
+    def _set_options(self, ddof, skip_nulls, min_count):
+        self.wrapped.reset(new CVarianceOptions(ddof, skip_nulls, min_count))
 
 
 class VarianceOptions(_VarianceOptions):
-    def __init__(self, *, ddof=0):
-        self._set_options(ddof)
+    def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
+        self._set_options(ddof, skip_nulls, min_count)
 
 
 cdef class _SplitOptions(FunctionOptions):

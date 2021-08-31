@@ -1183,6 +1183,107 @@ TEST(GroupBy, StddevVarianceTDigestScalar) {
   }
 }
 
+TEST(GroupBy, VarianceOptions) {
+  BatchesWithSchema input;
+  input.batches = {
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[1, 1.0, 1], [1, 1.0, 1], [1, 1.0, 2], [1, 1.0, 2], [1, 1.0, 3]]"),
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[1, 1.0, 4], [1, 1.0, 4]]"),
+      ExecBatchFromJSON(
+          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          "[[null, null, 1]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[2, 2.0, 1], [3, 3.0, 2]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[4, 4.0, 2], [2, 2.0, 4]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4]]"),
+  };
+  input.schema = schema(
+      {field("argument", int32()), field("argument1", float32()), field("key", int64())});
+
+  VarianceOptions keep_nulls(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/0);
+  VarianceOptions min_count(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
+  VarianceOptions keep_nulls_min_count(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_threads : {false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual, GroupByUsingExecPlan(input, {"key"},
+                                           {
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                               "argument",
+                                           },
+                                           {
+                                               {"hash_stddev", &keep_nulls},
+                                               {"hash_stddev", &min_count},
+                                               {"hash_stddev", &keep_nulls_min_count},
+                                               {"hash_variance", &keep_nulls},
+                                               {"hash_variance", &min_count},
+                                               {"hash_variance", &keep_nulls_min_count},
+                                           },
+                                           use_threads, default_exec_context()));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("hash_stddev", float64()),
+                                       field("hash_stddev", float64()),
+                                       field("hash_stddev", float64()),
+                                       field("hash_variance", float64()),
+                                       field("hash_variance", float64()),
+                                       field("hash_variance", float64()),
+                                       field("key", int64()),
+                                   }),
+                                   R"([
+         [null,    0.471405, null,    null,   0.222222, null,   1],
+         [1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875, 2],
+         [0.0,     null,     null,    0.0,    null,     null,   3],
+         [null,    0.471405, null,    null,   0.222222, null,   4]
+       ])");
+    ValidateOutput(expected);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(
+        actual, GroupByUsingExecPlan(input, {"key"},
+                                     {
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                         "argument1",
+                                     },
+                                     {
+                                         {"hash_stddev", &keep_nulls},
+                                         {"hash_stddev", &min_count},
+                                         {"hash_stddev", &keep_nulls_min_count},
+                                         {"hash_variance", &keep_nulls},
+                                         {"hash_variance", &min_count},
+                                         {"hash_variance", &keep_nulls_min_count},
+                                     },
+                                     use_threads, default_exec_context()));
+    expected = ArrayFromJSON(struct_({
+                                 field("hash_stddev", float64()),
+                                 field("hash_stddev", float64()),
+                                 field("hash_stddev", float64()),
+                                 field("hash_variance", float64()),
+                                 field("hash_variance", float64()),
+                                 field("hash_variance", float64()),
+                                 field("key", int64()),
+                             }),
+                             R"([
+         [null,    0.471405, null,    null,   0.222222, null,   1],
+         [1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875, 2],
+         [0.0,     null,     null,    0.0,    null,     null,   3],
+         [null,    0.471405, null,    null,   0.222222, null,   4]
+       ])");
+    ValidateOutput(expected);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, MinMaxOnly) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {

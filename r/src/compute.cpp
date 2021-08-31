@@ -366,7 +366,15 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "variance" || func_name == "stddev" || func_name == "hash_variance" ||
       func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
+    auto out = std::make_shared<Options>();
+    out->ddof = cpp11::as_cpp<int64_t>(options["ddof"]);
+    if (!Rf_isNull(options["na.min_count"])) {
+      out->min_count = cpp11::as_cpp<int64_t>(options["na.min_count"]);
+    }
+    if (!Rf_isNull(options["na.rm"])) {
+      out->skip_nulls = cpp11::as_cpp<int64_t>(options["na.rm"]);
+    }
+    return out;
   }
 
   return nullptr;
