@@ -128,6 +128,7 @@
             <exclude>**/TAGS</exclude>
             <exclude>**/*.checkstyle</exclude>
             <exclude>**/.classpath</exclude>
+            <exclude>**/.factorypath</exclude>
             <exclude>**/.settings/**</exclude>
             <exclude>.*/**</exclude>
             <exclude>**/*.patch</exclude>
