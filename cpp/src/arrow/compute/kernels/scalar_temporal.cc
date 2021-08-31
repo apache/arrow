@@ -480,7 +480,7 @@ struct Strftime {
     if (timezone.empty()) {
       if ((options.format.find("%z") != std::string::npos) ||
           (options.format.find("%Z") != std::string::npos)) {
-        return Status::Invalid("Timezone not present, cannot convert to string: ",
+        return Status::Invalid("Timezone not present, cannot convert to string with timezone: ",
                                options.format);
       }
       timezone = "UTC";
