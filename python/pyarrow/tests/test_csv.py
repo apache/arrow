@@ -332,11 +332,13 @@ class BaseTestCSV(abc.ABC):
         :param kwargs: arguments passed on to open the csv file
         :return: b parsed as a single RecordBatch
         """
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
     def use_threads(self):
-        """Return true if this test is multi-threaded"""
+        """Whether this test is multi-threaded"""
+        raise NotImplementedError
 
     @staticmethod
     def check_names(table, names):
@@ -608,6 +610,7 @@ class BaseCSVTableRead(BaseTestCSV):
         validate_full Whether or not to fully validate the resulting table
         kwargs Keyword arguments to be forwarded to pyarrow's read_csv
         """
+        assert isinstance(self.use_threads, bool)  # sanity check
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = self.use_threads
         table = read_csv(csv, *args, **kwargs)
@@ -1355,11 +1358,13 @@ class BaseCSVTableRead(BaseTestCSV):
 
 
 class TestSerialCSVTableRead(BaseCSVTableRead):
+    @property
     def use_threads(self):
         return False
 
 
 class TestThreadedCSVTableRead(BaseCSVTableRead):
+    @property
     def use_threads(self):
         return True
 
@@ -1687,11 +1692,13 @@ class BaseStreamingCSVRead(BaseTestCSV):
 
 
 class TestSerialStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
+    @property
     def use_threads(self):
         return False
 
 
 class TestThreadedStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
+    @property
     def use_threads(self):
         return True
 
