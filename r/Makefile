@@ -45,9 +45,6 @@ build: doc
 	cp -p ../.env tools/
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
-	mkdir -p inst/thirdparty
-	cp -p ../cpp/thirdparty/download_dependencies.sh inst/thirdparty/
-	cp -p ../cpp/thirdparty/versions.txt inst/thirdparty/
 	R CMD build .
 
 check: build

@@ -54,6 +54,11 @@ binary_ok <- !(env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
 
+# This path, within the tar file, might exist if
+# create_package_with_all_dependencies() was run. Otherwise, it won't, but
+# tools/cpp/thirdparty/ still will.
+thirdparty_dependency_dir <- "tools/cpp/thirdparty/download"
+
 
 download_binary <- function(os = identify_os()) {
   libfile <- tempfile()
@@ -307,7 +312,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   # turn_off_thirdparty_features() needs to happen after with_mimalloc() and
   # with_s3_support(), since those might turn features ON.
   thirdparty_deps_unavailable <- !download_ok &&
-    !dir.exists(Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")) &&
+    !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
   if (is_solaris()) {
     # Note that JSON support does work on Solaris, but will be turned off with
@@ -325,7 +330,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     ))
     env_var_list <- turn_off_thirdparty_features(env_var_list)
   } else {
-    # If $ARROW_THIRDPARTY_DEPENDENCY_DIR has files, add their *_SOURCE_URL env vars
+    # If thirdparty_dependency_dir exists, the *_SOURCE_URL env vars
     env_var_list <- set_thirdparty_urls(env_var_list)
   }
   env_vars <- env_vars_as_string(env_var_list)
@@ -451,25 +456,18 @@ turn_off_thirdparty_features <- function(env_var_list) {
 }
 
 set_thirdparty_urls <- function(env_var_list) {
-  # This function is run in most typical cases -- when download_ok is TRUE *or*
-  # ARROW_THIRDPARTY_DEPENDENCY_DIR is set. It does *not* check if existing
-  # *_SOURCE_URL variables are set. (It is also run whenever ARROW_DEPENDENCY_SOURCE
-  # is "SYSTEM", but doesn't affect the build in that case.)
-  deps_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")
-  if (deps_dir == "") {
+  # This function does *not* check if existing *_SOURCE_URL variables are set.
+  # The directory tools/cpp/thirdparty/download is created by
+  # create_package_with_all_dependencies() and saved in the tar file.
+  # In all other cases, where we're not installing from that offline tar file,
+  # that directory won't exist, but tools/cpp/thirdparty/ still should.
+  # Test tools/cpp/thirdparty to avoid false negatives.
+  deps_dir <- thirdparty_dependency_dir # defined at the top
+  stopifnot(dir.exists(dirname(thirdparty_dependency_dir)))
+  if (!dir.exists(deps_dir)) {
     return(env_var_list)
   }
   files <- list.files(deps_dir, full.names = FALSE)
-  if (length(files) == 0) {
-    # This will be true if the directory doesn't exist, or if it exists but is empty.
-    # Here the build will continue, but will likely fail when the downloads are
-    # unavailable. The user will end up with the arrow-without-arrow package.
-    cat(paste0(
-      "*** Warning: ARROW_THIRDPARTY_DEPENDENCY_DIR was set but has no files.\n",
-      "    Have you run download_optional_dependencies()?"
-    ))
-    return(env_var_list)
-  }
   url_env_varname <- toupper(sub("(.*?)-.*", "ARROW_\\1_URL", files))
   # Special handling for the aws dependencies, which have extra `-`
   aws <- grepl("^aws", files)

@@ -175,7 +175,7 @@ reference:
       - arrow_available
       - install_arrow
       - install_pyarrow
-      - download_optional_dependencies
+      - create_package_with_all_dependencies
 
 repo:
   jira_projects: [ARROW]

@@ -138,64 +138,82 @@ reload_arrow <- function() {
 }
 
 
-#' Download all optional Arrow dependencies
+#' Create an install package with all thirdparty dependencies
 #'
-#' @param deps_dir Directory to save files into. Will be created if necessary.
-#' Defaults to the value of `ARROW_THIRDPARTY_DEPENDENCY_DIR`, if that
-#' environment variable is set.
-#' @param download_dependencies_sh location of the dependency download script,
-#' defaults to the one included with the arrow package.
-#'
-#' @return `deps_dir`, invisibly
+#' @param outfile File path for the new tar.gz package. Defaults to
+#' `arrow_V.V.V_with_deps.tar.gz` in the current directory (`V.V.V` is the version)
+#' @param package_source File path for the input tar.gz package. Defaults to
+#' downloading from CRAN.
+#' @return The full path to `outfile`, invisibly
 #'
 #' This function is used for setting up an offline build. If it's possible to
 #' download at build time, don't use this function. Instead, let `cmake`
-#' download them for you.
-#' If the files already exist in `deps_dir`, they will be re-downloaded and
-#' overwritten. Do not put other files in this directory.
-#' These saved files are only used in the build if `ARROW_DEPENDENCY_SOURCE`
-#' is unset, `BUNDLED`, or `AUTO`.
+#' download the required dependencies for you.
+#' These downloaded dependencies are only used in the build if
+#' `ARROW_DEPENDENCY_SOURCE` is unset, `BUNDLED`, or `AUTO`.
 #' https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 #'
 #' ## Steps for an offline install with optional dependencies:
 #'
 #' ### Using a computer with internet access, pre-download the dependencies:
 #' * Install the `arrow` package
-#' * Run `download_optional_dependencies(my_dependencies)`
-#' * Copy the directory `my-arrow-dependencies` to the computer without internet access
+#' * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
+#' * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 #'
-#' ### On the computer without internet access, use the pre-downloaded dependencies:
-#' * Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
-#'   points to the newly copied `my_dependencies`.
-#' * Install the `arrow` package
+#' ### On the computer without internet access, install the prepared package:
+#' * Install the `arrow` package from the copied file (`install.packages("my_arrow_pkg.tar.gz")`)
 #'   * This installation will build from source, so `cmake` must be available
 #' * Run [arrow_info()] to check installed capabilities
 #'
+#'
 #' @examples
 #' \dontrun{
-#' download_optional_dependencies("arrow-thirdparty")
-#' list.files("arrow-thirdparty", "thrift-*") # "thrift-0.13.0.tar.gz" or similar
+#' new_pkg <- create_package_with_all_dependencies()
+#' # Note: this works when run in the same R session, but it's meant to be
+#' # copied to a different computer.
+#' install.packages(new_pkg, dependencies = c("Depends", "Imports", "LinkingTo"))
 #' }
 #' @export
-download_optional_dependencies <- function(
-  deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR"),
-  # This script is copied over from arrow/cpp/... to arrow/r/inst/...
-  download_dependencies_sh = system.file(
-    "thirdparty/download_dependencies.sh",
-    package = "arrow",
-    mustWork = TRUE
-  )
-) {
-  dir.create(deps_dir, showWarnings = FALSE, recursive = TRUE)
-  # Run download_dependencies.sh
-  cat(paste0("*** Downloading optional dependencies to ", deps_dir, "\n"))
-  return_status <- system2(download_dependencies_sh,
-    args = deps_dir, stdout = FALSE, stderr = FALSE
-  )
-  if (isTRUE(return_status == 0)) {
-
-  } else {
-    stop("Failed to download optional dependencies", .call = FALSE)
+create_package_with_all_dependencies <- function(outfile = NULL, package_source = NULL) {
+  if (is.null(package_source)) {
+    pkg_download_dir <- tempfile()
+    dir.create(pkg_download_dir)
+    on.exit(unlink(pkg_download_dir, recursive = TRUE), add = TRUE)
+    downloaded <- download.packages("arrow", destdir = pkg_download_dir, type = "source")
+    package_source <- downloaded[1, 2, drop = TRUE]
   }
-  invisible(deps_dir)
+  if (!file.exists(package_source) || !endsWith(package_source, "tar.gz")) {
+    stop("Arrow package .tar.gz file not found")
+  }
+  if (is.null(outfile)) {
+    # e.g. convert /path/to/arrow_5.0.0.tar.gz to ./arrow_5.0.0_with_deps.tar.gz
+    # (add 'with_deps' for clarity if the file was downloaded locally)
+    outfile <- paste0(gsub(".tar.gz$", "", basename(package_source)), "_with_deps.tar.gz")
+  }
+  untar_dir <- tempfile()
+  on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
+  untar(package_source, exdir = untar_dir)
+  thirdparty_dir <- file.path(untar_dir, "arrow/tools/cpp/thirdparty")
+  download_dependencies_sh <- file.path(thirdparty_dir, "download_dependencies.sh")
+  download_dir <- file.path(thirdparty_dir, "download")
+  dir.create(download_dir)
+  download_successful <- system2(download_dependencies_sh, download_dir, stdout = FALSE) == 0
+  if (!download_successful) {
+    stop("Failed to download thirdparty dependencies")
+  }
+  # Need to change directory to untar_dir so tar() will use relative paths. That
+  # means we'll need a full, non-relative path for outfile. (extra_flags="-C"
+  # doesn't work with R's internal tar)
+  orig_wd <- getwd()
+  on.exit(setwd(orig_wd), add = TRUE)
+  # normalizePath() may return the input unchanged if outfile doesn't exist, so
+  # create it first.
+  file.create(outfile)
+  outfile <- normalizePath(outfile, mustWork = TRUE)
+  setwd(untar_dir)
+  tar_successful <- tar(outfile, compression = "gz") == 0
+  if (!tar_successful) {
+    stop("Failed to create new tar.gz file")
+  }
+  invisible(outfile)
 }

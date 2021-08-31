@@ -102,7 +102,7 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
-The `install-arrow.R` file also includes the `download_optional_dependencies()`
+The `install-arrow.R` file also includes the `create_package_with_all_dependencies()`
 function. Normally, when installing on a computer with internet access, the
 build process will download third-party dependencies as needed.
 This function provides a way to download them in advance.
@@ -111,8 +111,20 @@ Note that Arrow _can_ be installed on a computer without internet access, but
 many useful features will be disabled, as they depend on third-party components.
 More precisely, `arrow::arrow_info()$capabilities()` will be `FALSE` for every
 capability.
-One approach to add more capabilities in an offline install is to pre-download
-the required files.
+One approach to add more capabilities in an offline install is to prepare a
+package with pre-downloaded dependencies. The
+`create_package_with_all_dependencies()` function does this preparation.
+
+### Using a computer with internet access, pre-download the dependencies:
+* Install the `arrow` package
+* Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
+* Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
+
+### On the computer without internet access, install the prepared package:
+* Install the `arrow` package from the copied file (`install.packages("my_arrow_pkg.tar.gz")`)
+  * This installation will build from source, so `cmake` must be available
+* Run `arrow_info()` to check installed capabilities
+
 
 ### Using a computer with internet access, pre-download the dependencies:
 * Install the `arrow` package
@@ -373,15 +385,6 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-* `ARROW_THIRDPARTY_DEPENDENCY_DIR`: Directory with downloaded third-party
-  dependency files. Run `download_optional_dependencies(my-dir)` to download.
-* `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
-  prebuilt the C++ library binary.
-  It will turn off any features that require a download, unless they're available
-  in `ARROW_THIRDPARTY_DEPENDENCY_DIR`.
-  Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
-  (Currently `RapidJSON` will also be downloaded.
-  See discussion [here](https://issues.apache.org/jira/browse/ARROW-13768).)
 
 # Contributing
 
