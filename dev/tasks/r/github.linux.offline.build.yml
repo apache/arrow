@@ -54,7 +54,7 @@ jobs:
           cp -p ../cpp/thirdparty/download_dependencies.sh inst/thirdparty/
           cp -p ../cpp/thirdparty/versions.txt inst/thirdparty/
           mkdir thirdparty_deps
-          R -e "download_optional_dependencies("thirdparty_deps", download_dependencies_sh = "./inst/thirdparty/download_dependencies.sh")"
+          R -e 'source("R/install-arrow.R"); download_optional_dependencies("thirdparty_deps", download_dependencies_sh = "./inst/thirdparty/download_dependencies.sh")'
         shell: bash
       - name: Upload the third party dependency artifacts
         uses: actions/upload-artifact@v2
@@ -94,8 +94,8 @@ jobs:
           TEST_OFFLINE_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
-          ARROW_THIRDPARTY_DEPENDENCY_DIR: ~/thirdparty_deps
         run: |
+          export ARROW_THIRDPARTY_DEPENDENCY_DIR=$(pwd)/thirdparty_deps
           cd arrow/r
           R CMD INSTALL . --install-tests
       - name: Run the tests
