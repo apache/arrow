@@ -696,7 +696,7 @@ def _ensure_write_partitioning(part, schema, flavor):
 
     if not isinstance(part, Partitioning):
         raise ValueError(
-            "partitioning must be a Partitioning object constructed with a schema"
+            "partitioning must be a Partitioning object with a schema"
         )
 
     return part
