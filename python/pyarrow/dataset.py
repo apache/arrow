@@ -696,7 +696,7 @@ def _ensure_write_partitioning(part, schema, flavor):
 
     if not isinstance(part, Partitioning):
         raise ValueError(
-            "partitioning must be a Partitioning object with a schema"
+            "partitioning must be a Partitioning object constructed with a schema"
         )
 
     return part
@@ -732,7 +732,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
         function or as a list of field names.
-    partitioning_flavor : One of the partitioning flavors supported by
+    partitioning_flavor : str, optional
+        One of the partitioning flavors supported by
         ``pyarrow.dataset.partitioning``.
     schema : Schema, optional
     filesystem : FileSystem, optional

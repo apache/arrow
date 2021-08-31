@@ -1590,7 +1590,7 @@ def test_write_dataset_with_field_names(tempdir):
     assert partitioning_dirs == {"x", "y", "z"}
 
     load_back_table = load_back.to_table()
-    assert load_back_table.to_pydict() == table.to_pydict()
+    assert load_back_table.equals(table)
 
 
 def test_write_dataset_with_field_names_hive(tempdir):
