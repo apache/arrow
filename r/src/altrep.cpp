@@ -225,9 +225,7 @@ struct AltrepArrayPrimitive {
   // Does the Array have no nulls ?
   int No_NA() const { return array()->null_count() != 0; }
 
-  int Is_sorted() const {
-    return UNKNOWN_SORTEDNESS;
-  }
+  int Is_sorted() const { return UNKNOWN_SORTEDNESS; }
 
   // The value at position i
   c_type Elt(R_xlen_t i) {
