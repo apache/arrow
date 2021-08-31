@@ -688,7 +688,7 @@ def _ensure_write_partitioning(part, schema, flavor):
         # Name of fields were provided instead of a partitioning object.
         # Create a partitioning factory with those field names.
         part = partitioning(
-            schema=pa.schema([schema.field_by_name(f) for f in part]),
+            schema=pa.schema([schema.field(f) for f in part]),
             flavor=flavor
         )
     elif part is None:
@@ -806,7 +806,15 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
-    partitioning = _ensure_write_partitioning(partitioning, schema=schema,
+    # at this point data is a Scanner or a Dataset, anything else
+    # was converted to one of those two. So we can grab the schema
+    # to build the partitioning object from Dataset.
+    if isinstance(data, Scanner):
+        partitioning_schema = data.dataset_schema
+    else:
+        partitioning_schema = data.schema
+    partitioning = _ensure_write_partitioning(partitioning,
+                                              schema=partitioning_schema,
                                               flavor=partitioning_flavor)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
