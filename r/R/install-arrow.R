@@ -174,7 +174,7 @@ reload_arrow <- function() {
 #' install.packages(new_pkg, dependencies = c("Depends", "Imports", "LinkingTo"))
 #' }
 #' @export
-create_package_with_all_dependencies <- function(outfile = NULL, package_source = NULL) {
+create_package_with_all_dependencies <- function(outfile = NULL, package_source = NULL, quietly = TRUE) {
   if (is.null(package_source)) {
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
@@ -197,6 +197,9 @@ create_package_with_all_dependencies <- function(outfile = NULL, package_source 
   download_dependencies_sh <- file.path(thirdparty_dir, "download_dependencies.sh")
   download_dir <- file.path(thirdparty_dir, "download")
   dir.create(download_dir)
+  if (!quietly) {
+    message("Downloading files to ", download_dir)
+  }
   download_successful <- system2(download_dependencies_sh, download_dir, stdout = FALSE) == 0
   if (!download_successful) {
     stop("Failed to download thirdparty dependencies")
@@ -211,6 +214,9 @@ create_package_with_all_dependencies <- function(outfile = NULL, package_source 
   file.create(outfile)
   outfile <- normalizePath(outfile, mustWork = TRUE)
   setwd(untar_dir)
+  if (!quietly) {
+    message("Repacking tar.gz file to ", outfile)
+  }
   tar_successful <- tar(outfile, compression = "gz") == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")

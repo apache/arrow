@@ -4,7 +4,11 @@
 \alias{create_package_with_all_dependencies}
 \title{Create an install package with all thirdparty dependencies}
 \usage{
-create_package_with_all_dependencies(outfile = NULL, package_source = NULL)
+create_package_with_all_dependencies(
+  outfile = NULL,
+  package_source = NULL,
+  quietly = TRUE
+)
 }
 \arguments{
 \item{outfile}{File path for the new tar.gz package. Defaults to
