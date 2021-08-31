@@ -243,7 +243,6 @@ test_that("Group by n_distinct() on dataset", {
       collect(),
     tbl
   )
-  skip("ARROW-13764 - CountOptions (na.rm) not yet implemented for compute_distinct")
   expect_dplyr_equal(
     input %>%
       group_by(some_grouping) %>%
