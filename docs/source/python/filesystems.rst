@@ -147,6 +147,8 @@ Example how to write to disk and read it back::
 S3
 --
 
+PyArrow implements natively a S3 filesystem for S3 compatible storage.
+
 The :class:`S3FileSystem` constructor has several options to configure the S3
 connection (e.g. credentials, the region, an endpoint override, etc). In
 addition, the constructor will also inspect configured S3 credentials as
