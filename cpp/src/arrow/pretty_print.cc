@@ -173,25 +173,10 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  // NOTE about bounds checking on temporal data:
-  //
-  // While we catch exceptions in FormatDateTime(), some out-of-bound values
-  // would result in successful but erroneous printing because of silent
-  // integer wraparound in the `arrow_vendored::date` library (particularly
-  // because it represents year values as a C `short` internally).
-  //
-  // To avoid such misprinting, we must therefore check the bounds explicitly.
-  // The bounds correspond to start of year -32767 and end of year 32767,
-  // respectively (-32768 is an invalid year value in `arrow_vendored::date`).
   Status WriteDataValues(const Date32Array& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) {
-      const int32_t v = data[i];
-      if (v >= -12687428 && v <= 11248737) {
-        FormatDateTime<arrow_vendored::date::days>("%F", v, true);
-      } else {
-        WriteOutOfRange(v);
-      }
+      FormatDateTime("%F", arrow_vendored::date::days{data[i]}, true);
     });
     return Status::OK();
   }
@@ -199,12 +184,7 @@ class ArrayPrinter : public PrettyPrinter {
   Status WriteDataValues(const Date64Array& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) {
-      const int64_t v = data[i];
-      if (v >= -1096193779200000LL && v <= 971890963199999LL) {
-        FormatDateTime<std::chrono::milliseconds>("%F", v, true);
-      } else {
-        WriteOutOfRange(v);
-      }
+      FormatDateTime("%F", std::chrono::milliseconds{data[i]}, true);
     });
     return Status::OK();
   }
@@ -212,34 +192,9 @@ class ArrayPrinter : public PrettyPrinter {
   Status WriteDataValues(const TimestampArray& array) {
     const int64_t* data = array.raw_values();
     const auto& type = checked_cast<const TimestampType&>(*array.type());
-    int64_t min_value, max_value;
-    switch (type.unit()) {
-      case TimeUnit::SECOND:
-        min_value = -1096193779200LL;
-        max_value = 971890963199LL;
-        break;
-      case TimeUnit::MILLI:
-        min_value = -1096193779200000LL;
-        max_value = 971890963199999LL;
-        break;
-      case TimeUnit::MICRO:
-        min_value = -1096193779200000000LL;
-        max_value = 971890963199999999LL;
-        break;
-      default:
-        min_value = std::numeric_limits<int64_t>::min();
-        max_value = std::numeric_limits<int64_t>::max();
-        break;
-    }
 
-    WriteValues(array, [&](int64_t i) {
-      const int64_t v = data[i];
-      if (v >= min_value && v <= max_value) {
-        FormatDateTime(type.unit(), "%F %T", data[i], true);
-      } else {
-        WriteOutOfRange(v);
-      }
-    });
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type.unit(), "%F %T", data[i], true); });
     return Status::OK();
   }
 
@@ -479,15 +434,46 @@ class ArrayPrinter : public PrettyPrinter {
 
  private:
   template <typename Unit>
-  void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
-    try {
-      if (add_epoch) {
-        (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
-      } else {
-        (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
+  void FormatDateTime(const char* fmt, Unit duration, bool add_epoch) {
+    // NOTE about bounds checking:
+    //
+    // While we catch exceptions below, some out-of-bound values would result
+    // in successful but erroneous printing because of silent integer wraparound
+    // in the `arrow_vendored::date` library, particularly because it represents
+    // year values as a C `short` internally.
+    // (reported as https://github.com/HowardHinnant/date/issues/695)
+    //
+    // To avoid such misprinting, we must therefore check the bounds explicitly.
+    // The bounds correspond to start of year -32767 and end of year 32767,
+    // respectively (-32768 is an invalid year value in `arrow_vendored::date`):
+    constexpr Unit kMinIncl =
+        std::chrono::duration_cast<Unit>(arrow_vendored::date::days{-12687428});
+    constexpr Unit kMaxExcl =
+        std::chrono::duration_cast<Unit>(arrow_vendored::date::days{11248738});
+    if (duration >= kMinIncl && duration < kMaxExcl) {
+      try {
+        if (add_epoch) {
+          (*sink_) << arrow_vendored::date::format(fmt, epoch_ + duration);
+        } else {
+          (*sink_) << arrow_vendored::date::format(fmt, duration);
+        }
+        return;
+      } catch (std::ios::failure&) {
+        // Fall back below
       }
-    } catch (std::ios::failure&) {
-      WriteOutOfRange(value);
+    }
+    WriteOutOfRange(duration.count());
+  }
+
+  // FormatDateTime specialization for nanoseconds: a 64-bit number of
+  // nanoseconds cannot represent years outside of the [-32767, 32767]
+  // range, and the {kMinIncl, kMaxExcl} constants above would overflow.
+  void FormatDateTime(const char* fmt, std::chrono::nanoseconds duration,
+                      bool add_epoch) {
+    if (add_epoch) {
+      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + duration);
+    } else {
+      (*sink_) << arrow_vendored::date::format(fmt, duration);
     }
   }
 
@@ -495,16 +481,16 @@ class ArrayPrinter : public PrettyPrinter {
                       bool add_epoch) {
     switch (unit) {
       case TimeUnit::NANO:
-        FormatDateTime<std::chrono::nanoseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::nanoseconds{value}, add_epoch);
         break;
       case TimeUnit::MICRO:
-        FormatDateTime<std::chrono::microseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::microseconds{value}, add_epoch);
         break;
       case TimeUnit::MILLI:
-        FormatDateTime<std::chrono::milliseconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::milliseconds{value}, add_epoch);
         break;
       case TimeUnit::SECOND:
-        FormatDateTime<std::chrono::seconds>(fmt, value, add_epoch);
+        FormatDateTime(fmt, std::chrono::seconds{value}, add_epoch);
         break;
     }
   }
