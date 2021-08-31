@@ -16,6 +16,8 @@ create_package_with_all_dependencies(
 
 \item{package_source}{File path for the input tar.gz package. Defaults to
 downloading from CRAN.}
+
+\item{quietly}{boolean, default \code{TRUE}. If \code{FALSE}, narrate progress.}
 }
 \value{
 The full path to \code{outfile}, invisibly

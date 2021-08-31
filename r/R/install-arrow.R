@@ -144,6 +144,7 @@ reload_arrow <- function() {
 #' `arrow_V.V.V_with_deps.tar.gz` in the current directory (`V.V.V` is the version)
 #' @param package_source File path for the input tar.gz package. Defaults to
 #' downloading from CRAN.
+#' @param quietly boolean, default `TRUE`. If `FALSE`, narrate progress.
 #' @return The full path to `outfile`, invisibly
 #'
 #' This function is used for setting up an offline build. If it's possible to
@@ -179,7 +180,7 @@ create_package_with_all_dependencies <- function(outfile = NULL, package_source 
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
     on.exit(unlink(pkg_download_dir, recursive = TRUE), add = TRUE)
-    downloaded <- download.packages("arrow", destdir = pkg_download_dir, type = "source")
+    downloaded <- utils::download.packages("arrow", destdir = pkg_download_dir, type = "source")
     package_source <- downloaded[1, 2, drop = TRUE]
   }
   if (!file.exists(package_source) || !endsWith(package_source, "tar.gz")) {
@@ -192,7 +193,7 @@ create_package_with_all_dependencies <- function(outfile = NULL, package_source 
   }
   untar_dir <- tempfile()
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
-  untar(package_source, exdir = untar_dir)
+  utils::untar(package_source, exdir = untar_dir)
   thirdparty_dir <- file.path(untar_dir, "arrow/tools/cpp/thirdparty")
   download_dependencies_sh <- file.path(thirdparty_dir, "download_dependencies.sh")
   download_dir <- file.path(thirdparty_dir, "download")
@@ -217,7 +218,7 @@ create_package_with_all_dependencies <- function(outfile = NULL, package_source 
   if (!quietly) {
     message("Repacking tar.gz file to ", outfile)
   }
-  tar_successful <- tar(outfile, compression = "gz") == 0
+  tar_successful <- utils::tar(outfile, compression = "gz") == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")
   }
