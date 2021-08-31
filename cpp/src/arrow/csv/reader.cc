@@ -490,14 +490,23 @@ class BlockDecodingOperator {
 
     Result<std::shared_ptr<RecordBatch>> DecodedArraysToBatch(
         std::vector<std::shared_ptr<Array>> arrays) {
+      const auto n_rows = arrays[0]->length();
+
       if (schema == nullptr) {
         FieldVector fields(arrays.size());
         for (size_t i = 0; i < arrays.size(); ++i) {
           fields[i] = field(conversion_schema.columns[i].name, arrays[i]->type());
         }
+
+        if (n_rows == 0) {
+          // No rows so schema is not reliable. return RecordBatch but do not set schema
+          return RecordBatch::Make(arrow::schema(std::move(fields)), n_rows,
+                                   std::move(arrays));
+        }
+
         schema = arrow::schema(std::move(fields));
       }
-      const auto n_rows = arrays[0]->length();
+
       return RecordBatch::Make(schema, n_rows, std::move(arrays));
     }
 
@@ -901,13 +910,31 @@ class StreamingReaderImpl : public ReaderMixin,
 
     auto self = shared_from_this();
     return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
-      return self->InitAfterFirstBatch(first_block, std::move(rb_gen), max_readahead);
+      return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
     });
   }
 
-  Status InitAfterFirstBatch(const DecodedBlock& first_block,
-                             AsyncGenerator<DecodedBlock> batch_gen, int max_readahead) {
-    schema_ = first_block.record_batch->schema();
+  Future<> InitFromBlock(const DecodedBlock& block,
+                         AsyncGenerator<DecodedBlock> batch_gen, int max_readahead,
+                         int64_t prev_bytes_processed) {
+    if (!block.record_batch) {
+      // End of file just return null batches
+      record_batch_gen_ = MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
+      return Status::OK();
+    }
+
+    schema_ = block.record_batch->schema();
+
+    if (block.record_batch->num_rows() == 0) {
+      // Keep consuming blocks until the first non empty block is found
+      auto self = shared_from_this();
+      prev_bytes_processed += block.bytes_processed;
+      return batch_gen().Then([self, batch_gen, max_readahead,
+                               prev_bytes_processed](const DecodedBlock& next_block) {
+        return self->InitFromBlock(next_block, std::move(batch_gen), max_readahead,
+                                   prev_bytes_processed);
+      });
+    }
 
     AsyncGenerator<DecodedBlock> readahead_gen;
     if (read_options_.use_threads) {
@@ -916,19 +943,15 @@ class StreamingReaderImpl : public ReaderMixin,
       readahead_gen = std::move(batch_gen);
     }
 
-    AsyncGenerator<DecodedBlock> restarted_gen;
-    // Streaming reader should not emit empty record batches
-    if (first_block.record_batch->num_rows() > 0) {
-      restarted_gen = MakeGeneratorStartsWith({first_block}, std::move(readahead_gen));
-    } else {
-      restarted_gen = std::move(readahead_gen);
-    }
+    AsyncGenerator<DecodedBlock> restarted_gen =
+        MakeGeneratorStartsWith({block}, std::move(readahead_gen));
 
     auto bytes_decoded = bytes_decoded_;
     auto unwrap_and_record_bytes =
-        [bytes_decoded](
-            const DecodedBlock& block) -> Result<std::shared_ptr<RecordBatch>> {
-      bytes_decoded->fetch_add(block.bytes_processed);
+        [bytes_decoded, prev_bytes_processed](
+            const DecodedBlock& block) mutable -> Result<std::shared_ptr<RecordBatch>> {
+      bytes_decoded->fetch_add(block.bytes_processed + prev_bytes_processed);
+      prev_bytes_processed = 0;
       return block.record_batch;
     };
 
