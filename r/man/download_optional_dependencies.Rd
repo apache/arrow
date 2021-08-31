@@ -5,13 +5,18 @@
 \title{Download all optional Arrow dependencies}
 \usage{
 download_optional_dependencies(
-  deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR")
+  deps_dir = Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR"),
+  download_dependencies_sh = system.file("thirdparty/download_dependencies.sh", package
+    = "arrow", mustWork = TRUE)
 )
 }
 \arguments{
 \item{deps_dir}{Directory to save files into. Will be created if necessary.
 Defaults to the value of \code{ARROW_THIRDPARTY_DEPENDENCY_DIR}, if that
 environment variable is set.}
+
+\item{download_dependencies_sh}{location of the dependency download script,
+defaults to the one included with the arrow package.}
 }
 \value{
 \code{deps_dir}, invisibly

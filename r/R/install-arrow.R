@@ -143,6 +143,8 @@ reload_arrow <- function() {
 #' @param deps_dir Directory to save files into. Will be created if necessary.
 #' Defaults to the value of `ARROW_THIRDPARTY_DEPENDENCY_DIR`, if that
 #' environment variable is set.
+#' @param download_dependencies_sh location of the dependency download script,
+#' defaults to the one included with the arrow package.
 #'
 #' @return `deps_dir`, invisibly
 #'
