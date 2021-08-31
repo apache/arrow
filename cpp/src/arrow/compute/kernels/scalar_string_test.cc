@@ -16,7 +16,6 @@
 // under the License.
 
 #include <memory>
-#include <unordered_map>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
