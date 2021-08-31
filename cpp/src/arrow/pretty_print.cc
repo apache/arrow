@@ -439,13 +439,14 @@ class ArrayPrinter : public PrettyPrinter {
     //
     // While we catch exceptions below, some out-of-bound values would result
     // in successful but erroneous printing because of silent integer wraparound
-    // in the `arrow_vendored::date` library, particularly because it represents
-    // year values as a C `short` internally.
-    // (reported as https://github.com/HowardHinnant/date/issues/695)
+    // in the `arrow_vendored::date` library.
     //
     // To avoid such misprinting, we must therefore check the bounds explicitly.
     // The bounds correspond to start of year -32767 and end of year 32767,
-    // respectively (-32768 is an invalid year value in `arrow_vendored::date`):
+    // respectively (-32768 is an invalid year value in `arrow_vendored::date`).
+    //
+    // Note these values are the same as documented for C++20:
+    // https://en.cppreference.com/w/cpp/chrono/year_month_day/operator_days
     constexpr Unit kMinIncl =
         std::chrono::duration_cast<Unit>(arrow_vendored::date::days{-12687428});
     constexpr Unit kMaxExcl =
