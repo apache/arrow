@@ -44,8 +44,14 @@ Pyarrow implements natively the following filesystem subclasses:
 
 It is also possible to use your own fsspec-compliant filesystem with pyarrow functionalities as described in the section :ref:`filesystem-fsspec`.
 
+
+.. _filesystem-usage:
+
 Usage
 -----
+
+Instantiating a filesystem
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A FileSystem object can be created with one of the constructors (and check the
 respective constructor for its options)::
