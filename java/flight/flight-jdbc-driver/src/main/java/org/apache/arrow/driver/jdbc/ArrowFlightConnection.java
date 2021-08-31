@@ -128,12 +128,11 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     }
     // Reset Meta
     ((ArrowFlightMetaImpl) this.meta).setDefaultConnectionProperties();
-    if (exceptions.isEmpty()) {
-      return;
+    if (!exceptions.isEmpty()) {
+      final SQLException exception = AvaticaConnection.HELPER.createException("Failed to reset connection.");
+      exceptions.forEach(exception::setNextException);
+      throw exception;
     }
-    final SQLException exception = AvaticaConnection.HELPER.createException("Failed to reset connection.");
-    exceptions.forEach(exception::setNextException);
-    throw exception;
   }
 
   /**
@@ -150,7 +149,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    *
    * @return the {@link #executorService}.
    */
-  public synchronized ExecutorService getExecutorService() {
+  synchronized ExecutorService getExecutorService() {
     return executorService = executorService == null ?
         Executors.newFixedThreadPool(config.threadPoolSize(), new DefaultThreadFactory(getClass().getSimpleName())) :
         executorService;
