@@ -499,7 +499,7 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "1.0"
     Files written with version='2.4' or '2.6' may not be readable in all
     Parquet implementations, so version='1.0' is likely the choice that
     maximizes file compatibility.
-    Logical types and UINT32 are only available with version '2.4'.
+    UINT32 and some logical types are only available with version '2.4'.
     Nanosecond timestamps are only available with version '2.6'.
     Other features such as compression algorithms or the new serialized
     data page format must be enabled separately (see 'compression' and
@@ -511,14 +511,14 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps a particular resolution. The defaults depends on `version`.
-    For ``version='1.0'`` (the default), nanoseconds will be cast to
-    microseconds ('us'), and seconds to milliseconds ('ms') by default.
-    For ``version='2.4'``, nanoseconds will be cast to microseconds.
-    For ``version='2.6'``, the original resolution is always preserved.
-    The casting might result in loss of data, in which case
-    ``allow_truncated_timestamps=True`` can be used to suppress the raised
-    exception.
+    Cast timestamps to a particular resolution. If omitted, defaults are chosen
+    depending on `version`. By default, for ``version='1.0'`` (the default)
+    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
+    for other `version` values, they are written natively without loss
+    of resolution.  Seconds are always cast to milliseconds ('ms') by default,
+    as Parquet does not have any temporal type with seconds resolution.
+    If the casting results in loss of data, it will raise an exception
+    unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data

@@ -278,9 +278,10 @@ class PARQUET_EXPORT FileMetaData {
 
   /// \brief Return the "version" of the file
   ///
-  /// The Parquet file metadata stores the version as a single integer,
-  /// therefore the returned value can only be an approximation of the
-  /// Parquet format version actually supported by the producer of the file.
+  /// WARNING: The value returned by this method is unreliable as 1) the Parquet
+  /// file metadata stores the version as a single integer and 2) some producers
+  /// are known to always write a hardcoded value.  Therefore, you cannot use
+  /// this value to know which features are used in the file.
   ParquetVersion::type version() const;
 
   /// \brief Return the application's user-agent string of the writer.

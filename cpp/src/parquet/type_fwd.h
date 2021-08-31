@@ -31,9 +31,11 @@ namespace parquet {
 /// ArrowWriterProperties.
 struct ParquetVersion {
   enum type : int {
-    /// Enable only pre-2.0 Parquet format features when writing
+    /// Enable only pre-2.2 Parquet format features when writing
     ///
     /// This setting is useful for maximum compatibility with legacy readers.
+    /// Note that logical types may still be emitted, as long they have a
+    /// corresponding converted type.
     PARQUET_1_0,
 
     /// DEPRECATED: Enable Parquet format 2.6 features
@@ -44,7 +46,8 @@ struct ParquetVersion {
 
     /// Enable Parquet format 2.4 and earlier features when writing
     ///
-    /// This enables logical types and UINT32.
+    /// This enables UINT32 as well as logical types which don't have
+    /// a corresponding converted type.
     ///
     /// Note: Parquet format 2.4.0 was released in October 2017.
     PARQUET_2_4,
