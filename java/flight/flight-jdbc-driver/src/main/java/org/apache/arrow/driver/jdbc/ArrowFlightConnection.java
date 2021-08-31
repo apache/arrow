@@ -88,20 +88,25 @@ public final class ArrowFlightConnection extends AvaticaConnection {
                                                    final String url, final Properties properties,
                                                    final BufferAllocator allocator)
       throws SQLException {
-    final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
-    final FlightClientHandler clientHandler =
-        new ArrowFlightSqlClientHandler.Builder()
-            .withHost(config.getHost())
-            .withPort(config.getPort())
-            .withUsername(config.avaticaUser())
-            .withPassword(config.avaticaPassword())
-            .withKeyStorePath(config.getKeyStorePath())
-            .withKeyStorePassword(config.keystorePassword())
-            .withBufferAllocator(allocator)
-            .withTlsEncryption(config.useTls())
-            .withCallOptions(config.toCallOption())
-            .build();
-    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+    try {
+      final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
+      final FlightClientHandler clientHandler =
+          new ArrowFlightSqlClientHandler.Builder()
+              .withHost(config.getHost())
+              .withPort(config.getPort())
+              .withUsername(config.avaticaUser())
+              .withPassword(config.avaticaPassword())
+              .withKeyStorePath(config.getKeyStorePath())
+              .withKeyStorePassword(config.keystorePassword())
+              .withBufferAllocator(allocator)
+              .withTlsEncryption(config.useTls())
+              .withCallOptions(config.toCallOption())
+              .build();
+      return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+    } catch (final SQLException e) {
+      allocator.close();
+      throw e;
+    }
   }
 
   void reset() throws SQLException {
