@@ -122,6 +122,28 @@ paths)::
    >>> local.get_file_info('non_existent')
    <FileInfo for 'non_existent': type=FileType.NotFound>
 
+
+.. _filesystem-localfs:
+
+Local FS
+--------
+
+The :class:`LocalFileSystem` allows you to access files on the local machine.
+
+Example how to write to disk and read it back::
+
+   >>> from pyarrow import fs
+   >>> local = fs.LocalFileSystem()
+   >>> with local.open_output_stream('/tmp/pyarrowtest.dat') as stream:
+           stream.write(b'data')
+   4
+   >>> with local.open_input_stream('/tmp/pyarrowtest.dat') as stream:
+           print(stream.readall())
+   b'data'
+
+
+.. _filesystem-s3:
+
 S3
 --
 
