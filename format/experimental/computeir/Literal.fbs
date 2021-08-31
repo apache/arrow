@@ -79,7 +79,7 @@ table Float64Literal {
 }
 
 table DecimalLiteral {
-  value: [uint8]; // 128 bit value.
+  value: [byte];
   scale: uint8;
   precision: uint8;
 }
