@@ -183,8 +183,10 @@ Example how you can read contents from a S3 bucket::
    for the different ways to configure the AWS credentials.
 
 
-Hadoop File System (HDFS)
--------------------------
+.. _filesystem-hdfs:
+
+Hadoop Distributed File System (HDFS)
+-------------------------------------
 
 PyArrow comes with bindings to the Hadoop File System (based on C++ bindings
 using ``libhdfs``, a JNI-based interface to the Java Hadoop client). You connect
