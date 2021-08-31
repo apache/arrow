@@ -280,6 +280,11 @@ struct AltrepArrayPrimitive {
   }
 
   static SEXP Unserialize(SEXP /* class_ */, SEXP state) { return state; }
+
+  SEXP Coerce(int type) {
+    // Just let R handle it for now
+    return NULL;
+  }
 };
 template <int sexp_type>
 R_altrep_class_t AltrepArrayPrimitive<sexp_type>::class_t;
@@ -342,6 +347,11 @@ SEXP Serialized_state(SEXP alt) {
 template <typename AltrepClass>
 SEXP Unserialize(SEXP class_, SEXP state) {
   return AltrepClass::Unserialize(class_, state);
+}
+
+template <typename AltrepClass>
+SEXP Coerce(SEXP alt, int type) {
+  return AltrepClass(alt).Coerce(type);
 }
 
 static std::shared_ptr<arrow::compute::ScalarAggregateOptions> NaRmOptions(
@@ -435,6 +445,7 @@ void InitAltrepMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altrep_Duplicate_method(class_t, Duplicate<AltrepClass>);
   R_set_altrep_Serialized_state_method(class_t, Serialized_state<AltrepClass>);
   R_set_altrep_Unserialize_method(class_t, Unserialize<AltrepClass>);
+  R_set_altrep_Coerce_method(class_t, Coerce<AltrepClass>);
 }
 
 template <typename AltrepClass>
