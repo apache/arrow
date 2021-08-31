@@ -996,7 +996,8 @@ cdef class Array(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, int indent=0, int window=10, c_bool skip_new_lines=False):
+    def to_string(self, int indent=0, int window=10,
+                  c_bool skip_new_lines=False):
         cdef:
             c_string result
             PrettyPrintOptions options
