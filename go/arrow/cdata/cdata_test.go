@@ -15,11 +15,15 @@
 // limitations under the License.
 
 // +build cgo
+// +build test
+
+// use test tag so that we only run these tests when the "test" tag is present
+// so that the .c and other framework infrastructure is only compiled in during
+// testing, and the .c files and symbols are not present in release builds.
 
 package cdata
 
 import (
-	"fmt"
 	"io"
 	"runtime"
 	"testing"
@@ -598,6 +602,7 @@ func TestRecordReaderStream(t *testing.T) {
 	defer releaseStream(stream)
 
 	rdr := ImportCArrayStream(stream, nil)
+	i := 0
 	for {
 		rec, err := rdr.Read()
 		if err != nil {
@@ -608,6 +613,15 @@ func TestRecordReaderStream(t *testing.T) {
 		}
 		defer rec.Release()
 
-		fmt.Println(rec)
+		assert.EqualValues(t, 2, rec.NumCols())
+		assert.Equal(t, "a", rec.ColumnName(0))
+		assert.Equal(t, "b", rec.ColumnName(1))
+		i++
+		for j := 0; j < int(rec.NumRows()); j++ {
+			assert.Equal(t, int32((j+1)*i), rec.Column(0).(*array.Int32).Value(j))
+		}
+		assert.Equal(t, "foo", rec.Column(1).(*array.String).Value(0))
+		assert.Equal(t, "bar", rec.Column(1).(*array.String).Value(1))
+		assert.Equal(t, "baz", rec.Column(1).(*array.String).Value(2))
 	}
 }

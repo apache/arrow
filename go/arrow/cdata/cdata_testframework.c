@@ -15,6 +15,7 @@
 // limitations under the License.
 
 // +build cgo
+// +build test
 
 #include <stdlib.h>
 #include <stdint.h>

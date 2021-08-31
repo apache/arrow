@@ -15,7 +15,7 @@
 // limitations under the License.
 
 // +build cgo
-
+// +build test
 
 /* 
    Function check_for_endianness() returns 1, if architecture 
