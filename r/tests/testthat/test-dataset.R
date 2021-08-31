@@ -1105,6 +1105,20 @@ test_that("Scanner$create() filter/projection pushdown", {
     as.data.frame(scan_one$ToRecordBatchReader()$read_table()),
     as.data.frame(scan_three$ToRecordBatchReader()$read_table())
   )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(projection = "not_a_col"),
+    "attempting to project with unknown columns"
+  )
+
+  expect_error(
+    ds %>%
+      select(int, dbl, lgl) %>%
+      Scanner$create(filter = list("foo", "bar")),
+    "filter expressions must be either an expression or a list of expressions"
+  )
 })
 
 expect_scan_result <- function(ds, schm) {

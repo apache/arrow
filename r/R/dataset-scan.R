@@ -28,7 +28,8 @@
 #'
 #' * `dataset`: A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #'    `dplyr` methods on `Dataset`.
-#' * `projection`: A character vector of column names to select columns
+#' * `projection`: A character vector of column names to select columns or a
+#'    named list of expressions
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
@@ -90,6 +91,7 @@ Scanner$create <- function(dataset,
 
     if (!is.null(projection)) {
       if (is.character(projection)) {
+        stopifnot("attempting to project with unknown columns" = all(projection %in% names(proj)))
         proj <- proj[projection]
       } else {
         # TODO: ARROW-13802 accepting lists of Expressions as a projection

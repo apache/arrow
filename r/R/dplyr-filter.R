@@ -71,13 +71,13 @@ filter.Dataset <- filter.ArrowTabular <- filter.arrow_dplyr_query
 
 set_filters <- function(.data, expressions) {
   if (length(expressions)) {
-    if (is.list(expressions)) {
+    if (is_list_of(expressions, "Expression")) {
       # expressions is a list of Expressions. AND them together and set them on .data
       new_filter <- Reduce("&", expressions)
-    } else {
-      # expressions should be an expression or list of expressions already
-      stopifnot(is_list_of(expressions, "Expression") | inherits(expressions, "Expression"))
+    } else if (inherits(expressions, "Expression")) {
       new_filter <- expressions
+    } else {
+      stop("filter expressions must be either an expression or a list of expressions", call. = FALSE)
     }
 
     if (isTRUE(.data$filtered_rows)) {
