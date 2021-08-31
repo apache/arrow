@@ -128,10 +128,10 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
                           SortOrder order = SortOrder::Ascending);
   constexpr static char const kTypeName[] = "SelectKOptions";
   static SelectKOptions TopKDefault() {
-    return SelectKOptions{0, {}, "first", SortOrder::Ascending};
+    return SelectKOptions{0, {}, "first", SortOrder::Descending};
   }
   static SelectKOptions BottomKDefault() {
-    return SelectKOptions{0, {}, "first", SortOrder::Descending};
+    return SelectKOptions{0, {}, "first", SortOrder::Ascending};
   }
   int64_t k;
   std::vector<std::string> keys;

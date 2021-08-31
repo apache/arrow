@@ -587,19 +587,66 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
       {field("a", uint8())},
       {field("b", uint32())},
   });
-  SortOptions options(
-      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
 
   auto batch = RecordBatchFromJSON(schema,
                                    R"([{"a": 3,    "b": 5},
-                                       {"a": 1,    "b": 3},
+                                       {"a": 30,    "b": 3},
                                        {"a": 3,    "b": 4},
                                        {"a": 0,    "b": 6},
-                                       {"a": 2,    "b": 5},
-                                       {"a": 1,    "b": 5},
-                                       {"a": 1,    "b": 3}
+                                       {"a": 20,    "b": 5},
+                                       {"a": 10,    "b": 5},
+                                       {"a": 10,    "b": 3}
                                        ])");
+  PrettyPrint(*batch, {}, &std::cerr);
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"a"};
+  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(batch), 3, options));
+  PrettyPrint(*top_k.record_batch(), {}, &std::cerr);
+
   // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+}
+
+// Test basic cases for table.
+class TestTopKWithTable : public ::testing::Test {};
+
+TEST_F(TestTopKWithTable, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::shared_ptr<Table> table;
+
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  PrettyPrint(*table, {}, &std::cerr);
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"a"};
+  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(table), 3, options));
+  PrettyPrint(*top_k.table(), {}, &std::cerr);
+
+  // Same data, several chunks
+  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+                                     {"a": 1,    "b": 3},
+                                     {"a": 3,    "b": null}
+                                    ])",
+                                 R"([{"a": null, "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"});
+  // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  PrettyPrint(*table, {}, &std::cerr);
+  options = SelectKOptions::TopKDefault();
+  options.keys = {"a", "b"};
+  ASSERT_OK_AND_ASSIGN(top_k, TopK(Datum(table), 3, options));
+  PrettyPrint(*top_k.table(), {}, &std::cerr);
 }
 
 }  // namespace compute
