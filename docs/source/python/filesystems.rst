@@ -35,10 +35,14 @@ underlying storage, are automatically dereferenced.  Only basic
 and modification time, is made available.
 
 The core interface is represented by the base class :class:`FileSystem`.
-Concrete subclasses are available for various kinds of storage, such as local
-filesystem access (:class:`LocalFileSystem`), HDFS (:class:`HadoopFileSystem`)
-and Amazon S3-compatible storage (:class:`S3FileSystem`).
 
+Pyarrow implements natively the following filesystem subclasses:
+
+* :ref:`filesystem-localfs` (:class:`LocalFileSystem`)
+* :ref:`filesystem-s3` (:class:`S3FileSystem`)
+* :ref:`filesystem-hdfs` (:class:`HadoopFileSystem`)
+
+It is also possible to use your own fsspec-compliant filesystem with pyarrow functionalities as described in the section :ref:`filesystem-fsspec`.
 
 Usage
 -----
