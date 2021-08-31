@@ -76,6 +76,8 @@ the filesystem) or an explicit ``filesystem`` argument to specify the filesystem
 to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
 function can be used in the following ways::
 
+   import pyarrow.parquet as pq
+
    # using a URI -> filesystem is inferred
    pq.read_table("s3://my-bucket/data.parquet")
    # using a path and filesystem
@@ -85,6 +87,8 @@ function can be used in the following ways::
 The filesystem interface further allows to open files for reading (input) or
 writing (output) directly, which can be combined with functions that work with
 file-like objects. For example::
+
+   import pyarrow as pa
 
    local = fs.LocalFileSystem()
 
