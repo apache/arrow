@@ -23,8 +23,12 @@ source_dir=${1}/go
 
 pushd ${source_dir}/arrow
 
+# the cgo implementation of the c data interface requires the "test"
+# tag in order to run its tests so that the testing functions implemented
+# in .c files don't get included in non-test builds.
+
 for d in $(go list ./... | grep -v vendor); do
-    go test $d
+    go test -tags "test" $d
 done
 
 popd
