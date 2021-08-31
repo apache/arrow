@@ -183,7 +183,7 @@ enum Collation : uint8 {
 /// An expression with an order
 table SortKey {
   expression: Expression (required);
-  ordering: Collation = ASCENDING_THEN_NULLS;
+  collation: Collation = ASCENDING_THEN_NULLS;
 }
 
 /// An unbounded window bound
