@@ -257,3 +257,17 @@ interface::
 
    from pyarrow.fs import PyFileSystem, FSSpecHandler
    pa_fs = PyFileSystem(FSSpecHandler(fs))
+
+Then all the functionalities of :class:`FileSystem` are accessible::
+
+   # write data
+   with pa_fs.open_output_stream('mycontainer/pyarrowtest.dat') as stream:
+      stream.write(b'data')
+
+   # read data
+   with pa_fs.open_input_stream('mycontainer/pyarrowtest.dat') as stream:
+      print(stream.readall())
+   #b'data'
+
+   # read a partitioned dataset
+   ds.dataset("data/", filesystem=pa_fs)
