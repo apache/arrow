@@ -223,7 +223,11 @@ struct AltrepArrayPrimitive {
   }
 
   // Does the Array have no nulls ?
-  int No_NA() { return array()->null_count() != 0; }
+  int No_NA() const { return array()->null_count() != 0; }
+
+  int Is_sorted() const {
+    return UNKNOWN_SORTEDNESS;
+  }
 
   // The value at position i
   c_type Elt(R_xlen_t i) {
@@ -311,6 +315,11 @@ auto Elt(SEXP alt, R_xlen_t i) -> decltype(AltrepClass(alt).Elt(i)) {
 template <typename AltrepClass>
 int No_NA(SEXP alt) {
   return AltrepClass(alt).No_NA();
+}
+
+template <typename AltrepClass>
+int Is_sorted(SEXP alt) {
+  return AltrepClass(alt).Is_sorted();
 }
 
 template <typename AltrepClass>
@@ -418,6 +427,8 @@ void InitAltvecMethods(R_altrep_class_t class_t, DllInfo* dll) {
 template <typename AltrepClass>
 void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altreal_No_NA_method(class_t, No_NA<AltrepClass>);
+  R_set_altreal_Is_sorted_method(class_t, Is_sorted<AltrepClass>);
+
   R_set_altreal_Sum_method(class_t, Sum<REALSXP>);
   R_set_altreal_Min_method(class_t, Min<REALSXP>);
   R_set_altreal_Max_method(class_t, Max<REALSXP>);
@@ -429,6 +440,8 @@ void InitAltRealMethods(R_altrep_class_t class_t, DllInfo* dll) {
 template <typename AltrepClass>
 void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
   R_set_altinteger_No_NA_method(class_t, No_NA<AltrepClass>);
+  R_set_altinteger_Is_sorted_method(class_t, Is_sorted<AltrepClass>);
+
   R_set_altinteger_Sum_method(class_t, Sum<INTSXP>);
   R_set_altinteger_Min_method(class_t, Min<INTSXP>);
   R_set_altinteger_Max_method(class_t, Max<INTSXP>);
