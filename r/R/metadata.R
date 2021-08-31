@@ -75,7 +75,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         # TODO: remove the option munging once rlang > 0.4.11 is released
         old_opts <- options(warnPartialMatchDollar = FALSE)
         on.exit(options(old_opts))
-        in_dplyr_collect <- any(map_lgl(trace$call, function(x) {
+        in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
           grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
         }))
         if (in_dplyr_collect) {
