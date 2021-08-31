@@ -1805,7 +1805,7 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
         maybe_parent_nulls);
   };
 
-  const auto version = writer->properties()->version();
+  const ParquetVersion::type version = writer->properties()->version();
 
   if (ctx->properties->coerce_timestamps_enabled()) {
     // User explicitly requested coercion to specific unit
