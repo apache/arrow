@@ -1110,7 +1110,12 @@ test_that("Scanner$create() filter/projection pushdown", {
     ds %>%
       select(int, dbl, lgl) %>%
       Scanner$create(projection = "not_a_col"),
-    "attempting to project with unknown columns"
+    if (getRversion() >= "4.0.0") {
+      "attempting to project with unknown columns"
+    } else {
+      # prior to 4.0.0, stopifnot() doesn't use its names to error nicely
+      "all(projection %in% names(proj)) is not TRUE"
+    }
   )
 
   expect_error(
