@@ -240,6 +240,16 @@ For example::
    import pyarrow.dataset as ds
    ds.dataset("data/", filesystem=fs)
 
+::
+
+   # Similarly for Azure Blob Storage
+   import adlfs
+   # ... load your credentials and configure the filesystem
+   fs = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)
+
+   import pyarrow.dataset as ds
+   ds.dataset("data/", filesystem=fs)
+
 Under the hood, the fsspec filesystem object is wrapped into a python-based
 PyArrow filesystem (:class:`PyFileSystem`) using :class:`FSSpecHandler`.
 You can also manually do this to get an object with the PyArrow FileSystem
