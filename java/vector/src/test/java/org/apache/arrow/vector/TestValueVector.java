@@ -2803,7 +2803,7 @@ public class TestValueVector {
   public void testUInt2VectorToString() {
     try (final UInt2Vector uInt2Vector = new UInt2Vector("uInt2Vector", allocator)) {
       setVector(uInt2Vector, (char) 0xffff);
-      assertEquals("[\uffff]", uInt2Vector.toString());
+      assertEquals("[65535]", uInt2Vector.toString());
     }
   }
 
