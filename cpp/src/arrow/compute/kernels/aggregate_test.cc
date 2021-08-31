@@ -2336,6 +2336,22 @@ TYPED_TEST(TestNumericVarStdKernel, Basics) {
               ResultWith(Datum(MakeNullScalar(float64()))));
   EXPECT_THAT(Stddev(MakeNullScalar(ty)), ResultWith(Datum(MakeNullScalar(float64()))));
   EXPECT_THAT(Variance(MakeNullScalar(ty)), ResultWith(Datum(MakeNullScalar(float64()))));
+
+  // skip_nulls and min_count
+  options.ddof = 0;
+  options.min_count = 3;
+  this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
+  this->AssertVarStdIsInvalid("[1, 2, null]", options);
+
+  options.min_count = 0;
+  options.skip_nulls = false;
+  this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
+  this->AssertVarStdIsInvalid("[1, 2, 3, null]", options);
+
+  options.min_count = 4;
+  options.skip_nulls = false;
+  this->AssertVarStdIsInvalid("[1, 2, 3]", options);
+  this->AssertVarStdIsInvalid("[1, 2, 3, null]", options);
 }
 
 // Test numerical stability

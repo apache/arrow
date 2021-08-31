@@ -85,6 +85,7 @@ struct ScalarFromArraySlotImpl {
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
 
   Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }
+  Status Visit(const MonthDayNanoIntervalArray& a) { return Finish(a.Value(index_)); }
 
   template <typename T>
   Status Visit(const BaseListArray<T>& a) {

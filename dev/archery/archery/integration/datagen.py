@@ -363,6 +363,39 @@ class DayTimeIntervalField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
+class MonthDayNanoIntervalField(PrimitiveField):
+    def __init__(self, name, *, nullable=True, metadata=None):
+        super().__init__(name,
+                         nullable=True,
+                         metadata=metadata)
+
+    @property
+    def numpy_type(self):
+        return object
+
+    def _get_type(self):
+
+        return OrderedDict([
+            ('name', 'interval'),
+            ('unit', 'MONTH_DAY_NANO'),
+        ])
+
+    def generate_column(self, size, name=None):
+        I32 = 'int32'
+        min_int_value, max_int_value = np.iinfo(I32).min, np.iinfo(I32).max
+        I64 = 'int64'
+        min_nano_val, max_nano_val = np.iinfo(I64).min, np.iinfo(I64).max,
+        values = [{'months': random.randint(min_int_value, max_int_value),
+                   'days': random.randint(min_int_value, max_int_value),
+                   'nanoseconds': random.randint(min_nano_val, max_nano_val)}
+                  for _ in range(size)]
+
+        is_valid = self._make_is_valid(size)
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
+
+
 class FloatingPointField(PrimitiveField):
 
     def __init__(self, name, bit_width, *, nullable=True,
@@ -1338,6 +1371,15 @@ def generate_interval_case():
     return _generate_file("interval", fields, batch_sizes)
 
 
+def generate_month_day_nano_interval_case():
+    fields = [
+        MonthDayNanoIntervalField('f1'),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("interval_mdn", fields, batch_sizes)
+
+
 def generate_map_case():
     fields = [
         MapField('map_nullable', get_field('key', 'utf8', nullable=False),
@@ -1539,6 +1581,12 @@ def get_generated_json_files(tempdir=None):
         generate_interval_case()
         .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
         .skip_category('Rust'),
+
+        generate_month_day_nano_interval_case()
+        .skip_category('Go')
+        .skip_category('JS')
+        .skip_category('Rust'),
+
 
         generate_map_case()
         .skip_category('Rust'),

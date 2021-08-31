@@ -26,6 +26,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$another_chr <- tail(letters, 10)
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -961,7 +962,7 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
       filter(int > 0),
     regexp = paste0(
       'The following field names were found more than once in the data: "int", "dbl", ',
-      '"dbl2", "lgl", "false", "chr", "fct", "verses", and "padded_strings"'
+      '"dbl2", "lgl", "false", "chr", "fct", "verses", "padded_strings"'
     )
   )
 })
@@ -1109,9 +1110,6 @@ test_that("trig functions", {
 })
 
 test_that("if_else and ifelse", {
-  tbl <- example_data
-  tbl$another_chr <- tail(letters, 10)
-
   expect_dplyr_equal(
     input %>%
       mutate(
@@ -1342,7 +1340,6 @@ test_that("case_when()", {
     )
   )
 
-  skip("case_when does not yet support with variable-width types (ARROW-13222)")
   expect_dplyr_equal(
     input %>%
       transmute(cw = case_when(lgl ~ "abc")) %>%
@@ -1355,10 +1352,11 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+  skip("ARROW-13799: factor() should error but instead we get a string error message in its place")
   expect_dplyr_equal(
     input %>%
       mutate(
-        cw = paste0(case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct), "!")
+        cw = case_when(!(!(!(lgl))) ~ factor(chr), TRUE ~ fct)
       ) %>%
       collect(),
     tbl

@@ -558,7 +558,7 @@ if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
   set_urls(THRIFT_SOURCE_URL
-           "http://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
@@ -769,6 +769,7 @@ macro(build_boost)
 
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}"
                         BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
                         BUILD_IN_SOURCE 1
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
@@ -781,7 +782,8 @@ macro(build_boost)
                         BUILD_COMMAND ""
                         CONFIGURE_COMMAND ""
                         INSTALL_COMMAND ""
-                        URL ${BOOST_SOURCE_URL})
+                        URL ${BOOST_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
   endif()
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
@@ -938,6 +940,7 @@ macro(build_snappy)
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
@@ -987,6 +990,7 @@ macro(build_brotli)
 
   externalproject_add(brotli_ep
                       URL ${BROTLI_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
                                        "${BROTLI_STATIC_LIBRARY_DEC}"
                                        "${BROTLI_STATIC_LIBRARY_COMMON}"
@@ -1126,6 +1130,7 @@ macro(build_glog)
       -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
   externalproject_add(glog_ep
                       URL ${GLOG_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_GLOG_BUILD_SHA256_CHECKSUM}"
                       BUILD_IN_SOURCE 1
                       BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
                       CMAKE_ARGS ${GLOG_CMAKE_ARGS} ${EP_LOG_OPTIONS})
@@ -1191,6 +1196,7 @@ macro(build_gflags)
   file(MAKE_DIRECTORY "${GFLAGS_INCLUDE_DIR}")
   externalproject_add(gflags_ep
                       URL ${GFLAGS_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_GFLAGS_BUILD_SHA256_CHECKSUM}"
                       BUILD_IN_SOURCE 1
                       BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
                       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
@@ -1295,7 +1301,7 @@ macro(build_thrift)
 
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
+                      URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
@@ -1365,13 +1371,25 @@ macro(build_protobuf)
         BUILD_COMMAND
         ${PROTOBUF_BUILD_COMMAND})
   else()
+    # Strip lto flags (which may be added by dh_auto_configure)
+    # See https://github.com/protocolbuffers/protobuf/issues/7092
+    set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
+    set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
+    string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+    string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
+    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
     set(PROTOBUF_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
         -DBUILD_SHARED_LIBS=OFF
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
+        -Dprotobuf_DEBUG_POSTFIX=
+        "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
+        "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
+        "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${PROTOBUF_C_FLAGS}"
+        "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${PROTOBUF_CXX_FLAGS}")
     if(MSVC AND NOT ARROW_USE_STATIC_CRT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
     endif()
@@ -1387,7 +1405,8 @@ macro(build_protobuf)
                       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
                                        ${EP_LOG_OPTIONS}
                       BUILD_IN_SOURCE 1
-                      URL ${PROTOBUF_SOURCE_URL})
+                      URL ${PROTOBUF_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
@@ -1413,8 +1432,8 @@ endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
-    # gRPC 1.21.0 or later require Protobuf 3.7.0 or later.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.7.0")
+    # FlightSQL uses proto3 optionals, which require 3.15 or later.
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
   elseif(ARROW_GANDIVA_JAVA)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
     # Protobuf 3.4.0.
@@ -1537,6 +1556,7 @@ if(ARROW_JEMALLOC)
   endif()
   externalproject_add(jemalloc_ep
                       URL ${JEMALLOC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_JEMALLOC_BUILD_SHA256_CHECKSUM}"
                       PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
                                     # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
                       CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
@@ -1593,6 +1613,7 @@ if(ARROW_MIMALLOC)
 
   externalproject_add(mimalloc_ep
                       URL ${MIMALLOC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
@@ -1681,6 +1702,7 @@ macro(build_gtest)
 
   externalproject_add(googletest_ep
                       URL ${GTEST_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
                                        ${GMOCK_SHARED_LIB}
                       CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
@@ -1825,6 +1847,7 @@ macro(build_benchmark)
 
   externalproject_add(gbenchmark_ep
                       URL ${GBENCHMARK_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_GBENCHMARK_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
                                        "${GBENCHMARK_MAIN_STATIC_LIB}"
                       CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} ${EP_LOG_OPTIONS})
@@ -1878,6 +1901,7 @@ macro(build_rapidjson)
                       ${EP_LOG_OPTIONS}
                       PREFIX "${CMAKE_BINARY_DIR}"
                       URL ${RAPIDJSON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
 
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
@@ -1916,6 +1940,7 @@ macro(build_xsimd)
                       ${EP_LOG_OPTIONS}
                       PREFIX "${CMAKE_BINARY_DIR}"
                       URL ${XSIMD_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_XSIMD_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
 
   set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
@@ -1952,6 +1977,7 @@ macro(build_zlib)
 
   externalproject_add(zlib_ep
                       URL ${ZLIB_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
                       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
 
@@ -2007,6 +2033,7 @@ macro(build_lz4)
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
                       URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
                       UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
                                      "${LZ4_BUILD_DIR}/lib" "${LZ4_PREFIX}/include"
                                      ${LZ4_PATCH_COMMAND}
@@ -2075,6 +2102,7 @@ macro(build_zstd)
                       SOURCE_SUBDIR "build/cmake"
                       INSTALL_DIR ${ZSTD_PREFIX}
                       URL ${ZSTD_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_ZSTD_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
@@ -2136,6 +2164,7 @@ macro(build_re2)
                       ${EP_LOG_OPTIONS}
                       INSTALL_DIR ${RE2_PREFIX}
                       URL ${RE2_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${RE2_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
 
@@ -2194,6 +2223,7 @@ macro(build_bzip2)
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
                       URL ${ARROW_BZIP2_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_BZIP2_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
@@ -2248,6 +2278,7 @@ macro(build_utf8proc)
                       CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
                       INSTALL_DIR ${UTF8PROC_PREFIX}
                       URL ${ARROW_UTF8PROC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_UTF8PROC_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
@@ -2309,6 +2340,7 @@ macro(build_cares)
   externalproject_add(cares_ep
                       ${EP_LOG_OPTIONS}
                       URL ${CARES_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${CARES_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
 
@@ -2399,6 +2431,7 @@ macro(build_grpc)
   externalproject_add(absl_ep
                       ${EP_LOG_OPTIONS}
                       URL ${ABSL_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${ABSL_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
@@ -2507,6 +2540,7 @@ macro(build_grpc)
   # vendored dependencies such as c-ares...
   externalproject_add(grpc_ep
                       URL ${GRPC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
                       LIST_SEPARATOR |
                       BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
                                        ${GRPC_STATIC_LIBRARY_GRPC}
@@ -2702,6 +2736,7 @@ macro(build_orc)
 
   externalproject_add(orc_ep
                       URL ${ORC_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                       BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                       CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
@@ -2812,6 +2847,7 @@ macro(build_awssdk)
   externalproject_add(aws_c_common_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_C_COMMON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
@@ -2819,6 +2855,7 @@ macro(build_awssdk)
   externalproject_add(aws_checksums_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_CHECKSUMS_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep)
@@ -2827,6 +2864,7 @@ macro(build_awssdk)
   externalproject_add(aws_c_event_stream_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
                       DEPENDS aws_checksums_ep)
@@ -2835,6 +2873,7 @@ macro(build_awssdk)
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}

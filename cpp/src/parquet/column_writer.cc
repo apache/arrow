@@ -1805,6 +1805,8 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
         maybe_parent_nulls);
   };
 
+  const ParquetVersion::type version = writer->properties()->version();
+
   if (ctx->properties->coerce_timestamps_enabled()) {
     // User explicitly requested coercion to specific unit
     if (source_type.unit() == ctx->properties->coerce_timestamps_unit()) {
@@ -1814,9 +1816,10 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
     } else {
       return WriteCoerce(ctx->properties);
     }
-  } else if (writer->properties()->version() == ParquetVersion::PARQUET_1_0 &&
+  } else if ((version == ParquetVersion::PARQUET_1_0 ||
+              version == ParquetVersion::PARQUET_2_4) &&
              source_type.unit() == ::arrow::TimeUnit::NANO) {
-    // Absent superseding user instructions, when writing Parquet version 1.0 files,
+    // Absent superseding user instructions, when writing Parquet version <= 2.4 files,
     // timestamps in nanoseconds are coerced to microseconds
     std::shared_ptr<ArrowWriterProperties> properties =
         (ArrowWriterProperties::Builder())

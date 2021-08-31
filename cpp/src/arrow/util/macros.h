@@ -120,6 +120,19 @@
 #  define ARROW_DEPRECATED_USING(...)
 # endif
 #endif
+
+#ifdef __COVERITY__
+#  define ARROW_DEPRECATED_ENUM_VALUE(...)
+#elif __cplusplus > 201103L
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
+#else
+# if defined(__GNUC__) && __GNUC__ >= 6
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) __attribute__((deprecated(__VA_ARGS__)))
+# else
+#  define ARROW_DEPRECATED_ENUM_VALUE(...)
+# endif
+#endif
+
 // clang-format on
 
 // Macros to disable deprecation warnings

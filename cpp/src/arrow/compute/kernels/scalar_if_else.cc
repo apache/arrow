@@ -15,23 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/array/builder_nested.h>
-#include <arrow/array/builder_primitive.h>
-#include <arrow/array/builder_time.h>
-#include <arrow/array/builder_union.h>
-#include <arrow/compute/api.h>
-#include <arrow/compute/kernels/codegen_internal.h>
-#include <arrow/compute/util_internal.h>
-#include <arrow/util/bit_block_counter.h>
-#include <arrow/util/bitmap.h>
-#include <arrow/util/bitmap_ops.h>
-#include <arrow/util/bitmap_reader.h>
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
+#include "arrow/array/builder_union.h"
+#include "arrow/compute/api.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/util_internal.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
 
 namespace arrow {
+
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::Bitmap;
 using internal::BitmapWordReader;
+using internal::BitRunReader;
 
 namespace compute {
 namespace internal {
@@ -1071,6 +1074,7 @@ struct CopyFixedWidth<BooleanType> {
     arrow::internal::CopyBitmap(in_values, in_offset, length, raw_out_values, out_offset);
   }
 };
+
 template <typename Type>
 struct CopyFixedWidth<Type, enable_if_number<Type>> {
   using CType = typename TypeTraits<Type>::CType;
@@ -1087,6 +1091,7 @@ struct CopyFixedWidth<Type, enable_if_number<Type>> {
                 in_values + in_offset * sizeof(CType), length * sizeof(CType));
   }
 };
+
 template <typename Type>
 struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
   static void CopyScalar(const Scalar& values, const int64_t length,
@@ -1114,6 +1119,7 @@ struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
     std::memcpy(next, in_values + in_offset * width, length * width);
   }
 };
+
 template <typename Type>
 struct CopyFixedWidth<Type, enable_if_decimal<Type>> {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
@@ -1137,6 +1143,7 @@ struct CopyFixedWidth<Type, enable_if_decimal<Type>> {
     std::memcpy(next, in_values + in_offset * width, length * width);
   }
 };
+
 // Copy fixed-width values from a scalar/array datum into an output values buffer
 template <typename Type>
 void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t length,
@@ -1725,54 +1732,45 @@ Status ExecScalarCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out
 template <typename Type>
 void CopyValuesAllValid(Datum source, uint8_t* out_valid, uint8_t* out_values,
                         const int64_t out_offset, const int64_t length) {
-  BitBlockCounter counter(out_valid, out_offset, length);
+  BitRunReader bit_reader(out_valid, out_offset, length);
   int64_t offset = 0;
-  while (offset < length) {
-    const auto block = counter.NextWord();
-    if (block.NoneSet()) {
-      CopyValues<Type>(source, offset, block.length, out_valid, out_values,
-                       out_offset + offset);
-    } else if (!block.AllSet()) {
-      for (int64_t j = 0; j < block.length; ++j) {
-        if (!BitUtil::GetBit(out_valid, out_offset + offset + j)) {
-          CopyValues<Type>(source, offset + j, 1, out_valid, out_values,
-                           out_offset + offset + j);
-        }
-      }
+  while (true) {
+    const auto run = bit_reader.NextRun();
+    if (run.length == 0) {
+      break;
     }
-    offset += block.length;
+    if (!run.set) {
+      CopyValues<Type>(source, offset, run.length, out_valid, out_values,
+                       out_offset + offset);
+    }
+    offset += run.length;
   }
+  DCHECK_EQ(offset, length);
 }
 
 // Helper: zero the values buffer of the output wherever the slot is null
 void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_values,
                          const int64_t out_offset, const int64_t length) {
-  BitBlockCounter counter(out_valid, out_offset, length);
+  BitRunReader bit_reader(out_valid, out_offset, length);
   int64_t offset = 0;
-  auto bit_width = checked_cast<const FixedWidthType&>(type).bit_width();
-  auto byte_width = BitUtil::BytesForBits(bit_width);
-  while (offset < length) {
-    const auto block = counter.NextWord();
-    if (block.NoneSet()) {
+  const auto bit_width = checked_cast<const FixedWidthType&>(type).bit_width();
+  const auto byte_width = BitUtil::BytesForBits(bit_width);
+  while (true) {
+    const auto run = bit_reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    if (!run.set) {
       if (bit_width == 1) {
-        BitUtil::SetBitsTo(out_values, out_offset + offset, block.length, false);
+        BitUtil::SetBitsTo(out_values, out_offset + offset, run.length, false);
       } else {
-        std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
-                    byte_width * block.length);
-      }
-    } else if (!block.AllSet()) {
-      for (int64_t j = 0; j < block.length; ++j) {
-        if (BitUtil::GetBit(out_valid, out_offset + offset + j)) continue;
-        if (bit_width == 1) {
-          BitUtil::ClearBit(out_values, out_offset + offset + j);
-        } else {
-          std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
-                      byte_width);
-        }
+        std::memset(out_values + (out_offset + offset) * byte_width, 0,
+                    byte_width * run.length);
       }
     }
-    offset += block.length;
+    offset += run.length;
   }
+  DCHECK_EQ(offset, length);
 }
 
 // Implement 'coalesce' for any mix of scalar/array arguments for any fixed-width type
@@ -1782,42 +1780,68 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   const int64_t out_offset = output->offset;
   // Use output validity buffer as mask to decide what values to copy
   uint8_t* out_valid = output->buffers[0]->mutable_data();
-  // Clear output buffer - no values are set initially
+
+  // Clear output validity buffer - no values are set initially
   BitUtil::SetBitsTo(out_valid, out_offset, batch.length, false);
   uint8_t* out_values = output->buffers[1]->mutable_data();
 
   for (const auto& datum : batch.values) {
-    if ((datum.is_scalar() && datum.scalar()->is_valid) ||
-        (datum.is_array() && !datum.array()->MayHaveNulls())) {
+    if (datum.null_count() == 0) {
       // Valid scalar, or all-valid array
       CopyValuesAllValid<Type>(datum, out_valid, out_values, out_offset, batch.length);
       break;
     } else if (datum.is_array()) {
       // Array with nulls
       const ArrayData& arr = *datum.array();
-      const DataType& type = *datum.type();
+      const int64_t in_offset = arr.offset;
+      const int64_t in_null_count = arr.null_count;
+      DCHECK_GT(in_null_count, 0);  // computed in datum.null_count()
+      const DataType& type = *arr.type;
       const uint8_t* in_valid = arr.buffers[0]->data();
       const uint8_t* in_values = arr.buffers[1]->data();
-      BinaryBitBlockCounter counter(in_valid, arr.offset, out_valid, out_offset,
-                                    batch.length);
-      int64_t offset = 0;
-      while (offset < batch.length) {
-        const auto block = counter.NextAndNotWord();
-        if (block.AllSet()) {
-          CopyValues<Type>(datum, offset, block.length, out_valid, out_values,
-                           out_offset + offset);
-        } else if (block.popcount) {
-          for (int64_t j = 0; j < block.length; ++j) {
-            if (!BitUtil::GetBit(out_valid, out_offset + offset + j) &&
-                BitUtil::GetBit(in_valid, arr.offset + offset + j)) {
-              // This version lets us avoid calling MayHaveNulls() on every iteration
-              // (which does an atomic load and can add up)
-              CopyOneArrayValue<Type>(type, in_valid, in_values, arr.offset + offset + j,
-                                      out_valid, out_values, out_offset + offset + j);
+
+      if (in_null_count < 0.8 * batch.length) {
+        // The input is not mostly null, we deem it more efficient to
+        // copy values even underlying null slots instead of the more
+        // expensive bitmasking using BinaryBitBlockCounter.
+        BitRunReader bit_reader(out_valid, out_offset, batch.length);
+        int64_t offset = 0;
+        while (true) {
+          const auto run = bit_reader.NextRun();
+          if (run.length == 0) {
+            break;
+          }
+          if (!run.set) {
+            // Copy from input
+            CopyFixedWidth<Type>::CopyArray(type, in_values, in_offset + offset,
+                                            run.length, out_values, out_offset + offset);
+          }
+          offset += run.length;
+        }
+        arrow::internal::BitmapOr(out_valid, out_offset, in_valid, in_offset,
+                                  batch.length, out_offset, out_valid);
+      } else {
+        BinaryBitBlockCounter counter(in_valid, in_offset, out_valid, out_offset,
+                                      batch.length);
+        int64_t offset = 0;
+        while (offset < batch.length) {
+          const auto block = counter.NextAndNotWord();
+          if (block.AllSet()) {
+            CopyValues<Type>(datum, offset, block.length, out_valid, out_values,
+                             out_offset + offset);
+          } else if (block.popcount) {
+            for (int64_t j = 0; j < block.length; ++j) {
+              if (!BitUtil::GetBit(out_valid, out_offset + offset + j) &&
+                  BitUtil::GetBit(in_valid, in_offset + offset + j)) {
+                // This version lets us avoid calling MayHaveNulls() on every iteration
+                // (which does an atomic load and can add up)
+                CopyOneArrayValue<Type>(type, in_valid, in_values, in_offset + offset + j,
+                                        out_valid, out_values, out_offset + offset + j);
+              }
             }
           }
+          offset += block.length;
         }
-        offset += block.length;
       }
     }
   }
@@ -1827,9 +1851,150 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
   return Status::OK();
 }
 
+// Special case: implement 'coalesce' for an array and a scalar for any
+// fixed-width type (a 'fill_null' operation)
+template <typename Type>
+Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
+                               int64_t length, Datum* out) {
+  ArrayData* output = out->mutable_array();
+  const int64_t out_offset = output->offset;
+  uint8_t* out_valid = output->buffers[0]->mutable_data();
+  uint8_t* out_values = output->buffers[1]->mutable_data();
+
+  const ArrayData& left_arr = *left.array();
+  const uint8_t* left_valid = left_arr.buffers[0]->data();
+  const uint8_t* left_values = left_arr.buffers[1]->data();
+  const Scalar& right_scalar = *right.scalar();
+
+  if (left.null_count() < length * 0.2) {
+    // There are less than 20% nulls in the left array, so first copy
+    // the left values, then fill any nulls with the right value
+    CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values, left_arr.offset, length,
+                                    out_values, out_offset);
+
+    BitRunReader reader(left_valid, left_arr.offset, left_arr.length);
+    int64_t offset = 0;
+    while (true) {
+      const auto run = reader.NextRun();
+      if (run.length == 0) break;
+      if (!run.set) {
+        // All from right
+        CopyFixedWidth<Type>::CopyScalar(right_scalar, run.length, out_values,
+                                         out_offset + offset);
+      }
+      offset += run.length;
+    }
+    DCHECK_EQ(offset, length);
+  } else {
+    BitRunReader reader(left_valid, left_arr.offset, left_arr.length);
+    int64_t offset = 0;
+    while (true) {
+      const auto run = reader.NextRun();
+      if (run.length == 0) break;
+      if (run.set) {
+        // All from left
+        CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values,
+                                        left_arr.offset + offset, run.length, out_values,
+                                        out_offset + offset);
+      } else {
+        // All from right
+        CopyFixedWidth<Type>::CopyScalar(right_scalar, run.length, out_values,
+                                         out_offset + offset);
+      }
+      offset += run.length;
+    }
+    DCHECK_EQ(offset, length);
+  }
+
+  if (right_scalar.is_valid || !left_valid) {
+    BitUtil::SetBitsTo(out_valid, out_offset, length, true);
+  } else {
+    arrow::internal::CopyBitmap(left_valid, left_arr.offset, length, out_valid,
+                                out_offset);
+  }
+  return Status::OK();
+}
+
+// Special case: implement 'coalesce' for any 2 arguments for any fixed-width
+// type (a 'fill_null' operation)
+template <typename Type>
+Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t length,
+                          Datum* out) {
+  if (left.is_scalar() && right.is_scalar()) {
+    // Both scalar
+    *out = left.scalar()->is_valid ? left : right;
+    return Status::OK();
+  }
+
+  ArrayData* output = out->mutable_array();
+  const int64_t out_offset = output->offset;
+  uint8_t* out_valid = output->buffers[0]->mutable_data();
+  uint8_t* out_values = output->buffers[1]->mutable_data();
+
+  const int64_t left_null_count = left.null_count();
+  const int64_t right_null_count = right.null_count();
+
+  if (left.is_scalar()) {
+    // (Scalar, Any)
+    CopyValues<Type>(left.scalar()->is_valid ? left : right, /*in_offset=*/0, length,
+                     out_valid, out_values, out_offset);
+    return Status::OK();
+  } else if (left_null_count == 0) {
+    // LHS is array without nulls. Must copy (since we preallocate)
+    CopyValues<Type>(left, /*in_offset=*/0, length, out_valid, out_values, out_offset);
+    return Status::OK();
+  } else if (right.is_scalar()) {
+    // (Array, Scalar)
+    return ExecArrayScalarCoalesce<Type>(ctx, left, right, length, out);
+  }
+
+  // (Array, Array)
+  const ArrayData& left_arr = *left.array();
+  const ArrayData& right_arr = *right.array();
+  const uint8_t* left_valid = left_arr.buffers[0]->data();
+  const uint8_t* left_values = left_arr.buffers[1]->data();
+  const uint8_t* right_valid =
+      right_null_count > 0 ? right_arr.buffers[0]->data() : nullptr;
+  const uint8_t* right_values = right_arr.buffers[1]->data();
+
+  BitRunReader bit_reader(left_valid, left_arr.offset, left_arr.length);
+  int64_t offset = 0;
+  while (true) {
+    const auto run = bit_reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    if (run.set) {
+      // All from left
+      CopyFixedWidth<Type>::CopyArray(*left_arr.type, left_values,
+                                      left_arr.offset + offset, run.length, out_values,
+                                      out_offset + offset);
+    } else {
+      // All from right
+      CopyFixedWidth<Type>::CopyArray(*right_arr.type, right_values,
+                                      right_arr.offset + offset, run.length, out_values,
+                                      out_offset + offset);
+    }
+    offset += run.length;
+  }
+  DCHECK_EQ(offset, length);
+
+  if (right_null_count == 0) {
+    BitUtil::SetBitsTo(out_valid, out_offset, length, true);
+  } else {
+    arrow::internal::BitmapOr(left_valid, left_arr.offset, right_valid, right_arr.offset,
+                              length, out_offset, out_valid);
+  }
+  return Status::OK();
+}
+
 template <typename Type, typename Enable = void>
 struct CoalesceFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // Special case for two arguments (since "fill_null" is a common operation)
+    if (batch.num_values() == 2) {
+      return ExecBinaryCoalesce<Type>(ctx, batch[0], batch[1], batch.length, out);
+    }
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArrayCoalesce<Type>(ctx, batch, out);
@@ -1849,14 +2014,52 @@ struct CoalesceFunctor<NullType> {
 template <typename Type>
 struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch.num_values() == 2 && batch.values[0].is_array() &&
+        batch.values[1].is_scalar()) {
+      // Specialized implementation for common case ('fill_null' operation)
+      return ExecArrayScalar(ctx, *batch.values[0].array(), *batch.values[1].scalar(),
+                             out);
+    }
     for (const auto& datum : batch.values) {
       if (datum.is_array()) {
         return ExecArray(ctx, batch, out);
       }
     }
     return ExecScalarCoalesce(ctx, batch, out);
+  }
+
+  static Status ExecArrayScalar(KernelContext* ctx, const ArrayData& left,
+                                const Scalar& right, Datum* out) {
+    const int64_t null_count = left.GetNullCount();
+    if (null_count == 0 || !right.is_valid) {
+      *out = left;
+      return Status::OK();
+    }
+    ArrayData* output = out->mutable_array();
+    BuilderType builder(left.type, ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(left.length));
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(right);
+    const offset_type* offsets = left.GetValues<offset_type>(1);
+    const int64_t data_reserve = static_cast<int64_t>(offsets[left.length] - offsets[0]) +
+                                 null_count * scalar.value->size();
+    if (data_reserve > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result will not fit in a 32-bit binary-like array, convert to large type");
+    }
+    RETURN_NOT_OK(builder.ReserveData(static_cast<offset_type>(data_reserve)));
+
+    util::string_view fill_value(*scalar.value);
+    VisitArrayDataInline<Type>(
+        left, [&](util::string_view s) { builder.UnsafeAppend(s); },
+        [&]() { builder.UnsafeAppend(fill_value); });
+
+    ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
+    *output = *temp_output->data();
+    output->type = left.type;
+    return Status::OK();
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {

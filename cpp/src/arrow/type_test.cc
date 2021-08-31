@@ -1347,6 +1347,23 @@ TEST(TestDayTimeIntervalType, ToString) {
   ASSERT_EQ("day_time_interval", t1->ToString());
 }
 
+TEST(TestMonthDayNanoIntervalType, Equals) {
+  MonthDayNanoIntervalType t1;
+  MonthDayNanoIntervalType t2;
+  MonthIntervalType t3;
+  DayTimeIntervalType t4;
+
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeNotEqual(t1, t4);
+}
+
+TEST(TestMonthDayNanoIntervalType, ToString) {
+  auto t1 = month_day_nano_interval();
+
+  ASSERT_EQ("month_day_nano_interval", t1->ToString());
+}
+
 TEST(TestDurationType, Equals) {
   DurationType t1;
   DurationType t2;

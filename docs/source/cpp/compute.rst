@@ -47,9 +47,8 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, the ``fill_null`` function requires its second input
-to be a scalar, while ``sort_indices`` requires its first and only input to
-be an array.
+either.  For example, while ``sort_indices`` requires its first and only
+input to be an array.
 
 Invoking functions
 ------------------
@@ -289,36 +288,43 @@ The supported aggregation functions are as follows. All function names are
 prefixed with ``hash_``, which differentiates them from their scalar
 equivalents above and reflects how they are implemented internally.
 
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| Function name | Arity | Input types | Output type     | Options class                    | Notes |
-+===============+=======+=============+=================+==================================+=======+
-| hash_all      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_any      | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_count    | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_mean     | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_min_max  | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_product  | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_stddev   | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_sum      | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_tdigest  | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
-| hash_variance | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
-+---------------+-------+-------------+-----------------+----------------------------------+-------+
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| Function name       | Arity | Input types | Output type     | Options class                    | Notes |
++=====================+=======+=============+=================+==================================+=======+
+| hash_all            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_any            | Unary | Boolean     | Boolean         | :struct:`ScalarAggregateOptions` | \(1)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count          | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_count_distinct | Unary | Any         | Int64           | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_distinct       | Unary | Any         | Input type      | :struct:`CountOptions`           | \(2)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_mean           | Unary | Numeric     | Decimal/Float64 | :struct:`ScalarAggregateOptions` |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_min_max        | Unary | Numeric     | Struct          | :struct:`ScalarAggregateOptions` | \(3)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_product        | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_stddev         | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_sum            | Unary | Numeric     | Numeric         | :struct:`ScalarAggregateOptions` | \(4)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_tdigest        | Unary | Numeric     | Float64         | :struct:`TDigestOptions`         | \(5)  |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
+| hash_variance       | Unary | Numeric     | Float64         | :struct:`VarianceOptions`        |       |
++---------------------+-------+-------------+-----------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
   :member:`ScalarAggregateOptions::skip_nulls` to false, then `Kleene logic`_
   logic is applied. The min_count option is not respected.
 
-* \(2) CountMode controls whether only non-null values are counted (the
-  default), only null values are counted, or all values are counted.
+* \(2) CountMode controls whether only non-null values are counted
+  (the default), only null values are counted, or all values are
+  counted. For hash_distinct, it instead controls whether null values
+  are emitted. This never affects the grouping keys, only group values
+  (i.e. you may get a group where the key is null).
 
 * \(3) Output is a ``{"min": input type, "max": input type}`` Struct scalar.
 
@@ -1034,9 +1040,7 @@ depending on a condition.
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 | coalesce         | Varargs    | Any                                               | Input type          | \(3)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
-| fill_null        | Binary     | Boolean, Null, Numeric, Temporal, String-like     | Input type          | \(4)    |
-+------------------+------------+---------------------------------------------------+---------------------+---------+
-| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(5)    |
+| if_else          | Ternary    | Boolean, Null, Numeric, Temporal                  | Input type          | \(4)    |
 +------------------+------------+---------------------------------------------------+---------------------+---------+
 
 * \(1) This function acts like a SQL "case when" statement or switch-case. The
@@ -1062,11 +1066,7 @@ depending on a condition.
 * \(3) Each row of the output will be the corresponding value of the first
   input which is non-null for that row, otherwise null.
 
-* \(4) First input must be an array, second input a scalar of the same type.
-  Output is an array of the same type as the inputs, and with the same values
-  as the first input, except for nulls replaced with the second input value.
-
-* \(5) First input must be a Boolean scalar or array. Second and third inputs
+* \(4) First input must be a Boolean scalar or array. Second and third inputs
   could be scalars or arrays and must be of the same type. Output is an array
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the

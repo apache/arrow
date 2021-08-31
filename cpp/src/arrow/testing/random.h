@@ -454,6 +454,12 @@ std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
 // Assorted functions
 //
 
+ARROW_TESTING_EXPORT
+void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds>* out);
+ARROW_TESTING_EXPORT
+void rand_month_day_nanos(int64_t N,
+                          std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
+
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;

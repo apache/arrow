@@ -36,18 +36,6 @@
 
 namespace parquet {
 
-/// Determines use of Parquet Format version >= 2.0.0 logical types. For
-/// example, when writing from Arrow data structures, PARQUET_2_0 will enable
-/// use of INT_* and UINT_* converted types as well as nanosecond timestamps
-/// stored physically as INT64. Since some Parquet implementations do not
-/// support the logical types added in the 2.0.0 format version, if you want to
-/// maximize compatibility of your files you may want to use PARQUET_1_0.
-///
-/// Note that the 2.x format version series also introduced new serialized
-/// data page metadata and on disk data page layout. To enable this, use
-/// ParquetDataPageVersion.
-struct ParquetVersion;
-
 /// Controls serialization format of data pages.  parquet-format v2.0.0
 /// introduced a new data page metadata type DataPageV2 and serialized page
 /// structure (for example, encoded levels are no longer compressed). Prior to

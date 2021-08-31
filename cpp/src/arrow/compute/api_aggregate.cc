@@ -87,8 +87,10 @@ static auto kCountOptionsType =
     GetFunctionOptionsType<CountOptions>(DataMember("mode", &CountOptions::mode));
 static auto kModeOptionsType =
     GetFunctionOptionsType<ModeOptions>(DataMember("n", &ModeOptions::n));
-static auto kVarianceOptionsType =
-    GetFunctionOptionsType<VarianceOptions>(DataMember("ddof", &VarianceOptions::ddof));
+static auto kVarianceOptionsType = GetFunctionOptionsType<VarianceOptions>(
+    DataMember("ddof", &VarianceOptions::ddof),
+    DataMember("skip_nulls", &VarianceOptions::skip_nulls),
+    DataMember("min_count", &VarianceOptions::min_count));
 static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
     DataMember("q", &QuantileOptions::q),
     DataMember("interpolation", &QuantileOptions::interpolation));
@@ -113,8 +115,11 @@ constexpr char CountOptions::kTypeName[];
 ModeOptions::ModeOptions(int64_t n) : FunctionOptions(internal::kModeOptionsType), n(n) {}
 constexpr char ModeOptions::kTypeName[];
 
-VarianceOptions::VarianceOptions(int ddof)
-    : FunctionOptions(internal::kVarianceOptionsType), ddof(ddof) {}
+VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
+    : FunctionOptions(internal::kVarianceOptionsType),
+      ddof(ddof),
+      skip_nulls(skip_nulls),
+      min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
 
 QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation)

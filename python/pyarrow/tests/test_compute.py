@@ -1339,7 +1339,8 @@ def test_is_null():
 def test_fill_null():
     arr = pa.array([1, 2, None, 4], type=pa.int8())
     fill_value = pa.array([5], type=pa.int8())
-    with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Array arguments must all be the same length"):
         arr.fill_null(fill_value)
 
     arr = pa.array([None, None, None, None], type=pa.null())
@@ -1464,7 +1465,7 @@ def test_strftime():
     from pyarrow.vendored.version import Version
 
     def _fix_timestamp(s):
-        if Version(pd.__version__) <= Version("0.23.0"):
+        if Version(pd.__version__) < Version("1.0.0"):
             return s.to_series().replace("NaT", pd.NaT)
         else:
             return s
