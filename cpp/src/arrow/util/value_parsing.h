@@ -524,7 +524,7 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
   if (ARROW_PREDICT_TRUE(omitted == 0)) {
     return ParseUnsigned(s, length, out);
   } else {
-    uint32_t subseconds;
+    uint32_t subseconds = 0;
     bool success = ParseUnsigned(s, length, &subseconds);
     if (ARROW_PREDICT_TRUE(success)) {
       switch (omitted) {
