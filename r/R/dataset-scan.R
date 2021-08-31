@@ -92,7 +92,7 @@ Scanner$create <- function(dataset,
       if (is.character(projection)) {
         proj <- proj[projection]
       } else {
-        # TODO: ARROW-13802 accepting lists of Expressions as a projectoin
+        # TODO: ARROW-13802 accepting lists of Expressions as a projection
         warning(
           "Scanner$create(projection = ...) must be a character vector, ",
           "ignoring the projection argument."
