@@ -261,6 +261,38 @@ TYPED_TEST(TestSelectKForStrings, Strings) {
   this->AssertSelectKJson(R"(["testing", null, "nth", "for", null, "strings"])", 6);
 }
 
+/*struct TestSelectKWithKeepParam : public ::testing::Test {
+  void Check(const std::shared_ptr<DataType>& type, const std::string& values, int64_t k,
+             const std::string& expected) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(this->DoSelectK(type, values, k, &actual));
+    ValidateOutput(actual);
+
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  }
+
+  void Check(const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& values,
+             int64_t k, const std::string& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, TopK(*values, k));
+    ValidateOutput(actual);
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected), *actual);
+  }
+
+  Status DoSelectK(const std::shared_ptr<DataType>& type, const std::string& values,
+                   int64_t k, std::shared_ptr<Array>* out) {
+    ARROW_ASSIGN_OR_RAISE(*out, TopK(*ArrayFromJSON(type, values), k));
+    PrettyPrint(**out, {}, &std::cerr);
+    return Status::OK();
+  }
+};
+
+TEST_F(TestSelectKWithKeepParam, Integral) {
+  this->Check(int32(), "[null, 1, 3, null, 2, 5]", 0, "[]");
+  this->Check(int32(), "[null, 1, 3, null, 2, 5]", 2, "[5, 3]");
+  this->Check(int32(), "[null, 1, 3, null, 2, 5]", 5, "[5, 3, 2, 1]");
+  this->Check(int32(), "[1, 2, 2, 3, 3, 3, 4, 4, 4, 4]", 5, "[4, 4, 4, 4, 3]");
+}*/
+
 template <typename ArrowType>
 class TestSelectKRandom : public TestSelectKBase<ArrowType> {
  public:
@@ -606,6 +638,34 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
   // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
 }
 
+TEST_F(TestTopKWithRecordBatch, countries_population) {
+  auto schema = ::arrow::schema({
+      {field("country", utf8())},
+      {field("population", uint64())},
+  });
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"country": "Italy", "population": 59000000},
+                                       {"country": "France", "population": 65000000},
+                                       {"country": "Malta", "population": 434000},
+                                       {"country": "Maldives", "population": 434000},
+                                       {"country": "Brunei", "population": 434000},
+                                       {"country": "Iceland", "population": 337000},
+                                       {"country": "Nauru", "population": 11300},
+                                       {"country": "Tuvalu", "population": 11300},
+                                       {"country": "Anguilla", "population": 11300},
+                                       {"country": "Montserrat", "population": 5200}
+                                       ])");
+  PrettyPrint(*batch, {}, &std::cerr);
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"population"};
+  options.keep = "all";
+  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(batch), 3, options));
+  PrettyPrint(*top_k.record_batch(), {}, &std::cerr);
+
+  // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+}
+
 // Test basic cases for table.
 class TestTopKWithTable : public ::testing::Test {};
 
@@ -615,21 +675,21 @@ TEST_F(TestTopKWithTable, Null) {
       {field("b", uint32())},
   });
   std::shared_ptr<Table> table;
-
-  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
-                                     {"a": 1,    "b": 3},
-                                     {"a": 3,    "b": null},
-                                     {"a": null, "b": null},
-                                     {"a": 2,    "b": 5},
-                                     {"a": 1,    "b": 5}
-                                    ])"});
-  // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
-
-  PrettyPrint(*table, {}, &std::cerr);
   auto options = SelectKOptions::TopKDefault();
   options.keys = {"a"};
-  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(table), 3, options));
-  PrettyPrint(*top_k.table(), {}, &std::cerr);
+
+  // table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+  //                                    {"a": 1,    "b": 3},
+  //                                    {"a": 3,    "b": null},
+  //                                    {"a": null, "b": null},
+  //                                    {"a": 2,    "b": 5},
+  //                                    {"a": 1,    "b": 5}
+  //                                   ])"});
+  // // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+
+  // PrettyPrint(*table, {}, &std::cerr);
+  // ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(table), 3, options));
+  // PrettyPrint(*top_k.table(), {}, &std::cerr);
 
   // Same data, several chunks
   table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
@@ -645,8 +705,9 @@ TEST_F(TestTopKWithTable, Null) {
   PrettyPrint(*table, {}, &std::cerr);
   options = SelectKOptions::TopKDefault();
   options.keys = {"a", "b"};
-  ASSERT_OK_AND_ASSIGN(top_k, TopK(Datum(table), 3, options));
-  PrettyPrint(*top_k.table(), {}, &std::cerr);
+  ASSERT_OK_AND_ASSIGN(auto top_k2, TopK(Datum(table), 3, options));
+  PrettyPrint(*top_k2.table(), {}, &std::cerr);
+  std::cerr << "***topk_table>indices-------------\n";
 }
 
 }  // namespace compute
