@@ -236,17 +236,7 @@ table WindowCall {
   upper_bound: Bound (required);
 }
 
-/// An expression is one of
-/// - a Literal datum
-/// - a reference to a field from a Relation
-/// - a call to a named function
-/// - a case expression
-/// - a window function call
-///
-/// The expressions here that look like function calls such as
-/// Cast,Case and Extract are special in that while they might
-/// fit into a Call, they don't cleanly do so without having
-/// to pass around non-expression arguments as metadata.
+/// Various expression types
 ///
 /// WindowCall is a separate variant
 /// due to special options for each that don't apply to generic
@@ -264,29 +254,11 @@ union ExpressionImpl {
 /// Expression types
 ///
 /// Expressions have a concrete `impl` value, which is a specific operation.
-/// They also have a `type` field, which is the output type of the expression,
-/// regardless of operation type.
 ///
-/// Type is optional to support use cases where types are added at a later
-/// phase of processing.
-///
-/// The optionality of types does not imply anything about the semantics of
-/// those types.
-///
-/// For example, if a producer puts an int64 into this field, the consumer must
-/// return an expression with type int64.
+/// This is a workaround for flatbuffers' lack of support for direct use of
+/// union types.
 table Expression {
   impl: ExpressionImpl (required);
-
-  /// The type of the expression.
-  ///
-  /// This is a field, because the Type union in Schema.fbs
-  /// isn't self-contained: Fields are necessary to describe complex types
-  /// and there's currently no reason to optimize the storage of this.
-  ///
-  /// NB: The `name` in this `Field` is **not** meaningful, consumers must
-  /// never depend on that field being populated by a producer.
-  type: org.apache.arrow.flatbuf.Field;
 }
 
 root_type Expression;
