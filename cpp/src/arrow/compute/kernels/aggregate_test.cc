@@ -2264,16 +2264,6 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
     AssertVarStdIsInvalid(array, options);
   }
 
-  void AssertVarStdIsNull(const std::string& json, const VarianceOptions& options) {
-    auto array = ArrayFromJSON(type_singleton(), json);
-    ASSERT_OK_AND_ASSIGN(Datum out_var, Variance(array, options));
-    ASSERT_OK_AND_ASSIGN(Datum out_std, Stddev(array, options));
-    auto var = checked_cast<const ScalarType*>(out_var.scalar().get());
-    auto std = checked_cast<const ScalarType*>(out_std.scalar().get());
-    ASSERT_FALSE(var->is_valid);
-    ASSERT_FALSE(std->is_valid);
-  }
-
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 
  private:
@@ -2351,17 +2341,17 @@ TYPED_TEST(TestNumericVarStdKernel, Basics) {
   options.ddof = 0;
   options.min_count = 3;
   this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
-  this->AssertVarStdIsNull("[1, 2, null]", options);
+  this->AssertVarStdIsInvalid("[1, 2, null]", options);
 
   options.min_count = 0;
   options.skip_nulls = false;
   this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
-  this->AssertVarStdIsNull("[1, 2, 3, null]", options);
+  this->AssertVarStdIsInvalid("[1, 2, 3, null]", options);
 
   options.min_count = 4;
   options.skip_nulls = false;
-  this->AssertVarStdIsNull("[1, 2, 3]", options);
-  this->AssertVarStdIsNull("[1, 2, 3, null]", options);
+  this->AssertVarStdIsInvalid("[1, 2, 3]", options);
+  this->AssertVarStdIsInvalid("[1, 2, 3, null]", options);
 }
 
 // Test numerical stability

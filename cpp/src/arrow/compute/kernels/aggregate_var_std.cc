@@ -46,9 +46,9 @@ struct VarStdState {
   template <typename T = ArrowType>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
       const ArrayType& array) {
-    this->valid = array.null_count() == 0;
+    this->all_valid = array.null_count() == 0;
     int64_t count = array.length() - array.null_count();
-    if (count == 0 || (!this->valid && !options.skip_nulls)) {
+    if (count == 0 || (!this->all_valid && !options.skip_nulls)) {
       return;
     }
 
@@ -78,8 +78,8 @@ struct VarStdState {
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    this->valid = array.null_count() == 0;
-    if (!this->valid && !options.skip_nulls) return;
+    this->all_valid = array.null_count() == 0;
+    if (!this->all_valid && !options.skip_nulls) return;
     int64_t start_index = 0;
     int64_t valid_count = array.length() - array.null_count();
 
@@ -121,14 +121,14 @@ struct VarStdState {
     } else {
       this->count = 0;
       this->mean = 0;
-      this->valid = false;
+      this->all_valid = false;
     }
   }
 
   // Combine `m2` from two chunks (m2 = n*s2)
   // https://www.emathzone.com/tutorials/basic-statistics/combined-variance.html
   void MergeFrom(const ThisType& state) {
-    this->valid = this->valid && state.valid;
+    this->all_valid = this->all_valid && state.all_valid;
     if (state.count == 0) {
       return;
     }
@@ -142,11 +142,11 @@ struct VarStdState {
                 &this->mean, &this->m2);
   }
 
-  VarianceOptions options;
+  const VarianceOptions options;
   int64_t count = 0;
   double mean = 0;
   double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
-  bool valid = true;
+  bool all_valid = true;
 };
 
 template <typename ArrowType>
@@ -176,7 +176,7 @@ struct VarStdImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     if (state.count <= state.options.ddof || state.count < state.options.min_count ||
-        (!state.valid && !state.options.skip_nulls)) {
+        (!state.all_valid && !state.options.skip_nulls)) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       double var = state.m2 / (state.count - state.options.ddof);
