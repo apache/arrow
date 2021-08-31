@@ -17,7 +17,6 @@
  */
 
 syntax = "proto3";
-import "google/protobuf/wrappers.proto";
 import "google/protobuf/descriptor.proto";
 
 option java_package = "org.apache.arrow.flight.sql.impl";
@@ -61,6 +60,7 @@ message CommandGetSqlInfo {
   repeated uint32 info = 1;
 }
 
+// Options for CommandGetSqlInfo.
 enum SqlInfo {
 
   // Server Information [0-500): Provides basic information about the Flight SQL Server.
@@ -185,7 +185,7 @@ message CommandGetSchemas {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  google.protobuf.StringValue catalog = 1;
+  optional string catalog = 1;
 
   /*
    * Specifies a filter pattern for schemas to search for.
@@ -194,7 +194,7 @@ message CommandGetSchemas {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  google.protobuf.StringValue schema_filter_pattern = 2;
+  optional string schema_filter_pattern = 2;
 }
 
 /*
@@ -222,7 +222,7 @@ message CommandGetTables {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  google.protobuf.StringValue catalog = 1;
+  optional string catalog = 1;
 
   /*
    * Specifies a filter pattern for schemas to search for.
@@ -231,7 +231,7 @@ message CommandGetTables {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  google.protobuf.StringValue schema_filter_pattern = 2;
+  optional string schema_filter_pattern = 2;
 
   /*
    * Specifies a filter pattern for tables to search for.
@@ -240,7 +240,7 @@ message CommandGetTables {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  google.protobuf.StringValue table_name_filter_pattern = 3;
+  optional string table_name_filter_pattern = 3;
 
   // Specifies a filter of table types which must match.
   repeated string table_types = 4;
@@ -290,14 +290,14 @@ message CommandGetPrimaryKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  google.protobuf.StringValue catalog = 1;
+  optional string catalog = 1;
 
   /*
    * Specifies the schema to search for the table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  google.protobuf.StringValue schema = 2;
+  optional string schema = 2;
 
   // Specifies the table to get the primary keys for.
   string table = 3;
@@ -337,14 +337,14 @@ message CommandGetExportedKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  google.protobuf.StringValue catalog = 1;
+  optional string catalog = 1;
 
   /*
    * Specifies the schema to search for the foreign key table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  google.protobuf.StringValue schema = 2;
+  optional string schema = 2;
 
   // Specifies the foreign key table to get the foreign keys for.
   string table = 3;
@@ -396,14 +396,14 @@ message CommandGetImportedKeys {
    * An empty string retrieves those without a catalog.
    * If omitted the catalog name should not be used to narrow the search.
    */
-  google.protobuf.StringValue catalog = 1;
+  optional string catalog = 1;
 
   /*
    * Specifies the schema to search for the primary key table.
    * An empty string retrieves those without a schema.
    * If omitted the schema name should not be used to narrow the search.
    */
-  google.protobuf.StringValue schema = 2;
+  optional string schema = 2;
 
   // Specifies the primary key table to get the foreign keys for.
   string table = 3;

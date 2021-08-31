@@ -65,7 +65,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.StringValue;
 
 /**
  * Flight client with Flight SQL semantics.
@@ -143,11 +142,11 @@ public class FlightSqlClient {
     final CommandGetSchemas.Builder builder = CommandGetSchemas.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+      builder.setCatalog(catalog);
     }
 
     if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(StringValue.newBuilder().setValue(schemaFilterPattern).build());
+      builder.setSchemaFilterPattern(schemaFilterPattern);
     }
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
@@ -242,15 +241,15 @@ public class FlightSqlClient {
     final CommandGetTables.Builder builder = CommandGetTables.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+      builder.setCatalog(catalog);
     }
 
     if (schemaFilterPattern != null) {
-      builder.setSchemaFilterPattern(StringValue.newBuilder().setValue(schemaFilterPattern).build());
+      builder.setSchemaFilterPattern(schemaFilterPattern);
     }
 
     if (tableFilterPattern != null) {
-      builder.setTableNameFilterPattern(StringValue.newBuilder().setValue(tableFilterPattern).build());
+      builder.setTableNameFilterPattern(tableFilterPattern);
     }
 
     if (tableTypes != null) {
@@ -276,11 +275,11 @@ public class FlightSqlClient {
     final CommandGetPrimaryKeys.Builder builder = CommandGetPrimaryKeys.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+      builder.setCatalog(catalog);
     }
 
     if (schema != null) {
-      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
+      builder.setSchema(schema);
     }
 
     Objects.requireNonNull(table);
@@ -305,11 +304,11 @@ public class FlightSqlClient {
     final CommandGetExportedKeys.Builder builder = CommandGetExportedKeys.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+      builder.setCatalog(catalog);
     }
 
     if (schema != null) {
-      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
+      builder.setSchema(schema);
     }
 
     Objects.requireNonNull(table);
@@ -335,11 +334,11 @@ public class FlightSqlClient {
     final CommandGetImportedKeys.Builder builder = CommandGetImportedKeys.newBuilder();
 
     if (catalog != null) {
-      builder.setCatalog(StringValue.newBuilder().setValue(catalog).build());
+      builder.setCatalog(catalog);
     }
 
     if (schema != null) {
-      builder.setSchema(StringValue.newBuilder().setValue(schema).build());
+      builder.setSchema(schema);
     }
 
     Objects.requireNonNull(table);

@@ -1405,9 +1405,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamSchemas(final CommandGetSchemas command, final CallContext context, final Ticket ticket,
                                final ServerStreamListener listener) {
-    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
-    final String schemaFilterPattern =
-        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
+    final String catalog = command.hasCatalog() ? command.getCatalog() : null;
+    final String schemaFilterPattern = command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
     try (final Connection connection = dataSource.getConnection();
          final ResultSet schemas = connection.getMetaData().getSchemas(catalog, schemaFilterPattern);
          final VectorSchemaRoot vectorSchemaRoot = getSchemasRoot(schemas, rootAllocator)) {
@@ -1430,11 +1429,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void getStreamTables(final CommandGetTables command, final CallContext context,
                               final Ticket ticket, final ServerStreamListener listener) {
-    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
+    final String catalog = command.hasCatalog() ? command.getCatalog() : null;
     final String schemaFilterPattern =
-        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern().getValue() : null;
+        command.hasSchemaFilterPattern() ? command.getSchemaFilterPattern() : null;
     final String tableFilterPattern =
-        command.hasTableNameFilterPattern() ? command.getTableNameFilterPattern().getValue() : null;
+        command.hasTableNameFilterPattern() ? command.getTableNameFilterPattern() : null;
 
     final ProtocolStringList protocolStringList = command.getTableTypesList();
     final int protocolSize = protocolStringList.size();
@@ -1488,8 +1487,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamPrimaryKeys(final CommandGetPrimaryKeys command, final CallContext context, final Ticket ticket,
                                    final ServerStreamListener listener) {
 
-    final String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
-    final String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    final String catalog = command.hasCatalog() ? command.getCatalog() : null;
+    final String schema = command.hasSchema() ? command.getSchema() : null;
     final String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
@@ -1543,8 +1542,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamExportedKeys(final FlightSql.CommandGetExportedKeys command, final CallContext context,
                                     final Ticket ticket,
                                     final ServerStreamListener listener) {
-    String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
-    String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String catalog = command.hasCatalog() ? command.getCatalog() : null;
+    String schema = command.hasSchema() ? command.getSchema() : null;
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);
@@ -1569,8 +1568,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void getStreamImportedKeys(final FlightSql.CommandGetImportedKeys command, final CallContext context,
                                     final Ticket ticket,
                                     final ServerStreamListener listener) {
-    String catalog = command.hasCatalog() ? command.getCatalog().getValue() : null;
-    String schema = command.hasSchema() ? command.getSchema().getValue() : null;
+    String catalog = command.hasCatalog() ? command.getCatalog() : null;
+    String schema = command.hasSchema() ? command.getSchema() : null;
     String table = command.getTable();
 
     try (Connection connection = DriverManager.getConnection(DATABASE_URI);

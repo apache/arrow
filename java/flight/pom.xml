@@ -27,7 +27,7 @@
 
     <properties>
         <dep.grpc.version>1.30.2</dep.grpc.version>
-        <dep.protobuf.version>3.7.1</dep.protobuf.version>
+        <dep.protobuf.version>3.17.3</dep.protobuf.version>
     </properties>
 
     <modules>
