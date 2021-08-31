@@ -100,11 +100,11 @@ transformations to the data
 See :ref:`compute` for a list of available compute functions and
 how to use them.
 
-Working with big data
----------------------
+Working with large data
+-----------------------
 
 Arrow also provides the :class:`pyarrow.dataset` api to work with
-big data, which will handle for you partitioning of your data in
+large data, which will handle for you partitioning of your data in
 smaller chunks
 
 .. ipython:: python
