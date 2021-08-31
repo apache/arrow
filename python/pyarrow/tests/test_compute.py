@@ -1541,11 +1541,11 @@ def test_strftime():
     assert result.equals(expected)
     with pytest.raises(
             pa.ArrowInvalid,
-            match="Timezone not present, cannot convert to string:"):
+            match="Timezone not present, cannot convert to string"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
     with pytest.raises(
             pa.ArrowInvalid,
-            match="Timezone not present, cannot convert to string:"):
+            match="Timezone not present, cannot convert to string"):
         pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%z"))
 
 

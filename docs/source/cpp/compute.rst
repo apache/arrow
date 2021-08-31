@@ -1118,11 +1118,11 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
 
-* \(1) Output precision of seconds (``%S``) flag depends on the input timestamp
-  precision. If the number of seconds can not be exactly represented with seconds,
-  then the format is a decimal floating point number with a fixed format and a
-  precision matching that of the precision of the input. Note precision increases
-  three decimal places per step going from seconds to nanoseconds.
+* \(1) Output precision of ``%S`` (seconds) flag depends on the input timestamp
+  precision. Timestamps with second precision are represented as integers while
+  milliseconds, microsecond and nanoseconds are represented as fixed floating
+  point numbers with 3, 6 and 9 decimal places respectively. To obtain integer
+  seconds, cast to timestamp with second resolution.
   The character for the decimal point is localized according to the locale.
   See `detailed formatting documentation`_ for descriptions of other flags.
 
