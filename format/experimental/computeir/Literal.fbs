@@ -90,9 +90,16 @@ table BooleanLiteral {
 
 table NullLiteral {}
 
+enum DateUnit : uint8 {
+  DAY,
+  MILLISECOND,
+}
+
 table DateLiteral {
-  // milliseconds since epoch
   value: int64;
+
+  // unit of `value`
+  unit: DateUnit = MILLISECOND;
 }
 
 enum TimeUnit : uint8 {
@@ -103,13 +110,17 @@ enum TimeUnit : uint8 {
 }
 
 table TimeLiteral {
-  // nanosecond time value.
   value: int64;
+
+  // unit of `value`
+  unit: TimeUnit = MILLISECOND;
 }
 
 table TimestampLiteral {
-  // microsecond timestamp.
   value: int64;
+
+  // unit of `value`
+  unit: TimeUnit;
 
   // timezone value, same definition as used in Schema.fbs.
   timezone: string;
