@@ -182,6 +182,7 @@ GET_OR_INSERT(Date32Type);
 GET_OR_INSERT(Date64Type);
 GET_OR_INSERT(Time32Type);
 GET_OR_INSERT(Time64Type);
+GET_OR_INSERT(MonthDayNanoIntervalType);
 GET_OR_INSERT(DayTimeIntervalType);
 GET_OR_INSERT(MonthIntervalType);
 

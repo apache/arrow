@@ -104,6 +104,8 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetOrInsert(const Date64Type*, int64_t value, int32_t* out);
   Status GetOrInsert(const Time32Type*, int32_t value, int32_t* out);
   Status GetOrInsert(const Time64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const MonthDayNanoIntervalType*,
+                     MonthDayNanoIntervalType::MonthDayNanos value, int32_t* out);
   Status GetOrInsert(const DayTimeIntervalType*,
                      DayTimeIntervalType::DayMilliseconds value, int32_t* out);
   Status GetOrInsert(const MonthIntervalType*, int32_t value, int32_t* out);
