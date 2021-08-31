@@ -35,7 +35,7 @@ namespace dataset {
 
 namespace {
 
-static inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
+inline Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenReader(
     const FileSource& source,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -86,7 +86,7 @@ class OrcScanTask : public ScanTask {
         // orc.py for custom logic)
         // std::vector<int> included_fields;
         // TODO pass scan_options_->batch_size
-        reader_->ReadStripe(i_++, &batch);
+        RETURN_NOT_OK(reader_->ReadStripe(i_++, &batch));
         return batch;
       }
 
@@ -165,7 +165,7 @@ Future<util::optional<int64_t>> OrcFileFormat::CountRows(
 }
 
 // //
-// // IpcFileWriter, IpcFileWriteOptions
+// // OrcFileWriter, OrcFileWriteOptions
 // //
 
 std::shared_ptr<FileWriteOptions> OrcFileFormat::DefaultWriteOptions() {
