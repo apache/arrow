@@ -17,7 +17,7 @@
 
 namespace org.apache.arrow.computeir.flatbuf;
 
-table ArrayLiteral {
+table ListLiteral {
   values: [Literal];
 }
 
@@ -162,7 +162,7 @@ union LiteralImpl {
   Float32Literal,
   Float64Literal,
 
-  ArrayLiteral,
+  ListLiteral,
   StructLiteral,
   MapLiteral,
 
