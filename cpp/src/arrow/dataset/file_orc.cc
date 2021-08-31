@@ -65,21 +65,69 @@ class OrcScanTask : public ScanTask {
       : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source_));
-    std::shared_ptr<arrow::RecordBatchReader> batch_reader;
-    // TODO (https://issues.apache.org/jira/browse/ARROW-13797)
-    // determine included fields from options_->MaterializedFields() to
-    // optimize the column selection (see _column_index_lookup in python
-    // orc.py for custom logic)
-    // std::vector<int> included_fields;
-    RETURN_NOT_OK(reader->NextStripeReader(options_->batch_size, &batch_reader));
+    struct Impl {
+      static Result<RecordBatchIterator> Make(const FileSource& source,
+                                              const FileFormat& format,
+                                              const ScanOptions& scan_options) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto reader, OpenReader(source, std::make_shared<ScanOptions>(scan_options)));
+        int num_stripes = reader->NumberOfStripes();
+        return RecordBatchIterator(Impl{std::move(reader), 0, num_stripes});
+      }
 
-    auto batch_it = MakeIteratorFromReader(batch_reader);
-    return batch_it;
+      Result<std::shared_ptr<RecordBatch>> Next() {
+        if (i_ == num_stripes_) {
+          return nullptr;
+        }
+        std::shared_ptr<RecordBatch> batch;
+        // TODO (https://issues.apache.org/jira/browse/ARROW-13797)
+        // determine included fields from options_->MaterializedFields() to
+        // optimize the column selection (see _column_index_lookup in python
+        // orc.py for custom logic)
+        // std::vector<int> included_fields;
+        // TODO pass scan_options_->batch_size
+        reader_->ReadStripe(i_++, &batch);
+        return batch;
+      }
+
+      std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader_;
+      int i_;
+      int num_stripes_;
+    };
+
+    return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
+                      *options_);
   }
 
  private:
   FileSource source_;
+};
+
+class OrcScanTaskIterator {
+ public:
+  static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
+                                       std::shared_ptr<FileFragment> fragment) {
+    return ScanTaskIterator(OrcScanTaskIterator(std::move(options), std::move(fragment)));
+  }
+
+  Result<std::shared_ptr<ScanTask>> Next() {
+    if (once_) {
+      // Iteration is done.
+      return nullptr;
+    }
+
+    once_ = true;
+    return std::shared_ptr<ScanTask>(new OrcScanTask(fragment_, options_));
+  }
+
+ private:
+  OrcScanTaskIterator(std::shared_ptr<ScanOptions> options,
+                      std::shared_ptr<FileFragment> fragment)
+      : options_(std::move(options)), fragment_(std::move(fragment)) {}
+
+  bool once_ = false;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<FileFragment> fragment_;
 };
 
 }  // namespace
@@ -99,9 +147,7 @@ Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source)
 Result<ScanTaskIterator> OrcFileFormat::ScanFile(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& fragment) const {
-  auto task = std::make_shared<OrcScanTask>(fragment, options);
-
-  return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
+  return OrcScanTaskIterator::Make(options, fragment);
 }
 
 Future<util::optional<int64_t>> OrcFileFormat::CountRows(
