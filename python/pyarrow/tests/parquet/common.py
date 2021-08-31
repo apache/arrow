@@ -139,7 +139,7 @@ def make_sample_file(table_or_df):
         a_table = pa.Table.from_pandas(table_or_df)
 
     buf = io.BytesIO()
-    _write_table(a_table, buf, compression='SNAPPY', version='2.0',
+    _write_table(a_table, buf, compression='SNAPPY', version='2.6',
                  coerce_timestamps='ms')
 
     buf.seek(0)

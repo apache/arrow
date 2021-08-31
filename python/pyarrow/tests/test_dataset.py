@@ -3500,13 +3500,14 @@ def test_write_dataset_parquet(tempdir):
     assert result.equals(table)
 
     # using custom options
-    for version in ["1.0", "2.0"]:
+    for version in ["1.0", "2.4", "2.6"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
-        assert meta.format_version == version
+        expected_version = "1.0" if version == "1.0" else "2.6"
+        assert meta.format_version == expected_version
 
 
 def test_write_dataset_csv(tempdir):
