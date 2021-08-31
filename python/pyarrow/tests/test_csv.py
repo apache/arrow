@@ -333,6 +333,11 @@ class BaseTestCSV(abc.ABC):
         :return: b parsed as a single RecordBatch
         """
 
+    @property
+    @abc.abstractmethod
+    def use_threads(self):
+        """Return true if this test is multi-threaded"""
+
     @staticmethod
     def check_names(table, names):
         assert table.num_columns == len(names)
@@ -595,7 +600,6 @@ class BaseTestCSV(abc.ABC):
 
 class BaseCSVTableRead(BaseTestCSV):
 
-    @abc.abstractmethod
     def read_csv(self, csv, *args, validate_full=True, **kwargs):
         """
         Reads the CSV file into memory using pyarrow's read_csv
@@ -604,6 +608,11 @@ class BaseCSVTableRead(BaseTestCSV):
         validate_full Whether or not to fully validate the resulting table
         kwargs Keyword arguments to be forwarded to pyarrow's read_csv
         """
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = self.use_threads
+        table = read_csv(csv, *args, **kwargs)
+        table.validate(full=validate_full)
+        return table
 
     def read_bytes(self, b, **kwargs):
         return self.read_csv(pa.py_buffer(b), **kwargs)
@@ -1346,34 +1355,17 @@ class BaseCSVTableRead(BaseTestCSV):
 
 
 class TestSerialCSVTableRead(BaseCSVTableRead):
-    @property
     def use_threads(self):
         return False
 
-    def read_csv(self, csv, *args, validate_full=True, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = False
-        table = read_csv(csv, *args, **kwargs)
-        table.validate(full=validate_full)
-        return table
-
 
 class TestThreadedCSVTableRead(BaseCSVTableRead):
-    @property
     def use_threads(self):
         return True
-
-    def read_csv(self, csv, *args, validate_full=True, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = True
-        table = read_csv(csv, *args, **kwargs)
-        table.validate(full=validate_full)
-        return table
 
 
 class BaseStreamingCSVRead(BaseTestCSV):
 
-    @abc.abstractmethod
     def open_csv(self, csv, *args, **kwargs):
         """
         Reads the CSV file into memory using pyarrow's open_csv
@@ -1381,6 +1373,9 @@ class BaseStreamingCSVRead(BaseTestCSV):
         args Positional arguments to be forwarded to pyarrow's open_csv
         kwargs Keyword arguments to be forwarded to pyarrow's open_csv
         """
+        read_options = kwargs.setdefault('read_options', ReadOptions())
+        read_options.use_threads = self.use_threads
+        return open_csv(csv, *args, **kwargs)
 
     def open_bytes(self, b, **kwargs):
         return self.open_csv(pa.py_buffer(b), **kwargs)
@@ -1692,25 +1687,13 @@ class BaseStreamingCSVRead(BaseTestCSV):
 
 
 class TestSerialStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
-    @property
     def use_threads(self):
         return False
 
-    def open_csv(self, b, *args, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = False
-        return open_csv(b, *args, **kwargs)
-
 
 class TestThreadedStreamingCSVRead(BaseStreamingCSVRead, unittest.TestCase):
-    @property
     def use_threads(self):
         return True
-
-    def open_csv(self, b, *args, **kwargs):
-        read_options = kwargs.setdefault('read_options', ReadOptions())
-        read_options.use_threads = True
-        return open_csv(b, *args, **kwargs)
 
 
 class BaseTestCompressedCSVRead:
