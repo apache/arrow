@@ -678,28 +678,32 @@ or tables, iterable of batches, RecordBatchReader, or URI
         )
 
 
-def _ensure_write_partitioning(part, schema):
-    if isinstance(part, (tuple, list)):
+def _ensure_write_partitioning(part, schema, flavor):
+    if isinstance(part, Partitioning) and flavor:
+        raise ValueError(
+            "Providing a partitioning_flavor with "
+            "a Partitioning object is not supported"
+        )
+    elif isinstance(part, (tuple, list)):
         # Name of fields were provided instead of a partitioning object.
         # Create a partitioning factory with those field names.
-        part = partitioning(field_names=part)
-
-    if part is None:
-        part = partitioning(pa.schema([]))
-    elif isinstance(part, PartitioningFactory):
-        # If a schema is provided, combine the factory with the schema
-        # to build a real Partitioning object that the Writer can accept.
-        if schema is not None:
-            part = part.create_with_schema(schema)
+        part = partitioning(
+            schema=pa.schema([schema.field_by_name(f) for f in part]),
+            flavor=flavor
+        )
+    elif part is None:
+        part = partitioning(pa.schema([]), flavor=flavor)
 
     if not isinstance(part, Partitioning):
-        raise ValueError("partitioning needs to be actual Partitioning object")
+        raise ValueError(
+            "partitioning must be a Partitioning object with a schema"
+        )
 
     return part
 
 
 def write_dataset(data, base_dir, basename_template=None, format=None,
-                  partitioning=None, schema=None,
+                  partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
                   use_async=False, max_partitions=None, file_visitor=None):
     """
@@ -728,6 +732,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the ``partitioning()``
         function or as a list of field names.
+    partitioning_flavor : One of the partitioning flavors supported by
+        ``pyarrow.dataset.partitioning``.
     schema : Schema, optional
     filesystem : FileSystem, optional
     file_options : FileWriteOptions, optional
@@ -799,7 +805,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if max_partitions is None:
         max_partitions = 1024
 
-    partitioning = _ensure_write_partitioning(partitioning, schema=schema)
+    partitioning = _ensure_write_partitioning(partitioning, schema=schema,
+                                              flavor=partitioning_flavor)
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 

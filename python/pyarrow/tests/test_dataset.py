@@ -1580,13 +1580,10 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
 def test_write_dataset_with_field_names(tempdir):
     table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
 
-    field_names_partitioning = ds.partitioning(field_names=["b"])
-
     ds.write_dataset(table, tempdir, format='parquet',
-                     partitioning=field_names_partitioning)
+                     partitioning=["b"])
 
-    load_back = ds.dataset(tempdir,
-                           partitioning=field_names_partitioning)
+    load_back = ds.dataset(tempdir, partitioning=["b"])
     partitioning_dirs = {
         str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
     }
@@ -1596,17 +1593,20 @@ def test_write_dataset_with_field_names(tempdir):
     assert load_back_table.to_pydict() == table.to_pydict()
 
 
-def test_write_dataset_with_field_names_only(tempdir):
+def test_write_dataset_with_field_names_hive(tempdir):
     table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
 
     ds.write_dataset(table, tempdir, format='parquet',
-                     partitioning=["b"])
+                     partitioning=["b"], partitioning_flavor="hive")
 
-    load_back = ds.dataset(tempdir)
+    load_back = ds.dataset(tempdir, partitioning="hive")
     partitioning_dirs = {
         str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
     }
-    assert partitioning_dirs == {"x", "y", "z"}
+    assert partitioning_dirs == {"b=x", "b=y", "b=z"}
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.to_pydict() == table.to_pydict()
 
 
 def _has_subdirs(basedir):
