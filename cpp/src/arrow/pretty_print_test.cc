@@ -278,6 +278,37 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
   }
 }
 
+TEST_F(TestPrettyPrint, TestIntervalTypes) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+
+  {
+    std::vector<DayTimeIntervalType::DayMilliseconds> values = {
+        {1, 2}, {-3, 4}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1d2ms,
+  -3d4ms,
+  null,
+  0d0ms,
+  null
+])expected";
+    CheckPrimitive<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+        {0, 10}, is_valid, values, expected);
+  }
+  {
+    std::vector<MonthDayNanoIntervalType::MonthDayNanos> values = {
+        {1, 2, 3}, {-3, 4, -5}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1m2d3ns,
+  -3m4d-5ns,
+  null,
+  0m0d0ns,
+  null
+])expected";
+    CheckPrimitive<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+        {0, 10}, is_valid, values, expected);
+  }
+}
+
 TEST_F(TestPrettyPrint, StructTypeBasic) {
   auto simple_1 = field("one", int32());
   auto simple_2 = field("two", int32());

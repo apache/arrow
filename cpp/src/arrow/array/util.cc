@@ -201,6 +201,29 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+    auto data = reinterpret_cast<const MonthDayNanos*>(data_->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
+    auto new_data = reinterpret_cast<MonthDayNanos*>(new_buffer->mutable_data());
+    int64_t length = data_->length;
+    for (int64_t i = 0; i < length; i++) {
+      MonthDayNanoIntervalType::MonthDayNanos tmp = data[i];
+#if ARROW_LITTLE_ENDIAN
+      tmp.months = BitUtil::FromBigEndian(tmp.months);
+      tmp.days = BitUtil::FromBigEndian(tmp.days);
+      tmp.nanoseconds = BitUtil::FromBigEndian(tmp.nanoseconds);
+#else
+      tmp.months = BitUtil::FromLittleEndian(tmp.months);
+      tmp.days = BitUtil::FromLittleEndian(tmp.days);
+      tmp.nanoseconds = BitUtil::FromLittleEndian(tmp.nanoseconds);
+#endif
+      new_data[i] = tmp;
+    }
+    out_->buffers[1] = std::move(new_buffer);
+    return Status::OK();
+  }
+
   Status Visit(const NullType& type) { return Status::OK(); }
   Status Visit(const BooleanType& type) { return Status::OK(); }
   Status Visit(const Int8Type& type) { return Status::OK(); }

@@ -502,6 +502,14 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +1970-01-02 03:04:05.000678
 )");
 
+  // Month, Day, Nano Intervals
+  base_ = ArrayFromJSON(month_day_nano_interval(), R"([[2, 3, 1]])");
+  target_ = ArrayFromJSON(month_day_nano_interval(), R"([])");
+  AssertDiffAndFormat(R"(
+@@ -0, +0 @@
+-2m3d1ns
+)");
+
   // lists
   base_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [], [13], []])");
   target_ = ArrayFromJSON(list(int32()), R"([[2, 3, 1], [5, 9], [], [13]])");

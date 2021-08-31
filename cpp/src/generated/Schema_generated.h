@@ -12,81 +12,56 @@ namespace arrow {
 namespace flatbuf {
 
 struct Null;
-struct NullBuilder;
 
 struct Struct_;
-struct Struct_Builder;
 
 struct List;
-struct ListBuilder;
 
 struct LargeList;
-struct LargeListBuilder;
 
 struct FixedSizeList;
-struct FixedSizeListBuilder;
 
 struct Map;
-struct MapBuilder;
 
 struct Union;
-struct UnionBuilder;
 
 struct Int;
-struct IntBuilder;
 
 struct FloatingPoint;
-struct FloatingPointBuilder;
 
 struct Utf8;
-struct Utf8Builder;
 
 struct Binary;
-struct BinaryBuilder;
 
 struct LargeUtf8;
-struct LargeUtf8Builder;
 
 struct LargeBinary;
-struct LargeBinaryBuilder;
 
 struct FixedSizeBinary;
-struct FixedSizeBinaryBuilder;
 
 struct Bool;
-struct BoolBuilder;
 
 struct Decimal;
-struct DecimalBuilder;
 
 struct Date;
-struct DateBuilder;
 
 struct Time;
-struct TimeBuilder;
 
 struct Timestamp;
-struct TimestampBuilder;
 
 struct Interval;
-struct IntervalBuilder;
 
 struct Duration;
-struct DurationBuilder;
 
 struct KeyValue;
-struct KeyValueBuilder;
 
 struct DictionaryEncoding;
-struct DictionaryEncodingBuilder;
 
 struct Field;
-struct FieldBuilder;
 
 struct Buffer;
 
 struct Schema;
-struct SchemaBuilder;
 
 enum class MetadataVersion : int16_t {
   /// 0.1.0 (October 2016).
@@ -326,29 +301,32 @@ inline const char *EnumNameTimeUnit(TimeUnit e) {
 enum class IntervalUnit : int16_t {
   YEAR_MONTH = 0,
   DAY_TIME = 1,
+  MONTH_DAY_NANO = 2,
   MIN = YEAR_MONTH,
-  MAX = DAY_TIME
+  MAX = MONTH_DAY_NANO
 };
 
-inline const IntervalUnit (&EnumValuesIntervalUnit())[2] {
+inline const IntervalUnit (&EnumValuesIntervalUnit())[3] {
   static const IntervalUnit values[] = {
     IntervalUnit::YEAR_MONTH,
-    IntervalUnit::DAY_TIME
+    IntervalUnit::DAY_TIME,
+    IntervalUnit::MONTH_DAY_NANO
   };
   return values;
 }
 
 inline const char * const *EnumNamesIntervalUnit() {
-  static const char * const names[3] = {
+  static const char * const names[4] = {
     "YEAR_MONTH",
     "DAY_TIME",
+    "MONTH_DAY_NANO",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameIntervalUnit(IntervalUnit e) {
-  if (flatbuffers::IsOutRange(e, IntervalUnit::YEAR_MONTH, IntervalUnit::DAY_TIME)) return "";
+  if (flatbuffers::IsOutRange(e, IntervalUnit::YEAR_MONTH, IntervalUnit::MONTH_DAY_NANO)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesIntervalUnit()[index];
 }
@@ -634,7 +612,6 @@ FLATBUFFERS_STRUCT_END(Buffer, 16);
 
 /// These are stored in the flatbuffer in the Type union below
 struct Null FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef NullBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -642,7 +619,6 @@ struct Null FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct NullBuilder {
-  typedef Null Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit NullBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -667,7 +643,6 @@ inline flatbuffers::Offset<Null> CreateNull(
 /// (according to the physical memory layout). We used Struct_ here as
 /// Struct is a reserved word in Flatbuffers
 struct Struct_ FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef Struct_Builder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -675,7 +650,6 @@ struct Struct_ FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct Struct_Builder {
-  typedef Struct_ Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit Struct_Builder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -697,7 +671,6 @@ inline flatbuffers::Offset<Struct_> CreateStruct_(
 }
 
 struct List FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ListBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -705,7 +678,6 @@ struct List FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct ListBuilder {
-  typedef List Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit ListBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -729,7 +701,6 @@ inline flatbuffers::Offset<List> CreateList(
 /// Same as List, but with 64-bit offsets, allowing to represent
 /// extremely large data values.
 struct LargeList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LargeListBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -737,7 +708,6 @@ struct LargeList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct LargeListBuilder {
-  typedef LargeList Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit LargeListBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -759,7 +729,6 @@ inline flatbuffers::Offset<LargeList> CreateLargeList(
 }
 
 struct FixedSizeList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FixedSizeListBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LISTSIZE = 4
   };
@@ -775,7 +744,6 @@ struct FixedSizeList FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct FixedSizeListBuilder {
-  typedef FixedSizeList Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_listSize(int32_t listSize) {
@@ -816,17 +784,17 @@ inline flatbuffers::Offset<FixedSizeList> CreateFixedSizeList(
 /// not enforced.
 ///
 /// Map
+/// ```text
 ///   - child[0] entries: Struct
 ///     - child[0] key: K
 ///     - child[1] value: V
-///
+/// ```
 /// Neither the "entries" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
 /// for Map can make Map an alias for List. The "layout" attribute for the Map
 /// field must have the same contents as a List.
 struct Map FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef MapBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEYSSORTED = 4
   };
@@ -842,7 +810,6 @@ struct Map FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct MapBuilder {
-  typedef Map Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_keysSorted(bool keysSorted) {
@@ -871,9 +838,8 @@ inline flatbuffers::Offset<Map> CreateMap(
 /// A union is a complex type with children in Field
 /// By default ids in the type vector refer to the offsets in the children
 /// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child typeIds[offset] is the id used in the type vector
+/// for each child `typeIds[offset]` is the id used in the type vector
 struct Union FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef UnionBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MODE = 4,
     VT_TYPEIDS = 6
@@ -894,7 +860,6 @@ struct Union FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct UnionBuilder {
-  typedef Union Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_mode(org::apache::arrow::flatbuf::UnionMode mode) {
@@ -937,7 +902,6 @@ inline flatbuffers::Offset<Union> CreateUnionDirect(
 }
 
 struct Int FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef IntBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BITWIDTH = 4,
     VT_IS_SIGNED = 6
@@ -957,7 +921,6 @@ struct Int FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct IntBuilder {
-  typedef Int Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_bitWidth(int32_t bitWidth) {
@@ -989,7 +952,6 @@ inline flatbuffers::Offset<Int> CreateInt(
 }
 
 struct FloatingPoint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FloatingPointBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4
   };
@@ -1004,7 +966,6 @@ struct FloatingPoint FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct FloatingPointBuilder {
-  typedef FloatingPoint Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_precision(org::apache::arrow::flatbuf::Precision precision) {
@@ -1032,7 +993,6 @@ inline flatbuffers::Offset<FloatingPoint> CreateFloatingPoint(
 
 /// Unicode with UTF-8 encoding
 struct Utf8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef Utf8Builder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -1040,7 +1000,6 @@ struct Utf8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct Utf8Builder {
-  typedef Utf8 Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit Utf8Builder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1063,7 +1022,6 @@ inline flatbuffers::Offset<Utf8> CreateUtf8(
 
 /// Opaque binary data
 struct Binary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef BinaryBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -1071,7 +1029,6 @@ struct Binary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct BinaryBuilder {
-  typedef Binary Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit BinaryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1095,7 +1052,6 @@ inline flatbuffers::Offset<Binary> CreateBinary(
 /// Same as Utf8, but with 64-bit offsets, allowing to represent
 /// extremely large data values.
 struct LargeUtf8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LargeUtf8Builder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -1103,7 +1059,6 @@ struct LargeUtf8 FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct LargeUtf8Builder {
-  typedef LargeUtf8 Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit LargeUtf8Builder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1127,7 +1082,6 @@ inline flatbuffers::Offset<LargeUtf8> CreateLargeUtf8(
 /// Same as Binary, but with 64-bit offsets, allowing to represent
 /// extremely large data values.
 struct LargeBinary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef LargeBinaryBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -1135,7 +1089,6 @@ struct LargeBinary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct LargeBinaryBuilder {
-  typedef LargeBinary Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit LargeBinaryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1157,7 +1110,6 @@ inline flatbuffers::Offset<LargeBinary> CreateLargeBinary(
 }
 
 struct FixedSizeBinary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FixedSizeBinaryBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BYTEWIDTH = 4
   };
@@ -1173,7 +1125,6 @@ struct FixedSizeBinary FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct FixedSizeBinaryBuilder {
-  typedef FixedSizeBinary Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_byteWidth(int32_t byteWidth) {
@@ -1200,7 +1151,6 @@ inline flatbuffers::Offset<FixedSizeBinary> CreateFixedSizeBinary(
 }
 
 struct Bool FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef BoolBuilder Builder;
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -1208,7 +1158,6 @@ struct Bool FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct BoolBuilder {
-  typedef Bool Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   explicit BoolBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -1230,11 +1179,10 @@ inline flatbuffers::Offset<Bool> CreateBool(
 }
 
 /// Exact decimal value represented as an integer value in two's
-/// complement. Currently only 128-bit (16-byte) integers are used but this may
-/// be expanded in the future. The representation uses the endianness indicated
+/// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
+/// are used. The representation uses the endianness indicated
 /// in the Schema.
 struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DecimalBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4,
     VT_SCALE = 6,
@@ -1248,10 +1196,8 @@ struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t scale() const {
     return GetField<int32_t>(VT_SCALE, 0);
   }
-  /// Number of bits per value. The only accepted width right now is 128 but
-  /// this field exists for forward compatibility so that other bit widths may
-  /// be supported in future format versions. We use bitWidth for consistency
-  /// with Int::bitWidth.
+  /// Number of bits per value. The only accepted widths are 128 and 256.
+  /// We use bitWidth for consistency with Int::bitWidth.
   int32_t bitWidth() const {
     return GetField<int32_t>(VT_BITWIDTH, 128);
   }
@@ -1265,7 +1211,6 @@ struct Decimal FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DecimalBuilder {
-  typedef Decimal Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_precision(int32_t precision) {
@@ -1308,7 +1253,6 @@ inline flatbuffers::Offset<Decimal> CreateDecimal(
 ///   leap seconds), where the values are evenly divisible by 86400000
 /// * Days (32 bits) since the UNIX epoch
 struct Date FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
@@ -1323,7 +1267,6 @@ struct Date FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DateBuilder {
-  typedef Date Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(org::apache::arrow::flatbuf::DateUnit unit) {
@@ -1353,7 +1296,6 @@ inline flatbuffers::Offset<Date> CreateDate(
 /// - SECOND and MILLISECOND: 32 bits
 /// - MICROSECOND and NANOSECOND: 64 bits
 struct Time FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TimeBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4,
     VT_BITWIDTH = 6
@@ -1373,7 +1315,6 @@ struct Time FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimeBuilder {
-  typedef Time Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
@@ -1408,10 +1349,34 @@ inline flatbuffers::Offset<Time> CreateTime(
 /// leap seconds, as a 64-bit integer. Note that UNIX time does not include
 /// leap seconds.
 ///
-/// The Timestamp metadata supports both "time zone naive" and "time zone
-/// aware" timestamps. Read about the timezone attribute for more detail
+/// Date & time libraries often have multiple different data types for temporal
+/// data.  In order to ease interoperability between different implementations the
+/// Arrow project has some recommendations for encoding these types into a Timestamp
+/// column.
+///
+/// An "instant" represents a single moment in time that has no meaningful time zone
+/// or the time zone is unknown.  A column of instants can also contain values from
+/// multiple time zones.  To encode an instant set the timezone string to "UTC".
+///
+/// A "zoned date-time" represents a single moment in time that has a meaningful
+/// reference time zone.  To encode a zoned date-time as a Timestamp set the timezone
+/// string to the name of the timezone.  There is some ambiguity between an instant
+/// and a zoned date-time with the UTC time zone.  Both of these are stored the same.
+/// Typically, this distinction does not matter.  If it does, then an application should
+/// use custom metadata or an extension type to distinguish between the two cases.
+///
+/// An "offset date-time" represents a single moment in time combined with a meaningful
+/// offset from UTC.  To encode an offset date-time as a Timestamp set the timezone string
+/// to the numeric time zone offset string (e.g. "+03:00").
+///
+/// A "local date-time" does not represent a single moment in time.  It represents a wall
+/// clock time combined with a date.  Because of daylight savings time there may multiple
+/// instants that correspond to a single local date-time in any given time zone.  A
+/// local date-time is often stored as a struct or a Date32/Time64 pair.  However, it can
+/// also be encoded into a Timestamp column.  To do so the value should be the the time
+/// elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
+/// The timezone string should be set to null or the empty string.
 struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TimestampBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4,
     VT_TIMEZONE = 6
@@ -1428,11 +1393,9 @@ struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   /// Whether a timezone string is present indicates different semantics about
   /// the data:
   ///
-  /// * If the time zone is null or equal to an empty string, the data is "time
-  ///   zone naive" and shall be displayed *as is* to the user, not localized
-  ///   to the locale of the user. This data can be though of as UTC but
-  ///   without having "UTC" as the time zone, it is not considered to be
-  ///   localized to any time zone
+  /// * If the time zone is null or an empty string, the data is a local date-time
+  ///   and does not represent a single moment in time.  Instead it represents a wall clock
+  ///   time and care should be taken to avoid interpreting it semantically as an instant.
   ///
   /// * If the time zone is set to a valid value, values can be displayed as
   ///   "localized" to that time zone, even though the underlying 64-bit
@@ -1452,7 +1415,6 @@ struct Timestamp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct TimestampBuilder {
-  typedef Timestamp Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
@@ -1495,7 +1457,6 @@ inline flatbuffers::Offset<Timestamp> CreateTimestampDirect(
 }
 
 struct Interval FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef IntervalBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
@@ -1510,7 +1471,6 @@ struct Interval FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct IntervalBuilder {
-  typedef Interval Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(org::apache::arrow::flatbuf::IntervalUnit unit) {
@@ -1537,7 +1497,6 @@ inline flatbuffers::Offset<Interval> CreateInterval(
 }
 
 struct Duration FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DurationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_UNIT = 4
   };
@@ -1552,7 +1511,6 @@ struct Duration FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DurationBuilder {
-  typedef Duration Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_unit(org::apache::arrow::flatbuf::TimeUnit unit) {
@@ -1582,7 +1540,6 @@ inline flatbuffers::Offset<Duration> CreateDuration(
 /// user defined key value pairs to add custom metadata to arrow
 /// key namespacing is the responsibility of the user
 struct KeyValue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef KeyValueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEY = 4,
     VT_VALUE = 6
@@ -1604,7 +1561,6 @@ struct KeyValue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct KeyValueBuilder {
-  typedef KeyValue Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_key(flatbuffers::Offset<flatbuffers::String> key) {
@@ -1648,7 +1604,6 @@ inline flatbuffers::Offset<KeyValue> CreateKeyValueDirect(
 }
 
 struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DictionaryEncodingBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
     VT_INDEXTYPE = 6,
@@ -1691,7 +1646,6 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct DictionaryEncodingBuilder {
-  typedef DictionaryEncoding Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_id(int64_t id) {
@@ -1736,7 +1690,6 @@ inline flatbuffers::Offset<DictionaryEncoding> CreateDictionaryEncoding(
 /// A field represents a named column in a record / row batch or child of a
 /// nested type.
 struct Field FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef FieldBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NAME = 4,
     VT_NULLABLE = 6,
@@ -1943,7 +1896,6 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *Field::type_as<o
 }
 
 struct FieldBuilder {
-  typedef Field Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
@@ -2025,7 +1977,6 @@ inline flatbuffers::Offset<Field> CreateFieldDirect(
 /// ----------------------------------------------------------------------
 /// A Schema describes the columns in a row batch
 struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef SchemaBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENDIANNESS = 4,
     VT_FIELDS = 6,
@@ -2064,7 +2015,6 @@ struct Schema FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct SchemaBuilder {
-  typedef Schema Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_endianness(org::apache::arrow::flatbuf::Endianness endianness) {

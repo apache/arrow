@@ -115,6 +115,16 @@
     },
     {
       major: "Fixed",
+      width: 16,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+      minor: [
+        { class: "IntervalMonthDayNano", daysOffset: 4, nanosecondsOffset: 8, friendlyType: "PeriodDuration", fields: [ {name: "months", type:"int"}, {name: "days", type:"int"}, {name: "nanoseconds", type:"long"}] }
+      ]
+    },
+
+    {
+      major: "Fixed",
       width: 32,
       javaType: "ArrowBuf",
       boxedType: "ArrowBuf",

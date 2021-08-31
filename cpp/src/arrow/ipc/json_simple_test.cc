@@ -475,6 +475,12 @@ TEST(TestDayTimeInterval, Basics) {
                                        {{1, -600}, {}});
 }
 
+TEST(MonthDayNanoInterval, Basics) {
+  auto type = month_day_nano_interval();
+  AssertJSONArray<MonthDayNanoIntervalType>(type, R"([[1, -600, 5000], null])",
+                                            {true, false}, {{1, -600, 5000}, {}});
+}
+
 TEST(TestFixedSizeBinary, Basics) {
   std::shared_ptr<DataType> type = fixed_size_binary(3);
   std::shared_ptr<Array> expected, actual;

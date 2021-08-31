@@ -64,6 +64,7 @@ TYPE_ID_TRAIT(TIME32, Time32Type)
 TYPE_ID_TRAIT(TIME64, Time64Type)
 TYPE_ID_TRAIT(TIMESTAMP, TimestampType)
 TYPE_ID_TRAIT(INTERVAL_DAY_TIME, DayTimeIntervalType)
+TYPE_ID_TRAIT(INTERVAL_MONTH_DAY_NANO, MonthDayNanoIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTHS, MonthIntervalType)
 TYPE_ID_TRAIT(DURATION, DurationType)
 TYPE_ID_TRAIT(DECIMAL128, Decimal128Type)
@@ -226,6 +227,20 @@ struct TypeTraits<DayTimeIntervalType> {
   }
   constexpr static bool is_parameter_free = true;
   static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
+};
+
+template <>
+struct TypeTraits<MonthDayNanoIntervalType> {
+  using ArrayType = MonthDayNanoIntervalArray;
+  using BuilderType = MonthDayNanoIntervalBuilder;
+  using ScalarType = MonthDayNanoIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements *
+           static_cast<int64_t>(sizeof(MonthDayNanoIntervalType::MonthDayNanos));
+  }
+  constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_day_nano_interval(); }
 };
 
 template <>
@@ -880,6 +895,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::INTERVAL_MONTHS:
+    case Type::INTERVAL_MONTH_DAY_NANO:
     case Type::INTERVAL_DAY_TIME:
       return true;
     default:
@@ -977,6 +993,8 @@ static inline int bit_width(Type::type type_id) {
       return 32;
     case Type::INTERVAL_DAY_TIME:
       return 64;
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return 128;
 
     case Type::DECIMAL128:
       return 128;

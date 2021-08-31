@@ -208,6 +208,15 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const MonthDayNanoIntervalArray& array) {
+    WriteValues(array, [&](int64_t i) {
+      auto month_day_nanos = array.GetValue(i);
+      (*sink_) << month_day_nanos.months << "m" << month_day_nanos.days << "d"
+               << month_day_nanos.nanoseconds << "ns";
+    });
+    return Status::OK();
+  }
+
   Status WriteDataValues(const MonthIntervalArray& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });

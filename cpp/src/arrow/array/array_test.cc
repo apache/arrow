@@ -37,6 +37,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -491,6 +492,7 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
 static ScalarVector GetScalars() {
   auto hello = Buffer::FromString("hello");
   DayTimeIntervalType::DayMilliseconds daytime{1, 100};
+  MonthDayNanoIntervalType::MonthDayNanos month_day_nanos{5, 4, 100};
 
   FieldVector union_fields{field("string", utf8()), field("number", int32()),
                            field("other_number", int32())};
@@ -513,6 +515,7 @@ static ScalarVector GetScalars() {
       std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
       std::make_shared<MonthIntervalScalar>(1),
       std::make_shared<DayTimeIntervalScalar>(daytime),
+      std::make_shared<MonthDayNanoIntervalScalar>(month_day_nanos),
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello),
       std::make_shared<LargeBinaryScalar>(hello),
@@ -811,9 +814,10 @@ TEST_F(TestBuilder, TestResizeDownsize) {
 template <typename Attrs>
 class TestPrimitiveBuilder : public TestBuilder {
  public:
+  typedef Attrs TestAttrs;
   typedef typename Attrs::ArrayType ArrayType;
   typedef typename Attrs::BuilderType BuilderType;
-  typedef typename Attrs::T T;
+  typedef typename Attrs::T CType;
   typedef typename Attrs::Type Type;
 
   virtual void SetUp() {
@@ -867,7 +871,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     ASSERT_TRUE(result->Equals(*expected));
   }
 
-  void FlipValue(T* ptr) {
+  void FlipValue(CType* ptr) {
     auto byteptr = reinterpret_cast<uint8_t*>(ptr);
     *byteptr = static_cast<uint8_t>(~*byteptr);
   }
@@ -876,7 +880,7 @@ class TestPrimitiveBuilder : public TestBuilder {
   std::unique_ptr<BuilderType> builder_;
   std::unique_ptr<BuilderType> builder_nn_;
 
-  std::vector<T> draws_;
+  std::vector<CType> draws_;
   std::vector<uint8_t> valid_bytes_;
 };
 
@@ -905,16 +909,20 @@ struct UniformIntSampleType<int8_t> {
                                         \
   static std::shared_ptr<DataType> type() { return std::make_shared<Type>(); }
 
-#define PINT_DECL(CapType, c_type)                                                 \
-  struct P##CapType {                                                              \
-    PTYPE_DECL(CapType, c_type)                                                    \
-    static void draw(int64_t N, std::vector<T>* draws) {                           \
-      using sample_type = typename UniformIntSampleType<c_type>::type;             \
-      const T lower = std::numeric_limits<T>::min();                               \
-      const T upper = std::numeric_limits<T>::max();                               \
-      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper), \
-              draws);                                                              \
-    }                                                                              \
+#define PINT_DECL(CapType, c_type)                                                     \
+  struct P##CapType {                                                                  \
+    PTYPE_DECL(CapType, c_type)                                                        \
+    static void draw(int64_t N, std::vector<T>* draws) {                               \
+      using sample_type = typename UniformIntSampleType<c_type>::type;                 \
+      const T lower = std::numeric_limits<T>::min();                                   \
+      const T upper = std::numeric_limits<T>::max();                                   \
+      randint(N, static_cast<sample_type>(lower), static_cast<sample_type>(upper),     \
+              draws);                                                                  \
+    }                                                                                  \
+    static T Modify(T inp) { return inp / 2; }                                         \
+    typedef                                                                            \
+        typename std::conditional<std::is_unsigned<T>::value, uint64_t, int64_t>::type \
+            ConversionType;                                                            \
   }
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)       \
@@ -923,6 +931,8 @@ struct UniformIntSampleType<int8_t> {
     static void draw(int64_t N, std::vector<T>* draws) { \
       random_real(N, 0, LOWER, UPPER, draws);            \
     }                                                    \
+    static T Modify(T inp) { return inp / 2; }           \
+    typedef double ConversionType;                       \
   }
 
 PINT_DECL(UInt8, uint8_t);
@@ -940,6 +950,33 @@ PFLOAT_DECL(Double, double, -1000.0, 1000.0);
 
 struct PBoolean {
   PTYPE_DECL(Boolean, uint8_t)
+  static T Modify(T inp) { return !inp; }
+  typedef int64_t ConversionType;
+};
+
+struct PDayTimeInterval {
+  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  PTYPE_DECL(DayTimeInterval, DayMilliseconds);
+  static void draw(int64_t N, std::vector<T>* draws) { return rand_day_millis(N, draws); }
+
+  static DayMilliseconds Modify(DayMilliseconds inp) {
+    inp.days /= 2;
+    return inp;
+  }
+  typedef DayMilliseconds ConversionType;
+};
+
+struct PMonthDayNanoInterval {
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+  PTYPE_DECL(MonthDayNanoInterval, MonthDayNanos);
+  static void draw(int64_t N, std::vector<T>* draws) {
+    return rand_month_day_nanos(N, draws);
+  }
+  static MonthDayNanos Modify(MonthDayNanos inp) {
+    inp.days /= 2;
+    return inp;
+  }
+  typedef MonthDayNanos ConversionType;
 };
 
 template <>
@@ -952,7 +989,7 @@ void TestPrimitiveBuilder<PBoolean>::RandomData(int64_t N, double pct_null) {
 }
 
 template <>
-void TestPrimitiveBuilder<PBoolean>::FlipValue(T* ptr) {
+void TestPrimitiveBuilder<PBoolean>::FlipValue(CType* ptr) {
   *ptr = !*ptr;
 }
 
@@ -1068,7 +1105,8 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
-                         PInt32, PInt64, PFloat, PDouble>
+                         PInt32, PInt64, PFloat, PDouble, PDayTimeInterval,
+                         PMonthDayNanoInterval>
     Primitives;
 
 TYPED_TEST_SUITE(TestPrimitiveBuilder, Primitives);
@@ -1155,12 +1193,13 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
 
   // implementation detail: the value slots are 0-initialized
   for (int64_t i = 0; i < result->length(); ++i) {
-    ASSERT_EQ(result->Value(i), 0);
+    typename TestFixture::CType t{};
+    ASSERT_EQ(result->Value(i), t);
   }
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
 
@@ -1190,7 +1229,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, Equality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1226,7 +1265,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 1000;
   this->RandomData(size);
@@ -1259,7 +1298,7 @@ TYPED_TEST(TestPrimitiveBuilder, SliceEquality) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   const int64_t size = 10000;
 
@@ -1315,7 +1354,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendScalar) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1351,7 +1390,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 1000;
   this->RandomData(size);
@@ -1403,7 +1442,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1411,7 +1450,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& draws = this->draws_;
   auto& valid_bytes = this->valid_bytes_;
 
-  auto halve = [&draws](int64_t index) { return draws[index] / 2; };
+  auto halve = [&draws](int64_t index) {
+    return TestFixture::TestAttrs::Modify(draws[index]);
+  };
   auto lazy_iter = internal::MakeLazyRange(halve, size);
 
   ASSERT_OK(this->builder_->AppendValues(lazy_iter.begin(), lazy_iter.end(),
@@ -1419,7 +1460,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 
   std::vector<T> halved;
   transform(draws.begin(), draws.end(), back_inserter(halved),
-            [](T in) { return in / 2; });
+            [](T in) { return TestFixture::TestAttrs::Modify(in); });
 
   std::shared_ptr<Array> result;
   FinishAndCheckPadding(this->builder_.get(), &result);
@@ -1433,12 +1474,9 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
   // find type we can safely convert the tested values to and from
-  using conversion_type =
-      typename std::conditional<std::is_floating_point<T>::value, double,
-                                typename std::conditional<std::is_unsigned<T>::value,
-                                                          uint64_t, int64_t>::type>::type;
+  using conversion_type = typename TestFixture::TestAttrs::ConversionType;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1474,7 +1512,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -1493,7 +1531,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestZeroPadded) {
 
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   // ARROW-1383
-  DECL_T();
+  typedef typename TestFixture::CType T;
 
   int64_t size = 10000;
   this->RandomData(size);
@@ -3159,6 +3197,21 @@ TEST(TestSwapEndianArrayData, ExtensionType) {
 #endif
   auto test_data = ReplaceBuffers(expected_data, 1, data);
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, MonthDayNanoInterval) {
+  auto array = ArrayFromJSON(month_day_nano_interval(), R"([[0, 1, 2],
+                                                          [5000, 200, 3000000000]])");
+  auto expected_array =
+      ArrayFromJSON(month_day_nano_interval(), R"([[0, 16777216, 144115188075855872],
+                                                          [-2012020736, -939524096, 26688110733557760]])");
+
+  auto swap_array = MakeArray(*::arrow::internal::SwapEndianArrayData(array->data()));
+  EXPECT_TRUE(!swap_array->Equals(array));
+  ASSERT_ARRAYS_EQUAL(*swap_array, *expected_array);
+  ASSERT_ARRAYS_EQUAL(
+      *MakeArray(*::arrow::internal::SwapEndianArrayData(swap_array->data())), *array);
+  ASSERT_OK(swap_array->ValidateFull());
 }
 
 }  // namespace arrow
