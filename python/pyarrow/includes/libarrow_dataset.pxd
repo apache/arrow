@@ -380,8 +380,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         c_string type_name() const
 
-        CResult[shared_ptr[CPartitioning]] Finish(const shared_ptr[CSchema] &schema)
-
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
         CDirectoryPartitioning(shared_ptr[CSchema] schema,
