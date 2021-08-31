@@ -522,22 +522,21 @@ using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
 struct Utf8TitleTransform : public StringTransformCodepointBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    const uint8_t* next = input;
-    const uint8_t* end = input + input_string_ncodeunits;
     uint8_t* output_start = output;
     uint32_t (*TransformCodepoint)(uint32_t) = UTF8UpperTransform::TransformCodepoint;
-    while ((input = next) < end) {
+    for (const uint8_t *next = input, *end = input + input_string_ncodeunits; next < end;
+         input = next) {
       uint32_t codepoint;
       if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
         return kTransformError;
       }
       if (IsCasedCharacterUnicode(codepoint)) {
-        // Transform codepoint (lower/upper), prepare to lowercase next consecutive cased
+        // Lower/uppercase codepoint, prepare to lowercase next consecutive cased
         // codepoints
         output = util::UTF8Encode(output, TransformCodepoint(codepoint));
         TransformCodepoint = UTF8LowerTransform::TransformCodepoint;
       } else {
-        // Copy non-cased character, prepare to uppercase next caseable codepoint
+        // Copy non-cased codepoint, prepare to uppercase next cased codepoint
         std::memcpy(output, input, next - input);
         output += next - input;
         TransformCodepoint = UTF8UpperTransform::TransformCodepoint;
@@ -703,18 +702,17 @@ using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    const uint8_t* end = input + input_string_ncodeunits;
-    uint8_t (*ascii_toxxx)(uint8_t) = ascii_toupper;
-    while (input < end) {
-      if (IsCasedCharacterAscii(*input)) {
-        // Transform codepoint (lower/upper), prepare to lowercase next consecutive cased
-        // codepoints
-        *output++ = ascii_toxxx(*input++);
-        ascii_toxxx = ascii_tolower;
+    uint8_t (*ascii_to_ul)(uint8_t) = ascii_toupper;
+    for (const uint8_t* ch = input; ch < (input + input_string_ncodeunits); ++ch) {
+      if (IsCasedCharacterAscii(*ch)) {
+        // Lower/uppercase character, prepare to lowercase next consecutive cased
+        // characters
+        *output++ = ascii_to_ul(*ch);
+        ascii_to_ul = ascii_tolower;
       } else {
-        // Copy non-cased character, prepare to uppercase next caseable codepoint
-        *output++ = *input++;
-        ascii_toxxx = ascii_toupper;
+        // Copy non-cased character, prepare to uppercase next cased character
+        *output++ = *ch;
+        ascii_to_ul = ascii_toupper;
       }
     }
     return input_string_ncodeunits;
