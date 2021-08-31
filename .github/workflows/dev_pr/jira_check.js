@@ -15,38 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require("fs");
-const https = require('https');
-
-function detectJIRAID(title) {
-    if (!title) {
-        return null;
-    }
-    const matched = /^(WIP:?\s*)?((ARROW|PARQUET)-\d+)/.exec(title);
-    if (!matched) {
-        return null;
-    }
-    return matched[2];
-}
-
-async function getJiraInfo(jiraID) {
-    const jiraURL = `https://issues.apache.org/jira/rest/api/2/issue/${jiraID}`;
-
-    return new Promise((resolve) => {
-        https.get(jiraURL, res => {
-            let data = '';
-
-            res.on('data', chunk => { data += chunk }) 
-
-            res.on('end', () => {
-               resolve(JSON.parse(data));
-            })
-        })
-    });
-}
+const helpers = require("./helpers.js");
 
 async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
-    const ticketInfo = await getJiraInfo(jiraID);
+    const ticketInfo = await helpers.getJiraInfo(jiraID);
     if(!ticketInfo["fields"]["components"].length) {
         await commentMissingComponents(github, context, pullRequestNumber);
     }
@@ -106,11 +78,10 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
     }
 }
 
-
 module.exports = async ({github, context}) => {
     const pullRequestNumber = context.payload.number;
     const title = context.payload.pull_request.title;
-    const jiraID = detectJIRAID(title);
+    const jiraID = helpers.detectJIRAID(title);
     if (jiraID) {
           await verifyJIRAIssue(github, context, pullRequestNumber, jiraID);
     }
