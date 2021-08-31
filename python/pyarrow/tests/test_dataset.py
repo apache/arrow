@@ -3239,8 +3239,9 @@ def test_write_dataset_with_field_names(tempdir):
                      partitioning=["b"])
 
     load_back = ds.dataset(tempdir, partitioning=["b"])
+    files = load_back.files
     partitioning_dirs = {
-        str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
     }
     assert partitioning_dirs == {"x", "y", "z"}
 
@@ -3255,8 +3256,9 @@ def test_write_dataset_with_field_names_hive(tempdir):
                      partitioning=["b"], partitioning_flavor="hive")
 
     load_back = ds.dataset(tempdir, partitioning="hive")
+    files = load_back.files
     partitioning_dirs = {
-        str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in files
     }
     assert partitioning_dirs == {"b=x", "b=y", "b=z"}
 
