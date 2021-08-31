@@ -88,8 +88,8 @@ Performing Computations
 -----------------------
 
 Arrow ships with a bunch of compute functions that can be applied
-to its arrays, so through the compute functions it's possible to apply
-transformations to the data
+to its arrays and tables, so through the compute functions 
+it's possible to apply transformations to the data
 
 .. ipython:: python
 
