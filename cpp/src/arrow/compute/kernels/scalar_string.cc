@@ -524,23 +524,29 @@ struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
-    uint32_t (*TransformCodepoint)(uint32_t) = UTF8UpperTransform::TransformCodepoint;
-    for (const uint8_t *next = input, *end = input + input_string_ncodeunits; next < end;
-         input = next) {
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next) < end) {
       uint32_t codepoint;
       if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
         return kTransformError;
       }
       if (IsCasedCharacterUnicode(codepoint)) {
-        // Lower/uppercase codepoint, prepare to lowercase next consecutive cased
-        // codepoints
-        output = util::UTF8Encode(output, TransformCodepoint(codepoint));
-        TransformCodepoint = UTF8LowerTransform::TransformCodepoint;
+        // Lower/uppercase current codepoint and
+        // prepare to lowercase next consecutive cased codepoints
+        output = is_next_upper
+                     ? util::UTF8Encode(output,
+                                        UTF8UpperTransform::TransformCodepoint(codepoint))
+                     : util::UTF8Encode(
+                           output, UTF8LowerTransform::TransformCodepoint(codepoint));
+        is_next_upper = false;
       } else {
-        // Copy uncased codepoint, prepare to uppercase next cased codepoint
+        // Copy current uncased codepoint and
+        // prepare to uppercase next cased codepoint
         std::memcpy(output, input, next - input);
         output += next - input;
-        TransformCodepoint = UTF8UpperTransform::TransformCodepoint;
+        is_next_upper = true;
       }
     }
     return output - output_start;
@@ -703,17 +709,20 @@ using AsciiCapitalize = StringTransformExec<Type, AsciiCapitalizeTransform>;
 struct AsciiTitleTransform : public StringTransformBase {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    uint8_t (*ascii_to_ul)(uint8_t) = ascii_toupper;
-    for (const uint8_t* ch = input; ch < (input + input_string_ncodeunits); ++ch) {
-      if (IsCasedCharacterAscii(*ch)) {
-        // Lower/uppercase character, prepare to lowercase next consecutive cased
-        // characters
-        *output++ = ascii_to_ul(*ch);
-        ascii_to_ul = ascii_tolower;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* next = input;
+    bool is_next_upper = true;
+    while ((input = next++) < end) {
+      if (IsCasedCharacterAscii(*input)) {
+        // Lower/uppercase current character and
+        // prepare to lowercase next consecutive cased characters
+        *output++ = is_next_upper ? ascii_toupper(*input) : ascii_tolower(*input);
+        is_next_upper = false;
       } else {
-        // Copy uncased character, prepare to uppercase next cased character
-        *output++ = *ch;
-        ascii_to_ul = ascii_toupper;
+        // Copy current uncased character and
+        // prepare to uppercase next cased character
+        *output++ = *input;
+        is_next_upper = true;
       }
     }
     return input_string_ncodeunits;
