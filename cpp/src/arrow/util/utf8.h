@@ -560,8 +560,7 @@ static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* re
 static inline int64_t UTF8Length(const uint8_t* first, const uint8_t* last) {
   int64_t length = 0;
   while (first != last) {
-    length += ((*first & 0xc0) != 0x80);
-    ++first;
+    length += ((*first++ & 0xc0) != 0x80);
   }
   return length;
 }
