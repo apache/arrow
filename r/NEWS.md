@@ -19,6 +19,11 @@
 
 # arrow 5.0.0.9000
 
+## Breaking changes
+
+* `dplyr::summarize()` on an in-memory Arrow Table or RecordBatch no longer eagerly evaluates. Call `compute()` or `collect()` to evaluate the query.
+* Row order of data from a Dataset query is no longer deterministic. If you need a stable sort order, you should explicitly `arrange()` the query.
+
 # arrow 5.0.0
 
 ## More dplyr
