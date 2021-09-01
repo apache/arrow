@@ -1,3 +1,4 @@
+/*** BEGIN file-header ***/
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -17,30 +18,35 @@
  * under the License.
  */
 
-#pragma once
+#include <arrow-dataset-glib/arrow-dataset-glib.h>
+/*** END file-header ***/
 
-#include <arrow/dataset/api.h>
+/*** BEGIN file-production ***/
 
-#include <arrow-dataset-glib/dataset.h>
+/* enumerations from "@filename@" */
+/*** END file-production ***/
 
+/*** BEGIN value-header ***/
+GType
+@enum_name@_get_type(void)
+{
+  static GType etype = 0;
+  if (G_UNLIKELY(etype == 0)) {
+    static const G@Type@Value values[] = {
+/*** END value-header ***/
 
-GADatasetDataset *
-gadataset_dataset_new_raw(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset);
-GADatasetDataset *
-gadataset_dataset_new_raw(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
-  const gchar *first_property_name,
-  ...);
-GADatasetDataset *
-gadataset_dataset_new_raw_valist(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
-  const gchar *first_property_name,
-  va_list arg);
-std::shared_ptr<arrow::dataset::Dataset>
-gadataset_dataset_get_raw(GADatasetDataset *dataset);
+/*** BEGIN value-production ***/
+      {@VALUENAME@, "@VALUENAME@", "@valuenick@"},
+/*** END value-production ***/
 
+/*** BEGIN value-tail ***/
+      {0, NULL, NULL}
+    };
+    etype = g_@type@_register_static(g_intern_static_string("@EnumName@"), values);
+  }
+  return etype;
+}
+/*** END value-tail ***/
 
-arrow::dataset::FileSystemDatasetWriteOptions *
-gadataset_file_system_dataset_write_options_get_raw(
-  GADatasetFileSystemDatasetWriteOptions *options);
+/*** BEGIN file-tail ***/
+/*** END file-tail ***/

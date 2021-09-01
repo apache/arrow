@@ -15,25 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowDataset", ArrowDataset)
+module Arrow
+  class FileSystem
+    alias_method :open_output_stream_raw, :open_output_stream
+    def open_output_stream(path)
+      stream = open_output_stream_raw(path)
+      if block_given?
+        begin
+          yield(stream)
+        ensure
+          stream.close
+        end
+      else
+        stream
       end
-    end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-dataset/arrow-table-loadable"
-      require "arrow-dataset/arrow-table-savable"
-      require "arrow-dataset/dataset"
-      require "arrow-dataset/file-format"
-      require "arrow-dataset/file-system-dataset-factory"
     end
   end
 end

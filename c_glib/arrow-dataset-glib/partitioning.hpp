@@ -21,26 +21,11 @@
 
 #include <arrow/dataset/api.h>
 
-#include <arrow-dataset-glib/dataset.h>
+#include <arrow-dataset-glib/partitioning.h>
 
+arrow::dataset::KeyValuePartitioningOptions
+gadataset_partitioning_options_get_raw_key_value_partitioning_options(
+  GADatasetPartitioningOptions *options);
 
-GADatasetDataset *
-gadataset_dataset_new_raw(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset);
-GADatasetDataset *
-gadataset_dataset_new_raw(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
-  const gchar *first_property_name,
-  ...);
-GADatasetDataset *
-gadataset_dataset_new_raw_valist(
-  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
-  const gchar *first_property_name,
-  va_list arg);
-std::shared_ptr<arrow::dataset::Dataset>
-gadataset_dataset_get_raw(GADatasetDataset *dataset);
-
-
-arrow::dataset::FileSystemDatasetWriteOptions *
-gadataset_file_system_dataset_write_options_get_raw(
-  GADatasetFileSystemDatasetWriteOptions *options);
+std::shared_ptr<arrow::dataset::Partitioning>
+gadataset_partitioning_get_raw(GADatasetPartitioning *partitioning);
