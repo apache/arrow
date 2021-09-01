@@ -181,10 +181,10 @@ arrow_info <- function() {
       capabilities = c(
         dataset = arrow_with_dataset(),
         parquet = arrow_with_parquet(),
+        json = arrow_with_json(),
         s3 = arrow_with_s3(),
         utf8proc = "utf8_upper" %in% compute_funcs,
         re2 = "replace_substring_regex" %in% compute_funcs,
-        json = arrow_with_json(),
         vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
       ),
       memory_pool = list(
