@@ -33,6 +33,17 @@ import (
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata statistics_types.gen.go.tmpl
 
+type StatProvider interface {
+	GetMin() []byte
+	GetMax() []byte
+	GetNullCount() int64
+	GetDistinctCount() int64
+	IsSetMax() bool
+	IsSetMin() bool
+	IsSetNullCount() bool
+	IsSetDistinctCount() bool
+}
+
 // EncodedStatistics are raw statistics with encoded values that will be written
 // to the parquet file, or was read from the parquet file.
 type EncodedStatistics struct {

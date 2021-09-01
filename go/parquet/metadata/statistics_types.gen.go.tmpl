@@ -63,23 +63,25 @@ func New{{.Name}}Statistics(descr *schema.Column, mem memory.Allocator) *{{.Name
 
 // New{{.Name}}StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *{{.Name}}Statistics {
+func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *{{.Name}}Statistics {
   ret := New{{.Name}}Statistics(descr, mem)
   ret.nvalues += nvalues
-  if hasNulls {
-    ret.incNulls(nulls)
+  if encoded.IsSetNullCount() {
+    ret.incNulls(encoded.GetNullCount())
   }
-  if hasDistinct {
-    ret.incDistinct(distinct)
+  if encoded.IsSetDistinctCount() {
+    ret.incDistinct(encoded.GetDistinctCount())
   }
 
+  encodedMin := encoded.GetMin()
   if encodedMin != nil && len(encodedMin) > 0 {
     ret.min = ret.plainDecode(encodedMin)
   }
+  encodedMax := encoded.GetMax()
   if encodedMax != nil && len(encodedMax) > 0 {
     ret.max = ret.plainDecode(encodedMax)
   }
-  ret.hasMinMax = hasMinMax
+  ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
   return ret
 }
 
@@ -403,14 +405,14 @@ func NewStatistics(descr *schema.Column, mem memory.Allocator) TypedStatistics {
 // by checking the type of the provided column descriptor.
 //
 // If mem is nil, then memory.DefaultAllocator is used.
-func NewStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) TypedStatistics {
+func NewStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) TypedStatistics {
   if mem == nil {
     mem = memory.DefaultAllocator
   }
   switch descr.PhysicalType() {
 {{- range .In}}
   case parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}:
-    return New{{.Name}}StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+    return New{{.Name}}StatisticsFromEncoded(descr, mem, nvalues, encoded)
 {{- end}}
   default:
     panic("not implemented")

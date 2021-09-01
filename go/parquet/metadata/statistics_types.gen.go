@@ -65,23 +65,25 @@ func NewInt32Statistics(descr *schema.Column, mem memory.Allocator) *Int32Statis
 
 // NewInt32StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewInt32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *Int32Statistics {
+func NewInt32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int32Statistics {
 	ret := NewInt32Statistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -343,23 +345,25 @@ func NewInt64Statistics(descr *schema.Column, mem memory.Allocator) *Int64Statis
 
 // NewInt64StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewInt64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *Int64Statistics {
+func NewInt64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int64Statistics {
 	ret := NewInt64Statistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -621,23 +625,25 @@ func NewInt96Statistics(descr *schema.Column, mem memory.Allocator) *Int96Statis
 
 // NewInt96StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewInt96StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *Int96Statistics {
+func NewInt96StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int96Statistics {
 	ret := NewInt96Statistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -891,23 +897,25 @@ func NewFloat32Statistics(descr *schema.Column, mem memory.Allocator) *Float32St
 
 // NewFloat32StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewFloat32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *Float32Statistics {
+func NewFloat32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Float32Statistics {
 	ret := NewFloat32Statistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -1168,23 +1176,25 @@ func NewFloat64Statistics(descr *schema.Column, mem memory.Allocator) *Float64St
 
 // NewFloat64StatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewFloat64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *Float64Statistics {
+func NewFloat64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Float64Statistics {
 	ret := NewFloat64Statistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -1445,23 +1455,25 @@ func NewBooleanStatistics(descr *schema.Column, mem memory.Allocator) *BooleanSt
 
 // NewBooleanStatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewBooleanStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *BooleanStatistics {
+func NewBooleanStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *BooleanStatistics {
 	ret := NewBooleanStatistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -1718,23 +1730,25 @@ func NewByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *ByteArr
 
 // NewByteArrayStatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *ByteArrayStatistics {
+func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *ByteArrayStatistics {
 	ret := NewByteArrayStatistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -1986,23 +2000,25 @@ func NewFixedLenByteArrayStatistics(descr *schema.Column, mem memory.Allocator) 
 
 // NewFixedLenByteArrayStatisticsFromEncoded will construct a propertly typed statistics object
 // initializing it with the provided information.
-func NewFixedLenByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) *FixedLenByteArrayStatistics {
+func NewFixedLenByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *FixedLenByteArrayStatistics {
 	ret := NewFixedLenByteArrayStatistics(descr, mem)
 	ret.nvalues += nvalues
-	if hasNulls {
-		ret.incNulls(nulls)
+	if encoded.IsSetNullCount() {
+		ret.incNulls(encoded.GetNullCount())
 	}
-	if hasDistinct {
-		ret.incDistinct(distinct)
+	if encoded.IsSetDistinctCount() {
+		ret.incDistinct(encoded.GetDistinctCount())
 	}
 
+	encodedMin := encoded.GetMin()
 	if encodedMin != nil && len(encodedMin) > 0 {
 		ret.min = ret.plainDecode(encodedMin)
 	}
+	encodedMax := encoded.GetMax()
 	if encodedMax != nil && len(encodedMax) > 0 {
 		ret.max = ret.plainDecode(encodedMax)
 	}
-	ret.hasMinMax = hasMinMax
+	ret.hasMinMax = encoded.IsSetMax() || encoded.IsSetMin()
 	return ret
 }
 
@@ -2265,27 +2281,27 @@ func NewStatistics(descr *schema.Column, mem memory.Allocator) TypedStatistics {
 // by checking the type of the provided column descriptor.
 //
 // If mem is nil, then memory.DefaultAllocator is used.
-func NewStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, encodedMin, encodedMax []byte, nvalues, nulls, distinct int64, hasMinMax, hasNulls, hasDistinct bool) TypedStatistics {
+func NewStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) TypedStatistics {
 	if mem == nil {
 		mem = memory.DefaultAllocator
 	}
 	switch descr.PhysicalType() {
 	case parquet.Types.Int32:
-		return NewInt32StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewInt32StatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.Int64:
-		return NewInt64StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewInt64StatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.Int96:
-		return NewInt96StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewInt96StatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.Float:
-		return NewFloat32StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewFloat32StatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.Double:
-		return NewFloat64StatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewFloat64StatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.Boolean:
-		return NewBooleanStatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewBooleanStatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.ByteArray:
-		return NewByteArrayStatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewByteArrayStatisticsFromEncoded(descr, mem, nvalues, encoded)
 	case parquet.Types.FixedLenByteArray:
-		return NewFixedLenByteArrayStatisticsFromEncoded(descr, mem, encodedMin, encodedMax, nvalues, nulls, distinct, hasMinMax, hasNulls, hasDistinct)
+		return NewFixedLenByteArrayStatisticsFromEncoded(descr, mem, nvalues, encoded)
 	default:
 		panic("not implemented")
 	}

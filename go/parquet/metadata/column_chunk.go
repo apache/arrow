@@ -39,19 +39,24 @@ type PageEncodingStats struct {
 	PageType format.PageType
 }
 
+type statvalues struct {
+	*format.Statistics
+}
+
+func (s *statvalues) GetMin() []byte { return s.GetMinValue() }
+func (s *statvalues) GetMax() []byte { return s.GetMaxValue() }
+func (s *statvalues) IsSetMin() bool { return s.IsSetMinValue() }
+func (s *statvalues) IsSetMax() bool { return s.IsSetMaxValue() }
+
 func makeColumnStats(metadata *format.ColumnMetaData, descr *schema.Column, mem memory.Allocator) TypedStatistics {
 	if descr.ColumnOrder() == parquet.ColumnOrders.TypeDefinedOrder {
-		return NewStatisticsFromEncoded(descr, mem, metadata.Statistics.MinValue, metadata.Statistics.MaxValue,
+		return NewStatisticsFromEncoded(descr, mem,
 			metadata.NumValues-metadata.Statistics.GetNullCount(),
-			metadata.Statistics.GetNullCount(), metadata.Statistics.GetDistinctCount(),
-			metadata.Statistics.IsSetMaxValue() || metadata.Statistics.IsSetMinValue(),
-			metadata.Statistics.IsSetNullCount(), metadata.Statistics.IsSetDistinctCount())
+			&statvalues{metadata.Statistics})
 	}
-	return NewStatisticsFromEncoded(descr, mem, metadata.Statistics.Min, metadata.Statistics.Max,
+	return NewStatisticsFromEncoded(descr, mem,
 		metadata.NumValues-metadata.Statistics.GetNullCount(),
-		metadata.Statistics.GetNullCount(), metadata.Statistics.GetDistinctCount(),
-		metadata.Statistics.IsSetMax() || metadata.Statistics.IsSetMin(),
-		metadata.Statistics.IsSetNullCount(), metadata.Statistics.IsSetDistinctCount())
+		metadata.Statistics)
 }
 
 // ColumnChunkMetaData is a proxy around format.ColumnChunkMetaData
