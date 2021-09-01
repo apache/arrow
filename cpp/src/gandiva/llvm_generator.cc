@@ -53,11 +53,17 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
 
 std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
 LLVMGenerator::GetCache() {
-  static std::unique_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      cache_unique =
-          std::make_unique<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
+  static Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>> cache;
+  //  static std::unique_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+  //      cache_unique = std::make_unique<Cache<BaseCacheKey,
+  //      std::shared_ptr<llvm::MemoryBuffer>>>();
+
+  //  static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
+  //      shared_cache = std::move(cache_unique);
+
   static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
-      shared_cache = std::move(cache_unique);
+      shared_cache =
+          std::make_shared<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
 
   return shared_cache;
 }

@@ -155,7 +155,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // Verify if previous projector obj code was cached
   if (prev_cached_obj != nullptr) {
-    ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
+    ARROW_LOG(DEBUG)
+        << "[DEBUG][CACHE-LOG][INFO]: Projector object code WAS already cached";
     llvm_flag = true;
   }
 
@@ -173,15 +174,15 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
-  // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
-  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
-  // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-  //ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode, obj_cache)); // to use when caching only the obj code
-//  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode, obj_cache));
+  //  // Start measuring build time
+  //  auto begin = std::chrono::high_resolution_clock::now();
+  //  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
+  //  // Stop measuring time and calculate the elapsed time
+  //  auto end = std::chrono::high_resolution_clock::now();
+  //  auto elapsed =
+  //      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(
+      exprs, selection_vector_mode, obj_cache));  // to use when caching only the obj code
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -193,13 +194,13 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  ValueCacheObject<std::shared_ptr<Projector>> value_cache(*projector, elapsed);
-//  cache.PutModule(cache_key, value_cache);
-//  projector->get()->SetCompiledFromCache(llvm_flag);
-//
-//
-//  ARROW_LOG(DEBUG) << "[DEBUG][PROJECTOR-CACHE-LOG]: " + shared_cache->toString(); // to use when caching only the obj code
-//  used_cache_size_ = shared_cache->getCacheSize();
+  //  ValueCacheObject<std::shared_ptr<Projector>> value_cache(*projector, elapsed);
+  //  shared_cache->PutModule(cache_key, value_cache);
+  projector->get()->SetCompiledFromCache(llvm_flag);
+  ARROW_LOG(DEBUG)
+      << "[DEBUG][CACHE-LOG][INFO]: " +
+             shared_cache->ToString();  // to use when caching only the obj code
+  //  used_cache_size_ = shared_cache->getCacheSize();
 
   return Status::OK();
 }

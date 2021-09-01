@@ -121,7 +121,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
-    ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG]: Object code WAS already cached!";
+    ARROW_LOG(DEBUG)
+        << "[DEBUG][CACHE-LOG][INFO]: Filter object code WAS already cached!";
     llvm_flag = true;
   }
 
@@ -137,23 +138,28 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
 
   // Start measuring build time
-  auto begin = std::chrono::high_resolution_clock::now();
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
+  //  auto begin = std::chrono::high_resolution_clock::now();
+  //  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
   // Stop measuring time and calculate the elapsed time
-  auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-//  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE, obj_cache)); // to use when caching only the obj code
+  //  auto end = std::chrono::high_resolution_clock::now();
+  //  auto elapsed =
+  //      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+  ARROW_RETURN_NOT_OK(
+      llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE,
+                      obj_cache));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
-//  cache.PutModule(cache_key, value_cache);
-//
-//  filter->get()->SetCompiledFromCache(llvm_flag); // to use when caching only the obj code
-//  used_cache_size_ = shared_cache->getCacheSize(); // track filter cache memory use
-//
-//  ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG] " + shared_cache->toString(); // to use when caching only the obj code
+  //  ValueCacheObject<std::shared_ptr<Filter>> value_cache(*filter, elapsed);
+  //  cache.PutModule(cache_key, value_cache);
+  //
+  filter->get()->SetCompiledFromCache(
+      llvm_flag);  // to use when caching only the obj code
+  //  used_cache_size_ = shared_cache->getCacheSize(); // track filter cache memory use
+  //
+  ARROW_LOG(DEBUG)
+      << "[DEBUG][CACHE-LOG][INFO]: " +
+             shared_cache->ToString();  // to use when caching only the obj code
 
   return Status::OK();
 }

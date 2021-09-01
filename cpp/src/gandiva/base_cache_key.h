@@ -22,12 +22,7 @@
 
 #include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/variant.hpp>
 #include <sstream>
-
 #include "gandiva/expression.h"
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
@@ -43,10 +38,6 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, type);
     arrow::internal::hash_combine(result_hash, expr_as_string);
     hash_code_ = result_hash;
-
-    // Generate the same UUID based on the hash_code
-    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
   };
 
   BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
@@ -57,10 +48,6 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     key_ = key;
-
-    // Generate the same UUID based on the hash_code
-    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
   };
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
@@ -71,10 +58,6 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     key_ = key;
-
-    // Generate the same UUID based on the hash_code
-    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
   };
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
@@ -86,34 +69,18 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, schema->ToString());
     arrow::internal::hash_combine(result_hash, expr->ToString());
     hash_code_ = result_hash;
-
-    // Generate the same UUID based on the hash_code
-    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
   };
 
   size_t Hash() const { return hash_code_; }
 
-  boost::uuids::uuid Uuid() const { return uuid_; }
-
   std::string Type() const { return type_; }
 
-  std::string getUuidString() const {
-    std::string uuid_string = "";
-    std::stringstream ss;
-    ss << uuid_;
-    return ss.str();
-  }
+  boost::any GetInnerKey() { return key_; }
 
   bool operator==(const BaseCacheKey& other) const {
     if (hash_code_ != other.hash_code_) {
       return false;
     }
-
-    if (uuid_ != other.uuid_) {
-      return false;
-    }
-
     return true;
   };
 
@@ -122,7 +89,6 @@ class BaseCacheKey {
  private:
   uint64_t hash_code_;
   std::string type_;
-  boost::uuids::uuid uuid_;
   boost::any key_ = nullptr;
 };
 

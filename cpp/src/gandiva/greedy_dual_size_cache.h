@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <llvm/ADT/SmallString.h>
+
 #include <list>
 #include <queue>
 #include <set>
@@ -31,9 +33,11 @@ namespace gandiva {
 template <typename ValueType>
 class ValueCacheObject {
  public:
-  ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
+  ValueCacheObject(ValueType module, uint64_t cost, size_t size)
+      : module(module), cost(cost), size(size) {}
   ValueType module;
   uint64_t cost;
+  size_t size;
   bool operator<(const ValueCacheObject& other) const { return cost < other.cost; }
 };
 
@@ -110,7 +114,44 @@ class GreedyDualSizeCache {
     }
   }
 
+  void InsertObjectCode(const Key& key, const ValueCacheObject<Value>& value) {
+    typename map_type::iterator i = map_.find(key);
+    // check if element is not in the cache to add it
+    if (i == map_.end()) {
+      // insert item into the cache, but first check if it is full, to evict an item
+      // if it is necessary
+      if (size() >= capacity_) {
+        evict();
+      }
+
+      // insert the new item
+      auto item =
+          priority_set_.insert(PriorityItem(value.cost + inflation_, value.cost, key));
+      // save on map the value and the priority item iterator position
+      map_.emplace(key, std::make_pair(value, item.first));
+      cache_size_ += value.size;
+    }
+  }
+
   arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) {
+    // lookup value in the cache
+    typename map_type::iterator value_for_key = map_.find(key);
+    if (value_for_key == map_.end()) {
+      // value not in cache
+      return arrow::util::nullopt;
+    }
+    PriorityItem item = *value_for_key->second.second;
+    // if the value was found on the cache, update its cost (original + inflation)
+    if (item.actual_priority != item.original_priority + inflation_) {
+      priority_set_.erase(value_for_key->second.second);
+      auto iter = priority_set_.insert(PriorityItem(
+          item.original_priority + inflation_, item.original_priority, item.cache_key));
+      value_for_key->second.second = iter.first;
+    }
+    return value_for_key->second.first;
+  }
+
+  arrow::util::optional<ValueCacheObject<Value>> GetObjectCode(const Key& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -133,6 +174,14 @@ class GreedyDualSizeCache {
     priority_set_.clear();
   }
 
+  size_t GetCacheSize() { return cache_size_; }
+
+  std::string ToString() {
+    size_t cache_map_length = map_.size();
+    return "Cache has " + std::to_string(cache_map_length) + " items," +
+           " with total size of " + std::to_string(cache_size_) + " bytes.";
+  }
+
  private:
   void evict() {
     // TODO: inflation overflow is unlikely to happen but needs to be handled
@@ -146,9 +195,25 @@ class GreedyDualSizeCache {
     priority_set_.erase(i);
   }
 
+  void evictObject() {
+    // TODO: inflation overflow is unlikely to happen but needs to be handled
+    //  for correctness.
+    // evict item from the beginning of the set. This set is ordered from the
+    // lower priority value to the higher priority value.
+    typename std::set<PriorityItem>::iterator i = priority_set_.begin();
+    // update the inflation cost related to the evicted item
+    inflation_ = (*i).actual_priority;
+    size_t size_to_decrease = map_.find((*i).cache_key)->second.first.size;
+    cache_size_ -= size_to_decrease;
+    map_.erase((*i).cache_key);
+    priority_set_.erase(i);
+  }
+
   map_type map_;
   std::set<PriorityItem> priority_set_;
   uint64_t inflation_;
   size_t capacity_;
+  size_t cache_size_ = 0;
+  llvm::SmallString<128> cache_dir_;
 };
 }  // namespace gandiva

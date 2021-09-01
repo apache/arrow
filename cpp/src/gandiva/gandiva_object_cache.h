@@ -40,7 +40,9 @@ class GandivaObjectCache : public llvm::ObjectCache {
     std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
         llvm::MemoryBuffer::getMemBufferCopy(Obj.getBuffer(), Obj.getBufferIdentifier());
     std::shared_ptr<llvm::MemoryBuffer> obj_code = std::move(obj_buffer);
-    cache_->PutObjectCode(*cache_key_.get(), obj_code, obj_code->getBufferSize());
+    ValueCacheObject<std::shared_ptr<llvm::MemoryBuffer>> value_cache(
+        obj_code, elapsed_, obj_code->getBufferSize());
+    cache_->PutObjectCode(*cache_key_.get(), value_cache);
   };
 
   std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
@@ -54,8 +56,11 @@ class GandivaObjectCache : public llvm::ObjectCache {
     return cached_buffer;
   };
 
+  void AddElapsedTime(size_t elapsed) { elapsed_ = elapsed; }
+
  private:
   std::shared_ptr<CacheKey> cache_key_;
   std::shared_ptr<Cache<CacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
+  size_t elapsed_;
 };
 }  // namespace gandiva

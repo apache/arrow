@@ -60,7 +60,7 @@ class GANDIVA_EXPORT Engine {
     execution_engine_->setObjectCache(&object_cache);
     if (execution_engine_->hasError()) {
       return Status::ExecutionError(
-          "[OBJ-CACHE-LOG]: Can not set Projector Object cache");
+          "[CACHE-LOG][ERROR]: Can not set custom llvm object cache");
     }
     return Status::OK();
   }

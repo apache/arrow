@@ -65,10 +65,18 @@ class GANDIVA_EXPORT LLVMGenerator {
                GandivaObjectCache<KeyType>& obj_cache) {
     selection_vector_mode_ = mode;
 
+    // Start measuring code gen time
+    auto begin = std::chrono::high_resolution_clock::now();
     for (auto& expr : exprs) {
       auto output = annotator_.AddOutputFieldDescriptor(expr->result());
       ARROW_RETURN_NOT_OK(Add(expr, output));
     }
+
+    // Stop measuring time, calculate the elapsed time and pass it to object cache
+    auto end = std::chrono::high_resolution_clock::now();
+    size_t elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+    obj_cache.AddElapsedTime(elapsed);
 
     ARROW_RETURN_NOT_OK(engine_->SetLLVMObjectCache(obj_cache));
 
