@@ -1823,7 +1823,7 @@ struct IsTitleUnicode {
                                    if (!previous_cased) return false;  // rule 1 broken
                                    // next should be more lower case or uncased
                                    previous_cased = true;
-                                 } else if (IsUpperCaseCharacterUnicode(codepoint)) {
+                                 } else if (IsCasedCharacterUnicode(codepoint)) {
                                    if (previous_cased) return false;  // rule 2 broken
                                    // next should be a lower case or uncased
                                    previous_cased = true;
@@ -1863,7 +1863,7 @@ struct IsTitleAscii {
         }
         // next should be more lower case or uncased
         previous_cased = true;
-      } else if (IsUpperCaseCharacterAscii(*c)) {
+      } else if (IsCasedCharacterAscii(*c)) {
         if (previous_cased) {
           // rule 2 broken
           rules_1_and_2 = false;
