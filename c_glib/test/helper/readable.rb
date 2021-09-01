@@ -21,7 +21,7 @@ module Helper
       if input.is_a?(Arrow::Buffer)
         input_stream = Arrow::BufferIntputStream.new(input)
       else
-        input_stream = Arrow::MemoryMappedInputStream.new(input)
+        input_stream = Arrow::FileInputStream.new(input)
       end
       begin
         if type == :file
