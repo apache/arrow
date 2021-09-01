@@ -1080,6 +1080,22 @@ class AssumeTimezoneOptions(_AssumeTimezoneOptions):
         self._set_options(timezone, ambiguous, nonexistent)
 
 
+cdef class _WeekOptions(FunctionOptions):
+    def _set_options(self, week_starts_monday, count_from_zero,
+                     first_week_in_year):
+        self.wrapped.reset(
+            new CWeekOptions(week_starts_monday, count_from_zero,
+                             first_week_in_year)
+        )
+
+
+class WeekOptions(_WeekOptions):
+    def __init__(self, week_starts_monday=True, count_from_zero=False,
+                 first_week_in_year=False):
+        self._set_options(week_starts_monday,
+                          count_from_zero, first_week_in_year)
+
+
 cdef class _NullOptions(FunctionOptions):
     def _set_options(self, nan_is_null):
         self.wrapped.reset(new CNullOptions(nan_is_null))

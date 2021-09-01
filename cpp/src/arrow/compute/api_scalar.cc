@@ -247,6 +247,10 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
 static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
     DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
     DataMember("week_start", &DayOfWeekOptions::week_start));
+static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
+    DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
+    DataMember("count_from_zero", &WeekOptions::count_from_zero),
+    DataMember("first_week_in_year", &WeekOptions::first_week_in_year));
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
@@ -412,6 +416,14 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
       week_start(week_start) {}
 constexpr char DayOfWeekOptions::kTypeName[];
 
+WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
+                         bool first_week_in_year)
+    : FunctionOptions(internal::kWeekOptionsType),
+      week_starts_monday(week_starts_monday),
+      count_from_zero(count_from_zero),
+      first_week_in_year(first_week_in_year) {}
+constexpr char WeekOptions::kTypeName[];
+
 NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NullOptions::kTypeName[];
@@ -438,6 +450,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
 }
 }  // namespace internal
@@ -648,7 +661,7 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
   return CallFunction("assume_timezone", {arg}, &options, ctx);
 }
 
-Result<Datum> Week(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }
 

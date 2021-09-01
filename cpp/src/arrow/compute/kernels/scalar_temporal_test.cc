@@ -380,22 +380,45 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
 #endif
 
 TEST_F(ScalarTemporalTest, Week) {
-  std::string week_11 = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
-  std::string week_17 = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
-  std::string week_01 = "[1, 9, 0, 20, 1, 53, 53, 53, 0, 0, 1, 0, 52, 52, 53, 0, null]";
-  std::string week_07 = "[0, 9, 1, 20, 1, 53, 53, 52, 0, 1, 1, 1, 52, 53, 53, 1, null]";
   auto unit = timestamp(TimeUnit::NANO);
+  std::string week_100 =
+      "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
+  std::string week_110 = "[1, 9, 0, 20, 1, 53, 53, 53, 0, 0, 1, 0, 52, 52, 53, 0, null]";
+  std::string week_010 = "[0, 9, 1, 20, 1, 53, 53, 52, 0, 1, 1, 1, 52, 53, 53, 1, null]";
+  std::string week_000 = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
+  std::string week_111 = "[0, 9, 0, 20, 0, 52, 52, 52, 0, 0, 1, 0, 52, 51, 52, 0, null]";
+  std::string week_011 = "[0, 9, 1, 20, 0, 52, 52, 52, 0, 1, 1, 1, 52, 52, 52, 1, null]";
+  std::string week_101 =
+      "[52, 9, 52, 20, 52, 52, 52, 52, 52, 52, 1, 52, 52, 51, 52, 52, null]";
+  std::string week_001 =
+      "[52, 9, 1, 20, 52, 52, 52, 52, 52, 1, 1, 1, 52, 52, 52, 1, null]";
 
-  auto options_01 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 1);
-  auto options_11 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 1);
-  auto options_07 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 7);
-  auto options_17 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 7);
+  auto options_100 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/false,
+                                 /*first_week_in_year=*/false);
+  auto options_110 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/true,
+                                 /*first_week_in_year=*/false);
+  auto options_010 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/true,
+                                 /*first_week_in_year=*/false);
+  auto options_000 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/false,
+                                 /*first_week_in_year=*/false);
+  auto options_111 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/true,
+                                 /*first_week_in_year=*/true);
+  auto options_011 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/true,
+                                 /*first_week_in_year=*/true);
+  auto options_101 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/false,
+                                 /*first_week_in_year=*/true);
+  auto options_001 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/false,
+                                 /*first_week_in_year=*/true);
 
-  CheckScalarUnary("iso_week", unit, times, int64(), week_11);
-  CheckScalarUnary("week", unit, times, int64(), week_01, &options_01);
-  CheckScalarUnary("week", unit, times, int64(), week_11, &options_11);
-  CheckScalarUnary("week", unit, times, int64(), week_07, &options_07);
-  CheckScalarUnary("week", unit, times, int64(), week_17, &options_17);
+  CheckScalarUnary("iso_week", unit, times, int64(), week_100);
+  CheckScalarUnary("week", unit, times, int64(), week_100, &options_100);
+  CheckScalarUnary("week", unit, times, int64(), week_110, &options_110);
+  CheckScalarUnary("week", unit, times, int64(), week_010, &options_010);
+  CheckScalarUnary("week", unit, times, int64(), week_000, &options_000);
+  CheckScalarUnary("week", unit, times, int64(), week_111, &options_111);
+  CheckScalarUnary("week", unit, times, int64(), week_011, &options_011);
+  CheckScalarUnary("week", unit, times, int64(), week_101, &options_101);
+  CheckScalarUnary("week", unit, times, int64(), week_001, &options_001);
 }
 
 TEST_F(ScalarTemporalTest, DayOfWeek) {

@@ -361,6 +361,21 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   Nonexistent nonexistent;
 };
 
+struct ARROW_EXPORT WeekOptions : public FunctionOptions {
+ public:
+  explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
+                       bool first_week_in_year = false);
+  constexpr static char const kTypeName[] = "WeekOptions";
+  static WeekOptions Defaults() { return WeekOptions{}; }
+
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// Days in current year that fall into last years ISO week return week 0 if true
+  bool count_from_zero;
+  /// Is the first week fully in the the year or only its 4 or more days
+  bool first_week_in_year;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.
@@ -1030,8 +1045,7 @@ ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLP
 ///
 /// \since 6.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> Week(const Datum& values,
-                                DayOfWeekOptions options = DayOfWeekOptions(true, 0),
+ARROW_EXPORT Result<Datum> Week(const Datum& values, WeekOptions options = WeekOptions(),
                                 ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for

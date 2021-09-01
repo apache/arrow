@@ -132,6 +132,8 @@ def test_option_class_equality():
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
         pc.ReplaceSliceOptions(0, 1, "a"),
+        pc.DayOfWeekOptions(False, 0),
+        pc.WeekOptions(True, False, False),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
@@ -1693,8 +1695,10 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.day_of_week(tsa, options=day_of_week_options).equals(
         pa.array(ts.dt.dayofweek + 1))
 
-    assert pc.week(tsa, options=pc.DayOfWeekOptions(
-        one_based_numbering=True)).equals(pa.array(iso_week))
+    week_options = pc.WeekOptions(
+        week_starts_monday=True, count_from_zero=False,
+        first_week_in_year=False)
+    assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
 @pytest.mark.pandas
