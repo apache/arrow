@@ -19,7 +19,6 @@
 
 #include <atomic>
 #include <cstdint>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -246,7 +245,7 @@ class ThreadIndexer {
   static size_t Check(size_t thread_index);
 
   util::Mutex mutex_;
-  std::unordered_map<std::thread::id, size_t> id_to_index_;
+  std::unordered_map<uint64_t, size_t> id_to_index_;
 };
 
 }  // namespace compute

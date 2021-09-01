@@ -382,15 +382,15 @@ struct GrouperImpl : Grouper {
     int32_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
       auto total_length_before = total_length;
-      total_length += offsets_batch->at(i);
-      offsets_batch->at(i) = total_length_before;
+      total_length += (*offsets_batch)[i];
+      (*offsets_batch)[i] = total_length_before;
     }
-    offsets_batch->at(batch.length) = total_length;
+    (*offsets_batch)[batch.length] = total_length;
 
     key_bytes_batch->resize(total_length);
     key_buf_ptrs->resize(batch.length);
     for (int64_t i = 0; i < batch.length; ++i) {
-      key_buf_ptrs->at(i) = key_bytes_batch->data() + offsets_batch->at(i);
+      key_buf_ptrs->at(i) = key_bytes_batch->data() + (*offsets_batch)[i];
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {

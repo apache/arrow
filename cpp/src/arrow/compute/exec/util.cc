@@ -21,6 +21,7 @@
 #include "arrow/table.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 
@@ -299,7 +300,7 @@ Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inpu
 }
 
 size_t ThreadIndexer::operator()() {
-  auto id = std::this_thread::get_id();
+  auto id = internal::GetThreadId();
 
   auto guard = mutex_.Lock();  // acquire the lock
   const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
