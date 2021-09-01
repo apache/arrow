@@ -107,8 +107,7 @@ static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 9) && (ascii_character <= 13)) ||
-         (ascii_character == ' ');
+  return ((ascii_character >= 9) && (ascii_character <= 13)) || (ascii_character == ' ');
 }
 
 static inline bool IsPrintableCharacterAscii(uint8_t ascii_character) {
