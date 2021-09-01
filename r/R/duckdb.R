@@ -82,8 +82,6 @@ arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
   if (is.null(con) || !DBI::dbIsValid(con)) {
     con <- DBI::dbConnect(duckdb::duckdb())
-    # Use the same CPU count that the arrow library is set to
-    DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
     options(arrow_duck_con = con)
   }
   con
