@@ -145,6 +145,13 @@ arrow_with_s3 <- function() {
   })
 }
 
+#' @rdname arrow_available
+arrow_with_json <- function() {
+  tryCatch(.Call(`_json_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
@@ -177,6 +184,7 @@ arrow_info <- function() {
         s3 = arrow_with_s3(),
         utf8proc = "utf8_upper" %in% compute_funcs,
         re2 = "replace_substring_regex" %in% compute_funcs,
+        json = arrow_with_json(),
         vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
       ),
       memory_pool = list(

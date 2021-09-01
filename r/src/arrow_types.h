@@ -43,7 +43,11 @@
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
+
+#if defined(ARROW_R_WITH_JSON)
 #include <arrow/json/type_fwd.h>
+#endif
+
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
@@ -221,9 +225,11 @@ R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter");
 
 R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader");
 
+#if defined(ARROW_R_WITH_JSON)
 R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions");
 R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions");
 R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader");
+#endif
 
 #undef R6_CLASS_NAME
 
