@@ -73,8 +73,7 @@ Status RegexStatus(const RE2& regex) {
 
 // IsAlpha/Digit etc
 
-template <typename T>
-static inline bool IsAsciiCharacter(T character) {
+static inline bool IsAsciiCharacter(uint8_t character) {
   return character < 128;
 }
 
@@ -1747,7 +1746,7 @@ struct IsAscii {
   static bool Call(KernelContext*, const uint8_t* input,
                    size_t input_string_nascii_characters, Status*) {
     return std::all_of(input, input + input_string_nascii_characters,
-                       IsAsciiCharacter<uint8_t>);
+                       IsAsciiCharacter);
   }
 };
 
