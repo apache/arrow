@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <iostream>
 
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -273,6 +274,100 @@ inline bool ParseUnsigned(const char* s, size_t length, uint64_t* out) {
 #undef PARSE_UNSIGNED_ITERATION
 #undef PARSE_UNSIGNED_ITERATION_LAST
 
+
+#define PARSE_HEX_ITERATION(C_TYPE)                                                \
+  if (length > 0) {                                                                \
+    char val = *s;                                                                 \
+    const char* pos = std::lower_bound(kAsciiTable, kAsciiTableEnd, val);          \
+    s++;                                                                           \
+    result = static_cast<C_TYPE>(result << 4);                                     \
+    length--;                                                                      \
+    if (ARROW_PREDICT_FALSE(pos == kAsciiTableEnd || *pos != val)) {               \
+      /* Non-digit */                                                              \
+      return false;                                                                \
+    }                                                                              \
+    result = static_cast<C_TYPE>(result | (pos - kAsciiTable));                    \
+  } else {                                                                         \
+    break;                                                                         \
+  }
+
+inline bool ParseHex(const char* s, size_t length, uint8_t* out) {
+  const char* kAsciiTable = "0123456789ABCDEF";
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  uint8_t result = 0;
+
+  do {
+    PARSE_HEX_ITERATION(uint8_t);
+    PARSE_HEX_ITERATION(uint8_t);    
+  } while (false);
+  *out = result;
+  return true;
+}
+
+inline bool ParseHex(const char* s, size_t length, uint16_t* out) {
+  const char* kAsciiTable = "0123456789ABCDEF";
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  uint16_t result = 0;
+  do {
+    PARSE_HEX_ITERATION(uint16_t);
+    PARSE_HEX_ITERATION(uint16_t);
+    PARSE_HEX_ITERATION(uint16_t);
+    PARSE_HEX_ITERATION(uint16_t);
+  } while (false);
+  *out = result;
+  return true;
+}
+
+inline bool ParseHex(const char* s, size_t length, uint32_t* out) {
+  const char* kAsciiTable = "0123456789ABCDEF";
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  uint32_t result = 0;
+  do {
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);
+    
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);
+    PARSE_HEX_ITERATION(uint32_t);    
+  } while (false);
+  *out = result;
+  return true;
+}
+
+inline bool ParseHex(const char* s, size_t length, uint64_t* out) {
+  const char* kAsciiTable = "0123456789ABCDEF";
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  uint64_t result = 0;
+  do {
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+    PARSE_HEX_ITERATION(uint64_t);
+  } while (false);
+  *out = result;
+  return true;
+}
+
+#undef PARSE_HEX_ITERATION
+
 template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
@@ -335,6 +430,21 @@ struct StringToSignedIntConverterMixin {
       if (--length == 0) {
         return false;
       }
+    }
+
+    // If its starts with 0x then its hex
+    if (*s == '0' && *(s + 1) == 'x'){
+      length -= 2;
+      s += 2;
+      // lets make sure that the length of the string is not too big
+      if (!ARROW_PREDICT_TRUE(sizeof(unsigned_value)*2 >= length)) {
+        return false;
+      }
+      if (!ARROW_PREDICT_TRUE(ParseHex(s, length, &unsigned_value))) {
+        return false;
+      }
+      *out = static_cast<value_type>(unsigned_value);
+      return true; 
     }
     // Skip leading zeros
     while (length > 0 && *s == '0') {
