@@ -264,10 +264,8 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecBatch& batch, Datum* 
 
 struct BooleanToNumber {
   template <typename OutValue, typename Arg0Value>
-  static OutValue Call(KernelContext*, Arg0Value val, Status*) {
-    constexpr auto kOne = static_cast<OutValue>(1);
-    constexpr auto kZero = static_cast<OutValue>(0);
-    return val ? kOne : kZero;
+  static constexpr OutValue Call(KernelContext*, Arg0Value val, Status*) {
+    return static_cast<OutValue>(int(bool(val)));
   }
 };
 
