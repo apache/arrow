@@ -2200,7 +2200,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     if (ARROW_PREDICT_FALSE(total_value_count_ == 0)) {
       uint32_t padding_bits = values_current_mini_block_ * delta_bit_width_;
       // skip the padding bits
-      decoder_->Advance(padding_bits);
+      if (!decoder_->Advance(padding_bits)) {
+        ParquetException::EofException();
+      }
       values_current_mini_block_ = 0;
     }
     return max_values;
@@ -2372,8 +2374,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
       int num_values, int null_count, const uint8_t* valid_bits,
       int64_t valid_bits_offset,
       typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
-    ParquetException::NYI(
-        "DecodeArrow of DictAccumulator for DeltaLengthByteArrayDecoder");
+    ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
   }
 
  private:

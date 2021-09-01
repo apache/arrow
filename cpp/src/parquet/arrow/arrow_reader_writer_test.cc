@@ -4193,7 +4193,7 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   ::arrow::AssertTablesEqual(*table, *expect_table);
 }
 
-TEST(TestArrowReadDeltaEncoding, DeltaLengthByteArray) {
+TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
   auto file = test::get_data_file("delta_byte_array.parquet");
   auto expect_file = test::get_data_file("delta_byte_array_expect.csv");
   auto pool = ::arrow::default_memory_pool();
@@ -4230,7 +4230,7 @@ TEST(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
 
-TEST(TestArrowReadDeltaEncoding, DeltaLengthByteArray) {
+TEST(TestArrowReadDeltaEncoding, DeltaByteArray) {
   GTEST_SKIP() << "Test needs CSV reader";
 }
 
