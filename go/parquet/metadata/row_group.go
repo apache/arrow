@@ -55,7 +55,8 @@ func (r *RowGroupMetaData) Equals(other *RowGroupMetaData) bool {
 	return reflect.DeepEqual(r.rowGroup, other.rowGroup)
 }
 
-// NumRows is just the number of rows in this row group
+// NumRows is just the number of rows in this row group. All columns have the same
+// number of rows for a row group regardless of repetition and definition levels.
 func (r *RowGroupMetaData) NumRows() int64 { return r.rowGroup.NumRows }
 
 // TotalByteSize is the total size of this rowgroup on disk
@@ -138,6 +139,10 @@ func (r *RowGroupMetaDataBuilder) NextColumnChunk() *ColumnChunkMetaDataBuilder 
 	return colBldr
 }
 
+// Finish should be called when complete and updates the metadata with the final
+// file offset, and total compressed sizes. totalBytesWritten gets written as the
+// TotalByteSize for the row group and Ordinal should be the index of the row group
+// being written. e.g. first row group should be 0, second is 1, and so on...
 func (r *RowGroupMetaDataBuilder) Finish(totalBytesWritten int64, ordinal int16) error {
 	if r.nextCol != r.NumColumns() {
 		return xerrors.Errorf("parquet: only %d out of %d columns are initialized", r.nextCol-1, r.schema.NumColumns())

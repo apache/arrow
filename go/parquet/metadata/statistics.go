@@ -23,12 +23,11 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/apache/arrow/go/parquet/internal/encoding"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
 	"github.com/apache/arrow/go/parquet/schema"
 )
 
@@ -200,6 +199,8 @@ func (s *statistics) Reset() {
 	s.hasNullCount = false
 }
 
+// base merge function for base non-typed stat object so we don't have to
+// duplicate this in each of the typed implementations
 func (s *statistics) merge(other TypedStatistics) {
 	s.nvalues += other.NumValues()
 	if other.HasNullCount() {
@@ -222,6 +223,84 @@ func coalesce(val, fallback interface{}) interface{} {
 		}
 	}
 	return val
+}
+
+func signedByteLess(a, b []byte) bool {
+	// signed comparison is used for integers encoded as big-endian twos complement
+	// integers (e.g. decimals)
+
+	// if at least one of the lengths is zero, we can short circuit
+	if len(a) == 0 || len(b) == 0 {
+		return len(a) == 0 && len(b) > 0
+	}
+
+	sa := *(*[]int8)(unsafe.Pointer(&a))
+	sb := *(*[]int8)(unsafe.Pointer(&b))
+
+	// we can short circuit for different signd numbers or for equal length byte
+	// arrays that have different first bytes. The equality requirement is necessary
+	// for sign extension cases. 0xFF10 should be equal to 0x10 (due to big endian sign extension)
+	if int8(0x80&uint8(sa[0])) != int8(0x80&uint8(sb[0])) || (len(sa) == len(sb) && sa[0] != sb[0]) {
+		return sa[0] < sb[0]
+	}
+
+	// when the lengths are unequal and the numbers are of the same sign, we need
+	// to do comparison by sign extending the shorter value first, and once we get
+	// to equal sized arrays, lexicographical unsigned comparison of everything but
+	// the first byte is sufficient.
+
+	if len(a) != len(b) {
+		var lead []byte
+		if len(a) > len(b) {
+			leadLen := len(a) - len(b)
+			lead = a[:leadLen]
+			a = a[leadLen:]
+		} else {
+			debug.Assert(len(a) < len(b), "something weird in byte slice signed comparison")
+			leadLen := len(b) - len(a)
+			lead = b[:leadLen]
+			b = b[leadLen:]
+		}
+
+		// compare extra bytes to the sign extension of the first byte of the other number
+		var extension byte
+		if sa[0] < 0 {
+			extension = 0xFF
+		}
+
+		notequal := false
+		for _, c := range lead {
+			if c != extension {
+				notequal = true
+				break
+			}
+		}
+
+		if notequal {
+			// since sign extension are extrema values for unsigned bytes:
+			//
+			// Four cases exist:
+			//	 negative values:
+			//	   b is the longer value
+			//       b must be the lesser value: return false
+			//     else:
+			//       a must be the lesser value: return true
+			//
+			//   positive values:
+			//     b is the longer value
+			//       values in b must be greater than a: return true
+			//     else:
+			//       values in a must be greater than b: return false
+			neg := sa[0] < 0
+			blonger := len(sa) < len(sb)
+			return neg != blonger
+		}
+	} else {
+		a = a[1:]
+		b = b[1:]
+	}
+
+	return bytes.Compare(a, b) == -1
 }
 
 func (BooleanStatistics) defaultMin() bool { return true }
@@ -354,18 +433,7 @@ func (s *ByteArrayStatistics) less(a, b parquet.ByteArray) bool {
 		return bytes.Compare(a, b) == -1
 	}
 
-	sa := *(*[]int8)(unsafe.Pointer(&a))
-	sb := *(*[]int8)(unsafe.Pointer(&b))
-	i := 0
-	for ; i < len(sa) && i < len(sb); i++ {
-		if sa[i] < sb[i] {
-			return true
-		}
-		if sb[i] < sa[i] {
-			return false
-		}
-	}
-	return i == len(sa) && i != len(sb)
+	return signedByteLess([]byte(a), []byte(b))
 }
 
 func (s *FixedLenByteArrayStatistics) less(a, b parquet.FixedLenByteArray) bool {
@@ -373,18 +441,7 @@ func (s *FixedLenByteArrayStatistics) less(a, b parquet.FixedLenByteArray) bool 
 		return bytes.Compare(a, b) == -1
 	}
 
-	sa := *(*[]int8)(unsafe.Pointer(&a))
-	sb := *(*[]int8)(unsafe.Pointer(&b))
-	i := 0
-	for ; i < len(sa) && i < len(sb); i++ {
-		if sa[i] < sb[i] {
-			return true
-		}
-		if sb[i] < sa[i] {
-			return false
-		}
-	}
-	return i == len(sa) && i != len(sb)
+	return signedByteLess([]byte(a), []byte(b))
 }
 
 func (BooleanStatistics) cleanStat(minMax minmaxPairBoolean) *minmaxPairBoolean { return &minMax }
@@ -474,44 +531,4 @@ func GetStatValue(typ parquet.Type, val []byte) interface{} {
 		return val
 	}
 	return nil
-}
-
-func (s *ByteArrayStatistics) UpdateWithArrow(values array.Interface) {
-	if _, ok := values.DataType().(arrow.BinaryDataType); !ok {
-		panic("can't update bytearray stats with non binary arrow data")
-	}
-
-	s.incNulls(int64(values.NullN()))
-	s.nvalues += int64(values.Len()) - int64(values.NullN())
-	if values.NullN() == values.Len() {
-		return
-	}
-
-	var (
-		min = s.defaultMin()
-		max = s.defaultMax()
-
-		offsets  []int32
-		valueBuf []byte
-	)
-
-	switch arr := values.(type) {
-	case *array.Binary:
-		offsets = arr.ValueOffsets()
-	case *array.String:
-		offsets = arrow.Int32Traits.CastFromBytes(arr.Data().Buffers()[1].Bytes())[arr.Offset() : arr.Offset()+arr.Len()+1]
-	}
-	valueBuf = values.Data().Buffers()[2].Bytes()
-
-	utils.VisitBitBlocks(values.NullBitmapBytes(), int64(values.Data().Offset()), int64(values.Len()),
-		func(_ int64) {
-			val := valueBuf[offsets[0]:offsets[1]]
-			min = s.minval(min, val)
-			max = s.maxval(max, val)
-			offsets = offsets[1:]
-		}, func() {
-			offsets = offsets[1:]
-		})
-
-	s.SetMinMax(min, max)
 }

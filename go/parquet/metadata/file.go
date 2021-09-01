@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 	"reflect"
+	"unicode/utf8"
 
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/compress"
@@ -114,8 +115,9 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	createdBy := f.props.CreatedBy()
 	f.metadata.CreatedBy = &createdBy
 
-	// Users cannot set the `ColumnOrder` since we donot not have user defined sort order
+	// Users cannot set the `ColumnOrder` since we do not not have user defined sort order
 	// in the spec yet.
+	//
 	// We always default to `TYPE_DEFINED_ORDER`. We can expose it in
 	// the API once we have user defined sort orders in the Parquet format.
 	// TypeDefinedOrder implies choose SortOrder based on ConvertedType/PhysicalType
@@ -160,7 +162,9 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	return out, nil
 }
 
-// KeyValueMetadata is an alias for a slice of thrift keyvalue pairs
+// KeyValueMetadata is an alias for a slice of thrift keyvalue pairs.
+//
+// It is presumed that the metadata should all be utf8 valid.
 type KeyValueMetadata []*format.KeyValue
 
 // NewKeyValueMetadata is equivalent to make(KeyValueMetadata, 0)
@@ -168,8 +172,14 @@ func NewKeyValueMetadata() KeyValueMetadata {
 	return make(KeyValueMetadata, 0)
 }
 
-func (k *KeyValueMetadata) Append(key, value string) {
+// Append adds the passed in key and value to the metadata, if either contains
+// any invalid utf8 runes, then it is not added and an error is returned.
+func (k *KeyValueMetadata) Append(key, value string) error {
+	if !utf8.ValidString(key) || !utf8.ValidString(value) {
+		return xerrors.Errorf("metadata must be valid utf8 strings, got key = '%s' and value = '%s'", key, value)
+	}
 	*k = append(*k, &format.KeyValue{Key: key, Value: &value})
+	return nil
 }
 
 func (k KeyValueMetadata) Len() int { return len(k) }
@@ -208,10 +218,14 @@ func (k KeyValueMetadata) FindValue(key string) *string {
 // to make it easier to use and interact with.
 type FileMetaData struct {
 	*format.FileMetaData
-	version       *AppVersion
 	Schema        *schema.Schema
 	FileDecryptor encryption.FileDecryptor
-	metadataLen   int
+
+	// app version of the writer for this file
+	version *AppVersion
+	// size of the raw bytes of the metadata in the file which were
+	// decoded by thrift, Size() getter returns the value.
+	metadataLen int
 }
 
 // NewFileMetaData takes in the raw bytes of the serialized metadata to deserialize
@@ -354,9 +368,9 @@ func (f *FileMetaData) Subset(rowGroups []int) (*FileMetaData, error) {
 			Version:                  f.Version,
 			KeyValueMetadata:         f.KeyValueMetadata(),
 		},
-		f.version,
 		f.Schema,
 		f.FileDecryptor,
+		f.version,
 		0,
 	}
 

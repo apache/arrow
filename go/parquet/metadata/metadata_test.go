@@ -43,8 +43,8 @@ func generateTableMetaData(schema *schema.Schema, props *parquet.WriterPropertie
 	statsFloat.Signed = true
 	col2Builder.SetStats(statsFloat)
 
-	col1Builder.Finish(nrows/2, 4, 0, 10, 512, 600, true, false, dictEncodingStats, dataEncodingStats, nil)
-	col2Builder.Finish(nrows/2, 24, 0, 30, 512, 600, true, false, dictEncodingStats, dataEncodingStats, nil)
+	col1Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 4, 0, 10, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
+	col2Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 24, 0, 30, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
 
 	rg1Builder.SetNumRows(nrows / 2)
 	rg1Builder.Finish(1024, -1)
@@ -56,8 +56,8 @@ func generateTableMetaData(schema *schema.Schema, props *parquet.WriterPropertie
 	// column metadata
 	col1Builder.SetStats(statsInt)
 	col2Builder.SetStats(statsFloat)
-	col1Builder.Finish(nrows/2, 6, 0, 10, 512, 600, true, false, dictEncodingStats, dataEncodingStats, nil)
-	col2Builder.Finish(nrows/2, 16, 0, 26, 512, 600, true, false, dictEncodingStats, dataEncodingStats, nil)
+	col1Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 6, 0, 10, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
+	col2Builder.Finish(metadata.ChunkMetaInfo{nrows / 2, 16, 0, 26, 512, 600}, true, false, metadata.EncodingStats{dictEncodingStats, dataEncodingStats}, nil)
 
 	rg2Builder.SetNumRows(nrows / 2)
 	rg2Builder.Finish(1024, -1)
@@ -297,19 +297,19 @@ func TestApplicationVersion(t *testing.T) {
 	assert.True(t, version.LessThan(version1))
 
 	var stats metadata.EncodedStatistics
-	assert.False(t, version1.HasCorrectStatistics(parquet.Types.Int96, stats, schema.SortUNKNOWN))
-	assert.True(t, version.HasCorrectStatistics(parquet.Types.Int32, stats, schema.SortSIGNED))
-	assert.False(t, version.HasCorrectStatistics(parquet.Types.ByteArray, stats, schema.SortSIGNED))
-	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, stats, schema.SortSIGNED))
-	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, stats, schema.SortUNSIGNED))
-	assert.True(t, version3.HasCorrectStatistics(parquet.Types.FixedLenByteArray, stats, schema.SortSIGNED))
+	assert.False(t, version1.HasCorrectStatistics(parquet.Types.Int96, schema.NoLogicalType{}, stats, schema.SortUNKNOWN))
+	assert.True(t, version.HasCorrectStatistics(parquet.Types.Int32, schema.NoLogicalType{}, stats, schema.SortSIGNED))
+	assert.False(t, version.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, stats, schema.SortSIGNED))
+	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, stats, schema.SortSIGNED))
+	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, stats, schema.SortUNSIGNED))
+	assert.True(t, version3.HasCorrectStatistics(parquet.Types.FixedLenByteArray, schema.NoLogicalType{}, stats, schema.SortSIGNED))
 
 	// check that the old stats are correct if min and max are the same regardless of sort order
 	var statsStr metadata.EncodedStatistics
 	statsStr.SetMin([]byte("a")).SetMax([]byte("b"))
-	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, statsStr, schema.SortUNSIGNED))
+	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, statsStr, schema.SortUNSIGNED))
 	statsStr.SetMax([]byte("a"))
-	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, statsStr, schema.SortUNSIGNED))
+	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, statsStr, schema.SortUNSIGNED))
 
 	// check that the same holds true for ints
 	var (
@@ -319,7 +319,18 @@ func TestApplicationVersion(t *testing.T) {
 	var statsInt metadata.EncodedStatistics
 	statsInt.SetMin((*(*[4]byte)(unsafe.Pointer(&intMin)))[:])
 	statsInt.SetMax((*(*[4]byte)(unsafe.Pointer(&intMax)))[:])
-	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, statsInt, schema.SortUNSIGNED))
+	assert.False(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, statsInt, schema.SortUNSIGNED))
 	statsInt.SetMax((*(*[4]byte)(unsafe.Pointer(&intMin)))[:])
-	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, statsInt, schema.SortUNSIGNED))
+	assert.True(t, version1.HasCorrectStatistics(parquet.Types.ByteArray, schema.NoLogicalType{}, statsInt, schema.SortUNSIGNED))
+}
+
+func TestCheckBadDecimalStats(t *testing.T) {
+	version1 := metadata.NewAppVersion("parquet-cpp version 3.0.0")
+	version2 := metadata.NewAppVersion("parquet-cpp-arrow version 3.0.0")
+	version3 := metadata.NewAppVersion("parquet-cpp-arrow version 4.0.0")
+
+	var stats metadata.EncodedStatistics
+	assert.False(t, version1.HasCorrectStatistics(parquet.Types.FixedLenByteArray, schema.NewDecimalLogicalType(5, 0), stats, schema.SortSIGNED))
+	assert.False(t, version2.HasCorrectStatistics(parquet.Types.FixedLenByteArray, schema.NewDecimalLogicalType(5, 0), stats, schema.SortSIGNED))
+	assert.True(t, version3.HasCorrectStatistics(parquet.Types.FixedLenByteArray, schema.NewDecimalLogicalType(5, 0), stats, schema.SortSIGNED))
 }

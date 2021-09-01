@@ -33,15 +33,49 @@ func TestSignedByteArrayCompare(t *testing.T) {
 		},
 	}
 
-	s1ba := parquet.ByteArray("12345")
-	s2ba := parquet.ByteArray("12345678")
-	assert.True(t, s.less(s1ba, s2ba))
+	// signed byte array comparison is only used for Decimal comparison.
+	// when decimals are encoded as byte arrays they use twos compliment
+	// big-endian encoded values. Comparisons of byte arrays of unequal
+	// types need to handle sign extension.
 
-	// This is case where signed comparison UTF-8 (PARQUET-686) is incorrect
-	// This example is to only check signed comparison and not UTF-8.
-	s1ba = parquet.ByteArray("bügeln")
-	s2ba = parquet.ByteArray("braten")
-	assert.True(t, s.less(s1ba, s2ba))
+	tests := []struct {
+		b     []byte
+		order int
+	}{
+		{[]byte{0x80, 0x80, 0, 0}, 0},
+		{[]byte{ /*0xFF,*/ 0x80, 0, 0}, 1},
+		{[]byte{0xFF, 0x80, 0, 0}, 1},
+		{[]byte{ /*0xFF,*/ 0xFF, 0x01, 0}, 2},
+		{[]byte{ /*0xFF, 0xFF,*/ 0x80, 0}, 3},
+		{[]byte{ /*0xFF,*/ 0xFF, 0x80, 0}, 3},
+		{[]byte{0xFF, 0xFF, 0x80, 0}, 3},
+		{[]byte{ /*0xFF,0xFF,0xFF,*/ 0x80}, 4},
+		{[]byte{ /*0xFF,0xFF,0xFF*/ 0xFF}, 5},
+		{[]byte{ /*0, 0,*/ 0x01, 0x01}, 6},
+		{[]byte{ /*0,*/ 0, 0x01, 0x01}, 6},
+		{[]byte{0, 0, 0x01, 0x01}, 6},
+		{[]byte{ /*0,*/ 0x01, 0x01, 0}, 7},
+		{[]byte{0x01, 0x01, 0, 0}, 8},
+	}
+
+	for i, tt := range tests {
+		// empty array is always the smallest
+		assert.Truef(t, s.less(parquet.ByteArray{}, parquet.ByteArray(tt.b)), "case: %d", i)
+		assert.Falsef(t, s.less(parquet.ByteArray(tt.b), parquet.ByteArray{}), "case: %d", i)
+		// equals is always false
+		assert.Falsef(t, s.less(parquet.ByteArray(tt.b), parquet.ByteArray(tt.b)), "case: %d", i)
+
+		for j, case2 := range tests {
+			var fn func(assert.TestingT, bool, string, ...interface{}) bool
+			if tt.order < case2.order {
+				fn = assert.Truef
+			} else {
+				fn = assert.Falsef
+			}
+			fn(t, s.less(parquet.ByteArray(tt.b), parquet.ByteArray(case2.b)),
+				"%d (order: %d) %d (order: %d)", i, tt.order, j, case2.order)
+		}
+	}
 }
 
 func TestUnsignedByteArrayCompare(t *testing.T) {
@@ -70,13 +104,24 @@ func TestSignedCompareFLBA(t *testing.T) {
 		statistics: statistics{order: schema.SortSIGNED},
 	}
 
-	s1flba := parquet.FixedLenByteArray("Anti123456")
-	s2flba := parquet.FixedLenByteArray("Bunkd123456")
-	assert.True(t, s.less(s1flba, s2flba))
+	values := []parquet.FixedLenByteArray{
+		[]byte{0x80, 0, 0, 0},
+		[]byte{0xFF, 0xFF, 0x01, 0},
+		[]byte{0xFF, 0xFF, 0x80, 0},
+		[]byte{0xFF, 0xFF, 0xFF, 0x80},
+		[]byte{0xFF, 0xFF, 0xFF, 0xFF},
+		[]byte{0, 0, 0x01, 0x01},
+		[]byte{0, 0x01, 0x01, 0},
+		[]byte{0x01, 0x01, 0, 0},
+	}
 
-	s1flba = parquet.FixedLenByteArray("Bünk123456")
-	s2flba = parquet.FixedLenByteArray("Bunk123456")
-	assert.True(t, s.less(s1flba, s2flba))
+	for i, v := range values {
+		assert.Falsef(t, s.less(v, v), "%d", i)
+		for j, v2 := range values[i+1:] {
+			assert.Truef(t, s.less(v, v2), "%d %d", i, j)
+			assert.Falsef(t, s.less(v2, v), "%d %d", j, i)
+		}
+	}
 }
 
 func TestUnsignedCompareFLBA(t *testing.T) {

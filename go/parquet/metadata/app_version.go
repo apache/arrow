@@ -41,6 +41,9 @@ var (
 	parquet251FixedVersion      = NewAppVersionExplicit("parquet-mr", 1, 8, 0)
 	parquetCPPFixedStatsVersion = NewAppVersionExplicit("parquet-cpp", 1, 3, 0)
 	parquetMRFixedStatsVersion  = NewAppVersionExplicit("parquet-mr", 1, 10, 0)
+	// parquet1655FixedVersion is the version used for fixing PARQUET-1655
+	// which fixed min/max stats comparisons for Decimal types
+	parquet1655FixedVersion = NewAppVersionExplicit("parquet-cpp-arrow", 4, 0, 0)
 )
 
 // AppVersion represents a specific application version either read from
@@ -139,8 +142,8 @@ func (v AppVersion) Equal(other *AppVersion) bool {
 // Reference: parquet-cpp/src/parquet/metadata.cc
 //
 // PARQUET-686 has more discussion on statistics
-func (v AppVersion) HasCorrectStatistics(coltype parquet.Type, stats EncodedStatistics, sort schema.SortOrder) bool {
-	// parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed correctly for all types
+func (v AppVersion) HasCorrectStatistics(coltype parquet.Type, logicalType schema.LogicalType, stats EncodedStatistics, sort schema.SortOrder) bool {
+	// parquet-cpp version 1.3.0 and parquet-mr 1.10.0 onwards stats are computed correctly for all types except decimal
 	if (v.App == "parquet-cpp" && v.LessThan(parquetCPPFixedStatsVersion)) ||
 		(v.App == "parquet-mr" && v.LessThan(parquetMRFixedStatsVersion)) {
 		// only SIGNED are valid unless max and min are the same (in which case the sort order doesn't matter)
@@ -156,6 +159,15 @@ func (v AppVersion) HasCorrectStatistics(coltype parquet.Type, stats EncodedStat
 			return true
 		}
 	}
+
+	// parquet-cpp-arrow version 4.0.0 fixed Decimal comparisons for creating min/max stats
+	// parquet-cpp also becomes parquet-cpp-arrow as of version 4.0.0
+	if v.App == "parquet-cpp" || (v.App == "parquet-cpp-arrow" && v.LessThan(parquet1655FixedVersion)) {
+		if _, ok := logicalType.(*schema.DecimalLogicalType); ok && coltype == parquet.Types.FixedLenByteArray {
+			return false
+		}
+	}
+
 	// created_by is not populated, which could have been caused by
 	// parquet-mr during the same time as PARQUET-251, see PARQUET-297
 	if v.App == "unknown" {

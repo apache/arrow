@@ -122,7 +122,7 @@ func (c *ColumnChunkMetaData) FilePath() string { return c.column.GetFilePath() 
 // Type is the physical storage type used in the parquet file for this column chunk.
 func (c *ColumnChunkMetaData) Type() parquet.Type { return parquet.Type(c.columnMeta.Type) }
 
-// NumValues is the number of values stored in just this chunk
+// NumValues is the number of values stored in just this chunk including nulls.
 func (c *ColumnChunkMetaData) NumValues() int64 { return c.columnMeta.NumValues }
 
 // PathInSchema is the full path to this column from the root of the schema including
@@ -180,6 +180,12 @@ func (c *ColumnChunkMetaData) TotalUncompressedSize() int64 {
 	return c.columnMeta.GetTotalUncompressedSize()
 }
 
+// BloomFilterOffset is the byte offset from the beginning of the file to the bloom
+// filter data.
+func (c *ColumnChunkMetaData) BloomFilterOffset() int64 {
+	return c.columnMeta.GetBloomFilterOffset()
+}
+
 // StatsSet returns true only if there are statistics set in the metadata and the column
 // descriptor has a sort order that is not SortUnknown
 //
@@ -198,7 +204,8 @@ func (c *ColumnChunkMetaData) StatsSet() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return c.writerVersion.HasCorrectStatistics(c.Type(), encoded, c.descr.SortOrder()), nil
+
+	return c.writerVersion.HasCorrectStatistics(c.Type(), c.descr.LogicalType(), encoded, c.descr.SortOrder()), nil
 }
 
 func (c *ColumnChunkMetaData) Equals(other *ColumnChunkMetaData) bool {
@@ -279,27 +286,53 @@ func (c *ColumnChunkMetaDataBuilder) SetStats(val EncodedStatistics) {
 	c.chunk.MetaData.Statistics = val.ToThrift()
 }
 
+// ChunkMetaInfo is a helper struct for passing the offset and size information
+// for finishing the building of column chunk metadata
+type ChunkMetaInfo struct {
+	NumValues        int64
+	DictPageOffset   int64
+	IndexPageOffset  int64
+	DataPageOffset   int64
+	CompressedSize   int64
+	UncompressedSize int64
+}
+
+// EncodingStats is a helper struct for passing the encoding stat information
+// for finishing up metadata for a column chunk.
+type EncodingStats struct {
+	DictEncodingStats map[parquet.Encoding]int32
+	DataEncodingStats map[parquet.Encoding]int32
+}
+
 // Finish finalizes the metadata with the given offsets,
 // flushes any compression that needs to be done, and performs
 // any encryption if an encryptor is provided.
-func (c *ColumnChunkMetaDataBuilder) Finish(nvalues, dictPageOffset, indexPageOffset, dataPageOffset, compressed, uncompressed int64, hasDict, dictFallback bool, dictEncodingStats, dataEncodingStats map[parquet.Encoding]int32, metaEncryptor encryption.Encryptor) error {
-	if dictPageOffset > 0 {
-		c.chunk.MetaData.DictionaryPageOffset = &dictPageOffset
-		c.chunk.FileOffset = dictPageOffset + compressed
+func (c *ColumnChunkMetaDataBuilder) Finish(info ChunkMetaInfo, hasDict, dictFallback bool, encStats EncodingStats, metaEncryptor encryption.Encryptor) error {
+	if info.DictPageOffset > 0 {
+		c.chunk.MetaData.DictionaryPageOffset = &info.DictPageOffset
+		c.chunk.FileOffset = info.DictPageOffset + info.CompressedSize
 	} else {
-		c.chunk.FileOffset = dataPageOffset + compressed
+		c.chunk.FileOffset = info.DataPageOffset + info.CompressedSize
 	}
 
-	c.chunk.MetaData.NumValues = nvalues
-	if indexPageOffset >= 0 {
-		c.chunk.MetaData.IndexPageOffset = &indexPageOffset
+	c.chunk.MetaData.NumValues = info.NumValues
+	if info.IndexPageOffset >= 0 {
+		c.chunk.MetaData.IndexPageOffset = &info.IndexPageOffset
 	}
 
-	c.chunk.MetaData.DataPageOffset = dataPageOffset
-	c.chunk.MetaData.TotalUncompressedSize = uncompressed
-	c.chunk.MetaData.TotalCompressedSize = compressed
+	c.chunk.MetaData.DataPageOffset = info.DataPageOffset
+	c.chunk.MetaData.TotalUncompressedSize = info.UncompressedSize
+	c.chunk.MetaData.TotalCompressedSize = info.CompressedSize
 
-	thriftEncodings := make([]format.Encoding, 0, 3)
+	// no matter the configuration, the maximum number of thrift encodings we'll
+	// populate is going to be 3:
+	// 	1. potential dictionary index encoding
+	//	2. page encoding
+	//	3. RLE for repetition and definition levels
+	// so let's preallocate a capacity of 3 but initialize the slice at 0 len
+	const maxEncodings = 3
+
+	thriftEncodings := make([]format.Encoding, 0, maxEncodings)
 	if hasDict {
 		thriftEncodings = append(thriftEncodings, format.Encoding(c.props.DictionaryIndexEncoding()))
 		if c.props.Version() == parquet.V1 {
@@ -319,15 +352,15 @@ func (c *ColumnChunkMetaDataBuilder) Finish(nvalues, dictPageOffset, indexPageOf
 	}
 	c.chunk.MetaData.Encodings = thriftEncodings
 
-	thriftEncodingStats := make([]*format.PageEncodingStats, 0, len(dictEncodingStats)+len(dataEncodingStats))
-	for k, v := range dictEncodingStats {
+	thriftEncodingStats := make([]*format.PageEncodingStats, 0, len(encStats.DictEncodingStats)+len(encStats.DataEncodingStats))
+	for k, v := range encStats.DictEncodingStats {
 		thriftEncodingStats = append(thriftEncodingStats, &format.PageEncodingStats{
 			PageType: format.PageType_DICTIONARY_PAGE,
 			Encoding: format.Encoding(k),
 			Count:    v,
 		})
 	}
-	for k, v := range dataEncodingStats {
+	for k, v := range encStats.DataEncodingStats {
 		thriftEncodingStats = append(thriftEncodingStats, &format.PageEncodingStats{
 			PageType: format.PageType_DATA_PAGE,
 			Encoding: format.Encoding(k),
