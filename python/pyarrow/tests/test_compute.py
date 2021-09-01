@@ -1694,8 +1694,6 @@ def _check_datetime_components(timestamps, timezone=None):
         pa.array(ts.dt.dayofweek + 1))
 
     assert pc.week(tsa, options=pc.DayOfWeekOptions(
-        one_based_numbering=False)).equals(pa.array(iso_week - 1))
-    assert pc.week(tsa, options=pc.DayOfWeekOptions(
         one_based_numbering=True)).equals(pa.array(iso_week))
 
 

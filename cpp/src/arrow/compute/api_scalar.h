@@ -1031,7 +1031,7 @@ ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLP
 /// \since 6.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Week(const Datum& values,
-                                DayOfWeekOptions options = DayOfWeekOptions(),
+                                DayOfWeekOptions options = DayOfWeekOptions(true, 0),
                                 ExecContext* ctx = NULLPTR);
 
 /// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for

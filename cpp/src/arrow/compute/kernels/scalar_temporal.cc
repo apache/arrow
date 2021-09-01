@@ -57,7 +57,6 @@ using arrow_vendored::date::literals::last;
 using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
-using arrow_vendored::date::literals::sun;
 using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
@@ -394,13 +393,11 @@ struct ISOWeek {
 template <typename Duration, typename Localizer>
 struct Week {
   explicit Week(const DayOfWeekOptions* options, Localizer&& localizer)
-      : localizer_(std::move(localizer)), count_offset_(options->one_based_numbering) {
+      : localizer_(std::move(localizer)),
+        one_based_numbering_(options->one_based_numbering) {
     if (options->week_start == 7) {
-      start_week_ = sun;
       mid_week_ = wed;
-
     } else {
-      start_week_ = mon;
       mid_week_ = thu;
     }
   }
@@ -408,22 +405,27 @@ struct Week {
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
-    auto y = year_month_day{t + days{3}}.year();
-
-    auto start = localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) +
-                 (start_week_ - mid_week_);
-    if (t < start) {
-      --y;
-      start = localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) +
-              (start_week_ - mid_week_);
+    if (one_based_numbering_) {
+      auto y = year_month_day{t + days{3}}.year();
+      auto start =
+          localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) + (mon - thu);
+      if (t < start) {
+        --y;
+        start =
+            localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) + (mon - thu);
+      }
+      return static_cast<T>(trunc<weeks>(t - start).count() + 1);
+    } else {
+      auto y = year_month_day{t}.year();
+      auto start =
+          localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) + (mon - thu);
+      return static_cast<T>(floor<weeks>(t - start).count() + 1);
     }
-    return static_cast<T>(trunc<weeks>(t - start).count() + count_offset_);
   }
 
   Localizer localizer_;
-  const int count_offset_;
-  arrow_vendored::date::weekday start_week_;
   arrow_vendored::date::weekday mid_week_;
+  bool one_based_numbering_;
 };
 
 // ----------------------------------------------------------------------
@@ -1190,7 +1192,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
-  static auto default_week_options = DayOfWeekOptions(false, 1);
+  static auto default_week_options = DayOfWeekOptions(true, 1);
   auto week = MakeTemporal<Week, TemporalComponentExtractDayOfWeek, Int64Type>(
       "week", int64(), &week_doc, &default_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(week)));

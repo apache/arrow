@@ -122,7 +122,7 @@ class ScalarTemporalTest : public ::testing::Test {
       "2005, 2008, 2009, 2011, null]";
   std::string iso_week =
       "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
-  std::string week = "[0, 8, 51, 19, 0, 0, 0, 52, 52, 52, 0, 51, 51, 51, 0, 51, null]";
+  std::string week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
 
   std::string quarter = "[1, 1, 1, 2, 1, 4, 4, 4, 1, 1, 1, 1, 4, 4, 4, 1, null]";
   std::string hour = "[0, 23, 0, 3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 1, null]";
@@ -195,12 +195,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
 
 TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   const char* times = R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
-
   auto unit = timestamp(TimeUnit::MICRO);
-  auto iso_calendar_type =
-      struct_({field("iso_year", int64()), field("iso_week", int64()),
-               field("iso_day_of_week", int64())});
-
   auto year = "[1677, 2262]";
   auto month = "[9, 4]";
   auto day = "[20, 13]";
@@ -208,7 +203,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   auto day_of_year = "[263, 103]";
   auto iso_year = "[1677, 2262]";
   auto iso_week = "[38, 15]";
-  auto week = "[37, 14]";
+  auto week = "[38, 15]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
                     R"([{"iso_year": 1677, "iso_week": 38, "iso_day_of_week": 1},
@@ -245,9 +240,6 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
 // TODO: We should test on windows once ARROW-13168 is resolved.
 TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
-  auto iso_calendar_type =
-      struct_({field("iso_year", int64()), field("iso_week", int64()),
-               field("iso_day_of_week", int64())});
   auto year =
       "[1969, 2000, 1898, 2033, 2019, 2019, 2019, 2009, 2009, 2010, 2010, 2005, 2005, "
       "2008, 2008, 2011, null]";
@@ -260,7 +252,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
       "[1970, 2000, 1898, 2033, 2020, 2020, 2019, 2009, 2009, 2009, 2009, 2005, 2005, "
       "2008, 2008, 2011, null]";
   auto iso_week = "[1, 9, 52, 20, 1, 1, 52, 53, 53, 53, 53, 52, 52, 52, 52, 52, null]";
-  auto week = "[0, 8, 51, 19, 0, 0, 51, 52, 52, 52, 52, 51, 51, 51, 51, 51, null]";
+  auto week = "[1, 9, 52, 20, 1, 1, 52, 53, 53, 53, 53, 52, 52, 52, 52, 52, null]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
                     R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 3},
@@ -305,12 +297,6 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
 TEST_F(ScalarTemporalTest, TestZoned2) {
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
-    auto iso_calendar_type =
-        struct_({field("iso_year", int64()), field("iso_week", int64()),
-                 field("iso_day_of_week", int64())});
-    auto year =
-        "[1970, 2000, 1899, 2033, 2020, 2019, 2019, 2009, 2010, 2010, 2010, 2006, 2005, "
-        "2008, 2008, 2012, null]";
     auto month = "[1, 3, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
     auto day = "[1, 1, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
     auto day_of_week = "[3, 2, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
@@ -320,6 +306,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
         "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
         "2008, 2009, 2011, null]";
     auto iso_week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
+    auto week = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
     auto iso_calendar =
         ArrayFromJSON(iso_calendar_type,
                       R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 4},
@@ -393,29 +380,22 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
 #endif
 
 TEST_F(ScalarTemporalTest, Week) {
-  std::string week = "[0, 8, 51, 19, 0, 0, 0, 52, 52, 52, 0, 51, 51, 51, 0, 51, null]";
   std::string week_11 = "[1, 9, 52, 20, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52, null]";
+  std::string week_17 = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
   std::string week_01 = "[1, 9, 0, 20, 1, 53, 53, 53, 0, 0, 1, 0, 52, 52, 53, 0, null]";
   std::string week_07 = "[0, 9, 1, 20, 1, 53, 53, 52, 0, 1, 1, 1, 52, 53, 53, 1, null]";
-  std::string week_17 = "[53, 9, 1, 20, 1, 1, 1, 52, 52, 1, 1, 1, 52, 53, 53, 1, null]";
+  auto unit = timestamp(TimeUnit::NANO);
 
-  for (auto u : internal::AllTimeUnits()) {
-    auto unit = timestamp(u);
-    auto timestamps = ArrayFromJSON(unit, times_seconds_precision);
-    auto options_01 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 1);
-    auto options_11 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 1);
-    auto options_07 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 7);
-    auto options_17 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 7);
+  auto options_01 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 1);
+  auto options_11 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 1);
+  auto options_07 = DayOfWeekOptions(/*one_based_numbering=*/false, /*week_start*/ 7);
+  auto options_17 = DayOfWeekOptions(/*one_based_numbering=*/true, /*week_start*/ 7);
 
-    CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), week_11);
-    CheckScalarUnary("week", unit, times_seconds_precision, int64(), week_11,
-                     &options_11);
-    //    CheckScalarUnary("week", unit, times_seconds_precision, int64(), week_01,
-    //    &options_01); CheckScalarUnary("week", unit, times_seconds_precision, int64(),
-    //    week_07, &options_07);
-    CheckScalarUnary("week", unit, times_seconds_precision, int64(), week_17,
-                     &options_17);
-  }
+  CheckScalarUnary("iso_week", unit, times, int64(), week_11);
+  CheckScalarUnary("week", unit, times, int64(), week_01, &options_01);
+  CheckScalarUnary("week", unit, times, int64(), week_11, &options_11);
+  CheckScalarUnary("week", unit, times, int64(), week_07, &options_07);
+  CheckScalarUnary("week", unit, times, int64(), week_17, &options_17);
 }
 
 TEST_F(ScalarTemporalTest, DayOfWeek) {
