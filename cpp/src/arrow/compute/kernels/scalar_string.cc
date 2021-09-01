@@ -423,7 +423,7 @@ struct StringTransformExecWithState
 
 #ifdef ARROW_WITH_UTF8PROC
 
-struct StringTransformCodepointBase : public StringTransformBase {
+struct FunctionalCaseMappingTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
     EnsureLookupTablesFilled();
     return Status::OK();
@@ -441,7 +441,7 @@ struct StringTransformCodepointBase : public StringTransformBase {
 };
 
 template <typename CodepointTransform>
-struct StringTransformCodepoint : public StringTransformCodepointBase {
+struct StringTransformCodepoint : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -454,7 +454,7 @@ struct StringTransformCodepoint : public StringTransformCodepointBase {
   }
 };
 
-struct UTF8UpperTransform : public StringTransformCodepointBase {
+struct UTF8UpperTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
@@ -464,7 +464,7 @@ struct UTF8UpperTransform : public StringTransformCodepointBase {
 template <typename Type>
 using UTF8Upper = StringTransformExec<Type, StringTransformCodepoint<UTF8UpperTransform>>;
 
-struct UTF8LowerTransform : public StringTransformCodepointBase {
+struct UTF8LowerTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
@@ -474,7 +474,7 @@ struct UTF8LowerTransform : public StringTransformCodepointBase {
 template <typename Type>
 using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
-struct UTF8SwapCaseTransform : public StringTransformCodepointBase {
+struct UTF8SwapCaseTransform : public FunctionalCaseMappingTransform {
   static uint32_t TransformCodepoint(uint32_t codepoint) {
     if (codepoint <= kMaxCodepointLookup) {
       return lut_swapcase_codepoint[codepoint];
@@ -494,7 +494,7 @@ template <typename Type>
 using UTF8SwapCase =
     StringTransformExec<Type, StringTransformCodepoint<UTF8SwapCaseTransform>>;
 
-struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
+struct Utf8CapitalizeTransform : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
@@ -520,7 +520,7 @@ struct Utf8CapitalizeTransform : public StringTransformCodepointBase {
 template <typename Type>
 using Utf8Capitalize = StringTransformExec<Type, Utf8CapitalizeTransform>;
 
-struct Utf8TitleTransform : public StringTransformCodepointBase {
+struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     uint8_t* output_start = output;
