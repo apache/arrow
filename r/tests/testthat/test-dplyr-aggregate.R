@@ -235,6 +235,23 @@ test_that("Group by any/all", {
   )
 })
 
+test_that("Group by n_distinct() on dataset", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(lgl, na.rm = FALSE)) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Filter and aggregate", {
   expect_dplyr_equal(
     input %>%

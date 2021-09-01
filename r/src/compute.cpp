@@ -194,6 +194,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "hash_count_distinct") {
+    using Options = arrow::compute::CountOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->mode =
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ALL;
+    return out;
+  }
+
   if (func_name == "min_element_wise" || func_name == "max_element_wise") {
     using Options = arrow::compute::ElementWiseAggregateOptions;
     bool skip_nulls = true;
