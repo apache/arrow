@@ -198,7 +198,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::CountOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->mode =
-        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ANY;
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::ONLY_VALID : Options::ALL;
     return out;
   }
 
