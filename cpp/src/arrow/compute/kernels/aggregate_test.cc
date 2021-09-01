@@ -1954,10 +1954,10 @@ class TestPrimitiveModeKernel : public ::testing::Test {
   using Traits = TypeTraits<ArrowType>;
   using CType = typename ArrowType::c_type;
 
-  void AssertModesAre(const Datum& array, const int n,
+  void AssertModesAre(const Datum& array, const ModeOptions options,
                       const std::vector<CType>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, options));
     ValidateOutput(out);
     const StructArray out_array(out.array());
     ASSERT_EQ(out_array.length(), expected_modes.size());
@@ -1978,11 +1978,18 @@ class TestPrimitiveModeKernel : public ::testing::Test {
                       const std::vector<CType>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertModesAre(array, n, expected_modes, expected_counts);
+    AssertModesAre(array, ModeOptions(n), expected_modes, expected_counts);
+  }
+
+  void AssertModesAre(const std::string& json, const ModeOptions options,
+                      const std::vector<CType>& expected_modes,
+                      const std::vector<int64_t>& expected_counts) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertModesAre(array, options, expected_modes, expected_counts);
   }
 
   void AssertModeIs(const Datum& array, CType expected_mode, int64_t expected_count) {
-    AssertModesAre(array, 1, {expected_mode}, {expected_count});
+    AssertModesAre(array, ModeOptions(1), {expected_mode}, {expected_count});
   }
 
   void AssertModeIs(const std::string& json, CType expected_mode,
@@ -1997,8 +2004,8 @@ class TestPrimitiveModeKernel : public ::testing::Test {
     AssertModeIs(chunked, expected_mode, expected_count);
   }
 
-  void AssertModesEmpty(const Datum& array, int n) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
+  void AssertModesEmpty(const Datum& array, ModeOptions options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, options));
     auto out_array = out.make_array();
     ValidateOutput(*out_array);
     ASSERT_EQ(out.array()->length, 0);
@@ -2006,12 +2013,17 @@ class TestPrimitiveModeKernel : public ::testing::Test {
 
   void AssertModesEmpty(const std::string& json, int n = 1) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertModesEmpty(array, n);
+    AssertModesEmpty(array, ModeOptions(n));
   }
 
   void AssertModesEmpty(const std::vector<std::string>& json, int n = 1) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertModesEmpty(chunked, n);
+    AssertModesEmpty(chunked, ModeOptions(n));
+  }
+
+  void AssertModesEmpty(const std::string& json, ModeOptions options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertModesEmpty(array, options);
   }
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
@@ -2049,13 +2061,37 @@ TEST_F(TestBooleanModeKernel, Basics) {
                        {true, false}, {3, 2});
   this->AssertModesEmpty({"[null, null]", "[]", "[null]"}, 4);
 
-  auto ty = struct_({field("mode", boolean()), field("count", int64())});
-  Datum mode_true = ArrayFromJSON(ty, "[[true, 1]]");
-  Datum mode_false = ArrayFromJSON(ty, "[[false, 1]]");
-  Datum mode_empty = ArrayFromJSON(ty, "[]");
-  EXPECT_THAT(Mode(Datum(true)), ResultWith(mode_true));
-  EXPECT_THAT(Mode(Datum(false)), ResultWith(mode_false));
-  EXPECT_THAT(Mode(MakeNullScalar(boolean())), ResultWith(mode_empty));
+  auto in_ty = boolean();
+  this->AssertModesAre("[true, false, false, null]", ModeOptions(/*n=*/1), {false}, {2});
+  this->AssertModesEmpty("[true, false, false, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesAre("[true, false, false, null]",
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3),
+                       {false}, {2});
+  this->AssertModesEmpty("[false, false, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3));
+  this->AssertModesAre("[true, false, false]",
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3),
+                       {false}, {2});
+  this->AssertModesEmpty("[true, false, false, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesEmpty("[true, false]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesAre(ScalarFromJSON(in_ty, "true"),
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/false), {true}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "true"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "true"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+
+  this->AssertModesAre(ScalarFromJSON(in_ty, "true"), ModeOptions(/*n=*/1), {true}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"), ModeOptions(/*n=*/1));
 }
 
 TYPED_TEST_SUITE(TestIntegerModeKernel, IntegralArrowTypes);
@@ -2077,10 +2113,35 @@ TYPED_TEST(TestIntegerModeKernel, Basics) {
   this->AssertModesEmpty("[null, null, null]", 10);
 
   auto in_ty = this->type_singleton();
-  auto ty = struct_({field("mode", in_ty), field("count", int64())});
-  EXPECT_THAT(Mode(*MakeScalar(in_ty, 5)),
-              ResultWith(Datum(ArrayFromJSON(ty, "[[5, 1]]"))));
-  EXPECT_THAT(Mode(MakeNullScalar(in_ty)), ResultWith(Datum(ArrayFromJSON(ty, "[]"))));
+
+  this->AssertModesAre("[1, 2, 2, null]", ModeOptions(/*n=*/1), {2}, {2});
+  this->AssertModesEmpty("[1, 2, 2, null]", ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesAre("[1, 2, 2, null]",
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3), {2},
+                       {2});
+  this->AssertModesEmpty("[2, 2, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3));
+  this->AssertModesAre(
+      "[1, 2, 2]", ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3), {2}, {2});
+  this->AssertModesEmpty("[1, 2, 2, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesEmpty("[1, 2]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesAre(ScalarFromJSON(in_ty, "1"),
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/false), {1}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "1"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "1"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+
+  this->AssertModesAre(ScalarFromJSON(in_ty, "5"), ModeOptions(/*n=*/1), {5}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"), ModeOptions(/*n=*/1));
 }
 
 TYPED_TEST_SUITE(TestFloatingModeKernel, RealArrowTypes);
@@ -2108,10 +2169,35 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
   this->AssertModesAre("[NaN, NaN, 1, null, 1, 2, 2]", 3, {1, 2, NAN}, {2, 2, 2});
 
   auto in_ty = this->type_singleton();
-  auto ty = struct_({field("mode", in_ty), field("count", int64())});
-  EXPECT_THAT(Mode(*MakeScalar(in_ty, 5.0)),
-              ResultWith(Datum(ArrayFromJSON(ty, "[[5.0, 1]]"))));
-  EXPECT_THAT(Mode(MakeNullScalar(in_ty)), ResultWith(Datum(ArrayFromJSON(ty, "[]"))));
+
+  this->AssertModesAre("[1, 2, 2, null]", ModeOptions(/*n=*/1), {2}, {2});
+  this->AssertModesEmpty("[1, 2, 2, null]", ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesAre("[1, 2, 2, null]",
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3), {2},
+                       {2});
+  this->AssertModesEmpty("[2, 2, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/3));
+  this->AssertModesAre(
+      "[1, 2, 2]", ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3), {2}, {2});
+  this->AssertModesEmpty("[1, 2, 2, null]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesEmpty("[1, 2]",
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/3));
+  this->AssertModesAre(ScalarFromJSON(in_ty, "1"),
+                       ModeOptions(/*n=*/1, /*skip_nulls=*/false), {1}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "1"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/true, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "1"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"),
+                         ModeOptions(/*n=*/1, /*skip_nulls=*/false, /*min_count=*/2));
+
+  this->AssertModesAre(ScalarFromJSON(in_ty, "5"), ModeOptions(/*n=*/1), {5}, {1});
+  this->AssertModesEmpty(ScalarFromJSON(in_ty, "null"), ModeOptions(/*n=*/1));
 }
 
 TEST_F(TestInt8ModeKernelValueRange, Basics) {
