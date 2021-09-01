@@ -70,6 +70,8 @@ class TempVectorStack {
     top_ = 0;
     buffer_size_ = size;
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+    // Ensure later operations don't accidentally read uninitialized memory.
+    std::memset(buffer->mutable_data(), 0xFF, size);
     buffer_ = std::move(buffer);
     return Status::OK();
   }

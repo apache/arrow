@@ -427,19 +427,11 @@ void KeyEncoder::EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
     row_base += offset_within_row;
     uint8_t* col_base = col_prep.mutable_data(1);
     switch (col_prep.metadata().fixed_length) {
-      case 1: {
+      case 1:
         for (uint32_t i = 0; i < num_rows; ++i) {
           col_base[i] = row_base[i * row_size];
         }
-        // For booleans, we pack 8 bytes at a time, and the buffer we're
-        // writing to here may not be fully initialized - so make sure a
-        // multiple of 8 bytes are initialized to avoid Valgrind errors. The
-        // temp buffer is sized to num_rows uint32_t values, so there's more
-        // than enough space here.
-        const uint32_t remainder = (8 - (num_rows % 8)) % 8;
-        std::memset(col_base + num_rows, 0x00, remainder);
         break;
-      }
       case 2:
         for (uint32_t i = 0; i < num_rows; ++i) {
           reinterpret_cast<uint16_t*>(col_base)[i] =
