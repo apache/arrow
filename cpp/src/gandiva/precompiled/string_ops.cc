@@ -1775,8 +1775,7 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
   // try to allocate double size output string (worst case)
   auto out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len * 2));
   if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context,
-                                 "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }

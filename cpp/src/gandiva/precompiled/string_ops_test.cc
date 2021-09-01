@@ -916,7 +916,7 @@ TEST(TestStringOps, TestQuote) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
-  const char *out_str;
+  const char* out_str;
 
   out_str = quote_utf8(ctx_ptr, "dont", 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "\'dont\'");

@@ -837,8 +837,8 @@ TEST_F(TestProjector, TestQuote) {
   int num_records = 3;
   auto array0 = MakeArrowArrayUtf8({"dont", "don't", "'"}, {true, true, true});
   // expected output
-  auto exp_quote = MakeArrowArrayUtf8({"'dont'", "'don\\'t'", "'\\''"},
-                                      {true, true, true});
+  auto exp_quote =
+      MakeArrowArrayUtf8({"'dont'", "'don\\'t'", "'\\''"}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});

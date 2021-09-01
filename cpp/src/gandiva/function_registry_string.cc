@@ -287,7 +287,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("quote", {}, DataTypeVector{utf8()}, utf8(),kResultNullIfNull,
+      NativeFunction("quote", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "quote_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("byte_substr", {"bytesubstring"},
