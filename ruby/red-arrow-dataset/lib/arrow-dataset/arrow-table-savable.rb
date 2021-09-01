@@ -22,29 +22,34 @@ module ArrowDataset
       format = FileFormat.resolve(@options[:format])
       options = FileSystemDatasetWriteOptions.new
       options.file_write_options = format.default_write_options
+      path = @output.path
       if @output.scheme.nil?
         options.file_system = Arrow::LocalFileSystem.new
       else
         options.file_system = Arrow::FileSystem.create(@output.to_s)
+        # /C:/... -> C:/...
+        unless File.expand_path(".").start_with?("/")
+          path = path.gsub(/\A\//, "")
+        end
       end
       partitioning = @options[:partitioning]
       if partitioning
         # TODO
-        options.base_dir = File.dirname(@output.path)
-        options.base_name_template = File.basename(@output.path)
+        options.base_dir = File.dirname(path)
+        options.base_name_template = File.basename(path)
         options.partitioning = Partitioning.resolve(@options[:partitioning])
         scanner_builder = ScannerBuilder.new(@table)
         scanner = scanner_builder.finish
         FileSystemDataset.write_scanner(scanner, options)
       else
-        dir = File.dirname(@output.path)
+        dir = File.dirname(path)
         unless File.exist?(dir)
           options.file_system.create_dir(dir, true)
         end
-        options.file_system.open_output_stream(@output.path) do |output_stream|
+        options.file_system.open_output_stream(path) do |output_stream|
           format.open_writer(output_stream,
                              options.file_system,
-                             @output.path,
+                             path,
                              @table.schema,
                              format.default_write_options) do |writer|
             reader = Arrow::TableBatchReader.new(@table)
