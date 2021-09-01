@@ -42,7 +42,6 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/value_parsing.h"
 
