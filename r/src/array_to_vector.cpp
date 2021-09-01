@@ -874,9 +874,8 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
-    auto array =
-        checked_cast<const TimestampArray*>(this->chunked_array_->chunk(0).get());
-    auto array_type = checked_cast<const TimestampType*>(array->type().get());
+    auto array_type =
+        checked_cast<const TimestampType*>(this->chunked_array_->type().get());
     std::string tzone = array_type->timezone();
     if (tzone.size() > 0) {
       data.attr("tzone") = tzone;
