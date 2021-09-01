@@ -126,10 +126,10 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 		f.metadata.ColumnOrders[idx] = colOrder
 	}
 
-	fileEncProps := f.props.FileEncryptionProperties()
-	if fileEncProps != nil && !fileEncProps.EncryptedFooter() {
+	encryptProps := f.props.FileEncryptionProperties()
+	if encryptProps != nil && !encryptProps.EncryptedFooter() {
 		var signingAlgo parquet.Algorithm
-		algo := fileEncProps.Algorithm()
+		algo := encryptProps.Algorithm()
 		signingAlgo.Aad.AadFileUnique = algo.Aad.AadFileUnique
 		signingAlgo.Aad.SupplyAadPrefix = algo.Aad.SupplyAadPrefix
 		if !algo.Aad.SupplyAadPrefix {
