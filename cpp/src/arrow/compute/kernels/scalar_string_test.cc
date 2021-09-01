@@ -700,7 +700,6 @@ TYPED_TEST(TestStringKernels, IsPrintableAscii) {
 
 TYPED_TEST(TestStringKernels, IsSpaceAscii) {
   // \xe2\x80\x88 is punctuation space
-  // Note: for ascii version, the non-ascii chars are seen as caseless
   this->CheckUnary("ascii_is_space", "[\" \", null, \"  \", \"\\t\\r\"]", boolean(),
                    "[true, null, true, true]");
   this->CheckUnary("ascii_is_space", "[\" a\", null, \"a \", \"~\", \"\xe2\x80\x88\"]",
@@ -708,8 +707,7 @@ TYPED_TEST(TestStringKernels, IsSpaceAscii) {
 }
 
 TYPED_TEST(TestStringKernels, IsTitleAscii) {
-  // ٣ is arabic 3 (decimal), Φ capital
-  // Note: for ascii version, the non-ascii chars are seen as caseless
+  // ٣ is Arabic 3 (decimal), Φ capital
   this->CheckUnary("ascii_is_title",
                    "[\"Is\", null, \"Is Title\", \"Is٣Title\", \"Is_Ǆ\", \"Φ\", \"Ǆ\"]",
                    boolean(), "[true, null, true, true, true, false, false]");

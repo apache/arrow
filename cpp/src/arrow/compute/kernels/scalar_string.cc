@@ -87,12 +87,13 @@ static inline bool IsUpperCaseCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsCasedCharacterAscii(uint8_t ascii_character) {
+  // Note: Non-ASCII characters are seen as uncased.
   return IsLowerCaseCharacterAscii(ascii_character) ||
          IsUpperCaseCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaCharacterAscii(uint8_t ascii_character) {
-  return IsCasedCharacterAscii(ascii_character);  // same
+  return IsCasedCharacterAscii(ascii_character);
 }
 
 static inline bool IsAlphaNumericCharacterAscii(uint8_t ascii_character) {
@@ -106,7 +107,7 @@ static inline bool IsDecimalCharacterAscii(uint8_t ascii_character) {
 }
 
 static inline bool IsSpaceCharacterAscii(uint8_t ascii_character) {
-  return ((ascii_character >= 0x09) && (ascii_character <= 0x0D)) ||
+  return ((ascii_character >= 9) && (ascii_character <= 13)) ||
          (ascii_character == ' ');
 }
 
@@ -536,7 +537,7 @@ struct Utf8TitleTransform : public StringTransformCodepointBase {
         output = util::UTF8Encode(output, TransformCodepoint(codepoint));
         TransformCodepoint = UTF8LowerTransform::TransformCodepoint;
       } else {
-        // Copy caseless codepoint, prepare to uppercase next cased codepoint
+        // Copy uncased codepoint, prepare to uppercase next cased codepoint
         std::memcpy(output, input, next - input);
         output += next - input;
         TransformCodepoint = UTF8UpperTransform::TransformCodepoint;
@@ -710,7 +711,7 @@ struct AsciiTitleTransform : public StringTransformBase {
         *output++ = ascii_to_ul(*ch);
         ascii_to_ul = ascii_tolower;
       } else {
-        // Copy caseless character, prepare to uppercase next cased character
+        // Copy uncased character, prepare to uppercase next cased character
         *output++ = *ch;
         ascii_to_ul = ascii_toupper;
       }
@@ -1801,7 +1802,7 @@ struct IsTitleUnicode {
                    Status* st) {
     // rules:
     //   1. lower case follows cased
-    //   2. upper case follows caseless
+    //   2. upper case follows uncased
     //   3. at least 1 cased character (which logically should be upper/title)
     bool rules_1_and_2;
     bool previous_cased = false;  // in LL, LU or LT
@@ -1811,16 +1812,16 @@ struct IsTitleUnicode {
                                [&previous_cased, &rule_3](uint32_t codepoint) {
                                  if (IsLowerCaseCharacterUnicode(codepoint)) {
                                    if (!previous_cased) return false;  // rule 1 broken
-                                   // next should be more lower case or caseless
+                                   // next should be more lower case or uncased
                                    previous_cased = true;
                                  } else if (IsUpperCaseCharacterUnicode(codepoint)) {
                                    if (previous_cased) return false;  // rule 2 broken
-                                   // next should be a lower case or caseless
+                                   // next should be a lower case or uncased
                                    previous_cased = true;
                                    rule_3 = true;  // rule 3 obeyed
                                  } else {
-                                   // a caseless char, like _ or 1
-                                   // next should be upper case or more caseless
+                                   // an uncased char, like _ or 1
+                                   // next should be upper case or more uncased
                                    previous_cased = false;
                                  }
                                  return true;
@@ -1837,11 +1838,10 @@ struct IsTitleUnicode {
 struct IsTitleAscii {
   static bool Call(KernelContext*, const uint8_t* input, size_t input_string_ncodeunits,
                    Status*) {
-    // rules:
+    // Rules:
     //   1. lower case follows cased
-    //   2. upper case follows caseless
+    //   2. upper case follows uncased
     //   3. at least 1 cased character (which logically should be upper/title)
-    // NOTE: Non-ASCII characters are seen as caseless.
     bool rules_1_and_2 = true;
     bool previous_cased = false;  // in LL, LU or LT
     bool rule_3 = false;
@@ -1852,7 +1852,7 @@ struct IsTitleAscii {
           rules_1_and_2 = false;
           break;
         }
-        // next should be more lower case or caseless
+        // next should be more lower case or uncased
         previous_cased = true;
       } else if (IsUpperCaseCharacterAscii(*c)) {
         if (previous_cased) {
@@ -1860,12 +1860,12 @@ struct IsTitleAscii {
           rules_1_and_2 = false;
           break;
         }
-        // next should be a lower case or caseless
+        // next should be a lower case or uncased
         previous_cased = true;
         rule_3 = true;  // rule 3 obeyed
       } else {
-        // a caseless character, like _ or 1
-        // next should be upper case or more caseless
+        // an uncased character, like _ or 1
+        // next should be upper case or more uncased
         previous_cased = false;
       }
     }
@@ -4117,7 +4117,7 @@ const auto ascii_is_title_doc = StringPredicateDoc(
     "Classify strings as ASCII titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a caseless character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const auto utf8_is_alnum_doc =
@@ -4142,7 +4142,7 @@ const auto utf8_is_title_doc = StringPredicateDoc(
     "Classify strings as titlecase",
     ("For each string in `strings`, emit true iff the string is title-cased,\n"
      "i.e. it has at least one cased character, each uppercase character\n"
-     "follows a caseless character, and each lowercase character follows\n"
+     "follows an uncased character, and each lowercase character follows\n"
      "an uppercase character.\n"));
 
 const FunctionDoc ascii_upper_doc(
