@@ -189,6 +189,8 @@ class KeyEncoder {
     Status AppendEmpty(uint32_t num_rows_to_append, uint32_t num_extra_bytes_to_append);
     Status AppendSelectionFrom(const KeyRowArray& from, uint32_t num_rows_to_append,
                                const uint16_t* source_row_ids);
+    Status AppendSelectionFrom(const KeyRowArray& from, uint32_t num_rows_to_append,
+                               const uint32_t* source_row_ids);
     const KeyRowMetadata& metadata() const { return metadata_; }
     int64_t length() const { return num_rows_; }
     const uint8_t* data(int i) const {
@@ -207,6 +209,10 @@ class KeyEncoder {
     bool has_any_nulls(const KeyEncoderContext* ctx) const;
 
    private:
+    template <typename row_id_type>
+    Status AppendSelectionFromImp(const KeyRowArray& from, uint32_t num_rows_to_append,
+                                  const row_id_type* source_row_ids);
+
     Status ResizeFixedLengthBuffers(int64_t num_extra_rows);
     Status ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes);
 

@@ -175,9 +175,10 @@ Status KeyEncoder::KeyRowArray::ResizeOptionalVaryingLengthBuffer(
   return Status::OK();
 }
 
-Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
-                                                    uint32_t num_rows_to_append,
-                                                    const uint16_t* source_row_ids) {
+template <typename row_id_type>
+Status KeyEncoder::KeyRowArray::AppendSelectionFromImp(
+    const KeyRowArray& from, uint32_t num_rows_to_append,
+    const row_id_type* source_row_ids) {
   DCHECK(metadata_.is_compatible(from.metadata()));
 
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
@@ -189,7 +190,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
     uint32_t total_length = to_offsets[num_rows_];
     uint32_t total_length_to_append = 0;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
-      uint16_t row_id = source_row_ids[i];
+      auto row_id = source_row_ids[i];
       uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       total_length_to_append += length;
       to_offsets[num_rows_ + i + 1] = total_length + total_length_to_append;
@@ -200,7 +201,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
     const uint8_t* src = from.rows_->data();
     uint8_t* dst = rows_->mutable_data() + total_length;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
-      uint16_t row_id = source_row_ids[i];
+      auto row_id = source_row_ids[i];
       uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       auto src64 = reinterpret_cast<const uint64_t*>(src + from_offsets[row_id]);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
@@ -214,7 +215,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
     const uint8_t* src = from.rows_->data();
     uint8_t* dst = rows_->mutable_data() + num_rows_ * metadata_.fixed_length;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
-      uint16_t row_id = source_row_ids[i];
+      auto row_id = source_row_ids[i];
       uint32_t length = metadata_.fixed_length;
       auto src64 = reinterpret_cast<const uint64_t*>(src + length * row_id);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
@@ -231,7 +232,7 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
   const uint8_t* src_base = from.null_masks_->data();
   uint8_t* dst_base = null_masks_->mutable_data();
   for (uint32_t i = 0; i < num_rows_to_append; ++i) {
-    uint32_t row_id = source_row_ids[i];
+    auto row_id = source_row_ids[i];
     int64_t src_byte_offset = row_id * byte_length;
     const uint8_t* src = src_base + src_byte_offset;
     uint8_t* dst = dst_base + dst_byte_offset;
@@ -244,6 +245,18 @@ Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
   num_rows_ += num_rows_to_append;
 
   return Status::OK();
+}
+
+Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
+                                                    uint32_t num_rows_to_append,
+                                                    const uint16_t* source_row_ids) {
+  return AppendSelectionFromImp(from, num_rows_to_append, source_row_ids);
+}
+
+Status KeyEncoder::KeyRowArray::AppendSelectionFrom(const KeyRowArray& from,
+                                                    uint32_t num_rows_to_append,
+                                                    const uint32_t* source_row_ids) {
+  return AppendSelectionFromImp(from, num_rows_to_append, source_row_ids);
 }
 
 Status KeyEncoder::KeyRowArray::AppendEmpty(uint32_t num_rows_to_append,
@@ -866,8 +879,8 @@ void KeyEncoder::EncoderBinaryPair::Encode(uint32_t offset_within_row, KeyRowArr
   }
 
   DCHECK(temp1->metadata().is_fixed_length);
-  DCHECK_GE(temp1->length() * temp1->metadata().fixed_length,
-            col1.length() * static_cast<int64_t>(sizeof(uint16_t)));
+  DCHECK(temp1->length() * temp1->metadata().fixed_length >=
+         col1.length() * static_cast<int64_t>(sizeof(uint16_t)));
 
   KeyColumnArray temp16bit(KeyColumnMetadata(true, sizeof(uint16_t)), col1.length(),
                            nullptr, temp1->mutable_data(1), nullptr);
@@ -1386,7 +1399,6 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
   //
   // c) Fixed-length columns precede varying-length columns when
   // both have the same size fixed-length part.
-  //
   column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     column_order[i] = i;

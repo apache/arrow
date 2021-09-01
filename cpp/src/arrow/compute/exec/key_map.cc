@@ -137,57 +137,60 @@ void SwissTable::extract_group_ids_imp(const int num_keys, const uint16_t* selec
   }
 }
 
-void SwissTable::extract_group_ids(const int num_keys, const uint16_t* optional_selection,
+void SwissTable::extract_group_ids(int64_t hardware_flags, const int num_keys,
+                                   const uint16_t* optional_selection,
                                    const uint32_t* hashes, const uint8_t* local_slots,
                                    uint32_t* out_group_ids) const {
   // Group id values for all 8 slots in the block are bit-packed and follow the status
   // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
   // that case we can extract group id using aligned 64-bit word access.
   int num_group_id_bits = num_groupid_bits_from_log_blocks(log_blocks_);
+  int num_group_id_bytes = num_group_id_bits / 8;
   ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
                num_group_id_bits == 32);
 
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
 #if defined(ARROW_HAVE_AVX2)
-  int num_group_id_bytes = num_group_id_bits / 8;
-  if ((hardware_flags_ & arrow::internal::CpuInfo::AVX2) && !optional_selection) {
+  if ((hardware_flags & arrow::internal::CpuInfo::AVX2) && !optional_selection) {
     extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids, sizeof(uint64_t),
                            8 + 8 * num_group_id_bytes, num_group_id_bytes);
-    return;
+  } else {
+#endif
+    switch (num_group_id_bits) {
+      case 8:
+        if (optional_selection) {
+          extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
+                                               local_slots, out_group_ids, 8, 16);
+        } else {
+          extract_group_ids_imp<uint8_t, false>(num_keys, nullptr, hashes, local_slots,
+                                                out_group_ids, 8, 16);
+        }
+        break;
+      case 16:
+        if (optional_selection) {
+          extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
+                                                local_slots, out_group_ids, 4, 12);
+        } else {
+          extract_group_ids_imp<uint16_t, false>(num_keys, nullptr, hashes, local_slots,
+                                                 out_group_ids, 4, 12);
+        }
+        break;
+      case 32:
+        if (optional_selection) {
+          extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
+                                                local_slots, out_group_ids, 2, 10);
+        } else {
+          extract_group_ids_imp<uint32_t, false>(num_keys, nullptr, hashes, local_slots,
+                                                 out_group_ids, 2, 10);
+        }
+        break;
+      default:
+        ARROW_DCHECK(false);
+    };
+#if defined(ARROW_HAVE_AVX2)
   }
 #endif
-  switch (num_group_id_bits) {
-    case 8:
-      if (optional_selection) {
-        extract_group_ids_imp<uint8_t, true>(num_keys, optional_selection, hashes,
-                                             local_slots, out_group_ids, 8, 16);
-      } else {
-        extract_group_ids_imp<uint8_t, false>(num_keys, nullptr, hashes, local_slots,
-                                              out_group_ids, 8, 16);
-      }
-      break;
-    case 16:
-      if (optional_selection) {
-        extract_group_ids_imp<uint16_t, true>(num_keys, optional_selection, hashes,
-                                              local_slots, out_group_ids, 4, 12);
-      } else {
-        extract_group_ids_imp<uint16_t, false>(num_keys, nullptr, hashes, local_slots,
-                                               out_group_ids, 4, 12);
-      }
-      break;
-    case 32:
-      if (optional_selection) {
-        extract_group_ids_imp<uint32_t, true>(num_keys, optional_selection, hashes,
-                                              local_slots, out_group_ids, 2, 10);
-      } else {
-        extract_group_ids_imp<uint32_t, false>(num_keys, nullptr, hashes, local_slots,
-                                               out_group_ids, 2, 10);
-      }
-      break;
-    default:
-      ARROW_DCHECK(false);
-  }
 }
 
 void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
@@ -195,22 +198,13 @@ void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
                                const uint8_t* match_bitvector,
                                uint32_t* out_slot_ids) const {
   ARROW_DCHECK(selection);
-  if (log_blocks_ == 0) {
-    for (int i = 0; i < num_keys; ++i) {
-      uint16_t id = selection[i];
-      uint32_t match = ::arrow::BitUtil::GetBit(match_bitvector, id) ? 1 : 0;
-      uint32_t slot_id = local_slots[id] + match;
-      out_slot_ids[id] = slot_id;
-    }
-  } else {
-    for (int i = 0; i < num_keys; ++i) {
-      uint16_t id = selection[i];
-      uint32_t hash = hashes[id];
-      uint32_t iblock = (hash >> (bits_hash_ - log_blocks_));
-      uint32_t match = ::arrow::BitUtil::GetBit(match_bitvector, id) ? 1 : 0;
-      uint32_t slot_id = iblock * 8 + local_slots[id] + match;
-      out_slot_ids[id] = slot_id;
-    }
+  for (int i = 0; i < num_keys; ++i) {
+    uint16_t id = selection[i];
+    uint32_t hash = hashes[id];
+    uint32_t iblock = (hash >> (bits_hash_ - log_blocks_));
+    uint32_t match = ::arrow::BitUtil::GetBit(match_bitvector, id) ? 1 : 0;
+    uint32_t slot_id = iblock * 8 + local_slots[id] + match;
+    out_slot_ids[id] = slot_id;
   }
 }
 
@@ -306,13 +300,13 @@ uint64_t SwissTable::wrap_global_slot_id(uint64_t global_slot_id) const {
   return global_slot_id & global_slot_id_mask;
 }
 
-void SwissTable::early_filter(const int num_keys, const uint32_t* hashes,
-                              uint8_t* out_match_bitvector,
+void SwissTable::early_filter(int64_t hardware_flags, const int num_keys,
+                              const uint32_t* hashes, uint8_t* out_match_bitvector,
                               uint8_t* out_local_slots) const {
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
 #if defined(ARROW_HAVE_AVX2)
-  if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+  if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     if (log_blocks_ <= 4) {
       int tail = num_keys % 32;
       int delta = num_keys - tail;
@@ -347,7 +341,8 @@ void SwissTable::run_comparisons(const int num_keys,
                                  const uint16_t* optional_selection_ids,
                                  const uint8_t* optional_selection_bitvector,
                                  const uint32_t* groupids, int* out_num_not_equal,
-                                 uint16_t* out_not_equal_selection) const {
+                                 uint16_t* out_not_equal_selection,
+                                 SwissTable_ThreadLocal* local) const {
   ARROW_DCHECK(optional_selection_ids || optional_selection_bitvector);
   ARROW_DCHECK(!optional_selection_ids || !optional_selection_bitvector);
 
@@ -367,21 +362,22 @@ void SwissTable::run_comparisons(const int num_keys,
 
     if (num_inserted_ > 0 && num_matches > 0 && num_matches > 3 * num_keys / 4) {
       uint32_t out_num;
-      equal_impl_(num_keys, nullptr, groupids, &out_num, out_not_equal_selection);
+      equal_impl_(num_keys, nullptr, groupids, &out_num, out_not_equal_selection,
+                  local->callback_ctx);
       *out_num_not_equal = static_cast<int>(out_num);
     } else {
-      util::BitUtil::bits_to_indexes(1, hardware_flags_, num_keys,
+      util::BitUtil::bits_to_indexes(1, local->hardware_flags, num_keys,
                                      optional_selection_bitvector, out_num_not_equal,
                                      out_not_equal_selection);
       uint32_t out_num;
       equal_impl_(*out_num_not_equal, out_not_equal_selection, groupids, &out_num,
-                  out_not_equal_selection);
+                  out_not_equal_selection, local->callback_ctx);
       *out_num_not_equal = static_cast<int>(out_num);
     }
   } else {
     uint32_t out_num;
     equal_impl_(num_keys, optional_selection_ids, groupids, &out_num,
-                out_not_equal_selection);
+                out_not_equal_selection, local->callback_ctx);
     *out_num_not_equal = static_cast<int>(out_num);
   }
 }
@@ -470,7 +466,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
 //
 void SwissTable::find(const int num_keys, const uint32_t* hashes,
                       uint8_t* inout_match_bitvector, const uint8_t* local_slots,
-                      uint32_t* out_group_ids) const {
+                      uint32_t* out_group_ids, SwissTable_ThreadLocal* local) const {
   // Temporary selection vector.
   // It will hold ids of keys for which we do not know yet
   // if they have a match in hash table or not.
@@ -479,8 +475,8 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
   // match bit-vector. Eventually we switch from this bit-vector
   // to array of ids.
   //
-  ARROW_DCHECK(num_keys <= (1 << log_minibatch_));
-  auto ids_buf = util::TempVectorHolder<uint16_t>(temp_stack_, num_keys);
+  ARROW_DCHECK(num_keys <= (1 << local->log_minibatch));
+  auto ids_buf = util::TempVectorHolder<uint16_t>(local->temp_stack, num_keys);
   uint16_t* ids = ids_buf.mutable_data();
   int num_ids;
 
@@ -495,21 +491,23 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
   //
   bool visit_all = num_matches > 0 && num_matches > 3 * num_keys / 4;
   if (visit_all) {
-    extract_group_ids(num_keys, nullptr, hashes, local_slots, out_group_ids);
+    extract_group_ids(local->hardware_flags, num_keys, nullptr, hashes, local_slots,
+                      out_group_ids);
     run_comparisons(num_keys, nullptr, inout_match_bitvector, out_group_ids, &num_ids,
-                    ids);
+                    ids, local);
   } else {
-    util::BitUtil::bits_to_indexes(1, hardware_flags_, num_keys, inout_match_bitvector,
-                                   &num_ids, ids);
-    extract_group_ids(num_ids, ids, hashes, local_slots, out_group_ids);
-    run_comparisons(num_ids, ids, nullptr, out_group_ids, &num_ids, ids);
+    util::BitUtil::bits_to_indexes(1, local->hardware_flags, num_keys,
+                                   inout_match_bitvector, &num_ids, ids);
+    extract_group_ids(local->hardware_flags, num_ids, ids, hashes, local_slots,
+                      out_group_ids);
+    run_comparisons(num_ids, ids, nullptr, out_group_ids, &num_ids, ids, local);
   }
 
   if (num_ids == 0) {
     return;
   }
 
-  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack_, num_ids);
+  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(local->temp_stack, num_ids);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
   init_slot_ids(num_ids, ids, hashes, local_slots, inout_match_bitvector, slot_ids);
 
@@ -530,9 +528,9 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
       }
     }
 
-    run_comparisons(num_ids, ids, nullptr, out_group_ids, &num_ids, ids);
+    run_comparisons(num_ids, ids, nullptr, out_group_ids, &num_ids, ids, local);
   }
-}  // namespace compute
+}
 
 // Slow processing of input keys in the most generic case.
 // Handles inserting new keys.
@@ -548,18 +546,19 @@ Status SwissTable::map_new_keys_helper(const uint32_t* hashes,
                                        uint32_t* inout_num_selected,
                                        uint16_t* inout_selection, bool* out_need_resize,
                                        uint32_t* out_group_ids,
-                                       uint32_t* inout_next_slot_ids) {
+                                       uint32_t* inout_next_slot_ids,
+                                       SwissTable_ThreadLocal* local) {
   auto num_groups_limit = num_groups_for_resize();
   ARROW_DCHECK(num_inserted_ < num_groups_limit);
 
   // Temporary arrays are of limited size.
   // The input needs to be split into smaller portions if it exceeds that limit.
   //
-  ARROW_DCHECK(*inout_num_selected <= static_cast<uint32_t>(1 << log_minibatch_));
+  ARROW_DCHECK(*inout_num_selected <= static_cast<uint32_t>(1 << local->log_minibatch));
 
   size_t num_bytes_for_bits = (*inout_num_selected + 7) / 8 + sizeof(uint64_t);
   auto match_bitvector_buf = util::TempVectorHolder<uint8_t>(
-      temp_stack_, static_cast<uint32_t>(num_bytes_for_bits));
+      local->temp_stack, static_cast<uint32_t>(num_bytes_for_bits));
   uint8_t* match_bitvector = match_bitvector_buf.mutable_data();
   memset(match_bitvector, 0xff, num_bytes_for_bits);
 
@@ -593,23 +592,25 @@ Status SwissTable::map_new_keys_helper(const uint32_t* hashes,
   }
 
   auto temp_ids_buffer =
-      util::TempVectorHolder<uint16_t>(temp_stack_, *inout_num_selected);
+      util::TempVectorHolder<uint16_t>(local->temp_stack, *inout_num_selected);
   uint16_t* temp_ids = temp_ids_buffer.mutable_data();
   int num_temp_ids = 0;
 
   // Copy keys for newly inserted rows using callback
   //
-  util::BitUtil::bits_filter_indexes(0, hardware_flags_, num_processed, match_bitvector,
-                                     inout_selection, &num_temp_ids, temp_ids);
+  util::BitUtil::bits_filter_indexes(0, local->hardware_flags, num_processed,
+                                     match_bitvector, inout_selection, &num_temp_ids,
+                                     temp_ids);
   ARROW_DCHECK(static_cast<int>(num_inserted_new) == num_temp_ids);
-  RETURN_NOT_OK(append_impl_(num_inserted_new, temp_ids));
+  RETURN_NOT_OK(append_impl_(num_inserted_new, temp_ids, local->callback_ctx));
   num_inserted_ += num_inserted_new;
 
   // Evaluate comparisons and append ids of rows that failed it to the non-match set.
-  util::BitUtil::bits_filter_indexes(1, hardware_flags_, num_processed, match_bitvector,
-                                     inout_selection, &num_temp_ids, temp_ids);
-  run_comparisons(num_temp_ids, temp_ids, nullptr, out_group_ids, &num_temp_ids,
-                  temp_ids);
+  util::BitUtil::bits_filter_indexes(1, local->hardware_flags, num_processed,
+                                     match_bitvector, inout_selection, &num_temp_ids,
+                                     temp_ids);
+  run_comparisons(num_temp_ids, temp_ids, nullptr, out_group_ids, &num_temp_ids, temp_ids,
+                  local);
 
   memcpy(inout_selection, temp_ids, sizeof(uint16_t) * num_temp_ids);
   // Append ids of any unprocessed entries if we aborted processing due to the need
@@ -628,7 +629,7 @@ Status SwissTable::map_new_keys_helper(const uint32_t* hashes,
 // this set).
 //
 Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t* hashes,
-                                uint32_t* group_ids) {
+                                uint32_t* group_ids, SwissTable_ThreadLocal* local) {
   if (num_ids == 0) {
     return Status::OK();
   }
@@ -640,11 +641,11 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
 
   // Temporary buffers have limited size.
   // Caller is responsible for splitting larger input arrays into smaller chunks.
-  ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << log_minibatch_));
-  ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << log_minibatch_));
+  ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << local->log_minibatch));
+  ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << local->log_minibatch));
 
   // Allocate temporary buffers for slot ids and intialize them
-  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack_, max_id + 1);
+  auto slot_ids_buf = util::TempVectorHolder<uint32_t>(local->temp_stack, max_id + 1);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
   init_slot_ids_for_new_keys(num_ids, ids, hashes, slot_ids);
 
@@ -657,7 +658,7 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
     // bigger hash table.
     bool out_of_capacity;
     RETURN_NOT_OK(map_new_keys_helper(hashes, &num_ids, ids, &out_of_capacity, group_ids,
-                                      slot_ids));
+                                      slot_ids, local));
     if (out_of_capacity) {
       RETURN_NOT_OK(grow_double());
       // Reset start slot ids for still unprocessed input keys.
@@ -802,13 +803,8 @@ Status SwissTable::grow_double() {
   return Status::OK();
 }
 
-Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool,
-                        util::TempVectorStack* temp_stack, int log_minibatch,
-                        EqualImpl equal_impl, AppendImpl append_impl) {
-  hardware_flags_ = hardware_flags;
+Status SwissTable::init(MemoryPool* pool, EqualImpl equal_impl, AppendImpl append_impl) {
   pool_ = pool;
-  temp_stack_ = temp_stack;
-  log_minibatch_ = log_minibatch;
   equal_impl_ = equal_impl;
   append_impl_ = append_impl;
 

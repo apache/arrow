@@ -27,6 +27,19 @@
 namespace arrow {
 namespace compute {
 
+struct SwissTable_ThreadLocal {
+  SwissTable_ThreadLocal(int64_t in_hardware_flags, util::TempVectorStack* in_temp_stack,
+                         int in_log_minibatch, void* in_callback_ctx)
+      : hardware_flags(in_hardware_flags),
+        temp_stack(in_temp_stack),
+        log_minibatch(in_log_minibatch),
+        callback_ctx(in_callback_ctx) {}
+  int64_t hardware_flags;
+  util::TempVectorStack* temp_stack;
+  int log_minibatch;
+  void* callback_ctx;
+};
+
 class SwissTable {
  public:
   SwissTable() = default;
@@ -35,22 +48,25 @@ class SwissTable {
   using EqualImpl =
       std::function<void(int num_keys, const uint16_t* selection /* may be null */,
                          const uint32_t* group_ids, uint32_t* out_num_keys_mismatch,
-                         uint16_t* out_selection_mismatch)>;
-  using AppendImpl = std::function<Status(int num_keys, const uint16_t* selection)>;
+                         uint16_t* out_selection_mismatch, void* local_ctx)>;
+  using AppendImpl =
+      std::function<Status(int num_keys, const uint16_t* selection, void* local_ctx)>;
 
-  Status init(int64_t hardware_flags, MemoryPool* pool, util::TempVectorStack* temp_stack,
-              int log_minibatch, EqualImpl equal_impl, AppendImpl append_impl);
+  Status init(MemoryPool* pool, EqualImpl equal_impl, AppendImpl append_impl);
 
   void cleanup();
 
-  void early_filter(const int num_keys, const uint32_t* hashes,
+  void early_filter(int64_t hardware_flags, const int num_keys, const uint32_t* hashes,
                     uint8_t* out_match_bitvector, uint8_t* out_local_slots) const;
 
   void find(const int num_keys, const uint32_t* hashes, uint8_t* inout_match_bitvector,
-            const uint8_t* local_slots, uint32_t* out_group_ids) const;
+            const uint8_t* local_slots, uint32_t* out_group_ids,
+            SwissTable_ThreadLocal* locals) const;
 
   Status map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t* hashes,
-                      uint32_t* group_ids);
+                      uint32_t* group_ids, SwissTable_ThreadLocal* locals);
+
+  int64_t num_groups() const { return num_inserted_; }
 
  private:
   // Lookup helpers
@@ -87,9 +103,9 @@ class SwissTable {
   inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
                                    uint64_t group_id_mask) const;
 
-  void extract_group_ids(const int num_keys, const uint16_t* optional_selection,
-                         const uint32_t* hashes, const uint8_t* local_slots,
-                         uint32_t* out_group_ids) const;
+  void extract_group_ids(int64_t hardware_flags, const int num_keys,
+                         const uint16_t* optional_selection, const uint32_t* hashes,
+                         const uint8_t* local_slots, uint32_t* out_group_ids) const;
 
   template <typename T, bool use_selection>
   void extract_group_ids_imp(const int num_keys, const uint16_t* selection,
@@ -131,7 +147,8 @@ class SwissTable {
   void run_comparisons(const int num_keys, const uint16_t* optional_selection_ids,
                        const uint8_t* optional_selection_bitvector,
                        const uint32_t* groupids, int* out_num_not_equal,
-                       uint16_t* out_not_equal_selection) const;
+                       uint16_t* out_not_equal_selection,
+                       SwissTable_ThreadLocal* local) const;
 
   inline bool find_next_stamp_match(const uint32_t hash, const uint32_t in_slot_id,
                                     uint32_t* out_slot_id, uint32_t* out_group_id) const;
@@ -146,7 +163,8 @@ class SwissTable {
   //
   Status map_new_keys_helper(const uint32_t* hashes, uint32_t* inout_num_selected,
                              uint16_t* inout_selection, bool* out_need_resize,
-                             uint32_t* out_group_ids, uint32_t* out_next_slot_ids);
+                             uint32_t* out_group_ids, uint32_t* out_next_slot_ids,
+                             SwissTable_ThreadLocal* local);
 
   // Resize small hash tables when 50% full (up to 8KB).
   // Resize large hash tables when 75% full.
@@ -169,7 +187,6 @@ class SwissTable {
   // Padding bytes added at the end of buffers for ease of SIMD access
   static constexpr int padding_ = 64;
 
-  int log_minibatch_;
   // Base 2 log of the number of blocks
   int log_blocks_ = 0;
   // Number of keys inserted into hash table
@@ -195,9 +212,7 @@ class SwissTable {
   // There is 64B padding at the end.
   uint32_t* hashes_;
 
-  int64_t hardware_flags_;
   MemoryPool* pool_;
-  util::TempVectorStack* temp_stack_;
 
   EqualImpl equal_impl_;
   AppendImpl append_impl_;

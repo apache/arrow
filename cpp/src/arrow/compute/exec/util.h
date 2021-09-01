@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <random>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -178,6 +179,23 @@ class BitUtil {
   static void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes, uint8_t* bits);
   static bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
 #endif
+};
+
+class Random64Bit {
+ public:
+  Random64Bit() : rs{0, 0, 0, 0, 0, 0, 0, 0}, re(rs) {}
+  uint64_t next() { return rdist(re); }
+  template <typename T>
+  inline T from_range(const T& min_val, const T& max_val) {
+    return static_cast<T>(min_val + (next() % (max_val - min_val + 1)));
+  }
+  std::mt19937& get_engine() { return re; }
+
+ private:
+  std::random_device rd;
+  std::seed_seq rs;
+  std::mt19937 re;
+  std::uniform_int_distribution<uint64_t> rdist;
 };
 
 }  // namespace util
