@@ -105,12 +105,10 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	f.metadata.NumRows = totalRows
 	f.metadata.RowGroups = f.rowGroups
 	switch f.props.Version() {
-	case parquet.V1:
+	case parquet.V1_0:
 		f.metadata.Version = 1
-	case parquet.V2:
-		f.metadata.Version = 2
 	default:
-		f.metadata.Version = 0
+		f.metadata.Version = 2
 	}
 	createdBy := f.props.CreatedBy()
 	f.metadata.CreatedBy = &createdBy
@@ -365,7 +363,7 @@ func (f *FileMetaData) Subset(rowGroups []int) (*FileMetaData, error) {
 			ColumnOrders:             f.GetColumnOrders(),
 			EncryptionAlgorithm:      f.FileMetaData.EncryptionAlgorithm,
 			FooterSigningKeyMetadata: f.FooterSigningKeyMetadata,
-			Version:                  f.Version,
+			Version:                  f.FileMetaData.Version,
 			KeyValueMetadata:         f.KeyValueMetadata(),
 		},
 		f.Schema,
@@ -453,6 +451,24 @@ func (f *FileMetaData) WriteTo(w io.Writer, encryptor encryption.Encryptor) (int
 	}
 	n, err := serializer.Serialize(f.FileMetaData, w, encryptor)
 	return int64(n), err
+}
+
+// Version returns the "version" of the file
+//
+// WARNING: The value returned by this method is unreliable as 1) the
+// parquet file metadata stores the version as a single integer and
+// 2) some producers are known to always write a hardcoded value. Therefore
+// you cannot use this value to know which features are used in the file.
+func (f *FileMetaData) Version() parquet.Version {
+	switch f.FileMetaData.Version {
+	case 1:
+		return parquet.V1_0
+	case 2:
+		return parquet.V2_LATEST
+	default:
+		// imporperly set version, assume parquet 1.0
+		return parquet.V1_0
+	}
 }
 
 // FileCryptoMetadata is a proxy for the thrift fileCryptoMetadata object

@@ -297,7 +297,7 @@ func defaultWriterProperties() *WriterProperties {
 		batchSize:       DefaultWriteBatchSize,
 		maxRowGroupLen:  DefaultMaxRowGroupLen,
 		pageSize:        DefaultDataPageSize,
-		parquetVersion:  V1,
+		parquetVersion:  V2_LATEST,
 		dataPageVersion: DataPageV1,
 		createdBy:       DefaultCreatedBy,
 		defColumnProps:  DefaultColumnProperties(),
@@ -434,7 +434,7 @@ func (w *WriterProperties) EncodingPath(path ColumnPath) Encoding {
 // DictionaryIndexEncoding returns which encoding will be used for the Dictionary Index values based on the
 // parquet version. V1 uses PlainDict and V2 uses RLEDict
 func (w *WriterProperties) DictionaryIndexEncoding() Encoding {
-	if w.parquetVersion == V1 {
+	if w.parquetVersion == V1_0 {
 		return Encodings.PlainDict
 	}
 	return Encodings.RLEDict
@@ -443,7 +443,7 @@ func (w *WriterProperties) DictionaryIndexEncoding() Encoding {
 // DictionaryPageEncoding returns the encoding that will be utilized for the DictionaryPage itself based on the parquet
 // version. V1 uses PlainDict, v2 uses Plain
 func (w *WriterProperties) DictionaryPageEncoding() Encoding {
-	if w.parquetVersion == V1 {
+	if w.parquetVersion == V1_0 {
 		return Encodings.PlainDict
 	}
 	return Encodings.Plain

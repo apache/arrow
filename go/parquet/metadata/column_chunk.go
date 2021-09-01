@@ -335,7 +335,7 @@ func (c *ColumnChunkMetaDataBuilder) Finish(info ChunkMetaInfo, hasDict, dictFal
 	thriftEncodings := make([]format.Encoding, 0, maxEncodings)
 	if hasDict {
 		thriftEncodings = append(thriftEncodings, format.Encoding(c.props.DictionaryIndexEncoding()))
-		if c.props.Version() == parquet.V1 {
+		if c.props.Version() == parquet.V1_0 {
 			thriftEncodings = append(thriftEncodings, format.Encoding_PLAIN)
 		} else {
 			thriftEncodings = append(thriftEncodings, format.Encoding(c.props.DictionaryPageEncoding()))

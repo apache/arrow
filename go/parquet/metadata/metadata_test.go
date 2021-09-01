@@ -79,7 +79,7 @@ func assertStats(t *testing.T, m *metadata.ColumnChunkMetaData) metadata.TypedSt
 }
 
 func TestBuildAccess(t *testing.T) {
-	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2))
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST))
 
 	fields := schema.FieldList{
 		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
@@ -119,7 +119,7 @@ func TestBuildAccess(t *testing.T) {
 	for _, accessor := range []*metadata.FileMetaData{faccessor, faccessorCopy} {
 		assert.Equal(t, nrows, accessor.NumRows)
 		assert.Len(t, accessor.RowGroups, 2)
-		assert.EqualValues(t, parquet.V2, accessor.Version)
+		assert.EqualValues(t, parquet.V2_LATEST, accessor.Version())
 		assert.Equal(t, parquet.DefaultCreatedBy, accessor.GetCreatedBy())
 		assert.Equal(t, 3, accessor.NumSchemaElements())
 
@@ -205,7 +205,7 @@ func TestBuildAccess(t *testing.T) {
 	faccessor.AppendRowGroups(faccessor2)
 	assert.Len(t, faccessor.RowGroups, 4)
 	assert.Equal(t, nrows*2, faccessor.NumRows)
-	assert.EqualValues(t, parquet.V2, faccessor.Version)
+	assert.EqualValues(t, parquet.V2_LATEST, faccessor.Version())
 	assert.Equal(t, parquet.DefaultCreatedBy, faccessor.GetCreatedBy())
 	assert.Equal(t, 3, faccessor.NumSchemaElements())
 
@@ -226,7 +226,7 @@ func TestBuildAccess(t *testing.T) {
 }
 
 func TestV1VersionMetadata(t *testing.T) {
-	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1))
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0))
 
 	fields := schema.FieldList{
 		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
@@ -239,11 +239,11 @@ func TestV1VersionMetadata(t *testing.T) {
 	fbuilder := metadata.NewFileMetadataBuilder(schema, props, nil)
 	faccessor, err := fbuilder.Finish()
 	require.NoError(t, err)
-	assert.EqualValues(t, parquet.V1, faccessor.Version)
+	assert.EqualValues(t, parquet.V1_0, faccessor.Version())
 }
 
 func TestKeyValueMetadata(t *testing.T) {
-	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1))
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0))
 
 	fields := schema.FieldList{
 		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
