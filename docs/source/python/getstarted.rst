@@ -20,7 +20,7 @@
 Getting Started
 ===============
 
-Arrow manages data in Arrays (:class:`pyarrow.Array`), which can be
+Arrow manages data in arrays (:class:`pyarrow.Array`), which can be
 grouped in tables (:class:`pyarrow.Table`) to represent columns of data
 in tabular data.
 
@@ -81,8 +81,8 @@ data will be as quick as possible
     reloaded_birthdays
 
 Saving and loading back data in arrow is usually done through
-:ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), :ref:`CSV <csv>` or
-:ref:`Line-Delimited JSON <json>` formats.
+:ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), 
+:ref:`CSV <csv>` or :ref:`Line-Delimited JSON <json>` formats.
 
 Performing Computations
 -----------------------
@@ -103,7 +103,7 @@ how to use them.
 Working with large data
 -----------------------
 
-Arrow also provides the :class:`pyarrow.dataset` api to work with
+Arrow also provides the :class:`pyarrow.dataset` API to work with
 large data, which will handle for you partitioning of your data in
 smaller chunks
 
