@@ -2758,6 +2758,36 @@ TYPED_TEST(TestIntegerQuantileKernel, Basics) {
   this->AssertQuantilesEmpty({"[null, null]", "[]", "[null]"}, {0.3, 0.4});
 
   auto ty = this->type_singleton();
+
+  QuantileOptions keep_nulls(/*q=*/0.5, QuantileOptions::LINEAR, /*skip_nulls=*/false,
+                             /*min_count=*/0);
+  QuantileOptions min_count(/*q=*/0.5, QuantileOptions::LINEAR, /*skip_nulls=*/true,
+                            /*min_count=*/3);
+  QuantileOptions keep_nulls_min_count(/*q=*/0.5, QuantileOptions::LINEAR,
+                                       /*skip_nulls=*/false, /*min_count=*/3);
+  auto not_empty = ResultWith(ArrayFromJSON(float64(), "[3.0]"));
+  auto empty = ResultWith(ArrayFromJSON(float64(), "[]"));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), min_count), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), min_count), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls_min_count),
+              not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls_min_count),
+              empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls_min_count), empty);
+
   for (const auto interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
     auto expected_ty = (interpolation == QuantileOptions::LINEAR ||
@@ -2804,6 +2834,36 @@ TYPED_TEST(TestFloatingQuantileKernel, Floats) {
   this->AssertQuantilesEmpty({"[NaN, NaN]", "[]", "[null]"}, {0.3, 0.4});
 
   auto ty = this->type_singleton();
+
+  QuantileOptions keep_nulls(/*q=*/0.5, QuantileOptions::LINEAR, /*skip_nulls=*/false,
+                             /*min_count=*/0);
+  QuantileOptions min_count(/*q=*/0.5, QuantileOptions::LINEAR, /*skip_nulls=*/true,
+                            /*min_count=*/3);
+  QuantileOptions keep_nulls_min_count(/*q=*/0.5, QuantileOptions::LINEAR,
+                                       /*skip_nulls=*/false, /*min_count=*/3);
+  auto not_empty = ResultWith(ArrayFromJSON(float64(), "[3.0]"));
+  auto empty = ResultWith(ArrayFromJSON(float64(), "[]"));
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), keep_nulls), not_empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), min_count), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), min_count), not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5]"), keep_nulls_min_count),
+              not_empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 2, 4, 5, null]"), keep_nulls_min_count),
+              empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5]"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ArrayFromJSON(ty, "[1, 5, null]"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "3"), keep_nulls_min_count), empty);
+  EXPECT_THAT(Quantile(ScalarFromJSON(ty, "null"), keep_nulls_min_count), empty);
+
   for (const auto interpolation : this->interpolations_) {
     QuantileOptions options({0.0, 0.5, 1.0}, interpolation);
     auto expected_ty = (interpolation == QuantileOptions::LINEAR ||

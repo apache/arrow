@@ -79,12 +79,18 @@ struct SortQuantiler {
 
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const QuantileOptions& options = QuantileState::Get(ctx);
+    const Datum& datum = batch[0];
 
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
+    int64_t in_length = 0;
+    if ((!options.skip_nulls && datum.null_count() > 0) ||
+        (datum.length() - datum.null_count() < options.min_count)) {
+      in_length = 0;
+    } else {
+      in_length = datum.length() - datum.null_count();
+    }
 
-    const Datum& datum = batch[0];
-    const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
       CopyNonNullValues(datum, in_buffer.data());
@@ -232,7 +238,11 @@ struct CountQuantiler {
 
     // count values in all chunks, ignore nulls
     const Datum& datum = batch[0];
-    int64_t in_length = CountValues<CType>(this->counts.data(), datum, this->min);
+    int64_t in_length = 0;
+    if ((options.skip_nulls || (!options.skip_nulls && datum.null_count() == 0)) &&
+        (datum.length() - datum.null_count() >= options.min_count)) {
+      in_length = CountValues<CType>(this->counts.data(), datum, this->min);
+    }
 
     // prepare out array
     int64_t out_length = options.q.size();
@@ -394,7 +404,7 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
                       const Scalar& scalar, Datum* out) {
   using CType = typename T::c_type;
   ArrayData* output = out->mutable_array();
-  if (!scalar.is_valid) {
+  if (!scalar.is_valid || options.min_count > 1) {
     output->length = 0;
     output->null_count = 0;
     return Status::OK();
