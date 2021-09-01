@@ -37,24 +37,27 @@ namespace gandiva {
 
 #define UNARY_CAST_TO_INT64(type) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, type, int64)
 
-#define MULTIPLE_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                                  \
-NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE(), TYPE()},  \
-                 TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE)),    \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES,                                \
-                 DataTypeVector{TYPE(), TYPE(), TYPE()}, TYPE(), kResultNullIfNull,      \
-                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE)),                      \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES,                                \
-                 DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),                 \
-                 kResultNullIfNull,                                                      \
-                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),             \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES,                                \
-                 DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),         \
-                 kResultNullIfNull,                                                      \
-                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),    \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES,                                \
-                 DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(), \
-                 kResultNullIfNull,                                                      \
-                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE))
+#define MULTIPLE_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                                 \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull,             \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE)),                              \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE)),                 \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),            \
+                     kResultNullIfNull,                                                 \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),        \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),               \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),          \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),       \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE))
 
 std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {

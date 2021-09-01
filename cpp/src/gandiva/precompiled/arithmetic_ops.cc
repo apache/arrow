@@ -135,7 +135,7 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 #define COMPARE_THREE_VALUES(NAME, TYPE, OP)                                 \
   FORCE_INLINE                                                               \
   gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1, gdv_##TYPE in2, \
-                                           gdv_##TYPE in3) {                 \
+                                             gdv_##TYPE in3) {               \
     gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                          \
     return (compared OP in3 ? compared : in3);                               \
   }
@@ -149,32 +149,26 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
     return (compared OP in4 ? compared : in4);                                          \
   }
 
-#define COMPARE_FIVE_VALUES(NAME, TYPE, OP)                                      \
-  FORCE_INLINE                                                                   \
-  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1,   \
-                                                               gdv_##TYPE in2,   \
-                                                               gdv_##TYPE in3,   \
-                                                               gdv_##TYPE in4,   \
-                                                               gdv_##TYPE in5) { \
-    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                              \
-    compared = (compared OP in3 ? compared : in3);                               \
-    compared = (compared OP in4 ? compared : in4);                               \
-    return (compared OP in5 ? compared : in5);                                   \
+#define COMPARE_FIVE_VALUES(NAME, TYPE, OP)                                             \
+  FORCE_INLINE                                                                          \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(                         \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5) { \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                     \
+    compared = (compared OP in3 ? compared : in3);                                      \
+    compared = (compared OP in4 ? compared : in4);                                      \
+    return (compared OP in5 ? compared : in5);                                          \
   }
 
-#define COMPARE_SIX_VALUES(NAME, TYPE, OP)                                                \
-  FORCE_INLINE                                                                            \
-  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(gdv_##TYPE in1,   \
-                                                                        gdv_##TYPE in2,   \
-                                                                        gdv_##TYPE in3,   \
-                                                                        gdv_##TYPE in4,   \
-                                                                        gdv_##TYPE in5,   \
-                                                                        gdv_##TYPE in6) { \
-    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                       \
-    compared = (compared OP in3 ? compared : in3);                                        \
-    compared = (compared OP in4 ? compared : in4);                                        \
-    compared = (compared OP in5 ? compared : in5);                                        \
-    return (compared OP in6 ? compared : in6);                                            \
+#define COMPARE_SIX_VALUES(NAME, TYPE, OP)                                            \
+  FORCE_INLINE                                                                        \
+  gdv_##TYPE NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE(              \
+      gdv_##TYPE in1, gdv_##TYPE in2, gdv_##TYPE in3, gdv_##TYPE in4, gdv_##TYPE in5, \
+      gdv_##TYPE in6) {                                                               \
+    gdv_##TYPE compared = (in1 OP in2 ? in1 : in2);                                   \
+    compared = (compared OP in3 ? compared : in3);                                    \
+    compared = (compared OP in4 ? compared : in4);                                    \
+    compared = (compared OP in5 ? compared : in5);                                    \
+    return (compared OP in6 ? compared : in6);                                        \
   }
 
 NUMERIC_DATE_TYPES(COMPARE_TWO_VALUES, greatest, >)
