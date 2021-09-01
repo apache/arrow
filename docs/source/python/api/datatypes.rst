@@ -63,6 +63,14 @@ These should be used to create Arrow data types and schemas.
    schema
    from_numpy_dtype
 
+Utility Functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   unify_schemas
+
 .. _api.type_classes:
 .. currentmodule:: pyarrow
 
