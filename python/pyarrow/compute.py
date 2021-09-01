@@ -445,7 +445,7 @@ def match_substring_regex(array, pattern, *, ignore_case=False):
                          MatchSubstringOptions(pattern, ignore_case))
 
 
-def mode(array, n=1):
+def mode(array, n=1, skip_nulls=True, min_count=0):
     """
     Return top-n most common values and number of times they occur in a passed
     numerical (chunked) array, in descending order of occurance. If there are
@@ -454,6 +454,12 @@ def mode(array, n=1):
     Parameters
     ----------
     array : pyarrow.Array or pyarrow.ChunkedArray
+    skip_nulls : bool, default True
+        If True, ignore nulls in the input. Else return an empty array
+        if any input is null.
+    min_count : int, default 0
+        If there are fewer than this many values in the input, return
+        an empty array.
 
     Returns
     -------
@@ -470,7 +476,7 @@ def mode(array, n=1):
     >>> modes[1]
     <pyarrow.StructScalar: {'mode': 1, 'count': 2}>
     """
-    options = ModeOptions(n=n)
+    options = ModeOptions(n=n, skip_nulls=skip_nulls, min_count=min_count)
     return call_function("mode", [array], options)
 
 

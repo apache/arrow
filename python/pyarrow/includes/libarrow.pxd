@@ -1993,8 +1993,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
-        CModeOptions(int64_t n)
+        CModeOptions(int64_t n, c_bool skip_nulls, uint32_t min_count)
         int64_t n
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CIndexOptions \
             "arrow::compute::IndexOptions"(CFunctionOptions):
@@ -2041,17 +2043,23 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CQuantileOptions \
             "arrow::compute::QuantileOptions"(CFunctionOptions):
-        CQuantileOptions(vector[double] q, CQuantileInterp interpolation)
+        CQuantileOptions(vector[double] q, CQuantileInterp interpolation,
+                         c_bool skip_nulls, uint32_t min_count)
         vector[double] q
         CQuantileInterp interpolation
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CTDigestOptions \
             "arrow::compute::TDigestOptions"(CFunctionOptions):
         CTDigestOptions(vector[double] q,
-                        unsigned int delta, unsigned int buffer_size)
+                        unsigned int delta, unsigned int buffer_size,
+                        c_bool skip_nulls, uint32_t min_count)
         vector[double] q
         unsigned int delta
         unsigned int buffer_size
+        c_bool skip_nulls
+        uint32_t min_count
 
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
