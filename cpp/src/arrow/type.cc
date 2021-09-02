@@ -88,6 +88,8 @@ constexpr Type::type MonthIntervalType::type_id;
 
 constexpr Type::type DayTimeIntervalType::type_id;
 
+constexpr Type::type MonthDayNanoIntervalType::type_id;
+
 constexpr Type::type DurationType::type_id;
 
 constexpr Type::type DictionaryType::type_id;
