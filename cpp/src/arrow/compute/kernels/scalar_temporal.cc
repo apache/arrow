@@ -233,10 +233,11 @@ struct AssumeTimezoneExtractor
   }
 };
 
-template <template <typename...> class Op, typename Duration, typename OutType>
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
 struct TemporalComponentExtractWeek
-    : public TemporalComponentExtractBase<Op, Duration, OutType> {
-  using Base = TemporalComponentExtractBase<Op, Duration, OutType>;
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const WeekOptions& options = WeekState::Get(ctx);
@@ -410,11 +411,17 @@ struct Week {
         count_from_zero_(options->count_from_zero),
         first_week_is_fully_in_year_(options->first_week_is_fully_in_year) {
     if (options->week_starts_monday) {
-      start_week_ = mon;
-      mid_week_ = thu;
+      if (first_week_is_fully_in_year_) {
+        wd_ = mon;
+      } else {
+        wd_ = thu;
+      }
     } else {
-      start_week_ = sun;
-      mid_week_ = wed;
+      if (first_week_is_fully_in_year_) {
+        wd_ = sun;
+      } else {
+        wd_ = wed;
+      }
     }
     if (count_from_zero_) {
       days_offset_ = days{0};
@@ -429,31 +436,28 @@ struct Week {
     auto y = year_month_day{t + days_offset_}.year();
 
     if (first_week_is_fully_in_year_) {
-      auto start = localizer_.ConvertDays(y / jan / start_week_[1]);
+      auto start = localizer_.ConvertDays(y / jan / wd_[1]);
       if (!count_from_zero_) {
         if (t < start) {
           --y;
-          start = localizer_.ConvertDays(y / jan / start_week_[1]);
+          start = localizer_.ConvertDays(y / jan / wd_[1]);
         }
       }
       return static_cast<T>(floor<weeks>(t - start).count() + 1);
     }
 
-    auto start =
-        localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) + (mon - thu);
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
     if (!count_from_zero_) {
       if (t < start) {
         --y;
-        start =
-            localizer_.ConvertDays((y - years{1}) / dec / mid_week_[last]) + (mon - thu);
+        start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
       }
     }
     return static_cast<T>(floor<weeks>(t - start).count() + 1);
   }
 
   Localizer localizer_;
-  arrow_vendored::date::weekday start_week_;
-  arrow_vendored::date::weekday mid_week_;
+  arrow_vendored::date::weekday wd_;
   arrow_vendored::date::days days_offset_;
   const bool count_from_zero_;
   const bool first_week_is_fully_in_year_;
@@ -1223,9 +1227,10 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "iso_week", {WithDates, WithTimestamps}, int64(), &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
-  static auto default_week_options = WeekOptions();
+  static const auto default_week_options = WeekOptions();
   auto week = MakeTemporal<Week, TemporalComponentExtractWeek, Int64Type>(
-      "week", int64(), &week_doc, &default_week_options, WeekState::Init);
+      "week", {WithDates, WithTimestamps}, int64(), &week_doc, &default_week_options,
+      WeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(week)));
 
   auto iso_calendar = MakeSimpleUnaryTemporal<ISOCalendar>(

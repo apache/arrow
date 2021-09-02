@@ -1338,7 +1338,9 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
+| week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(3)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| iso_calendar       | Unary      | Timestamp         | Struct        |                            | \(4)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | quarter            | Unary      | Temporal          | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1364,7 +1366,13 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week.
   See `ISO 8601 week date definition`_ for more details.
-* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
+* \(3) Returns week number allowing for setting several parameters.
+  :member:`WeekOptions::week_starts_monday` sets what day does the week start with (Monday=true, Sunday=false).
+  :member:`WeekOptions::count_from_zero` sets that dates from current year that fall into last ISO week of
+  the previous year return 0 if true and 52 or 53 if false.
+  :member:`WeekOptions::first_week_is_fully_in_year` sets if the first week is fully in January (true), or is a
+  week that begins on December 29, 30, or 31 considered to be the first week of the new year (false)?
+* \(4) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 

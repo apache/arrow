@@ -373,7 +373,8 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
   /// Dates from current year that fall into last ISO week of the previous year return
   /// 0 if true and 52 or 53 if false.
   bool count_from_zero;
-  /// Is the first week fully in the the year or only its 4 or more days
+  /// Must the first week be fully in January (true), or is a week that begins on
+  /// December 29, 30, or 31 considered to be the first week of the new year (false)?
   bool first_week_is_fully_in_year;
 };
 
