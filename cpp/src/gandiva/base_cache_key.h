@@ -51,7 +51,7 @@ class BaseCacheKey {
   };
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
-    static const int32_t kSeedValue = 4;
+    static const size_t kSeedValue = 4;
     size_t key_hash = key.Hash();
     size_t result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
@@ -64,10 +64,12 @@ class BaseCacheKey {
                std::string type)
       : type_(type) {
     static const int32_t kSeedValue = 4;
-    unsigned long int result_hash = kSeedValue;
+    size_t result_hash = kSeedValue;
+    std::string schema_string = schema->ToString();
+    std::string expr_string = expr->ToString();
     arrow::internal::hash_combine(result_hash, type);
-    arrow::internal::hash_combine(result_hash, schema->ToString());
-    arrow::internal::hash_combine(result_hash, expr->ToString());
+    arrow::internal::hash_combine(result_hash, schema_string);
+    arrow::internal::hash_combine(result_hash, expr_string);
     hash_code_ = result_hash;
   };
 
