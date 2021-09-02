@@ -215,15 +215,7 @@ class BlockParserImpl {
       if (options_.invalid_row_handler(row) == InvalidRowResult::Skip) {
         values_writer->RollbackLine();
         parsed_writer->RollbackLine();
-        auto last_skip = batch_.skipped_rows_.rbegin();
-        if (last_skip == batch_.skipped_rows_.rend() ||
-            last_skip->second + 1 != batch_row) {
-          batch_.skipped_rows_.emplace_back(batch_row, batch_row);
-        } else {
-          last_skip->second = batch_row;
-        }
-
-        ++batch_.num_skipped_rows_;
+        batch_.skipped_rows_.push_back(batch_row);
         *out_data = data;
         return Status::OK();
       }

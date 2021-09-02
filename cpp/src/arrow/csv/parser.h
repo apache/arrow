@@ -63,9 +63,7 @@ class ARROW_EXPORT DataBatch {
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_size_; }
   /// \brief Return the total number of rows skipped
-  int32_t num_skipped_rows() const {
-    return num_skipped_rows_;
-  }
+  int32_t num_skipped_rows() const { return static_cast<int32_t>(skipped_rows_.size()); }
 
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, int64_t first_row, Visitor&& visit) const {
@@ -113,8 +111,8 @@ class ARROW_EXPORT DataBatch {
                                int32_t batch_row) const {
     if (first_row >= 0) {
       for (auto iter = skipped_rows_.begin();
-           iter != skipped_rows_.end() && batch_row >= iter->first; ++iter) {
-        batch_row += iter->second - iter->first + 1;
+           iter != skipped_rows_.end() && batch_row >= *iter; ++iter) {
+        ++batch_row;
       }
       status = status.WithMessage("Row #", batch_row + first_row, ": ", status.message());
     }
@@ -131,8 +129,7 @@ class ARROW_EXPORT DataBatch {
   // It may help with null parsing...
   std::vector<std::shared_ptr<Buffer>> values_buffers_;
   std::shared_ptr<Buffer> parsed_buffer_;
-  std::vector<std::pair<int32_t, int32_t>> skipped_rows_;
-  int32_t num_skipped_rows_ = 0;
+  std::vector<int32_t> skipped_rows_;
   const uint8_t* parsed_ = NULLPTR;
   int32_t parsed_size_ = 0;
 
