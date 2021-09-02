@@ -68,6 +68,15 @@ skip_on_valgrind <- function() {
   }
 }
 
+skip_if_multithreading_disabled <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+  if (is_32bit && is_old_r && is_windows) {
+    skip("Multithreading does not work properly on this system")
+  }
+}
+
 process_is_running <- function(x) {
   cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
   tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)

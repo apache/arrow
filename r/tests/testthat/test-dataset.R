@@ -16,6 +16,7 @@
 # under the License.
 
 skip_if_not_available("dataset")
+skip_if_multithreading_disabled()
 
 context("Dataset")
 
@@ -26,15 +27,6 @@ hive_dir <- make_temp_dir()
 ipc_dir <- make_temp_dir()
 csv_dir <- make_temp_dir()
 tsv_dir <- make_temp_dir()
-
-skip_if_multithreading_disabled <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
-    skip("Multithreading does not work properly on this system")
-  }
-}
 
 
 first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
