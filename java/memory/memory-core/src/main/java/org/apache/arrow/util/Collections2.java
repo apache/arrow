@@ -25,6 +25,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * Utility methods for manipulating {@link java.util.Collections} and their subclasses/implementations.
@@ -81,19 +85,8 @@ public final class Collections2 {
    * The output should be similar to {@code Arrays#toString(Object[])}
    */
   public static String toString(Iterator<?> iterator) {
-    if (!iterator.hasNext()) {
-      return "[]";
-    }
-    final StringBuilder builder = new StringBuilder();
-    builder.append("[");
-    while (iterator.hasNext()) {
-      builder.append(String.valueOf(iterator.next()));
-      if (iterator.hasNext()) {
-        builder.append(", ");
-      }
-    }
-
-    builder.append("]");;
-    return builder.toString();
+    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false)
+        .map(String::valueOf)
+        .collect(Collectors.joining(", ", "[", "]"));
   }
 }
