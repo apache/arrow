@@ -140,12 +140,11 @@ reload_arrow <- function() {
 
 #' Create an install package with all thirdparty dependencies
 #'
-#' @param outfile File path for the new tar.gz package. Defaults to
+#' @param dest_file File path for the new tar.gz package. Defaults to
 #' `arrow_V.V.V_with_deps.tar.gz` in the current directory (`V.V.V` is the version)
-#' @param package_source File path for the input tar.gz package. Defaults to
-#' downloading from CRAN.
-#' @param quietly boolean, default `TRUE`. If `FALSE`, narrate progress.
-#' @return The full path to `outfile`, invisibly
+#' @param source_file File path for the input tar.gz package. Defaults to
+#' downloading the package.
+#' @return The full path to `dest_file`, invisibly
 #'
 #' This function is used for setting up an offline build. If it's possible to
 #' download at build time, don't use this function. Instead, let `cmake`
@@ -157,12 +156,14 @@ reload_arrow <- function() {
 #' ## Steps for an offline install with optional dependencies:
 #'
 #' ### Using a computer with internet access, pre-download the dependencies:
-#' * Install the `arrow` package
+#' * Install the `arrow` package _or_ run
+#'   `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
 #' * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
 #' * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 #'
 #' ### On the computer without internet access, install the prepared package:
-#' * Install the `arrow` package from the copied file (`install.packages("my_arrow_pkg.tar.gz")`)
+#' * Install the `arrow` package from the copied file
+#'   * `install.packages("my_arrow_pkg.tar.gz", dependencies = c("Depends", "Imports", "LinkingTo"))`
 #'   * This installation will build from source, so `cmake` must be available
 #' * Run [arrow_info()] to check installed capabilities
 #'
@@ -175,52 +176,51 @@ reload_arrow <- function() {
 #' install.packages(new_pkg, dependencies = c("Depends", "Imports", "LinkingTo"))
 #' }
 #' @export
-create_package_with_all_dependencies <- function(outfile = NULL, package_source = NULL, quietly = TRUE) {
-  if (is.null(package_source)) {
+create_package_with_all_dependencies <- function(dest_file = NULL, source_file = NULL) {
+  if (is.null(source_file)) {
     pkg_download_dir <- tempfile()
     dir.create(pkg_download_dir)
     on.exit(unlink(pkg_download_dir, recursive = TRUE), add = TRUE)
     downloaded <- utils::download.packages("arrow", destdir = pkg_download_dir, type = "source")
-    package_source <- downloaded[1, 2, drop = TRUE]
+    source_file <- downloaded[1, 2, drop = TRUE]
   }
-  if (!file.exists(package_source) || !endsWith(package_source, "tar.gz")) {
+  if (!file.exists(source_file) || !endsWith(source_file, "tar.gz")) {
     stop("Arrow package .tar.gz file not found")
   }
-  if (is.null(outfile)) {
+  if (is.null(dest_file)) {
     # e.g. convert /path/to/arrow_5.0.0.tar.gz to ./arrow_5.0.0_with_deps.tar.gz
     # (add 'with_deps' for clarity if the file was downloaded locally)
-    outfile <- paste0(gsub(".tar.gz$", "", basename(package_source)), "_with_deps.tar.gz")
+    dest_file <- paste0(gsub(".tar.gz$", "", basename(source_file)), "_with_deps.tar.gz")
   }
   untar_dir <- tempfile()
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
-  utils::untar(package_source, exdir = untar_dir)
-  thirdparty_dir <- file.path(untar_dir, "arrow/tools/cpp/thirdparty")
-  download_dependencies_sh <- file.path(thirdparty_dir, "download_dependencies.sh")
-  download_dir <- file.path(thirdparty_dir, "download")
+  utils::untar(source_file, exdir = untar_dir)
+  tools_dir <- file.path(untar_dir, "arrow/tools")
+  download_dependencies_sh <- file.path(tools_dir, "cpp/thirdparty/download_dependencies.sh")
+  # If you change this path, also need to edit nixlibs.R
+  download_dir <- file.path(tools_dir, "thirdparty_dependencies")
   dir.create(download_dir)
-  if (!quietly) {
-    message("Downloading files to ", download_dir)
-  }
+
+  message("Downloading files to ", download_dir)
   download_successful <- system2(download_dependencies_sh, download_dir, stdout = FALSE) == 0
   if (!download_successful) {
     stop("Failed to download thirdparty dependencies")
   }
   # Need to change directory to untar_dir so tar() will use relative paths. That
-  # means we'll need a full, non-relative path for outfile. (extra_flags="-C"
+  # means we'll need a full, non-relative path for dest_file. (extra_flags="-C"
   # doesn't work with R's internal tar)
   orig_wd <- getwd()
   on.exit(setwd(orig_wd), add = TRUE)
-  # normalizePath() may return the input unchanged if outfile doesn't exist, so
-  # create it first.
-  file.create(outfile)
-  outfile <- normalizePath(outfile, mustWork = TRUE)
+  # normalizePath() may return the input unchanged if dest_file doesn't exist,
+  # so create it first.
+  file.create(dest_file)
+  dest_file <- normalizePath(dest_file, mustWork = TRUE)
   setwd(untar_dir)
-  if (!quietly) {
-    message("Repacking tar.gz file to ", outfile)
-  }
-  tar_successful <- utils::tar(outfile, compression = "gz") == 0
+
+  message("Repacking tar.gz file to ", dest_file)
+  tar_successful <- utils::tar(dest_file, compression = "gz") == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")
   }
-  invisible(outfile)
+  invisible(dest_file)
 }

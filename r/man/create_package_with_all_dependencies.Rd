@@ -4,23 +4,17 @@
 \alias{create_package_with_all_dependencies}
 \title{Create an install package with all thirdparty dependencies}
 \usage{
-create_package_with_all_dependencies(
-  outfile = NULL,
-  package_source = NULL,
-  quietly = TRUE
-)
+create_package_with_all_dependencies(dest_file = NULL, source_file = NULL)
 }
 \arguments{
-\item{outfile}{File path for the new tar.gz package. Defaults to
+\item{dest_file}{File path for the new tar.gz package. Defaults to
 \code{arrow_V.V.V_with_deps.tar.gz} in the current directory (\code{V.V.V} is the version)}
 
-\item{package_source}{File path for the input tar.gz package. Defaults to
-downloading from CRAN.}
-
-\item{quietly}{boolean, default \code{TRUE}. If \code{FALSE}, narrate progress.}
+\item{source_file}{File path for the input tar.gz package. Defaults to
+downloading the package.}
 }
 \value{
-The full path to \code{outfile}, invisibly
+The full path to \code{dest_file}, invisibly
 
 This function is used for setting up an offline build. If it's possible to
 download at build time, don't use this function. Instead, let \code{cmake}
@@ -31,7 +25,8 @@ https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 \subsection{Steps for an offline install with optional dependencies:}{
 \subsection{Using a computer with internet access, pre-download the dependencies:}{
 \itemize{
-\item Install the \code{arrow} package
+\item Install the \code{arrow} package \emph{or} run
+\code{source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")}
 \item Run \code{create_package_with_all_dependencies("my_arrow_pkg.tar.gz")}
 \item Copy the newly created \code{my_arrow_pkg.tar.gz} to the computer without internet access
 }
@@ -39,8 +34,9 @@ https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds
 
 \subsection{On the computer without internet access, install the prepared package:}{
 \itemize{
-\item Install the \code{arrow} package from the copied file (\code{install.packages("my_arrow_pkg.tar.gz")})
+\item Install the \code{arrow} package from the copied file
 \itemize{
+\item \code{install.packages("my_arrow_pkg.tar.gz", dependencies = c("Depends", "Imports", "LinkingTo"))}
 \item This installation will build from source, so \code{cmake} must be available
 }
 \item Run \code{\link[=arrow_info]{arrow_info()}} to check installed capabilities

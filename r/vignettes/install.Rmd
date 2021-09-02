@@ -116,27 +116,22 @@ package with pre-downloaded dependencies. The
 `create_package_with_all_dependencies()` function does this preparation.
 
 ### Using a computer with internet access, pre-download the dependencies:
-* Install the `arrow` package
+* Install the `arrow` package _or_ run
+  `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
 * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
 * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 
 ### On the computer without internet access, install the prepared package:
-* Install the `arrow` package from the copied file (`install.packages("my_arrow_pkg.tar.gz")`)
+* Install the `arrow` package from the copied file
+  * `install.packages("my_arrow_pkg.tar.gz", dependencies = c("Depends", "Imports", "LinkingTo"))`
   * This installation will build from source, so `cmake` must be available
 * Run `arrow_info()` to check installed capabilities
 
-
-### Using a computer with internet access, pre-download the dependencies:
-* Install the `arrow` package
-* Run `download_optional_dependencies(my_dependencies)`
-* Copy the directory `my-arrow-dependencies` to the computer without internet access
-
-### On the computer without internet access, use the pre-downloaded dependencies:
-* Create a environment variable called `ARROW_THIRDPARTY_DEPENDENCY_DIR` that
-  points to the newly copied `my_dependencies`.
-* Install the `arrow` package
-  * This installation will build from source, so `cmake` must be available
-* Run `arrow_info()` to check installed capabilities
+#### Alternative, hands-on approach
+* Download the dependency files (`cpp/thirdparty/download_dependencies.sh` may be helpful)
+* Copy the directory of dependencies to the offline computer
+* Create the environment variable `ARROW_THIRDPARTY_DEPENDENCY_DIR` on the offline computer, pointing to the copied directory.
+* Install the `arrow` package as usual.
 
 ## S3 support
 
@@ -320,13 +315,6 @@ error. Workarounds include (1) setting `LIBARROW_BINARY` to use a C++ binary; (2
 setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
 the conflicting `zstd`.
 See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
-
-* Offline installation fails when dependencies haven't been downloaded to
-`ARROW_THIRDPARTY_DEPENDENCY_DIR`. The package currently depends on the
-third-party project RapidJSON. See `?download_optional_dependencies`.
-See discussion [here](https://issues.apache.org/jira/browse/ARROW-13768) on
-allowing the project to build without JSON support.
-
 
 ## Summary of build environment variables
 

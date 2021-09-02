@@ -54,10 +54,12 @@ binary_ok <- !(env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
 
-# This path, within the tar file, might exist if
-# create_package_with_all_dependencies() was run. Otherwise, it won't, but
-# tools/cpp/thirdparty/ still will.
-thirdparty_dependency_dir <- "tools/cpp/thirdparty/download"
+# This "tools/thirdparty_dependencies" path, within the tar file, might exist if
+# create_package_with_all_dependencies() was run, or if someone has created it
+# manually before running make build.
+# If you change this path, you also need to edit
+# `create_package_with_all_dependencies()` in install-arrow.R
+thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 
 download_binary <- function(os = identify_os()) {
@@ -329,8 +331,8 @@ build_libarrow <- function(src_dir, dst_dir) {
       "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
     ))
     env_var_list <- turn_off_thirdparty_features(env_var_list)
-  } else {
-    # If thirdparty_dependency_dir exists, the *_SOURCE_URL env vars
+  } else if (dir.exists(thirdparty_dependency_dir)){
+    # Add the *_SOURCE_URL env vars
     env_var_list <- set_thirdparty_urls(env_var_list)
   }
   env_vars <- env_vars_as_string(env_var_list)
@@ -457,17 +459,9 @@ turn_off_thirdparty_features <- function(env_var_list) {
 
 set_thirdparty_urls <- function(env_var_list) {
   # This function does *not* check if existing *_SOURCE_URL variables are set.
-  # The directory tools/cpp/thirdparty/download is created by
+  # The directory tools/thirdparty_dependencies is created by
   # create_package_with_all_dependencies() and saved in the tar file.
-  # In all other cases, where we're not installing from that offline tar file,
-  # that directory won't exist, but tools/cpp/thirdparty/ still should.
-  # Test tools/cpp/thirdparty to avoid false negatives.
-  deps_dir <- thirdparty_dependency_dir # defined at the top
-  stopifnot(dir.exists(dirname(thirdparty_dependency_dir)))
-  if (!dir.exists(deps_dir)) {
-    return(env_var_list)
-  }
-  files <- list.files(deps_dir, full.names = FALSE)
+  files <- list.files(thirdparty_dependency_dir, full.names = FALSE)
   url_env_varname <- toupper(sub("(.*?)-.*", "ARROW_\\1_URL", files))
   # Special handling for the aws dependencies, which have extra `-`
   aws <- grepl("^aws", files)
@@ -481,10 +475,10 @@ set_thirdparty_urls <- function(env_var_list) {
       )
     )
   )
-  full_filenames <- file.path(normalizePath(deps_dir), files)
+  full_filenames <- file.path(normalizePath(thirdparty_dependency_dir), files)
 
   env_var_list <- replace(env_var_list, url_env_varname, full_filenames)
-  if (env_is("ARROW_R_DEV", "true")) {
+  if (!quietly) {
     env_var_list <- replace(env_var_list, "ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
   }
   env_var_list

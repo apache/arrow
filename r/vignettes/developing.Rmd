@@ -107,7 +107,6 @@ You can choose to build and then install the Arrow library into a user-defined d
 
 It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html).
 
-
 #### Configure for installing to a user directory
 
 In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout, but it could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout.
@@ -551,4 +550,4 @@ R CMD check arrow_*.tar.gz --as-cran
   `create_package_with_all_dependencies()` creates that subfolder.
   Regardless of this flag's value, `cmake` will be downloaded if it's unavailable.
 * `TEST_R_WITHOUT_LIBARROW`: When set to `true`, skip tests that would require
-  the C++ Arrow library (that is, almost everything). 
+  the C++ Arrow library (that is, almost everything).

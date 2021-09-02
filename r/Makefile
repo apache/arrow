@@ -37,7 +37,6 @@ deps:
 	R -s -e 'lib <- Sys.getenv("R_LIB", .libPaths()[1]); install.packages("devtools", repo="https://cloud.r-project.org", lib=lib); devtools::install_dev_deps(lib=lib)'
 
 # Note: files in tools are available at build time, but not at run time. The thirdparty
-# scripts need to be in inst/ so they're available to download_optional_dependencies()
 # cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
 build: doc
 	cp ../NOTICE.txt inst/NOTICE.txt

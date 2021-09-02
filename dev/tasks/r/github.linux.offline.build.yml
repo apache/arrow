@@ -48,19 +48,21 @@ jobs:
       - name: Pull Arrow dependencies
         run: |
           cd arrow/r
-          # copy the two files we will need
-          # TODO: allow manually specifying `download_dependencies.sh` in `download_optional_dependencies()` then we won't need to install
-          mkdir -p inst/thirdparty/
-          cp -p ../cpp/thirdparty/download_dependencies.sh inst/thirdparty/
-          cp -p ../cpp/thirdparty/versions.txt inst/thirdparty/
-          mkdir thirdparty_deps
-          R -e 'source("R/install-arrow.R"); download_optional_dependencies("thirdparty_deps", download_dependencies_sh = "./inst/thirdparty/download_dependencies.sh")'
+          # This is `make build`, but with no vignettes and not running `make doc`
+          cp ../NOTICE.txt inst/NOTICE.txt
+          rsync --archive --delete ../cpp tools/
+          cp -p ../.env tools/
+          cp -p ../NOTICE.txt tools/
+          cp -p ../LICENSE.txt tools/
+          R CMD build --no-build-vignettes --no-manual .
+          built_tar=$(ls -1 arrow*.tar.gz | head -n 1)
+          R -e "source('R/install-arrow.R'); create_package_with_all_dependencies(dest_file = 'arrow_with_deps.tar.gz', source_file = \"${built_tar}\")"
         shell: bash
       - name: Upload the third party dependency artifacts
         uses: actions/upload-artifact@v2
         with:
           name: thirdparty_deps
-          path: arrow/r/thirdparty_deps
+          path: arrow/r/arrow_with_deps.tar.gz
 
   intall-offline:
     name: "Install offline"
@@ -83,7 +85,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: thirdparty_deps
-          path: thirdparty_deps
+          path: arrow/r/arrow_with_deps.tar.gz
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
@@ -95,9 +97,8 @@ jobs:
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
         run: |
-          export ARROW_THIRDPARTY_DEPENDENCY_DIR=$(pwd)/thirdparty_deps
           cd arrow/r
-          R CMD INSTALL . --install-tests
+          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs
