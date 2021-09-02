@@ -15,25 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowDataset", ArrowDataset)
-      end
-    end
+class TestDatasetPartitioning < Test::Unit::TestCase
+  include Helper::Buildable
 
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
+  def setup
+    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
+  end
 
-    def require_libraries
-      require "arrow-dataset/arrow-table-loadable"
-      require "arrow-dataset/arrow-table-savable"
-      require "arrow-dataset/dataset"
-      require "arrow-dataset/file-format"
-      require "arrow-dataset/file-system-dataset-factory"
-    end
+  def test_default
+    assert_equal("default", ArrowDataset::Partitioning.new.type_name)
+  end
+
+  def test_directory
+    schema = build_schema(year: Arrow::UInt16DataType.new)
+    partitioning = ArrowDataset::DirectoryPartitioning.new(schema)
+    assert_equal("schema", partitioning.type_name)
   end
 end

@@ -15,39 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestArrowTable < Test::Unit::TestCase
+class TestDatasetPartitioningOptions < Test::Unit::TestCase
+  include Helper::Buildable
+
   def setup
-    Dir.mktmpdir do |tmpdir|
-      @dir = tmpdir
-      @path = File.join(@dir, "data", "table.arrow")
-      @table = Arrow::Table.new(visible: [true, false, true],
-                                point: [1, 2, 3])
-      yield
-    end
+    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
+    @options = ArrowDataset::PartitioningOptions.new
   end
 
-  def build_file_uri(path)
-    absolute_path = File.expand_path(path)
-    if absolute_path.start_with?("/")
-      URI("file://#{absolute_path}")
-    else
-      URI("file:///#{absolute_path}")
-    end
+  def test_infer_dictionary
+    assert_false(@options.infer_dictionary?)
+    @options.infer_dictionary = true
+    assert_true(@options.infer_dictionary?)
   end
 
-  sub_test_case("load") do
-    def test_no_scheme
-      Dir.chdir(@dir) do
-        uri = URI(File.basename(@path))
-        @table.save(uri)
-        assert_equal(@table, Arrow::Table.load(uri))
-      end
-    end
+  def test_schema
+    assert_nil(@options.schema)
+    schema = build_schema(year: Arrow::UInt16DataType.new)
+    @options.schema = schema
+    assert_equal(schema, @options.schema)
+  end
 
-    def test_file
-      uri = build_file_uri(@path)
-      @table.save(uri)
-      assert_equal(@table, Arrow::Table.load(uri))
-    end
+  def test_segment_encoding
+    assert_equal(ArrowDataset::SegmentEncoding::NONE,
+                 @options.segment_encoding)
+    @options.segment_encoding = :uri
+    assert_equal(ArrowDataset::SegmentEncoding::URI,
+                 @options.segment_encoding)
   end
 end

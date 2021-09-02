@@ -72,6 +72,7 @@ module Arrow
       require "arrow/equal-options"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/file-system"
       require "arrow/fixed-size-binary-array"
       require "arrow/fixed-size-binary-array-builder"
       require "arrow/group"

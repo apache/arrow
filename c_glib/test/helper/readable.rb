@@ -15,25 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowDataset", ArrowDataset)
+module Helper
+  module Readable
+    def read_table(input, type: :file)
+      if input.is_a?(Arrow::Buffer)
+        input_stream = Arrow::BufferIntputStream.new(input)
+      else
+        input_stream = Arrow::FileInputStream.new(input)
       end
-    end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "arrow-dataset/arrow-table-loadable"
-      require "arrow-dataset/arrow-table-savable"
-      require "arrow-dataset/dataset"
-      require "arrow-dataset/file-format"
-      require "arrow-dataset/file-system-dataset-factory"
+      begin
+        if type == :file
+          reader = Arrow::RecordBatchFileReader.new(input_stream)
+          record_batches = []
+          reader.n_record_batches.times do |i|
+            record_batches << reader.read_record_batch(i)
+          end
+          yield(Arrow::Table.new(record_batches[0].schema, record_batches))
+        else
+          reader = Arrow::RecordBatchStreamReader.new(input_stream)
+          begin
+            yield(reader.read_all)
+          ensure
+            reader.close
+          end
+        end
+      ensure
+        input_stream.close
+      end
     end
   end
 end

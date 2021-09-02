@@ -1271,7 +1271,7 @@ garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
 /**
  * garrow_execute_plan_build_aggregate_node:
  * @plan: A #GArrowExecutePlan.
- * @input: A #GarrowExecuteNode.
+ * @input: A #GArrowExecuteNode.
  * @options: A #GArrowAggregateNodeOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -1304,7 +1304,7 @@ garrow_execute_plan_build_aggregate_node(GArrowExecutePlan *plan,
 /**
  * garrow_execute_plan_build_sink_node:
  * @plan: A #GArrowExecutePlan.
- * @input: A #GarrowExecuteNode.
+ * @input: A #GArrowExecuteNode.
  * @options: A #GArrowSinkNodeOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
