@@ -45,13 +45,6 @@ If you're looking to contribute to arrow, this vignette can help you set up a de
 
 This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation).
 
-For clarity, a quick note on terminology used in this vignette:
-
-* "Apache Arrow" or "Arrow" - the Apache Arrow project, including implementations in different languages
-* "libarrow" or "the Arrow C++ library" - Arrow's C++ library (N.B. this term might not be used in documentation in other parts of the Arrow project)
-* "arrow" or "the Arrow R package" - the R package
-* `arrow` - a directory into which the Arrow GitHub repo has been checked out
-
 This document is a work in progress and will grow and change as the Apache Arrow project grows and changes. We have tried to make these steps as robust as possible (in fact, we even test exactly these instructions on our nightly CI to ensure they don't become stale!), but custom configurations might conflict with these instructions and there are differences of opinion across developers about how to set up development environments like this is.
 
 We welcome any feedback you have about things that are confusing or additions you would like to see here. Please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if there you see anything that is confusing, odd, or just plain wrong.
@@ -61,7 +54,7 @@ We welcome any feedback you have about things that are confusing or additions yo
 ## R-only {.tabset}
 
 Windows and macOS users who wish to contribute to the R package and
-don't need to alter libarrow may be able to obtain a
+don't need to alter libarrow^[Arrow's C++ library] may be able to obtain a
 recent version of the library without building from source. 
 
 ### Linux
