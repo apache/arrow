@@ -20,7 +20,6 @@
 import os
 import pyarrow as pa
 from pyarrow.cffi import ffi
-# from cffi import FFI
 
 def make_schema():
     return pa.schema([('ints', pa.list_(pa.int32()))],
@@ -40,7 +39,7 @@ def load_lib():
         void importSchema(uintptr_t ptr);
         void importRecordBatch(uintptr_t scptr, uintptr_t rbptr);
         """)
-    return ffi.dlopen('cgotest.{}'.format(libext))
+    return ffi.dlopen('./cgotest.{}'.format(libext))
 
 
 c_schema = ffi.new("struct ArrowSchema*")
