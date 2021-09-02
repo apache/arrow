@@ -275,10 +275,10 @@ message CommandGetTableTypes {
  * <
  *  catalog_name: utf8,
  *  schema_name: utf8,
- *  table_name: utf8,
- *  column_name: utf8,
+ *  table_name: utf8 not null,
+ *  column_name: utf8 not null,
  *  key_name: utf8,
- *  key_sequence: int
+ *  key_sequence: int not null
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, key_name, then key_sequence.
  */
