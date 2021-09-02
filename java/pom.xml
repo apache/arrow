@@ -697,6 +697,14 @@
     </profile>
 
     <profile>
+      <!-- ffi depends on building the ffi native library -->
+      <id>arrow-ffi</id>
+      <modules>
+        <module>ffi</module>
+      </modules>
+    </profile>
+
+    <profile>
       <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
       <id>arrow-jni</id>
       <modules>
