@@ -41,37 +41,6 @@ using internal::checked_pointer_cast;
 namespace compute {
 
 namespace {
-
-// Convert arrow::Type to arrow::DataType. If arrow::Type isn't
-// parameter free, this returns an arrow::DataType with the default
-// parameter.
-template <typename ArrowType>
-enable_if_t<TypeTraits<ArrowType>::is_parameter_free, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return TypeTraits<ArrowType>::type_singleton();
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, TimestampType>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return timestamp(TimeUnit::MILLI);
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time32Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time32(TimeUnit::MILLI);
-}
-
-template <typename ArrowType>
-enable_if_t<std::is_same<ArrowType, Time64Type>::value, std::shared_ptr<DataType>>
-TypeToDataType() {
-  return time64(TimeUnit::NANO);
-}
-
-// ----------------------------------------------------------------------
-// Tests for SelectK
-
 template <typename ArrayType>
 auto GetLogicalValue(const ArrayType& array, uint64_t index)
     -> decltype(array.GetView(index)) {
@@ -182,17 +151,19 @@ class TestSelectKBase : public TestBase {
   }
 
   void AssertSelectKJson(const std::string& values, int n) {
-    AssertTopKArray(ArrayFromJSON(GetType(), values), n);
-    AssertBottomKArray(ArrayFromJSON(GetType(), values), n);
+    AssertTopKArray(ArrayFromJSON(type_singleton(), values), n);
+    AssertBottomKArray(ArrayFromJSON(type_singleton(), values), n);
   }
 
-  virtual std::shared_ptr<DataType> GetType() = 0;
+  virtual std::shared_ptr<DataType> type_singleton() = 0;
 };
 
 template <typename ArrowType>
 class TestSelectK : public TestSelectKBase<ArrowType> {
  protected:
-  std::shared_ptr<DataType> GetType() override { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> type_singleton() override {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 template <typename ArrowType>
@@ -213,7 +184,7 @@ TYPED_TEST_SUITE(TestSelectKForTemporal, TemporalArrowTypes);
 
 template <typename ArrowType>
 class TestSelectKForDecimal : public TestSelectKBase<ArrowType> {
-  std::shared_ptr<DataType> GetType() override {
+  std::shared_ptr<DataType> type_singleton() override {
     return std::make_shared<ArrowType>(5, 2);
   }
 };
@@ -224,7 +195,7 @@ class TestSelectKForStrings : public TestSelectK<ArrowType> {};
 TYPED_TEST_SUITE(TestSelectKForStrings, testing::Types<StringType>);
 
 TYPED_TEST(TestSelectKForReal, SelectKDoesNotProvideDefaultOptions) {
-  auto input = ArrayFromJSON(this->GetType(), "[null, 1, 3.3, null, 2, 5.3]");
+  auto input = ArrayFromJSON(this->type_singleton(), "[null, 1, 3.3, null, 2, 5.3]");
   ASSERT_RAISES(Invalid, CallFunction("top_k", {input}));
 }
 
@@ -284,7 +255,7 @@ TYPED_TEST(TestSelectKForStrings, Strings) {
 template <typename ArrowType>
 class TestSelectKRandom : public TestSelectKBase<ArrowType> {
  public:
-  std::shared_ptr<DataType> GetType() override {
+  std::shared_ptr<DataType> type_singleton() override {
     EXPECT_TRUE(0) << "shouldn't be used";
     return nullptr;
   }
@@ -299,79 +270,6 @@ using SelectKableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
                      StringType>;
-
-class RandomImpl {
- protected:
-  random::RandomArrayGenerator generator_;
-  std::shared_ptr<DataType> type_;
-
-  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
-      : generator_(seed), type_(std::move(type)) {}
-
- public:
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
-    return generator_.ArrayOf(type_, count, null_prob);
-  }
-};
-
-template <typename ArrowType>
-class Random : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-};
-
-template <>
-class Random<FloatType> : public RandomImpl {
-  using CType = float;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float32(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<DoubleType> : public RandomImpl {
-  using CType = double;
-
- public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator_.Float64(count, std::numeric_limits<CType>::min(),
-                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
-  }
-};
-
-template <>
-class Random<Decimal128Type> : public RandomImpl {
- public:
-  explicit Random(random::SeedType seed,
-                  std::shared_ptr<DataType> type = decimal128(18, 5))
-      : RandomImpl(seed, std::move(type)) {}
-};
-
-template <typename ArrowType>
-class RandomRange : public RandomImpl {
-  using CType = typename TypeTraits<ArrowType>::CType;
-
- public:
-  explicit RandomRange(random::SeedType seed)
-      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
-    CType min = std::numeric_limits<CType>::min();
-    CType max = min + range;
-    if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
-      max = std::numeric_limits<CType>::max();
-    }
-    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
-  }
-};
 
 TYPED_TEST_SUITE(TestSelectKRandom, SelectKableTypes);
 
@@ -424,20 +322,22 @@ struct TestSelectKWithChunkedArray : public ::testing::Test {
 template <typename ArrowType>
 struct TestTopKWithChunkedArray
     : public TestSelectKWithChunkedArray<SortOrder::Descending> {
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> type_singleton() {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 TYPED_TEST_SUITE(TestTopKWithChunkedArray, SelectKableNumericAndTemporal);
 
 TYPED_TEST(TestTopKWithChunkedArray, WithTypedParam) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   this->Check(type, {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[10, 9, 7]");
   this->Check(type, {"[]", "[]"}, 0, "[]");
   this->Check(type, {"[]"}, 0, "[]");
 }
 
 TYPED_TEST(TestTopKWithChunkedArray, Null) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   this->Check(type, {"[null]", "[8, null]"}, 1, "[8]");
 
   // this->Check(type, {"[null]", "[null, null]"}, 0, "[]");
@@ -454,20 +354,22 @@ TYPED_TEST(TestTopKWithChunkedArray, NaN) {
 template <typename ArrowType>
 struct TestBottomKWithChunkedArray
     : public TestSelectKWithChunkedArray<SortOrder::Ascending> {
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  std::shared_ptr<DataType> type_singleton() {
+    return default_type_instance<ArrowType>();
+  }
 };
 
 TYPED_TEST_SUITE(TestBottomKWithChunkedArray, SelectKableNumericAndTemporal);
 
 TYPED_TEST(TestBottomKWithChunkedArray, Int8) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   this->Check(type, {"[0, 1, 9]", "[3, 7, 2, 4, 10]"}, 3, "[0, 1, 2]");
   this->Check(type, {"[]", "[]"}, 0, "[]");
   this->Check(type, {"[]"}, 0, "[]");
 }
 
 TYPED_TEST(TestBottomKWithChunkedArray, Null) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   this->Check(type, {"[null]", "[8, null]"}, 1, "[8]");
   this->Check(type, {"[null]", "[null, null]"}, 0, "[]");
   this->Check(type, {"[0, null, 9]", "[3, null, 2, null, 10]"}, 3, "[0, 2, 3]");
@@ -486,12 +388,12 @@ template <typename ArrowType>
 class TestTopKWithChunkedArrayForDecimal
     : public TestSelectKWithChunkedArray<SortOrder::Descending> {
  protected:
-  std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
+  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(5, 2); }
 };
 TYPED_TEST_SUITE(TestTopKWithChunkedArrayForDecimal, DecimalArrowTypes);
 
 TYPED_TEST(TestTopKWithChunkedArrayForDecimal, Basics) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   auto chunked_array = ChunkedArrayFromJSON(
       type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
       null])"});
@@ -502,12 +404,12 @@ template <typename ArrowType>
 class TestBottomKWithChunkedArrayForDecimal
     : public TestSelectKWithChunkedArray<SortOrder::Ascending> {
  protected:
-  std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
+  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(5, 2); }
 };
 TYPED_TEST_SUITE(TestBottomKWithChunkedArrayForDecimal, DecimalArrowTypes);
 
 TYPED_TEST(TestBottomKWithChunkedArrayForDecimal, Basics) {
-  auto type = this->GetType();
+  auto type = this->type_singleton();
   auto chunked_array = ChunkedArrayFromJSON(
       type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78",
       null])"});
@@ -518,7 +420,7 @@ template <typename ArrayType, SortOrder order>
 void ValidateSelectK(const ArrayType& array) {
   ValidateOutput(array);
   SelectKComparator<ArrayType, order> compare;
-  for (int i = 1; i < array.length(); i++) {
+  for (uint64_t i = 1; i < static_cast<uint64_t>(array.length()); i++) {
     const auto lval = GetLogicalValue(array, i - 1);
     const auto rval = GetLogicalValue(array, i);
     ASSERT_TRUE(compare(lval, rval));
@@ -773,35 +675,35 @@ TEST_F(TestBottomKWithRecordBatch, Null) {
   Check(schema, batch_input, options, expected_batch);
 }
 
-// TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
-//   auto schema = ::arrow::schema({
-//       {field("country", utf8())},
-//       {field("population", uint64())},
-//   });
+TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
+  auto schema = ::arrow::schema({
+      {field("country", utf8())},
+      {field("population", uint64())},
+  });
 
-//   auto batch_input =
-//       R"([{"country": "Italy", "population": 59000000},
-//         {"country": "France", "population": 65000000},
-//         {"country": "Malta", "population": 434000},
-//         {"country": "Maldives", "population": 434000},
-//         {"country": "Brunei", "population": 434000},
-//         {"country": "Iceland", "population": 337000},
-//         {"country": "Nauru", "population": 11300},
-//         {"country": "Tuvalu", "population": 11300},
-//         {"country": "Anguilla", "population": 11300},
-//         {"country": "Montserrat", "population": 5200}
-//         ])";
-//   auto options = SelectKOptions::TopKDefault();
-//   options.keys = {"population"};
-//   options.k = 3;
+  auto batch_input =
+      R"([{"country": "Italy", "population": 59000000},
+        {"country": "France", "population": 65000000},
+        {"country": "Malta", "population": 434000},
+        {"country": "Maldives", "population": 434000},
+        {"country": "Brunei", "population": 434000},
+        {"country": "Iceland", "population": 337000},
+        {"country": "Nauru", "population": 11300},
+        {"country": "Tuvalu", "population": 11300},
+        {"country": "Anguilla", "population": 11300},
+        {"country": "Montserrat", "population": 5200}
+        ])";
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"population"};
+  options.k = 3;
 
-//   auto expected_batch =
-//       R"([{"country": "Montserrat", "population": 5200},
-//          {"country": "Anguilla", "population": 11300},
-//          {"country": "Tuvalu", "population": 11300}
-//          ])";
-//   this->Check(schema, batch_input, options, expected_batch);
-// }
+  auto expected_batch =
+      R"([{"country": "Montserrat", "population": 5200},
+         {"country": "Anguilla", "population": 11300},
+         {"country": "Tuvalu", "population": 11300}
+         ])";
+  this->Check(schema, batch_input, options, expected_batch);
+}
 
 TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
   auto schema = ::arrow::schema({{field("country", utf8())},
