@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 
+withr::local_options(list(arrow.summarise.sort = TRUE))
+
 library(dplyr)
 library(stringr)
 

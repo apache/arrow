@@ -109,12 +109,14 @@ ExecPlan <- R6Class("ExecPlan",
           node <- node$Project(
             make_field_refs(c(group_vars, names(.data$aggregations)))
           )
-          # Add sorting instructions for the rows too to match dplyr
-          # (see below about why sorting isn't itself a Node)
-          node$sort <- list(
-            names = group_vars,
-            orders = rep(0L, length(group_vars))
-          )
+          if (getOption("arrow.summarise.sort", FALSE)) {
+            # Add sorting instructions for the rows too to match dplyr
+            # (see below about why sorting isn't itself a Node)
+            node$sort <- list(
+              names = group_vars,
+              orders = rep(0L, length(group_vars))
+            )
+          }
         }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
