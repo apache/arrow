@@ -20,7 +20,6 @@
 #include <arrow/util/hash_util.h>
 #include <stddef.h>
 
-#include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include <sstream>
 #include "gandiva/expression.h"
@@ -76,8 +75,6 @@ class BaseCacheKey {
   size_t Hash() const { return hash_code_; }
 
   std::string Type() const { return type_; }
-
-  boost::any GetInnerKey() { return key_; }
 
   bool operator==(const BaseCacheKey& other) const {
     if (hash_code_ != other.hash_code_) {
