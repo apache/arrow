@@ -105,12 +105,14 @@
 #' * The Arrow C++ library (check with `arrow_available()`)
 #' * Arrow Dataset support enabled (check with `arrow_with_dataset()`)
 #' * Parquet support enabled (check with `arrow_with_parquet()`)
+#' * JSON support enabled (check with `arrow_with_json()`)
 #' * Amazon S3 support enabled (check with `arrow_with_s3()`)
 #' @export
 #' @examples
 #' arrow_available()
 #' arrow_with_dataset()
 #' arrow_with_parquet()
+#' arrow_with_json()
 #' arrow_with_s3()
 #' @seealso If any of these are `FALSE`, see
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
@@ -146,6 +148,7 @@ arrow_with_s3 <- function() {
 }
 
 #' @rdname arrow_available
+#' @export
 arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
     return(FALSE)
