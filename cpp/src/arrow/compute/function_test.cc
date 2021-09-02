@@ -116,6 +116,8 @@ TEST(FunctionOptions, Equality) {
       {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
+  options.emplace_back(new SelectKOptions(0, {}, false, SortOrder::Ascending));
+  options.emplace_back(new SelectKOptions(0, {}, false, SortOrder::Descending));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;

@@ -158,8 +158,8 @@ using NumericArrowTypes =
 
 using RealArrowTypes = ::testing::Types<FloatType, DoubleType>;
 
-using IntegralArrowTypes = ::testing::Types<Int64Type>;
-
+using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+                                            Int8Type, Int16Type, Int32Type, Int64Type>;
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 

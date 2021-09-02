@@ -114,7 +114,7 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k), DataMember("keys", &SelectKOptions::keys),
     DataMember("order", &SelectKOptions::order),
-    DataMember("keep", &SelectKOptions::keep));
+    DataMember("keep", &SelectKOptions::keep_duplicates));
 }  // namespace
 }  // namespace internal
 
@@ -144,12 +144,12 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot)
     : FunctionOptions(internal::kPartitionNthOptionsType), pivot(pivot) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
-SelectKOptions::SelectKOptions(int64_t k, std::vector<std::string> keys, std::string keep,
-                               SortOrder order)
+SelectKOptions::SelectKOptions(int64_t k, std::vector<std::string> keys,
+                               bool keep_duplicates, SortOrder order)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
       keys(std::move(keys)),
-      keep(keep),
+      keep_duplicates(keep_duplicates),
       order(order) {}
 constexpr char SelectKOptions::kTypeName[];
 
@@ -176,17 +176,17 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
   return result.make_array();
 }
 
-Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k,
-                                    const std::string& keep, ExecContext* ctx) {
-  SelectKOptions options(k, {}, keep, SortOrder::Descending);
+Result<std::shared_ptr<Array>> TopK(const Array& values, int64_t k, bool keep_duplicates,
+                                    ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep_duplicates, SortOrder::Descending);
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("top_k", {values, Datum(k)}, &options, ctx));
   return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> TopK(const ChunkedArray& values, int64_t k,
-                                    const std::string& keep, ExecContext* ctx) {
-  SelectKOptions options(k, {}, keep, SortOrder::Descending);
+                                    bool keep_duplicates, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep_duplicates, SortOrder::Descending);
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("top_k", {Datum(values), Datum(k)}, &options, ctx));
   return result.make_array();
@@ -202,16 +202,16 @@ Result<Datum> TopK(const Datum& datum, int64_t k, SelectKOptions options,
 }
 
 Result<std::shared_ptr<Array>> BottomK(const Array& values, int64_t k,
-                                       const std::string& keep, ExecContext* ctx) {
-  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
+                                       bool keep_duplicates, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep_duplicates, SortOrder::Ascending);
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("bottom_k", {values, Datum(k)}, &options, ctx));
   return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& values, int64_t k,
-                                       const std::string& keep, ExecContext* ctx) {
-  SelectKOptions options(k, {}, keep, SortOrder::Ascending);
+                                       bool keep_duplicates, ExecContext* ctx) {
+  SelectKOptions options(k, {}, keep_duplicates, SortOrder::Ascending);
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("bottom_k", {Datum(values), Datum(k)}, &options, ctx));
   return result.make_array();

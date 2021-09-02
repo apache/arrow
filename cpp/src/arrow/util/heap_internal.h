@@ -26,25 +26,21 @@ namespace arrow {
 namespace internal {
 
 // A Heap class, is a simple wrapper to make heap operation simpler.
-// This class is immutable by design
 template <typename T, typename Compare = std::less<T>>
-class ARROW_EXPORT Heap {
+class Heap {
  public:
-  explicit Heap() : values_(), comp_() {}
+  Heap() : values_(), comp_() {}
   explicit Heap(const Compare& compare) : values_(), comp_(compare) {}
 
-  Heap(Heap&&) = default;
-  Heap& operator=(Heap&&) = default;
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(Heap);
 
-  T* Data() { return values_.data(); }
+  T* data() const { return values_.data(); }
 
-  // const T& Top() const { return values_.front(); }
+  T top() const { return values_.front(); }
 
-  T Top() const { return values_.front(); }
+  bool empty() const { return values_.empty(); }
 
-  bool Empty() const { return values_.empty(); }
-
-  size_t Size() const { return values_.size(); }
+  size_t size() const { return values_.size(); }
 
   void Push(const T& value) {
     values_.push_back(value);
@@ -61,8 +57,6 @@ class ARROW_EXPORT Heap {
     values_.back() = value;
     std::push_heap(values_.begin(), values_.end(), comp_);
   }
-
-  void SetComparator(const Compare& comp) { comp_ = comp; }
 
  public:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Heap);
