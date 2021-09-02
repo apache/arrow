@@ -15,7 +15,6 @@
       ]
     },
     "benchmark",
-    "boost-any",
     "boost-filesystem",
     "boost-multiprecision",
     "boost-system",

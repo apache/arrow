@@ -47,7 +47,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, type);
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
-    key_ = key;
+    schema_ = key.schema();
   };
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
@@ -57,7 +57,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, type);
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
-    key_ = key;
+    schema_ = key.schema();
   };
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
@@ -91,7 +91,7 @@ class BaseCacheKey {
  private:
   uint64_t hash_code_;
   std::string type_;
-  boost::any key_ = nullptr;
+  SchemaPtr schema_;
 };
 
 }  // namespace gandiva
