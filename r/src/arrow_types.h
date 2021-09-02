@@ -101,6 +101,7 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 }
 
 namespace r {
+class RTasks;
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
@@ -174,9 +175,13 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
 #if defined(HAS_ALTREP)
+
+namespace altrep {
+
 void Init_Altrep_classes(DllInfo* dll);
-SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
-SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
+SEXP MakeAltrepArrayPrimitive(const std::shared_ptr<Array>& array);
+
+}  // namespace altrep
 #endif
 
 }  // namespace r

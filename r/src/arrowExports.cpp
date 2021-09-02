@@ -6,31 +6,16 @@
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool is_altrep_int_nonull(SEXP x);
-extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
+bool is_altrep(SEXP x);
+extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_altrep_int_nonull(x));
+	return cpp11::as_sexp(is_altrep(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
-	Rf_error("Cannot call is_altrep_int_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
-bool is_altrep_dbl_nonull(SEXP x);
-extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(is_altrep_dbl_nonull(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
-	Rf_error("Cannot call is_altrep_dbl_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_is_altrep(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7040,8 +7025,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_arrow_is_altrep_int_nonull", (DL_FUNC) &_arrow_is_altrep_int_nonull, 1}, 
-		{ "_arrow_is_altrep_dbl_nonull", (DL_FUNC) &_arrow_is_altrep_dbl_nonull, 1}, 
+		{ "_arrow_is_altrep", (DL_FUNC) &_arrow_is_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -7492,7 +7476,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_useDynamicSymbols(dll, FALSE);
 
   #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
-  arrow::r::Init_Altrep_classes(dll);
+  arrow::r::altrep::Init_Altrep_classes(dll);
   #endif
 
 }

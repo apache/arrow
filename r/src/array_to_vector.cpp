@@ -69,15 +69,13 @@ class Converter {
     // special case when there is only one array
     if (chunked_array_->num_chunks() == 1) {
       const auto& array = chunked_array_->chunk(0);
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
-          array->null_count() == 0) {
-        switch (array->type()->id()) {
-          case arrow::Type::DOUBLE:
-            return arrow::r::MakeDoubleArrayNoNull(array);
-          case arrow::Type::INT32:
-            return arrow::r::MakeInt32ArrayNoNull(array);
-          default:
-            break;
+      // using altrep if
+      // - the arrow.use_altrep is set to TRUE or unset (implicit TRUE)
+      // - the array has at least one element
+      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
+        SEXP alt = altrep::MakeAltrepArrayPrimitive(array);
+        if (!Rf_isNull(alt)) {
+          return alt;
         }
       }
     }
