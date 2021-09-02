@@ -430,10 +430,7 @@ ORCFileReader::~ORCFileReader() {}
 
 Status ORCFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
                            MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader) {
-  auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
-  RETURN_NOT_OK(result->impl_->Open(file, pool));
-  *reader = std::move(result);
-  return Status::OK();
+  return Open(file, pool).Value(reader);
 }
 
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
@@ -482,7 +479,8 @@ Status ORCFileReader::Read(const std::vector<int>& include_indices,
   return impl_->Read(include_indices, out);
 }
 
-Result<std::shared_ptr<Table>> ORCFileReader::Read(std::vector<int>& include_indices) {
+Result<std::shared_ptr<Table>> ORCFileReader::Read(
+    const std::vector<int>& include_indices) {
   std::shared_ptr<Table> table;
   RETURN_NOT_OK(impl_->Read(include_indices, &table));
   return table;
@@ -505,7 +503,7 @@ Status ORCFileReader::ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* o
   return impl_->ReadStripe(stripe, out);
 }
 
-Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(int stripe) {
+Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(int64_t stripe) {
   std::shared_ptr<RecordBatch> recordBatch;
   RETURN_NOT_OK(impl_->ReadStripe(stripe, &recordBatch));
   return recordBatch;

@@ -237,7 +237,8 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   ARROW_EXPECT_OK(writer->Close());
   EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
-  EXPECT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
   EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
 }
@@ -321,8 +322,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
                                static_cast<int64_t>(mem_stream.getLength()))));
 
-  ASSERT_OK_AND_ASSIGN(auto reader,
-      adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
   auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
