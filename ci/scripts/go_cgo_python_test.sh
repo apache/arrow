@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,12 +17,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG go=1.15
-FROM ${arch}/golang:${go}-buster
+set -ex
 
+source_dir=${1}/go
 
-# TODO(kszucs):
-# 1. add the files required to install the dependencies to .dockerignore
-# 2. copy these files to their appropriate path
-# 3. download and compile the dependencies
+pushd ${source_dir}/arrow/cdata/test
+
+case "$(uname)" in
+    Linux)
+        testlib="cgotest.so"
+        ;;
+    Darwin)
+        testlib="cgotest.so"
+        ;;
+    MINGW*)
+        testlib="cgotest.dll"
+        ;;
+esac
+
+go build -tags cdata_test -buildmode=c-shared -o $testlib .
+
+python test_export_to_cgo.py
+
+rm $testlib
+rm "${testlib%.*}.h"
+
+popd
