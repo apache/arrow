@@ -321,7 +321,7 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
-  /// Number from 1 if true and from 0 if false
+  /// Number days from 1 if true and from 0 if false
   bool one_based_numbering;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
