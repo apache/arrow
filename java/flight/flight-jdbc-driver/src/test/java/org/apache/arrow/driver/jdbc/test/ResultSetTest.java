@@ -26,27 +26,18 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.sql.Statement;
-import java.sql.Timestamp;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFlightStreamResultSet;
 import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.apache.calcite.avatica.BuiltInConnectionProperty;
-import org.apache.calcite.avatica.ConnectionProperty;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -56,23 +47,12 @@ import org.junit.rules.ErrorCollector;
 
 import com.google.common.collect.ImmutableSet;
 
-import me.alexpanov.net.FreePortFinder;
-
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
   @ClassRule
-  public static FlightServerTestRule rule;
+  public static FlightServerTestRule rule =
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
   private static Connection connection;
-
-  static {
-    Map<ConnectionProperty, Object> properties = new HashMap<>();
-    properties.put(ArrowFlightConnectionProperty.HOST, "localhost");
-    properties.put(ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
-    properties.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
-    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
-
-    rule = FlightServerTestRule.createNewTestRule(properties, CoreMockedSqlProducers.getLegacyProducer(RANDOM));
-  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
@@ -107,23 +87,7 @@ public class ResultSetTest {
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-      int count = 0;
-      int expectedRows = 50000;
-
-      Set<String> testNames =
-          IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
-
-      for (; resultSet.next(); count++) {
-        collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
-        collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
-        collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
-        collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
-        collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
-        collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
-      }
-
-      collector.checkThat(testNames.isEmpty(), is(true));
-      collector.checkThat(expectedRows, is(count));
+      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
     }
   }
 
@@ -393,23 +357,7 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(query)) {
       statement.setQueryTimeout(timeoutValue);
-      int count = 0;
-      int expectedRows = 50000;
-
-      Set<String> testNames =
-          IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
-
-      for (; resultSet.next(); count++) {
-        collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
-        collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
-        collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
-        collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
-        collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
-        collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
-      }
-
-      collector.checkThat(testNames.isEmpty(), is(true));
-      collector.checkThat(expectedRows, is(count));
+      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
     }
   }
 }

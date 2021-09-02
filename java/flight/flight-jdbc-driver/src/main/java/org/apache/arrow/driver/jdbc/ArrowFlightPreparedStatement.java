@@ -20,6 +20,8 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
+import org.apache.arrow.flight.FlightInfo;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
 import org.apache.calcite.avatica.Meta;
@@ -31,22 +33,28 @@ import org.apache.calcite.avatica.Meta;
  */
 public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
 
-  // TODO will be used later
-  @SuppressWarnings("unused")
-  private final PreparedStatement preparedStatement;
+  private final FlightClientHandler.PreparedStatement preparedStatement;
 
   ArrowFlightPreparedStatement(final AvaticaConnection connection,
       final Meta.StatementHandle handle,
       final Meta.Signature signature, final int resultSetType,
-      final int resultSetConcurrency, final int resultSetHoldability,
-      final PreparedStatement preparedStatement) throws SQLException {
+      final int resultSetConcurrency, final int resultSetHoldability) throws SQLException {
     super(connection, handle, signature, resultSetType, resultSetConcurrency,
         resultSetHoldability);
-    this.preparedStatement = preparedStatement;
+    final FlightClientHandler clientHandler = ((ArrowFlightConnection) connection).getClientHandler();
+    this.preparedStatement = clientHandler.prepare(signature.sql);
+  }
+
+  /**
+   * Returns a FlightInfo for PreparedStatement query execution
+   */
+  public FlightInfo getFlightInfoToExecuteQuery() throws SQLException {
+    return preparedStatement.executeQuery();
   }
 
   @Override
-  public ArrowFlightConnection getConnection() throws SQLException {
-    return (ArrowFlightConnection) super.getConnection();
+  public synchronized void close() throws SQLException {
+    this.preparedStatement.close();
+    super.close();
   }
 }

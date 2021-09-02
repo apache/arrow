@@ -23,10 +23,15 @@ import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
+import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.MetaImpl;
 import org.apache.calcite.avatica.MissingResultsException;
 import org.apache.calcite.avatica.NoSuchStatementException;
@@ -38,12 +43,14 @@ import org.apache.calcite.avatica.remote.TypedValue;
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
 
+  private final AtomicInteger statementHandleId = new AtomicInteger();
+
   public ArrowFlightMetaImpl(final AvaticaConnection connection) {
     super(connection);
     setDefaultConnectionProperties();
   }
 
-  static Signature newSignature(String sql) {
+  static Signature newSignature(final String sql) {
     return new Signature(
         new ArrayList<ColumnMetaData>(),
         sql,
@@ -56,7 +63,6 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public void closeStatement(final StatementHandle statementHandle) {
-    // TODO Fill this stub.
   }
 
   @Override
@@ -75,30 +81,36 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   public ExecuteResult execute(final StatementHandle statementHandle,
       final List<TypedValue> typedValues, final int maxRowsInFirstFrame)
           throws NoSuchStatementException {
-    return null;
+    // Avatica removes the signature in case of updates
+    if (statementHandle.signature == null) {
+      // TODO: Handle updates
+      throw new IllegalStateException();
+    } else {
+      return new ExecuteResult(Collections.singletonList(MetaResultSet.create(
+          statementHandle.connectionId, statementHandle.id, true, statementHandle.signature, null)));
+    }
   }
 
   @Override
   public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
       final List<List<TypedValue>> parameterValuesList)
           throws NoSuchStatementException {
-    // TODO Fill this stub.
-    return null;
+    throw new IllegalStateException();
   }
 
   @Override
   public Frame fetch(final StatementHandle statementHandle, final long offset,
       final int fetchMaxRowCount)
           throws NoSuchStatementException, MissingResultsException {
-    // TODO Fill this stub.
-    return null;
+    throw new IllegalStateException();
   }
 
   @Override
   public StatementHandle prepare(final ConnectionHandle connectionHandle,
       final String query, final long maxRowCount) {
-    // TODO Fill this stub.
-    return null;
+
+    return new StatementHandle(
+        connectionHandle.id, statementHandleId.incrementAndGet(), newSignature(query));
   }
 
   @Override
@@ -151,10 +163,6 @@ public class ArrowFlightMetaImpl extends MetaImpl {
           throws NoSuchStatementException {
     // TODO Fill this stub.
     return false;
-  }
-
-  public ArrowFlightConnection getConnect() {
-    return null;
   }
 
   void setDefaultConnectionProperties() {

@@ -26,14 +26,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.test.adhoc.CoreMockedSqlProducers;
-import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.apache.calcite.avatica.BuiltInConnectionProperty;
-import org.apache.calcite.avatica.ConnectionProperty;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -43,11 +38,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
-import me.alexpanov.net.FreePortFinder;
-
 public class ResultSetMetadataTest {
 
-  private static final Map<ConnectionProperty, Object> properties;
   private static final Random RANDOM = new Random(10);
   private static ResultSetMetaData metadata;
 
@@ -57,16 +49,8 @@ public class ResultSetMetadataTest {
   public ErrorCollector collector = new ErrorCollector();
 
   @ClassRule
-  public static final FlightServerTestRule rule;
-
-  static {
-    properties = new HashMap<>();
-    properties.put(ArrowFlightConnectionProperty.HOST, "localhost");
-    properties.put(ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
-    properties.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
-    properties.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
-    rule = FlightServerTestRule.createNewTestRule(properties, CoreMockedSqlProducers.getLegacyProducer(RANDOM));
-  }
+  public static final FlightServerTestRule rule =
+      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer(RANDOM));
 
   @BeforeClass
   public static void setup() throws SQLException {

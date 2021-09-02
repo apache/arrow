@@ -50,6 +50,8 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import me.alexpanov.net.FreePortFinder;
+
 /**
  * Utility class for unit tests that need to instantiate a {@link FlightServer}
  * and interact with it.
@@ -77,11 +79,15 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   /**
    * Creates a new {@link FlightServerTestRule} for tests.
    *
-   * @param configs the configs to use.
    * @return a new test rule.
    */
-  public static FlightServerTestRule createNewTestRule(final Map<ConnectionProperty, Object> configs,
-                                                       final FlightSqlProducer producer) {
+  public static FlightServerTestRule createNewTestRule(final FlightSqlProducer producer) {
+    final Map<ConnectionProperty, Object> configs = new HashMap<>();
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST, "localhost");
+    configs.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT, FreePortFinder.findFreeLocalPort());
+    configs.put(BuiltInConnectionProperty.AVATICA_USER, "flight-test-user");
+    configs.put(BuiltInConnectionProperty.AVATICA_PASSWORD, "flight-test-password");
+
     final Properties properties = new Properties();
     configs.forEach((key, value) -> properties.put(key.camelName(), value == null ? key.defaultValue() : value));
     final FlightServerTestRule rule = new FlightServerTestRule(

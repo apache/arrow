@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
 import org.apache.arrow.flight.FlightClient;
@@ -32,10 +33,10 @@ public interface FlightClientHandler extends AutoCloseable {
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
    * object. Retrieves the result of the query previously prepared with "getInfo."
    *
-   * @param query The query.
+   * @param flightInfo The {@link FlightInfo} instance from which to fetch results.
    * @return a {@code FlightStream} of results.
    */
-  Collection<FlightStream> getStreams(String query);
+  Collection<FlightStream> getStreams(FlightInfo flightInfo);
 
   /**
    * Makes an RPC "getInfo" request based on the provided {@code query}
@@ -45,4 +46,28 @@ public interface FlightClientHandler extends AutoCloseable {
    * @return a {@code FlightStream} of results.
    */
   FlightInfo getInfo(String query);
+
+  /**
+   * Creates a new {@link PreparedStatement} for the given {@code query}.
+   *
+   * @param query the SQL query.
+   * @return a new prepared statement.
+   */
+  PreparedStatement prepare(String query);
+
+  /**
+   * A prepared statement handler.
+   */
+  interface PreparedStatement extends AutoCloseable {
+    /**
+     * Executes this {@link PreparedStatement}.
+     *
+     * @return the {@link FlightInfo} representing the outcome of this query execution.
+     * @throws SQLException on error.
+     */
+    FlightInfo executeQuery() throws SQLException;
+
+    @Override
+    void close();
+  }
 }
