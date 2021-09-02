@@ -102,6 +102,14 @@ class SelectKComparator {
 };
 
 template <SortOrder order>
+Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
+  if (order == SortOrder::Descending) {
+    return TopK(values, k);
+  } else {
+    return BottomK(values, k);
+  }
+}
+template <SortOrder order>
 Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
   if (order == SortOrder::Descending) {
     return TopK(values, k);
@@ -111,13 +119,29 @@ Result<std::shared_ptr<Array>> SelectK(const ChunkedArray& values, int64_t k) {
 }
 
 template <SortOrder order>
-Result<std::shared_ptr<Array>> SelectK(const Array& values, int64_t k) {
+Result<std::shared_ptr<RecordBatch>> SelectK(const RecordBatch& values,
+                                             const SelectKOptions& options) {
   if (order == SortOrder::Descending) {
-    return TopK(values, k);
+    ARROW_ASSIGN_OR_RAISE(auto out, TopK(Datum(values), options.k, options));
+    return out.record_batch();
   } else {
-    return BottomK(values, k);
+    ARROW_ASSIGN_OR_RAISE(auto out, BottomK(Datum(values), options.k, options));
+    return out.record_batch();
   }
 }
+
+template <SortOrder order>
+Result<std::shared_ptr<Table>> SelectK(const Table& values,
+                                       const SelectKOptions& options) {
+  if (order == SortOrder::Descending) {
+    ARROW_ASSIGN_OR_RAISE(auto out, TopK(Datum(values), options.k, options));
+    return out.table();
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto out, BottomK(Datum(values), options.k, options));
+    return out.table();
+  }
+}
+
 template <typename ArrowType>
 class TestSelectKBase : public TestBase {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -552,7 +576,26 @@ TYPED_TEST_SUITE(TestBottomKChunkedArrayRandom, SelectKableTypes);
 TYPED_TEST(TestBottomKChunkedArrayRandom, BottomK) { this->TestSelectK(1000); }
 
 // Test basic cases for record batch.
-class TestTopKWithRecordBatch : public ::testing::Test {};
+template <SortOrder order>
+class TestSelectKWithRecordBatch : public ::testing::Test {
+ public:
+  void Check(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+             const SelectKOptions& options, const std::string& expected_batch) {
+    std::shared_ptr<RecordBatch> actual;
+    ASSERT_OK(this->DoSelectK(schm, batch_json, options, &actual));
+    ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
+  }
+
+  Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                   const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
+    auto batch = RecordBatchFromJSON(schm, batch_json);
+    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*batch, options));
+    ValidateOutput(*out);
+    return Status::OK();
+  }
+};
+
+struct TestTopKWithRecordBatch : TestSelectKWithRecordBatch<SortOrder::Descending> {};
 
 TEST_F(TestTopKWithRecordBatch, NoNull) {
   auto schema = ::arrow::schema({
@@ -560,83 +603,304 @@ TEST_F(TestTopKWithRecordBatch, NoNull) {
       {field("b", uint32())},
   });
 
-  auto batch = RecordBatchFromJSON(schema,
-                                   R"([{"a": 3,    "b": 5},
-                                       {"a": 30,    "b": 3},
-                                       {"a": 3,    "b": 4},
-                                       {"a": 0,    "b": 6},
-                                       {"a": 20,    "b": 5},
-                                       {"a": 10,    "b": 5},
-                                       {"a": 10,    "b": 3}
-                                       ])");
+  auto batch_input = R"([
+    {"a": 3,    "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": 3,    "b": 4},
+    {"a": 0,    "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": 10,   "b": 5},
+    {"a": 10,   "b": 3}
+  ])";
+
   auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
   options.keys = {"a"};
-  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(batch), 3, options));
-  // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+
+  auto expected_batch = R"([
+    {"a": 30,    "b": 3},
+    {"a": 20,    "b": 5},
+    {"a": 10,    "b": 5}
+  ])";
+
+  Check(schema, batch_input, options, expected_batch);
 }
 
-TEST_F(TestTopKWithRecordBatch, countries_population) {
+TEST_F(TestTopKWithRecordBatch, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+
+  auto batch_input = R"([
+    {"a": null,    "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": null,    "b": 4},
+    {"a": null,    "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": null,   "b": 5},
+    {"a": 10,   "b": 3}
+  ])";
+
+  auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
+  options.keys = {"a"};
+
+  auto expected_batch = R"([
+    {"a": 30,    "b": 3},
+    {"a": 20,    "b": 5},
+    {"a": 10,    "b": 3}
+  ])";
+
+  Check(schema, batch_input, options, expected_batch);
+}
+
+TEST_F(TestTopKWithRecordBatch, OneColumnKey) {
   auto schema = ::arrow::schema({
       {field("country", utf8())},
       {field("population", uint64())},
   });
 
-  auto batch = RecordBatchFromJSON(schema,
-                                   R"([{"country": "Italy", "population": 59000000},
-                                       {"country": "France", "population": 65000000},
-                                       {"country": "Malta", "population": 434000},
-                                       {"country": "Maldives", "population": 434000},
-                                       {"country": "Brunei", "population": 434000},
-                                       {"country": "Iceland", "population": 337000},
-                                       {"country": "Nauru", "population": 11300},
-                                       {"country": "Tuvalu", "population": 11300},
-                                       {"country": "Anguilla", "population": 11300},
-                                       {"country": "Montserrat", "population": 5200}
-                                       ])");
+  auto batch_input =
+      R"([{"country": "Italy", "population": 59000000},
+        {"country": "France", "population": 65000000},
+        {"country": "Malta", "population": 434000},
+        {"country": "Maldives", "population": 434000},
+        {"country": "Brunei", "population": 434000},
+        {"country": "Iceland", "population": 337000},
+        {"country": "Nauru", "population": 11300},
+        {"country": "Tuvalu", "population": 11300},
+        {"country": "Anguilla", "population": 11300},
+        {"country": "Montserrat", "population": 5200}
+        ])";
   auto options = SelectKOptions::TopKDefault();
   options.keys = {"population"};
-  options.keep_duplicates = true;
-  ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(batch), 3, options));
-  // AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+  options.k = 3;
+
+  auto expected_batch =
+      R"([{"country": "France", "population": 65000000},
+         {"country": "Italy", "population": 59000000},
+         {"country": "Malta", "population": 434000}
+         ])";
+  this->Check(schema, batch_input, options, expected_batch);
 }
 
-// Test basic cases for table.
-class TestTopKWithTable : public ::testing::Test {};
+TEST_F(TestTopKWithRecordBatch, MultipleColumnKeys) {
+  auto schema = ::arrow::schema({{field("country", utf8())},
+                                 {field("population", uint64())},
+                                 {field("GDP", uint64())}});
 
-TEST_F(TestTopKWithTable, Null) {
+  auto batch_input =
+      R"([{"country": "Italy", "population": 59000000, "GDP": 1937894},
+        {"country": "France", "population": 65000000, "GDP": 2583560},
+        {"country": "Malta", "population": 434000, "GDP": 12011},
+        {"country": "Maldives", "population": 434000, "GDP": 4520},
+        {"country": "Brunei", "population": 434000, "GDP": 12128},
+        {"country": "Iceland", "population": 337000, "GDP": 17036},
+        {"country": "Nauru", "population": 337000, "GDP": 182},
+        {"country": "Tuvalu", "population": 11300, "GDP": 38},
+        {"country": "Anguilla", "population": 11300, "GDP": 311}
+        ])";
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"population", "GDP"};
+  options.k = 3;
+
+  auto expected_batch =
+      R"([{"country": "France", "population": 65000000, "GDP": 2583560},
+         {"country": "Italy", "population": 59000000, "GDP": 1937894},
+         {"country": "Brunei", "population": 434000, "GDP": 12128}
+         ])";
+  this->Check(schema, batch_input, options, expected_batch);
+}
+
+struct TestBottomKWithRecordBatch : TestSelectKWithRecordBatch<SortOrder::Ascending> {};
+
+TEST_F(TestBottomKWithRecordBatch, NoNull) {
   auto schema = ::arrow::schema({
       {field("a", uint8())},
       {field("b", uint32())},
   });
-  std::shared_ptr<Table> table;
+
+  auto batch_input = R"([
+    {"a": 3,    "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": 3,    "b": 4},
+    {"a": 0,    "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": 10,   "b": 5},
+    {"a": 10,   "b": 3}
+  ])";
+
   auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
   options.keys = {"a"};
 
-  // table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
-  //                                    {"a": 1,    "b": 3},
-  //                                    {"a": 3,    "b": null},
-  //                                    {"a": null, "b": null},
-  //                                    {"a": 2,    "b": 5},
-  //                                    {"a": 1,    "b": 5}
-  //                                   ])"});
-  // // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+  auto expected_batch = R"([
+    {"a": 0,    "b": 6},
+    {"a": 3,    "b": 4},
+    {"a": 3,    "b": 5}
+  ])";
 
-  // ASSERT_OK_AND_ASSIGN(auto top_k, TopK(Datum(table), 3, options));
+  Check(schema, batch_input, options, expected_batch);
+}
 
-  // Same data, several chunks
-  table = TableFromJSON(schema, {R"([{"a": null, "b": 5},
+TEST_F(TestBottomKWithRecordBatch, Null) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+
+  auto batch_input = R"([
+    {"a": null,    "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": null,    "b": 4},
+    {"a": null,    "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": null,   "b": 5},
+    {"a": 10,   "b": 3}
+  ])";
+
+  auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
+  options.keys = {"a"};
+
+  auto expected_batch = R"([
+    {"a": 10,    "b": 3},
+    {"a": 20,    "b": 5},
+    {"a": 30,    "b": 3}
+  ])";
+
+  Check(schema, batch_input, options, expected_batch);
+}
+
+// TEST_F(TestBottomKWithRecordBatch, OneColumnKey) {
+//   auto schema = ::arrow::schema({
+//       {field("country", utf8())},
+//       {field("population", uint64())},
+//   });
+
+//   auto batch_input =
+//       R"([{"country": "Italy", "population": 59000000},
+//         {"country": "France", "population": 65000000},
+//         {"country": "Malta", "population": 434000},
+//         {"country": "Maldives", "population": 434000},
+//         {"country": "Brunei", "population": 434000},
+//         {"country": "Iceland", "population": 337000},
+//         {"country": "Nauru", "population": 11300},
+//         {"country": "Tuvalu", "population": 11300},
+//         {"country": "Anguilla", "population": 11300},
+//         {"country": "Montserrat", "population": 5200}
+//         ])";
+//   auto options = SelectKOptions::TopKDefault();
+//   options.keys = {"population"};
+//   options.k = 3;
+
+//   auto expected_batch =
+//       R"([{"country": "Montserrat", "population": 5200},
+//          {"country": "Anguilla", "population": 11300},
+//          {"country": "Tuvalu", "population": 11300}
+//          ])";
+//   this->Check(schema, batch_input, options, expected_batch);
+// }
+
+TEST_F(TestBottomKWithRecordBatch, MultipleColumnKeys) {
+  auto schema = ::arrow::schema({{field("country", utf8())},
+                                 {field("population", uint64())},
+                                 {field("GDP", uint64())}});
+
+  auto batch_input =
+      R"([{"country": "Italy", "population": 59000000, "GDP": 1937894},
+        {"country": "France", "population": 65000000, "GDP": 2583560},
+        {"country": "Malta", "population": 434000, "GDP": 12011},
+        {"country": "Maldives", "population": 434000, "GDP": 4520},
+        {"country": "Brunei", "population": 434000, "GDP": 12128},
+        {"country": "Iceland", "population": 337000, "GDP": 17036},
+        {"country": "Nauru", "population": 337000, "GDP": 182},
+        {"country": "Tuvalu", "population": 11300, "GDP": 38},
+        {"country": "Anguilla", "population": 11300, "GDP": 311}
+        ])";
+  auto options = SelectKOptions::TopKDefault();
+  options.keys = {"population", "GDP"};
+  options.k = 3;
+
+  auto expected_batch =
+      R"([{"country": "Tuvalu", "population": 11300, "GDP": 38},
+         {"country": "Anguilla", "population": 11300, "GDP": 311},
+         {"country": "Nauru", "population": 337000, "GDP": 182}
+         ])";
+  this->Check(schema, batch_input, options, expected_batch);
+}
+
+// Test basic cases for table.
+template <SortOrder order>
+struct TestSelectKWithTable : public ::testing::Test {
+  void Check(const std::shared_ptr<Schema>& schm,
+             const std::vector<std::string>& input_json, const SelectKOptions& options,
+             const std::vector<std::string>& expected) {
+    std::shared_ptr<Table> actual;
+    ASSERT_OK(this->DoSelectK(schm, input_json, options, &actual));
+    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected), *actual);
+  }
+
+  Status DoSelectK(const std::shared_ptr<Schema>& schm,
+                   const std::vector<std::string>& input_json,
+                   const SelectKOptions& options, std::shared_ptr<Table>* out) {
+    auto batch = TableFromJSON(schm, input_json);
+    ARROW_ASSIGN_OR_RAISE(*out, SelectK<order>(*batch, options));
+    ValidateOutput(*out);
+    return Status::OK();
+  }
+};
+
+struct TestTopKWithTable : TestSelectKWithTable<SortOrder::Descending> {};
+
+TEST_F(TestTopKWithTable, OneColumnKey) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
                                      {"a": 1,    "b": 3},
-                                     {"a": 3,    "b": null}
-                                    ])",
-                                 R"([{"a": null, "b": null},
+                                     {"a": 3,    "b": null},
+                                     {"a": null, "b": null},
                                      {"a": 2,    "b": 5},
                                      {"a": 1,    "b": 5}
-                                    ])"});
-  // AssertSortIndices(table, options, "[5, 1, 4, 2, 0, 3]");
+                                    ])"};
+  auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
+  options.keys = {"a"};
 
-  options = SelectKOptions::TopKDefault();
+  std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 3}
+                                    ])"};
+  Check(schema, input, options, expected);
+}
+
+TEST_F(TestTopKWithTable, MultipleColumnKeys) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
+                                        {"a": 1,    "b": 3},
+                                        {"a": 3,    "b": null}
+                                      ])",
+                                    R"([{"a": null, "b": null},
+                                          {"a": 2,    "b": 5},
+                                          {"a": 1,    "b": 5}
+                                        ])"};
+
+  auto options = SelectKOptions::TopKDefault();
+  options.k = 3;
   options.keys = {"a", "b"};
-  ASSERT_OK_AND_ASSIGN(auto top_k2, TopK(Datum(table), 3, options));
+
+  std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
+                                     {"a": 2,    "b": 5},
+                                     {"a": 1,    "b": 5}
+                                    ])"};
+  Check(schema, input, options, expected);
 }
 
 }  // namespace compute

@@ -1145,6 +1145,23 @@ class MultipleKeyComparator {
     return current_compared_ < 0;
   }
 
+  bool Equals(uint64_t left, uint64_t right, size_t start_sort_key_index) {
+    current_left_ = left;
+    current_right_ = right;
+    current_compared_ = 0;
+    auto num_sort_keys = sort_keys_.size();
+    for (size_t i = start_sort_key_index; i < num_sort_keys; ++i) {
+      current_sort_key_index_ = i;
+      status_ = VisitTypeInline(*sort_keys_[i].type, this);
+      // If the left value equals to the right value, we need to
+      // continue to sort.
+      if (current_compared_ != 0) {
+        break;
+      }
+    }
+    return current_compared_ == 0;
+  }
+
 #define VISIT(TYPE)                          \
   Status Visit(const TYPE& type) {           \
     current_compared_ = CompareType<TYPE>(); \
@@ -1798,7 +1815,7 @@ const FunctionDoc top_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input", "k"}, "SelectKOptions");
+    {"input"}, "SelectKOptions");
 
 const FunctionDoc bottom_k_doc(
     "Returns the first k elements ordered by `options.keys` in descending order",
@@ -1809,7 +1826,7 @@ const FunctionDoc bottom_k_doc(
      "at the end of the array.\n"
      "For floating-point types, NaNs are considered greater than any\n"
      "other non-null value, but smaller than null values."),
-    {"input", "k"}, "SelectKOptions");
+    {"input"}, "SelectKOptions");
 
 Result<std::shared_ptr<ArrayData>> MakeMutableArrayForFixedSizedType(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
@@ -1902,7 +1919,7 @@ class ArraySelecter : public TypeVisitor {
     for (; iter != kth_begin; ++iter) {
       heap.Push(*iter);
     }
-    for (; iter != end_iter; ++iter) {
+    for (; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
       const auto lval = GetView::LogicalValue(arr.GetView(x_index));
       const auto rval = GetView::LogicalValue(arr.GetView(heap.top()));
@@ -2020,7 +2037,7 @@ class ChunkedArraySelecter : public TypeVisitor {
       for (; iter != kth_begin && heap.size() < static_cast<size_t>(options_.k); ++iter) {
         heap.Push(HeapItem{*iter, offset, &arr});
       }
-      for (; iter != end_iter; ++iter) {
+      for (; iter != end_iter && !heap.empty(); ++iter) {
         uint64_t x_index = *iter;
         const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
         auto top_item = heap.top();
@@ -2180,12 +2197,10 @@ class RecordBatchSelecter : public TypeVisitor {
     for (; iter != kth_begin; ++iter) {
       heap.Push(*iter);
     }
-    for (; iter != end_iter; ++iter) {
+    for (; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
-      const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
       auto top_item = heap.top();
-      const auto& top_value = GetView::LogicalValue(arr.GetView(top_item));
-      if (select_k_comparator(xval, top_value)) {
+      if (cmp(x_index, top_item)) {
         heap.ReplaceTop(x_index);
       }
     }
@@ -2197,7 +2212,7 @@ class RecordBatchSelecter : public TypeVisitor {
         if (x_index != top_item) {
           const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
           const auto& top_value = GetView::LogicalValue(arr.GetView(top_item));
-          if (xval == top_value) {
+          if (xval == top_value && comparator.Equals(x_index, top_item, 1)) {
             heap.Push(x_index);
           }
         }
@@ -2376,15 +2391,10 @@ class TableSelecter : public TypeVisitor {
     for (; iter != kth_begin; ++iter) {
       heap.Push(*iter);
     }
-    for (; iter != end_iter; ++iter) {
+    for (; iter != end_iter && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
       uint64_t top_item = heap.top();
-      auto chunk_left = first_sort_key.GetChunk<ArrayType>(x_index);
-      auto chunk_right = first_sort_key.GetChunk<ArrayType>(top_item);
-      auto xval = chunk_left.Value();
-      auto top_value = chunk_right.Value();
-
-      if (select_k_comparator(xval, top_value)) {
+      if (cmp(x_index, top_item)) {
         heap.ReplaceTop(x_index);
       }
     }
@@ -2398,7 +2408,7 @@ class TableSelecter : public TypeVisitor {
           auto chunk_right = first_sort_key.GetChunk<ArrayType>(top_item);
           auto xval = chunk_left.Value();
           auto top_value = chunk_right.Value();
-          if (xval == top_value) {
+          if (xval == top_value && comparator.Equals(x_index, top_item, 1)) {
             heap.Push(x_index);
           }
         }
@@ -2434,7 +2444,9 @@ class SelectKthMetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options, ExecContext* ctx) const {
     const SelectKOptions& select_k_options = static_cast<const SelectKOptions&>(*options);
-
+    if (select_k_options.k < 0) {
+      return Status::Invalid("TopK/BottomK requires a valid `k` parameter");
+    }
     switch (args[0].kind()) {
       case Datum::ARRAY:
         return SelectKth(*args[0].make_array(), select_k_options, ctx);
@@ -2492,7 +2504,7 @@ class SelectKthMetaFunction {
 class TopKMetaFunction : public MetaFunction {
  public:
   TopKMetaFunction()
-      : MetaFunction("top_k", Arity::Binary(), &top_k_doc, &kDefaultTopKOptions) {}
+      : MetaFunction("top_k", Arity::Unary(), &top_k_doc, &kDefaultTopKOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2505,8 +2517,8 @@ class TopKMetaFunction : public MetaFunction {
 class BottomKMetaFunction : public MetaFunction {
  public:
   BottomKMetaFunction()
-      : MetaFunction("bottom_k", Arity::Binary(), &bottom_k_doc,
-                     &kDefaultBottomKOptions) {}
+      : MetaFunction("bottom_k", Arity::Unary(), &bottom_k_doc, &kDefaultBottomKOptions) {
+  }
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {

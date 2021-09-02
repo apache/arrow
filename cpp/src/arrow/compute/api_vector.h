@@ -123,15 +123,15 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 /// \brief SelectK options for TopK/BottomK
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
-  explicit SelectKOptions(int64_t k = 0, std::vector<std::string> keys = {},
+  explicit SelectKOptions(int64_t k = -1, std::vector<std::string> keys = {},
                           bool keep_duplicates = false,
                           SortOrder order = SortOrder::Ascending);
   constexpr static char const kTypeName[] = "SelectKOptions";
   static SelectKOptions TopKDefault() {
-    return SelectKOptions{0, {}, false, SortOrder::Descending};
+    return SelectKOptions{-1, {}, false, SortOrder::Descending};
   }
   static SelectKOptions BottomKDefault() {
-    return SelectKOptions{0, {}, false, SortOrder::Ascending};
+    return SelectKOptions{-1, {}, false, SortOrder::Ascending};
   }
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t k;
@@ -318,8 +318,7 @@ Result<std::shared_ptr<Array>> TopK(const ChunkedArray& chunked_array, int64_t k
 ///
 /// \param[in] datum datum to be partitioned
 /// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
+/// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 ARROW_EXPORT
@@ -369,10 +368,9 @@ Result<std::shared_ptr<Array>> BottomK(const ChunkedArray& chunked_array, int64_
 /// a sorted datum in descending order. Null like values will be not part of the output.
 /// Output is not guaranteed to be stable.
 ///
-/// \param[in] chunked_array chunked array to be partitioned
+/// \param[in] datum datum to be partitioned
 /// \param[in] k pivot array around sorted k-th element
-/// \param[in] keep_duplicates do not drop any duplicates,
-/// even it means selecting more than k items.
+/// \param[in] options options
 /// \param[in] ctx the function execution context, optional
 /// \return a datum with the same schema as the input
 
