@@ -54,125 +54,157 @@ void AssertConversionFails(const std::string& s) {
   AssertConversionFails(*type, s);
 }
 
-// TEST(StringConversion, ToBoolean) {
-//   AssertConversion<BooleanType>("true", true);
-//   AssertConversion<BooleanType>("tRuE", true);
-//   AssertConversion<BooleanType>("FAlse", false);
-//   AssertConversion<BooleanType>("false", false);
-//   AssertConversion<BooleanType>("1", true);
-//   AssertConversion<BooleanType>("0", false);
+TEST(StringConversion, ToBoolean) {
+  AssertConversion<BooleanType>("true", true);
+  AssertConversion<BooleanType>("tRuE", true);
+  AssertConversion<BooleanType>("FAlse", false);
+  AssertConversion<BooleanType>("false", false);
+  AssertConversion<BooleanType>("1", true);
+  AssertConversion<BooleanType>("0", false);
 
-//   AssertConversionFails<BooleanType>("");
-// }
+  AssertConversionFails<BooleanType>("");
+}
 
-// TEST(StringConversion, ToFloat) {
-//   AssertConversion<FloatType>("1.5", 1.5f);
-//   AssertConversion<FloatType>("0", 0.0f);
-//   // XXX ASSERT_EQ doesn't distinguish signed zeros
-//   AssertConversion<FloatType>("-0.0", -0.0f);
-//   AssertConversion<FloatType>("-1e20", -1e20f);
+TEST(StringConversion, ToFloat) {
+  AssertConversion<FloatType>("1.5", 1.5f);
+  AssertConversion<FloatType>("0", 0.0f);
+  // XXX ASSERT_EQ doesn't distinguish signed zeros
+  AssertConversion<FloatType>("-0.0", -0.0f);
+  AssertConversion<FloatType>("-1e20", -1e20f);
 
-//   AssertConversionFails<FloatType>("");
-//   AssertConversionFails<FloatType>("e");
-// }
+  AssertConversionFails<FloatType>("");
+  AssertConversionFails<FloatType>("e");
+}
 
-// TEST(StringConversion, ToDouble) {
-//   AssertConversion<DoubleType>("1.5", 1.5);
-//   AssertConversion<DoubleType>("0", 0);
-//   // XXX ASSERT_EQ doesn't distinguish signed zeros
-//   AssertConversion<DoubleType>("-0.0", -0.0);
-//   AssertConversion<DoubleType>("-1e100", -1e100);
+TEST(StringConversion, ToDouble) {
+  AssertConversion<DoubleType>("1.5", 1.5);
+  AssertConversion<DoubleType>("0", 0);
+  // XXX ASSERT_EQ doesn't distinguish signed zeros
+  AssertConversion<DoubleType>("-0.0", -0.0);
+  AssertConversion<DoubleType>("-1e100", -1e100);
 
-//   AssertConversionFails<DoubleType>("");
-//   AssertConversionFails<DoubleType>("e");
-// }
+  AssertConversionFails<DoubleType>("");
+  AssertConversionFails<DoubleType>("e");
+}
 
-// #if !defined(_WIN32) || defined(NDEBUG)
+#if !defined(_WIN32) || defined(NDEBUG)
 
-// TEST(StringConversion, ToFloatLocale) {
-//   // French locale uses the comma as decimal point
-//   LocaleGuard locale_guard("fr_FR.UTF-8");
+TEST(StringConversion, ToFloatLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
 
-//   AssertConversion<FloatType>("1.5", 1.5f);
-// }
+  AssertConversion<FloatType>("1.5", 1.5f);
+}
 
-// TEST(StringConversion, ToDoubleLocale) {
-//   // French locale uses the comma as decimal point
-//   LocaleGuard locale_guard("fr_FR.UTF-8");
+TEST(StringConversion, ToDoubleLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
 
-//   AssertConversion<DoubleType>("1.5", 1.5f);
-// }
+  AssertConversion<DoubleType>("1.5", 1.5f);
+}
 
-// #endif  // _WIN32
+#endif  // _WIN32
 
-// TEST(StringConversion, ToInt8) {
-//   AssertConversion<Int8Type>("0", 0);
-//   AssertConversion<Int8Type>("127", 127);
-//   AssertConversion<Int8Type>("0127", 127);
-//   AssertConversion<Int8Type>("-128", -128);
-//   AssertConversion<Int8Type>("-00128", -128);
+TEST(StringConversion, ToInt8) {
+  AssertConversion<Int8Type>("0", 0);
+  AssertConversion<Int8Type>("127", 127);
+  AssertConversion<Int8Type>("0127", 127);
+  AssertConversion<Int8Type>("-128", -128);
+  AssertConversion<Int8Type>("-00128", -128);
 
-//   // Non-representable values
-//   AssertConversionFails<Int8Type>("128");
-//   AssertConversionFails<Int8Type>("-129");
+  // Non-representable values
+  AssertConversionFails<Int8Type>("128");
+  AssertConversionFails<Int8Type>("-129");
 
-//   AssertConversionFails<Int8Type>("");
-//   AssertConversionFails<Int8Type>("-");
-//   AssertConversionFails<Int8Type>("0.0");
-//   AssertConversionFails<Int8Type>("e");
-// }
+  AssertConversionFails<Int8Type>("");
+  AssertConversionFails<Int8Type>("-");
+  AssertConversionFails<Int8Type>("0.0");
+  AssertConversionFails<Int8Type>("e");
 
-// TEST(StringConversion, ToUInt8) {
-//   AssertConversion<UInt8Type>("0", 0);
-//   AssertConversion<UInt8Type>("26", 26);
-//   AssertConversion<UInt8Type>("255", 255);
-//   AssertConversion<UInt8Type>("0255", 255);
+  // Hex
+  AssertConversion<Int8Type>("0x0", 0);
+  AssertConversion<Int8Type>("0x1A", 26);
+  AssertConversion<Int8Type>("0xb", 11);
+  AssertConversion<Int8Type>("0x7F", 127);
+  AssertConversionFails<Int8Type>("0x100");
+  AssertConversionFails<Int8Type>("0x1g");
+}
 
-//   // Non-representable values
-//   AssertConversionFails<UInt8Type>("-1");
-//   AssertConversionFails<UInt8Type>("256");
-//   AssertConversionFails<UInt8Type>("260");
-//   AssertConversionFails<UInt8Type>("1234");
+TEST(StringConversion, ToUInt8) {
+  AssertConversion<UInt8Type>("0", 0);
+  AssertConversion<UInt8Type>("26", 26);
+  AssertConversion<UInt8Type>("255", 255);
+  AssertConversion<UInt8Type>("0255", 255);
 
-//   AssertConversionFails<UInt8Type>("");
-//   AssertConversionFails<UInt8Type>("-");
-//   AssertConversionFails<UInt8Type>("0.0");
-//   AssertConversionFails<UInt8Type>("e");
-// }
+  // Non-representable values
+  AssertConversionFails<UInt8Type>("-1");
+  AssertConversionFails<UInt8Type>("256");
+  AssertConversionFails<UInt8Type>("260");
+  AssertConversionFails<UInt8Type>("1234");
 
-// TEST(StringConversion, ToInt16) {
-//   AssertConversion<Int16Type>("0", 0);
-//   AssertConversion<Int16Type>("32767", 32767);
-//   AssertConversion<Int16Type>("032767", 32767);
-//   AssertConversion<Int16Type>("-32768", -32768);
-//   AssertConversion<Int16Type>("-0032768", -32768);
+  AssertConversionFails<UInt8Type>("");
+  AssertConversionFails<UInt8Type>("-");
+  AssertConversionFails<UInt8Type>("0.0");
+  AssertConversionFails<UInt8Type>("e");
 
-//   // Non-representable values
-//   AssertConversionFails<Int16Type>("32768");
-//   AssertConversionFails<Int16Type>("-32769");
+  // Hex
+  AssertConversion<UInt8Type>("0x0", 0);
+  AssertConversion<UInt8Type>("0x1A", 26);
+  AssertConversion<UInt8Type>("0xb", 11);
+  AssertConversion<UInt8Type>("0x7F", 127);
+  AssertConversionFails<UInt8Type>("0x100");
+  AssertConversionFails<UInt8Type>("0x1g");
+}
 
-//   AssertConversionFails<Int16Type>("");
-//   AssertConversionFails<Int16Type>("-");
-//   AssertConversionFails<Int16Type>("0.0");
-//   AssertConversionFails<Int16Type>("e");
-// }
+TEST(StringConversion, ToInt16) {
+  AssertConversion<Int16Type>("0", 0);
+  AssertConversion<Int16Type>("32767", 32767);
+  AssertConversion<Int16Type>("032767", 32767);
+  AssertConversion<Int16Type>("-32768", -32768);
+  AssertConversion<Int16Type>("-0032768", -32768);
 
-// TEST(StringConversion, ToUInt16) {
-//   AssertConversion<UInt16Type>("0", 0);
-//   AssertConversion<UInt16Type>("6660", 6660);
-//   AssertConversion<UInt16Type>("65535", 65535);
-//   AssertConversion<UInt16Type>("065535", 65535);
+  // Non-representable values
+  AssertConversionFails<Int16Type>("32768");
+  AssertConversionFails<Int16Type>("-32769");
 
-//   // Non-representable values
-//   AssertConversionFails<UInt16Type>("-1");
-//   AssertConversionFails<UInt16Type>("65536");
-//   AssertConversionFails<UInt16Type>("123456");
+  AssertConversionFails<Int16Type>("");
+  AssertConversionFails<Int16Type>("-");
+  AssertConversionFails<Int16Type>("0.0");
+  AssertConversionFails<Int16Type>("e");
 
-//   AssertConversionFails<UInt16Type>("");
-//   AssertConversionFails<UInt16Type>("-");
-//   AssertConversionFails<UInt16Type>("0.0");
-//   AssertConversionFails<UInt16Type>("e");
-// }
+  // Hex
+  AssertConversion<Int16Type>("0x0", 0);
+  AssertConversion<Int16Type>("0x1aA", 426);
+  AssertConversion<Int16Type>("0xb", 11);
+  AssertConversion<Int16Type>("0x7ffF", 32767);
+  AssertConversionFails<Int16Type>("0x10000");
+  AssertConversionFails<Int16Type>("0x1g");
+}
+
+TEST(StringConversion, ToUInt16) {
+  AssertConversion<UInt16Type>("0", 0);
+  AssertConversion<UInt16Type>("6660", 6660);
+  AssertConversion<UInt16Type>("65535", 65535);
+  AssertConversion<UInt16Type>("065535", 65535);
+
+  // Non-representable values
+  AssertConversionFails<UInt16Type>("-1");
+  AssertConversionFails<UInt16Type>("65536");
+  AssertConversionFails<UInt16Type>("123456");
+
+  AssertConversionFails<UInt16Type>("");
+  AssertConversionFails<UInt16Type>("-");
+  AssertConversionFails<UInt16Type>("0.0");
+  AssertConversionFails<UInt16Type>("e");
+
+  // Hex
+  AssertConversion<UInt16Type>("0x0", 0);
+  AssertConversion<UInt16Type>("0x1aA", 426);
+  AssertConversion<UInt16Type>("0xb", 11);
+  AssertConversion<UInt16Type>("0x7ffF", 32767);
+  AssertConversionFails<UInt16Type>("0x10000");
+  AssertConversionFails<UInt16Type>("0x1g");
+}
 
 TEST(StringConversion, ToInt32) {
   AssertConversion<Int32Type>("0", 0);
@@ -195,6 +227,10 @@ TEST(StringConversion, ToInt32) {
   AssertConversion<Int32Type>("0x123ABC", 1194684);
   AssertConversion<Int32Type>("0xA4B35", 674613);
   AssertConversion<Int32Type>("0x7FFFFFFF", 2147483647);
+  AssertConversion<Int32Type>("0x123abc", 1194684);
+  AssertConversion<Int32Type>("0xA4b35", 674613);
+  AssertConversion<Int32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversionFails<Int32Type>("0x23512ak");
   
 }
 
@@ -213,6 +249,16 @@ TEST(StringConversion, ToUInt32) {
   AssertConversionFails<UInt32Type>("-");
   AssertConversionFails<UInt32Type>("0.0");
   AssertConversionFails<UInt32Type>("e");
+
+  // Hex
+  AssertConversion<UInt32Type>("0x0", 0);
+  AssertConversion<UInt32Type>("0x123ABC", 1194684);
+  AssertConversion<UInt32Type>("0xA4B35", 674613);
+  AssertConversion<UInt32Type>("0x7FFFFFFF", 2147483647);
+  AssertConversion<UInt32Type>("0x123abc", 1194684);
+  AssertConversion<UInt32Type>("0xA4b35", 674613);
+  AssertConversion<UInt32Type>("0x7FFFfFfF", 2147483647);
+  AssertConversionFails<UInt32Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToInt64) {
@@ -230,6 +276,14 @@ TEST(StringConversion, ToInt64) {
   AssertConversionFails<Int64Type>("-");
   AssertConversionFails<Int64Type>("0.0");
   AssertConversionFails<Int64Type>("e");
+
+  // Hex
+  AssertConversion<Int64Type>("0x0", 0);
+  AssertConversion<Int64Type>("0x5415a123ABC123cb", 6058926048274359243);
+  AssertConversion<Int64Type>("0xA4B35", 674613);
+  AssertConversion<Int64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversionFails<Int64Type>("0x12345678901234567");
+  AssertConversionFails<Int64Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToUInt64) {
@@ -244,6 +298,14 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails<UInt64Type>("-");
   AssertConversionFails<UInt64Type>("0.0");
   AssertConversionFails<UInt64Type>("e");
+
+  // Hex
+  AssertConversion<UInt64Type>("0x0", 0);
+  AssertConversion<UInt64Type>("0x5415a123ABC123cb", 6058926048274359243);
+  AssertConversion<UInt64Type>("0xA4B35", 674613);
+  AssertConversion<UInt64Type>("0x7FFFFFFFFFFFFFFf", 9223372036854775807);
+  AssertConversionFails<UInt64Type>("0x12345678901234567");
+  AssertConversionFails<UInt64Type>("0x23512ak");
 }
 
 TEST(StringConversion, ToDate32) {
