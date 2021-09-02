@@ -130,6 +130,8 @@ public class Schema {
 
   /**
    * Private constructor to bypass automatic collection copy.
+   * @param unsafe a ignored argument. Its only purpose is to prevent using the constructor
+   *     by accident because of type collisions (List vs Iterable).
    */
   private Schema(boolean unsafe, List<Field> fields, Map<String, String> metadata) {
     this.fields = fields;
