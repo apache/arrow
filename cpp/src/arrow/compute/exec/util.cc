@@ -300,7 +300,7 @@ Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inpu
 }
 
 size_t ThreadIndexer::operator()() {
-  auto id = internal::GetThreadId();
+  auto id = arrow::internal::GetThreadId();
 
   auto guard = mutex_.Lock();  // acquire the lock
   const auto& id_index = *id_to_index_.emplace(id, id_to_index_.size()).first;
