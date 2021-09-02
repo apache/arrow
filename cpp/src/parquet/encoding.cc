@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -2217,7 +2216,6 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   uint32_t total_value_count_;
 
   bool block_initialized_;
-  // uint32_t padding_value_count_;
   T min_delta_;
   uint32_t mini_block_idx_;
   std::shared_ptr<ResizableBuffer> delta_bit_widths_;
