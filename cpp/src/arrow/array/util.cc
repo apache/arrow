@@ -116,6 +116,7 @@ class ArrayDataEndianSwapper {
     auto in_data = reinterpret_cast<const T*>(in_buffer->data());
     ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateBuffer(in_buffer->size()));
     auto out_data = reinterpret_cast<T*>(out_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
     int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = BitUtil::ByteSwap(in_data[i]);
@@ -151,7 +152,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    const int64_t length = data_->buffers[1]->size() / 16;
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal128Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp;
       auto idx = i * 2;
@@ -173,7 +175,8 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
-    const int64_t length = data_->buffers[1]->size() / 32;
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal256Type::kByteWidth;
     for (int64_t i = 0; i < length; i++) {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
@@ -209,6 +212,7 @@ class ArrayDataEndianSwapper {
     auto data = reinterpret_cast<const MonthDayNanos*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
     auto new_data = reinterpret_cast<MonthDayNanos*>(new_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
     const int64_t length = data_->buffers[1]->size() / sizeof(MonthDayNanos);
     for (int64_t i = 0; i < length; i++) {
       MonthDayNanos tmp = data[i];
