@@ -343,18 +343,18 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::WeekOptions;
     bool week_starts_monday = true;
     bool count_from_zero = false;
-    bool first_week_in_year = false;
+    bool first_week_is_fully_in_year = false;
     if (!Rf_isNull(options["week_starts_monday"])) {
       week_starts_monday = cpp11::as_cpp<bool>(options["week_starts_monday"]);
     }
     if (!Rf_isNull(options["count_from_zero"])) {
       count_from_zero = cpp11::as_cpp<bool>(options["count_from_zero"]);
     }
-    if (!Rf_isNull(options["first_week_in_year"])) {
-      count_from_zero = cpp11::as_cpp<bool>(options["first_week_in_year"]);
+    if (!Rf_isNull(options["first_week_is_fully_in_year"])) {
+      count_from_zero = cpp11::as_cpp<bool>(options["first_week_is_fully_in_year"]);
     }
     return std::make_shared<Options>(week_starts_monday, count_from_zero,
-                                     first_week_in_year);
+                                     first_week_is_fully_in_year);
   }
 
   if (func_name == "strptime") {

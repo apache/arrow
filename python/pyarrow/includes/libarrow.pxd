@@ -2031,11 +2031,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CWeekOptions \
             "arrow::compute::WeekOptions"(CFunctionOptions):
-        CWeekOptions(c_bool week_starts_monday,
-                     c_bool count_from_zero, c_bool first_week_in_year)
+        CWeekOptions(c_bool week_starts_monday, c_bool count_from_zero,
+                     c_bool first_week_is_fully_in_year)
         c_bool week_starts_monday
         c_bool count_from_zero
-        c_bool first_week_in_year
+        c_bool first_week_is_fully_in_year
 
     cdef cppclass CNullOptions \
             "arrow::compute::NullOptions"(CFunctionOptions):

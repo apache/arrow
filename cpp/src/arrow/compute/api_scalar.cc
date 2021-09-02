@@ -250,7 +250,7 @@ static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
 static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
-    DataMember("first_week_in_year", &WeekOptions::first_week_in_year));
+    DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 }  // namespace
@@ -417,11 +417,11 @@ DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start
 constexpr char DayOfWeekOptions::kTypeName[];
 
 WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
-                         bool first_week_in_year)
+                         bool first_week_is_fully_in_year)
     : FunctionOptions(internal::kWeekOptionsType),
       week_starts_monday(week_starts_monday),
       count_from_zero(count_from_zero),
-      first_week_in_year(first_week_in_year) {}
+      first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
 NullOptions::NullOptions(bool nan_is_null)

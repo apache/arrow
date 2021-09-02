@@ -394,21 +394,21 @@ TEST_F(ScalarTemporalTest, Week) {
       "[52, 9, 1, 20, 52, 52, 52, 52, 52, 1, 1, 1, 52, 52, 52, 1, null]";
 
   auto options_100 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/false,
-                                 /*first_week_in_year=*/false);
+                                 /*first_week_is_fully_in_year=*/false);
   auto options_110 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/true,
-                                 /*first_week_in_year=*/false);
+                                 /*first_week_is_fully_in_year=*/false);
   auto options_010 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/true,
-                                 /*first_week_in_year=*/false);
+                                 /*first_week_is_fully_in_year=*/false);
   auto options_000 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/false,
-                                 /*first_week_in_year=*/false);
+                                 /*first_week_is_fully_in_year=*/false);
   auto options_111 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/true,
-                                 /*first_week_in_year=*/true);
+                                 /*first_week_is_fully_in_year=*/true);
   auto options_011 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/true,
-                                 /*first_week_in_year=*/true);
+                                 /*first_week_is_fully_in_year=*/true);
   auto options_101 = WeekOptions(/*week_starts_monday*/ true, /*count_from_zero=*/false,
-                                 /*first_week_in_year=*/true);
+                                 /*first_week_is_fully_in_year=*/true);
   auto options_001 = WeekOptions(/*week_starts_monday*/ false, /*count_from_zero=*/false,
-                                 /*first_week_in_year=*/true);
+                                 /*first_week_is_fully_in_year=*/true);
 
   CheckScalarUnary("iso_week", unit, times, int64(), week_100);
   CheckScalarUnary("week", unit, times, int64(), week_100, &options_100);

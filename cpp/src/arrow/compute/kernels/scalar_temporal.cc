@@ -408,7 +408,7 @@ struct Week {
   explicit Week(const WeekOptions* options, Localizer&& localizer)
       : localizer_(std::move(localizer)),
         count_from_zero_(options->count_from_zero),
-        first_week_in_year_(options->first_week_in_year) {
+        first_week_is_fully_in_year_(options->first_week_is_fully_in_year) {
     if (options->week_starts_monday) {
       start_week_ = mon;
       mid_week_ = thu;
@@ -428,7 +428,7 @@ struct Week {
     const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
     auto y = year_month_day{t + days_offset_}.year();
 
-    if (first_week_in_year_) {
+    if (first_week_is_fully_in_year_) {
       auto start = localizer_.ConvertDays(y / jan / start_week_[1]);
       if (!count_from_zero_) {
         if (t < start) {
@@ -456,7 +456,7 @@ struct Week {
   arrow_vendored::date::weekday mid_week_;
   arrow_vendored::date::days days_offset_;
   const bool count_from_zero_;
-  const bool first_week_in_year_;
+  const bool first_week_is_fully_in_year_;
 };
 
 // ----------------------------------------------------------------------

@@ -370,10 +370,11 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
 
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
-  /// Days in current year that fall into last years ISO week return week 0 if true
+  /// Dates from current year that fall into last ISO week of the previous year return
+  /// 0 if true and 52 or 53 if false.
   bool count_from_zero;
   /// Is the first week fully in the the year or only its 4 or more days
-  bool first_week_in_year;
+  bool first_week_is_fully_in_year;
 };
 
 /// @}

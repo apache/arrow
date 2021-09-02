@@ -1697,7 +1697,7 @@ def _check_datetime_components(timestamps, timezone=None):
 
     week_options = pc.WeekOptions(
         week_starts_monday=True, count_from_zero=False,
-        first_week_in_year=False)
+        first_week_is_fully_in_year=False)
     assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
