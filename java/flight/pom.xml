@@ -21,30 +21,12 @@
 
     <name>Arrow Flight</name>
     <artifactId>arrow-flight</artifactId>
-    <url>https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/</url>
 
     <packaging>pom</packaging>
-
-    <properties>
-        <dep.grpc.version>1.30.2</dep.grpc.version>
-        <dep.protobuf.version>3.17.3</dep.protobuf.version>
-    </properties>
 
     <modules>
         <module>flight-core</module>
         <module>flight-grpc</module>
         <module>flight-sql</module>
     </modules>
-
-    <build>
-        <extensions>
-            <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
-            <extension>
-                <groupId>kr.motd.maven</groupId>
-                <artifactId>os-maven-plugin</artifactId>
-                <version>1.5.0.Final</version>
-            </extension>
-        </extensions>
-    </build>
-
 </project>
