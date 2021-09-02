@@ -176,7 +176,7 @@ cmake \
   ..
 ```
 
-`..` refers to the C++ source directory: you're in `cpp/build`, and the source is in `cpp`.
+`..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
 
 #### Enabling more Arrow features
 
