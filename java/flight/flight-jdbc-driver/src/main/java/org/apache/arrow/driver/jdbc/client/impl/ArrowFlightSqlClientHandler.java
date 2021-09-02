@@ -70,15 +70,15 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
   }
 
   @Override
-  public List<FlightStream> getStreams(String query) {
-    return getInfo(query).getEndpoints().stream()
+  public List<FlightStream> getStreams(final FlightInfo flightInfo) {
+    return flightInfo.getEndpoints().stream()
         .map(FlightEndpoint::getTicket)
         .map(ticket -> sqlClient.getStream(ticket, getOptions()))
         .collect(Collectors.toList());
   }
 
   @Override
-  public FlightInfo getInfo(String query) {
+  public FlightInfo getInfo(final String query) {
     return sqlClient.execute(query, getOptions());
   }
 
@@ -89,6 +89,22 @@ public final class ArrowFlightSqlClientHandler extends ArrowFlightClientHandler 
     } catch (final Exception e) {
       throw new SQLException("Failed to clean up client resources.", e);
     }
+  }
+
+  @Override
+  public PreparedStatement prepare(final String query) {
+    final FlightSqlClient.PreparedStatement preparedStatement = sqlClient.prepare(query, getOptions());
+    return new PreparedStatement() {
+      @Override
+      public FlightInfo executeQuery() throws SQLException {
+        return preparedStatement.execute(getOptions());
+      }
+
+      @Override
+      public void close() {
+        preparedStatement.close(getOptions());
+      }
+    };
   }
 
   /**

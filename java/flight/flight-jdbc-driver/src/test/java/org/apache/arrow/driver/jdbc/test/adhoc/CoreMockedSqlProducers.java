@@ -17,12 +17,21 @@
 
 package org.apache.arrow.driver.jdbc.test.adhoc;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+
+import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
@@ -44,6 +53,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
+import org.junit.rules.ErrorCollector;
 
 import com.google.common.collect.ImmutableList;
 
@@ -194,5 +204,26 @@ public final class CoreMockedSqlProducers {
         Collections.singletonList(listener -> {
           // Should keep hanging until canceled.
         }));
+  }
+
+  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet, final ErrorCollector collector) throws
+      SQLException {
+    int count = 0;
+    int expectedRows = 50000;
+
+    Set<String> testNames =
+        IntStream.range(0, expectedRows).mapToObj(i -> "Test Name #" + i).collect(Collectors.toSet());
+
+    for (; resultSet.next(); count++) {
+      collector.checkThat(resultSet.getObject(1), instanceOf(Long.class));
+      collector.checkThat(testNames.remove(resultSet.getString(2)), is(true));
+      collector.checkThat(resultSet.getObject(3), instanceOf(Integer.class));
+      collector.checkThat(resultSet.getObject(4), instanceOf(Double.class));
+      collector.checkThat(resultSet.getObject(5), instanceOf(Date.class));
+      collector.checkThat(resultSet.getObject(6), instanceOf(Timestamp.class));
+    }
+
+    collector.checkThat(testNames.isEmpty(), is(true));
+    collector.checkThat(expectedRows, is(count));
   }
 }

@@ -25,6 +25,7 @@ import java.util.Set;
 
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 
 /**
@@ -42,7 +43,7 @@ public abstract class ArrowFlightClientHandler implements FlightClientHandler {
   }
 
   @Override
-  public abstract List<FlightStream> getStreams(String query);
+  public abstract List<FlightStream> getStreams(FlightInfo flightInfo);
 
   /**
    * Gets the {@link #options} for the subsequent calls from this handler.

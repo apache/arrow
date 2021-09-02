@@ -17,6 +17,9 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.SQLException;
+
+import org.apache.arrow.flight.FlightInfo;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta.StatementHandle;
 
@@ -26,9 +29,17 @@ import org.apache.calcite.avatica.Meta.StatementHandle;
 public class ArrowFlightStatement extends AvaticaStatement {
 
   ArrowFlightStatement(final ArrowFlightConnection connection,
-      final StatementHandle handle, final int resultSetType,
-      final int resultSetConcurrency, final int resultSetHoldability) {
+                       final StatementHandle handle, final int resultSetType,
+                       final int resultSetConcurrency, final int resultSetHoldability) {
     super(connection, handle, resultSetType, resultSetConcurrency,
         resultSetHoldability);
+  }
+
+  /**
+   * Returns a FlightInfo for Statement query execution
+   */
+  public FlightInfo getFlightInfoToExecuteQuery() throws SQLException {
+    final ArrowFlightConnection connection = (ArrowFlightConnection) getConnection();
+    return connection.getClientHandler().getInfo(this.getSignature().sql);
   }
 }

@@ -27,6 +27,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
+import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -41,16 +42,19 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorSchemaRootResultSet {
 
+  private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
   private FlightStreamQueue flightStreamQueue;
 
-  ArrowFlightJdbcFlightStreamResultSet(AvaticaStatement statement,
-                                       QueryState state,
-                                       Meta.Signature signature,
-                                       ResultSetMetaData resultSetMetaData,
-                                       TimeZone timeZone,
-                                       Meta.Frame firstFrame) throws SQLException {
+  ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
+                                       final QueryState state,
+                                       final Meta.Signature signature,
+                                       final ResultSetMetaData resultSetMetaData,
+                                       final TimeZone timeZone,
+                                       final Meta.Frame firstFrame,
+                                       final ArrowFlightConnection connection) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
+    this.connection = connection;
   }
 
   protected FlightStreamQueue getFlightStreamQueue() {
@@ -59,29 +63,30 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
 
   private void loadNewQueue() {
     Optional.ofNullable(getFlightStreamQueue()).ifPresent(AutoCloseables::closeNoChecked);
-    try {
-      ArrowFlightConnection connection = (ArrowFlightConnection) getStatement().getConnection();
-      flightStreamQueue = createNewQueue(connection.getExecutorService());
-    } catch (final SQLException e) {
-      throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
-    }
-  }
-
-  public FlightStream getCurrentFlightStream() {
-    return currentFlightStream;
+    flightStreamQueue = createNewQueue(connection.getExecutorService());
   }
 
   private void loadNewFlightStream() throws SQLException {
-    Optional.ofNullable(getCurrentFlightStream()).ifPresent(AutoCloseables::closeNoChecked);
+    if (currentFlightStream != null) {
+      AutoCloseables.closeNoChecked(currentFlightStream);
+    }
     this.currentFlightStream = getNextFlightStream(true);
   }
 
   @Override
   protected AvaticaResultSet execute() throws SQLException {
+    if (statement instanceof ArrowFlightStatement) {
+      return execute(((ArrowFlightStatement) statement).getFlightInfoToExecuteQuery());
+    } else if (statement instanceof ArrowFlightPreparedStatement) {
+      return execute(((ArrowFlightPreparedStatement) statement).getFlightInfoToExecuteQuery());
+    }
+
+    throw new IllegalStateException();
+  }
+
+  private AvaticaResultSet execute(final FlightInfo flightInfo) throws SQLException {
     loadNewQueue();
-    getFlightStreamQueue().enqueue(
-        ((ArrowFlightConnection) getStatement().getConnection())
-            .getClientHandler().getStreams(signature.sql));
+    getFlightStreamQueue().enqueue(connection.getClientHandler().getStreams(flightInfo));
     loadNewFlightStream();
 
     // Ownership of the root will be passed onto the cursor.
@@ -135,16 +140,16 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   protected void cancel() {
     super.cancel();
-    FlightStream currentFlightStream = getCurrentFlightStream();
+    final FlightStream currentFlightStream = this.currentFlightStream;
     if (currentFlightStream != null) {
       currentFlightStream.cancel("Cancel", null);
     }
 
-    FlightStreamQueue flightStreamQueue = getFlightStreamQueue();
+    final FlightStreamQueue flightStreamQueue = getFlightStreamQueue();
     if (flightStreamQueue != null) {
       try {
         flightStreamQueue.close();
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException(e);
       }
     }
@@ -153,7 +158,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
   @Override
   public synchronized void close() {
     try {
-      AutoCloseables.close(getFlightStreamQueue(), getCurrentFlightStream());
+      AutoCloseables.close(currentFlightStream, getFlightStreamQueue());
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
@@ -161,7 +166,7 @@ public class ArrowFlightJdbcFlightStreamResultSet extends ArrowFlightJdbcVectorS
     }
   }
 
-  private FlightStream getNextFlightStream(boolean isExecution) throws SQLException {
+  private FlightStream getNextFlightStream(final boolean isExecution) throws SQLException {
     if (isExecution) {
       final int statementTimeout = statement.getQueryTimeout();
       return statementTimeout != 0 ?

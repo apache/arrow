@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
+import org.apache.arrow.driver.jdbc.client.FlightClientHandler;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
@@ -81,12 +82,8 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final int resultType,
       final int resultSetConcurrency,
       final int resultSetHoldability) throws SQLException {
-
-    final ArrowFlightConnection arrowFlightConnection =
-        (ArrowFlightConnection) connection;
-
-    return new ArrowFlightPreparedStatement(arrowFlightConnection, statementHandle,
-        signature, resultType, resultSetConcurrency, resultSetHoldability, null);
+    return new ArrowFlightPreparedStatement(connection, statementHandle,
+        signature, resultType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override
@@ -97,7 +94,8 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
                                                                final Meta.Frame frame) throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
+    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame,
+        ((ArrowFlightConnection) statement.getConnection()));
   }
 
   @Override
