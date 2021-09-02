@@ -234,7 +234,7 @@ export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 
 #### Recompiling the C++ code
 
-With the setup described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterated and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the libarrow C++ has changed and there is a mismatch between libarrow and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
+With the setup described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterate and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the libarrow C++ has changed and there is a mismatch between libarrow and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
 
 <details>
 <summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on. Development with other languages might require different flags as well. For example, to develop Python, you would need to also add `-DARROW_PYTHON=ON` (though all of the other flags used for Python are already included here).</summary>
