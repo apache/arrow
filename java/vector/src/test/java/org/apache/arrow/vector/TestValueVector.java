@@ -2792,6 +2792,38 @@ public class TestValueVector {
   }
 
   @Test
+  public void testUInt1VectorToString() {
+    try (final UInt1Vector uInt1Vector = new UInt1Vector("uInt1Vector", allocator)) {
+      setVector(uInt1Vector, (byte) 0xff);
+      assertEquals("[255]", uInt1Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt2VectorToString() {
+    try (final UInt2Vector uInt2Vector = new UInt2Vector("uInt2Vector", allocator)) {
+      setVector(uInt2Vector, (char) 0xffff);
+      assertEquals("[65535]", uInt2Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt4VectorToString() {
+    try (final UInt4Vector uInt4Vector = new UInt4Vector("uInt4Vector", allocator)) {
+      setVector(uInt4Vector, 0xffffffff);
+      assertEquals("[4294967295]", uInt4Vector.toString());
+    }
+  }
+
+  @Test
+  public void testUInt8VectorToString() {
+    try (final UInt8Vector uInt8Vector = new UInt8Vector("uInt8Vector", allocator)) {
+      setVector(uInt8Vector, 0xffffffffffffffffL);
+      assertEquals("[18446744073709551615]", uInt8Vector.toString());
+    }
+  }
+
+  @Test
   public void testUnloadVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("var char", allocator)) {
       varCharVector.allocateNew(5, 2);
