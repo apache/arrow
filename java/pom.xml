@@ -38,6 +38,8 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
+    <dep.grpc.version>1.30.2</dep.grpc.version>
+    <dep.protobuf.version>3.17.3</dep.protobuf.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
@@ -516,27 +518,6 @@
             <pluginId>grpc-java</pluginId>
             <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
           </configuration>
-          <executions>
-            <execution>
-              <id>proto-compile</id>
-              <phase>generate-sources</phase>
-              <configuration>
-                <protoSourceRoot>${basedir}/../format/</protoSourceRoot>
-              </configuration>
-              <goals>
-                <goal>compile</goal>
-                <goal>compile-custom</goal>
-              </goals>
-            </execution>
-            <execution>
-              <id>proto-test-compile</id>
-              <phase>generate-test-sources</phase>
-              <goals>
-                <goal>test-compile</goal>
-                <goal>test-compile-custom</goal>
-              </goals>
-            </execution>
-          </executions>
         </plugin>
       </plugins>
     </pluginManagement>
