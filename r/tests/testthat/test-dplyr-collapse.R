@@ -146,16 +146,29 @@ test_that("Properties of collapsed query", {
   # Avoid evaluating just for nrow
   expect_identical(dim(q), c(NA_integer_, 3L))
 
+  expect_output(
+    print(q),
+    "InMemoryDataset (query)
+lgl: bool
+total: int32
+extra: double (multiply_checked(total, 5))
 
-  # TODO: improve print method
-  #   expect_output(print(q),
-  # "arrow_dplyr_query (query)
-  # lgl: bool
-  # total: int32
-  # extra: double (multiply_checked(total, 5))
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+  expect_output(
+    print(q$.data),
+    "InMemoryDataset (query)
+int: int32
+lgl: bool
 
-  # See $.data for the source Arrow object"
-  #   )
+* Aggregations:
+total: sum(int)
+* Filter: (dbl > 2)
+* Grouped by lgl
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
 
   expect_equal(
     head(q, 1) %>% collect(),

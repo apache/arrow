@@ -97,10 +97,14 @@ print.arrow_dplyr_query <- function(x, ...) {
     }
   })
   fields <- paste(names(types), types, sep = ": ", collapse = "\n")
-  # TODO: update for collapse()
-  cat(class(x$.data)[1], " (query)\n", sep = "")
+  cat(class(source_data(x))[1], " (query)\n", sep = "")
   cat(fields, "\n", sep = "")
   cat("\n")
+  if (length(x$aggregations)) {
+    cat("* Aggregations:\n")
+    aggs <- paste0(names(x$aggregations), ": ", map_chr(x$aggregations, format_aggregation), collapse = "\n")
+    cat(aggs, "\n", sep = "")
+  }
   if (!isTRUE(x$filtered_rows)) {
     filter_string <- x$filtered_rows$ToString()
     cat("* Filter: ", filter_string, "\n", sep = "")
@@ -123,7 +127,6 @@ print.arrow_dplyr_query <- function(x, ...) {
       sep = ""
     )
   }
-  # TODO: update for collapse()
   cat("See $.data for the source Arrow object\n")
   invisible(x)
 }
@@ -216,11 +219,13 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
-query_on_dataset <- function(x) {
+query_on_dataset <- function(x) !inherits(source_data(x), "InMemoryDataset")
+
+source_data <- function(x) {
   if (is_collapsed(x)) {
-    query_on_dataset((x$.data))
+    source_data(x$.data)
   } else {
-    !inherits(x$.data, "InMemoryDataset")
+    x$.data
   }
 }
 

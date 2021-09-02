@@ -77,3 +77,7 @@ summarize_projection <- function(.data) {
     .data$selected_columns[.data$group_by_vars]
   )
 }
+
+format_aggregation <- function(x) {
+  paste0(x$fun, "(", x$data$ToString(), ")")
+}
