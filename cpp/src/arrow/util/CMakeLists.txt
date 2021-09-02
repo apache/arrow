@@ -40,33 +40,33 @@ endif()
 
 add_arrow_test(utility-test
                SOURCES
-              #  align_util_test.cc
-              #  async_generator_test.cc
-              #  bit_block_counter_test.cc
-              #  bit_util_test.cc
-              #  cache_test.cc
-              #  checked_cast_test.cc
-              #  compression_test.cc
-              #  decimal_test.cc
-              #  formatting_util_test.cc
-              #  key_value_metadata_test.cc
-              #  hashing_test.cc
-              #  int_util_test.cc
+               align_util_test.cc
+               async_generator_test.cc
+               bit_block_counter_test.cc
+               bit_util_test.cc
+               cache_test.cc
+               checked_cast_test.cc
+               compression_test.cc
+               decimal_test.cc
+               formatting_util_test.cc
+               key_value_metadata_test.cc
+               hashing_test.cc
+               int_util_test.cc
                ${IO_UTIL_TEST_SOURCES}
-              #  iterator_test.cc
-              #  logging_test.cc
-              #  queue_test.cc
-              #  range_test.cc
-              #  reflection_test.cc
-              #  rle_encoding_test.cc
-              #  stl_util_test.cc
-              #  string_test.cc
-              #  tdigest_test.cc
-              #  test_common.cc
-              #  time_test.cc
-              #  trie_test.cc
-              #  uri_test.cc
-              #  utf8_util_test.cc
+               iterator_test.cc
+               logging_test.cc
+               queue_test.cc
+               range_test.cc
+               reflection_test.cc
+               rle_encoding_test.cc
+               stl_util_test.cc
+               string_test.cc
+               tdigest_test.cc
+               test_common.cc
+               time_test.cc
+               trie_test.cc
+               uri_test.cc
+               utf8_util_test.cc
                value_parsing_test.cc
                variant_test.cc)
 
