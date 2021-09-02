@@ -41,20 +41,21 @@ set -x
 If you're looking to contribute to arrow, this vignette can help you set up a development environment that will enable you to write code and run tests locally. It outlines:
 
 * how to build the components that make up the Arrow project and R package
-* some common troubleshooting and workflows that developers use
+* workflows that developers use
+* some common troubleshooting steps and solutions
 
-This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation).
+This document is intended only for **developers** of Apache Arrow or the Arrow R package. R package users do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation).
 
-This document is a work in progress and will grow and change as the Apache Arrow project grows and changes. We have tried to make these steps as robust as possible (in fact, we even test exactly these instructions on our nightly CI to ensure they don't become stale!), but custom configurations might conflict with these instructions and there are differences of opinion across developers about how to set up development environments like this is.
+This document is a work in progress and will grow and change as the Apache Arrow project grows and changes. We have tried to make these steps as robust as possible (in fact, we even test exactly these instructions on our nightly CI to ensure they don't become stale!), but custom configurations might conflict with these instructions and there are differences of opinion across developers about how to set up development environments like this.
 
-We welcome any feedback you have about things that are confusing or additions you would like to see here. Please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if there you see anything that is confusing, odd, or just plain wrong.
+We welcome any feedback you have about things that are confusing or additions you would like to see here - please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if you have any suggestions or requests.
 
 # Developer environment setup 
 
 ## R-only {.tabset}
 
 Windows and macOS users who wish to contribute to the R package and
-don't need to alter libarrow^[Arrow's C++ library] may be able to obtain a
+don't need to alter libarrow (Arrow's C++ library) may be able to obtain a
 recent version of the library without building from source. 
 
 ### Linux
