@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
-#include "expr_decomposer.h"
 #include "gandiva/annotator.h"
 #include "gandiva/base_cache_key.h"
 #include "gandiva/compiled_expr.h"
@@ -31,6 +30,7 @@
 #include "gandiva/dex_visitor.h"
 #include "gandiva/engine.h"
 #include "gandiva/execution_context.h"
+#include "gandiva/expr_decomposer.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/gandiva_object_cache.h"

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <llvm/Support/MemoryBuffer.h>
+
 #include "gandiva/cache.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Module.h"
@@ -32,7 +33,7 @@ class GandivaObjectCache : public llvm::ObjectCache {
       std::shared_ptr<CacheKey>& key) {
     cache_ = cache;
     cache_key_ = key;
-  };
+  }
 
   ~GandivaObjectCache() {}
 
@@ -43,7 +44,7 @@ class GandivaObjectCache : public llvm::ObjectCache {
     ValueCacheObject<std::shared_ptr<llvm::MemoryBuffer>> value_cache(
         obj_code, elapsed_, obj_code->getBufferSize());
     cache_->PutObjectCode(*cache_key_.get(), value_cache);
-  };
+  }
 
   std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
     std::shared_ptr<llvm::MemoryBuffer> cached_obj =
@@ -54,7 +55,7 @@ class GandivaObjectCache : public llvm::ObjectCache {
     std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
         cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
     return cached_buffer;
-  };
+  }
 
   void AddElapsedTime(size_t elapsed) { elapsed_ = elapsed; }
 

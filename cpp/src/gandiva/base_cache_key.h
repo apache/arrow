@@ -22,6 +22,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <sstream>
+
 #include "gandiva/expression.h"
 #include "gandiva/filter.h"
 #include "gandiva/projector.h"
@@ -37,7 +38,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, type);
     arrow::internal::hash_combine(result_hash, expr_as_string);
     hash_code_ = result_hash;
-  };
+  }
 
   BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
     static const int32_t kSeedValue = 4;
@@ -47,7 +48,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     schema_ = key.schema();
-  };
+  }
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
     static const size_t kSeedValue = 4;
@@ -57,7 +58,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, key_hash);
     hash_code_ = result_hash;
     schema_ = key.schema();
-  };
+  }
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
                std::string type)
@@ -70,7 +71,7 @@ class BaseCacheKey {
     arrow::internal::hash_combine(result_hash, schema_string);
     arrow::internal::hash_combine(result_hash, expr_string);
     hash_code_ = result_hash;
-  };
+  }
 
   size_t Hash() const { return hash_code_; }
 
@@ -81,7 +82,7 @@ class BaseCacheKey {
       return false;
     }
     return true;
-  };
+  }
 
   bool operator!=(const BaseCacheKey& other) const { return !(*this == other); }
 
