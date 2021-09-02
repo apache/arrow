@@ -424,8 +424,12 @@ struct CastFunctor<O, I,
     constexpr std::array<int, 4> decimal_digits{3, 5, 10, 19};
     using ctype = typename I::c_type;
     static_assert(sizeof(ctype) <= 8, "");
-    if (out_precision < decimal_digits[BitUtil::Log2(sizeof(ctype))] + out_scale) {
-      return Status::Invalid("Invalid output precision and scale");
+    const int precision = decimal_digits[BitUtil::Log2(sizeof(ctype))] + out_scale;
+    if (out_precision < precision) {
+      return Status::Invalid(
+          "Precision is not great enough for the result. "
+          "It should be at least ",
+          precision);
     }
 
     applicator::ScalarUnaryNotNullStateful<O, I, IntegerToDecimal> kernel(
