@@ -708,6 +708,45 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    def wrap_array(self, storage):
+        """
+        Wrap the given storage array as an extension array.
+
+        Parameters
+        ----------
+        storage : Array or ChunkedArray
+
+        Returns
+        -------
+        array : Array or ChunkedArray
+            Extension array wrapping the storage array
+        """
+        cdef:
+            shared_ptr[CDataType] c_storage_type
+
+        if isinstance(storage, Array):
+            c_storage_type = (<Array> storage).ap.type()
+        elif isinstance(storage, ChunkedArray):
+            c_storage_type = (<ChunkedArray> storage).chunked_array.type()
+        else:
+            raise TypeError(
+                f"Expected array or chunked array, got {storage.__class__}")
+
+        if not c_storage_type.get().Equals(deref(self.ext_type)
+                                           .storage_type()):
+            raise TypeError(
+                f"Incompatible storage type for {self}: "
+                f"expected {self.storage_type}, got {storage.type}")
+
+        if isinstance(storage, Array):
+            return pyarrow_wrap_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<Array> storage).sp_array))
+        else:
+            return pyarrow_wrap_chunked_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<ChunkedArray> storage).sp_chunked_array))
+
 
 cdef class ExtensionType(BaseExtensionType):
     """
