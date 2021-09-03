@@ -102,7 +102,7 @@ jobs:
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs
         run: cat arrow-tests/testthat.Rout*
-        if: failure()
+        if: always()
       - name: Save the test output
         uses: actions/upload-artifact@v2
         with:
