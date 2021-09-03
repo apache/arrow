@@ -150,15 +150,27 @@ def _as_numpy_array(xs):
     arr[:] = xs
     return arr
 
+def _as_set(xs):
+    return set(xs)
+
 
 parametrize_with_iterable_types = pytest.mark.parametrize(
-    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_numpy_array])
+    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values,
+            _as_numpy_array, _as_set])
 
 
 @parametrize_with_iterable_types
 def test_sequence_types(seq):
     arr1 = pa.array(seq([1, 2, 3]))
     arr2 = pa.array([1, 2, 3])
+
+    assert arr1.equals(arr2)
+
+
+@parametrize_with_iterable_types
+def test_nested_sequence_types(seq):
+    arr1 = pa.array([seq([1, 2, 3])])
+    arr2 = pa.array([[1, 2, 3]])
 
     assert arr1.equals(arr2)
 
