@@ -38,8 +38,6 @@
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
-    <dep.grpc.version>1.30.2</dep.grpc.version>
-    <dep.protobuf.version>3.17.3</dep.protobuf.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
@@ -506,17 +504,6 @@
                 </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-
-        <plugin>
-          <groupId>org.xolstice.maven.plugins</groupId>
-          <artifactId>protobuf-maven-plugin</artifactId>
-          <version>0.6.1</version>
-          <configuration>
-            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
-            <pluginId>grpc-java</pluginId>
-            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
           </configuration>
         </plugin>
       </plugins>
