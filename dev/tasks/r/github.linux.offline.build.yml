@@ -20,7 +20,9 @@
 name: Crossbow
 
 on:
-  push
+  push:
+    branches:
+      - "*-github-*"
 
 jobs:
   grab-dependencies:
