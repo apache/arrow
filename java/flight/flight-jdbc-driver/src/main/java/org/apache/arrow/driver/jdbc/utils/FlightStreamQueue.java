@@ -40,6 +40,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
 
 /**
@@ -57,7 +58,7 @@ import org.apache.calcite.avatica.AvaticaConnection;
 public class FlightStreamQueue implements AutoCloseable {
   private final CompletionService<FlightStream> completionService;
   private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
-  private final Set<FlightStream> unpreparedStreams = synchronizedSet(new HashSet<>());
+  private final Set<FlightStream> allStreams = synchronizedSet(new HashSet<>());
   private final AtomicBoolean closed = new AtomicBoolean();
 
   /**
@@ -165,27 +166,38 @@ public class FlightStreamQueue implements AutoCloseable {
   public synchronized void enqueue(final FlightStream flightStream) {
     checkNotNull(flightStream);
     checkOpen();
-    unpreparedStreams.add(flightStream);
+    allStreams.add(flightStream);
     futures.add(completionService.submit(() -> {
       // `FlightStream#next` will block until new data can be read or stream is over.
       flightStream.next();
-      unpreparedStreams.remove(flightStream);
       return flightStream;
     }));
   }
 
   @Override
-  public synchronized void close() throws Exception {
+  public synchronized void close() throws SQLException {
+    final Set<SQLException> exceptions = new HashSet<>();
     if (isClosed()) {
       return;
     }
     try {
       futures.forEach(future -> future.cancel(true));
-      unpreparedStreams.forEach(flightStream -> flightStream.cancel("Query canceled", null));
+      for (final FlightStream flightStream: allStreams) {
+        try {
+          AutoCloseables.close(flightStream);
+        } catch (final Exception e) {
+          exceptions.add(new SQLException(e));
+        }
+      }
     } finally {
-      unpreparedStreams.clear();
+      allStreams.clear();
       futures.clear();
       closed.set(true);
+    }
+    if (!exceptions.isEmpty()) {
+      final SQLException sqlException = new SQLException("Failed to close streams.");
+      exceptions.forEach(sqlException::setNextException);
+      throw sqlException;
     }
   }
 }
