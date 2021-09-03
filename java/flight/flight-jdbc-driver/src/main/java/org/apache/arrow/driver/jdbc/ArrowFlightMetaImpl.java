@@ -73,16 +73,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public ExecuteResult execute(final StatementHandle statementHandle,
-                               final List<TypedValue> typedValues, final int maxRowsInFirstFrame)
-      throws NoSuchStatementException {
-    // Avatica removes the signature in case of updates
-    if (statementHandle.signature == null) {
-      // TODO: Handle updates
-      throw new IllegalStateException();
-    } else {
-      return new ExecuteResult(Collections.singletonList(MetaResultSet.create(
-          statementHandle.connectionId, statementHandle.id, true, statementHandle.signature, null)));
-    }
+                               final List<TypedValue> typedValues, final int maxRowsInFirstFrame) {
+    return execute(statementHandle, typedValues, (long) maxRowsInFirstFrame);
   }
 
   @Override
