@@ -318,9 +318,9 @@ build_libarrow <- function(src_dir, dst_dir) {
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
   if (is_solaris()) {
     # Note that JSON support does work on Solaris, but will be turned off with
-    # the rest of the thirdparty dependencies (when ARROW-13768 is resolved and
-    # JSON can be turned off at all). All other dependencies don't compile
-    # (e.g thrift, jemalloc, and xsimd) or do compile but `ar` fails to build
+    # the rest of the thirdparty dependencies.
+    # All other dependencies don't compile (e.g thrift, jemalloc, and xsimd)
+    # or do compile but `ar` fails to build
     # libarrow_bundled_dependencies (e.g. re2 and utf8proc).
     env_var_list <- turn_off_thirdparty_features(env_var_list)
   } else if (thirdparty_deps_unavailable) {
