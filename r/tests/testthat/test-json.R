@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("json")
+
 context("JsonTableReader")
 
 test_that("Can read json file with scalars columns (ARROW-5503)", {

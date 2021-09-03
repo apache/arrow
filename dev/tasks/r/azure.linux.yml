@@ -54,6 +54,7 @@ jobs:
             {{ flags|default("") }} \
             -e ARROW_DATASET={{ arrow_dataset|default("") }} \
             -e ARROW_PARQUET={{ arrow_parquet|default("") }} \
+            -e ARROW_JSON={{ arrow_json|default("") }} \
             -e ARROW_S3={{ arrow_s3|default("") }} \
             -e ARROW_WITH_RE2={{ arrow_with_re2|default("") }} \
             -e ARROW_WITH_UTF8PROC={{ arrow_with_utf8proc|default("") }} \

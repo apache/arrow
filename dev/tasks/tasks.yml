@@ -1103,6 +1103,7 @@ tasks:
       r_tag: latest
       arrow_dataset: "OFF"
       arrow_parquet: "OFF"
+      arrow_json: "OFF"
       arrow_s3: "OFF"
       arrow_with_re2: "OFF"
       arrow_with_utf8proc: "OFF"

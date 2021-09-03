@@ -16,11 +16,11 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_JSON)
 
 #include <arrow/json/reader.h>
 
-// [[arrow::export]]
+// [[json::export]]
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads,
                                                                          int block_size) {
   auto res =
@@ -30,7 +30,7 @@ std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool us
   return res;
 }
 
-// [[arrow::export]]
+// [[json::export]]
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(
     bool newlines_in_values) {
   auto res =
@@ -39,7 +39,7 @@ std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(
   return res;
 }
 
-// [[arrow::export]]
+// [[json::export]]
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(
     bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema) {
   auto res =
@@ -49,7 +49,7 @@ std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(
   return res;
 }
 
-// [[arrow::export]]
+// [[json::export]]
 std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
@@ -58,7 +58,7 @@ std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
                                                     *read_options, *parse_options));
 }
 
-// [[arrow::export]]
+// [[json::export]]
 std::shared_ptr<arrow::Table> json___TableReader__Read(
     const std::shared_ptr<arrow::json::TableReader>& table_reader) {
   return ValueOrStop(table_reader->Read());

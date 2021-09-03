@@ -267,6 +267,11 @@ if [ $? -eq 0 ]; then
       BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
     fi
   fi
+  # Check for JSON
+  grep 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+  fi
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
   PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
