@@ -26,7 +26,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     return(.data)
   }
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   # tidy-eval the filter expressions inside an Arrow data_mask
   filters <- lapply(filts, arrow_eval, arrow_mask(.data))
   bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))

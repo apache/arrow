@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 
+withr::local_options(list(arrow.summarise.sort = TRUE))
+
 library(dplyr)
 library(stringr)
 
@@ -33,7 +35,8 @@ test_that("summarize", {
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int)),
+      summarize(min_int = min(int)) %>%
+      collect(),
     tbl,
     warning = TRUE
   )
@@ -42,9 +45,24 @@ test_that("summarize", {
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
-      summarize(min_int = min(int) / 2),
+      summarize(min_int = min(int) / 2) %>%
+      collect(),
     tbl,
     warning = TRUE
+  )
+})
+
+test_that("summarize() doesn't evaluate eagerly", {
+  expect_s3_class(
+    Table$create(tbl) %>%
+      summarize(total = sum(int)),
+    "arrow_dplyr_query"
+  )
+  expect_r6_class(
+    Table$create(tbl) %>%
+      summarize(total = sum(int)) %>%
+      compute(),
+    "ArrowTabular"
   )
 })
 
@@ -68,7 +86,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -77,7 +94,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int * 4, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -86,7 +102,6 @@ test_that("Group by sum on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl,
   )
@@ -97,7 +112,6 @@ test_that("Group by mean on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -106,7 +120,6 @@ test_that("Group by mean on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(mean = mean(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -117,7 +130,6 @@ test_that("Group by sd on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -127,7 +139,6 @@ test_that("Group by sd on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -138,7 +149,6 @@ test_that("Group by var on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -148,7 +158,6 @@ test_that("Group by var on dataset", {
     input %>%
       group_by(some_grouping) %>%
       summarize(var = var(int, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -178,7 +187,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -186,7 +194,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -194,7 +201,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(any(lgl, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -202,7 +208,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(all(lgl, na.rm = FALSE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -212,7 +217,6 @@ test_that("Group by any/all", {
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(any(has_words, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -221,7 +225,6 @@ test_that("Group by any/all", {
       mutate(has_words = nchar(verses) < 0) %>%
       group_by(some_grouping) %>%
       summarize(all(has_words, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -229,7 +232,6 @@ test_that("Group by any/all", {
     input %>%
       group_by(some_grouping) %>%
       summarize(has_words = all(nchar(verses) < 0, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -274,7 +276,6 @@ test_that("Filter and aggregate", {
       filter(some_grouping == 2) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
       collect(),
     tbl
   )
@@ -284,7 +285,86 @@ test_that("Filter and aggregate", {
       filter(int > 5) %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE)) %>%
-      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Group by edge cases", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping * 2) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(alt = some_grouping * 2) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Do things after summarize", {
+  group2_sum <- tbl %>%
+    group_by(some_grouping) %>%
+    filter(int > 5) %>%
+    summarize(total = sum(int, na.rm = TRUE)) %>%
+    pull() %>%
+    tail(1)
+
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      filter(int > 5) %>%
+      summarize(total = sum(int, na.rm = TRUE)) %>%
+      filter(total == group2_sum) %>%
+      mutate(extra = total * 5) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2) %>%
+      select(chr, int, lgl) %>%
+      mutate(twice = int * 2L) %>%
+      group_by(lgl) %>%
+      summarize(
+        count = n(),
+        total = sum(twice, na.rm = TRUE)
+      ) %>%
+      mutate(mean = total / count) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Expressions on aggregations", {
+  # This is what it effectively is
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        any = any(lgl),
+        all = all(lgl)
+      ) %>%
+      compute() %>%
+      ungroup() %>% # TODO: loosen the restriction on mutate after group_by
+      mutate(some = any & !all) %>%
+      select(some_grouping, some) %>%
+      collect(),
+    tbl
+  )
+  # More concisely:
+  skip("TODO: ARROW-13778")
+  expect_dplyr_equal(
+    input %>%
+      group_by(some_grouping) %>%
+      summarize(any(lgl) & !all(lgl)) %>%
       collect(),
     tbl
   )
