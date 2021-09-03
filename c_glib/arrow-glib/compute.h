@@ -436,6 +436,22 @@ garrow_sort_options_add_sort_key(GArrowSortOptions *options,
                                  GArrowSortKey *sort_key);
 
 
+#define GARROW_TYPE_SET_LOOKUP_OPTIONS (garrow_set_lookup_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSetLookupOptions,
+                         garrow_set_lookup_options,
+                         GARROW,
+                         SET_LOOKUP_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSetLookupOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowSetLookupOptions *
+garrow_set_lookup_options_new(GArrowDatum *value_set);
+
+
 GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowDataType *target_data_type,
                                GArrowCastOptions *options,
